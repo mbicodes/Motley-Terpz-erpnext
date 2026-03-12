@@ -2,6 +2,33 @@
  {
   "docstatus": 0,
   "doctype": "Workflow State",
+  "icon": "",
+  "modified": "2025-11-15 13:17:52.547172",
+  "name": "Requested",
+  "style": "",
+  "workflow_state_name": "Requested"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow State",
+  "icon": "",
+  "modified": "2026-02-05 11:57:16.008007",
+  "name": "Need to Schedule",
+  "style": "",
+  "workflow_state_name": "Need to Schedule"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow State",
+  "icon": "",
+  "modified": "2026-02-05 11:58:05.521931",
+  "name": "Scheduled",
+  "style": "",
+  "workflow_state_name": "Scheduled"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow State",
   "icon": "question-sign",
   "modified": "2025-11-15 01:52:33.075775",
   "name": "Pending",
@@ -25,5 +52,50 @@
   "name": "Rejected",
   "style": "Danger",
   "workflow_state_name": "Rejected"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow State",
+  "icon": "",
+  "modified": "2025-11-15 13:16:31.903561",
+  "name": "Rejected By Finance",
+  "style": "",
+  "workflow_state_name": "Rejected By Finance"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow State",
+  "icon": "",
+  "modified": "2025-11-15 13:16:58.187417",
+  "name": "Rejected by Reviewer",
+  "style": "",
+  "workflow_state_name": "Rejected by Reviewer"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow State",
+  "icon": "",
+  "modified": "2025-11-15 13:25:59.351773",
+  "name": "draft",
+  "style": "",
+  "workflow_state_name": "draft"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow State",
+  "icon": "",
+  "modified": "2025-11-15 13:15:50.400960",
+  "name": "Send for Review",
+  "style": "",
+  "workflow_state_name": "Send for Review"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow State",
+  "icon": "",
+  "modified": "2025-11-15 13:16:00.873215",
+  "name": "Send to Finance",
+  "style": "",
+  "workflow_state_name": "Send to Finance"
  }
 ]

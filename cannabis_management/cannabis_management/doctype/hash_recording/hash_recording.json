@@ -1,0 +1,115 @@
+{
+    "actions": [],
+    "allow_rename": 1,
+    "autoname": "Hash-.batchproject.-.#####",
+    "creation": "2026-02-27 05:18:29.526496",
+    "doctype": "DocType",
+    "engine": "InnoDB",
+    "field_order": [
+        "section_break_sbcj",
+        "amended_from",
+        "batchproject",
+        "tolling_partner",
+        "total_quantity",
+        "rate_tolling_partner",
+        "tolling_partner_charges",
+        "table_smqw",
+        "lab_batch_refrence"
+    ],
+    "fields": [
+        {
+            "fieldname": "section_break_sbcj",
+            "fieldtype": "Section Break"
+        },
+        {
+            "fieldname": "amended_from",
+            "fieldtype": "Link",
+            "label": "Amended From",
+            "no_copy": 1,
+            "options": "Hash Recording",
+            "print_hide": 1,
+            "read_only": 1,
+            "search_index": 1
+        },
+        {
+            "fieldname": "batchproject",
+            "fieldtype": "Link",
+            "label": "Batch/Project",
+            "options": "Project"
+        },
+        {
+            "fieldname": "tolling_partner",
+            "fieldtype": "Link",
+            "label": "Tolling Partner",
+            "options": "Warehouse"
+        },
+        {
+            "fieldname": "total_quantity",
+            "fieldtype": "Float",
+            "hidden": 1,
+            "label": "Total Quantity",
+            "read_only": 1
+        },
+        {
+            "fieldname": "rate_tolling_partner",
+            "fieldtype": "Currency",
+            "hidden": 1,
+            "label": "Rate Tolling Partner"
+        },
+        {
+            "fieldname": "tolling_partner_charges",
+            "fieldtype": "Currency",
+            "hidden": 1,
+            "label": "Tolling Partner Charges",
+            "read_only": 1
+        },
+        {
+            "fieldname": "table_smqw",
+            "fieldtype": "Table",
+            "options": "Hash Recording Child"
+        },
+        {
+            "fieldname": "lab_batch_refrence",
+            "fieldtype": "Link",
+            "label": "Lab Batch Reference",
+            "options": "Lab Batch Entry",
+            "read_only": 1
+        }
+    ],
+    "grid_page_length": 50,
+    "index_web_pages_for_search": 1,
+    "is_submittable": 1,
+    "links": [
+        {
+            "group": "Recordings",
+            "link_doctype": "Rosin Recording",
+            "link_fieldname": "hash_reference"
+        }
+    ],
+    "modified": "2026-03-10 18:27:00.000000",
+    "modified_by": "Administrator",
+    "module": "Cannabis Management",
+    "name": "Hash Recording",
+    "naming_rule": "Expression",
+    "owner": "Administrator",
+    "permissions": [
+        {
+            "create": 1,
+            "delete": 1,
+            "email": 1,
+            "export": 1,
+            "print": 1,
+            "read": 1,
+            "report": 1,
+            "role": "System Manager",
+            "share": 1,
+            "submit": 1,
+            "write": 1
+        }
+    ],
+    "row_format": "Dynamic",
+    "rows_threshold_for_grid_search": 20,
+    "sort_field": "modified",
+    "sort_order": "DESC",
+    "states": []
+}

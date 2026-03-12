@@ -1,0 +1,297 @@
+{
+    "actions": [],
+    "allow_rename": 1,
+    "creation": "2026-02-23 23:40:25.359705",
+    "doctype": "DocType",
+    "editable_grid": 1,
+    "engine": "InnoDB",
+    "field_order": [
+        "strain_name",
+        "batch_no",
+        "yield_to_hash",
+        "pounds_sent",
+        "pounds_ran",
+        "source_bloom",
+        "column_break_arth",
+        "rosin_yield_",
+        "run_for",
+        "date_transferred",
+        "amount_ran_grams",
+        "hash_to_rosin_",
+        "hash_section_section",
+        "150u_hash",
+        "120u_hash",
+        "90u_hash",
+        "73u_hash",
+        "45u_hash",
+        "25u_hash_copy",
+        "total_hash",
+        "column_break_vode",
+        "150u_rosin",
+        "120u_rosin",
+        "90u_rosin",
+        "73u_rosin",
+        "45u_rosin",
+        "25u_rosin",
+        "total_rosin",
+        "section_break_izvw",
+        "expected__yield__to_hash",
+        "expected_hash_yield",
+        "actual_yield_to_hash",
+        "expected_rosin_yield",
+        "actual_rosin_yield",
+        "subprime_total_tolled",
+        "prime_inventory_total_tolled",
+        "prime_strain",
+        "subprime_strain",
+        "live_resin_produced",
+        "raw_material_quantity",
+        "yield_"
+    ],
+    "fields": [
+        {
+            "fieldname": "strain_name",
+            "fieldtype": "Link",
+            "in_list_view": 1,
+            "label": "Strain Name",
+            "options": "Item"
+        },
+        {
+            "fieldname": "batch_no",
+            "fieldtype": "Link",
+            "in_list_view": 1,
+            "label": "Batch No",
+            "options": "Project"
+        },
+        {
+            "fieldname": "yield_to_hash",
+            "fieldtype": "Data",
+            "label": "Yield to Hash"
+        },
+        {
+            "fieldname": "pounds_sent",
+            "fieldtype": "Data",
+            "in_list_view": 1,
+            "label": "Pounds Sent"
+        },
+        {
+            "fieldname": "pounds_ran",
+            "fieldtype": "Data",
+            "label": "Pounds Ran"
+        },
+        {
+            "fieldname": "source_bloom",
+            "fieldtype": "Link",
+            "in_list_view": 1,
+            "label": "Source Bloom",
+            "options": "Warehouse"
+        },
+        {
+            "fieldname": "column_break_arth",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "rosin_yield_",
+            "fieldtype": "Percent",
+            "label": "Rosin Yield %"
+        },
+        {
+            "fieldname": "run_for",
+            "fieldtype": "Link",
+            "in_list_view": 1,
+            "label": "Run For",
+            "options": "Supplier"
+        },
+        {
+            "fieldname": "date_transferred",
+            "fieldtype": "Date",
+            "in_list_view": 1,
+            "label": "Date Transferred"
+        },
+        {
+            "fieldname": "amount_ran_grams",
+            "fieldtype": "Data",
+            "in_list_view": 1,
+            "label": "Amount Ran Grams"
+        },
+        {
+            "fieldname": "hash_to_rosin_",
+            "fieldtype": "Percent",
+            "label": "Hash to Rosin %"
+        },
+        {
+            "fieldname": "hash_section_section",
+            "fieldtype": "Section Break",
+            "label": "Hash Section"
+        },
+        {
+            "fieldname": "150u_hash",
+            "fieldtype": "Data",
+            "in_list_view": 1,
+            "label": "150u Hash"
+        },
+        {
+            "fieldname": "120u_hash",
+            "fieldtype": "Data",
+            "in_list_view": 1,
+            "label": "120u Hash"
+        },
+        {
+            "fieldname": "90u_hash",
+            "fieldtype": "Data",
+            "in_list_view": 1,
+            "label": "90u Hash"
+        },
+        {
+            "fieldname": "73u_hash",
+            "fieldtype": "Data",
+            "in_list_view": 1,
+            "label": "73u Hash"
+        },
+        {
+            "fieldname": "45u_hash",
+            "fieldtype": "Data",
+            "in_list_view": 1,
+            "label": "45u Hash"
+        },
+        {
+            "fieldname": "25u_hash_copy",
+            "fieldtype": "Data",
+            "in_list_view": 1,
+            "label": "25u Hash copy"
+        },
+        {
+            "fieldname": "total_hash",
+            "fieldtype": "Data",
+            "label": "Total Hash"
+        },
+        {
+            "fieldname": "column_break_vode",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "150u_rosin",
+            "fieldtype": "Data",
+            "in_list_view": 1,
+            "label": "150u Rosin"
+        },
+        {
+            "fieldname": "120u_rosin",
+            "fieldtype": "Data",
+            "in_list_view": 1,
+            "label": "120u Rosin"
+        },
+        {
+            "fieldname": "90u_rosin",
+            "fieldtype": "Data",
+            "in_list_view": 1,
+            "label": "90u Rosin"
+        },
+        {
+            "fieldname": "73u_rosin",
+            "fieldtype": "Data",
+            "in_list_view": 1,
+            "label": "73u Rosin"
+        },
+        {
+            "fieldname": "45u_rosin",
+            "fieldtype": "Data",
+            "in_list_view": 1,
+            "label": "45u Rosin"
+        },
+        {
+            "fieldname": "25u_rosin",
+            "fieldtype": "Data",
+            "in_list_view": 1,
+            "label": "25u Rosin"
+        },
+        {
+            "fieldname": "total_rosin",
+            "fieldtype": "Data",
+            "label": "Total Rosin"
+        },
+        {
+            "fieldname": "section_break_izvw",
+            "fieldtype": "Section Break"
+        },
+        {
+            "fieldname": "subprime_total_tolled",
+            "fieldtype": "Data",
+            "label": "Subprime Total Tolled"
+        },
+        {
+            "fieldname": "prime_inventory_total_tolled",
+            "fieldtype": "Data",
+            "label": "Prime Inventory Total Tolled"
+        },
+        {
+            "fieldname": "live_resin_produced",
+            "fieldtype": "Data",
+            "in_list_view": 1,
+            "label": "Live Resin Produced"
+        },
+        {
+            "fieldname": "yield_",
+            "fieldtype": "Percent",
+            "label": "Yield %"
+        },
+        {
+            "fieldname": "actual_rosin_yield",
+            "fieldtype": "Percent",
+            "label": "Actual Rosin Yield "
+        },
+        {
+            "fieldname": "expected_rosin_yield",
+            "fieldtype": "Percent",
+            "label": "Expected Rosin Yield %"
+        },
+        {
+            "fieldname": "expected__yield__to_hash",
+            "fieldtype": "Percent",
+            "label": "Expected  Yield  To Hash"
+        },
+        {
+            "fieldname": "expected_hash_yield",
+            "fieldtype": "Percent",
+            "label": "Expected Hash Yield"
+        },
+        {
+            "fieldname": "actual_yield_to_hash",
+            "fieldtype": "Percent",
+            "label": "Actual Yield To Hash"
+        },
+        {
+            "fieldname": "prime_strain",
+            "fieldtype": "Link",
+            "label": "Prime Strain",
+            "options": "Item"
+        },
+        {
+            "fieldname": "subprime_strain",
+            "fieldtype": "Link",
+            "label": "Subprime Strain",
+            "options": "Item"
+        },
+        {
+            "fieldname": "raw_material_quantity",
+            "fieldtype": "Float",
+            "label": "Raw Material Quantity",
+            "read_only": 1
+        }
+    ],
+    "grid_page_length": 50,
+    "index_web_pages_for_search": 1,
+    "istable": 1,
+    "links": [],
+    "modified": "2026-02-27 05:25:05.896274",
+    "modified_by": "Administrator",
+    "module": "Cannabis Management",
+    "name": "Lab Tolling Data",
+    "owner": "Administrator",
+    "permissions": [],
+    "row_format": "Dynamic",
+    "rows_threshold_for_grid_search": 20,
+    "sort_field": "modified",
+    "sort_order": "DESC",
+    "states": []
+}

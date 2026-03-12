@@ -1,0 +1,50 @@
+{
+ "charts": [],
+ "content": "[{\"id\":\"b_f30KNxBO\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Pending Orders Dashboard\",\"col\":12}},{\"id\":\"B8PLgbbSsD\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Orders Need to Schedule\",\"col\":12}},{\"id\":\"zPeOyDHhmj\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Orders @ Lab\",\"col\":12}},{\"id\":\"c9ZW3BG0M8\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Orders - Ready for Close Out\",\"col\":12}}]",
+ "creation": "2026-01-30 07:44:54.228530",
+ "custom_blocks": [
+  {
+   "custom_block_name": "Orders @ Lab",
+   "label": "Orders @ Lab"
+  },
+  {
+   "custom_block_name": "Orders Need to Schedule",
+   "label": "Orders Need to Schedule"
+  },
+  {
+   "custom_block_name": "Pending Orders Dashboard",
+   "label": "Pending Orders Dashboard"
+  },
+  {
+   "custom_block_name": "Orders - Ready for Close Out",
+   "label": "Orders - Ready for Close Out"
+  }
+ ],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "fal fa-ambulance",
+ "idx": 0,
+ "indicator_color": "green",
+ "is_hidden": 1,
+ "label": "Motley Logistics",
+ "links": [],
+ "modified": "2026-03-07 08:59:29.120802",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Motley Logistics",
+ "number_cards": [],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [
+  {
+   "role": "Logistic User"
+  }
+ ],
+ "sequence_id": 23.0,
+ "shortcuts": [],
+ "title": "Motley Logistics"
+}

@@ -1,0 +1,105 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-03-02 07:49:32.559834",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "submitted_by",
+  "column_break_wjwp",
+  "flc",
+  "section_break_fpou",
+  "number_of_people",
+  "column_break_mcix",
+  "date",
+  "hours_worked",
+  "section_break_hlih",
+  "activity"
+ ],
+ "fields": [
+  {
+   "fieldname": "submitted_by",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Submitted by",
+   "options": "\nRich\nNatalie\nJoe",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_wjwp",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "flc",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "FLC",
+   "options": "Farm Labour Contractor",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_fpou",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "number_of_people",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Number of People",
+   "non_negative": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_mcix",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "hours_worked",
+   "fieldtype": "Float",
+   "label": "Hours worked"
+  },
+  {
+   "fieldname": "section_break_hlih",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "activity",
+   "fieldtype": "Small Text",
+   "label": "Activity"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-03-02 07:52:34.970489",
+ "modified_by": "Administrator",
+ "module": "Motley Forms",
+ "name": "FLC Labor Log",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

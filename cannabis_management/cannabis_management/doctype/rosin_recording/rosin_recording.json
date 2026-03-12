@@ -1,0 +1,161 @@
+{
+    "actions": [],
+    "allow_rename": 1,
+    "autoname": "Rosin-.batch.-.#####",
+    "creation": "2026-02-27 04:23:49.010911",
+    "doctype": "DocType",
+    "engine": "InnoDB",
+    "field_order": [
+        "section_break_qtmw",
+        "tolling_partner",
+        "batch",
+        "expected_rosin_yield",
+        "ran_for",
+        "target_warehouse",
+        "column_break_master",
+        "total_quantity",
+        "rate_tolling_partner",
+        "tolling_partner_charges",
+        "expense_account",
+        "service_charges",
+        "amended_from",
+        "hash_reference",
+        "section_break_ygyr",
+        "lab_tolling_data"
+    ],
+    "fields": [
+        {
+            "fieldname": "section_break_qtmw",
+            "fieldtype": "Section Break"
+        },
+        {
+            "fieldname": "amended_from",
+            "fieldtype": "Link",
+            "label": "Amended From",
+            "no_copy": 1,
+            "options": "Rosin Recording",
+            "print_hide": 1,
+            "read_only": 1,
+            "search_index": 1
+        },
+        {
+            "fieldname": "lab_tolling_data",
+            "fieldtype": "Table",
+            "label": "Lab Tolling Data",
+            "options": "Lab Tolling Data"
+        },
+        {
+            "fieldname": "batch",
+            "fieldtype": "Link",
+            "label": "Batch",
+            "options": "Project"
+        },
+        {
+            "fieldname": "tolling_partner",
+            "fieldtype": "Link",
+            "label": "Tolling Partner",
+            "options": "Warehouse"
+        },
+        {
+            "fieldname": "expected_rosin_yield",
+            "fieldtype": "Percent",
+            "label": "Expected Rosin Yield"
+        },
+        {
+            "fieldname": "hash_reference",
+            "fieldtype": "Link",
+            "label": "Hash Reference",
+            "options": "Hash Recording",
+            "read_only": 1
+        },
+        {
+            "fieldname": "ran_for",
+            "fieldtype": "Link",
+            "label": "Ran For",
+            "options": "Supplier"
+        },
+        {
+            "fieldname": "target_warehouse",
+            "fieldtype": "Link",
+            "label": "Target Warehouse",
+            "options": "Warehouse"
+        },
+        {
+            "fieldname": "column_break_master",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "total_quantity",
+            "fieldtype": "Float",
+            "label": "Total Quantity",
+            "read_only": 1
+        },
+        {
+            "fieldname": "rate_tolling_partner",
+            "fieldtype": "Currency",
+            "label": "Rate Tolling Partner"
+        },
+        {
+            "fieldname": "tolling_partner_charges",
+            "fieldtype": "Currency",
+            "label": "Tolling Partner Charges",
+            "read_only": 1
+        },
+        {
+            "fieldname": "expense_account",
+            "fieldtype": "Link",
+            "label": "Expense Account",
+            "options": "Account"
+        },
+        {
+            "fieldname": "service_charges",
+            "fieldtype": "Currency",
+            "label": "Service Charges"
+        },
+        {
+            "fieldname": "section_break_ygyr",
+            "fieldtype": "Section Break"
+        }
+    ],
+    "grid_page_length": 50,
+    "index_web_pages_for_search": 1,
+    "is_submittable": 1,
+    "links": [
+        {
+            "group": "Verification & Stock",
+            "link_doctype": "Physical Inventory Verification",
+            "link_fieldname": "custom_rosin_recording_reference"
+        },
+        {
+            "group": "Verification & Stock",
+            "link_doctype": "Stock Entry",
+            "link_fieldname": "custom_rosin_recording_reference"
+        }
+    ],
+    "modified": "2026-03-10 18:27:00.000000",
+    "modified_by": "Administrator",
+    "module": "Cannabis Management",
+    "name": "Rosin Recording",
+    "naming_rule": "Expression",
+    "owner": "Administrator",
+    "permissions": [
+        {
+            "create": 1,
+            "delete": 1,
+            "email": 1,
+            "export": 1,
+            "print": 1,
+            "read": 1,
+            "report": 1,
+            "role": "System Manager",
+            "share": 1,
+            "submit": 1,
+            "write": 1
+        }
+    ],
+    "row_format": "Dynamic",
+    "rows_threshold_for_grid_search": 20,
+    "sort_field": "modified",
+    "sort_order": "DESC",
+    "states": []
+}

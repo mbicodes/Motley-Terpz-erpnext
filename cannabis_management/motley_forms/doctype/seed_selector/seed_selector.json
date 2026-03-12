@@ -1,0 +1,54 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-02-25 07:08:22.209269",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "seed",
+  "qty",
+  "vendor"
+ ],
+ "fields": [
+  {
+   "fieldname": "seed",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Seed",
+   "link_filters": "[[\"Item\",\"item_group\",\"in\",[\"Seeds\",\"Clone\"]]]",
+   "options": "Item",
+   "reqd": 1
+  },
+  {
+   "fieldname": "qty",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Qty",
+   "non_negative": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "vendor",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Vendor",
+   "options": "Supplier"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-02-25 08:38:10.291901",
+ "modified_by": "Administrator",
+ "module": "Motley Forms",
+ "name": "Seed selector",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

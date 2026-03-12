@@ -1,1 +1,40 @@
-[]
+[
+ {
+  "allow_guest": 0,
+  "api_method": null,
+  "cron_format": null,
+  "disabled": 1,
+  "docstatus": 0,
+  "doctype": "Server Script",
+  "doctype_event": "After Submit",
+  "enable_rate_limit": 0,
+  "event_frequency": "All",
+  "modified": "2026-03-05 08:12:18.739266",
+  "module": "Cannabis Management",
+  "name": "Sales Invoice",
+  "rate_limit_count": 5,
+  "rate_limit_seconds": 86400,
+  "reference_doctype": "Sales Invoice",
+  "script": "def run(doc):\n    TARGET_COMPANY = \"Motley Terpz\"\n    TARGET_WAREHOUSE = \"Nature's Lab - MT\"\n    ROOT_ITEM_GROUP = \"Motley Terpz\"\n    SLACK_CHANNEL = \"#conversions-motley\"\n\n    if doc.company != TARGET_COMPANY:\n        return\n\n    webhook_url = frappe.conf.get(\"slack_motley_webhook\")\n    if not webhook_url:\n        frappe.log_error(\"slack_motley_webhook not set in site_config.json\", \"Motley Terpz Slack\")\n        return\n\n    checked_count = 0\n    required_map = {}\n    label_map = {}\n    uom_map = {}\n\n    def item_is_under_root_group(item_code):\n        item_group = frappe.db.get_value(\"Item\", item_code, \"item_group\")\n        if not item_group:\n            return False\n        if item_group == ROOT_ITEM_GROUP:\n            return True\n        root = frappe.db.get_value(\"Item Group\", ROOT_ITEM_GROUP, [\"lft\", \"rgt\"], as_dict=True)\n        grp = frappe.db.get_value(\"Item Group\", item_group, [\"lft\", \"rgt\"], as_dict=True)\n        if not root or not grp:\n            return False\n        return grp.lft >= root.lft and grp.rgt <= root.rgt\n\n    def available_qty(item_code):\n        return float(\n            frappe.db.get_value(\n                \"Bin\",\n                {\"item_code\": item_code, \"warehouse\": TARGET_WAREHOUSE},\n                \"actual_qty\"\n            ) or 0\n        )\n\n    for row in doc.items:\n        if not row.item_code:\n            continue\n        if not item_is_under_root_group(row.item_code):\n            continue\n        checked_count += 1\n        label_map[row.item_code] = row.item_name or row.item_code\n        uom_map[row.item_code] = row.stock_uom or \"\"\n        required_qty = float(row.stock_qty or 0)\n        required_map[row.item_code] = required_map.get(row.item_code, 0) + required_qty\n\n    if checked_count == 0:\n        return\n\n    need_lines = []\n    ok_lines = []\n\n    for item_code in required_map:\n        required_qty = required_map[item_code]\n        available = available_qty(item_code)\n        shortage = max(0, required_qty - available)\n        label = label_map[item_code]\n        suom = uom_map[item_code]\n\n        if shortage > 0:\n            need_lines.append(\n                \"• *{0}* — need *{1:.2f} {2}* (required {3:.2f}, available {4:.2f})\".format(\n                    label, shortage, suom, required_qty, available\n                )\n            )\n        else:\n            ok_lines.append(\n                \"• {0} — ok ({1:.2f} {2})\".format(label, required_qty, suom)\n            )\n\n    header = \":red_circle: Conversion required\" if need_lines else \":large_green_circle: No conversion required\"\n    invoice_link = frappe.utils.get_url(\"/app/sales-invoice/\" + doc.name)\n\n    blocks = [\n        {\n            \"type\": \"header\",\n            \"text\": {\"type\": \"plain_text\", \"text\": header}\n        },\n        {\n            \"type\": \"section\",\n            \"text\": {\n                \"type\": \"mrkdwn\",\n                \"text\": \"*Invoice:* <{0}|{1}>\\n*Customer:* {2}\\n*Warehouse:* {3}\".format(\n                    invoice_link, doc.name, doc.customer, TARGET_WAREHOUSE\n                )\n            }\n        },\n        {\"type\": \"divider\"}\n    ]\n\n    if need_lines:\n        blocks.append({\n            \"type\": \"section\",\n            \"text\": {\n                \"type\": \"mrkdwn\",\n                \"text\": \":warning: *Needs conversion*\\n\" + \"\\n\".join(need_lines)\n            }\n        })\n\n    if ok_lines:\n        blocks.append({\"type\": \"divider\"})\n        blocks.append({\n            \"type\": \"section\",\n            \"text\": {\n                \"type\": \"mrkdwn\",\n                \"text\": \"*Items OK*\\n\" + \"\\n\".join(ok_lines[:10])\n            }\n        })\n\n    payload = {\n        \"channel\": SLACK_CHANNEL,\n        \"text\": doc.name + \" inventory check\",\n        \"blocks\": blocks\n    }\n\n    # Send to Slack using stdlib http.client (works in Frappe sandbox)\n    try:\n        import json\n        import http.client\n        import ssl\n\n        body = json.dumps(payload)\n        context = ssl.create_default_context()\n\n        conn = http.client.HTTPSConnection(\"hooks.slack.com\", context=context)\n        conn.request(\n            \"POST\",\n            \"/services/T07R5GVLV6K/B0ACPNX0TGE/G6ESyyFbpr1R83z9xTJlcsfp\",\n            body=body,\n            headers={\"Content-Type\": \"application/json\"}\n        )\n        resp = conn.getresponse()\n        if resp.status != 200:\n            frappe.log_error(\n                \"Slack error {0}: {1}\".format(resp.status, resp.read().decode()),\n                \"Motley Terpz Slack\"\n            )\n        conn.close()\n    except Exception as e:\n        frappe.log_error(str(e), \"Motley Terpz Slack\")\n\nrun(doc)",
+  "script_type": "DocType Event"
+ },
+ {
+  "allow_guest": 0,
+  "api_method": null,
+  "cron_format": null,
+  "disabled": 0,
+  "docstatus": 0,
+  "doctype": "Server Script",
+  "doctype_event": "Before Insert",
+  "enable_rate_limit": 0,
+  "event_frequency": "All",
+  "modified": "2026-02-12 08:43:11.119575",
+  "module": null,
+  "name": "Sales invoice hide on the role",
+  "rate_limit_count": 5,
+  "rate_limit_seconds": 86400,
+  "reference_doctype": "Sales Invoice",
+  "script": "if frappe.db.exists(\"Has Role\", {\"parent\": user, \"role\": \"Hide Cancel SI\", \"parenttype\": \"User\"}):\r\n    conditions = \"`tabSales Invoice`.docstatus != 2\"",
+  "script_type": "Permission Query"
+ }
+]

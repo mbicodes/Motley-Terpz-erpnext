@@ -1,0 +1,105 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-11-19 21:46:54.565908",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "title",
+  "column_break_wqzw",
+  "posting_date",
+  "batch_status",
+  "column_break_wyvx",
+  "start_date",
+  "expected_end_date",
+  "production_process_section",
+  "production_steps_details",
+  "production_raw_material_details_section",
+  "table_pcgj"
+ ],
+ "fields": [
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Title"
+  },
+  {
+   "fieldname": "posting_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Posting Date"
+  },
+  {
+   "fieldname": "production_process_section",
+   "fieldtype": "Section Break",
+   "label": "Production Process"
+  },
+  {
+   "fieldname": "production_steps_details",
+   "fieldtype": "Table",
+   "label": "Production Steps Details",
+   "options": "Production Steps Details"
+  },
+  {
+   "fieldname": "column_break_wqzw",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_wyvx",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "start_date",
+   "fieldtype": "Date",
+   "label": "Start Date"
+  },
+  {
+   "fieldname": "expected_end_date",
+   "fieldtype": "Date",
+   "label": "Expected End Date"
+  },
+  {
+   "fieldname": "production_raw_material_details_section",
+   "fieldtype": "Section Break",
+   "label": "Production Raw Material Details"
+  },
+  {
+   "fieldname": "table_pcgj",
+   "fieldtype": "Table",
+   "options": "Production Raw Material Details"
+  },
+  {
+   "fieldname": "batch_status",
+   "fieldtype": "Select",
+   "label": "Batch Status",
+   "options": "\nOpen\nIn-Process\nCompleted"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-11-20 00:17:34.092656",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Production Batch",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

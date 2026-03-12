@@ -1,0 +1,97 @@
+{
+ "charts": [],
+ "content": "[]",
+ "creation": "2026-02-12 10:25:43.946294",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "hide_custom": 0,
+ "idx": 0,
+ "indicator_color": "green",
+ "is_hidden": 0,
+ "label": "Dashboard",
+ "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Stock Summary Dashboard",
+   "link_count": 0,
+   "link_to": "stock-summary",
+   "link_type": "Page",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Receivable Summary Dashboard",
+   "link_count": 0,
+   "link_to": "receivable-summary",
+   "link_type": "Page",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Customer Wise Receivable Summary",
+   "link_count": 0,
+   "link_to": "receivable-summary-c",
+   "link_type": "Page",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Payable Summary",
+   "link_count": 0,
+   "link_to": "payable-summary",
+   "link_type": "Page",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Supplier Wise Payable Summary",
+   "link_count": 0,
+   "link_to": "payable-summary-clie",
+   "link_type": "Page",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sales Summary",
+   "link_count": 0,
+   "link_to": "sales-summary",
+   "link_type": "Page",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Cash and Bank Position",
+   "link_count": 0,
+   "link_to": "day-book-dashboard",
+   "link_type": "Page",
+   "onboard": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2026-02-20 07:42:31.993609",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Dashboard",
+ "number_cards": [],
+ "owner": "Administrator",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [],
+ "sequence_id": 2.0,
+ "shortcuts": [],
+ "title": "Dashboard"
+}

@@ -1,0 +1,75 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-11-19 22:06:24.252558",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "production_steps",
+  "item",
+  "item_description",
+  "default_uom",
+  "quantity",
+  "warehouse"
+ ],
+ "fields": [
+  {
+   "fieldname": "item",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Item",
+   "options": "Item"
+  },
+  {
+   "fetch_from": "item.description",
+   "fieldname": "item_description",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Item Description"
+  },
+  {
+   "fetch_from": "item.stock_uom",
+   "fieldname": "default_uom",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Default UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "quantity",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Quantity"
+  },
+  {
+   "fieldname": "production_steps",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Production Steps",
+   "options": "Production Steps"
+  },
+  {
+   "fieldname": "warehouse",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Warehouse",
+   "options": "Warehouse"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-11-19 22:40:52.417917",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Production Raw Material Details",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

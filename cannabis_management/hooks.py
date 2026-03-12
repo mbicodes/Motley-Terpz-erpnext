@@ -21,12 +21,15 @@ app_license = "mit"
 # 	}
 # ]
 
+csrf_exempt = [
+    "/api/method/cannabis_management.api.slack_inventory.handle_inventory_command"
+]
+
 # Includes in <head>
 # ------------------
 
 # include js, css files in header of desk.html
 # app_include_css = "/assets/cannabis_management/css/cannabis_management.css"
-# app_include_js = "/assets/cannabis_management/js/cannabis_management.js"
 
 # include js, css files in header of web template
 # web_include_css = "/assets/cannabis_management/css/cannabis_management.css"
@@ -41,9 +44,22 @@ app_license = "mit"
 
 # include js in page
 # page_js = {"page" : "public/js/file.js"}
+app_include_js = [
+    "/assets/cannabis_management/js/stock_balance_custom.js",
+    "/assets/cannabis_management/js/material_request.js"
+]
 
 # include js in doctype views
-# doctype_js = {"doctype" : "public/js/doctype.js"}
+doctype_js = {
+    "Stock Entry": "public/js/stock_entry.js",
+    "Purchase Order": "public/js/purchase_order.js",
+    "Purchase Receipt": "public/js/purchase_receipt.js",
+    "Purchase Invoice": "public/js/purchase_invoice.js",
+    "Delivery Note": "public/js/delivery_note.js",
+    "Sales Invoice": "public/js/sales_invoice.js",
+    "Material Request": "public/js/material_request.js"
+}
+
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
@@ -137,13 +153,22 @@ app_license = "mit"
 # ---------------
 # Hook on document methods and events
 
-# doc_events = {
-# 	"*": {
-# 		"on_update": "method",
-# 		"on_cancel": "method",
-# 		"on_trash": "method"
-# 	}
-# }
+doc_events = {
+    "Stock Entry": {
+        "validate": "cannabis_management.cannabis_management.custom.stock_entry.validate"
+    },
+    "Sales Invoice": {
+        "on_submit": "cannabis_management.overrides.sales_invoice_hooks.check_inventory_and_notify_slack"
+    },
+    "Delivery Note": {
+        "on_update": "cannabis_management.overrides.delivery_note_hooks.update_sales_invoice_delivery_status",
+        "on_submit": "cannabis_management.overrides.delivery_note_hooks.update_sales_invoice_delivery_status",
+        "on_cancel": "cannabis_management.overrides.delivery_note_hooks.update_sales_invoice_delivery_status"
+    },
+    "Timesheet": {
+        "after_insert": "cannabis_management.overrides.timesheet_hooks.auto_submit_timesheet",
+    }
+}
 
 # Scheduled Tasks
 # ---------------

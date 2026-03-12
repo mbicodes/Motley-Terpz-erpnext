@@ -1,0 +1,397 @@
+/* ===== Payable Summary (Supplier) Page — Purple Theme (Same as Receivable) ===== */
+
+/* ---------- Container ---------- */
+.receivable-summary-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 28px 24px 40px;
+    font-family: var(--font-stack, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+}
+
+/* ---------- Header ---------- */
+.receivable-summary-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 28px;
+}
+
+.rs-header-icon {
+    width: 52px;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);
+    color: #fff;
+    border-radius: 14px;
+    flex-shrink: 0;
+    box-shadow: 0 4px 14px rgba(124, 58, 237, 0.35);
+}
+
+.rs-header-title {
+    margin: 0 0 2px;
+    font-size: 22px;
+    font-weight: 700;
+    color: #1e1b4b;
+}
+
+.rs-header-subtitle {
+    margin: 0;
+    font-size: 13px;
+    color: #6b7280;
+}
+
+/* ---------- Filter Bar ---------- */
+.rs-filter-bar {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 24px;
+    padding: 16px 20px;
+    background: #fff;
+    border: 1px solid #ede9fe;
+    border-radius: 12px;
+    box-shadow: 0 2px 6px rgba(124, 58, 237, 0.06);
+    flex-wrap: wrap;
+}
+
+.rs-filter-bar label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #4c1d95;
+    white-space: nowrap;
+}
+
+.rs-filter-bar input[type="date"],
+.rs-filter-bar select {
+    padding: 7px 12px;
+    border: 1.5px solid #c4b5fd;
+    border-radius: 8px;
+    font-size: 13px;
+    color: #374151;
+    background: #faf8ff;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.rs-filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.rs-filter-bar input[type="date"]:focus,
+.rs-filter-bar select:focus {
+    border-color: #7c3aed;
+    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
+}
+
+.rs-apply-btn {
+    padding: 7px 18px;
+    background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.15s;
+    box-shadow: 0 2px 8px rgba(124, 58, 237, 0.25);
+}
+
+.rs-apply-btn:hover {
+    opacity: 0.92;
+    transform: translateY(-1px);
+}
+
+/* ---------- Summary Cards ---------- */
+.rs-summary-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 14px;
+    margin-bottom: 28px;
+}
+
+.rs-card {
+    display: flex;
+    flex-direction: column;
+    padding: 18px 20px;
+    border-radius: 14px;
+    background: #fff;
+    border: 1px solid #ede9fe;
+    box-shadow: 0 2px 8px rgba(124, 58, 237, 0.06);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.rs-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(124, 58, 237, 0.13);
+}
+
+.rs-card-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+}
+
+.rs-card-value {
+    font-size: 22px;
+    font-weight: 700;
+    color: #1e1b4b;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Card colour variants */
+.rs-card-outstanding .rs-card-label {
+    color: #7c3aed;
+}
+
+.rs-card-outstanding {
+    border-left: 4px solid #7c3aed;
+}
+
+.rs-card-range1 .rs-card-label {
+    color: #2563eb;
+}
+
+.rs-card-range1 {
+    border-left: 4px solid #2563eb;
+}
+
+.rs-card-range2 .rs-card-label {
+    color: #0891b2;
+}
+
+.rs-card-range2 {
+    border-left: 4px solid #0891b2;
+}
+
+.rs-card-range3 .rs-card-label {
+    color: #d97706;
+}
+
+.rs-card-range3 {
+    border-left: 4px solid #d97706;
+}
+
+.rs-card-range4 .rs-card-label {
+    color: #ea580c;
+}
+
+.rs-card-range4 {
+    border-left: 4px solid #ea580c;
+}
+
+.rs-card-range5 .rs-card-label {
+    color: #dc2626;
+}
+
+.rs-card-range5 {
+    border-left: 4px solid #dc2626;
+}
+
+/* ---------- Table Wrapper ---------- */
+.rs-table-wrap {
+    background: #fff;
+    border-radius: 14px;
+    border: 1px solid #ede9fe;
+    overflow-x: auto;
+    box-shadow: 0 2px 8px rgba(124, 58, 237, 0.06);
+}
+
+/* ---------- Table ---------- */
+.rs-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    min-width: 820px;
+}
+
+.rs-table thead {
+    background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);
+}
+
+.rs-table thead th {
+    padding: 14px 16px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: #fff;
+    border: none;
+    white-space: nowrap;
+}
+
+.rs-table tbody td {
+    padding: 12px 16px;
+    border-bottom: 1px solid #f3f0ff;
+    color: #374151;
+}
+
+/* Alternating rows */
+.rs-row-even {
+    background: #faf8ff;
+}
+
+.rs-row-odd {
+    background: #fff;
+}
+
+.rs-table tbody tr:hover {
+    background: #ede9fe;
+}
+
+/* Column alignment */
+.rs-col-index {
+    width: 45px;
+    text-align: center;
+    color: #9ca3af;
+    font-weight: 600;
+}
+
+.rs-col-party {
+    text-align: left;
+    font-weight: 500;
+    min-width: 180px;
+}
+
+.rs-col-number {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+}
+
+.rs-col-outstanding {
+    color: #7c3aed;
+    font-weight: 700;
+}
+
+.rs-col-range5 {
+    color: #dc2626;
+    font-weight: 600;
+}
+
+/* ---------- Totals Row ---------- */
+.rs-totals-row {
+    background: #f5f3ff !important;
+    border-top: 2px solid #c4b5fd;
+}
+
+.rs-totals-row td {
+    padding: 14px 16px;
+    font-size: 14px;
+    color: #1e1b4b;
+    border-bottom: none;
+}
+
+.rs-totals-row .rs-col-outstanding strong {
+    color: #7c3aed;
+}
+
+.rs-totals-row .rs-col-range5 strong {
+    color: #dc2626;
+}
+
+/* ---------- Loading State ---------- */
+.rs-loading-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    color: #9ca3af;
+    gap: 14px;
+}
+
+.rs-loading-state p {
+    margin: 0;
+    font-size: 14px;
+}
+
+.rs-spinner {
+    width: 36px;
+    height: 36px;
+    border: 3px solid #ede9fe;
+    border-top-color: #7c3aed;
+    border-radius: 50%;
+    animation: rs-spin 0.8s linear infinite;
+}
+
+@keyframes rs-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* ---------- Empty State ---------- */
+.rs-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    text-align: center;
+    color: #6b7280;
+}
+
+.rs-empty-state svg {
+    margin-bottom: 16px;
+    stroke: #c4b5fd;
+}
+
+.rs-empty-state h3 {
+    margin: 0 0 8px;
+    font-size: 18px;
+    font-weight: 700;
+    color: #1e1b4b;
+}
+
+.rs-empty-state p {
+    margin: 0;
+    font-size: 14px;
+    max-width: 380px;
+    line-height: 1.6;
+}
+
+/* ---------- Primary Action Button Override ---------- */
+.page-container[data-page-name="payable-summary-clie"] .btn-primary-dark,
+.page-container[data-page-name="payable-summary-clie"] .btn-primary {
+    background: linear-gradient(135deg, #7c3aed, #a855f7) !important;
+    border: none !important;
+    box-shadow: 0 2px 8px rgba(124, 58, 237, 0.25);
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 768px) {
+    .receivable-summary-container {
+        padding: 16px 12px 28px;
+    }
+
+    .rs-summary-cards {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .rs-table thead th,
+    .rs-table tbody td,
+    .rs-totals-row td {
+        padding: 10px 10px;
+        font-size: 12px;
+    }
+
+    .rs-card-value {
+        font-size: 18px;
+    }
+
+    .rs-header-title {
+        font-size: 18px;
+    }
+}
+
+@media (max-width: 480px) {
+    .rs-summary-cards {
+        grid-template-columns: 1fr;
+    }
+}

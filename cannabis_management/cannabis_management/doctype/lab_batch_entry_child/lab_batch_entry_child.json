@@ -1,0 +1,86 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-02-27 04:26:53.894755",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "strain_name",
+  "batch_number",
+  "tolling_partner",
+  "pounds_sent",
+  "run_for",
+  "pounds_ran",
+  "column_break_uphd",
+  "date_transferred",
+  "amount_ran_grams"
+ ],
+ "fields": [
+  {
+   "fieldname": "batch_number",
+   "fieldtype": "Link",
+   "label": "Batch/Project",
+   "options": "Project"
+  },
+  {
+   "fieldname": "tolling_partner",
+   "fieldtype": "Link",
+   "label": "Tolling Partner",
+   "options": "Warehouse"
+  },
+  {
+   "fieldname": "strain_name",
+   "fieldtype": "Link",
+   "label": "Strain Name",
+   "options": "Item"
+  },
+  {
+   "fieldname": "pounds_sent",
+   "fieldtype": "Float",
+   "label": "Pounds Sent"
+  },
+  {
+   "fieldname": "run_for",
+   "fieldtype": "Link",
+   "label": "Run For",
+   "options": "Supplier"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "pounds_ran",
+   "fieldtype": "Float",
+   "label": "Pounds Ran"
+  },
+  {
+   "fieldname": "column_break_uphd",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "date_transferred",
+   "fieldtype": "Date",
+   "label": "Date Transferred"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "amount_ran_grams",
+   "fieldtype": "Float",
+   "label": "Amount Ran Grams"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-03-02 08:52:26.952427",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Lab Batch Entry Child",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

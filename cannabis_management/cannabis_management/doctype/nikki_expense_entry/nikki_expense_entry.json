@@ -1,0 +1,169 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "NIKKIEXP-.YYYY.-.#####",
+ "creation": "2026-02-16 10:55:02.174719",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "expense_type",
+  "business",
+  "column_break_fjko",
+  "transaction_date",
+  "status",
+  "section_break_sbmc",
+  "money_in",
+  "column_break_lymm",
+  "money_out",
+  "section_break_vjsc",
+  "invoice_no",
+  "column_break_eknz",
+  "receipt",
+  "section_break_rczl",
+  "transaction_notes",
+  "section_break_0xpn",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_0xpn",
+   "fieldtype": "Section Break",
+   "hidden": 1
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Nikki Expense Entry",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "expense_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Expense Type",
+   "options": "\nPersonal\nMotley",
+   "reqd": 1
+  },
+  {
+    "fieldname": "payment_entry",
+    "fieldtype": "Link",
+    "label": "Payment Entry",
+    "options": "Payment Entry",
+    "read_only": 1,
+    "no_copy": 1,
+    "print_hide": 1
+    },
+  {
+   "fieldname": "transaction_date",
+   "fieldtype": "Date",
+   "label": "Transaction Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "business",
+   "fieldtype": "Link",
+   "label": "Business",
+   "options": "Company"
+  },
+  {
+   "fieldname": "section_break_sbmc",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "money_in",
+   "fieldtype": "Currency",
+   "label": "Money In"
+  },
+  {
+   "fieldname": "column_break_lymm",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "money_out",
+   "fieldtype": "Currency",
+   "label": "Money Out"
+  },
+  {
+   "fieldname": "section_break_vjsc",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "invoice_no",
+   "fieldtype": "Data",
+   "label": "Invoice #"
+  },
+  {
+   "fieldname": "column_break_eknz",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval: doc.expense_type === 'Motley';",
+   "fieldname": "receipt",
+   "fieldtype": "Attach",
+   "label": "Receipt"
+  },
+  {
+   "fieldname": "section_break_rczl",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "transaction_notes",
+   "fieldtype": "Small Text",
+   "label": "Transaction Notes"
+  },
+  {
+   "fieldname": "column_break_fjko",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Open",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "\nOpen\nCompleted"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-02-17 08:02:50.028539",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Nikki Expense Entry",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Website Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
