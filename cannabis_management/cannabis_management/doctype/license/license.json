@@ -17,7 +17,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-01-21 07:46:33.051000",
+ "modified": "2026-03-26 07:59:45.065887",
  "modified_by": "Administrator",
  "module": "Cannabis Management",
  "name": "License",
@@ -32,7 +32,7 @@
    "print": 1,
    "read": 1,
    "report": 1,
-   "role": "System Manager",
+   "role": "Sales Manager",
    "share": 1,
    "write": 1
   }

@@ -65,6 +65,7 @@ frappe.ui.form.on("Rosin Recording", {
 	// Refresh all rows when parent expected_rosin_yield changes
 	expected_rosin_yield(frm) {
 		(frm.doc.lab_tolling_data || []).forEach(row => {
+			frappe.model.set_value(row.doctype, row.name, "expected_rosin_yield", frm.doc.expected_rosin_yield);
 			recalculate(frm, row.doctype, row.name);
 		});
 	},
@@ -131,28 +132,28 @@ frappe.ui.form.on("Lab Tolling Data", {
 	},
 
 	// Hash micron fields
-	"150u_hash":     (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
-	"120u_hash":     (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
-	"90u_hash":      (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
-	"73u_hash":      (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
-	"45u_hash":      (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
+	"150u_hash": (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
+	"120u_hash": (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
+	"90u_hash": (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
+	"73u_hash": (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
+	"45u_hash": (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
 	"25u_hash_copy": (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
 
 	// Rosin micron fields
-	"150u_rosin":    (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
-	"120u_rosin":    (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
-	"90u_rosin":     (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
-	"73u_rosin":     (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
-	"45u_rosin":     (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
-	"25u_rosin":     (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
+	"150u_rosin": (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
+	"120u_rosin": (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
+	"90u_rosin": (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
+	"73u_rosin": (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
+	"45u_rosin": (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
+	"25u_rosin": (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
 
 	// Amount Ran Grams drives Pounds Ran and all yield percentages
 	amount_ran_grams: (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
 
 	// Yield expectations drive raw_material_quantity
 	expected__yield__to_hash: (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
-	expected_hash_yield:      (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
-	expected_rosin_yield:     (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
+	expected_hash_yield: (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
+	expected_rosin_yield: (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
 });
 
 
@@ -195,6 +196,7 @@ function fetch_stock_balance_items(frm) {
 				new_row.source_bloom = tolling_partner;
 				new_row.date_transferred = item.posting_date;
 				new_row.pounds_sent = item.bal_qty;
+				new_row.expected_rosin_yield = frm.doc.expected_rosin_yield;
 			});
 
 			frm.refresh_field("lab_tolling_data");
@@ -217,22 +219,22 @@ function recalculate(frm, cdt, cdn) {
 	const micronsTotalHash =
 		f("150u_hash") +
 		f("120u_hash") +
-		f("90u_hash")  +
-		f("73u_hash")  +
-		f("45u_hash")  +
+		f("90u_hash") +
+		f("73u_hash") +
+		f("45u_hash") +
 		f("25u_hash_copy");
-	
+
 	const totalHash = micronsTotalHash || f("total_hash");
 
 	// 2. Total Rosin = sum of all rosin micron fields
 	const micronsTotalRosin =
 		f("150u_rosin") +
 		f("120u_rosin") +
-		f("90u_rosin")  +
-		f("73u_rosin")  +
-		f("45u_rosin")  +
+		f("90u_rosin") +
+		f("73u_rosin") +
+		f("45u_rosin") +
 		f("25u_rosin");
-	
+
 	const totalRosin = micronsTotalRosin || f("total_rosin");
 
 	// 3. Pounds Ran = Amount Ran Grams / 453.592
@@ -274,16 +276,17 @@ function recalculate(frm, cdt, cdn) {
 		? parseFloat(((totalRosin / totalHash) * 100).toFixed(2))
 		: 0;
 
-	// 11. Raw Material Quantity (Pounds) = Total Hash / Expected Yield to Hash / 453.592 / Expected Rosin Yield
-	const expectedHashYieldPct = parseFloat(row.expected_hash_yield) || parseFloat(row.expected__yield__to_hash) || 0;
-	// Use row-level expected_rosin_yield if present, else fallback to parent-level
-	const expectedRosinYieldPct = parseFloat(row.expected_rosin_yield) || parseFloat(frm.doc.expected_rosin_yield) || 0;
-	
-	let rawMaterialQty = 0;
-	if (expectedHashYieldPct > 0 && expectedRosinYieldPct > 0) {
-		rawMaterialQty = totalHash / (expectedHashYieldPct / 100) / 453.592 / (expectedRosinYieldPct / 100);
+	// 11. Raw Material Quantity (Pounds) using Actual Yields
+	let rawMaterialQty = f("pounds_ran");
+	if (actualYieldToHash > 0 && actualRosinYield > 0) {
+		rawMaterialQty = totalHash / (actualYieldToHash / 100) / 453.592 / (actualRosinYield / 100);
 	}
-	
+
+	// Fallback/Ensure not zero
+	if (rawMaterialQty <= 0 && (totalHash > 0 || f("pounds_ran") > 0)) {
+		rawMaterialQty = f("pounds_ran") || 0;
+	}
+
 	// Cap at pounds_sent if calculation exceeds it
 	const poundsSent = f("pounds_sent");
 	if (rawMaterialQty > poundsSent && poundsSent > 0) {
@@ -292,17 +295,17 @@ function recalculate(frm, cdt, cdn) {
 
 	// ── Write calculated values directly to the child row ─────────────────
 	const updates = {
-		total_hash:                   totalHash,
-		total_rosin:                  totalRosin,
-		pounds_ran:                   poundsRan,
-		yield_to_hash:                yieldToHash,
-		hash_to_rosin_:               hashToRosin,
-		actual_yield_to_hash:         actualYieldToHash,
-		actual_rosin_yield:           actualRosinYield,
-		subprime_total_tolled:        String(subprime),
+		total_hash: totalHash,
+		total_rosin: totalRosin,
+		pounds_ran: poundsRan,
+		yield_to_hash: yieldToHash,
+		hash_to_rosin_: hashToRosin,
+		actual_yield_to_hash: actualYieldToHash,
+		actual_rosin_yield: actualRosinYield,
+		subprime_total_tolled: String(subprime),
 		prime_inventory_total_tolled: String(prime),
-		yield_:                       yieldPct,
-		raw_material_quantity:        flt(rawMaterialQty, 4),
+		yield_: yieldPct,
+		raw_material_quantity: flt(rawMaterialQty, 4),
 	};
 
 	Object.entries(updates).forEach(([field, value]) => {

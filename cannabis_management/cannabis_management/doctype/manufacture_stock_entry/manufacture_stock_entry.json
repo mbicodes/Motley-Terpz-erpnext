@@ -1,0 +1,236 @@
+{
+    "actions": [],
+    "allow_rename": 1,
+    "autoname": "MSE - .#####",
+    "creation": "2026-03-30 05:54:25.161252",
+    "doctype": "DocType",
+    "engine": "InnoDB",
+    "field_order": [
+        "section_break_hmix",
+        "company",
+        "date",
+        "time",
+        "column_break_pxfq",
+        "edit_posting_date_and_time",
+        "type",
+        "previous_manufature_stock_entry",
+        "bom_info_section",
+        "from_bom",
+        "bom_no",
+        "bom_total",
+        "for_production_metric_ton",
+        "column_break_zgdi",
+        "finished_good_quantity",
+        "manufacture_raw_material_section",
+        "manufacture_raw_material",
+        "manufacture_finished_goods_section",
+        "manufacture_finished_goods",
+        "section_break_mspa",
+        "bom_qty_sum",
+        "column_break_lrfo",
+        "actual_qty_sum",
+        "column_break_vgfk",
+        "diff_qty_sum",
+        "amended_from",
+        "references_tab",
+        "material_issue_ref",
+        "material_receipt_ref"
+    ],
+    "fields": [
+        {
+            "fieldname": "section_break_hmix",
+            "fieldtype": "Section Break"
+        },
+        {
+            "fieldname": "company",
+            "fieldtype": "Link",
+            "label": "Company",
+            "options": "Company"
+        },
+        {
+            "fieldname": "column_break_pxfq",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "type",
+            "fieldtype": "Select",
+            "label": "Type",
+            "options": "\nPremix\nManufacturing\nPacking\nOther"
+        },
+        {
+            "default": "Today",
+            "fieldname": "date",
+            "fieldtype": "Date",
+            "label": "Date",
+            "read_only_depends_on": "eval:doc.edit_posting_date_and_time==0\n"
+        },
+        {
+            "default": "Now",
+            "fieldname": "time",
+            "fieldtype": "Time",
+            "label": "Time",
+            "read_only_depends_on": "eval:doc.edit_posting_date_and_time==0\n"
+        },
+        {
+            "fieldname": "bom_info_section",
+            "fieldtype": "Section Break",
+            "label": "BOM Info"
+        },
+        {
+            "default": "0",
+            "fieldname": "from_bom",
+            "fieldtype": "Check",
+            "label": "From BOM"
+        },
+        {
+            "depends_on": "eval:doc.from_bom===1",
+            "fieldname": "bom_no",
+            "fieldtype": "Link",
+            "label": "BOM No",
+            "options": "BOM"
+        },
+        {
+            "depends_on": "eval:doc.type===\"Premix\"",
+            "fieldname": "bom_total",
+            "fieldtype": "Int",
+            "label": "BOM Total"
+        },
+        {
+            "depends_on": "eval:doc.type===\"Premix\"",
+            "fieldname": "for_production_metric_ton",
+            "fieldtype": "Int",
+            "label": "For Production Metric Ton"
+        },
+        {
+            "fieldname": "column_break_zgdi",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "finished_good_quantity",
+            "fieldtype": "Float",
+            "label": "Finished Good Quantity"
+        },
+        {
+            "fieldname": "manufacture_raw_material_section",
+            "fieldtype": "Section Break",
+            "label": "Manufacture Raw Material"
+        },
+        {
+            "fieldname": "manufacture_raw_material",
+            "fieldtype": "Table",
+            "label": "Manufacture Raw Material",
+            "options": "Manufacture Raw Material"
+        },
+        {
+            "fieldname": "manufacture_finished_goods_section",
+            "fieldtype": "Section Break",
+            "label": "Manufacture Finished Goods"
+        },
+        {
+            "fieldname": "manufacture_finished_goods",
+            "fieldtype": "Table",
+            "label": "Manufacture Finished Goods",
+            "options": "Manufacture Finished Goods"
+        },
+        {
+            "fieldname": "section_break_mspa",
+            "fieldtype": "Section Break"
+        },
+        {
+            "fieldname": "bom_qty_sum",
+            "fieldtype": "Float",
+            "label": "BOM Qty Sum"
+        },
+        {
+            "fieldname": "column_break_lrfo",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "actual_qty_sum",
+            "fieldtype": "Float",
+            "label": "Actual Qty Sum"
+        },
+        {
+            "fieldname": "column_break_vgfk",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "diff_qty_sum",
+            "fieldtype": "Float",
+            "label": "Diff Qty Sum"
+        },
+        {
+            "fieldname": "amended_from",
+            "fieldtype": "Link",
+            "label": "Amended From",
+            "no_copy": 1,
+            "options": "Manufacture Stock Entry",
+            "print_hide": 1,
+            "read_only": 1,
+            "search_index": 1
+        },
+        {
+            "default": "0",
+            "fieldname": "edit_posting_date_and_time",
+            "fieldtype": "Check",
+            "label": "Edit Posting Date and Time"
+        },
+        {
+            "depends_on": "eval:doc.type==\"Packing\"\n",
+            "fieldname": "previous_manufature_stock_entry",
+            "fieldtype": "Link",
+            "label": "Previous Stock Entry",
+            "options": "Manufacture Stock Entry"
+        },
+        {
+            "fieldname": "references_tab",
+            "fieldtype": "Tab Break",
+            "label": "References"
+        },
+        {
+            "fieldname": "material_issue_ref",
+            "fieldtype": "Link",
+            "label": "Material Issue Ref",
+            "options": "Stock Entry",
+            "read_only": 1
+        },
+        {
+            "fieldname": "material_receipt_ref",
+            "fieldtype": "Link",
+            "label": "Material Receipt Ref",
+            "options": "Stock Entry",
+            "read_only": 1
+        }
+    ],
+    "grid_page_length": 50,
+    "index_web_pages_for_search": 1,
+    "is_submittable": 1,
+    "links": [],
+    "modified": "2026-03-30 05:54:25.161252",
+    "modified_by": "Administrator",
+    "module": "Cannabis Management",
+    "name": "Manufacture Stock Entry",
+    "naming_rule": "Expression (old style)",
+    "owner": "Administrator",
+    "permissions": [
+        {
+            "create": 1,
+            "delete": 1,
+            "email": 1,
+            "export": 1,
+            "print": 1,
+            "read": 1,
+            "report": 1,
+            "role": "System Manager",
+            "share": 1,
+            "submit": 1,
+            "write": 1
+        }
+    ],
+    "row_format": "Dynamic",
+    "rows_threshold_for_grid_search": 20,
+    "sort_field": "modified",
+    "sort_order": "DESC",
+    "states": [],
+    "track_changes": 1
+}

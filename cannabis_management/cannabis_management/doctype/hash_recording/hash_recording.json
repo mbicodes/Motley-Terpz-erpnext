@@ -9,6 +9,7 @@
         "section_break_sbcj",
         "amended_from",
         "batchproject",
+        "expected_hash_yield",
         "tolling_partner",
         "total_quantity",
         "rate_tolling_partner",
@@ -66,6 +67,7 @@
         {
             "fieldname": "table_smqw",
             "fieldtype": "Table",
+            "allow_bulk_edit": 1,
             "options": "Hash Recording Child"
         },
         {
@@ -74,6 +76,11 @@
             "label": "Lab Batch Reference",
             "options": "Lab Batch Entry",
             "read_only": 1
+        },
+        {
+            "fieldname": "expected_hash_yield",
+            "fieldtype": "Percent",
+            "label": "Expected Hash Yield"
         }
     ],
     "grid_page_length": 50,
@@ -86,7 +93,7 @@
             "link_fieldname": "hash_reference"
         }
     ],
-    "modified": "2026-03-10 18:27:00.000000",
+    "modified": "2026-03-26 08:39:13.597665",
     "modified_by": "Administrator",
     "module": "Cannabis Management",
     "name": "Hash Recording",

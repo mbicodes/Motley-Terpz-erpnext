@@ -47,6 +47,7 @@
         {
             "fieldname": "lab_batch_entry_child",
             "fieldtype": "Table",
+            "allow_bulk_edit": 1,
             "label": "Lab Batch Entry Child",
             "options": "Lab Batch Entry Child"
         },

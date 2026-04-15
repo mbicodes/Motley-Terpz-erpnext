@@ -1,0 +1,98 @@
+{
+ "actions": [],
+ "creation": "2026-04-14 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "wash_number",
+  "micron_size",
+  "grams_collected",
+  "quality_grade",
+  "column_break_a",
+  "metrc_tag_bubble",
+  "collected_by",
+  "collection_time",
+  "erpnext_batch"
+ ],
+ "fields": [
+  {
+   "columns": 1,
+   "fieldname": "wash_number",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Cycle #",
+   "reqd": 1
+  },
+  {
+   "columns": 2,
+   "fieldname": "micron_size",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Micron",
+   "options": "\n25\n45\n73\n90\n120\n160\n190",
+   "reqd": 1
+  },
+  {
+   "columns": 2,
+   "fieldname": "grams_collected",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Grams Collected",
+   "reqd": 1
+  },
+  {
+   "columns": 2,
+   "fieldname": "quality_grade",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Quality Grade",
+   "options": "\nFull Melt\n4-Star\n3-Star\n2-Star\nFood Grade",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_a",
+   "fieldtype": "Column Break"
+  },
+  {
+   "columns": 3,
+   "fieldname": "metrc_tag_bubble",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "METRC Tag",
+   "reqd": 1
+  },
+  {
+   "fieldname": "collected_by",
+   "fieldtype": "Link",
+   "label": "Collected By",
+   "options": "Employee",
+   "reqd": 1
+  },
+  {
+   "fieldname": "collection_time",
+   "fieldtype": "Datetime",
+   "label": "Collection Time",
+   "reqd": 1
+  },
+  {
+   "fieldname": "erpnext_batch",
+   "fieldtype": "Link",
+   "label": "ERPNext Batch",
+   "options": "Batch",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-04-14 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Master Touch Manufacturing",
+ "name": "Wash Detail",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "ASC",
+ "states": []
+}

@@ -1,0 +1,126 @@
+{
+    "actions": [],
+    "allow_rename": 1,
+    "autoname": "CONV-.#####",
+    "creation": "2026-04-03 15:30:00.000000",
+    "doctype": "DocType",
+    "engine": "InnoDB",
+    "field_order": [
+        "section_break_main",
+        "posting_date",
+        "customer",
+        "project",
+        "company",
+        "column_break_main",
+        "reasons",
+        "partners",
+        "amended_from",
+        "section_break_items",
+        "items"
+    ],
+    "fields": [
+        {
+            "fieldname": "section_break_main",
+            "fieldtype": "Section Break"
+        },
+        {
+            "fieldname": "posting_date",
+            "fieldtype": "Date",
+            "label": "Posting Date",
+            "default": "Today",
+            "reqd": 1
+        },
+        {
+            "fieldname": "customer",
+            "fieldtype": "Link",
+            "label": "Customer",
+            "options": "Customer"
+        },
+        {
+            "fieldname": "project",
+            "fieldtype": "Link",
+            "label": "Project",
+            "options": "Project"
+        },
+        {
+            "fieldname": "company",
+            "fieldtype": "Link",
+            "label": "Company",
+            "options": "Company",
+            "default": "Motley Terpz",
+            "reqd": 1
+        },
+        {
+            "fieldname": "column_break_main",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "reasons",
+            "fieldtype": "Select",
+            "label": "Reasons",
+            "options": "Tolling\nCo-packing\nOthers"
+        },
+        {
+            "fieldname": "partners",
+            "fieldtype": "Select",
+            "label": "Partners",
+            "options": "\nNina\nLeaf\nBIG Oil\nBloom\nNature\nOther"
+        },
+        {
+            "fieldname": "amended_from",
+            "fieldtype": "Link",
+            "label": "Amended From",
+            "no_copy": 1,
+            "options": "Conversion Entry",
+            "print_hide": 1,
+            "read_only": 1,
+            "search_index": 1
+        },
+        {
+            "fieldname": "section_break_items",
+            "fieldtype": "Section Break",
+            "label": "Conversion Items"
+        },
+        {
+            "allow_bulk_edit": 1,
+            "fieldname": "items",
+            "fieldtype": "Table",
+            "label": "Items",
+            "options": "Conversion Entry Item",
+            "reqd": 1
+        }
+    ],
+    "index_web_pages_for_search": 1,
+    "is_submittable": 1,
+    "links": [
+        {
+            "group": "Stock",
+            "link_doctype": "Stock Entry",
+            "link_fieldname": "custom_conversion_entry_reference"
+        }
+    ],
+    "modified": "2026-04-03 15:30:00.000000",
+    "modified_by": "Administrator",
+    "module": "Cannabis Management",
+    "name": "Conversion Entry",
+    "naming_rule": "Expression",
+    "owner": "Administrator",
+    "permissions": [
+        {
+            "create": 1,
+            "delete": 1,
+            "email": 1,
+            "export": 1,
+            "print": 1,
+            "read": 1,
+            "report": 1,
+            "role": "System Manager",
+            "share": 1,
+            "submit": 1,
+            "write": 1
+        }
+    ],
+    "sort_field": "modified",
+    "sort_order": "DESC",
+    "states": []
+}

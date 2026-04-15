@@ -1,0 +1,67 @@
+{
+ "actions": [],
+ "creation": "2026-04-15 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "wash_batch",
+  "wash_date",
+  "total_bubble_yield_g",
+  "yield_pct",
+  "status"
+ ],
+ "fields": [
+  {
+   "fieldname": "wash_batch",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Wash Batch",
+   "options": "Wash Batch",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "wash_batch.wash_date",
+   "fieldname": "wash_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Wash Date",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "wash_batch.total_bubble_yield_g",
+   "fieldname": "total_bubble_yield_g",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Bubble Yield (g)",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "wash_batch.yield_pct",
+   "fieldname": "yield_pct",
+   "fieldtype": "Percent",
+   "in_list_view": 1,
+   "label": "Yield %",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "wash_batch.status",
+   "fieldname": "status",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Status",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-04-15 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Master Touch Manufacturing",
+ "name": "Wash Batch Link",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC"
+}

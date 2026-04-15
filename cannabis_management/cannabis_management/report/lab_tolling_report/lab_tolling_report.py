@@ -1,12 +1,14 @@
 import frappe
 from frappe import _
+from frappe.utils import flt
 
 
 def execute(filters=None):
 	columns, data = [], []
 	columns = get_columns()
 	data = get_data(filters)
-	return columns, data
+	report_summary = get_report_summary(data)
+	return columns, data, None, None, report_summary
 
 
 def get_columns():
@@ -336,3 +338,60 @@ def get_conditions(filters):
 		conditions += " AND ltd.date_transferred <= %(to_date)s"
 
 	return conditions
+
+
+def get_report_summary(data):
+	if not data:
+		return None
+
+	total_pounds_sent = 0
+	total_pounds_ran = 0
+	total_hash = 0
+	total_rosin = 0
+	total_rosin_yield = 0
+	yield_count = 0
+
+	for d in data:
+		total_pounds_sent += flt(d.get("pounds_sent"))
+		total_pounds_ran += flt(d.get("pounds_ran"))
+		total_hash += flt(d.get("total_hash"))
+		total_rosin += flt(d.get("total_rosin"))
+
+		if d.get("rosin_yield_"):
+			total_rosin_yield += flt(d.get("rosin_yield_"))
+			yield_count += 1
+
+	avg_rosin_yield = total_rosin_yield / yield_count if yield_count else 0
+
+	return [
+		{
+			"value": total_pounds_sent,
+			"indicator": "Blue",
+			"label": _("Total Pounds Sent"),
+			"datatype": "Float",
+		},
+		{
+			"value": total_pounds_ran,
+			"indicator": "Blue",
+			"label": _("Total Pounds Ran"),
+			"datatype": "Float",
+		},
+		{
+			"value": total_hash,
+			"indicator": "Green",
+			"label": _("Total Hash Produced"),
+			"datatype": "Float",
+		},
+		{
+			"value": total_rosin,
+			"indicator": "Green",
+			"label": _("Total Rosin Produced"),
+			"datatype": "Float",
+		},
+		{
+			"value": avg_rosin_yield,
+			"indicator": "Green" if avg_rosin_yield > 0 else "Red",
+			"label": _("Avg Rosin Yield %"),
+			"datatype": "Percent",
+		},
+	]

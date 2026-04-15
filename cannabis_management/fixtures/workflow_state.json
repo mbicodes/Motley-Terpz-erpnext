@@ -3,6 +3,60 @@
   "docstatus": 0,
   "doctype": "Workflow State",
   "icon": "",
+  "modified": "2026-03-09 06:30:53.186833",
+  "name": "Pending By FInance",
+  "style": "",
+  "workflow_state_name": "Pending By FInance"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow State",
+  "icon": "",
+  "modified": "2026-03-09 06:32:09.016938",
+  "name": "Order at Lab",
+  "style": "",
+  "workflow_state_name": "Order at Lab"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow State",
+  "icon": "",
+  "modified": "2026-03-09 06:32:17.498414",
+  "name": "Order At Distro",
+  "style": "",
+  "workflow_state_name": "Order At Distro"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow State",
+  "icon": "",
+  "modified": "2026-03-09 06:34:45.866549",
+  "name": "Order Schaduled",
+  "style": "",
+  "workflow_state_name": "Order Schaduled"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow State",
+  "icon": "",
+  "modified": "2026-03-09 06:40:14.593686",
+  "name": "Order staged",
+  "style": "",
+  "workflow_state_name": "Order staged"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow State",
+  "icon": "",
+  "modified": "2026-03-09 08:02:53.283447",
+  "name": "Returned By Finance",
+  "style": "",
+  "workflow_state_name": "Returned By Finance"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow State",
+  "icon": "",
   "modified": "2025-11-15 13:17:52.547172",
   "name": "Requested",
   "style": "",

@@ -1,0 +1,150 @@
+[
+ {
+  "docstatus": 0,
+  "doctype": "Quality Inspection Template",
+  "item_quality_inspection_parameter": [
+   {
+    "acceptance_formula": null,
+    "formula_based_criteria": 0,
+    "max_value": 9999.0,
+    "min_value": 0.0,
+    "numeric": 1,
+    "parameter_group": null,
+    "parent": "Bubble Hash QI",
+    "parentfield": "item_quality_inspection_parameter",
+    "parenttype": "Quality Inspection Template",
+    "specification": "Net Weight (g)",
+    "value": ""
+   },
+   {
+    "acceptance_formula": null,
+    "formula_based_criteria": 0,
+    "max_value": 15.0,
+    "min_value": 0.0,
+    "numeric": 1,
+    "parameter_group": null,
+    "parent": "Bubble Hash QI",
+    "parentfield": "item_quality_inspection_parameter",
+    "parenttype": "Quality Inspection Template",
+    "specification": "Moisture Content",
+    "value": ""
+   },
+   {
+    "acceptance_formula": null,
+    "formula_based_criteria": 0,
+    "max_value": 0.0,
+    "min_value": 0.0,
+    "numeric": 0,
+    "parameter_group": null,
+    "parent": "Bubble Hash QI",
+    "parentfield": "item_quality_inspection_parameter",
+    "parenttype": "Quality Inspection Template",
+    "specification": "Color Grade",
+    "value": ""
+   },
+   {
+    "acceptance_formula": null,
+    "formula_based_criteria": 0,
+    "max_value": 0.0,
+    "min_value": 0.0,
+    "numeric": 0,
+    "parameter_group": null,
+    "parent": "Bubble Hash QI",
+    "parentfield": "item_quality_inspection_parameter",
+    "parenttype": "Quality Inspection Template",
+    "specification": "Contamination",
+    "value": "None"
+   },
+   {
+    "acceptance_formula": null,
+    "formula_based_criteria": 0,
+    "max_value": 0.0,
+    "min_value": 0.0,
+    "numeric": 0,
+    "parameter_group": null,
+    "parent": "Bubble Hash QI",
+    "parentfield": "item_quality_inspection_parameter",
+    "parenttype": "Quality Inspection Template",
+    "specification": "METRC Tag Match",
+    "value": ""
+   }
+  ],
+  "modified": "2026-04-14 23:42:44.836123",
+  "name": "Bubble Hash QI",
+  "quality_inspection_template_name": "Bubble Hash QI"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Quality Inspection Template",
+  "item_quality_inspection_parameter": [
+   {
+    "acceptance_formula": null,
+    "formula_based_criteria": 0,
+    "max_value": 9999.0,
+    "min_value": 0.0,
+    "numeric": 1,
+    "parameter_group": null,
+    "parent": "Rosin QI",
+    "parentfield": "item_quality_inspection_parameter",
+    "parenttype": "Quality Inspection Template",
+    "specification": "Net Weight (g)",
+    "value": ""
+   },
+   {
+    "acceptance_formula": null,
+    "formula_based_criteria": 0,
+    "max_value": 0.0,
+    "min_value": 0.0,
+    "numeric": 0,
+    "parameter_group": null,
+    "parent": "Rosin QI",
+    "parentfield": "item_quality_inspection_parameter",
+    "parenttype": "Quality Inspection Template",
+    "specification": "Color Grade",
+    "value": ""
+   },
+   {
+    "acceptance_formula": null,
+    "formula_based_criteria": 0,
+    "max_value": 0.0,
+    "min_value": 0.0,
+    "numeric": 0,
+    "parameter_group": null,
+    "parent": "Rosin QI",
+    "parentfield": "item_quality_inspection_parameter",
+    "parenttype": "Quality Inspection Template",
+    "specification": "Consistency",
+    "value": ""
+   },
+   {
+    "acceptance_formula": null,
+    "formula_based_criteria": 0,
+    "max_value": 0.0,
+    "min_value": 0.0,
+    "numeric": 0,
+    "parameter_group": null,
+    "parent": "Rosin QI",
+    "parentfield": "item_quality_inspection_parameter",
+    "parenttype": "Quality Inspection Template",
+    "specification": "Terpene Aroma",
+    "value": "Acceptable"
+   },
+   {
+    "acceptance_formula": null,
+    "formula_based_criteria": 0,
+    "max_value": 0.0,
+    "min_value": 0.0,
+    "numeric": 0,
+    "parameter_group": null,
+    "parent": "Rosin QI",
+    "parentfield": "item_quality_inspection_parameter",
+    "parenttype": "Quality Inspection Template",
+    "specification": "METRC Tag Match",
+    "value": ""
+   }
+  ],
+  "modified": "2026-04-14 23:42:44.877634",
+  "name": "Rosin QI",
+  "quality_inspection_template_name": "Rosin QI"
+ }
+]

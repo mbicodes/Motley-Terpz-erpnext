@@ -1,0 +1,74 @@
+{
+ "actions": [],
+ "creation": "2026-04-14 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "original_tag",
+  "new_tag",
+  "strain",
+  "weight_g",
+  "retagged_by",
+  "retag_datetime"
+ ],
+ "fields": [
+  {
+   "columns": 3,
+   "fieldname": "original_tag",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Original Tag (TSBC)",
+   "reqd": 1
+  },
+  {
+   "columns": 3,
+   "fieldname": "new_tag",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "New MTM Tag",
+   "reqd": 1
+  },
+  {
+   "columns": 2,
+   "fieldname": "strain",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Strain",
+   "reqd": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "weight_g",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Weight (g)",
+   "reqd": 1
+  },
+  {
+   "fieldname": "retagged_by",
+   "fieldtype": "Link",
+   "label": "Retagged By",
+   "options": "Employee",
+   "reqd": 1
+  },
+  {
+   "fieldname": "retag_datetime",
+   "fieldtype": "Datetime",
+   "label": "Retag Date/Time",
+   "reqd": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-04-14 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Master Touch Manufacturing",
+ "name": "METRC Retag Log",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "retag_datetime",
+ "sort_order": "ASC",
+ "states": []
+}

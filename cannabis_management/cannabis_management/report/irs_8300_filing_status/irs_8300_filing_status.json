@@ -1,0 +1,8 @@
+{
+ "name": "IRS 8300 Filing Status",
+ "doctype": "Report",
+ "report_type": "Script Report",
+ "ref_doctype": "IRS Form 8300 Log",
+ "is_standard": "Yes",
+ "module": "Cannabis Management"
+}

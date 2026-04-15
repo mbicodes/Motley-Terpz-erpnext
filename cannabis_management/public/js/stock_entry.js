@@ -1,73 +1,54 @@
 frappe.ui.form.on("Stock Entry", {
     refresh: function (frm) {
-        // Set Project field as mandatory for rows where custom_project_mandatory is checked
-        frm.fields_dict.items.grid.update_docfield_property(
-            "project",
-            "reqd",
-            0
-        );
+        frm.fields_dict.items.grid.update_docfield_property("project", "reqd", 0);
         $.each(frm.doc.items || [], function (i, item) {
             if (item.custom_project_mandatory) {
-                frappe.meta.get_docfield(
-                    "Stock Entry Detail",
-                    "project",
-                    frm.doc.name
-                ).reqd = 1;
+                frappe.meta.get_docfield("Stock Entry Detail", "project", frm.doc.name).reqd = 1;
             }
         });
         frm.refresh_fields();
+        calculate_total_quantity(frm);
     },
 
     project: function (frm) {
-        // Reflect master project to child table project and batch
         if (frm.doc.project) {
             $.each(frm.doc.items || [], function (i, item) {
-                frappe.model.set_value(
-                    item.doctype,
-                    item.name,
-                    "project",
-                    frm.doc.project
-                );
-                frappe.model.set_value(
-                    item.doctype,
-                    item.name,
-                    "batch",
-                    frm.doc.project
-                );
+                frappe.model.set_value(item.doctype, item.name, "project", frm.doc.project);
+                frappe.model.set_value(item.doctype, item.name, "batch", frm.doc.project);
             });
         }
     },
 
     items_add: function (frm, cdt, cdn) {
-        // Inherit master project for newly added rows
         if (frm.doc.project) {
             frappe.model.set_value(cdt, cdn, "project", frm.doc.project);
             frappe.model.set_value(cdt, cdn, "batch", frm.doc.project);
         }
+        calculate_total_quantity(frm);
+    },
+
+    items_remove: function (frm) {
+        calculate_total_quantity(frm);
     },
 });
 
 frappe.ui.form.on("Stock Entry Detail", {
+    qty: function (frm, cdt, cdn) {
+        setTimeout(() => calculate_total_quantity(frm), 300);
+    },
+
+    is_finished_item: function (frm, cdt, cdn) {
+        setTimeout(() => calculate_total_quantity(frm), 300);
+    },
+
     item_code: function (frm, cdt, cdn) {
         let row = locals[cdt][cdn];
         if (row.item_code) {
-            frappe.db.get_value(
-                "Item",
-                row.item_code,
-                "custom_project_mandatory",
-                function (r) {
-                    if (r) {
-                        frappe.model.set_value(
-                            cdt,
-                            cdn,
-                            "custom_project_mandatory",
-                            r.custom_project_mandatory || 0
-                        );
-                    }
+            frappe.db.get_value("Item", row.item_code, "custom_project_mandatory", function (r) {
+                if (r) {
+                    frappe.model.set_value(cdt, cdn, "custom_project_mandatory", r.custom_project_mandatory || 0);
                 }
-            );
-
-            // Sync master project and batch to this row
+            });
             if (frm.doc.project) {
                 setTimeout(function () {
                     frappe.model.set_value(cdt, cdn, "project", frm.doc.project);
@@ -81,22 +62,14 @@ frappe.ui.form.on("Stock Entry Detail", {
     },
 
     custom_project_mandatory: function (frm, cdt, cdn) {
-        // When the checkbox value changes, toggle project mandatory
         toggle_project_mandatory(frm);
     },
 
     project: function (frm, cdt, cdn) {
         let row = locals[cdt][cdn];
-        if (
-            row.custom_project_mandatory &&
-            row.item_code &&
-            row.project &&
-            row.s_warehouse
-        ) {
+        if (row.custom_project_mandatory && row.item_code && row.project && row.s_warehouse) {
             fetch_project_qty(frm, cdt, cdn, row);
         }
-
-        // Sync project to batch for individual row
         if (row.project) {
             frappe.model.set_value(cdt, cdn, "batch", row.project);
         }
@@ -104,28 +77,15 @@ frappe.ui.form.on("Stock Entry Detail", {
 
     s_warehouse: function (frm, cdt, cdn) {
         let row = locals[cdt][cdn];
-        if (
-            row.custom_project_mandatory &&
-            row.item_code &&
-            row.project &&
-            row.s_warehouse
-        ) {
+        if (row.custom_project_mandatory && row.item_code && row.project && row.s_warehouse) {
             fetch_project_qty(frm, cdt, cdn, row);
         }
     },
 });
 
 function toggle_project_mandatory(frm) {
-    // Check if any row has custom_project_mandatory checked
-    let any_mandatory = (frm.doc.items || []).some(
-        (item) => item.custom_project_mandatory
-    );
-
-    frm.fields_dict.items.grid.update_docfield_property(
-        "project",
-        "reqd",
-        any_mandatory ? 1 : 0
-    );
+    let any_mandatory = (frm.doc.items || []).some((item) => item.custom_project_mandatory);
+    frm.fields_dict.items.grid.update_docfield_property("project", "reqd", any_mandatory ? 1 : 0);
     frm.refresh_fields();
 }
 
@@ -139,13 +99,29 @@ function fetch_project_qty(frm, cdt, cdn, row) {
         },
         callback: function (r) {
             if (r.message !== undefined) {
-                frappe.model.set_value(
-                    cdt,
-                    cdn,
-                    "custom_project_back_qty",
-                    r.message
-                );
+                frappe.model.set_value(cdt, cdn, "custom_project_back_qty", r.message);
             }
         },
     });
+}
+
+function calculate_total_quantity(frm) {
+    let finished_qty = 0;
+    let raw_qty = 0;
+
+    (frm.doc.items || []).forEach((item) => {
+        if (item.is_finished_item) {
+            finished_qty += item.qty || 0;
+        } else {
+            raw_qty += item.qty || 0;
+        }
+    });
+
+    const total_qty =
+        frm.doc.stock_entry_type === "Repack"
+            ? finished_qty
+            : finished_qty + raw_qty;
+
+    frm.doc.total_quantity = total_qty;
+    frm.refresh_field("total_quantity");
 }

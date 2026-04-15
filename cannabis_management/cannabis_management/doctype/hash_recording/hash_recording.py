@@ -10,6 +10,12 @@ class HashRecording(Document):
 
 	def calculate_totals(self):
 		self.total_quantity = sum(flt(row.pound_sent) for row in self.table_smqw)
+		
+		# Sync expected yields from parent to child rows if empty
+		for row in self.table_smqw:
+			if not row.expected_yield_to_hash:
+				row.expected_yield_to_hash = self.expected_hash_yield
+
 		# Only calculate if fields exist (we'll add them to JSON in next step)
 		if hasattr(self, 'rate_tolling_partner'):
 			self.tolling_partner_charges = flt(self.total_quantity) * flt(self.rate_tolling_partner)

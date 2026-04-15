@@ -1,0 +1,207 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "naming_series:",
+ "creation": "2026-04-14 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "production_batch_group",
+  "verification_type",
+  "verification_date",
+  "column_break_a",
+  "verified_by",
+  "source_batch_ref_wash",
+  "source_batch_ref_press",
+  "section_packages",
+  "metrc_packages",
+  "section_totals",
+  "system_total_g",
+  "physical_total_g",
+  "variance_g",
+  "variance_pct",
+  "column_break_b",
+  "variance_resolution",
+  "approved_for_inventory",
+  "approved_by",
+  "approved_date"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "options": "IV-.YYYY.-.####",
+   "set_only_once": 1
+  },
+  {
+   "fieldname": "production_batch_group",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Production Batch Group",
+   "options": "Production Batch Group",
+   "reqd": 1
+  },
+  {
+   "fieldname": "verification_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Verification Type",
+   "options": "\nBubble Hash\nRosin",
+   "reqd": 1
+  },
+  {
+   "fieldname": "verification_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Verification Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_a",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "verified_by",
+   "fieldtype": "Link",
+   "label": "Verified By",
+   "options": "Employee",
+   "reqd": 1,
+   "description": "Must NOT be the wash/press tech"
+  },
+  {
+   "fieldname": "source_batch_ref_wash",
+   "fieldtype": "Link",
+   "label": "Source Wash Batch",
+   "options": "Wash Batch",
+   "depends_on": "eval:doc.verification_type=='Bubble Hash'"
+  },
+  {
+   "fieldname": "source_batch_ref_press",
+   "fieldtype": "Link",
+   "label": "Source Press Batch",
+   "options": "Press Batch",
+   "depends_on": "eval:doc.verification_type=='Rosin'"
+  },
+  {
+   "fieldname": "section_packages",
+   "fieldtype": "Section Break",
+   "label": "Package Weights (per METRC tag)"
+  },
+  {
+   "fieldname": "metrc_packages",
+   "fieldtype": "Table",
+   "label": "METRC Packages",
+   "options": "METRC Package Verification",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_totals",
+   "fieldtype": "Section Break",
+   "label": "Totals & Variance"
+  },
+  {
+   "fieldname": "system_total_g",
+   "fieldtype": "Float",
+   "label": "System Total (g)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "physical_total_g",
+   "fieldtype": "Float",
+   "label": "Physical Total (g)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "variance_g",
+   "fieldtype": "Float",
+   "label": "Variance (g)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "variance_pct",
+   "fieldtype": "Percent",
+   "label": "Variance %",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_b",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "variance_resolution",
+   "fieldtype": "Text",
+   "label": "Variance Resolution",
+   "description": "Required if variance ≠ 0"
+  },
+  {
+   "fieldname": "approved_for_inventory",
+   "fieldtype": "Check",
+   "label": "Approved for Inventory Release"
+  },
+  {
+   "fieldname": "approved_by",
+   "fieldtype": "Link",
+   "label": "Approved By",
+   "options": "Employee",
+   "read_only": 1
+  },
+  {
+   "fieldname": "approved_date",
+   "fieldtype": "Datetime",
+   "label": "Approved Date",
+   "read_only": 1
+  }
+ ],
+ "in_create": 1,
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-04-14 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Master Touch Manufacturing",
+ "name": "Inventory Verification",
+ "naming_rule": "By Naming Series",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "cancel": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Lab Supervisor",
+   "share": 1,
+   "submit": 1,
+   "cancel": 1,
+   "write": 1
+  },
+  {
+   "read": 1,
+   "report": 1,
+   "role": "Lab Tech"
+  }
+ ],
+ "quick_entry": 0,
+ "search_fields": "production_batch_group,verification_type,verification_date",
+ "sort_field": "verification_date",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

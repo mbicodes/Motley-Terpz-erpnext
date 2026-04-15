@@ -84,7 +84,9 @@ def send_item_groups_list(response_url):
             ig.name,
             COUNT(i.name) as item_count
         FROM `tabItem Group` ig
-        LEFT JOIN `tabItem` i ON i.item_group = ig.name AND i.disabled = 0
+        INNER JOIN `tabItem` i ON i.item_group = ig.name 
+            AND i.disabled = 0 
+            AND i.custom_show_in_dashboard = 1
         WHERE ig.is_group = 0
           AND ig.custom_show_in_dashboard = 1
         GROUP BY ig.name
@@ -154,6 +156,7 @@ def generate_and_upload_report(item_group_input, channel_id, user_id, user_name,
         INNER JOIN `tabItem` i ON i.name = b.item_code
         WHERE i.item_group = %s
           AND i.disabled = 0
+          AND i.custom_show_in_dashboard = 1
           AND b.actual_qty != 0
         ORDER BY i.item_name, b.warehouse
     """,

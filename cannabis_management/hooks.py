@@ -57,7 +57,8 @@ doctype_js = {
     "Purchase Invoice": "public/js/purchase_invoice.js",
     "Delivery Note": "public/js/delivery_note.js",
     "Sales Invoice": "public/js/sales_invoice.js",
-    "Material Request": "public/js/material_request.js"
+    "Material Request": "public/js/material_request.js",
+    "Item Group": "public/js/item_group_custom.js"
 }
 
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
@@ -91,8 +92,8 @@ doctype_js = {
 
 # add methods and filters to jinja environment
 # jinja = {
-# 	"methods": "cannabis_management.utils.jinja_methods",
-# 	"filters": "cannabis_management.utils.jinja_filters"
+# 	"methods": "cannabis_management.cannabis_management.utils.jinja_methods",
+# 	"filters": "cannabis_management.cannabis_management.utils.jinja_filters"
 # }
 
 # Installation
@@ -112,16 +113,16 @@ doctype_js = {
 # To set up dependencies/integrations with other apps
 # Name of the app being installed is passed as an argument
 
-# before_app_install = "cannabis_management.utils.before_app_install"
-# after_app_install = "cannabis_management.utils.after_app_install"
+# before_app_install = "cannabis_management.cannabis_management.utils.before_app_install"
+# after_app_install = "cannabis_management.cannabis_management.utils.after_app_install"
 
 # Integration Cleanup
 # -------------------
 # To clean up dependencies/integrations with other apps
 # Name of the app being uninstalled is passed as an argument
 
-# before_app_uninstall = "cannabis_management.utils.before_app_uninstall"
-# after_app_uninstall = "cannabis_management.utils.after_app_uninstall"
+# before_app_uninstall = "cannabis_management.cannabis_management.utils.before_app_uninstall"
+# after_app_uninstall = "cannabis_management.cannabis_management.utils.after_app_uninstall"
 
 # Desk Notifications
 # ------------------
@@ -132,6 +133,15 @@ doctype_js = {
 # Permissions
 # -----------
 # Permissions evaluated in scripted ways
+
+permission_query_conditions = {
+    "Customer": "cannabis_management.permissions.customer_query_conditions"
+}
+
+has_permission = {
+    "Customer": "cannabis_management.permissions.customer_has_permission"
+}
+
 
 # permission_query_conditions = {
 # 	"Event": "frappe.desk.doctype.event.event.get_permission_query_conditions",
@@ -155,7 +165,10 @@ doctype_js = {
 
 doc_events = {
     "Stock Entry": {
-        "validate": "cannabis_management.cannabis_management.custom.stock_entry.validate"
+        "validate": "cannabis_management.cannabis_management.custom.stock_entry.validate",
+        # MTM: yield threshold check + batch auto-creation on Manufacture entries
+        "before_submit": "cannabis_management.master_touch_manufacturing.overrides.stock_entry.before_submit",
+        "on_submit": "cannabis_management.master_touch_manufacturing.overrides.stock_entry.on_submit",
     },
     "Sales Invoice": {
         "on_submit": "cannabis_management.overrides.sales_invoice_hooks.check_inventory_and_notify_slack"
@@ -167,12 +180,63 @@ doc_events = {
     },
     "Timesheet": {
         "after_insert": "cannabis_management.overrides.timesheet_hooks.auto_submit_timesheet",
-    }
+    },
+    "Payment Entry": {
+        "on_submit": "cannabis_management.cannabis_management.utils.irs_8300.check_cash_threshold"
+    },
+    # MTM: Work Order status changes → update Production Batch Group status
+    "Work Order": {
+        "on_update": "cannabis_management.master_touch_manufacturing.overrides.work_order.on_update",
+    },
+    # MTM: Job Card completion → clock-out, notify Slack
+    "Job Card": {
+        "on_submit": "cannabis_management.master_touch_manufacturing.overrides.job_card.on_submit",
+    },
+    # MTM: Purchase Receipt — weight variance, FF batch creation, retag alerts
+    "Purchase Receipt": {
+        "on_submit": "cannabis_management.master_touch_manufacturing.overrides.purchase_receipt.on_submit",
+    },
+    # MTM: Wash Batch submit → auto-create Bubble Hash ERPNext Batches per detail row
+    "Wash Batch": {
+        "on_submit": "cannabis_management.master_touch_manufacturing.overrides.wash_batch.on_submit",
+    },
+    # MTM: Press Batch submit → auto-create Rosin ERPNext Batches per detail row
+    "Press Batch": {
+        "on_submit": "cannabis_management.master_touch_manufacturing.overrides.press_batch.on_submit",
+    },
+    # MTM: Inventory Verification approval → release batches + auto-create QI
+    "Inventory Verification": {
+        "on_update": "cannabis_management.master_touch_manufacturing.overrides.inventory_verification.on_update",
+    },
+    # MTM: Purchase Order → inter-company Sales Order in supplier's company
+    "Purchase Order": {
+        "on_submit": "cannabis_management.master_touch_manufacturing.overrides.purchase_order.on_submit",
+    },
+    # MTM: Production Batch Group — sequence lock + toll invoice on close
+    "Production Batch Group": {
+        "before_insert": "cannabis_management.master_touch_manufacturing.overrides.production_batch_group.on_before_insert",
+        "on_update": "cannabis_management.master_touch_manufacturing.overrides.production_batch_group.on_update",
+    },
 }
 
 # Scheduled Tasks
 # ---------------
-
+scheduler_events = {
+    "daily": [
+        "cannabis_management.cannabis_management.utils.irs_8300.check_overdue_filings",
+        "cannabis_management.cannabis_management.utils.irs_8300.send_january_notices",
+        # MTM: stale batch alerts
+        "cannabis_management.master_touch_manufacturing.tasks.daily",
+    ],
+    "weekly": [
+        # MTM: weekly production summary to Slack
+        "cannabis_management.master_touch_manufacturing.tasks.weekly",
+    ],
+    "monthly": [
+        # MTM: monthly yield + cost report
+        "cannabis_management.master_touch_manufacturing.tasks.monthly",
+    ],
+}
 # scheduler_events = {
 # 	"all": [
 # 		"cannabis_management.tasks.all"
@@ -221,13 +285,13 @@ doc_events = {
 
 # Request Events
 # ----------------
-# before_request = ["cannabis_management.utils.before_request"]
-# after_request = ["cannabis_management.utils.after_request"]
+# before_request = ["cannabis_management.cannabis_management.utils.before_request"]
+# after_request = ["cannabis_management.cannabis_management.utils.after_request"]
 
 # Job Events
 # ----------
-# before_job = ["cannabis_management.utils.before_job"]
-# after_job = ["cannabis_management.utils.after_job"]
+# before_job = ["cannabis_management.cannabis_management.utils.before_job"]
+# after_job = ["cannabis_management.cannabis_management.utils.after_job"]
 
 # User Data Protection
 # --------------------
@@ -273,6 +337,18 @@ fixtures = [
     "Property Setter",
     "Workflow",
     "Workflow State",
-    "Workflow Action"
+    "Workflow Action",
+    # MTM module — export all module-specific records so they survive reinstall
+    {"dt": "DocType", "filters": [["module", "=", "Master Touch Manufacturing"]]},
+    {"dt": "Role", "filters": [["name", "in", [
+        "Lab Tech", "Lab Supervisor", "Production Manager",
+        "Distro Manager", "Compliance Officer"
+    ]]]},
+    {"dt": "Workstation", "filters": [["name", "like", "WS%"]]},
+    {"dt": "Operation", "filters": [["workstation", "like", "WS%"]]},
+    {"dt": "Workspace", "filters": [["module", "=", "Master Touch Manufacturing"]]},
+    {"dt": "Quality Inspection Template", "filters": [["quality_inspection_template_name", "in", [
+        "Bubble Hash QI", "Rosin QI"
+    ]]]},
 ]
 

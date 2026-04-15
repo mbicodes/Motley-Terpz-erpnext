@@ -1,0 +1,14 @@
+{
+ "name": "IRS 8300 Payment Reference",
+ "doctype": "DocType",
+ "module": "Cannabis Management",
+ "istable": 1,
+ "fields": [
+  {"fieldname": "payment_entry", "fieldtype": "Link", "options": "Payment Entry",
+   "label": "Payment Entry", "in_list_view": 1},
+  {"fieldname": "payment_date", "fieldtype": "Date", "label": "Payment Date", "in_list_view": 1},
+  {"fieldname": "amount", "fieldtype": "Currency", "label": "Amount", "in_list_view": 1},
+  {"fieldname": "sales_invoice", "fieldtype": "Link", "options": "Sales Invoice",
+   "label": "Sales Invoice", "in_list_view": 1}
+ ]
+}

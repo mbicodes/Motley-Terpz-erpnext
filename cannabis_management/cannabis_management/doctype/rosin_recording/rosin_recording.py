@@ -13,14 +13,37 @@ class RosinRecording(Document):
 		self.tolling_partner_charges = flt(self.total_quantity) * flt(self.rate_tolling_partner)
 		
 		for row in self.lab_tolling_data:
+			if not row.expected_rosin_yield:
+				row.expected_rosin_yield = self.expected_rosin_yield
+
 			# Prefer row-level yield, fallback to parent-level
 			exp_hash_yield = flt(row.expected_hash_yield or row.expected__yield__to_hash)
 			exp_rosin_yield = flt(row.expected_rosin_yield or self.expected_rosin_yield)
 			
 			total_hash = flt(row.total_hash)
-			raw_qty = 0
-			if exp_hash_yield > 0 and exp_rosin_yield > 0 and total_hash > 0:
-				raw_qty = total_hash / exp_hash_yield / 453.592 / exp_rosin_yield
+			total_rosin = flt(row.total_rosin)
+			amount_ran_grams = flt(row.amount_ran_grams)
+
+			# 1. Calculate Actual Yields
+			actual_yield_to_hash = 0
+			if amount_ran_grams > 0:
+				actual_yield_to_hash = (total_hash / amount_ran_grams) * 100
+			row.actual_yield_to_hash = flt(actual_yield_to_hash, 2)
+
+			actual_rosin_yield = 0
+			if total_hash > 0:
+				actual_rosin_yield = (total_rosin / total_hash) * 100
+			row.actual_rosin_yield = flt(actual_rosin_yield, 2)
+
+			# 2. Formula for Raw Qty using Actuals
+			# Fallback to pounds_ran as a safe starting point
+			raw_qty = flt(row.pounds_ran)
+			if actual_yield_to_hash > 0 and actual_rosin_yield > 0 and total_hash > 0:
+				raw_qty = total_hash / (actual_yield_to_hash / 100) / 453.592 / (actual_rosin_yield / 100)
+			
+			# Ensure it's never zero if we have inputs/outputs participation
+			if raw_qty <= 0 and (total_hash > 0 or flt(row.pounds_ran) > 0):
+				raw_qty = flt(row.pounds_ran) or 0
 			
 			# Cap at pounds_sent if calculation exceeds it
 			pounds_sent = flt(row.pounds_sent)
@@ -81,7 +104,7 @@ class RosinRecording(Document):
 			# ── Row 1: Raw Material (strain_name) ──
 			raw_qty = flt(row.raw_material_quantity)
 
-			if row.strain_name:
+			if row.strain_name and raw_qty > 0:
 				se.append("items", {
 					"item_code": row.strain_name,
 					"qty": raw_qty,

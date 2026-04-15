@@ -20,8 +20,10 @@ class LabBatchEntry(Document):
 		doc_updated = False
 
 		for lab_row in self.lab_batch_entry_child:
+			# Map piece of data back to item_code since hash_row.strain_name holds item_code
+			item_code = frappe.db.get_value("Item", {"item_name": lab_row.strain_name}, "name") or lab_row.strain_name
 			for hash_row in hash_doc.table_smqw:
-				if hash_row.strain_name == lab_row.strain_name and flt(hash_row.pound_sent) == flt(lab_row.pounds_sent):
+				if hash_row.strain_name == item_code and flt(hash_row.pound_sent) == flt(lab_row.pounds_sent):
 					if (flt(hash_row.amount_ran_grams) != flt(lab_row.amount_ran_grams) or
 						flt(hash_row.pounds_ran) != flt(lab_row.pounds_ran) or
 						hash_row.date_transferred != lab_row.date_transferred or
@@ -98,7 +100,11 @@ def create_hash_recording(lab_batch_entry_name):
 
 	for row in lab_batch.lab_batch_entry_child:
 		child = hash_rec.append("table_smqw")
-		child.strain_name = row.strain_name
+		
+		# Map item_name back to item_code for the Link field in Hash Recording Child
+		item_code = frappe.db.get_value("Item", {"item_name": row.strain_name}, "name")
+		child.strain_name = item_code or row.strain_name
+		
 		child.batchproject = row.batch_number
 		child.tooling_partner = row.tolling_partner
 		child.pound_sent = row.pounds_sent

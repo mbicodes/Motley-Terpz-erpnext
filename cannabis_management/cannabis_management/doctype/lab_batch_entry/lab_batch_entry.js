@@ -45,9 +45,9 @@ frappe.ui.form.on("Lab Batch Entry", {
 					const batch_status = r.message;
 
 					frm.page.set_indicator(batch_status, {
-						"Batch Sent":     "blue",
-						"Batch Run":      "yellow",
-						"Hash Produced":  "orange",
+						"Batch Sent": "blue",
+						"Batch Run": "yellow",
+						"Hash Produced": "orange",
 						"Rosin Produced": "green",
 					}[batch_status] || "blue");
 
@@ -143,7 +143,7 @@ function fetch_stock_balance_items(frm) {
 
 			r.message.forEach((item) => {
 				const new_row = frm.add_child("lab_batch_entry_child");
-				new_row.strain_name = item.item_code;
+				new_row.strain_name = item.item_name;
 				new_row.batch_number = project;
 				new_row.tolling_partner = tolling_partner;
 				new_row.date_transferred = item.posting_date;

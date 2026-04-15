@@ -1,0 +1,81 @@
+{
+ "name": "IRS Form 8300 Log",
+ "doctype": "DocType",
+ "module": "Cannabis Management",
+ "naming_rule": "Expression",
+ "autoname": "format:8300-{YYYY}-{#####}",
+ "title_field": "payer_name",
+ "track_changes": 1,
+ "fields": [
+
+  {"fieldname": "payer_section", "fieldtype": "Section Break", "label": "Payer Information"},
+  {"fieldname": "customer", "fieldtype": "Link", "options": "Customer",
+   "label": "Customer", "reqd": 1, "in_list_view": 1, "in_standard_filter": 1},
+  {"fieldname": "payer_name", "fieldtype": "Data",
+   "label": "Payer Name", "reqd": 1, "in_list_view": 1},
+  {"fieldname": "col_break_1", "fieldtype": "Column Break"},
+  {"fieldname": "payer_dob", "fieldtype": "Date", "label": "Date of Birth"},
+  {"fieldname": "payer_ssn_tin", "fieldtype": "Password", "label": "SSN / TIN"},
+
+  {"fieldname": "address_section", "fieldtype": "Section Break", "label": "Address & ID"},
+  {"fieldname": "payer_address", "fieldtype": "Small Text", "label": "Payer Address"},
+  {"fieldname": "col_break_2", "fieldtype": "Column Break"},
+  {"fieldname": "id_document_type", "fieldtype": "Select", "label": "ID Document Type",
+   "options": "\nDriver's License\nPassport\nState ID\nOther"},
+  {"fieldname": "id_document_number", "fieldtype": "Data", "label": "ID Document Number"},
+  {"fieldname": "id_issuing_state", "fieldtype": "Data", "label": "Issuing State / Country"},
+
+  {"fieldname": "txn_section", "fieldtype": "Section Break", "label": "Transaction Details"},
+  {"fieldname": "payment_entry", "fieldtype": "Link", "options": "Payment Entry",
+   "label": "Payment Entry", "reqd": 1, "in_list_view": 1, "in_standard_filter": 1},
+  {"fieldname": "transaction_date", "fieldtype": "Date",
+   "label": "Transaction Date", "reqd": 1, "in_list_view": 1},
+  {"fieldname": "cash_amount", "fieldtype": "Currency",
+   "label": "Cash Amount", "reqd": 1, "in_list_view": 1},
+  {"fieldname": "col_break_3", "fieldtype": "Column Break"},
+  {"fieldname": "nature_of_transaction", "fieldtype": "Small Text",
+   "label": "Nature of Transaction",
+   "default": "Cannabis retail sale"},
+  {"fieldname": "is_related_transaction", "fieldtype": "Check",
+   "label": "Is Related Transaction",
+   "description": "Check if this log was triggered by aggregated related transactions rather than a single payment over $10,000"},
+
+  {"fieldname": "filing_section", "fieldtype": "Section Break", "label": "Filing Status"},
+  {"fieldname": "filing_status", "fieldtype": "Select", "label": "Filing Status",
+   "options": "Pending\nReported\nFiled - E-File\nFiled - Paper\nOverdue",
+   "default": "Pending",
+   "in_list_view": 1, "in_standard_filter": 1},
+  {"fieldname": "filing_deadline", "fieldtype": "Date",
+   "label": "Filing Deadline", "in_list_view": 1},
+  {"fieldname": "col_break_4", "fieldtype": "Column Break"},
+  {"fieldname": "filing_date", "fieldtype": "Date", "label": "Date Filed"},
+  {"fieldname": "filing_method", "fieldtype": "Select", "label": "Filing Method",
+   "options": "\nE-File\nPaper",
+   "description": "E-File is mandatory since January 1 2024 if you file 10+ information returns"},
+  {"fieldname": "fincen_confirmation_number", "fieldtype": "Data",
+   "label": "FinCEN Confirmation #",
+   "description": "Confirmation number received from BSA E-Filing portal (E-File only)"},
+
+  {"fieldname": "notice_section", "fieldtype": "Section Break", "label": "Payer Notice"},
+  {"fieldname": "payer_notified", "fieldtype": "Check", "label": "Payer Notified",
+   "description": "January 31 written statement sent to payer"},
+  {"fieldname": "payer_notification_date", "fieldtype": "Date", "label": "Notification Date"},
+  {"fieldname": "col_break_5", "fieldtype": "Column Break"},
+  {"fieldname": "is_suspicious_activity", "fieldtype": "Check",
+   "label": "Suspicious Activity (Box 1b)",
+   "description": "Voluntary filing below $10,000 threshold. When checked the January 31 written notice must NOT be sent to the customer — IRS rule"},
+  {"fieldname": "multiple_transactions", "fieldtype": "Check",
+   "label": "Multiple Transactions",
+   "description": "Check if amounts are from multiple transactions — corresponds to IRS Form 8300 checkbox"},
+
+  {"fieldname": "notes_section", "fieldtype": "Section Break", "label": "Notes"},
+  {"fieldname": "notes", "fieldtype": "Text Editor", "label": "Notes"}
+
+ ],
+
+ "permissions": [
+  {"role": "System Manager",   "read": 1, "write": 1, "create": 1, "delete": 1, "report": 1, "export": 1},
+  {"role": "Accounts Manager", "read": 1, "write": 1, "create": 1, "report": 1, "export": 1},
+  {"role": "CEO",              "read": 1, "write": 1, "create": 1, "report": 1, "export": 1}
+ ]
+}

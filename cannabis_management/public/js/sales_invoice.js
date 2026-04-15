@@ -1,3 +1,28 @@
+// ── List View Settings ──────────────────────────────────────────────
+// By default Frappe hides cancelled docs (docstatus=2) for submittable doctypes.
+// We remove that restriction and add a visible, removable "Status != Cancelled"
+// filter instead — so users can clear it whenever they want to see cancelled ones.
+frappe.listview_settings["Sales Invoice"] = {
+    onload: function (listview) {
+        // 1. Remove Frappe's default docstatus=1 filter so ALL docs are fetched
+        (listview.filter_area.filter_list || [])
+            .filter(f => f.fieldname === "docstatus")
+            .forEach(f => f.remove());
+
+        // 2. Only add our default if no status filter is already active
+        let current = listview.filter_area.get();
+        let has_status = current.some(f => f[1] === "status");
+        if (!has_status) {
+            listview.filter_area.add([
+                [listview.doctype, "status", "!=", "Cancelled"]
+            ]);
+        }
+
+        listview.refresh();
+    },
+};
+
+// ── Form Settings ───────────────────────────────────────────────────
 frappe.ui.form.on("Sales Invoice", {
     refresh: function (frm) {
         if (frm.doc.docstatus === 1) {

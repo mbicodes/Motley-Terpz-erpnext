@@ -41,6 +41,7 @@
         {
             "fieldname": "lab_tolling_data",
             "fieldtype": "Table",
+            "allow_bulk_edit": 1,
             "label": "Lab Tolling Data",
             "options": "Lab Tolling Data"
         },

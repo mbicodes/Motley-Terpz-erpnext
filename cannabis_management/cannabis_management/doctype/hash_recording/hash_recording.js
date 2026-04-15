@@ -65,6 +65,13 @@ frappe.ui.form.on("Hash Recording", {
 	rate_tolling_partner(frm) {
 		calculate_tolling_partner_charges(frm);
 	},
+
+	// Sync expected_hash_yield to child rows when changed at master level
+	expected_hash_yield(frm) {
+		(frm.doc.table_smqw || []).forEach(row => {
+			frappe.model.set_value(row.doctype, row.name, "expected_yield_to_hash", frm.doc.expected_hash_yield);
+		});
+	},
 });
 
 function calculate_tolling_partner_charges(frm) {
@@ -76,9 +83,9 @@ function calculate_tolling_partner_charges(frm) {
 frappe.ui.form.on("Hash Recording Child", {
 	"150u_hash": (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
 	"120u_hash": (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
-	"90u_hash":  (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
-	"73u_hash":  (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
-	"45u_hash":  (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
+	"90u_hash": (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
+	"73u_hash": (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
+	"45u_hash": (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
 	"25u_hash_copy": (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
 	amount_ran_grams: (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
 	pound_sent: (frm, cdt, cdn) => calculate_total_quantity(frm),
@@ -151,6 +158,7 @@ function fetch_stock_balance_items(frm) {
 				new_row.tooling_partner = tolling_partner; // Correct spelling for child field
 				new_row.date_transferred = item.posting_date;
 				new_row.pound_sent = item.bal_qty;        // Correct spelling for child field (no 's')
+				new_row.expected_yield_to_hash = frm.doc.expected_hash_yield;
 			});
 
 			frm.refresh_field("table_smqw");

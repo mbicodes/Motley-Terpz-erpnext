@@ -1,0 +1,131 @@
+{
+ "charts": [],
+ "content": "[{\"id\":\"9WqxsLmq3F\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h2\\\"><b>How to Send a Tolling Batch</b></span>\",\"col\":12}},{\"id\":\"bQuTinBkd7\",\"type\":\"paragraph\",\"data\":{\"text\":\"<b>Phase 1: Outbound (TSBC Side)</b><i><br>This phase handles the sale and physical removal of biomass from your primary inventory.</i><b><br>1. Sales Order:</b>&nbsp;Initiate a&nbsp;<b>Sales Order</b>&nbsp;from&nbsp;<b>TSBC</b>&nbsp;to&nbsp;<b>Motley</b>.<br><b>2. Sales Invoice:</b>&nbsp;From the Sales Order, click&nbsp;<b>Create &gt; Sales Invoice</b>&nbsp;to document the transaction.<br>3.&nbsp;<i></i><b>Delivery Note:</b>&nbsp;From the Sales Invoice, click&nbsp;<b>Create &gt; Delivery Note</b>&nbsp;to ship the material out of TSBC.\",\"col\":12}},{\"id\":\"bdR00h76eF\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Order\",\"col\":3}},{\"id\":\"H6PseGvidq\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Invoice\",\"col\":3}},{\"id\":\"E1UrINoy41\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Delivery Note\",\"col\":3}},{\"id\":\"6rRyXDloON\",\"type\":\"paragraph\",\"data\":{\"text\":\"<b>Phase 2: Inbound (Motley Side)</b><br><i style=\\\"\\\">This phase automates the purchase and intake of the material into the partner entity.<br></i>4.&nbsp;<b>Inter-company PO:</b> Return to the original <b>Sales Order</b> and click <b>Create &gt; Inter-company Purchase Order</b>.<br>-&nbsp;<i>This will automatically generate the corresponding PO for Motley.</i><br>5.&nbsp;<b>Purchase Receipt:</b> Open the new <b>Purchase Order</b> and click <b>Create &gt; Purchase Receipt</b>.<br>-&nbsp;<b>Note:</b> Ensure the target warehouse is set to <b>Hemet - MT</b>.<br>6.&nbsp;<b>Purchase Invoice:</b> From the Purchase Receipt, click <b>Create &gt; Purchase Invoice</b> to finalize the inbound financial record.<br>\",\"col\":12}},{\"id\":\"A5M1NPInWL\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Purchase Order\",\"col\":4}},{\"id\":\"VLRT1zv34b\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Purchase Receipt\",\"col\":4}},{\"id\":\"DKn_JWPHkm\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Purchase Invoice\",\"col\":4}},{\"id\":\"1J2FAP_66W\",\"type\":\"paragraph\",\"data\":{\"text\":\"<b>Phase 3: Tolling Handover</b><br><i style=\\\"\\\">This phase moves the material from your holding warehouse to the actual Tolling Partner.<br></i>7.&nbsp;<b>Inventory Transfer:</b> Return to the <b>Purchase Receipt</b> and click <b>Create &gt; Make Stock Entry</b>.<br>-&nbsp;<b>Entry Type:</b> Select <b>Material Transfer</b>.<br>-&nbsp;<b>Action:</b> Transfer the material from <b>Hemet - MT</b> to the designated <b>Tolling Partner Warehouse</b>.\",\"col\":12}},{\"id\":\"l54YjWLMVl\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Stock Entry (Material Transfer)\",\"col\":4}},{\"id\":\"CXOIJIOCVu\",\"type\":\"paragraph\",\"data\":{\"text\":\"<span class=\\\"h2\\\">How to Recieve a Tolling Batch</span>\",\"col\":12}},{\"id\":\"oeXO8H-2JN\",\"type\":\"paragraph\",\"data\":{\"text\":\"<b>This is a Step by Step process of how we Toll Fresh Frozen into Extracts and Concentrates.&nbsp;<br>1. Put in a batch Entry<br>2. Record Hash Yield<br>3. Record Rosin Yield&nbsp;<br>4. Do a repack from Fresh Frozen to Extracts<br>5. See the Lab Tolling Report</b>\",\"col\":12}},{\"id\":\"OPZrhKjFRs\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Lab Batch Entry\",\"col\":3}},{\"id\":\"llct2p5rTF\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Hash Recording\",\"col\":3}},{\"id\":\"d3NTcXfWyR\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Rosin Recording\",\"col\":3}},{\"id\":\"VvQkTt7LHe\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Stock Entry\",\"col\":3}},{\"id\":\"elx59dYlMq\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Lab Tolling Report\",\"col\":3}}]",
+ "creation": "2026-03-26 08:47:33.339666",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "fal fa-dolly-flatbed-alt",
+ "idx": 0,
+ "indicator_color": "green",
+ "is_hidden": 0,
+ "label": "Lab Batch",
+ "links": [],
+ "modified": "2026-03-30 12:39:35.907286",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Lab Batch",
+ "number_cards": [],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [
+  {
+   "role": "System Manager"
+  }
+ ],
+ "sequence_id": 46.0,
+ "shortcuts": [
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Sales Order",
+   "link_to": "Sales Order",
+   "stats_filter": "[[\"Sales Order\",\"company\",\"=\",\"TSBC Ranch\",false]]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Purchase Order",
+   "link_to": "Purchase Order",
+   "stats_filter": "[[\"Purchase Order\",\"company\",\"=\",\"Motley Terpz\",false]]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Stock Entry (Material Transfer)",
+   "link_to": "Stock Entry",
+   "stats_filter": "[[\"Stock Entry\",\"stock_entry_type\",\"=\",\"Material Transfer\",false]]",
+   "type": "DocType"
+  },
+  {
+   "color": "Pink",
+   "doc_view": "List",
+   "label": "Lab Batch Entry",
+   "link_to": "Lab Batch Entry",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Hash Recording",
+   "link_to": "Hash Recording",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Sales Invoice",
+   "link_to": "Sales Invoice",
+   "stats_filter": "[[\"Sales Invoice\",\"company\",\"=\",\"TSBC Ranch\",false]]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Purchase Receipt",
+   "link_to": "Purchase Receipt",
+   "stats_filter": "[[\"Purchase Receipt\",\"company\",\"=\",\"Motley Terpz\",false]]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Rosin Recording",
+   "link_to": "Rosin Recording",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Delivery Note",
+   "link_to": "Delivery Note",
+   "stats_filter": "[[\"Delivery Note\",\"company\",\"=\",\"TSBC Ranch\",false]]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Purchase Invoice",
+   "link_to": "Purchase Invoice",
+   "stats_filter": "[[\"Purchase Invoice\",\"company\",\"=\",\"Motley Terpz\",false]]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Stock Entry",
+   "link_to": "Stock Entry",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Lab Tolling Report",
+   "link_to": "Lab Tolling Report",
+   "report_ref_doctype": "Rosin Recording",
+   "restrict_to_domain": "",
+   "type": "Report"
+  }
+ ],
+ "title": "Lab Batch"
+}

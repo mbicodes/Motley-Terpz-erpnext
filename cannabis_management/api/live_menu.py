@@ -4,6 +4,8 @@ import frappe
 @frappe.whitelist(allow_guest=True)
 def get_live_menu_groups():
     """Fetch item groups configured for the live menu, ordered by sequence number."""
+    frappe.response["no_cache"] = 1
+
     groups = frappe.db.sql("""
         SELECT
             ig.name,
@@ -13,6 +15,13 @@ def get_live_menu_groups():
         FROM `tabItem Group` ig
         WHERE ig.is_group = 0
           AND ig.custom_show_in_dashboard = 1
+          AND EXISTS (
+              SELECT 1 FROM `tabItem` i 
+              WHERE i.item_group = ig.name 
+                AND i.custom_show_in_dashboard = 1
+                AND i.disabled = 0
+                AND i.custom_hide_from_client = 0
+          )
         ORDER BY
             CASE
                 WHEN ig.custom_sequence_number IS NOT NULL
@@ -36,6 +45,8 @@ def get_live_menu_items(item_group, menu_type=None):
                    'fresh_frozen' filters to Hemet TSBC - TSBC,
                    None/empty uses both warehouses
     """
+    frappe.response["no_cache"] = 1
+
     group_doc = frappe.db.get_value(
         "Item Group",
         item_group,
@@ -67,6 +78,8 @@ def get_live_menu_items(item_group, menu_type=None):
             {warehouse_condition}
         WHERE i.item_group = %(item_group)s
         AND i.disabled = 0
+        AND i.custom_show_in_dashboard = 1
+        AND i.custom_hide_from_client = 0
         GROUP BY i.item_code, i.item_name
         HAVING (SUM(COALESCE(b.actual_qty, 0)) - SUM(COALESCE(b.reserved_qty, 0))) > 0
         AND (SUM(COALESCE(b.actual_qty, 0)) - SUM(COALESCE(b.reserved_qty, 0))) >= %(min_qty)s

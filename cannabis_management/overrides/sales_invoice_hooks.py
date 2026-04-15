@@ -60,15 +60,18 @@ def check_inventory_and_notify_slack(doc, method):
         label = label_map[item_code]
         suom = uom_map[item_code]
 
+        # Formatting item display to include item_code
+        item_display = "*{0}* (`{1}`)".format(label, item_code) if label != item_code else "`{0}`".format(item_code)
+
         if shortage > 0:
             need_lines.append(
-                "• *{0}* — need *{1:.2f} {2}* (required {3:.2f}, available {4:.2f})".format(
-                    label, shortage, suom, required_qty, available
+                "• {0} — need *{1:.2f} {2}* (required {3:.2f}, available {4:.2f})".format(
+                    item_display, shortage, suom, required_qty, available
                 )
             )
         else:
             ok_lines.append(
-                "• {0} — ok ({1:.2f} {2})".format(label, required_qty, suom)
+                "• {0} — ok ({1:.2f} {2})".format(item_display, required_qty, suom)
             )
 
     header = ":red_circle: Conversion required" if need_lines else ":large_green_circle: No conversion required"

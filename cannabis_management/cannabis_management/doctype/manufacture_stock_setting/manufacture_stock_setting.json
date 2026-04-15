@@ -1,0 +1,87 @@
+{
+    "actions": [],
+    "allow_rename": 1,
+    "creation": "2026-03-30 05:59:01.875110",
+    "doctype": "DocType",
+    "editable_grid": 1,
+    "engine": "InnoDB",
+    "field_order": [
+        "company",
+        "premix_account",
+        "manufacturing_account",
+        "packing_account",
+        "finished_goods_account",
+        "premix_finished_goods_account"
+    ],
+    "fields": [
+        {
+            "fieldname": "company",
+            "fieldtype": "Link",
+            "in_list_view": 1,
+            "in_preview": 1,
+            "in_standard_filter": 1,
+            "label": "Company",
+            "options": "Company"
+        },
+        {
+            "fieldname": "finished_goods_account",
+            "fieldtype": "Link",
+            "in_list_view": 1,
+            "in_preview": 1,
+            "in_standard_filter": 1,
+            "label": "Finished goods Account",
+            "options": "Account"
+        },
+        {
+            "fieldname": "manufacturing_account",
+            "fieldtype": "Link",
+            "in_list_view": 1,
+            "in_preview": 1,
+            "in_standard_filter": 1,
+            "label": "Manufacturing Account",
+            "options": "Account"
+        },
+        {
+            "fieldname": "packing_account",
+            "fieldtype": "Link",
+            "in_list_view": 1,
+            "in_preview": 1,
+            "in_standard_filter": 1,
+            "label": "Packing Account",
+            "options": "Account"
+        },
+        {
+            "fieldname": "premix_account",
+            "fieldtype": "Link",
+            "in_list_view": 1,
+            "in_preview": 1,
+            "in_standard_filter": 1,
+            "label": "Premix Account",
+            "options": "Account"
+        },
+        {
+            "fieldname": "premix_finished_goods_account",
+            "fieldtype": "Link",
+            "in_list_view": 1,
+            "in_preview": 1,
+            "in_standard_filter": 1,
+            "label": "Premix FInished Goods Account",
+            "options": "Account"
+        }
+    ],
+    "grid_page_length": 50,
+    "index_web_pages_for_search": 1,
+    "istable": 1,
+    "links": [],
+    "modified": "2026-03-30 05:59:01.875110",
+    "modified_by": "Administrator",
+    "module": "Cannabis Management",
+    "name": "Manufacture Stock Setting",
+    "owner": "Administrator",
+    "permissions": [],
+    "row_format": "Dynamic",
+    "rows_threshold_for_grid_search": 20,
+    "sort_field": "modified",
+    "sort_order": "DESC",
+    "states": []
+}

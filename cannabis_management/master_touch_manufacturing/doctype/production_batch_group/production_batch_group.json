@@ -1,0 +1,267 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "naming_series:",
+ "creation": "2026-04-14 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "batch_name",
+  "strain_name",
+  "source_entity",
+  "column_break_a",
+  "status",
+  "work_order_ref",
+  "purchase_receipt_ref",
+  "section_ff_weight",
+  "ff_weight_received_lbs",
+  "ff_weight_received_g",
+  "section_yield_summary",
+  "total_bubble_yield_g",
+  "ff_to_bubble_yield_pct",
+  "column_break_b",
+  "total_rosin_yield_g",
+  "bubble_to_rosin_yield_pct",
+  "section_cost",
+  "total_material_cost",
+  "total_labor_cost",
+  "column_break_c",
+  "total_overhead_cost",
+  "cost_per_gram_bubble",
+  "cost_per_gram_rosin",
+  "section_wash_batches",
+  "wash_batches",
+  "section_press_batches",
+  "press_batches",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "options": "PBG-.YYYY.-WW.-.###",
+   "set_only_once": 1
+  },
+  {
+   "fieldname": "batch_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Batch Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "strain_name",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Strain (FF Item)",
+   "options": "Item",
+   "reqd": 1
+  },
+  {
+   "fieldname": "source_entity",
+   "fieldtype": "Link",
+   "label": "Source Entity (Supplier)",
+   "options": "Supplier",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_a",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Status",
+   "options": "\nOpen\nIn Wash\nIn Press\nInventory Verification\nClosed",
+   "reqd": 1
+  },
+  {
+   "fieldname": "work_order_ref",
+   "fieldtype": "Link",
+   "label": "Work Order",
+   "options": "Work Order"
+  },
+  {
+   "fieldname": "purchase_receipt_ref",
+   "fieldtype": "Link",
+   "label": "Purchase Receipt",
+   "options": "Purchase Receipt"
+  },
+  {
+   "fieldname": "section_ff_weight",
+   "fieldtype": "Section Break",
+   "label": "Fresh Frozen Weight"
+  },
+  {
+   "fieldname": "ff_weight_received_lbs",
+   "fieldtype": "Float",
+   "label": "FF Weight Received (LBS)",
+   "reqd": 1
+  },
+  {
+   "fieldname": "ff_weight_received_g",
+   "fieldtype": "Float",
+   "label": "FF Weight Received (g)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_yield_summary",
+   "fieldtype": "Section Break",
+   "label": "Yield Summary"
+  },
+  {
+   "fieldname": "total_bubble_yield_g",
+   "fieldtype": "Float",
+   "label": "Total Bubble Hash Yield (g)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "ff_to_bubble_yield_pct",
+   "fieldtype": "Percent",
+   "label": "FF → Bubble Yield %",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_b",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "total_rosin_yield_g",
+   "fieldtype": "Float",
+   "label": "Total Rosin Yield (g)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "bubble_to_rosin_yield_pct",
+   "fieldtype": "Percent",
+   "label": "Bubble → Rosin Yield %",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_cost",
+   "fieldtype": "Section Break",
+   "label": "Cost Summary"
+  },
+  {
+   "fieldname": "total_material_cost",
+   "fieldtype": "Currency",
+   "label": "Total Material Cost",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_labor_cost",
+   "fieldtype": "Currency",
+   "label": "Total Labor Cost",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_c",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "total_overhead_cost",
+   "fieldtype": "Currency",
+   "label": "Total Overhead Cost",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cost_per_gram_bubble",
+   "fieldtype": "Currency",
+   "label": "Cost per Gram (Bubble Hash)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cost_per_gram_rosin",
+   "fieldtype": "Currency",
+   "label": "Cost per Gram (Rosin)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_wash_batches",
+   "fieldtype": "Section Break",
+   "label": "Wash Batches"
+  },
+  {
+   "fieldname": "wash_batches",
+   "fieldtype": "Table",
+   "label": "Wash Batches",
+   "options": "Wash Batch Link"
+  },
+  {
+   "fieldname": "section_press_batches",
+   "fieldtype": "Section Break",
+   "label": "Press Batches"
+  },
+  {
+   "fieldname": "press_batches",
+   "fieldtype": "Table",
+   "label": "Press Batches",
+   "options": "Press Batch Link"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Text",
+   "label": "Notes"
+  }
+ ],
+ "in_create": 0,
+ "index_web_pages_for_search": 1,
+ "is_submittable": 0,
+ "links": [],
+ "modified": "2026-04-14 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Master Touch Manufacturing",
+ "name": "Production Batch Group",
+ "naming_rule": "By Naming Series",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Lab Supervisor",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production Manager",
+   "write": 1
+  },
+  {
+   "read": 1,
+   "report": 1,
+   "role": "Lab Tech"
+  }
+ ],
+ "quick_entry": 0,
+ "search_fields": "batch_name,strain_name,status",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "batch_name",
+ "track_changes": 1
+}

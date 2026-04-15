@@ -53,6 +53,10 @@ def execute(filters=None):
 				"purchase_date",
 				"supplier",
 				"purchase_rate",
+				"ff_purchase_rate",
+				"repack_valuation_increase",
+				"ff_to_hash_yield",
+				"hash_to_rosin_yield",
 			],
 			"item_code": [
 				"item_code",
@@ -71,6 +75,10 @@ def execute(filters=None):
 				"purchase_date",
 				"supplier",
 				"purchase_rate",
+				"ff_purchase_rate",
+				"repack_valuation_increase",
+				"ff_to_hash_yield",
+				"hash_to_rosin_yield",
 			],
 			"warehouse": [
 				"warehouse",
@@ -418,6 +426,32 @@ def get_columns(group_wise_columns, filters):
 				"options": "currency",
 				"width": 120,
 			},
+			"ff_purchase_rate": {
+				"label": _("Fresh Frozen Purchase Rate"),
+				"fieldname": "ff_purchase_rate",
+				"fieldtype": "Currency",
+				"options": "currency",
+				"width": 150,
+			},
+			"repack_valuation_increase": {
+				"label": _("Repack Valuation Increase"),
+				"fieldname": "repack_valuation_increase",
+				"fieldtype": "Currency",
+				"options": "currency",
+				"width": 160,
+			},
+			"ff_to_hash_yield": {
+				"label": _("FF to Hash Yield %"),
+				"fieldname": "ff_to_hash_yield",
+				"fieldtype": "Percent",
+				"width": 130,
+			},
+			"hash_to_rosin_yield": {
+				"label": _("Hash to Rosin %"),
+				"fieldname": "hash_to_rosin_yield",
+				"fieldtype": "Percent",
+				"width": 130,
+			},
 			"cost_center": {
 				"label": _("Cost Center"),
 				"fieldname": "cost_center",
@@ -528,6 +562,10 @@ def get_column_names():
 			"purchase_date": "purchase_date",
 			"supplier": "supplier",
 			"purchase_rate": "purchase_rate",
+			"ff_purchase_rate": "ff_purchase_rate",
+			"repack_valuation_increase": "repack_valuation_increase",
+			"ff_to_hash_yield": "ff_to_hash_yield",
+			"hash_to_rosin_yield": "hash_to_rosin_yield",
 		}
 	)
 
@@ -541,7 +579,9 @@ class GrossProfitGenerator:
 		self.load_invoice_items()
 		self.get_delivery_notes()
 		self.load_purchase_data()
-		self.load_sales_history()
+		self.load_ff_purchase_data()
+		self.load_yield_data()
+		self.load_repack_valuation_data()
 
 		self.load_product_bundle()
 		if filters.group_by == "Invoice":
@@ -649,6 +689,25 @@ class GrossProfitGenerator:
 					row.purchase_date = latest.posting_date
 					row.supplier = latest.supplier
 					row.purchase_rate = latest.rate
+
+				# Attach new data via project/batch
+				project = row.get("project")
+				if project:
+					# Fresh Frozen Purchase Rate
+					ff_data = self.ff_purchase_data.get(project)
+					if ff_data:
+						row.ff_purchase_rate = ff_data.get("rate", 0)
+
+					# Yield percentages from Lab Tolling Data
+					yield_info = self.yield_data.get(project)
+					if yield_info:
+						row.ff_to_hash_yield = yield_info.get("ff_to_hash_yield", 0)
+						row.hash_to_rosin_yield = yield_info.get("hash_to_rosin_yield", 0)
+
+					# Repack valuation increase
+					repack_info = self.repack_data.get(project)
+					if repack_info:
+						row.repack_valuation_increase = repack_info.get("valuation_increase", 0)
 
 			# add to grouped
 			self.grouped.setdefault(row.get(scrub(self.filters.group_by)), []).append(row)
@@ -1103,35 +1162,7 @@ class GrossProfitGenerator:
 					})
 					grouped.get(row.parent).append(trail_row)
 
-			# Add previous sales history sub-rows for this item
-			if row.item_code:
-				past_sales = self.sales_history.get(row.item_code, [])
-				for sale in past_sales:
-					# Only show sales before the current row's posting date to count as "previous"
-					if sale.posting_date < row.posting_date:
-						sale_row = frappe._dict({
-							"parent_invoice": row.item_code,
-							"indent": 2.0,
-							"parent": None,
-							"invoice_or_item": f"Past Sale: {sale.customer}",
-							"posting_date": sale.posting_date,
-							"item_code": row.item_code,
-							"item_name": None,
-							"description": None,
-							"warehouse": sale.warehouse,
-							"qty": sale.qty,
-							"base_rate": flt(sale.base_net_rate),
-							"buying_rate": None,
-							"base_amount": flt(sale.base_net_amount),
-							"buying_amount": None,
-							"base_net_amount": 0,
-							"gross_profit": None,
-							"gross_profit_percent": None,
-							"is_return": 0,
-							"item_row": None,
-							"is_trail_row": True, # Reuse this to skip processing in process()
-						})
-						grouped.get(row.parent).append(sale_row)
+
 
 			# if item is a bundle, add it's components as seperate rows
 			if bundled_items := product_bundles.get(row.parent, {}).get(row.item_code):
@@ -1384,38 +1415,111 @@ class GrossProfitGenerator:
 
 		return self.sle[trail_key]
 
-	def load_sales_history(self):
-		"""Load previous sales history for all sold items.
-		Fetches from Sales Invoice Item, keyed by item_code.
-		Only considers sales before the current report's 'to_date'.
-		"""
-		self.sales_history = {}
+	def load_ff_purchase_data(self):
+		"""Load fresh frozen purchase rates from Purchase Receipts, keyed by project."""
+		self.ff_purchase_data = {}
 		if not self.si_list:
 			return
 
-		item_codes = list(set(row.item_code for row in self.si_list if row.item_code))
-		if not item_codes:
+		projects = list(set(row.project for row in self.si_list if row.get("project")))
+		if not projects:
 			return
 
-		# Fetch previous sales from Sales Invoices
-		sales_data = frappe.db.sql("""
+		ff_data = frappe.db.sql("""
 			SELECT
-				si.posting_date,
-				si.customer,
-				si.customer_name,
-				si.name as voucher_no,
-				sii.item_code,
-				sii.qty,
-				sii.base_net_rate,
-				sii.base_net_amount,
-				sii.warehouse
-			FROM `tabSales Invoice` si
-			INNER JOIN `tabSales Invoice Item` sii ON sii.parent = si.name
-			WHERE si.docstatus = 1
-				AND sii.item_code IN %(item_codes)s
-				AND si.posting_date < %(to_date)s
-			ORDER BY si.posting_date DESC
-		""", {"item_codes": item_codes, "to_date": self.filters.to_date}, as_dict=True)
+				pri.project,
+				pri.base_rate as rate,
+				pr.posting_date
+			FROM `tabPurchase Receipt` pr
+			INNER JOIN `tabPurchase Receipt Item` pri ON pri.parent = pr.name
+			WHERE pr.docstatus = 1
+				AND pri.project IN %(projects)s
+			ORDER BY pr.posting_date DESC
+		""", {"projects": projects}, as_dict=True)
 
-		for record in sales_data:
-			self.sales_history.setdefault(record.item_code, []).append(record)
+		# Keep the most recent purchase rate per project
+		for record in ff_data:
+			if record.project not in self.ff_purchase_data:
+				self.ff_purchase_data[record.project] = record
+
+	def load_yield_data(self):
+		"""Load yield percentages from Lab Tolling Data, keyed by batch_no (project)."""
+		self.yield_data = {}
+		if not self.si_list:
+			return
+
+		projects = list(set(row.project for row in self.si_list if row.get("project")))
+		if not projects:
+			return
+
+		yield_rows = frappe.db.sql("""
+			SELECT
+				ltd.batch_no,
+				ltd.actual_yield_to_hash,
+				ltd.yield_to_hash,
+				ltd.hash_to_rosin_,
+				ltd.actual_rosin_yield
+			FROM `tabLab Tolling Data` ltd
+			INNER JOIN `tabRosin Recording` rr ON rr.name = ltd.parent
+			WHERE rr.docstatus = 1
+				AND ltd.batch_no IN %(projects)s
+		""", {"projects": projects}, as_dict=True)
+
+		for row in yield_rows:
+			if row.batch_no not in self.yield_data:
+				ff_to_hash = flt(row.actual_yield_to_hash) or flt(row.yield_to_hash)
+				hash_to_rosin = flt(row.hash_to_rosin_) or flt(row.actual_rosin_yield)
+				self.yield_data[row.batch_no] = {
+					"ff_to_hash_yield": ff_to_hash,
+					"hash_to_rosin_yield": hash_to_rosin,
+				}
+
+	def load_repack_valuation_data(self):
+		"""Load repack valuation increase from Stock Entry (Repack), keyed by project.
+		Calculates: finished good basic_rate - raw material basic_rate.
+		"""
+		self.repack_data = {}
+		if not self.si_list:
+			return
+
+		projects = list(set(row.project for row in self.si_list if row.get("project")))
+		if not projects:
+			return
+
+		# Find Repack Stock Entries linked via Rosin Recording
+		repack_entries = frappe.db.sql("""
+			SELECT
+				rr.batch as project,
+				se.name as stock_entry,
+				sed.item_code,
+				sed.basic_rate,
+				sed.s_warehouse,
+				sed.t_warehouse
+			FROM `tabStock Entry` se
+			INNER JOIN `tabStock Entry Detail` sed ON sed.parent = se.name
+			INNER JOIN `tabRosin Recording` rr ON rr.name = se.custom_rosin_recording_reference
+			WHERE se.docstatus = 1
+				AND se.stock_entry_type = 'Repack'
+				AND rr.batch IN %(projects)s
+			ORDER BY se.posting_date DESC
+		""", {"projects": projects}, as_dict=True)
+
+		# Group by project and compute valuation increase
+		project_entries = {}
+		for entry in repack_entries:
+			project_entries.setdefault(entry.project, {}).setdefault(entry.stock_entry, []).append(entry)
+
+		for project, se_groups in project_entries.items():
+			if project in self.repack_data:
+				continue
+			# Use the first (most recent) stock entry
+			for se_name, items in se_groups.items():
+				raw_rates = [flt(i.basic_rate) for i in items if i.s_warehouse and not i.t_warehouse]
+				finished_rates = [flt(i.basic_rate) for i in items if i.t_warehouse and not i.s_warehouse]
+				if raw_rates and finished_rates:
+					avg_raw = sum(raw_rates) / len(raw_rates)
+					avg_finished = sum(finished_rates) / len(finished_rates)
+					self.repack_data[project] = {
+						"valuation_increase": flt(avg_finished - avg_raw),
+					}
+				break
