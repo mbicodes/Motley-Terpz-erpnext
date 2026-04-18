@@ -352,3 +352,76 @@ def get_sales_this_month():
 @frappe.whitelist()
 def get_timesheets_this_month():
     return get_timesheets_by_period(period='monthly')
+
+@frappe.whitelist()
+def get_sample_giveaway(period='monthly', month_offset=0):
+    """
+    All submitted Sales Invoice line items where the parent invoice has
+    custom_order_type = 'Samples', filtered by period.
+    Returns one row per line item: item_name, item_group, qty, uom,
+    customer (given_to), posting_date (given_on), company.
+
+    period:       'weekly' | 'monthly' | 'overall'
+    month_offset: integer — 0 = current month, -1 = last month, etc.
+                  Only applied when period == 'monthly'
+    """
+    if not frappe.has_permission('Sales Invoice', 'read'):
+        frappe.throw('Not permitted', frappe.PermissionError)
+
+    month_offset = frappe.utils.cint(month_offset)
+
+    if period == 'monthly' and month_offset != 0:
+        # Shift the reference date by month_offset months then get first/last day
+        ref_date  = frappe.utils.add_months(frappe.utils.nowdate(), month_offset)
+        from_date = frappe.utils.get_first_day(ref_date)
+        to_date   = frappe.utils.get_last_day(ref_date)
+        import datetime
+        label = datetime.date(
+            int(str(from_date)[:4]),
+            int(str(from_date)[5:7]),
+            1
+        ).strftime('%B %Y')
+    else:
+        from_date, to_date = _get_date_range(period)
+        label = None  # frontend will use its own label for offset=0
+
+    conditions = "si.docstatus = 1 AND si.custom_order_type = 'Samples'"
+    args = {}
+
+    if from_date:
+        conditions += ' AND si.posting_date >= %(from_date)s'
+        args['from_date'] = str(from_date)
+    if to_date:
+        conditions += ' AND si.posting_date <= %(to_date)s'
+        args['to_date'] = str(to_date)
+
+    rows = frappe.db.sql(f"""
+        SELECT
+            si.posting_date                 AS given_on,
+            si.customer_name                AS given_to,
+            si.customer                     AS customer_id,
+            si.name                         AS invoice_id,
+            si.company,
+            sii.item_code,
+            sii.item_name,
+            sii.item_group,
+            sii.qty,
+            sii.uom
+        FROM `tabSales Invoice` si
+        INNER JOIN `tabSales Invoice Item` sii ON sii.parent = si.name
+        WHERE {conditions}
+        ORDER BY si.posting_date DESC, si.customer_name ASC, sii.item_name ASC
+    """, args, as_dict=True)
+
+    total_qty = sum(float(r.qty or 0) for r in rows)
+
+    return {
+        'period':       period,
+        'month_offset': month_offset,
+        'from_date':    str(from_date) if from_date else None,
+        'to_date':      str(to_date)   if to_date   else None,
+        'label':        label,
+        'total_qty':    total_qty,
+        'count':        len(rows),
+        'rows':         rows,
+    }

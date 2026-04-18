@@ -1,0 +1,89 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-04-16 11:26:25.167397",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "micron_size",
+  "grams_collected",
+  "metrc_tag",
+  "quality_grade",
+  "collected_by",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "micron_size",
+   "fieldtype": "Select",
+   "label": "Micron Size",
+   "options": "150U\n120U\n90U\n73U\n45U\n25U",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 2,
+   "idx": 1
+  },
+  {
+   "fieldname": "grams_collected",
+   "fieldtype": "Float",
+   "label": "Grams Collected",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 2,
+   "idx": 2
+  },
+  {
+   "fieldname": "metrc_tag",
+   "fieldtype": "Data",
+   "label": "METRC Tag",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 2,
+   "idx": 3
+  },
+  {
+   "fieldname": "quality_grade",
+   "fieldtype": "Select",
+   "label": "Quality Grade",
+   "options": "Full Melt\n4-Star\n3-Star\n2-Star\nFood Grade",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 2,
+   "idx": 4
+  },
+  {
+   "fieldname": "collected_by",
+   "fieldtype": "Link",
+   "label": "Collected By",
+   "options": "Employee",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 2,
+   "idx": 5
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Text",
+   "label": "Notes",
+   "reqd": 0,
+   "in_list_view": 0,
+   "idx": 6
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-04-16 11:26:25.167397",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Micron Collection Detail",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

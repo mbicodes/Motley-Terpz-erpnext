@@ -63,6 +63,197 @@ class RosinRecording(Document):
 			frappe.log_error(message=frappe.get_traceback(), title="Rosin Recording Stock Entry Creation Failed")
 			frappe.msgprint(_("Failed to create Stock Entry. Please check Error Log for details."), indicator="red")
 
+		# Send batch close-out notification email
+		try:
+			self._send_batch_closeout_email()
+		except Exception as e:
+			frappe.log_error(message=frappe.get_traceback(), title="Rosin Recording Email Notification Failed")
+			frappe.msgprint(_("Failed to send close-out email. Please check Error Log for details."), indicator="orange")
+
+	def _send_batch_closeout_email(self):
+		"""Send a close-out summary email when a Rosin Recording is submitted."""
+
+		# ── 1. Find the Lab Batch Entry ──────────────────────────────────────
+		lab_batch_name = frappe.db.get_value(
+			"Lab Batch Entry",
+			{
+				"batchproject": self.batch,
+				"tolling_partner": self.tolling_partner,
+			},
+			"name"
+		)
+
+		from_date = None
+		to_date   = frappe.utils.today()
+
+		if lab_batch_name:
+			lab_batch = frappe.get_doc("Lab Batch Entry", lab_batch_name)
+			if lab_batch.lab_batch_entry_child:
+				from_date = lab_batch.lab_batch_entry_child[0].date_transferred
+
+		from_date_str = str(from_date) if from_date else "2000-01-01"
+		to_date_str   = str(to_date)
+
+		# ── 2. Build the query-report link ────────────────────────────────────
+		import urllib.parse
+		report_url = (
+			"https://erp.motleyterpz.io/app/query-report/Lab%20Tolling%20Report"
+			"?tolling_partner={tp}&batch={batch}&from_date={fd}&to_date={td}".format(
+				tp=urllib.parse.quote(str(self.tolling_partner or ""), safe=""),
+				batch=urllib.parse.quote(str(self.batch or ""), safe=""),
+				fd=urllib.parse.quote(from_date_str, safe=""),
+				td=urllib.parse.quote(to_date_str, safe=""),
+			)
+		)
+
+		# ── 3. Build the HTML table rows from lab_tolling_data ────────────────
+		rows_html = ""
+		for row in self.lab_tolling_data:
+			rows_html += """
+			<tr>
+				<td style="padding:9px 12px;border-bottom:1px solid #f1f5f9">{strain}</td>
+				<td style="padding:9px 12px;border-bottom:1px solid #f1f5f9;text-align:right;font-family:monospace">{lbs_sent}</td>
+				<td style="padding:9px 12px;border-bottom:1px solid #f1f5f9;text-align:right;font-family:monospace">{lbs_ran}</td>
+				<td style="padding:9px 12px;border-bottom:1px solid #f1f5f9;text-align:right;font-family:monospace">{amt_ran_g}</td>
+				<td style="padding:9px 12px;border-bottom:1px solid #f1f5f9;text-align:right;font-family:monospace">{total_hash}</td>
+				<td style="padding:9px 12px;border-bottom:1px solid #f1f5f9;text-align:right;font-family:monospace">{actual_hash_yield}</td>
+				<td style="padding:9px 12px;border-bottom:1px solid #f1f5f9;text-align:right;font-family:monospace;color:#94a3b8">{exp_hash_yield}</td>
+				<td style="padding:9px 12px;border-bottom:1px solid #f1f5f9;text-align:right;font-family:monospace">{total_rosin}</td>
+				<td style="padding:9px 12px;border-bottom:1px solid #f1f5f9;text-align:right;font-family:monospace">{actual_rosin_yield}</td>
+				<td style="padding:9px 12px;border-bottom:1px solid #f1f5f9;text-align:right;font-family:monospace;color:#94a3b8">{exp_rosin_yield}</td>
+				<td style="padding:9px 12px;border-bottom:1px solid #f1f5f9;text-align:right;font-family:monospace;color:#059669">{prime}</td>
+				<td style="padding:9px 12px;border-bottom:1px solid #f1f5f9;text-align:right;font-family:monospace;color:#d97706">{subprime}</td>
+			</tr>""".format(
+				strain             = frappe.utils.escape_html(str(row.strain_name or "—")),
+				lbs_sent           = frappe.utils.fmt_money(row.pounds_sent or 0, precision=4),
+				lbs_ran            = frappe.utils.fmt_money(row.pounds_ran or 0, precision=4),
+				amt_ran_g          = frappe.utils.fmt_money(row.amount_ran_grams or 0, precision=2),
+				total_hash         = frappe.utils.fmt_money(row.total_hash or 0, precision=2),
+				actual_hash_yield  = "{:.2f}%".format(flt(row.actual_yield_to_hash)),
+				exp_hash_yield     = "{:.2f}%".format(flt(row.expected_hash_yield or row.get("expected__yield__to_hash") or 0)),
+				total_rosin        = frappe.utils.fmt_money(row.total_rosin or 0, precision=2),
+				actual_rosin_yield = "{:.2f}%".format(flt(row.actual_rosin_yield)),
+				exp_rosin_yield    = "{:.2f}%".format(flt(row.expected_rosin_yield or self.expected_rosin_yield or 0)),
+				prime              = frappe.utils.fmt_money(row.prime_inventory_total_tolled or 0, precision=4),
+				subprime           = frappe.utils.fmt_money(row.subprime_total_tolled or 0, precision=4),
+			)
+
+		message = """
+<div style="font-family:Arial,sans-serif;max-width:960px;margin:0 auto;color:#1e293b">
+
+  <div style="background:#1e293b;padding:24px 32px;border-radius:10px 10px 0 0">
+    <h1 style="margin:0;font-size:20px;color:#fff;font-weight:700;letter-spacing:-0.3px">
+      Batch Close-Out Report
+    </h1>
+    <p style="margin:6px 0 0;font-size:13px;color:#94a3b8">
+      {batch} &nbsp;&middot;&nbsp; {tolling_partner} &nbsp;&middot;&nbsp; Submitted {today}
+    </p>
+  </div>
+
+  <div style="background:#f8fafc;padding:20px 32px;border:1px solid #e2e8f0;border-top:none">
+
+    <!-- Summary strip -->
+    <table style="width:100%;border-collapse:collapse;margin-bottom:20px">
+      <tr>
+        <td style="padding:12px 16px;background:#fff;border:1px solid #e2e8f0;border-radius:8px;text-align:center;width:25%">
+          <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Total Lbs Sent</div>
+          <div style="font-size:22px;font-weight:700;color:#7c3aed">{total_qty}</div>
+        </td>
+        <td style="width:12px"></td>
+        <td style="padding:12px 16px;background:#fff;border:1px solid #e2e8f0;border-radius:8px;text-align:center;width:25%">
+          <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Tolling Charges</div>
+          <div style="font-size:22px;font-weight:700;color:#b45309">${tolling_charges}</div>
+        </td>
+        <td style="width:12px"></td>
+        <td style="padding:12px 16px;background:#fff;border:1px solid #e2e8f0;border-radius:8px;text-align:center;width:25%">
+          <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Date Range</div>
+          <div style="font-size:14px;font-weight:700;color:#1e293b">{from_date} &rarr; {to_date}</div>
+        </td>
+        <td style="width:12px"></td>
+        <td style="padding:12px 20px;background:#7c3aed;border-radius:8px;text-align:center;vertical-align:middle;width:25%">
+          <a href="{report_url}" style="color:#fff;font-size:13px;font-weight:700;text-decoration:none;display:block">
+            View Full Report &rarr;
+          </a>
+        </td>
+      </tr>
+    </table>
+
+    <!-- Detail table -->
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;background:#fff;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden">
+        <thead>
+          <tr style="background:#f1f5f9">
+            <th style="padding:9px 12px;text-align:left;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.07em;border-bottom:1px solid #e2e8f0">Strain</th>
+            <th style="padding:9px 12px;text-align:right;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.07em;border-bottom:1px solid #e2e8f0">Lbs Sent</th>
+            <th style="padding:9px 12px;text-align:right;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.07em;border-bottom:1px solid #e2e8f0">Lbs Ran</th>
+            <th style="padding:9px 12px;text-align:right;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.07em;border-bottom:1px solid #e2e8f0">Grams Ran</th>
+            <th style="padding:9px 12px;text-align:right;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.07em;border-bottom:1px solid #e2e8f0">Total Hash</th>
+            <th style="padding:9px 12px;text-align:right;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.07em;border-bottom:1px solid #e2e8f0">Hash Yield (Act)</th>
+            <th style="padding:9px 12px;text-align:right;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.07em;border-bottom:1px solid #e2e8f0">Hash Yield (Exp)</th>
+            <th style="padding:9px 12px;text-align:right;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.07em;border-bottom:1px solid #e2e8f0">Total Rosin</th>
+            <th style="padding:9px 12px;text-align:right;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.07em;border-bottom:1px solid #e2e8f0">Rosin Yield (Act)</th>
+            <th style="padding:9px 12px;text-align:right;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.07em;border-bottom:1px solid #e2e8f0">Rosin Yield (Exp)</th>
+            <th style="padding:9px 12px;text-align:right;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.07em;border-bottom:1px solid #e2e8f0">Prime (lbs)</th>
+            <th style="padding:9px 12px;text-align:right;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.07em;border-bottom:1px solid #e2e8f0">Subprime (lbs)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows_html}
+        </tbody>
+      </table>
+    </div>
+
+    <p style="margin:20px 0 0;font-size:11px;color:#94a3b8;text-align:center">
+      Automated notification from Motley Terpz ERP &nbsp;&middot;&nbsp;
+      <a href="https://erp.motleyterpz.io/app/rosin-recording/{doc_name}" style="color:#7c3aed">View Rosin Recording</a>
+    </p>
+  </div>
+</div>
+""".format(
+			batch           = frappe.utils.escape_html(str(self.batch or self.name)),
+			tolling_partner = frappe.utils.escape_html(str(self.tolling_partner or "")),
+			today           = frappe.utils.formatdate(frappe.utils.today(), "MMM d, yyyy"),
+			total_qty       = "{:.4f}".format(flt(self.total_quantity)),
+			tolling_charges = "{:,.2f}".format(flt(self.tolling_partner_charges)),
+			from_date       = frappe.utils.formatdate(from_date_str, "MMM d, yyyy") if from_date else "&mdash;",
+			to_date         = frappe.utils.formatdate(to_date_str, "MMM d, yyyy"),
+			report_url      = report_url,
+			rows_html       = rows_html,
+			doc_name        = self.name,
+		)
+
+		# ── 5. Resolve recipients ──────────────────────────────────────────────
+		recipients = frappe.db.get_single_value("Cannabis Management Settings", "batch_closeout_email") or ""
+		recipient_list = [r.strip() for r in recipients.split(",") if r.strip()]
+
+		# Always include the submitting user
+		submitter_email = frappe.db.get_value("User", frappe.session.user, "email")
+		if submitter_email and submitter_email not in recipient_list:
+			recipient_list.append(submitter_email)
+
+		if not recipient_list:
+			frappe.log_error(
+				message="No recipients configured for batch close-out email.",
+				title="Rosin Recording Email: No Recipients"
+			)
+			return
+
+		# ── 6. Send ───────────────────────────────────────────────────────────
+		frappe.sendmail(
+			recipients = recipient_list,
+			subject    = "Batch Closed: {batch} — {tolling_partner}".format(
+				batch           = self.batch or self.name,
+				tolling_partner = self.tolling_partner or "",
+			),
+			message    = message,
+			now        = True,
+		)
+
+		frappe.msgprint(
+			_("Close-out email sent to: {0}").format(", ".join(recipient_list)),
+			alert=True,
+		)
+
 	def _update_lab_batch_status(self):
 		"""Update linked Lab Batch Entry status to Rosin Produced."""
 		hash_rec_name = self.hash_reference

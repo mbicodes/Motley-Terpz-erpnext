@@ -170,8 +170,10 @@ doc_events = {
         "before_submit": "cannabis_management.master_touch_manufacturing.overrides.stock_entry.before_submit",
         "on_submit": "cannabis_management.master_touch_manufacturing.overrides.stock_entry.on_submit",
     },
-    "Sales Invoice": {
-        "on_submit": "cannabis_management.overrides.sales_invoice_hooks.check_inventory_and_notify_slack"
+    "Sales Order": {
+        "on_submit": "cannabis_management.overrides.sales_invoice_hooks.check_inventory_and_notify_slack",
+        "on_submit": "cannabis_management.overrides.payment_overdue_alert.on_sales_invoice_submit"
+
     },
     "Delivery Note": {
         "on_update": "cannabis_management.overrides.delivery_note_hooks.update_sales_invoice_delivery_status",
@@ -190,7 +192,13 @@ doc_events = {
     },
     # MTM: Job Card completion → clock-out, notify Slack
     "Job Card": {
-        "on_submit": "cannabis_management.master_touch_manufacturing.overrides.job_card.on_submit",
+        "validate": [
+            "cannabis_management.hooks.job_card.validate",
+        ],
+        "on_submit": [
+            "cannabis_management.hooks.job_card.validate",
+            "cannabis_management.master_touch_manufacturing.overrides.job_card.on_submit",
+        ],
     },
     # MTM: Purchase Receipt — weight variance, FF batch creation, retag alerts
     "Purchase Receipt": {
@@ -228,6 +236,20 @@ scheduler_events = {
         # MTM: stale batch alerts
         "cannabis_management.master_touch_manufacturing.tasks.daily",
     ],
+    # Sales Order delivery-date reminder fires at 10:00 AM Eastern (EDT = UTC-4 → 14:00 UTC).
+    # Note: during EST (Nov–Mar, UTC-5) this fires at 9:00 AM Eastern.
+    "cron": {
+        "0 14 * * *": [
+            "cannabis_management.overrides.sales_order_delivery_reminder.send_delivery_date_reminders",
+        ],
+        # Payment overdue check: Mon–Fri at 9 AM EST (UTC-4 EDT → 13:00 UTC; UTC-5 EST → 14:00 UTC)
+        "0 14 * * *": [
+            "cannabis_management.overrides.sales_order_delivery_reminder.send_delivery_date_reminders",
+        ],
+        "0 14 * * 5": [
+            "cannabis_management.overrides.payment_overdue_alert.friday_overdue_report",
+        ],
+    },
     "weekly": [
         # MTM: weekly production summary to Slack
         "cannabis_management.master_touch_manufacturing.tasks.weekly",

@@ -10,12 +10,12 @@ def check_inventory_and_notify_slack(doc, method):
     SLACK_CHANNEL = "#conversions-motley"
 
     frappe.log_error(
-        "Slack hook triggered for Sales Invoice: {0}, Company: {1}".format(doc.name, doc.company),
+        "Slack hook triggered for Sales Order: {0}, Company: {1}".format(doc.name, doc.company),
         "Motley Terpz Slack - Hook Triggered"
     )
 
     if doc.company != TARGET_COMPANY:
-        msg = "Slack notification skipped: Invoice {0} belongs to company '{1}', expected '{2}'.".format(
+        msg = "Slack notification skipped: Sales Order {0} belongs to company '{1}', expected '{2}'.".format(
             doc.name, doc.company, TARGET_COMPANY
         )
         frappe.log_error(msg, "Motley Terpz Slack - Skipped")
@@ -40,7 +40,7 @@ def check_inventory_and_notify_slack(doc, method):
         required_map[row.item_code] = required_map.get(row.item_code, 0) + required_qty
 
     if not required_map:
-        msg = "Slack notification skipped: No items with item_code found in invoice {0}.".format(doc.name)
+        msg = "Slack notification skipped: No items with item_code found in Sales Order {0}.".format(doc.name)
         frappe.log_error(msg, "Motley Terpz Slack - No Items")
         return
 
@@ -60,7 +60,6 @@ def check_inventory_and_notify_slack(doc, method):
         label = label_map[item_code]
         suom = uom_map[item_code]
 
-        # Formatting item display to include item_code
         item_display = "*{0}* (`{1}`)".format(label, item_code) if label != item_code else "`{0}`".format(item_code)
 
         if shortage > 0:
@@ -75,7 +74,7 @@ def check_inventory_and_notify_slack(doc, method):
             )
 
     header = ":red_circle: Conversion required" if need_lines else ":large_green_circle: No conversion required"
-    invoice_link = frappe.utils.get_url("/app/sales-invoice/" + doc.name)
+    order_link = frappe.utils.get_url("/app/sales-order/" + doc.name)
 
     blocks = [
         {
@@ -86,8 +85,8 @@ def check_inventory_and_notify_slack(doc, method):
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": "*Invoice:* <{0}|{1}>\n*Customer:* {2}\n*Warehouse:* {3}".format(
-                    invoice_link, doc.name, doc.customer, TARGET_WAREHOUSE
+                "text": "*Sales Order:* <{0}|{1}>\n*Customer:* {2}\n*Warehouse:* {3}".format(
+                    order_link, doc.name, doc.customer, TARGET_WAREHOUSE
                 )
             }
         },
@@ -122,8 +121,6 @@ def check_inventory_and_notify_slack(doc, method):
     try:
         body = json.dumps(payload)
 
-        # Parse the webhook URL to extract host and path
-        # webhook_url format: https://hooks.slack.com/services/XXXXX/XXXXX/XXXXX
         from urllib.parse import urlparse
         parsed = urlparse(webhook_url)
 
@@ -140,7 +137,7 @@ def check_inventory_and_notify_slack(doc, method):
         conn.close()
 
         if resp.status == 200:
-            success_msg = "✅ Slack notification sent successfully for invoice {0}!".format(doc.name)
+            success_msg = "✅ Slack notification sent successfully for Sales Order {0}!".format(doc.name)
             frappe.log_error(success_msg, "Motley Terpz Slack - Success")
         else:
             error_msg = "Slack API returned error {0}: {1}".format(resp.status, resp_body)
