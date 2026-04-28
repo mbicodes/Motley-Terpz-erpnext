@@ -218,6 +218,7 @@ function render_weekly_summary(page, data) {
 		{ key: "sales", icon: get_sales_icon(), css_class: "sales" },
 		{ key: "revenue", icon: get_revenue_icon(), css_class: "revenue" },
 		{ key: "inventory", icon: get_inventory_icon(), css_class: "inventory" },
+		{ key: "money_collected", icon: get_money_icon(), css_class: "money" },
 	];
 
 	section_config.forEach(function (cfg, idx) {
@@ -298,6 +299,7 @@ function render_summary_cards(page, totals, is_value, sections) {
 		{ key: "sales", label: "Total Sales (Qty)", css: "card-sales" },
 		{ key: "revenue", label: "Total Revenue ($)", css: "card-revenue" },
 		{ key: "inventory", label: "Current Inventory", css: "card-inventory" },
+		{ key: "money_collected", label: "Money Collected ($)", css: "card-money" },
 	];
 
 	card_configs.forEach(function (cfg) {
@@ -451,7 +453,7 @@ function export_to_excel(page) {
 	rows.push(header);
 
 	// Section order
-	let section_keys = ["production", "sales", "revenue", "inventory"];
+	let section_keys = ["production", "sales", "revenue", "inventory", "money_collected"];
 
 	section_keys.forEach(function (key) {
 		let section = sections[key];
@@ -565,5 +567,14 @@ function get_inventory_icon() {
         <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
         <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
         <line x1="12" y1="22.08" x2="12" y2="12"/>
+    </svg>`;
+}
+
+function get_money_icon() {
+	return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="5" width="20" height="14" rx="2"/>
+        <line x1="2" y1="10" x2="22" y2="10"/>
+        <circle cx="12" cy="15" r="2"/>
     </svg>`;
 }

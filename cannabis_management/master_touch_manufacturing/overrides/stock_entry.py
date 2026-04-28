@@ -202,11 +202,12 @@ def _apply_toll_bom_zero_cost(doc):
         if not r.is_finished_item and not r.is_scrap_item and r.s_warehouse
     )
     # Add actual Job Card labour cost
-    jc_cost = flt(frappe.db.sql(
-        "SELECT IFNULL(SUM(actual_operating_cost),0) FROM `tabJob Card` "
-        "WHERE work_order=%s AND docstatus=1", wo_name
-    )[0][0])
-    total_cost = remaining_material + jc_cost
+    # jc_cost = flt(frappe.db.sql(
+    #     "SELECT IFNULL(SUM(actual_operating_cost),0) FROM `tabJob Card` "
+    #     "WHERE work_order=%s AND docstatus=1", wo_name
+    # )[0][0])
+    # total_cost = remaining_material + jc_cost
+    total_cost = remaining_material
     fg_qty = sum(flt(r.qty) for r in (doc.items or []) if r.is_finished_item)
     if fg_qty <= 0:
         return
@@ -241,14 +242,15 @@ def _stamp_cost_per_gram(doc):
     )
 
     # Add actual Job Card labour
-    jc_cost = 0.0
-    if wo_name:
-        jc_cost = flt(frappe.db.sql(
-            "SELECT IFNULL(SUM(actual_operating_cost),0) FROM `tabJob Card` "
-            "WHERE work_order=%s AND docstatus=1", wo_name
-        )[0][0])
+    # jc_cost = 0.0
+    # if wo_name:
+        # jc_cost = flt(frappe.db.sql(
+        #     "SELECT IFNULL(SUM(actual_operating_cost),0) FROM `tabJob Card` "
+        #     "WHERE work_order=%s AND docstatus=1", wo_name
+        # )[0][0])
 
-    total_cost = material_cost + jc_cost
+    # total_cost = material_cost + jc_cost
+    total_cost = material_cost
 
     fg_qty = sum(flt(r.qty) for r in (doc.items or []) if r.is_finished_item)
     if fg_qty <= 0:

@@ -1,5 +1,6 @@
 import frappe
-from frappe.utils import nowdate, get_first_day, get_last_day, add_days
+import datetime
+from frappe.utils import nowdate, get_first_day, get_last_day, add_days, add_months, cint
 
 
 def _get_date_range(period):
@@ -67,6 +68,7 @@ def get_sales_by_period(period='monthly'):
         'count':     len(invoices),
         'invoices':  invoices,
     }
+
 
 # ─────────────────────────────────────────────────────────
 # AR
@@ -280,7 +282,7 @@ def get_batches_in_production():
 
 
 # ─────────────────────────────────────────────────────────
-# Timesheets
+# Purchase Requests
 # ─────────────────────────────────────────────────────────
 
 @frappe.whitelist()
@@ -299,6 +301,9 @@ def create_purchase_request(qty, uom, schedule_date, why_need=None, type_val=Non
     return doc.name
 
 
+# ─────────────────────────────────────────────────────────
+# Timesheets
+# ─────────────────────────────────────────────────────────
 
 @frappe.whitelist()
 def get_timesheets_by_period(period='monthly'):
@@ -341,17 +346,8 @@ def get_timesheets_by_period(period='monthly'):
 
 
 # ─────────────────────────────────────────────────────────
-# Legacy aliases — keep old callers working
+# Sample Giveaway
 # ─────────────────────────────────────────────────────────
-
-@frappe.whitelist()
-def get_sales_this_month():
-    return get_sales_by_period(period='monthly')
-
-
-@frappe.whitelist()
-def get_timesheets_this_month():
-    return get_timesheets_by_period(period='monthly')
 
 @frappe.whitelist()
 def get_sample_giveaway(period='monthly', month_offset=0):
@@ -368,14 +364,12 @@ def get_sample_giveaway(period='monthly', month_offset=0):
     if not frappe.has_permission('Sales Invoice', 'read'):
         frappe.throw('Not permitted', frappe.PermissionError)
 
-    month_offset = frappe.utils.cint(month_offset)
+    month_offset = cint(month_offset)
 
     if period == 'monthly' and month_offset != 0:
-        # Shift the reference date by month_offset months then get first/last day
-        ref_date  = frappe.utils.add_months(frappe.utils.nowdate(), month_offset)
-        from_date = frappe.utils.get_first_day(ref_date)
-        to_date   = frappe.utils.get_last_day(ref_date)
-        import datetime
+        ref_date  = add_months(nowdate(), month_offset)
+        from_date = get_first_day(ref_date)
+        to_date   = get_last_day(ref_date)
         label = datetime.date(
             int(str(from_date)[:4]),
             int(str(from_date)[5:7]),
@@ -383,7 +377,7 @@ def get_sample_giveaway(period='monthly', month_offset=0):
         ).strftime('%B %Y')
     else:
         from_date, to_date = _get_date_range(period)
-        label = None  # frontend will use its own label for offset=0
+        label = None
 
     conditions = "si.docstatus = 1 AND si.custom_order_type = 'Samples'"
     args = {}
@@ -425,3 +419,199 @@ def get_sample_giveaway(period='monthly', month_offset=0):
         'count':        len(rows),
         'rows':         rows,
     }
+
+
+@frappe.whitelist()
+def get_sample_by_client(period='monthly', month_offset=0):
+    """
+    Sample giveaway aggregated by customer.
+    Returns: customer_name, total_qty, line_count, item_count, invoice_count.
+    """
+    if not frappe.has_permission('Sales Invoice', 'read'):
+        frappe.throw('Not permitted', frappe.PermissionError)
+
+    month_offset = cint(month_offset)
+
+    if period == 'monthly' and month_offset != 0:
+        ref_date  = add_months(nowdate(), month_offset)
+        from_date = get_first_day(ref_date)
+        to_date   = get_last_day(ref_date)
+    else:
+        from_date, to_date = _get_date_range(period)
+
+    conditions = "si.docstatus = 1 AND si.custom_order_type = 'Samples'"
+    args = {}
+
+    if from_date:
+        conditions += ' AND si.posting_date >= %(from_date)s'
+        args['from_date'] = str(from_date)
+    if to_date:
+        conditions += ' AND si.posting_date <= %(to_date)s'
+        args['to_date'] = str(to_date)
+
+    rows = frappe.db.sql(f"""
+        SELECT
+            si.customer_name                            AS client_name,
+            si.customer                                 AS client_id,
+            COUNT(sii.name)                             AS line_count,
+            COUNT(DISTINCT sii.item_code)               AS item_count,
+            COUNT(DISTINCT si.name)                     AS invoice_count,
+            SUM(sii.qty)                                AS total_qty
+        FROM `tabSales Invoice` si
+        INNER JOIN `tabSales Invoice Item` sii ON sii.parent = si.name
+        WHERE {conditions}
+        GROUP BY si.customer, si.customer_name
+        ORDER BY total_qty DESC
+    """, args, as_dict=True)
+
+    return rows
+
+
+@frappe.whitelist()
+def get_sample_product_by_month(num_months=6):
+    """
+    Sample giveaway pivoted by product × month.
+    Returns:
+      months:   ['Apr 2026', 'Mar 2026', ...]
+      products: [
+        {
+            item_name: '...',
+            item_group: '...',
+            months: { 'Apr 2026': qty, 'Mar 2026': qty, ... },
+            total_qty: float
+        }, ...
+      ]
+    """
+    if not frappe.has_permission('Sales Invoice', 'read'):
+        frappe.throw('Not permitted', frappe.PermissionError)
+
+    num_months = min(cint(num_months) or 6, 24)
+    today = nowdate()
+
+    # Build month list (most recent first)
+    month_labels = []
+    month_ranges = []
+    for i in range(num_months):
+        ref = add_months(today, -i)
+        fd  = get_first_day(ref)
+        ld  = get_last_day(ref)
+        dt  = datetime.date(int(str(fd)[:4]), int(str(fd)[5:7]), 1)
+        lbl = dt.strftime('%b %Y')
+        month_labels.append(lbl)
+        month_ranges.append((str(fd), str(ld), lbl))
+
+    # Fetch all sample lines in the full range
+    from_date = month_ranges[-1][0]
+    to_date   = month_ranges[0][1]
+
+    rows = frappe.db.sql("""
+        SELECT
+            sii.item_name,
+            sii.item_code,
+            sii.item_group,
+            sii.qty,
+            si.posting_date
+        FROM `tabSales Invoice` si
+        INNER JOIN `tabSales Invoice Item` sii ON sii.parent = si.name
+        WHERE si.docstatus = 1
+          AND si.custom_order_type = 'Samples'
+          AND si.posting_date >= %(from_date)s
+          AND si.posting_date <= %(to_date)s
+        ORDER BY sii.item_name ASC
+    """, {'from_date': from_date, 'to_date': to_date}, as_dict=True)
+
+    # Pivot: item → { month_label → qty }
+    product_map = {}
+    for r in rows:
+        key = r.item_name or r.item_code
+        if key not in product_map:
+            product_map[key] = {
+                'item_name':  r.item_name,
+                'item_code':  r.item_code,
+                'item_group': r.item_group,
+                'months':     {},
+                'total_qty':  0.0,
+            }
+
+        pd = str(r.posting_date)
+        dt = datetime.date(int(pd[:4]), int(pd[5:7]), 1)
+        lbl = dt.strftime('%b %Y')
+        qty = float(r.qty or 0)
+
+        product_map[key]['months'][lbl] = product_map[key]['months'].get(lbl, 0) + qty
+        product_map[key]['total_qty'] += qty
+
+    products = sorted(product_map.values(), key=lambda x: -x['total_qty'])
+
+    return {
+        'months':   month_labels,
+        'products': products,
+        'from_date': from_date,
+        'to_date':   to_date,
+    }
+
+
+# ─────────────────────────────────────────────────────────
+# Legacy aliases — keep old callers working
+# ─────────────────────────────────────────────────────────
+
+@frappe.whitelist()
+def get_sales_this_month():
+    return get_sales_by_period(period='monthly')
+
+
+@frappe.whitelist()
+def get_timesheets_this_month():
+    return get_timesheets_by_period(period='monthly')
+
+
+@frappe.whitelist()
+def get_bank_payments_received(from_date, to_date):
+    frappe.errprint(f"[get_bank_payments_received] from_date={from_date} | to_date={to_date}")
+    rows = frappe.db.sql("""
+        SELECT
+            bank_gle.posting_date,
+            bank_gle.voucher_no,
+            bank_gle.voucher_type,
+            bank_gle.account                                        AS bank_account,
+            bank_gle.debit                                          AS amount,
+            bank_gle.company,
+            bank_gle.remarks,
+            cust_gle.party,
+            cust_gle.against                                        AS party_name,
+            COALESCE(cust.customer_name, cust_gle.party)            AS customer_name
+        FROM `tabGL Entry` bank_gle
+
+        -- Only bank-account rows that received money (credit > 0)
+        INNER JOIN `tabAccount` acc
+            ON acc.name = bank_gle.account
+           AND acc.account_type = 'Bank'
+
+        -- Match the customer-side row on the same voucher
+        INNER JOIN `tabGL Entry` cust_gle
+            ON cust_gle.voucher_no   = bank_gle.voucher_no
+           AND cust_gle.party_type   = 'Customer'
+           AND cust_gle.party        != ''
+           AND cust_gle.is_cancelled = 0
+
+        -- Resolve full customer display name
+        LEFT JOIN `tabCustomer` cust
+            ON cust.name = cust_gle.party
+
+        WHERE
+            bank_gle.posting_date  >= %(from_date)s
+            AND bank_gle.posting_date <= %(to_date)s
+            AND bank_gle.debit > 0
+            AND bank_gle.is_cancelled  = 0
+
+        ORDER BY
+            bank_gle.posting_date ASC,
+            customer_name         ASC
+    """, {
+        'from_date': from_date,
+        'to_date':   to_date,
+    }, as_dict=True)
+
+    frappe.errprint(f"[get_bank_payments_received] rows returned={len(rows)}")
+
+    return rows

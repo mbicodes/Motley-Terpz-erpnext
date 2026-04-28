@@ -31,6 +31,9 @@
     --ws-inventory: #8b5cf6;
     --ws-inventory-bg: #f5f3ff;
     --ws-inventory-border: #ddd6fe;
+    --ws-money: #0ea5e9;
+    --ws-money-bg: #e0f2fe;
+    --ws-money-border: #bae6fd;
 }
 
 /* ---------- Container ---------- */
@@ -242,7 +245,7 @@
 /* ---------- Summary Cards ---------- */
 .ws-summary-cards {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr);
     gap: 16px;
     margin-bottom: 28px;
 }
@@ -282,6 +285,10 @@
 
 .ws-summary-card.card-inventory::before {
     background: linear-gradient(90deg, #8b5cf6, #a78bfa);
+}
+
+.ws-summary-card.card-money::before {
+    background: linear-gradient(90deg, #0ea5e9, #38bdf8);
 }
 
 .ws-summary-card:hover {
@@ -380,6 +387,10 @@
     background: linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%);
 }
 
+.ws-section-header.money {
+    background: linear-gradient(135deg, #0ea5e9 0%, #38bdf8 100%);
+}
+
 .ws-section-header svg {
     opacity: 0.9;
 }
@@ -412,7 +423,10 @@
     z-index: 2;
 }
 
-.ws-table thead th:first-child {
+/* Only apply Category-column styles to row 1's first th (the rowspan=2 Category header).
+   Row 2's first DOM th is "Jan" — it must NOT get min-width:200px or left-align,
+   otherwise the Jan column becomes oversized and its values appear shifted right. */
+.ws-table thead tr:first-child th:first-child {
     text-align: left;
     padding-left: 24px;
     min-width: 200px;
@@ -485,6 +499,7 @@
     padding-left: 24px;
     font-weight: 600;
     color: var(--ws-text);
+    min-width: 200px;
 }
 
 .ws-table tbody td.ws-prev-week-cell {
@@ -656,7 +671,13 @@
 }
 
 /* ---------- Responsive ---------- */
-@media (max-width: 1200px) {
+@media (max-width: 1400px) {
+    .ws-summary-cards {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (max-width: 900px) {
     .ws-summary-cards {
         grid-template-columns: repeat(2, 1fr);
     }

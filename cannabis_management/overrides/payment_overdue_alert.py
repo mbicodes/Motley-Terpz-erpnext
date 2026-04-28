@@ -1,29 +1,37 @@
+import frappe
+from frappe.utils import fmt_money, formatdate
+import json
+import http.client
+import ssl
+from urllib.parse import urlparse
+
+
 def on_sales_invoice_submit(doc, method):
     """
-    Triggered when a Sales Invoice is submitted.
-    Sends a Slack notification with the due date and amount to be paid.
+    Triggered when a Sales Order is submitted.
+    Sends a Slack notification with the delivery date and order total.
     """
-    inv_url = frappe.utils.get_url("/app/sales-invoice/" + doc.name)
+    order_url = frappe.utils.get_url("/app/sales-order/" + doc.name)
     amount_fmt = fmt_money(doc.grand_total, currency=doc.currency)
-    due_fmt = formatdate(doc.due_date, "dd MMM yyyy")
-    post_fmt = formatdate(doc.posting_date, "dd MMM yyyy")
+    delivery_fmt = formatdate(doc.delivery_date, "dd MMM yyyy") if doc.delivery_date else "N/A"
+    order_date_fmt = formatdate(doc.transaction_date, "dd MMM yyyy")
 
     blocks = [
         {
             "type": "header",
             "text": {
                 "type": "plain_text",
-                "text": ":page_facing_up: New Sales Invoice Submitted"
+                "text": ":page_facing_up: New Sales Order Submitted"
             }
         },
         {
             "type": "section",
             "fields": [
-                {"type": "mrkdwn", "text": "*Invoice:*\n<{0}|{1}>".format(inv_url, doc.name)},
+                {"type": "mrkdwn", "text": "*Order:*\n<{0}|{1}>".format(order_url, doc.name)},
                 {"type": "mrkdwn", "text": "*Customer:*\n{0}".format(doc.customer)},
-                {"type": "mrkdwn", "text": "*Invoice Date:*\n{0}".format(post_fmt)},
-                {"type": "mrkdwn", "text": "*Due Date:*\n{0}".format(due_fmt)},
-                {"type": "mrkdwn", "text": "*Amount to be Paid:*\n{0}".format(amount_fmt)},
+                {"type": "mrkdwn", "text": "*Order Date:*\n{0}".format(order_date_fmt)},
+                {"type": "mrkdwn", "text": "*Delivery Date:*\n{0}".format(delivery_fmt)},
+                {"type": "mrkdwn", "text": "*Grand Total:*\n{0}".format(amount_fmt)},
             ]
         },
         {
@@ -31,7 +39,7 @@ def on_sales_invoice_submit(doc, method):
             "elements": [
                 {
                     "type": "mrkdwn",
-                    "text": ":bell: Payment of {0} is due by {1}.".format(amount_fmt, due_fmt)
+                    "text": ":bell: Delivery of {0} is expected by {1}.".format(amount_fmt, delivery_fmt)
                 }
             ]
         }
@@ -39,7 +47,35 @@ def on_sales_invoice_submit(doc, method):
 
     _send_slack(
         blocks,
-        fallback_text="New invoice {0}: {1} due by {2} from {3}".format(
-            doc.name, amount_fmt, due_fmt, doc.customer
+        fallback_text="New order {0}: {1} delivery by {2} from {3}".format(
+            doc.name, amount_fmt, delivery_fmt, doc.customer
         )
     )
+
+
+def _send_slack(blocks, fallback_text):
+    """POST a Block Kit message to the Slack webhook configured in site_config."""
+    webhook_url = frappe.conf.get("slack_webhook_url")
+    if not webhook_url:
+        frappe.log_error(
+            "slack_webhook_url is not set in site_config.json. Cannot send Slack notification.",
+            "Sales Order Slack - Config Missing"
+        )
+        return
+
+    payload = json.dumps({"text": fallback_text, "blocks": blocks}).encode("utf-8")
+    try:
+        parsed = urlparse(webhook_url)
+        context = ssl.create_default_context()
+        conn = http.client.HTTPSConnection(parsed.hostname, context=context, timeout=10)
+        conn.request("POST", parsed.path, body=payload, headers={"Content-Type": "application/json"})
+        resp = conn.getresponse()
+        resp_body = resp.read().decode()
+        conn.close()
+        if resp.status != 200:
+            frappe.log_error(
+                "Slack API returned {0}: {1}".format(resp.status, resp_body),
+                "Sales Order Slack - API Error"
+            )
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "Sales Order Slack - Exception")

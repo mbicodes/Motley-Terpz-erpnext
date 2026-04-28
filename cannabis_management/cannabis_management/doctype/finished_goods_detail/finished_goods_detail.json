@@ -1,0 +1,67 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-04-20 12:25:12.616293",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "item",
+  "operation",
+  "expected_yield_",
+  "finished_qty_grams",
+  "finished_qty_pounds"
+ ],
+ "fields": [
+  {
+   "fieldname": "item",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Item",
+   "link_filters": "[[\"Item\",\"custom_is_parent\",\"=\",1]]",
+   "options": "Item"
+  },
+  {
+   "fieldname": "operation",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Operation",
+   "options": "Operation"
+  },
+  {
+   "fetch_from": "item.custom_yield_percentage",
+   "fetch_if_empty": 1,
+   "fieldname": "expected_yield_",
+   "fieldtype": "Percent",
+   "in_list_view": 1,
+   "label": "Expected Yield %"
+  },
+  {
+   "fieldname": "finished_qty_grams",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Finished Qty (Grams)"
+  },
+  {
+   "fieldname": "finished_qty_pounds",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Finished Qty (Pounds)"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-04-24 10:02:30.888364",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Finished Goods Detail",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

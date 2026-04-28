@@ -46,7 +46,6 @@ csrf_exempt = [
 # page_js = {"page" : "public/js/file.js"}
 app_include_js = [
     "/assets/cannabis_management/js/stock_balance_custom.js",
-    "/assets/cannabis_management/js/material_request.js"
 ]
 
 # include js in doctype views
@@ -57,6 +56,7 @@ doctype_js = {
     "Purchase Invoice": "public/js/purchase_invoice.js",
     "Delivery Note": "public/js/delivery_note.js",
     "Sales Invoice": "public/js/sales_invoice.js",
+    "Sales Order": "public/js/sales_order.js",
     "Material Request": "public/js/material_request.js",
     "Item Group": "public/js/item_group_custom.js"
 }
@@ -164,6 +164,10 @@ has_permission = {
 # Hook on document methods and events
 
 doc_events = {
+    # Lab mapping: auto-create BOMs on Material Request submit
+    "Material Request": {
+        "on_submit": "cannabis_management.doc_hooks.material_request.on_submit",
+    },
     "Stock Entry": {
         "validate": "cannabis_management.cannabis_management.custom.stock_entry.validate",
         # MTM: yield threshold check + batch auto-creation on Manufacture entries
@@ -171,9 +175,11 @@ doc_events = {
         "on_submit": "cannabis_management.master_touch_manufacturing.overrides.stock_entry.on_submit",
     },
     "Sales Order": {
-        "on_submit": "cannabis_management.overrides.sales_invoice_hooks.check_inventory_and_notify_slack",
-        "on_submit": "cannabis_management.overrides.payment_overdue_alert.on_sales_invoice_submit"
-
+        "before_submit": "cannabis_management.overrides.sales_order_restrictions.before_submit",
+        "on_submit": [
+            "cannabis_management.overrides.sales_invoice_hooks.check_inventory_and_notify_slack",
+            "cannabis_management.overrides.payment_overdue_alert.on_sales_invoice_submit"
+        ],
     },
     "Delivery Note": {
         "on_update": "cannabis_management.overrides.delivery_note_hooks.update_sales_invoice_delivery_status",
@@ -193,10 +199,10 @@ doc_events = {
     # MTM: Job Card completion → clock-out, notify Slack
     "Job Card": {
         "validate": [
-            "cannabis_management.hooks.job_card.validate",
+            "cannabis_management.doc_hooks.job_card.validate",
         ],
         "on_submit": [
-            "cannabis_management.hooks.job_card.validate",
+            "cannabis_management.doc_hooks.job_card.validate",
             "cannabis_management.master_touch_manufacturing.overrides.job_card.on_submit",
         ],
     },
