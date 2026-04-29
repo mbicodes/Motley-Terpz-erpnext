@@ -216,7 +216,7 @@
  "modified_by": "Administrator",
  "module": "Master Touch Manufacturing",
  "name": "Production Batch Group",
- "naming_rule": "By Naming Series",
+ "naming_rule": "By \"Naming Series\" field",
  "owner": "Administrator",
  "permissions": [
   {

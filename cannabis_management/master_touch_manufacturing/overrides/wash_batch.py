@@ -12,6 +12,7 @@ Responsibilities:
 
 import frappe
 from frappe.utils import flt
+from frappe.model.naming import make_autoname
 
 # Map quality grade → placeholder item (template until per-strain items are assigned)
 _GRADE_ITEM = {
@@ -50,6 +51,7 @@ def _create_bh_batches(doc):
         item_code = _GRADE_ITEM.get(row.get("quality_grade") or "", "hash-prime-template")
 
         batch = frappe.new_doc("Batch")
+        batch.batch_id = make_autoname("BATCH-BH-.#####")
         batch.item = item_code
         batch.batch_qty = flt(row.grams_collected)
         batch.manufacturing_date = doc.wash_date

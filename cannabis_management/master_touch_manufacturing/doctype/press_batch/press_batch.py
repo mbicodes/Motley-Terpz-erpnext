@@ -12,8 +12,6 @@ class PressBatch(Document):
 
     def validate(self):
         self._calculate_yield()
-        self._check_discrepancy()
-        self._check_yield_threshold()
 
     def before_submit(self):
         self._calculate_yield()
@@ -35,11 +33,10 @@ class PressBatch(Document):
     def _check_discrepancy(self):
         if abs(flt(self.discrepancy_g)) > 0.01:
             if not self.discrepancy_resolved:
-                frappe.msgprint(
-                    f"Discrepancy of {self.discrepancy_g:.2f}g found. "
-                    "Please tick 'Discrepancy Resolved' and add notes before submitting.",
-                    indicator="orange",
-                    alert=True
+                frappe.throw(
+                    f"Discrepancy of {self.discrepancy_g:.2f}g — please tick 'Discrepancy Resolved' "
+                    "and add notes before submitting.",
+                    title="Discrepancy Not Resolved"
                 )
 
     def _check_yield_threshold(self):

@@ -28,14 +28,14 @@ def on_update(doc, method=None):
 
 def _validate_verified_by(doc):
     """verified_by must NOT be the tech who ran the source batch."""
-    if not doc.verified_by or not doc.source_batch_ref:
+    if not doc.verified_by:
         return
 
     source_tech = None
-    if doc.verification_type == "Bubble Hash":
-        source_tech = frappe.db.get_value("Wash Batch", doc.source_batch_ref, "wash_tech")
-    elif doc.verification_type == "Rosin":
-        source_tech = frappe.db.get_value("Press Batch", doc.source_batch_ref, "press_tech")
+    if doc.verification_type == "Bubble Hash" and doc.get("source_batch_ref_wash"):
+        source_tech = frappe.db.get_value("Wash Batch", doc.source_batch_ref_wash, "wash_tech")
+    elif doc.verification_type == "Rosin" and doc.get("source_batch_ref_press"):
+        source_tech = frappe.db.get_value("Press Batch", doc.source_batch_ref_press, "press_tech")
 
     if source_tech and source_tech == doc.verified_by:
         frappe.throw(
@@ -72,7 +72,10 @@ def _release_batches(doc):
         )
 
         # Auto-create Quality Inspection if not already linked
-        _ensure_quality_inspection(doc, batch_name, row)
+        try:
+            _ensure_quality_inspection(doc, batch_name, row)
+        except Exception:
+            pass  # QI creation is non-blocking
 
 
 def _ensure_quality_inspection(doc, batch_name, row):
@@ -101,7 +104,13 @@ def _ensure_quality_inspection(doc, batch_name, row):
     qi.item_code = item_code
     qi.batch_no = batch_name
     qi.quality_inspection_template = template_name
-    qi.inspected_by = doc.verified_by or frappe.session.user
+    # inspected_by links to User — convert Employee ID to user if needed
+    verifier = doc.verified_by or frappe.session.user
+    if verifier and verifier.startswith("HR-EMP-"):
+        user_id = frappe.db.get_value("Employee", verifier, "user_id") or frappe.session.user
+    else:
+        user_id = verifier
+    qi.inspected_by = user_id
     qi.report_date = today()
 
     # Pull readings from template (child table field: item_quality_inspection_parameter)

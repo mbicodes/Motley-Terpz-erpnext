@@ -44,6 +44,11 @@ class InventoryVerification(Document):
         sys_total = 0.0
         phys_total = 0.0
         for row in self.metrc_packages or []:
+            # Auto-populate system weight from Batch record if not set
+            if row.erpnext_batch and not float(row.system_weight_g or 0):
+                batch_wt = frappe.db.get_value("Batch", row.erpnext_batch, "custom_net_weight_g")
+                if batch_wt:
+                    row.system_weight_g = float(batch_wt)
             sys_total += float(row.system_weight_g or 0)
             phys_total += float(row.verified_weight_g or 0)
             row.variance_g = round(float(row.system_weight_g or 0) - float(row.verified_weight_g or 0), 2)

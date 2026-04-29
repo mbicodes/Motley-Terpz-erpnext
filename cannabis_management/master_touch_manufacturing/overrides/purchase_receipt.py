@@ -12,6 +12,7 @@ Responsibilities:
 
 import frappe
 from frappe.utils import flt
+from frappe.model.naming import make_autoname
 from cannabis_management.master_touch_manufacturing.utils.slack import (
     alert_metrc_retag_required,
     send_alert,
@@ -75,6 +76,7 @@ def _create_ff_batches(doc):
             continue
 
         batch = frappe.new_doc("Batch")
+        batch.batch_id = make_autoname("BATCH-FF-.#####")
         batch.item = ff_item
         batch.batch_qty = flt(row.get("weight_g") or 0)
         batch.manufacturing_date = doc.posting_date

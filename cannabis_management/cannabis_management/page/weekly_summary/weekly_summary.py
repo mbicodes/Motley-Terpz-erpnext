@@ -446,7 +446,7 @@ def get_money_collected_data(weeks, companies):
         gl_data = frappe.db.sql("""
             SELECT
                 gle.account,
-                SUM(gle.debit) - SUM(gle.credit) AS val
+                SUM(gle.debit) AS val
             FROM `tabGL Entry` gle
             WHERE gle.is_cancelled = 0
                 AND gle.posting_date <= %s

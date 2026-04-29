@@ -12,6 +12,7 @@ Responsibilities:
 
 import frappe
 from frappe.utils import flt
+from frappe.model.naming import make_autoname
 
 
 def on_submit(doc, method=None):
@@ -39,6 +40,7 @@ def _create_rosin_batches(doc):
             continue
 
         batch = frappe.new_doc("Batch")
+        batch.batch_id = make_autoname("BATCH-RO-.#####")
         batch.item = "rosin-template"
         batch.batch_qty = flt(row.grams_rosin)
         batch.manufacturing_date = doc.press_date
