@@ -175,8 +175,11 @@ doc_events = {
         "on_submit": "cannabis_management.master_touch_manufacturing.overrides.stock_entry.on_submit",
     },
     "Sales Order": {
+        "validate": "cannabis_management.overrides.sales_order_restrictions.validate",
+        "on_update": "cannabis_management.overrides.sales_order_restrictions.on_update",
         "before_submit": "cannabis_management.overrides.sales_order_restrictions.before_submit",
         "on_submit": [
+            "cannabis_management.overrides.sales_order_restrictions.on_submit",
             "cannabis_management.overrides.sales_invoice_hooks.check_inventory_and_notify_slack",
             "cannabis_management.overrides.payment_overdue_alert.on_sales_invoice_submit"
         ],
@@ -241,6 +244,8 @@ scheduler_events = {
         "cannabis_management.cannabis_management.utils.irs_8300.send_january_notices",
         # MTM: stale batch alerts
         "cannabis_management.master_touch_manufacturing.tasks.daily",
+        # Payment Terms SO: remind creator 14 and 7 days before each payment due date
+        "cannabis_management.overrides.payment_schedule_reminder.send_payment_schedule_reminders",
     ],
     # Sales Order delivery-date reminder fires at 10:00 AM Eastern (EDT = UTC-4 → 14:00 UTC).
     # Note: during EST (Nov–Mar, UTC-5) this fires at 9:00 AM Eastern.

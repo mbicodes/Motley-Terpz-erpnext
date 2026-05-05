@@ -1,5 +1,5 @@
 import frappe
-from frappe.utils import fmt_money, formatdate
+from frappe.utils import fmt_money, formatdate  # fmt_money kept for friday_overdue_report
 import json
 import http.client
 import ssl
@@ -9,10 +9,9 @@ from urllib.parse import urlparse
 def on_sales_invoice_submit(doc, method):
     """
     Triggered when a Sales Order is submitted.
-    Sends a Slack notification with the delivery date and order total.
+    Sends a Slack notification with the order and delivery date (no pricing).
     """
     order_url = frappe.utils.get_url("/app/sales-order/" + doc.name)
-    amount_fmt = fmt_money(doc.grand_total, currency=doc.currency)
     delivery_fmt = formatdate(doc.delivery_date, "dd MMM yyyy") if doc.delivery_date else "N/A"
     order_date_fmt = formatdate(doc.transaction_date, "dd MMM yyyy")
 
@@ -31,7 +30,6 @@ def on_sales_invoice_submit(doc, method):
                 {"type": "mrkdwn", "text": "*Customer:*\n{0}".format(doc.customer)},
                 {"type": "mrkdwn", "text": "*Order Date:*\n{0}".format(order_date_fmt)},
                 {"type": "mrkdwn", "text": "*Delivery Date:*\n{0}".format(delivery_fmt)},
-                {"type": "mrkdwn", "text": "*Grand Total:*\n{0}".format(amount_fmt)},
             ]
         },
         {
@@ -39,7 +37,7 @@ def on_sales_invoice_submit(doc, method):
             "elements": [
                 {
                     "type": "mrkdwn",
-                    "text": ":bell: Delivery of {0} is expected by {1}.".format(amount_fmt, delivery_fmt)
+                    "text": ":bell: Delivery is expected by {0}.".format(delivery_fmt)
                 }
             ]
         }
@@ -47,8 +45,8 @@ def on_sales_invoice_submit(doc, method):
 
     _send_slack(
         blocks,
-        fallback_text="New order {0}: {1} delivery by {2} from {3}".format(
-            doc.name, amount_fmt, delivery_fmt, doc.customer
+        fallback_text="New order {0} from {1} — delivery by {2}".format(
+            doc.name, doc.customer, delivery_fmt
         )
     )
 
@@ -79,3 +77,7 @@ def _send_slack(blocks, fallback_text):
             )
     except Exception:
         frappe.log_error(frappe.get_traceback(), "Sales Order Slack - Exception")
+
+
+def friday_overdue_report():
+    pass

@@ -255,7 +255,6 @@ def get_production_data(weeks, companies, is_value):
         "rows": rows
     }
 
-
 def get_sales_data(weeks, companies):
     """
     Get sales data from Sales Invoice grouped by item group.
@@ -432,6 +431,13 @@ def get_money_collected_data(weeks, companies):
     accounts defined in MONEY_ACCOUNT_PATTERNS.  Using GL Entry (same source as
     the General Ledger report) ensures all voucher types — Payment Entry AND
     Journal Entry — are included, so the figures match the GL exactly.
+
+    Account mapping per company:
+      Cash: Petty Cash-Nikki - MTPZ / Petty Cash-Nikki - MT / Petty Cash-Nikki - TSBC
+      Bank: Bank-7008 - MTPZ / Bank-7008 - MT / Bank-7008 - TSBC
+
+    When TMM Group (or any parent) is selected, all child companies are already
+    passed in via get_companies_to_query(), so the IN filter captures all accounts.
     companies is always a list (one or more companies).
     """
     rows = {
@@ -449,11 +455,11 @@ def get_money_collected_data(weeks, companies):
                 SUM(gle.debit) AS val
             FROM `tabGL Entry` gle
             WHERE gle.is_cancelled = 0
-                AND gle.posting_date <= %s
+                AND gle.posting_date BETWEEN %s AND %s
                 AND gle.company IN %s
                 AND (gle.account LIKE %s OR gle.account LIKE %s)
             GROUP BY gle.account
-        """, (week["end"], companies, cash_pattern, bank_pattern), as_dict=True)
+        """, (week["start"], week["end"], companies, cash_pattern, bank_pattern), as_dict=True)
 
         for r in gl_data:
             val = flt(r.val)
