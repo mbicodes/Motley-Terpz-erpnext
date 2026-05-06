@@ -102,9 +102,12 @@
 	gap: 5px;
 	min-width: 160px;
 }
-.ard-filter-action {
+.ard-filter-actions {
+	display: flex;
+	align-items: flex-end;
+	gap: 8px;
 	margin-left: auto;
-	min-width: auto;
+	flex-wrap: wrap;
 }
 .ard-label {
 	font-size: 11px;
@@ -147,6 +150,44 @@
 }
 .ard-btn-primary:hover  { background: var(--ard-primary-dk); }
 .ard-btn-primary:active { transform: scale(.97); }
+
+.ard-btn-secondary {
+	height: 36px;
+	padding: 0 16px;
+	background: #ffffff;
+	color: var(--ard-primary);
+	border: 1.5px solid var(--ard-primary);
+	border-radius: var(--ard-radius-sm);
+	font-size: 13px;
+	font-weight: 600;
+	font-family: var(--ard-font);
+	cursor: pointer;
+	transition: background .15s, color .15s, transform .1s;
+	white-space: nowrap;
+}
+.ard-btn-secondary:hover  { background: #eff6ff; }
+.ard-btn-secondary:active { transform: scale(.97); }
+
+.ard-btn-danger {
+	height: 36px;
+	padding: 0 16px;
+	background: #ffffff;
+	color: var(--ard-90);
+	border: 1.5px solid var(--ard-90);
+	border-radius: var(--ard-radius-sm);
+	font-size: 13px;
+	font-weight: 600;
+	font-family: var(--ard-font);
+	cursor: pointer;
+	transition: background .15s, color .15s, transform .1s;
+	white-space: nowrap;
+}
+.ard-btn-danger:hover        { background: var(--ard-90-lt); }
+.ard-btn-danger:active       { transform: scale(.97); }
+.ard-btn-danger.ard-btn-active {
+	background: var(--ard-90);
+	color: #fff;
+}
 
 /* ── Loading ───────────────────────────────────────────────── */
 .ard-loading {
@@ -349,23 +390,53 @@
 
 .ard-th-status { text-align: center; }
 
-/* Sticky first column */
+/* Sticky first column — explicit bg required; "inherit" is transparent and lets
+   scrolled content bleed through */
 .ard-th-sticky,
 .ard-td-sticky {
 	position: sticky;
 	left: 0;
 	z-index: 2;
-	background: inherit;
+	background-color: #ffffff;
+	box-shadow: 3px 0 6px -2px rgba(0,0,0,.10);
 }
-.ard-table thead .ard-th-sticky { background: #f1f5f9; z-index: 3; }
+.ard-table thead .ard-th-sticky {
+	background-color: #f1f5f9;
+	z-index: 3;
+}
 
 /* Body rows */
 .ard-table tbody tr {
 	border-bottom: 1px solid var(--ard-border);
 	transition: background .1s;
 }
-.ard-table tbody tr:hover { background: #f8fafc; }
-.ard-table tbody tr:hover .ard-td-sticky { background: #f8fafc; }
+.ard-table tbody tr:hover                { background: #f8fafc; }
+.ard-table tbody tr:hover .ard-td-sticky { background-color: #f8fafc; }
+
+/* Customer group header row */
+.ard-customer-group-row td {
+	background-color: #f1f5f9;
+	font-weight: 700;
+	font-size: 12px;
+	color: var(--ard-text);
+	padding: 7px 14px;
+	border-top: 2px solid var(--ard-border);
+}
+.ard-customer-group-row .ard-td-sticky {
+	background-color: #f1f5f9;
+}
+.ard-customer-group-row:hover td              { background-color: #e9eef5; }
+.ard-customer-group-row:hover .ard-td-sticky  { background-color: #e9eef5; }
+
+.ard-customer-group-name {
+	font-weight: 700;
+	color: var(--ard-text);
+}
+.ard-customer-group-id {
+	font-size: 11px;
+	color: var(--ard-muted);
+	margin-top: 1px;
+}
 
 .ard-table td {
 	padding: 10px 14px;
@@ -430,7 +501,7 @@
 	border-top: 2px solid var(--ard-border);
 	font-weight: 700;
 }
-.ard-totals-row .ard-td-sticky { background: #f1f5f9; }
+.ard-totals-row .ard-td-sticky { background-color: #f1f5f9; }
 .ard-total-cell {
 	font-size: 13px;
 	color: var(--ard-text);

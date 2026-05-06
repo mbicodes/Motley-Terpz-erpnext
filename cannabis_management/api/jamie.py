@@ -887,10 +887,11 @@ def get_dashboard_inventory(company=None):
 @frappe.whitelist()
 def get_sales_matrix(territory=None):
     """
-    Returns 3 matrices (monthly / weekly / daily) for the sales dashboard.
-    Matrix columns are anchored to TODAY's calendar (not the FY of targets),
-    so a target stored against FY 2024-2025 still compares against actuals
-    posted in 2026.
+    Returns 2 matrices (monthly / weekly) for the sales dashboard.
+    Matrix columns are anchored to TODAY's calendar (not the FY of targets).
+
+    monthly: Jan → current month of current year
+    weekly:  last 4 weeks (Mon-Sun chunks ending today)
     """
     import datetime as dt_mod
     from frappe.utils import getdate, get_first_day, get_last_day, flt as _flt
@@ -906,7 +907,7 @@ def get_sales_matrix(territory=None):
         monthly_oh = 35000.0
         default_margin_pct = 40.0
 
-    # ── Resolve fiscal year for TARGETS ONLY (matrix columns are independent) ──
+    # ── Resolve fiscal year for TARGETS ──
     target_fy = None
     if territory:
         fy_today = frappe.db.sql("""
@@ -953,7 +954,7 @@ def get_sales_matrix(territory=None):
             "target_rev":   t_amt,
         }
 
-    # ── Matrix columns: anchored to TODAY's calendar year ──
+    # ── MONTHLY: Jan → current month ──
     monthly_columns = []
     for m in range(1, today.month + 1):
         mstart = today.replace(month=m, day=1)
@@ -966,42 +967,37 @@ def get_sales_matrix(territory=None):
             "is_full":   mend == mend_dt,
         })
 
+    # ── WEEKLY: last 4 calendar weeks (Mon-Sun) ──
     weekly_columns = []
-    month_start = getdate(str(get_first_day(today)))
-    month_end   = getdate(str(get_last_day(today)))
-    cursor = month_start
-    week_no = 1
-    while cursor <= month_end and cursor <= today:
-        days_to_sunday = 6 - cursor.weekday()
-        wend_candidate = cursor + dt_mod.timedelta(days=days_to_sunday)
-        wend = min(wend_candidate, month_end, today)
+    for w in range(3, -1, -1):
+        wk_start = today - dt_mod.timedelta(days=today.weekday() + 7 * w)
+        wk_end_full = wk_start + dt_mod.timedelta(days=6)
+        wk_end = min(wk_end_full, today)
+        if wk_end < wk_start:
+            continue
         weekly_columns.append({
-            "label":     f"Wk {week_no}",
-            "from_date": str(cursor),
-            "to_date":   str(wend),
-            "is_full":   wend == wend_candidate and wend <= today,
+            "label":     wk_start.strftime('%b %d'),
+            "from_date": str(wk_start),
+            "to_date":   str(wk_end),
+            "is_full":   wk_end == wk_end_full,
         })
-        cursor = wend + dt_mod.timedelta(days=1)
-        week_no += 1
 
     daily_columns = []
-    week_start = today - dt_mod.timedelta(days=today.weekday())
-    for i in range(7):
-        d = week_start + dt_mod.timedelta(days=i)
-        if d > today:
-            break
+    for d in range(6, -1, -1):
+        day = today - dt_mod.timedelta(days=d)
         daily_columns.append({
-            "label":     d.strftime('%a'),
-            "from_date": str(d),
-            "to_date":   str(d),
+            "label":     day.strftime('%a %d'),
+            "from_date": str(day),
+            "to_date":   str(day),
             "is_full":   True,
         })
 
-    # ── Single SQL fetch over union of all column ranges ──
+    # ── Empty fallback ──
     all_ranges = []
     for c in monthly_columns: all_ranges.append((c['from_date'], c['to_date']))
     for c in weekly_columns:  all_ranges.append((c['from_date'], c['to_date']))
     for c in daily_columns:   all_ranges.append((c['from_date'], c['to_date']))
+
 
     if not all_ranges:
         return {
@@ -1017,44 +1013,80 @@ def get_sales_matrix(territory=None):
     min_date = min(r[0] for r in all_ranges)
     max_date = max(r[1] for r in all_ranges)
 
-    rev_rows = frappe.db.sql("""
-        SELECT
-            si.posting_date,
-            COALESCE(i.item_group, 'Other') AS item_group,
-            SUM(sii.qty)             AS qty,
-            SUM(sii.base_net_amount) AS rev
-        FROM `tabSales Invoice Item` sii
-        JOIN `tabSales Invoice` si  ON si.name = sii.parent
-        LEFT JOIN `tabItem` i       ON i.name = sii.item_code
-        WHERE si.docstatus = 1
-          AND si.is_return = 0
-          AND si.posting_date BETWEEN %(s)s AND %(e)s
-          AND si.customer NOT IN %(ic)s
-        GROUP BY si.posting_date, i.item_group
-    """, {'s': min_date, 'e': max_date, 'ic': INTERNAL_CUSTOMERS}, as_dict=True)
+    # ── Queries ──
+    target_groups_list = list(target_index.keys())
+    if not target_groups_list:
+        rev_rows, cogs_rows, company_rev_rows = [], [], []
+    else:
+        # Revenue + qty per item group per posting_date (TARGETED ITEM GROUPS ONLY)
+        rev_rows = frappe.db.sql("""
+            SELECT
+                si.posting_date,
+                COALESCE(i.item_group, 'Other') AS item_group,
+                SUM(sii.qty)             AS qty,
+                SUM(sii.base_net_amount) AS rev
+            FROM `tabSales Invoice Item` sii
+            JOIN `tabSales Invoice` si  ON si.name = sii.parent
+            LEFT JOIN `tabItem` i       ON i.name = sii.item_code
+            WHERE si.docstatus = 1
+              AND si.is_return = 0
+              AND si.posting_date BETWEEN %(s)s AND %(e)s
+              AND i.item_group IN %(ig)s
+            GROUP BY si.posting_date, i.item_group
+        """, {
+            's':  min_date,
+            'e':  max_date,
+            'ig': tuple(target_groups_list),
+        }, as_dict=True)
 
-    cogs_rows = frappe.db.sql("""
-        SELECT
-            sle.posting_date,
-            ABS(SUM(sle.stock_value_difference)) AS cogs
-        FROM `tabStock Ledger Entry` sle
-        JOIN `tabSales Invoice` si ON si.name = sle.voucher_no
-        WHERE sle.voucher_type = 'Sales Invoice'
-          AND sle.is_cancelled = 0
-          AND sle.posting_date BETWEEN %(s)s AND %(e)s
-          AND si.docstatus = 1
-          AND si.is_return = 0
-          AND si.customer NOT IN %(ic)s
-        GROUP BY sle.posting_date
-    """, {'s': min_date, 'e': max_date, 'ic': INTERNAL_CUSTOMERS}, as_dict=True)
+        # COGS per posting_date for the targeted item groups
+        cogs_rows = frappe.db.sql("""
+            SELECT
+                sle.posting_date,
+                ABS(SUM(sle.stock_value_difference)) AS cogs
+            FROM `tabStock Ledger Entry` sle
+            JOIN `tabSales Invoice` si ON si.name = sle.voucher_no
+            JOIN `tabItem` i           ON i.name = sle.item_code
+            WHERE sle.voucher_type = 'Sales Invoice'
+              AND sle.is_cancelled = 0
+              AND sle.posting_date BETWEEN %(s)s AND %(e)s
+              AND si.docstatus = 1
+              AND si.is_return = 0
+              AND si.customer NOT IN %(ic)s
+              AND i.item_group IN %(ig)s
+            GROUP BY sle.posting_date
+        """, {
+            's':  min_date,
+            'e':  max_date,
+            'ic': INTERNAL_CUSTOMERS,
+            'ig': tuple(target_groups_list),
+        }, as_dict=True)
+
+        # Company-level revenue (ALL item groups, broken out by company)
+        company_rev_rows = frappe.db.sql("""
+            SELECT
+                si.posting_date,
+                si.company,
+                SUM(sii.base_net_amount) AS rev
+            FROM `tabSales Invoice Item` sii
+            JOIN `tabSales Invoice` si ON si.name = sii.parent
+            WHERE si.docstatus = 1
+              AND si.is_return = 0
+              AND si.posting_date BETWEEN %(s)s AND %(e)s
+              AND si.customer NOT IN %(ic)s
+            GROUP BY si.posting_date, si.company
+        """, {
+            's':  min_date,
+            'e':  max_date,
+            'ic': INTERNAL_CUSTOMERS,
+        }, as_dict=True)
 
     monthly = _build_matrix(monthly_columns, target_index, rev_rows, cogs_rows,
-                            monthly_oh, default_margin_pct, 'monthly')
+                            company_rev_rows, monthly_oh, default_margin_pct, 'monthly')
     weekly  = _build_matrix(weekly_columns,  target_index, rev_rows, cogs_rows,
-                            monthly_oh, default_margin_pct, 'weekly')
-    daily   = _build_matrix(daily_columns,   target_index, rev_rows, cogs_rows,
-                            monthly_oh, default_margin_pct, 'daily')
-
+                            company_rev_rows, monthly_oh, default_margin_pct, 'weekly')
+    daily = _build_matrix(daily_columns, target_index, rev_rows, cogs_rows,
+                          company_rev_rows, monthly_oh, default_margin_pct, 'daily')
     return {
         "monthly":     monthly,
         "weekly":      weekly,
@@ -1063,15 +1095,6 @@ def get_sales_matrix(territory=None):
         "territory":   territory,
         "monthly_oh":  monthly_oh,
         "default_margin_pct": default_margin_pct,
-        "_debug": {
-            "today":           str(today),
-            "min_date":        str(min_date),
-            "max_date":        str(max_date),
-            "rev_rows_count":  len(rev_rows),
-            "cogs_rows_count": len(cogs_rows),
-            "rev_total":       sum(_flt(r.rev) for r in rev_rows),
-            "sample_rev_row":  dict(rev_rows[0]) if rev_rows else None,
-        },
     }
 
 
@@ -1087,29 +1110,27 @@ def _empty_matrix(columns):
         "oh":           {},
         "target_net":   {},
         "target_rev_by_col": {},
+        "motley_totals": {},
+        "tsbc_totals":   {},
+        "other_totals":  {},
     }
 
-
 def _build_matrix(columns, target_index, rev_rows, cogs_rows,
-                  monthly_oh, default_margin_pct, granularity):
+                  company_rev_rows, monthly_oh, default_margin_pct, granularity):
     import datetime as dt_mod
     from frappe.utils import getdate, get_first_day, get_last_day, flt as _flt
 
     col_labels = [c['label'] for c in columns]
     col_ranges = [(c['label'], getdate(c['from_date']), getdate(c['to_date'])) for c in columns]
 
-    products_map = {}
-    for ig in target_index:
-        products_map[ig] = {col: {"qty": 0.0, "rev": 0.0} for col in col_labels}
-    for r in rev_rows:
-        ig = r.item_group or 'Other'
-        if ig not in products_map:
-            products_map[ig] = {col: {"qty": 0.0, "rev": 0.0} for col in col_labels}
+    # Only build product rows for item groups that have targets in this territory
+    products_map = {ig: {col: {"qty": 0.0, "rev": 0.0} for col in col_labels}
+                    for ig in target_index}
 
     totals = {col: 0.0 for col in col_labels}
     cogs   = {col: 0.0 for col in col_labels}
 
-    # Bucket revenue — coerce posting_date robustly
+    # Bucket revenue (targeted item groups only)
     for r in rev_rows:
         if not r.posting_date:
             continue
@@ -1117,11 +1138,13 @@ def _build_matrix(columns, target_index, rev_rows, cogs_rows,
         ig = r.item_group or 'Other'
         for label, fd, td in col_ranges:
             if fd <= pd <= td:
-                products_map[ig][label]["qty"] += _flt(r.qty)
-                products_map[ig][label]["rev"] += _flt(r.rev)
+                if ig in products_map:
+                    products_map[ig][label]["qty"] += _flt(r.qty)
+                    products_map[ig][label]["rev"] += _flt(r.rev)
                 totals[label] += _flt(r.rev)
                 break
 
+    # Bucket COGS by date
     for r in cogs_rows:
         if not r.posting_date:
             continue
@@ -1131,18 +1154,57 @@ def _build_matrix(columns, target_index, rev_rows, cogs_rows,
                 cogs[label] += _flt(r.cogs)
                 break
 
-    margin, margin_pct, oh, target_net, target_rev_by_col = {}, {}, {}, {}, {}
+    # Bucket per-company totals (ALL item groups, by company)
+    motley_totals = {col: 0.0 for col in col_labels}
+    tsbc_totals   = {col: 0.0 for col in col_labels}
+    other_totals  = {col: 0.0 for col in col_labels}
+
+    for r in company_rev_rows:
+        if not r.posting_date:
+            continue
+        pd = r.posting_date if isinstance(r.posting_date, dt_mod.date) else getdate(str(r.posting_date))
+        company = (r.company or '').strip().lower()
+        for label, fd, td in col_ranges:
+            if fd <= pd <= td:
+                if 'motley' in company:
+                    motley_totals[label] += _flt(r.rev)
+                elif 'tsbc' in company:
+                    tsbc_totals[label] += _flt(r.rev)
+                else:
+                    other_totals[label] += _flt(r.rev)
+                break
+
+    # ── Per-column aggregates: targets, OH, margin, NET ──
+    margin             = {}
+    margin_pct         = {}
+    oh                 = {}
+    target_net         = {}
+    target_rev_by_col  = {}
+    product_col_targets = {ig: {} for ig in target_index}
 
     for label, fd, td in col_ranges:
         col_days = (td - fd).days + 1
+
         if granularity == 'monthly':
-            oh[label] = monthly_oh
-        elif granularity == 'weekly':
-            month_days = (getdate(str(get_last_day(fd))) - getdate(str(get_first_day(fd)))).days + 1
-            oh[label] = monthly_oh * (col_days / float(month_days))
+            # Partial-month aware: weight by days in host month
+            month_full_days = (getdate(str(get_last_day(fd))) - getdate(str(get_first_day(fd)))).days + 1
+            col_frac = col_days / float(month_full_days)
         else:
-            month_days = (getdate(str(get_last_day(fd))) - getdate(str(get_first_day(fd)))).days + 1
-            oh[label] = monthly_oh * (1 / float(month_days))
+            # Weekly or Daily: monthly target divided across 28 days (4 weeks)
+            # Full week = 7/28 = monthly/4
+            # Full day  = 1/28 = monthly/28
+            col_frac = col_days / 28.0
+
+        oh[label] = monthly_oh * col_frac
+
+        # Per-product target for this column (Target Amount is monthly)
+        col_target_rev = 0.0
+        for ig, t in target_index.items():
+            monthly_target = _flt(t['target_rev'])
+            cell_target = monthly_target * col_frac
+            product_col_targets[ig][label] = cell_target
+            col_target_rev += cell_target
+        target_rev_by_col[label] = col_target_rev
 
         rev_col  = totals[label]
         cogs_col = cogs[label]
@@ -1150,29 +1212,26 @@ def _build_matrix(columns, target_index, rev_rows, cogs_rows,
         margin_pct[label] = ((rev_col - cogs_col) / rev_col * 100.0) if rev_col else 0.0
 
         effective_margin_pct = margin_pct[label] if rev_col > 0 else default_margin_pct
+        target_net[label] = (effective_margin_pct / 100.0) * col_target_rev
 
-        col_target_rev = 0.0
-        for ig, t in target_index.items():
-            frac = col_days / 365.0
-            col_target_rev += t['target_rev'] * frac
-        target_rev_by_col[label] = col_target_rev
-
-        target_net[label] = (effective_margin_pct / 100.0) * col_target_rev - oh[label]
-
+    # ── Build product rows ──
     products = []
     for ig, cols in products_map.items():
         t = target_index.get(ig, {"target_units": 0, "avg_price": 0, "target_rev": 0})
-        actuals = {col: cols[col]["rev"] for col in col_labels}
-        units   = {col: cols[col]["qty"] for col in col_labels}
+        actuals       = {col: cols[col]["rev"] for col in col_labels}
+        units         = {col: cols[col]["qty"] for col in col_labels}
+        cell_targets  = product_col_targets.get(ig, {col: 0 for col in col_labels})
         products.append({
-            "item_group":   ig,
-            "has_target":   ig in target_index,
-            "target_units": t["target_units"],
-            "avg_price":    t["avg_price"],
-            "target_rev":   t["target_rev"],
-            "actuals":      actuals,
-            "units":        units,
-            "row_total":    sum(actuals.values()),
+            "item_group":     ig,
+            "has_target":     ig in target_index,
+            "target_units":   t["target_units"],
+            "avg_price":      t["avg_price"],
+            "target_rev":     t["target_rev"],
+            "monthly_target": _flt(t["target_rev"]),
+            "actuals":        actuals,
+            "units":          units,
+            "cell_targets":   cell_targets,
+            "row_total":      sum(actuals.values()),
         })
 
     target_order = list(target_index.keys())
@@ -1183,14 +1242,17 @@ def _build_matrix(columns, target_index, rev_rows, cogs_rows,
     products.sort(key=sort_key)
 
     return {
-        "columns":      col_labels,
-        "column_dates": [[c['from_date'], c['to_date']] for c in columns],
-        "products":     products,
-        "totals":       totals,
-        "cogs":         cogs,
-        "margin":       margin,
-        "margin_pct":   margin_pct,
-        "oh":           oh,
-        "target_net":   target_net,
+        "columns":           col_labels,
+        "column_dates":      [[c['from_date'], c['to_date']] for c in columns],
+        "products":          products,
+        "totals":            totals,
+        "cogs":              cogs,
+        "margin":            margin,
+        "margin_pct":        margin_pct,
+        "oh":                oh,
+        "target_net":        target_net,
         "target_rev_by_col": target_rev_by_col,
+        "motley_totals":     motley_totals,
+        "tsbc_totals":       tsbc_totals,
+        "other_totals":      other_totals,
     }
