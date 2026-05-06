@@ -1,0 +1,164 @@
+{
+ "actions": [],
+ "creation": "2026-05-05 07:33:58.161522",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_period",
+  "period_type",
+  "column_break_period",
+  "start_date",
+  "end_date",
+  "section_targets",
+  "target_revenue",
+  "avg_sale_price",
+  "column_break_targets",
+  "target_units",
+  "section_scope",
+  "item_group",
+  "column_break_scope",
+  "company",
+  "section_notes",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_period",
+   "fieldtype": "Section Break",
+   "label": "Period"
+  },
+  {
+   "fieldname": "period_type",
+   "fieldtype": "Select",
+   "label": "Period Type",
+   "options": "Quarter\nHalf-Year\nCustom",
+   "default": "Quarter",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_period",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "start_date",
+   "fieldtype": "Date",
+   "label": "Start Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "end_date",
+   "fieldtype": "Date",
+   "label": "End Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_targets",
+   "fieldtype": "Section Break",
+   "label": "Targets"
+  },
+  {
+   "fieldname": "target_revenue",
+   "fieldtype": "Currency",
+   "label": "Target Revenue",
+   "reqd": 1,
+   "non_negative": 1
+  },
+  {
+   "fieldname": "avg_sale_price",
+   "fieldtype": "Currency",
+   "label": "Avg Sale Price",
+   "reqd": 1,
+   "non_negative": 1,
+   "description": "Used to derive target units"
+  },
+  {
+   "fieldname": "column_break_targets",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "target_units",
+   "fieldtype": "Float",
+   "label": "Target Units",
+   "read_only": 1,
+   "precision": "2",
+   "description": "Auto-calculated: Target Revenue \u00f7 Avg Sale Price"
+  },
+  {
+   "fieldname": "section_scope",
+   "fieldtype": "Section Break",
+   "label": "Scope"
+  },
+  {
+   "fieldname": "item_group",
+   "fieldtype": "Link",
+   "label": "Item Group",
+   "options": "Item Group",
+   "reqd": 1,
+   "default": "Core Revenue Products",
+   "description": "Performance is measured against sales in this item group"
+  },
+  {
+   "fieldname": "column_break_scope",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1,
+   "default": "user_default:Company"
+  },
+  {
+   "fieldname": "section_notes",
+   "fieldtype": "Section Break",
+   "label": "Notes",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-05-05 07:33:58.161522",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Sales Target",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "Sales Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "read": 1,
+   "role": "Sales Reviewer"
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

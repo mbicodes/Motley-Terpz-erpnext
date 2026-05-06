@@ -165,18 +165,19 @@ function render_tables(page, data) {
 	let html = "";
 
 	// 1. MONTHLY SECTION
-	html += render_section("MONTHLY", data.months, targets, data.month_data, company);
+	html += render_section("MONTHLY", data.months, targets, data.month_data, company, 1);
 
-	// 2. WEEKLY SECTION
-	html += render_section("WEEKLY", data.weeks, targets, data.week_data, company);
+	// 2. WEEKLY SECTION  (target qty = monthly / 4)
+	html += render_section("WEEKLY", data.weeks, targets, data.week_data, company, 4);
 
-	// 3. DAILY SECTION
-	html += render_section("DAILY", data.days, targets, data.day_data, company);
+	// 3. DAILY SECTION  (target qty = monthly / 4 / 7)
+	html += render_section("DAILY", data.days, targets, data.day_data, company, 28);
 
 	page.main.find('#mst-data-area').html(html);
 }
 
-function render_section(title, periods, targets, actual_data, company) {
+function render_section(title, periods, targets, actual_data, company, divisor) {
+	divisor = divisor || 1;
 	let html = `
     <div class="mst-section">
         <div class="mst-section-title">${title}</div>
@@ -204,14 +205,16 @@ function render_section(title, periods, targets, actual_data, company) {
 
 	targets.forEach(t => {
 		let ig = t.item_group;
+		let display_qty = t.target_qty / divisor;
+		let display_rev = t.average_rate * display_qty;
 		html += `<tr>`;
 		html += `<td>${ig}</td>`;
-		html += `<td class="col-target">${format_qty(t.target_qty)}</td>`;
+		html += `<td class="col-target">${format_qty(display_qty)}</td>`;
 		html += `<td class="col-target">${format_currency(t.average_rate)}</td>`;
-		html += `<td class="col-target">${format_currency(t.target_amount)}</td>`;
+		html += `<td class="col-target">${format_currency(display_rev)}</td>`;
 
-		sum_qty += t.target_qty;
-		sum_rev += t.target_amount;
+		sum_qty += display_qty;
+		sum_rev += display_rev;
 
 		periods.forEach(p => {
 			let val = actual_data[ig] ? (actual_data[ig][p.key] || 0) : 0;

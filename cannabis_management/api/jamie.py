@@ -9,6 +9,9 @@ def _get_date_range(period):
         return add_days(today, -7), today
     elif period == 'monthly':
         return get_first_day(today), get_last_day(today)
+    elif period == 'last_month':
+        last_month_ref = add_months(today, -1)
+        return get_first_day(last_month_ref), get_last_day(last_month_ref)
     else:  # 'overall'
         return None, None
 
@@ -615,3 +618,579 @@ def get_bank_payments_received(from_date, to_date):
     frappe.errprint(f"[get_bank_payments_received] rows returned={len(rows)}")
 
     return rows
+
+
+# ─────────────────────────────────────────────────────────
+# Sales Dashboard
+# ─────────────────────────────────────────────────────────
+
+@frappe.whitelist()
+def get_sales_territories():
+    """Territories that have at least one Target Detail configured."""
+    rows = frappe.db.sql("""
+        SELECT DISTINCT t.name
+        FROM `tabTerritory` t
+        INNER JOIN `tabTarget Detail` td
+            ON td.parent = t.name AND td.parenttype = 'Territory'
+        WHERE td.target_qty > 0 OR td.target_amount > 0
+        ORDER BY t.name
+    """, as_dict=True)
+    return rows
+
+@frappe.whitelist()
+def get_sales_dashboard_data(period='weekly', territory=None, company=None):
+    """
+    Annual targets (Territory > Target Detail, scoped to Fiscal Year) pro-rated
+    to the selected period vs actual sales.
+
+    Cross-company: pulls from ALL companies, no company filter applied.
+    The `company` parameter is accepted for backward compatibility but ignored.
+
+    period: 'daily' | 'weekly' | 'monthly'
+    """
+    import datetime as dt_mod
+    from frappe.utils import getdate, get_first_day, flt as _flt
+
+    today = getdate(nowdate())
+
+    # ── Date window + days for pro-rating ──
+    if period == 'daily':
+        from_date = to_date = str(today)
+        window_days = 1
+        period_label = 'Today'
+    elif period == 'weekly':
+        week_start = today - dt_mod.timedelta(days=today.weekday())
+        from_date, to_date = str(week_start), str(today)
+        window_days = (today - week_start).days + 1
+        period_label = 'This Week'
+    elif period == 'last_month':
+        # First/last day of the previous month
+        first_of_this_month = getdate(str(get_first_day(today)))
+        last_month_end      = first_of_this_month - dt_mod.timedelta(days=1)
+        last_month_start    = getdate(str(get_first_day(last_month_end)))
+        from_date, to_date  = str(last_month_start), str(last_month_end)
+        window_days         = (last_month_end - last_month_start).days + 1
+        period_label        = 'Last Month'
+    else:  # monthly (this month)
+        month_start = getdate(str(get_first_day(today)))
+        from_date, to_date = str(month_start), str(today)
+        window_days = (today - month_start).days + 1
+        period_label = 'This Month'
+
+    # ── Resolve fiscal year for targets ──
+    target_fy = None
+    fy_days = 365
+    if territory:
+        fy_today = frappe.db.sql("""
+            SELECT fy.name, fy.year_start_date, fy.year_end_date
+            FROM `tabFiscal Year` fy
+            WHERE %(today)s BETWEEN fy.year_start_date AND fy.year_end_date
+              AND EXISTS (
+                  SELECT 1 FROM `tabTarget Detail` td
+                  WHERE td.parent = %(terr)s
+                    AND td.parenttype = 'Territory'
+                    AND td.fiscal_year = fy.name
+              )
+            LIMIT 1
+        """, {'today': str(today), 'terr': territory}, as_dict=True)
+
+        if fy_today:
+            target_fy = fy_today[0]
+        else:
+            fy_latest = frappe.db.sql("""
+                SELECT fy.name, fy.year_start_date, fy.year_end_date
+                FROM `tabFiscal Year` fy
+                JOIN `tabTarget Detail` td
+                  ON td.fiscal_year = fy.name
+                 AND td.parent = %(terr)s
+                 AND td.parenttype = 'Territory'
+                ORDER BY fy.year_start_date DESC
+                LIMIT 1
+            """, {'terr': territory}, as_dict=True)
+            if fy_latest:
+                target_fy = fy_latest[0]
+
+        if target_fy:
+            fy_days = (getdate(str(target_fy.year_end_date)) -
+                       getdate(str(target_fy.year_start_date))).days + 1
+
+    # ── Targets, scoped to chosen fiscal year ──
+    targets = []
+    if territory and target_fy:
+        rows = frappe.get_all(
+            "Target Detail",
+            filters={
+                "parent": territory,
+                "parenttype": "Territory",
+                "fiscal_year": target_fy.name,
+            },
+            fields=["item_group", "target_qty", "average_rate", "target_amount"],
+            order_by="idx",
+        )
+        for t in rows:
+            t_qty    = _flt(t.get('target_qty'))
+            avg_rate = _flt(t.get('average_rate'))
+            t_amount = _flt(t.get('target_amount')) or (t_qty * avg_rate)
+
+            p_qty = (t_qty    / fy_days) * window_days if fy_days else 0
+            p_rev = (t_amount / fy_days) * window_days if fy_days else 0
+
+            targets.append({
+                "item_group":        t.item_group,
+                "avg_rate":          avg_rate,
+                "annual_target_qty": t_qty,
+                "annual_target_rev": t_amount,
+                "period_target_qty": p_qty,
+                "period_target_rev": p_rev,
+            })
+
+    # ── Actuals — NO COMPANY FILTER, cross-company aggregation ──
+    actuals_raw = frappe.db.sql("""
+        SELECT
+            COALESCE(i.item_group, 'Other') AS item_group,
+            SUM(sii.qty)                    AS total_qty,
+            SUM(sii.base_net_amount)        AS total_rev
+        FROM `tabSales Invoice Item` sii
+        JOIN  `tabSales Invoice` si ON si.name = sii.parent
+        LEFT JOIN `tabItem` i       ON i.name = sii.item_code
+        WHERE si.docstatus    = 1
+          AND si.posting_date BETWEEN %(from_date)s AND %(to_date)s
+          AND si.is_return    = 0
+          AND si.customer     NOT IN %(internal_customers)s
+        GROUP BY i.item_group
+    """, {
+        'from_date': from_date,
+        'to_date':   to_date,
+        'internal_customers': INTERNAL_CUSTOMERS,
+    }, as_dict=True)
+
+    from cannabis_management.cannabis_management.page.weekly_summary.weekly_summary import get_category_for_item_group
+    target_groups = [t['item_group'] for t in targets]
+
+    actuals_map = {}
+    for r in actuals_raw:
+        raw_ig = r.item_group or 'Other'
+        mapped = get_category_for_item_group(raw_ig)
+
+        matched = None
+        for tg in target_groups:
+            if tg == mapped or tg == raw_ig:
+                matched = tg; break
+            if tg.lower() in mapped.lower() or mapped.lower() in tg.lower():
+                matched = tg; break
+            if tg.lower() in raw_ig.lower():
+                matched = tg; break
+
+        key = matched or raw_ig
+        if key not in actuals_map:
+            actuals_map[key] = {'qty': 0.0, 'rev': 0.0}
+        actuals_map[key]['qty'] += _flt(r.total_qty)
+        actuals_map[key]['rev'] += _flt(r.total_rev)
+
+    # ── Build product rows: targets first ──
+    products, total_target, total_actual = [], 0.0, 0.0
+    mapped_keys = set()
+
+    for t in targets:
+        ig         = t['item_group']
+        mapped_keys.add(ig)
+        actual_qty = actuals_map.get(ig, {}).get('qty', 0.0)
+        actual_rev = actuals_map.get(ig, {}).get('rev', 0.0)
+        p_target   = t['period_target_rev']
+
+        variance_amt = actual_rev - p_target
+        variance_pct = (variance_amt / p_target * 100.0) if p_target else 0.0
+        progress_pct = min((actual_rev / p_target * 100.0) if p_target else 0.0, 150.0)
+
+        products.append({
+            "item_group":        ig,
+            "avg_rate":          t['avg_rate'],
+            "annual_target_qty": t['annual_target_qty'],
+            "annual_target_rev": t['annual_target_rev'],
+            "period_target_qty": t['period_target_qty'],
+            "period_target_rev": p_target,
+            "actual_qty":        actual_qty,
+            "actual_rev":        actual_rev,
+            "variance_amt":      variance_amt,
+            "variance_pct":      variance_pct,
+            "on_target":         actual_rev >= p_target,
+            "progress_pct":      progress_pct,
+            "has_target":        True,
+        })
+        total_target += p_target
+        total_actual += actual_rev
+
+    # ── Surface UNMAPPED actuals ──
+    for key, vals in actuals_map.items():
+        if key in mapped_keys or vals['rev'] <= 0:
+            continue
+        products.append({
+            "item_group":        key + ' (no target)',
+            "avg_rate":          0,
+            "annual_target_qty": 0,
+            "annual_target_rev": 0,
+            "period_target_qty": 0,
+            "period_target_rev": 0,
+            "actual_qty":        vals['qty'],
+            "actual_rev":        vals['rev'],
+            "variance_amt":      vals['rev'],
+            "variance_pct":      0,
+            "on_target":         True,
+            "progress_pct":      100.0,
+            "has_target":        False,
+        })
+        total_actual += vals['rev']
+
+    total_variance     = total_actual - total_target
+    total_variance_pct = (total_variance / total_target * 100.0) if total_target else 0.0
+
+    pending_count = frappe.db.count("Sales Invoice", {"docstatus": 0})
+
+    return {
+        "period":             period,
+        "period_label":       period_label,
+        "from_date":          from_date,
+        "to_date":            to_date,
+        "window_days":        window_days,
+        "fiscal_year":        target_fy.name if target_fy else None,
+        "fiscal_year_days":   fy_days,
+        "period_fraction":    (window_days / float(fy_days)) if fy_days else 0,
+        "territory":          territory,
+        "products":           products,
+        "total_target_rev":   total_target,
+        "total_actual_rev":   total_actual,
+        "total_variance":     total_variance,
+        "total_variance_pct": total_variance_pct,
+        "on_target":          total_actual >= total_target,
+        "pending_invoices":   pending_count,
+    }
+
+
+@frappe.whitelist()
+def get_dashboard_inventory(company=None):
+    """Stock on hand by item group with cost valuation. Cross-company."""
+    rows = frappe.db.sql("""
+        SELECT
+            COALESCE(i.item_group, 'Other')      AS item_group,
+            SUM(b.actual_qty)                    AS qty_on_hand,
+            SUM(b.actual_qty * b.valuation_rate) AS stock_value
+        FROM `tabBin` b
+        JOIN `tabItem` i ON i.name = b.item_code
+        WHERE b.actual_qty > 0
+        GROUP BY i.item_group
+        HAVING qty_on_hand > 0
+        ORDER BY stock_value DESC
+    """, as_dict=True)
+
+    return rows
+
+@frappe.whitelist()
+def get_sales_matrix(territory=None):
+    """
+    Returns 3 matrices (monthly / weekly / daily) for the sales dashboard.
+    Matrix columns are anchored to TODAY's calendar (not the FY of targets),
+    so a target stored against FY 2024-2025 still compares against actuals
+    posted in 2026.
+    """
+    import datetime as dt_mod
+    from frappe.utils import getdate, get_first_day, get_last_day, flt as _flt
+
+    today = getdate(nowdate())
+
+    # ── Settings ──
+    try:
+        settings = frappe.get_single("Sales Dashboard Settings")
+        monthly_oh = _flt(settings.monthly_overhead) or 35000.0
+        default_margin_pct = _flt(settings.default_margin_pct) or 40.0
+    except Exception:
+        monthly_oh = 35000.0
+        default_margin_pct = 40.0
+
+    # ── Resolve fiscal year for TARGETS ONLY (matrix columns are independent) ──
+    target_fy = None
+    if territory:
+        fy_today = frappe.db.sql("""
+            SELECT fy.name, fy.year_start_date, fy.year_end_date
+            FROM `tabFiscal Year` fy
+            WHERE %(today)s BETWEEN fy.year_start_date AND fy.year_end_date
+              AND EXISTS (
+                  SELECT 1 FROM `tabTarget Detail` td
+                  WHERE td.parent = %(terr)s AND td.parenttype = 'Territory'
+                    AND td.fiscal_year = fy.name
+              )
+            LIMIT 1
+        """, {'today': str(today), 'terr': territory}, as_dict=True)
+        if fy_today:
+            target_fy = fy_today[0]
+        else:
+            fy_latest = frappe.db.sql("""
+                SELECT fy.name, fy.year_start_date, fy.year_end_date
+                FROM `tabFiscal Year` fy
+                JOIN `tabTarget Detail` td ON td.fiscal_year = fy.name
+                WHERE td.parent = %(terr)s AND td.parenttype = 'Territory'
+                ORDER BY fy.year_start_date DESC LIMIT 1
+            """, {'terr': territory}, as_dict=True)
+            if fy_latest:
+                target_fy = fy_latest[0]
+
+    targets_raw = []
+    if territory and target_fy:
+        targets_raw = frappe.get_all(
+            "Target Detail",
+            filters={"parent": territory, "parenttype": "Territory", "fiscal_year": target_fy.name},
+            fields=["item_group", "target_qty", "average_rate", "target_amount"],
+            order_by="idx",
+        )
+
+    target_index = {}
+    for t in targets_raw:
+        t_qty   = _flt(t.target_qty)
+        avg_rt  = _flt(t.average_rate)
+        t_amt   = _flt(t.target_amount) or (t_qty * avg_rt)
+        target_index[t.item_group] = {
+            "target_units": t_qty,
+            "avg_price":    avg_rt,
+            "target_rev":   t_amt,
+        }
+
+    # ── Matrix columns: anchored to TODAY's calendar year ──
+    monthly_columns = []
+    for m in range(1, today.month + 1):
+        mstart = today.replace(month=m, day=1)
+        mend_dt = getdate(str(get_last_day(mstart)))
+        mend = min(mend_dt, today)
+        monthly_columns.append({
+            "label":     mstart.strftime('%b'),
+            "from_date": str(mstart),
+            "to_date":   str(mend),
+            "is_full":   mend == mend_dt,
+        })
+
+    weekly_columns = []
+    month_start = getdate(str(get_first_day(today)))
+    month_end   = getdate(str(get_last_day(today)))
+    cursor = month_start
+    week_no = 1
+    while cursor <= month_end and cursor <= today:
+        days_to_sunday = 6 - cursor.weekday()
+        wend_candidate = cursor + dt_mod.timedelta(days=days_to_sunday)
+        wend = min(wend_candidate, month_end, today)
+        weekly_columns.append({
+            "label":     f"Wk {week_no}",
+            "from_date": str(cursor),
+            "to_date":   str(wend),
+            "is_full":   wend == wend_candidate and wend <= today,
+        })
+        cursor = wend + dt_mod.timedelta(days=1)
+        week_no += 1
+
+    daily_columns = []
+    week_start = today - dt_mod.timedelta(days=today.weekday())
+    for i in range(7):
+        d = week_start + dt_mod.timedelta(days=i)
+        if d > today:
+            break
+        daily_columns.append({
+            "label":     d.strftime('%a'),
+            "from_date": str(d),
+            "to_date":   str(d),
+            "is_full":   True,
+        })
+
+    # ── Single SQL fetch over union of all column ranges ──
+    all_ranges = []
+    for c in monthly_columns: all_ranges.append((c['from_date'], c['to_date']))
+    for c in weekly_columns:  all_ranges.append((c['from_date'], c['to_date']))
+    for c in daily_columns:   all_ranges.append((c['from_date'], c['to_date']))
+
+    if not all_ranges:
+        return {
+            "monthly":     _empty_matrix(monthly_columns),
+            "weekly":      _empty_matrix(weekly_columns),
+            "daily":       _empty_matrix(daily_columns),
+            "fiscal_year": target_fy.name if target_fy else None,
+            "territory":   territory,
+            "monthly_oh":  monthly_oh,
+            "default_margin_pct": default_margin_pct,
+        }
+
+    min_date = min(r[0] for r in all_ranges)
+    max_date = max(r[1] for r in all_ranges)
+
+    rev_rows = frappe.db.sql("""
+        SELECT
+            si.posting_date,
+            COALESCE(i.item_group, 'Other') AS item_group,
+            SUM(sii.qty)             AS qty,
+            SUM(sii.base_net_amount) AS rev
+        FROM `tabSales Invoice Item` sii
+        JOIN `tabSales Invoice` si  ON si.name = sii.parent
+        LEFT JOIN `tabItem` i       ON i.name = sii.item_code
+        WHERE si.docstatus = 1
+          AND si.is_return = 0
+          AND si.posting_date BETWEEN %(s)s AND %(e)s
+          AND si.customer NOT IN %(ic)s
+        GROUP BY si.posting_date, i.item_group
+    """, {'s': min_date, 'e': max_date, 'ic': INTERNAL_CUSTOMERS}, as_dict=True)
+
+    cogs_rows = frappe.db.sql("""
+        SELECT
+            sle.posting_date,
+            ABS(SUM(sle.stock_value_difference)) AS cogs
+        FROM `tabStock Ledger Entry` sle
+        JOIN `tabSales Invoice` si ON si.name = sle.voucher_no
+        WHERE sle.voucher_type = 'Sales Invoice'
+          AND sle.is_cancelled = 0
+          AND sle.posting_date BETWEEN %(s)s AND %(e)s
+          AND si.docstatus = 1
+          AND si.is_return = 0
+          AND si.customer NOT IN %(ic)s
+        GROUP BY sle.posting_date
+    """, {'s': min_date, 'e': max_date, 'ic': INTERNAL_CUSTOMERS}, as_dict=True)
+
+    monthly = _build_matrix(monthly_columns, target_index, rev_rows, cogs_rows,
+                            monthly_oh, default_margin_pct, 'monthly')
+    weekly  = _build_matrix(weekly_columns,  target_index, rev_rows, cogs_rows,
+                            monthly_oh, default_margin_pct, 'weekly')
+    daily   = _build_matrix(daily_columns,   target_index, rev_rows, cogs_rows,
+                            monthly_oh, default_margin_pct, 'daily')
+
+    return {
+        "monthly":     monthly,
+        "weekly":      weekly,
+        "daily":       daily,
+        "fiscal_year": target_fy.name if target_fy else None,
+        "territory":   territory,
+        "monthly_oh":  monthly_oh,
+        "default_margin_pct": default_margin_pct,
+        "_debug": {
+            "today":           str(today),
+            "min_date":        str(min_date),
+            "max_date":        str(max_date),
+            "rev_rows_count":  len(rev_rows),
+            "cogs_rows_count": len(cogs_rows),
+            "rev_total":       sum(_flt(r.rev) for r in rev_rows),
+            "sample_rev_row":  dict(rev_rows[0]) if rev_rows else None,
+        },
+    }
+
+
+def _empty_matrix(columns):
+    return {
+        "columns":      [c['label'] for c in columns],
+        "column_dates": [[c['from_date'], c['to_date']] for c in columns],
+        "products":     [],
+        "totals":       {},
+        "cogs":         {},
+        "margin":       {},
+        "margin_pct":   {},
+        "oh":           {},
+        "target_net":   {},
+        "target_rev_by_col": {},
+    }
+
+
+def _build_matrix(columns, target_index, rev_rows, cogs_rows,
+                  monthly_oh, default_margin_pct, granularity):
+    import datetime as dt_mod
+    from frappe.utils import getdate, get_first_day, get_last_day, flt as _flt
+
+    col_labels = [c['label'] for c in columns]
+    col_ranges = [(c['label'], getdate(c['from_date']), getdate(c['to_date'])) for c in columns]
+
+    products_map = {}
+    for ig in target_index:
+        products_map[ig] = {col: {"qty": 0.0, "rev": 0.0} for col in col_labels}
+    for r in rev_rows:
+        ig = r.item_group or 'Other'
+        if ig not in products_map:
+            products_map[ig] = {col: {"qty": 0.0, "rev": 0.0} for col in col_labels}
+
+    totals = {col: 0.0 for col in col_labels}
+    cogs   = {col: 0.0 for col in col_labels}
+
+    # Bucket revenue — coerce posting_date robustly
+    for r in rev_rows:
+        if not r.posting_date:
+            continue
+        pd = r.posting_date if isinstance(r.posting_date, dt_mod.date) else getdate(str(r.posting_date))
+        ig = r.item_group or 'Other'
+        for label, fd, td in col_ranges:
+            if fd <= pd <= td:
+                products_map[ig][label]["qty"] += _flt(r.qty)
+                products_map[ig][label]["rev"] += _flt(r.rev)
+                totals[label] += _flt(r.rev)
+                break
+
+    for r in cogs_rows:
+        if not r.posting_date:
+            continue
+        pd = r.posting_date if isinstance(r.posting_date, dt_mod.date) else getdate(str(r.posting_date))
+        for label, fd, td in col_ranges:
+            if fd <= pd <= td:
+                cogs[label] += _flt(r.cogs)
+                break
+
+    margin, margin_pct, oh, target_net, target_rev_by_col = {}, {}, {}, {}, {}
+
+    for label, fd, td in col_ranges:
+        col_days = (td - fd).days + 1
+        if granularity == 'monthly':
+            oh[label] = monthly_oh
+        elif granularity == 'weekly':
+            month_days = (getdate(str(get_last_day(fd))) - getdate(str(get_first_day(fd)))).days + 1
+            oh[label] = monthly_oh * (col_days / float(month_days))
+        else:
+            month_days = (getdate(str(get_last_day(fd))) - getdate(str(get_first_day(fd)))).days + 1
+            oh[label] = monthly_oh * (1 / float(month_days))
+
+        rev_col  = totals[label]
+        cogs_col = cogs[label]
+        margin[label]     = rev_col - cogs_col
+        margin_pct[label] = ((rev_col - cogs_col) / rev_col * 100.0) if rev_col else 0.0
+
+        effective_margin_pct = margin_pct[label] if rev_col > 0 else default_margin_pct
+
+        col_target_rev = 0.0
+        for ig, t in target_index.items():
+            frac = col_days / 365.0
+            col_target_rev += t['target_rev'] * frac
+        target_rev_by_col[label] = col_target_rev
+
+        target_net[label] = (effective_margin_pct / 100.0) * col_target_rev - oh[label]
+
+    products = []
+    for ig, cols in products_map.items():
+        t = target_index.get(ig, {"target_units": 0, "avg_price": 0, "target_rev": 0})
+        actuals = {col: cols[col]["rev"] for col in col_labels}
+        units   = {col: cols[col]["qty"] for col in col_labels}
+        products.append({
+            "item_group":   ig,
+            "has_target":   ig in target_index,
+            "target_units": t["target_units"],
+            "avg_price":    t["avg_price"],
+            "target_rev":   t["target_rev"],
+            "actuals":      actuals,
+            "units":        units,
+            "row_total":    sum(actuals.values()),
+        })
+
+    target_order = list(target_index.keys())
+    def sort_key(p):
+        if p["has_target"]:
+            return (0, target_order.index(p["item_group"]))
+        return (1, -p["row_total"])
+    products.sort(key=sort_key)
+
+    return {
+        "columns":      col_labels,
+        "column_dates": [[c['from_date'], c['to_date']] for c in columns],
+        "products":     products,
+        "totals":       totals,
+        "cogs":         cogs,
+        "margin":       margin,
+        "margin_pct":   margin_pct,
+        "oh":           oh,
+        "target_net":   target_net,
+        "target_rev_by_col": target_rev_by_col,
+    }
