@@ -1070,15 +1070,18 @@ def get_sales_matrix(territory=None):
                 SUM(sii.base_net_amount) AS rev
             FROM `tabSales Invoice Item` sii
             JOIN `tabSales Invoice` si ON si.name = sii.parent
+            JOIN `tabItem` i           ON i.name = sii.item_code
             WHERE si.docstatus = 1
               AND si.is_return = 0
               AND si.posting_date BETWEEN %(s)s AND %(e)s
               AND si.customer NOT IN %(ic)s
+              AND i.item_group IN %(ig)s
             GROUP BY si.posting_date, si.company
         """, {
             's':  min_date,
             'e':  max_date,
             'ic': INTERNAL_CUSTOMERS,
+            'ig': tuple(target_groups_list),
         }, as_dict=True)
 
     monthly = _build_matrix(monthly_columns, target_index, rev_rows, cogs_rows,

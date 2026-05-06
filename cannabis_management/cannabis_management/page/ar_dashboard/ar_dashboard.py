@@ -69,6 +69,20 @@ def get_ar_data(company, report_date=None, customer=None, ageing_based_on="Due D
 
         rows.append(processed)
 
+    # Attach reconciliation status from Customer master
+    unique_parties = list({r["party"] for r in rows if r.get("party")})
+    recon_map = {}
+    if unique_parties:
+        cust_rows = frappe.get_all(
+            "Customer",
+            filters={"name": ["in", unique_parties]},
+            fields=["name", "custom_reconciliation_status"],
+        )
+        recon_map = {c["name"]: (c.get("custom_reconciliation_status") or "") for c in cust_rows}
+
+    for r in rows:
+        r["reconciliation_status"] = recon_map.get(r["party"], "")
+
     return {
         "rows": rows,
         "ranges": ranges,
@@ -76,3 +90,17 @@ def get_ar_data(company, report_date=None, customer=None, ageing_based_on="Due D
         "company": company,
         "report_date": str(report_date or nowdate()),
     }
+
+
+@frappe.whitelist()
+def update_recon_status(party, status):
+    """Update custom_reconciliation_status on the Customer master."""
+    if status not in ("", "Reconciled", "Unreconciled"):
+        frappe.throw("Invalid reconciliation status")
+
+    if not frappe.db.exists("Customer", party):
+        frappe.throw(f"Customer {party} not found")
+
+    frappe.db.set_value("Customer", party, "custom_reconciliation_status", status)
+
+    return {"party": party, "status": status}

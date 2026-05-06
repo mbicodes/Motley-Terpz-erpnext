@@ -53,6 +53,78 @@
 	justify-content: space-between;
 	margin-bottom: 20px;
 }
+
+/* ── Reconciliation Badge ─────────────────────────────────── */
+.ard-recon-badge {
+	display: inline-block;
+	padding: 2px 9px;
+	border-radius: 12px;
+	font-size: 10px;
+	font-weight: 700;
+	letter-spacing: .3px;
+	text-transform: uppercase;
+	margin-left: 8px;
+	vertical-align: middle;
+}
+.ard-recon-reconciled {
+	background: var(--ard-current-lt);
+	color: var(--ard-current);
+}
+.ard-recon-unreconciled {
+	background: var(--ard-90-lt);
+	color: var(--ard-90);
+}
+
+/* ── Inline Recon Dropdown (in table) ─────────────────────── */
+.ard-th-recon {
+	min-width: 130px;
+}
+.ard-td-recon {
+	padding: 6px 10px !important;
+	background-color: #f1f5f9;
+}
+.ard-customer-group-row:hover .ard-td-recon {
+	background-color: #e9eef5;
+}
+.ard-recon-select {
+	width: 100%;
+	min-width: 110px;
+	height: 28px;
+	padding: 0 8px;
+	border: 1px solid var(--ard-border);
+	border-radius: 6px;
+	font-size: 11px;
+	font-weight: 700;
+	font-family: var(--ard-font);
+	letter-spacing: .3px;
+	cursor: pointer;
+	background: #fff;
+	color: var(--ard-muted);
+	transition: background .15s, color .15s, border-color .15s;
+	outline: none;
+}
+.ard-recon-select:focus {
+	box-shadow: 0 0 0 2px rgba(59, 130, 246, .2);
+}
+.ard-recon-select:disabled {
+	opacity: .6;
+	cursor: wait;
+}
+.ard-recon-select.ard-recon-reconciled {
+	background: var(--ard-current-lt);
+	color: var(--ard-current);
+	border-color: var(--ard-current);
+}
+.ard-recon-select.ard-recon-unreconciled {
+	background: var(--ard-90-lt);
+	color: var(--ard-90);
+	border-color: var(--ard-90);
+}
+.ard-recon-select.ard-recon-empty {
+	background: #f3f4f6;
+	color: var(--ard-muted);
+}
+
 .ard-title {
 	font-size: 22px;
 	font-weight: 700;

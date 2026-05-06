@@ -44,6 +44,14 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
 						<option value="Posting Date">Posting Date</option>
 					</select>
 				</div>
+				<div class="ard-filter-group">
+					<label class="ard-label">Status</label>
+					<select id="ard-recon-filter" class="ard-select">
+						<option value="">All</option>
+						<option value="Reconciled">Reconciled</option>
+						<option value="Unreconciled">Unreconciled</option>
+					</select>
+				</div>
 				<div class="ard-filter-actions">
 					<button id="ard-apply-btn"        class="ard-btn-primary">Apply Filters</button>
 					<button id="ard-export-btn"       class="ard-btn-secondary" style="display:none;">&#8595; Export Excel</button>
@@ -78,6 +86,10 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
 		page.main.find('#ard-report-date-display').text($(this).val());
 	});
 
+	page.main.find('#ard-recon-filter').on('change', function () {
+		render_view(page);
+	});
+
 	// Show/hide Remove Motley button whenever company changes
 	page.main.find('#ard-company').on('change', function () {
 		update_motley_btn_visibility(page);
@@ -100,7 +112,12 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
 		} else {
 			btn.text('Remove Motley').removeClass('ard-btn-active');
 		}
-		render_table(page);
+		render_view(page);
+	});
+
+	// Inline recon dropdown change (event delegation for dynamic rows)
+	page.main.on('change', '.ard-recon-select', function () {
+		handle_recon_change(page, $(this));
 	});
 };
 
@@ -110,6 +127,54 @@ function update_motley_btn_visibility(page) {
 	let company = page.main.find('#ard-company').val() || "";
 	let is_tsbc = company.toLowerCase().indexOf("tsbc ranch") !== -1;
 	page.main.find('#ard-motley-btn').toggle(is_tsbc && !!page._ard_result);
+}
+
+// ─── Recon Status Update ──────────────────────────────────────────────────────
+
+function handle_recon_change(page, $select) {
+	let party       = $select.attr('data-party');
+	let new_status  = $select.val();
+	let old_status  = $select.attr('data-current') || "";
+
+	// Update visual immediately
+	apply_recon_select_class($select, new_status);
+	$select.prop('disabled', true);
+
+	frappe.call({
+		method: "cannabis_management.cannabis_management.page.ar_dashboard.ar_dashboard.update_recon_status",
+		args: { party: party, status: new_status },
+		callback: function (r) {
+			$select.prop('disabled', false);
+			if (r.message) {
+				frappe.show_alert({ message: __("Reconciliation status updated"), indicator: 'green' }, 3);
+				$select.attr('data-current', new_status);
+
+				// Sync local cached rows for this party
+				if (page._ard_result && page._ard_result.rows) {
+					page._ard_result.rows.forEach(function (row) {
+						if (row.party === party) row.reconciliation_status = new_status;
+					});
+				}
+
+				// Always re-render so cards/aging-bar/table reflect the new status
+				render_view(page);
+			}
+		},
+		error: function () {
+			// Revert on failure
+			$select.prop('disabled', false);
+			$select.val(old_status);
+			apply_recon_select_class($select, old_status);
+			frappe.show_alert({ message: __("Failed to update reconciliation status"), indicator: 'red' }, 5);
+		}
+	});
+}
+
+function apply_recon_select_class($select, status) {
+	$select.removeClass('ard-recon-reconciled ard-recon-unreconciled ard-recon-empty');
+	if (status === 'Reconciled')        $select.addClass('ard-recon-reconciled');
+	else if (status === 'Unreconciled') $select.addClass('ard-recon-unreconciled');
+	else                                $select.addClass('ard-recon-empty');
 }
 
 // ─── Data Loading ─────────────────────────────────────────────────────────────
@@ -158,10 +223,47 @@ function load_ar_data(page) {
 	});
 }
 
+// ─── Filtering helper ─────────────────────────────────────────────────────────
+
+function get_filtered_rows(page) {
+	if (!page._ard_result || !page._ard_result.rows) return [];
+
+	let rows = page._ard_result.rows;
+	let display_rows = rows.filter(function (r) { return r.outstanding > 0; });
+
+	if (page._ard_excl_motley) {
+		display_rows = display_rows.filter(function (r) {
+			return (r.customer_name || r.party || "").toLowerCase().indexOf("motley") === -1;
+		});
+	}
+
+	let recon_filter = page.main.find('#ard-recon-filter').val();
+	if (recon_filter) {
+		display_rows = display_rows.filter(function (r) {
+			return (r.reconciliation_status || "") === recon_filter;
+		});
+	}
+
+	return display_rows;
+}
+
+function compute_view_totals(display_rows, ranges) {
+	let view_totals = { invoiced: 0, paid: 0, outstanding: 0 };
+	ranges.forEach(function (r) { view_totals[r.key] = 0; });
+	display_rows.forEach(function (row) {
+		view_totals.invoiced    += row.invoiced    || 0;
+		view_totals.paid        += row.paid        || 0;
+		view_totals.outstanding += row.outstanding || 0;
+		ranges.forEach(function (r) { view_totals[r.key] += row[r.key] || 0; });
+	});
+	return view_totals;
+}
+
 // ─── Rendering ────────────────────────────────────────────────────────────────
 
+// Initial render after data load: builds skeleton, then defers to render_view
 function render_dashboard(page, result) {
-	let { rows, ranges, totals } = result;
+	let { rows } = result;
 	let area = page.main.find('#ard-data-area');
 
 	if (!rows || rows.length === 0) {
@@ -174,49 +276,72 @@ function render_dashboard(page, result) {
 		return;
 	}
 
-	let html = "";
+	area.html(`
+		<div id="ard-summary-section"></div>
+		<div id="ard-aging-section"></div>
+		<div id="ard-table-section"></div>
+	`);
 
-	// ── Summary Cards (always use full totals) ────────────────────────────────
+	render_view(page);
+}
+
+// Re-renders cards + aging bar + table together using current filter state
+function render_view(page) {
+	if (!page._ard_result) return;
+	let { ranges } = page._ard_result;
+
+	let display_rows = get_filtered_rows(page);
+	let view_totals  = compute_view_totals(display_rows, ranges);
+
+	render_summary_cards(page, ranges, view_totals);
+	render_aging_bar(page, ranges, view_totals);
+	render_table(page, display_rows, view_totals);
+}
+
+function render_summary_cards(page, ranges, view_totals) {
 	let range_totals_html = ranges.map(function (r, idx) {
 		let cls = range_status_class(idx);
 		return `
 			<div class="ard-card ard-card-range ${cls}">
 				<div class="ard-card-label">${r.label} Days</div>
-				<div class="ard-card-value">${fmt_cur(totals[r.key])}</div>
+				<div class="ard-card-value">${fmt_cur(view_totals[r.key])}</div>
 			</div>
 		`;
 	}).join("");
 
-	html += `
+	let html = `
 		<div class="ard-summary-row">
 			<div class="ard-card ard-card-outstanding">
 				<div class="ard-card-label">Total Outstanding</div>
-				<div class="ard-card-value">${fmt_cur(totals.outstanding)}</div>
+				<div class="ard-card-value">${fmt_cur(view_totals.outstanding)}</div>
 			</div>
 			<div class="ard-card ard-card-invoiced">
 				<div class="ard-card-label">Total Invoiced</div>
-				<div class="ard-card-value">${fmt_cur(totals.invoiced)}</div>
+				<div class="ard-card-value">${fmt_cur(view_totals.invoiced)}</div>
 			</div>
 			<div class="ard-card ard-card-paid">
 				<div class="ard-card-label">Total Paid</div>
-				<div class="ard-card-value">${fmt_cur(totals.paid)}</div>
+				<div class="ard-card-value">${fmt_cur(view_totals.paid)}</div>
 			</div>
 			${range_totals_html}
 		</div>
 	`;
 
-	// ── Aging Distribution Bar ────────────────────────────────────────────────
-	let total_out = totals.outstanding || 1;
+	page.main.find('#ard-summary-section').html(html);
+}
+
+function render_aging_bar(page, ranges, view_totals) {
+	let total_out = view_totals.outstanding || 1;
 	let bar_segments = ranges.map(function (r, idx) {
-		let pct = ((totals[r.key] / total_out) * 100).toFixed(1);
+		let pct = ((view_totals[r.key] / total_out) * 100).toFixed(1);
 		if (parseFloat(pct) < 0.5) return "";
 		let cls = range_status_class(idx);
-		return `<div class="ard-bar-seg ${cls}" style="width:${pct}%" title="${r.label} Days: ${fmt_cur(totals[r.key])} (${pct}%)">
+		return `<div class="ard-bar-seg ${cls}" style="width:${pct}%" title="${r.label} Days: ${fmt_cur(view_totals[r.key])} (${pct}%)">
 					<span class="ard-bar-label">${pct}%</span>
 				</div>`;
 	}).join("");
 
-	html += `
+	let html = `
 		<div class="ard-aging-bar-wrap">
 			<div class="ard-aging-bar-title">Aging Distribution</div>
 			<div class="ard-aging-bar">${bar_segments || '<div class="ard-bar-seg bar-current" style="width:100%"></div>'}</div>
@@ -228,26 +353,12 @@ function render_dashboard(page, result) {
 		</div>
 	`;
 
-	html += `<div id="ard-table-section"></div>`;
-
-	page.main.find('#ard-data-area').html(html);
-	render_table(page);
+	page.main.find('#ard-aging-section').html(html);
 }
 
-// Re-renders only the table section (called on toggle + initial render)
-function render_table(page) {
+function render_table(page, display_rows, view_totals) {
 	if (!page._ard_result) return;
-	let { rows, ranges, totals, company } = page._ard_result;
-
-	// Filter cleared rows
-	let display_rows = rows.filter(function (r) { return r.outstanding > 0; });
-
-	// Filter Motley Terpz if toggle is on
-	if (page._ard_excl_motley) {
-		display_rows = display_rows.filter(function (r) {
-			return (r.customer_name || r.party || "").toLowerCase().indexOf("motley") === -1;
-		});
-	}
+	let { ranges, company } = page._ard_result;
 
 	let section = page.main.find('#ard-table-section');
 
@@ -267,23 +378,18 @@ function render_table(page) {
 	display_rows.forEach(function (row) {
 		let key = row.party;
 		if (!customer_groups[key]) {
-			customer_groups[key] = { name: row.customer_name || row.party, party: row.party, rows: [] };
+			customer_groups[key] = {
+				name: row.customer_name || row.party,
+				party: row.party,
+				recon_status: row.reconciliation_status || "",
+				rows: []
+			};
 			customer_order.push(key);
 		}
 		customer_groups[key].rows.push(row);
 	});
 	customer_order.sort(function (a, b) {
 		return (customer_groups[a].name || "").localeCompare(customer_groups[b].name || "");
-	});
-
-	// Recalculate totals for displayed rows
-	let view_totals = { invoiced: 0, paid: 0, outstanding: 0 };
-	ranges.forEach(function (r) { view_totals[r.key] = 0; });
-	display_rows.forEach(function (row) {
-		view_totals.invoiced    += row.invoiced    || 0;
-		view_totals.paid        += row.paid        || 0;
-		view_totals.outstanding += row.outstanding || 0;
-		ranges.forEach(function (r) { view_totals[r.key] += row[r.key] || 0; });
 	});
 
 	let range_headers = ranges.map(function (r, idx) {
@@ -296,6 +402,7 @@ function render_table(page) {
 				<thead>
 					<tr>
 						<th class="ard-th-sticky">Customer</th>
+						<th class="ard-th-recon">Status</th>
 						<th>Invoice No.</th>
 						<th>Type</th>
 						<th>Posting Date</th>
@@ -330,12 +437,29 @@ function render_table(page) {
 			return `<td class="${cls} ard-total-cell">${val > 0 ? fmt_cur(val) : "—"}</td>`;
 		}).join("");
 
+		// Build inline-editable recon dropdown for the customer group row
+		let recon_select_cls = "ard-recon-select";
+		if (group.recon_status === "Reconciled")        recon_select_cls += " ard-recon-reconciled";
+		else if (group.recon_status === "Unreconciled") recon_select_cls += " ard-recon-unreconciled";
+		else                                            recon_select_cls += " ard-recon-empty";
+
+		let recon_dropdown = `
+			<select class="${recon_select_cls}"
+				data-party="${esc_attr(group.party)}"
+				data-current="${esc_attr(group.recon_status)}">
+				<option value=""             ${group.recon_status === ""             ? "selected" : ""}>—</option>
+				<option value="Reconciled"   ${group.recon_status === "Reconciled"   ? "selected" : ""}>Reconciled</option>
+				<option value="Unreconciled" ${group.recon_status === "Unreconciled" ? "selected" : ""}>Unreconciled</option>
+			</select>
+		`;
+
 		html += `
 			<tr class="ard-customer-group-row">
 				<td class="ard-td-sticky">
 					<div class="ard-customer-group-name">${esc(group.name)}</div>
 					${group.name !== group.party ? `<div class="ard-customer-group-id">${esc(group.party)}</div>` : ""}
 				</td>
+				<td class="ard-td-recon">${recon_dropdown}</td>
 				<td colspan="4" style="color:var(--ard-muted);font-size:12px;">${group.rows.length} invoice(s)</td>
 				<td class="ard-num ard-total-cell">${fmt_cur(sub.invoiced)}</td>
 				<td class="ard-num ard-total-cell">${fmt_cur(sub.paid)}</td>
@@ -358,6 +482,7 @@ function render_table(page) {
 					<td class="ard-td-sticky" style="padding-left:24px;">
 						<a href="/app/sales-invoice/${esc(row.voucher_no)}" target="_blank" class="ard-link">${esc(row.voucher_no)}</a>
 					</td>
+					<td></td>
 					<td></td>
 					<td class="ard-type">${esc(row.voucher_type)}</td>
 					<td class="ard-date">${fmt_date(row.posting_date)}</td>
@@ -382,6 +507,7 @@ function render_table(page) {
 				<tfoot>
 					<tr class="ard-totals-row">
 						<td class="ard-td-sticky ard-total-cell">${esc(company)}</td>
+						<td class="ard-total-cell"></td>
 						<td class="ard-total-cell" colspan="4">${total_invoices} invoice(s) &bull; ${customer_order.length} customer(s)</td>
 						<td class="ard-num ard-total-cell">${fmt_cur(view_totals.invoiced)}</td>
 						<td class="ard-num ard-total-cell">${fmt_cur(view_totals.paid)}</td>
@@ -401,14 +527,9 @@ function render_table(page) {
 
 function export_excel(page) {
 	if (!page._ard_result) return;
-	let { rows, ranges, company } = page._ard_result;
+	let { ranges, company } = page._ard_result;
 
-	let display_rows = rows.filter(function (r) { return r.outstanding > 0; });
-	if (page._ard_excl_motley) {
-		display_rows = display_rows.filter(function (r) {
-			return (r.customer_name || r.party || "").toLowerCase().indexOf("motley") === -1;
-		});
-	}
+	let display_rows = get_filtered_rows(page);
 
 	// Sort by customer name then posting date
 	display_rows = display_rows.slice().sort(function (a, b) {
@@ -421,7 +542,7 @@ function export_excel(page) {
 
 	// Build headers
 	let range_labels = ranges.map(function (r) { return r.label + " Days"; });
-	let headers = ["Customer", "Party ID", "Invoice No.", "Type", "Posting Date", "Due Date",
+	let headers = ["Customer", "Party ID", "Reconciliation", "Invoice No.", "Type", "Posting Date", "Due Date",
 		"Invoiced", "Paid", "Outstanding"].concat(range_labels).concat(["Status"]);
 
 	// Build data rows
@@ -432,6 +553,7 @@ function export_excel(page) {
 		csv_rows.push([
 			row.customer_name || row.party,
 			row.party,
+			row.reconciliation_status || "",
 			row.voucher_no,
 			row.voucher_type,
 			row.posting_date || "",
@@ -504,4 +626,15 @@ function fmt_date(val) {
 function esc(val) {
 	if (!val) return "";
 	return $("<div>").text(val).html();
+}
+
+// HTML-attribute-safe escape (handles quotes, unlike esc())
+function esc_attr(val) {
+	if (val === null || val === undefined) return "";
+	return String(val)
+		.replace(/&/g, "&amp;")
+		.replace(/"/g, "&quot;")
+		.replace(/'/g, "&#39;")
+		.replace(/</g, "&lt;")
+		.replace(/>/g, "&gt;");
 }
