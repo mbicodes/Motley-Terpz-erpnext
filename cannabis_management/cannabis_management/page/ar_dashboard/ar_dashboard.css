@@ -110,6 +110,34 @@
 	opacity: .6;
 	cursor: wait;
 }
+
+/* ── Read-only Recon Badge (non-Account-Manager users) ────── */
+.ard-recon-readonly {
+	display: inline-block;
+	padding: 4px 12px;
+	border-radius: 12px;
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: .3px;
+	white-space: nowrap;
+	cursor: not-allowed;
+	border: 1px solid transparent;
+}
+.ard-recon-readonly.ard-recon-reconciled {
+	background: var(--ard-current-lt);
+	color: var(--ard-current);
+	border-color: var(--ard-current);
+}
+.ard-recon-readonly.ard-recon-unreconciled {
+	background: var(--ard-90-lt);
+	color: var(--ard-90);
+	border-color: var(--ard-90);
+}
+.ard-recon-readonly.ard-recon-empty {
+	background: #f3f4f6;
+	color: var(--ard-muted);
+}
+
 .ard-recon-select.ard-recon-reconciled {
 	background: var(--ard-current-lt);
 	color: var(--ard-current);

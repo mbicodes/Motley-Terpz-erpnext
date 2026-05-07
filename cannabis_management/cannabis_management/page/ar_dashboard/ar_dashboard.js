@@ -8,6 +8,7 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
 	wrapper.page = page;
 	page._ard_result       = null;   // last data from backend
 	page._ard_excl_motley  = false;  // Remove Motley toggle state
+	page._ard_can_edit     = false;  // permission flag from backend
 
 	let today = frappe.datetime.get_today();
 
@@ -78,6 +79,7 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
 			r.message.companies.forEach(function (c) {
 				sel.append(`<option value="${c}" ${c === default_company ? 'selected' : ''}>${c}</option>`);
 			});
+			page._ard_can_edit = !!r.message.can_edit_recon;
 			update_motley_btn_visibility(page);
 		}
 	});
@@ -132,6 +134,16 @@ function update_motley_btn_visibility(page) {
 // ─── Recon Status Update ──────────────────────────────────────────────────────
 
 function handle_recon_change(page, $select) {
+	if (!page._ard_can_edit) {
+		// Defensive — UI should already prevent this, but block just in case
+		frappe.show_alert({
+			message: __("You do not have permission to change reconciliation status."),
+			indicator: 'red'
+		}, 5);
+		$select.val($select.attr('data-current') || "");
+		return;
+	}
+
 	let party       = $select.attr('data-party');
 	let new_status  = $select.val();
 	let old_status  = $select.attr('data-current') || "";
@@ -212,7 +224,8 @@ function load_ar_data(page) {
 		},
 		callback: function (r) {
 			if (r.message) {
-				page._ard_result = r.message;
+				page._ard_result   = r.message;
+				page._ard_can_edit = !!r.message.can_edit_recon;
 				render_dashboard(page, r.message);
 				page.main.find('#ard-export-btn').show();
 				update_motley_btn_visibility(page);
@@ -356,6 +369,40 @@ function render_aging_bar(page, ranges, view_totals) {
 	page.main.find('#ard-aging-section').html(html);
 }
 
+// Build the recon-status cell (dropdown for editors, badge for read-only)
+function build_recon_cell(page, party, status) {
+	if (page._ard_can_edit) {
+		let select_cls = "ard-recon-select";
+		if (status === "Reconciled")        select_cls += " ard-recon-reconciled";
+		else if (status === "Unreconciled") select_cls += " ard-recon-unreconciled";
+		else                                select_cls += " ard-recon-empty";
+
+		return `
+			<select class="${select_cls}"
+				data-party="${esc_attr(party)}"
+				data-current="${esc_attr(status)}">
+				<option value=""             ${status === ""             ? "selected" : ""}>—</option>
+				<option value="Reconciled"   ${status === "Reconciled"   ? "selected" : ""}>Reconciled</option>
+				<option value="Unreconciled" ${status === "Unreconciled" ? "selected" : ""}>Unreconciled</option>
+			</select>
+		`;
+	}
+
+	// Read-only badge
+	let badge_cls = "ard-recon-readonly";
+	let label     = "—";
+	if (status === "Reconciled") {
+		badge_cls += " ard-recon-reconciled";
+		label      = "Reconciled";
+	} else if (status === "Unreconciled") {
+		badge_cls += " ard-recon-unreconciled";
+		label      = "Unreconciled";
+	} else {
+		badge_cls += " ard-recon-empty";
+	}
+	return `<span class="${badge_cls}" title="Read-only — Account Manager role required to edit">${label}</span>`;
+}
+
 function render_table(page, display_rows, view_totals) {
 	if (!page._ard_result) return;
 	let { ranges, company } = page._ard_result;
@@ -437,21 +484,7 @@ function render_table(page, display_rows, view_totals) {
 			return `<td class="${cls} ard-total-cell">${val > 0 ? fmt_cur(val) : "—"}</td>`;
 		}).join("");
 
-		// Build inline-editable recon dropdown for the customer group row
-		let recon_select_cls = "ard-recon-select";
-		if (group.recon_status === "Reconciled")        recon_select_cls += " ard-recon-reconciled";
-		else if (group.recon_status === "Unreconciled") recon_select_cls += " ard-recon-unreconciled";
-		else                                            recon_select_cls += " ard-recon-empty";
-
-		let recon_dropdown = `
-			<select class="${recon_select_cls}"
-				data-party="${esc_attr(group.party)}"
-				data-current="${esc_attr(group.recon_status)}">
-				<option value=""             ${group.recon_status === ""             ? "selected" : ""}>—</option>
-				<option value="Reconciled"   ${group.recon_status === "Reconciled"   ? "selected" : ""}>Reconciled</option>
-				<option value="Unreconciled" ${group.recon_status === "Unreconciled" ? "selected" : ""}>Unreconciled</option>
-			</select>
-		`;
+		let recon_cell = build_recon_cell(page, group.party, group.recon_status);
 
 		html += `
 			<tr class="ard-customer-group-row">
@@ -459,7 +492,7 @@ function render_table(page, display_rows, view_totals) {
 					<div class="ard-customer-group-name">${esc(group.name)}</div>
 					${group.name !== group.party ? `<div class="ard-customer-group-id">${esc(group.party)}</div>` : ""}
 				</td>
-				<td class="ard-td-recon">${recon_dropdown}</td>
+				<td class="ard-td-recon">${recon_cell}</td>
 				<td colspan="4" style="color:var(--ard-muted);font-size:12px;">${group.rows.length} invoice(s)</td>
 				<td class="ard-num ard-total-cell">${fmt_cur(sub.invoiced)}</td>
 				<td class="ard-num ard-total-cell">${fmt_cur(sub.paid)}</td>

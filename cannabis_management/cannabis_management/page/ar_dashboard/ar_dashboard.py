@@ -2,10 +2,20 @@ import frappe
 from frappe.utils import nowdate
 
 
+# Roles allowed to change reconciliation status
+RECON_EDIT_ROLES = ("Account Manager", "System Manager", "Administrator")
+
+
+def _can_edit_recon():
+    user_roles = set(frappe.get_roles(frappe.session.user))
+    return any(role in user_roles for role in RECON_EDIT_ROLES)
+
+
 @frappe.whitelist()
 def init_page():
     return {
         "companies": frappe.get_all("Company", pluck="name", order_by="name"),
+        "can_edit_recon": _can_edit_recon(),
     }
 
 
@@ -89,12 +99,22 @@ def get_ar_data(company, report_date=None, customer=None, ageing_based_on="Due D
         "totals": totals,
         "company": company,
         "report_date": str(report_date or nowdate()),
+        "can_edit_recon": _can_edit_recon(),
     }
 
 
 @frappe.whitelist()
 def update_recon_status(party, status):
-    """Update custom_reconciliation_status on the Customer master."""
+    """Update custom_reconciliation_status on the Customer master.
+    Restricted to users with the Account Manager role (plus System Manager / Administrator).
+    """
+    if not _can_edit_recon():
+        frappe.throw(
+            "You do not have permission to change the reconciliation status. "
+            "This action is restricted to Account Managers.",
+            frappe.PermissionError,
+        )
+
     if status not in ("", "Reconciled", "Unreconciled"):
         frappe.throw("Invalid reconciliation status")
 
