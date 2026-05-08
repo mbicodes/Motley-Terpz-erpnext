@@ -9,9 +9,6 @@ def on_submit(doc, method=None):
     if not doc.custom_finished_goods or not doc.items:
         return
 
-    if frappe.db.exists("BOM", {"custom_material_request": doc.name, "docstatus": ["!=", 2]}):
-        return
-
     _create_boms_from_mr(doc)
 
 
@@ -100,12 +97,25 @@ def _create_boms_from_mr(doc):
             workstation_type = routing_op.workstation_type or ""
             workstation = getattr(routing_op, "workstation", "") or ""
 
+            # Skip if a BOM already exists for this exact FG item + MR
+            if frappe.db.exists("BOM", {
+                "item": fg_item,
+                "custom_material_request": doc.name,
+                "docstatus": ["!=", 2],
+            }):
+                frappe.msgprint(
+                    _("BOM for {0} already exists — skipping.").format(fg_item),
+                    alert=True,
+                )
+                input_item = fg_item
+                input_uom = fg_uom
+                continue
+
             # ── Create BOM ──
             bom = frappe.new_doc("BOM")
             bom.item = fg_item
             bom.quantity = 1
             bom.uom = fg_uom
-            bom.project = doc.custom_project
             bom.company = doc.company
             bom.with_operations = 1
             bom.custom_material_request = doc.name

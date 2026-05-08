@@ -20,7 +20,7 @@ def create_work_orders_from_mr(material_request):
             "docstatus": 1,
             "is_active": 1,
         },
-        fields=["name", "item", "quantity", "uom", "project"],
+        fields=["name", "item", "quantity", "uom"],
         order_by="creation asc",
     )
 
@@ -30,20 +30,12 @@ def create_work_orders_from_mr(material_request):
               "Submit the MR first to auto-create BOMs.")
         )
 
-    existing_wos = frappe.get_all(
+    # BOMs that already have a Work Order — skip those, create only missing ones
+    existing_wo_boms = set(frappe.get_all(
         "Work Order",
-        filters={
-            "material_request": mr.name,
-            "docstatus": ["!=", 2],
-        },
-        pluck="name",
-    )
-    if existing_wos:
-        frappe.throw(
-            _("Work Orders already exist for this Material Request: {0}").format(
-                ", ".join(existing_wos)
-            )
-        )
+        filters={"material_request": mr.name, "docstatus": ["!=", 2]},
+        pluck="bom_no",
+    ))
 
     # Build FG map: qty + warehouses
     fg_map = {}
@@ -59,6 +51,13 @@ def create_work_orders_from_mr(material_request):
     created = []
 
     for bom in boms:
+        if bom.name in existing_wo_boms:
+            frappe.msgprint(
+                _("Work Order already exists for BOM {0} — skipping.").format(bom.name),
+                alert=True,
+            )
+            continue
+
         fg_info = fg_map.get(bom.item, {})
         qty = fg_info.get("grams") or bom.quantity
 
@@ -67,7 +66,7 @@ def create_work_orders_from_mr(material_request):
         wo.bom_no = bom.name
         wo.qty = qty
         wo.company = mr.company
-        wo.project = bom.project or mr.custom_project
+        wo.project = mr.custom_project
         wo.material_request = mr.name
         wo.use_multi_level_bom = 0
         wo.skip_transfer = 0

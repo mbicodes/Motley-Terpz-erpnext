@@ -10,12 +10,31 @@ Responsibilities:
 """
 
 import frappe
+from frappe.utils import flt
 from cannabis_management.master_touch_manufacturing.utils.slack import send_alert
+from cannabis_management.master_touch_manufacturing.overrides.work_order import _propagate_actual_yield
 
 
 def on_submit(doc, method=None):
-    """Notify Slack when a Job Card is completed."""
+    """Stamp actual yield onto Work Order and propagate to next WO, then notify Slack."""
+    _stamp_actual_yield(doc)
     _notify_completion(doc)
+
+
+def _stamp_actual_yield(doc):
+    """Write total_completed_qty → WO.custom_actual_yield_qty then propagate the chain."""
+    wo_name = doc.get("work_order")
+    completed_qty = flt(doc.get("total_completed_qty"))
+
+    if not wo_name or not completed_qty:
+        return
+
+    frappe.db.set_value("Work Order", wo_name, "custom_actual_yield_qty", completed_qty)
+    frappe.db.commit()
+
+    # Re-fetch WO as a doc so _propagate_actual_yield can read its fields
+    wo_doc = frappe.get_doc("Work Order", wo_name)
+    _propagate_actual_yield(wo_doc)
 
 
 def _notify_completion(doc):

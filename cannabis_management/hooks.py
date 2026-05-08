@@ -198,6 +198,7 @@ doc_events = {
     # MTM: Work Order status changes → update Production Batch Group status
     "Work Order": {
         "on_update": "cannabis_management.master_touch_manufacturing.overrides.work_order.on_update",
+        "on_update_after_submit": "cannabis_management.master_touch_manufacturing.overrides.work_order.on_update",
     },
     # MTM: Job Card completion → clock-out, notify Slack
     "Job Card": {

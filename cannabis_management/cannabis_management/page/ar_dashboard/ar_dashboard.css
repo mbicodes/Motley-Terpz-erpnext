@@ -453,6 +453,8 @@
 	border: 1px solid var(--ard-border);
 	border-radius: var(--ard-radius);
 	overflow: auto;
+	max-height: calc(100vh - 380px);
+	min-height: 300px;
 	box-shadow: var(--ard-shadow);
 }
 .ard-table {
@@ -464,6 +466,15 @@
 .ard-table thead tr {
 	background: #f1f5f9;
 	border-bottom: 2px solid var(--ard-border);
+}
+.ard-table thead th {
+	position: sticky;
+	top: 0;
+	z-index: 4;
+	background-color: #f1f5f9;
+}
+.ard-table thead .ard-th-sticky {
+	z-index: 5;
 }
 .ard-table th {
 	padding: 11px 14px;
@@ -528,6 +539,21 @@
 .ard-customer-group-row:hover td              { background-color: #e9eef5; }
 .ard-customer-group-row:hover .ard-td-sticky  { background-color: #e9eef5; }
 
+.ard-expand-btn {
+	background: none;
+	border: none;
+	cursor: pointer;
+	color: var(--ard-muted);
+	font-size: 9px;
+	padding: 0 5px 0 0;
+	margin: 0;
+	vertical-align: middle;
+	line-height: 1;
+	transition: color .1s;
+}
+.ard-expand-btn:hover      { color: var(--ard-primary); }
+.ard-expand-btn.ard-expanded { color: var(--ard-text); }
+
 .ard-customer-group-name {
 	font-weight: 700;
 	color: var(--ard-text);
@@ -536,6 +562,7 @@
 	font-size: 11px;
 	color: var(--ard-muted);
 	margin-top: 1px;
+	padding-left: 17px;
 }
 
 .ard-table td {

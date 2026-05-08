@@ -2,8 +2,8 @@ import frappe
 from frappe.utils import nowdate
 
 
-# Roles allowed to change reconciliation status
 RECON_EDIT_ROLES = ("Account Manager", "System Manager", "Administrator")
+TMM_GROUP_COMPANIES = ["Motley Terpz", "TSBC Ranch"]
 
 
 def _can_edit_recon():
@@ -11,16 +11,18 @@ def _can_edit_recon():
     return any(role in user_roles for role in RECON_EDIT_ROLES)
 
 
-@frappe.whitelist()
-def init_page():
-    return {
-        "companies": frappe.get_all("Company", pluck="name", order_by="name"),
-        "can_edit_recon": _can_edit_recon(),
-    }
+def _build_ranges(range_str):
+    range_numbers = [int(r.strip()) for r in range_str.split(",") if r.strip().isdigit()]
+    ranges = []
+    prev = 0
+    for num in range_numbers:
+        ranges.append({"key": f"range{len(ranges) + 1}", "label": f"{prev}-{num}"})
+        prev = num
+    ranges.append({"key": f"range{len(ranges) + 1}", "label": f"{prev}+"})
+    return ranges
 
 
-@frappe.whitelist()
-def get_ar_data(company, report_date=None, customer=None, ageing_based_on="Due Date", range_str="30, 60, 90, 120"):
+def _fetch_rows_for_company(company, report_date, customer, ageing_based_on, range_str, ranges):
     from erpnext.accounts.report.accounts_receivable.accounts_receivable import execute as ar_execute
 
     filters = frappe._dict({
@@ -35,23 +37,12 @@ def get_ar_data(company, report_date=None, customer=None, ageing_based_on="Due D
 
     columns, data, _, _, _, _ = ar_execute(filters)
 
-    # Build range labels from the range string
-    range_numbers = [int(r.strip()) for r in range_str.split(",") if r.strip().isdigit()]
-    ranges = []
-    prev = 0
-    for num in range_numbers:
-        ranges.append({"key": f"range{len(ranges) + 1}", "label": f"{prev}-{num}"})
-        prev = num
-    ranges.append({"key": f"range{len(ranges) + 1}", "label": f"{prev}+"})
-
-    # Initialise totals
     totals = {"invoiced": 0.0, "paid": 0.0, "outstanding": 0.0}
     for r in ranges:
         totals[r["key"]] = 0.0
 
     rows = []
     for row in (data or []):
-        # Skip group/total rows that have no voucher
         if not row or not row.get("voucher_no"):
             continue
 
@@ -78,6 +69,49 @@ def get_ar_data(company, report_date=None, customer=None, ageing_based_on="Due D
         totals["outstanding"] += processed["outstanding"]
 
         rows.append(processed)
+
+    return rows, totals
+
+
+@frappe.whitelist()
+def init_page():
+    companies = frappe.get_all("Company", pluck="name", order_by="name")
+    if "TMM Group" not in companies:
+        companies.append("TMM Group")
+    companies.sort()
+    return {
+        "companies": companies,
+        "can_edit_recon": _can_edit_recon(),
+    }
+
+
+@frappe.whitelist()
+def get_ar_data(company, report_date=None, customer=None, ageing_based_on="Due Date", range_str="30, 60, 90, 120"):
+    ranges = _build_ranges(range_str)
+
+    if company == "TMM Group":
+        all_rows = []
+        combined_totals = {"invoiced": 0.0, "paid": 0.0, "outstanding": 0.0}
+        for r in ranges:
+            combined_totals[r["key"]] = 0.0
+
+        for c in TMM_GROUP_COMPANIES:
+            try:
+                c_rows, c_totals = _fetch_rows_for_company(
+                    c, report_date, customer, ageing_based_on, range_str, ranges
+                )
+                all_rows.extend(c_rows)
+                for k in combined_totals:
+                    combined_totals[k] += c_totals.get(k, 0.0)
+            except Exception:
+                frappe.log_error(f"AR data fetch failed for {c}", "TMM Group AR Dashboard")
+
+        rows = all_rows
+        totals = combined_totals
+    else:
+        rows, totals = _fetch_rows_for_company(
+            company, report_date, customer, ageing_based_on, range_str, ranges
+        )
 
     # Attach reconciliation status from Customer master
     unique_parties = list({r["party"] for r in rows if r.get("party")})
