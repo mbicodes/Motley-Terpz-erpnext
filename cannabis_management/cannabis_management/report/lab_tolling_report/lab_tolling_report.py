@@ -79,12 +79,12 @@ def get_columns():
 			"options": "Warehouse",
 			"width": 120
 		},
-		{
-			"label": _("Rosin Yield %"),
-			"fieldname": "rosin_yield_",
-			"fieldtype": "Percent",
-			"width": 100
-		},
+		# {
+		# 	"label": _("Rosin Yield %"),
+		# 	"fieldname": "rosin_yield_",
+		# 	"fieldtype": "Percent",
+		# 	"width": 100
+		# },
 		{
 			"label": _("Run For"),
 			"fieldname": "run_for",

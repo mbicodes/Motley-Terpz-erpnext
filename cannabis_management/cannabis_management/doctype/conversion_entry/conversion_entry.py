@@ -86,7 +86,28 @@ class ConversionEntry(Document):
 			)
 
 	def _create_repack_stock_entry(self):
-		"""Create a draft Repack Stock Entry from conversion items."""
+		"""Create one draft Repack Stock Entry per row in the items table."""
+		created = []
+
+		for idx, row in enumerate(self.items, 1):
+			se = self._build_se_for_row(row)
+			if se is None:
+				frappe.msgprint(
+					_("Row {0}: No valid items found — Stock Entry skipped.").format(idx),
+					alert=True,
+				)
+				continue
+			se.insert(ignore_permissions=True)
+			created.append(f'<a href="/app/stock-entry/{se.name}">{se.name}</a>')
+
+		if created:
+			frappe.msgprint(
+				_("Draft Stock Entries created: {0}").format(", ".join(created)),
+				alert=True,
+			)
+
+	def _build_se_for_row(self, row):
+		"""Build (but do not insert) a Repack Stock Entry for a single items row."""
 		se = frappe.new_doc("Stock Entry")
 		se.stock_entry_type = "Repack"
 		se.company = self.company or "Motley Terpz"
@@ -97,56 +118,38 @@ class ConversionEntry(Document):
 
 		has_items = False
 
-		for row in self.items:
-			# ── Raw Materials ──
-			rm_pairs = [
-				(row.raw_material_1, row.qty_rm_1),
-				(row.raw_material_2, row.qty_rm_2),
-				(row.raw_material_3, row.qty_rm_3),
-				(row.raw_material_4, row.qty_rm_4),
-				(row.raw_material_5, row.qty_rm_5),
-				(row.raw_material_6, row.qty_rm_6),
-				(row.raw_material_7, row.qty_rm_7),
-			]
+		rm_pairs = [
+			(row.raw_material_1, row.qty_rm_1),
+			(row.raw_material_2, row.qty_rm_2),
+			(row.raw_material_3, row.qty_rm_3),
+			(row.raw_material_4, row.qty_rm_4),
+			(row.raw_material_5, row.qty_rm_5),
+			(row.raw_material_6, row.qty_rm_6),
+			(row.raw_material_7, row.qty_rm_7),
+		]
+		for item_code, qty in rm_pairs:
+			if item_code and flt(qty) > 0:
+				se.append("items", {
+					"item_code": item_code,
+					"qty": flt(qty),
+					"s_warehouse": row.source_warehouse,
+					"is_finished_item": 0,
+					"allow_zero_valuation_rate": 1,
+				})
+				has_items = True
 
-			for item_code, qty in rm_pairs:
-				if item_code and flt(qty) > 0:
-					se.append("items", {
-						"item_code": item_code,
-						"qty": flt(qty),
-						"s_warehouse": row.source_warehouse,
-						"is_finished_item": 0,
-						"allow_zero_valuation_rate": 1,
-					})
-					has_items = True
+		fg_pairs = [
+			(row.finished_good_1, row.qty_fg_1),
+			(row.finished_good_2, row.qty_fg_2),
+		]
+		for item_code, qty in fg_pairs:
+			if item_code and flt(qty) > 0:
+				se.append("items", {
+					"item_code": item_code,
+					"qty": flt(qty),
+					"t_warehouse": row.target_warehouse,
+					"is_finished_item": 1,
+				})
+				has_items = True
 
-			# ── Finished Goods ──
-			fg_pairs = [
-				(row.finished_good_1, row.qty_fg_1),
-				(row.finished_good_2, row.qty_fg_2),
-			]
-
-			for item_code, qty in fg_pairs:
-				if item_code and flt(qty) > 0:
-					se.append("items", {
-						"item_code": item_code,
-						"qty": flt(qty),
-						"t_warehouse": row.target_warehouse,
-						"is_finished_item": 1,
-					})
-					has_items = True
-
-		if not has_items:
-			frappe.msgprint(
-				_("No items to create Stock Entry. Please ensure item codes and quantities are filled."),
-				alert=True
-			)
-			return
-
-		se.insert(ignore_permissions=True)
-		frappe.msgprint(
-			_("Draft Stock Entry {0} created.").format(
-				f'<a href="/app/stock-entry/{se.name}">{se.name}</a>'
-			),
-			alert=True,
-		)
+		return se if has_items else None

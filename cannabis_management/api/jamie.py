@@ -823,12 +823,18 @@ def get_sales_matrix(territory=None):
             si_parent_groups.append(t.item_group)
 
     # Ensure Tolling + Other always appear as rows even if not in Territory targets
-    for special_key in [TOLLING_ROW_KEY, OTHER_ROW_KEY]:
-        if special_key not in target_index:
-            target_index[special_key] = {
-                "target_units": 0, "avg_price": 0,
-                "target_rev": 0, "from_sales_invoice": True,
-            }
+    if TOLLING_ROW_KEY not in target_index:
+        target_index[TOLLING_ROW_KEY] = {
+            "target_units": 4000,
+            "avg_price": 35,
+            "target_rev": 4000 * 35,   # 140,000 monthly
+            "from_sales_invoice": True,
+    }
+    if OTHER_ROW_KEY not in target_index:
+        target_index[OTHER_ROW_KEY] = {
+            "target_units": 0, "avg_price": 0,
+            "target_rev": 0, "from_sales_invoice": True,
+        }
 
     # Tolling actuals come from item_code, not item_group — exclude from group lookup
     si_parent_groups_adj = [g for g in si_parent_groups if g != TOLLING_ROW_KEY]
