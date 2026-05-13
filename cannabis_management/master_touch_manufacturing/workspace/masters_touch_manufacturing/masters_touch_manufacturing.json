@@ -1,7 +1,7 @@
 {
  "charts": [],
  "content": "[{\"id\":\"mtm_h1\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h2\\\"><b>Masters Touch Manufacturing</b></span>\",\"col\":12}},{\"id\":\"mtm_p1\",\"type\":\"paragraph\",\"data\":{\"text\":\"Toll manufacturing hub for TSBC Farms \u2192 MTM. Manage production batches, wash runs, press runs, quality inspection, and METRC compliance from one place.\",\"col\":12}},{\"id\":\"mtm_h2\",\"type\":\"header\",\"data\":{\"text\":\"<b>Production</b>\",\"col\":12}},{\"id\":\"mtm_s1\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Production Batch Group\",\"col\":3}},{\"id\":\"mtm_s2\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Wash Batch\",\"col\":3}},{\"id\":\"mtm_s3\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Press Batch\",\"col\":3}},{\"id\":\"mtm_h3\",\"type\":\"header\",\"data\":{\"text\":\"<b>ERPNext Manufacturing</b>\",\"col\":12}},{\"id\":\"mtm_s4\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Work Order\",\"col\":3}},{\"id\":\"mtm_s5\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Job Card\",\"col\":3}},{\"id\":\"mtm_s6\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Stock Entry\",\"col\":3}},{\"id\":\"mtm_h4\",\"type\":\"header\",\"data\":{\"text\":\"<b>Quality &amp; Compliance</b>\",\"col\":12}},{\"id\":\"mtm_s7\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Quality Inspection\",\"col\":3}},{\"id\":\"mtm_s8\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Inventory Verification\",\"col\":3}},{\"id\":\"mtm_s9\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"METRC Package Verification\",\"col\":3}},{\"id\":\"mtm_s10\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"METRC Retag Log\",\"col\":3}}]",
- "creation": "2026-04-14 00:00:00.000000",
+ "creation": "2026-05-11 08:54:24.233314",
  "custom_blocks": [],
  "docstatus": 0,
  "doctype": "Workspace",
@@ -13,11 +13,10 @@
  "is_hidden": 0,
  "label": "Masters Touch Manufacturing",
  "links": [],
- "modified": "2026-04-14 00:00:00.000000",
+ "modified": "2026-05-12 06:58:38.372091",
  "modified_by": "Administrator",
  "module": "Master Touch Manufacturing",
  "name": "Masters Touch Manufacturing",
- "title": "Masters Touch Manufacturing",
  "number_cards": [],
  "owner": "Administrator",
  "parent_page": "",
@@ -29,9 +28,6 @@
   },
   {
    "role": "Lab Supervisor"
-  },
-  {
-   "role": "Production Manager"
   }
  ],
  "sequence_id": 50.0,
@@ -108,5 +104,6 @@
    "link_to": "METRC Retag Log",
    "type": "DocType"
   }
- ]
+ ],
+ "title": "Masters Touch Manufacturing"
 }
