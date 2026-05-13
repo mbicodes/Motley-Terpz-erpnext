@@ -53,6 +53,16 @@
 .sd-dash .sd-mtx-btn:hover:not(.active) { background:#f1f5f9; }
 .sd-dash .sd-view-btn.active,
 .sd-dash .sd-mtx-btn.active { background:#1e293b; color:#fff; box-shadow:0 1px 4px rgba(0,0,0,0.15); }
+/* Export button */
+.sd-dash .sd-export-btn {
+  display:flex; align-items:center; gap:5px;
+  padding:5px 12px; border:1px solid var(--sd-border); border-radius:8px;
+  background:#fff; color:var(--sd-text-secondary);
+  font-size:11px; font-weight:600; font-family:'DM Sans',sans-serif;
+  cursor:pointer; transition:all 0.18s; white-space:nowrap;
+}
+.sd-dash .sd-export-btn:hover { background:#f1f5f9; border-color:var(--sd-border-hover); color:var(--sd-emerald); }
+.sd-dash .sd-export-btn svg { flex-shrink:0; }
 
 /* ──────────────────────────────────────────────────────────────────
    APPEND this to your existing CSS file. The card/wrap classes and
@@ -175,6 +185,39 @@
 
 .sd-dash .sd-matrix tfoot .sd-matrix-foot-net td { background: #eef2ff; border-top: 1.5px solid var(--sd-violet); font-weight: 700; }
 .sd-dash .sd-matrix tfoot .sd-matrix-foot-net .sd-matrix-foot-label { background: #eef2ff; color: var(--sd-violet); }
+
+/* Target Motley row */
+.sd-dash .sd-matrix tfoot .sd-matrix-foot-target-motley td {
+  background: #f5f3ff; border-top: 2px solid var(--sd-violet);
+}
+.sd-dash .sd-matrix tfoot .sd-matrix-foot-target-motley .sd-matrix-foot-label {
+  background: #f5f3ff; color: var(--sd-violet);
+}
+
+/* Motley actuals row */
+.sd-dash .sd-matrix tfoot .sd-matrix-foot-motley td {
+  background: #fafbfc;
+}
+.sd-dash .sd-matrix tfoot .sd-matrix-foot-motley .sd-matrix-foot-label {
+  background: #fafbfc; color: var(--sd-text-secondary);
+}
+
+/* Blank separator between Motley and TSBC sections */
+.sd-dash .sd-matrix tfoot .sd-matrix-separator td {
+  height: 12px; background: transparent; border: none; padding: 0;
+}
+
+/* Target TSBC row */
+.sd-dash .sd-matrix tfoot .sd-matrix-foot-target-tsbc td {
+  background: #f0fdf4; border-top: 2px solid var(--sd-emerald);
+}
+.sd-dash .sd-matrix tfoot .sd-matrix-foot-target-tsbc .sd-matrix-foot-label {
+  background: #f0fdf4; color: var(--sd-emerald);
+}
+
+.sd-dash .sd-matrix tfoot .sd-foot-total {
+  font-weight: 700; color: var(--sd-emerald);
+}
 
 .sd-dash .sd-matrix .sd-margin-pct { font-size: 10px; color: var(--sd-text-muted); font-weight: 400; margin-left: 2px; }
 .sd-dash .sd-matrix .sd-pos { color: var(--sd-emerald); }

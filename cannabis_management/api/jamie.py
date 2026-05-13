@@ -1041,6 +1041,16 @@ def _merge_matrices(a, b):
             "row_total":    pa.get("row_total", 0) + pb.get("row_total", 0),
         })
 
+    all_cols = merged_cols
+    n = len(all_cols)
+    def _recompute_avg(merged_dict):
+        return sum(merged_dict.values()) / n if n else 0.0
+
+    mot  = _md(a["motley_totals"],       b["motley_totals"])
+    tsbc = _md(a["tsbc_totals"],         b["tsbc_totals"])
+    grnd = _md(a.get("grand_totals", {}), b.get("grand_totals", {}))
+    tsbc_tgt = _md(a.get("tsbc_target_by_col", {}), b.get("tsbc_target_by_col", {}))
+
     return {
         "columns":          merged_cols,
         "column_dates":     merged_dates,
@@ -1052,12 +1062,17 @@ def _merge_matrices(a, b):
         "oh":               _md(a["oh"],             b["oh"]),
         "target_net":       _md(a["target_net"],     b["target_net"]),
         "target_rev_by_col":_md(a["target_rev_by_col"], b["target_rev_by_col"]),
-        "motley_totals":    _md(a["motley_totals"],  b["motley_totals"]),
-        "tsbc_totals":      _md(a["tsbc_totals"],    b["tsbc_totals"]),
+        "motley_totals":    mot,
+        "tsbc_totals":      tsbc,
         "other_totals":     _md(a["other_totals"],   b["other_totals"]),
-        "avg_motley": a.get("avg_motley", 0),
-        "avg_tsbc":   a.get("avg_tsbc",   0),
-        "avg_net":    a.get("avg_net",    0),
+        "grand_totals":     grnd,
+        "tsbc_target_by_col": tsbc_tgt,
+        "avg_motley":      _recompute_avg(mot),
+        "avg_tsbc":        _recompute_avg(tsbc),
+        "avg_grand":       _recompute_avg(grnd),
+        "avg_tsbc_target": _recompute_avg(tsbc_tgt),
+        "avg_net":         a.get("avg_net", 0),
+        "tsbc_monthly_target": a.get("tsbc_monthly_target", 400000.0),
     }
 
 
@@ -1094,6 +1109,9 @@ def _empty_matrix(columns, target_index=None, display_order=None):
         "target_rev_by_col": dict(empty_cols),
         "motley_totals": dict(empty_cols), "tsbc_totals": dict(empty_cols),
         "other_totals": dict(empty_cols),
+        "grand_totals": dict(empty_cols), "tsbc_target_by_col": dict(empty_cols),
+        "avg_motley": 0, "avg_tsbc": 0, "avg_grand": 0,
+        "avg_tsbc_target": 0, "avg_net": 0, "tsbc_monthly_target": 400000.0,
     }
 
 
@@ -1161,9 +1179,13 @@ def _build_matrix(columns, target_index, rev_rows, cogs_rows,
                     other_totals[label] += _flt(r.rev)
                 break
 
+    # TSBC frozen-sales target: 2,000 lbs/week @ $50/lb = $100K/week = $400K/month
+    TSBC_MONTHLY_TARGET = 400_000.0
+
     # Per-column aggregates — col_frac respects per-column granularity
     margin, margin_pct, oh = {}, {}, {}
     target_net, target_rev_by_col = {}, {}
+    tsbc_target_by_col = {}
     product_col_targets = {ig: {} for ig in target_index}
 
     for label, fd, td, col_type in col_ranges:
@@ -1177,6 +1199,7 @@ def _build_matrix(columns, target_index, rev_rows, cogs_rows,
             col_frac = col_days / 28.0
 
         oh[label] = monthly_oh * col_frac
+        tsbc_target_by_col[label] = TSBC_MONTHLY_TARGET * col_frac
 
         col_target_rev = 0.0
         for ig, t in target_index.items():
@@ -1192,6 +1215,8 @@ def _build_matrix(columns, target_index, rev_rows, cogs_rows,
         margin_pct[label] = ((rev_col - cogs_col) / rev_col * 100.0) if rev_col else 0.0
         effective_margin_pct = margin_pct[label] if rev_col > 0 else default_margin_pct
         target_net[label] = (effective_margin_pct / 100.0) * col_target_rev
+
+    grand_totals = {col: motley_totals[col] + tsbc_totals[col] for col in col_labels}
 
     products = []
     for ig, cols in products_map.items():
@@ -1241,9 +1266,14 @@ def _build_matrix(columns, target_index, rev_rows, cogs_rows,
         "oh": oh, "target_net": target_net, "target_rev_by_col": target_rev_by_col,
         "motley_totals": motley_totals, "tsbc_totals": tsbc_totals,
         "other_totals": other_totals,
-        "avg_motley": _avg(motley_totals),
-        "avg_tsbc":   _avg(tsbc_totals),
-        "avg_net":    _avg(target_net),
+        "grand_totals":       grand_totals,
+        "tsbc_target_by_col": tsbc_target_by_col,
+        "avg_motley":     _avg(motley_totals),
+        "avg_tsbc":       _avg(tsbc_totals),
+        "avg_grand":      _avg(grand_totals),
+        "avg_tsbc_target":_avg(tsbc_target_by_col),
+        "avg_net":        _avg(target_net),
+        "tsbc_monthly_target": TSBC_MONTHLY_TARGET,
     }
 
 

@@ -8,6 +8,10 @@ frappe.ui.form.on("Stock Entry", {
         });
         frm.refresh_fields();
         calculate_total_quantity(frm);
+
+        if (frm.is_new() && frm.doc.stock_entry_type === "Manufacture" && frm.doc.work_order) {
+            setTimeout(() => pin_rm_qty_from_wo(frm), 120);
+        }
     },
 
     project: function (frm) {
@@ -100,6 +104,30 @@ function fetch_project_qty(frm, cdt, cdn, row) {
         callback: function (r) {
             if (r.message !== undefined) {
                 frappe.model.set_value(cdt, cdn, "custom_project_back_qty", r.message);
+            }
+        },
+    });
+}
+
+function pin_rm_qty_from_wo(frm) {
+    frappe.call({
+        method: "cannabis_management.cannabis_management.custom.stock_entry.get_wo_rm_planned_qty",
+        args: { work_order: frm.doc.work_order },
+        callback: function (r) {
+            if (!r.message) return;
+            let planned = r.message;
+            let promises = [];
+            (frm.doc.items || []).forEach((item) => {
+                if (item.is_finished_item || item.is_scrap_item || !item.s_warehouse) return;
+                let pinned = planned[item.item_code];
+                if (pinned !== undefined && Math.abs(item.qty - pinned) > 0.0001) {
+                    promises.push(
+                        frappe.model.set_value(item.doctype, item.name, "qty", pinned)
+                    );
+                }
+            });
+            if (promises.length) {
+                Promise.all(promises).then(() => frm.refresh_field("items"));
             }
         },
     });

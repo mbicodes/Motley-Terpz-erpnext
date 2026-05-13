@@ -1,5 +1,6 @@
 import frappe
 from frappe import _
+from frappe.utils import flt
 
 
 def validate(doc, method):
@@ -10,6 +11,8 @@ def validate(doc, method):
     2. Fetch the available project qty from Stock Ledger Entry
     3. Block submission if qty exceeds available project qty
     """
+    _pin_rm_qty_to_work_order(doc)
+
     for item in doc.items:
         if not item.custom_project_mandatory:
             continue
@@ -53,6 +56,46 @@ def validate(doc, method):
         
         # Second: distribute the input value (even if 0) across outputs
         set_repack_valuation(doc)
+
+
+def _pin_rm_qty_to_work_order(doc):
+    """
+    For Manufacture SEs linked to a Work Order: keep every raw-material row's
+    qty at the WO's planned required_qty instead of ERPNext's proportionally
+    scaled value (which grows when actual FG > expected FG).
+    """
+    if doc.stock_entry_type != "Manufacture":
+        return
+    wo_name = doc.get("work_order")
+    if not wo_name:
+        return
+
+    planned = {
+        row.item_code: flt(row.required_qty)
+        for row in frappe.get_all(
+            "Work Order Item",
+            filters={"parent": wo_name},
+            fields=["item_code", "required_qty"],
+        )
+        if flt(row.required_qty) > 0
+    }
+    if not planned:
+        return
+
+    for item in doc.items:
+        if item.is_finished_item or item.is_scrap_item:
+            continue
+        if not item.s_warehouse:
+            continue
+        pinned_qty = planned.get(item.item_code)
+        if pinned_qty is None:
+            continue
+        if flt(item.qty) == pinned_qty:
+            continue  # already correct, skip recalc
+        item.qty = pinned_qty
+        item.transfer_qty = flt(pinned_qty) * flt(item.conversion_factor or 1)
+        item.basic_amount = flt(pinned_qty) * flt(item.basic_rate)
+        item.amount = flt(pinned_qty) * flt(item.valuation_rate or item.basic_rate)
 
 
 def set_repack_valuation(doc):
@@ -127,3 +170,14 @@ def get_project_qty(item_code, warehouse, project):
     )
 
     return result[0].qty if result else 0
+
+
+@frappe.whitelist()
+def get_wo_rm_planned_qty(work_order):
+    """Return {item_code: required_qty} for a Work Order's raw material rows."""
+    rows = frappe.get_all(
+        "Work Order Item",
+        filters={"parent": work_order},
+        fields=["item_code", "required_qty"],
+    )
+    return {r.item_code: flt(r.required_qty) for r in rows if flt(r.required_qty) > 0}
