@@ -1,0 +1,518 @@
+frappe.pages["ap-dashboard"].on_page_load = function (wrapper) {
+    var page = frappe.ui.make_app_page({
+        parent: wrapper,
+        title: "Accounts Payable",
+        single_column: true,
+    });
+
+    $(wrapper).find(".page-head").hide();
+
+    var $body = $(page.body);
+    $body.html('<div class="apd-root"></div>');
+    var $root = $body.find(".apd-root");
+
+    // ── State ──────────────────────────────────────────────────────────────
+    var state = {
+        company: "All",
+        period_days: 30,
+        sort_col: null,
+        sort_asc: false,
+        search: "",
+        data: null,
+        loading: false,
+        expanded: {},
+    };
+
+    // ── Initial render ─────────────────────────────────────────────────────
+    $root.html(buildShell());
+    bindControls();
+    loadData();
+
+    // ── Build DOM shell ───────────────────────────────────────────────────
+    function buildShell() {
+        return `
+        <div class="apd-header">
+            <div class="apd-title-block">
+                <div class="apd-title-icon">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="2" y="5" width="20" height="14" rx="2"/>
+                        <path d="M2 10h20"/>
+                    </svg>
+                </div>
+                <div>
+                    <div class="apd-title">Accounts Payable</div>
+                    <div class="apd-subtitle">Outstanding AP · Payment Tracking</div>
+                </div>
+            </div>
+            <div class="apd-controls">
+                <div class="apd-search-wrap">
+                    <svg class="apd-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                    </svg>
+                    <input class="apd-search" placeholder="Search vendor…" />
+                </div>
+                <div class="apd-seg" id="apd-company-seg">
+                    <button class="apd-seg-btn active" data-val="All">All</button>
+                    <button class="apd-seg-btn" data-val="Motley Terpz">Motley</button>
+                    <button class="apd-seg-btn" data-val="TSBC Ranch">TSBC</button>
+                </div>
+                <div class="apd-seg" id="apd-period-seg">
+                    <button class="apd-seg-btn active" data-val="30">30d</button>
+                    <button class="apd-seg-btn" data-val="60">60d</button>
+                    <button class="apd-seg-btn" data-val="90">90d</button>
+                </div>
+                <button class="apd-refresh-btn" id="apd-refresh">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+                        <path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+                        <path d="M8 16H3v5"/>
+                    </svg>
+                    Refresh
+                </button>
+            </div>
+        </div>
+        <div class="apd-kpis" id="apd-kpis">
+            <div class="apd-kpi-skeleton"></div>
+            <div class="apd-kpi-skeleton"></div>
+            <div class="apd-kpi-skeleton"></div>
+            <div class="apd-kpi-skeleton"></div>
+            <div class="apd-kpi-skeleton"></div>
+            <div class="apd-kpi-skeleton"></div>
+            <div class="apd-kpi-skeleton"></div>
+        </div>
+        <div class="apd-table-wrap" id="apd-table-wrap">
+            <div class="apd-loading" id="apd-loading">
+                <div class="apd-spinner"></div>
+                <span>Loading…</span>
+            </div>
+        </div>
+        <div id="payment-calendar-wrapper"></div>
+        `;
+    }
+
+    // ── Bind controls ─────────────────────────────────────────────────────
+    function bindControls() {
+        $root.on("click", "#apd-company-seg .apd-seg-btn", function () {
+            state.company = $(this).data("val");
+            $("#apd-company-seg .apd-seg-btn").removeClass("active");
+            $(this).addClass("active");
+            state.expanded = {};
+            loadData();
+            if (window.payment_calendar) {
+                window.payment_calendar.set_entity(state.company);
+            }
+        });
+        $root.on("click", "#apd-period-seg .apd-seg-btn", function () {
+            state.period_days = parseInt($(this).data("val"));
+            $("#apd-period-seg .apd-seg-btn").removeClass("active");
+            $(this).addClass("active");
+            loadData();
+        });
+        $root.on("click", "#apd-refresh", function () {
+            loadData();
+            if (window.payment_calendar) {
+                window.payment_calendar.load_data();
+            }
+        });
+        $root.on("input", ".apd-search", function () {
+            state.search = $(this).val().toLowerCase().trim();
+            if (state.data) renderTable(state.data);
+        });
+        $root.on("click", ".apd-th-sort", function () {
+            var col = $(this).data("col");
+            if (state.sort_col === col) {
+                state.sort_asc = !state.sort_asc;
+            } else {
+                state.sort_col = col;
+                state.sort_asc = col === "supplier";
+            }
+            if (state.data) renderTable(state.data);
+        });
+
+        // ── Expand / collapse vendor row ──────────────────────────────────
+        $root.on("click", ".apd-expand-btn", function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            var supplier = $(this).data("supplier");
+            var company = $(this).data("company");
+            var key = supplier + "::" + company;
+            var $btn = $(this);
+            var $parentRow = $btn.closest("tr");
+
+            if (state.expanded[key]) {
+                delete state.expanded[key];
+                $btn.removeClass("expanded");
+                $parentRow.next(".apd-invoice-detail-row").remove();
+            } else {
+                state.expanded[key] = true;
+                $btn.addClass("expanded");
+                loadInvoicesForVendor(supplier, company, $parentRow);
+            }
+        });
+    }
+
+    // ── Load invoices inline for a vendor ─────────────────────────────────
+    function loadInvoicesForVendor(supplier, company, $parentRow) {
+        $parentRow.next(".apd-invoice-detail-row").remove();
+
+        var $loadingRow = $('<tr class="apd-invoice-detail-row"><td colspan="7" class="apd-invoice-detail-cell"><div class="apd-inv-loading">Loading invoices…</div></td></tr>');
+        $parentRow.after($loadingRow);
+
+        frappe.call({
+            method: "frappe.client.get_list",
+            args: {
+                doctype: "Purchase Invoice",
+                filters: [
+                    ["supplier", "=", supplier],
+                    ["company", "=", company],
+                    ["docstatus", "=", 1],
+                    ["outstanding_amount", "!=", 0],
+                ],
+                fields: [
+                    "name", "posting_date", "due_date", "grand_total",
+                    "outstanding_amount", "status", "bill_no"
+                ],
+                limit: 50,
+                order_by: "posting_date desc",
+            },
+            callback: function (r) {
+                var invoices = r.message || [];
+                var key = supplier + "::" + company;
+
+                if (!state.expanded[key]) {
+                    $loadingRow.remove();
+                    return;
+                }
+
+                if (!invoices.length) {
+                    $loadingRow.find(".apd-invoice-detail-cell").html(
+                        '<div class="apd-inv-empty">No open invoices found</div>'
+                    );
+                    return;
+                }
+
+                var invRows = invoices.map(function (inv) {
+                    var daysOverdue = "";
+                    if (inv.due_date) {
+                        var diff = Math.floor((new Date() - new Date(inv.due_date)) / 86400000);
+                        if (diff > 0) {
+                            daysOverdue = '<span class="apd-overdue-badge">' + diff + 'd overdue</span>';
+                        }
+                    }
+
+                    var statusCls = "";
+                    if (inv.status === "Overdue") statusCls = "apd-inv-status-overdue";
+                    else if (inv.status === "Unpaid") statusCls = "apd-inv-status-unpaid";
+                    else if (inv.status === "Partly Paid") statusCls = "apd-inv-status-partial";
+
+                    return '<tr class="apd-inv-row">' +
+                        '<td class="apd-inv-name"><a href="/app/purchase-invoice/' + encodeURIComponent(inv.name) + '">' + escHtml(inv.name) + '</a></td>' +
+                        '<td><span class="apd-inv-status ' + statusCls + '">' + escHtml(inv.status || "") + '</span></td>' +
+                        '<td>' + fmtDate(inv.posting_date) + '</td>' +
+                        '<td>' + fmtDate(inv.due_date) + '</td>' +
+                        '<td class="apd-num">' + fmt$(inv.grand_total) + '</td>' +
+                        '<td class="apd-num">' + fmt$(inv.outstanding_amount) + '</td>' +
+                        '<td>' + daysOverdue + '</td>' +
+                        '</tr>';
+                }).join("");
+
+                var totalOutstanding = invoices.reduce(function (s, inv) {
+                    return s + (parseFloat(inv.outstanding_amount) || 0);
+                }, 0);
+
+                $loadingRow.find(".apd-invoice-detail-cell").html(
+                    '<div class="apd-inv-table-wrap">' +
+                    '<table class="apd-inv-table">' +
+                    '<thead><tr><th>Invoice</th><th>Status</th><th>Posted</th><th>Due Date</th><th class="apd-num">Invoiced</th><th class="apd-num">Outstanding</th><th></th></tr></thead>' +
+                    '<tbody>' + invRows + '</tbody>' +
+                    '<tfoot><tr class="apd-inv-total-row"><td colspan="4"><strong>' + invoices.length + ' invoice(s)</strong></td><td></td><td class="apd-num"><strong>' + fmt$(totalOutstanding) + '</strong></td><td></td></tr></tfoot>' +
+                    '</table></div>'
+                );
+            },
+            error: function () {
+                $loadingRow.find(".apd-invoice-detail-cell").html(
+                    '<div class="apd-inv-empty" style="color:#ef4444">Failed to load invoices</div>'
+                );
+            },
+        });
+    }
+
+    // ── Load data ─────────────────────────────────────────────────────────
+    function loadData() {
+        if (state.loading) return;
+        state.loading = true;
+        $("#apd-loading").show();
+        $("#apd-table-wrap").find("table").hide();
+
+        frappe.call({
+            method: "cannabis_management.api.ap_dashboard.get_ap_data",
+            args: {
+                company: state.company,
+                period_days: state.period_days,
+            },
+            callback: function (r) {
+                state.loading = false;
+                if (r.message) {
+                    state.data = r.message;
+                    renderKPIs(r.message.kpis);
+                    renderTable(r.message);
+                }
+                $("#apd-loading").hide();
+
+                if (!window.payment_calendar) {
+                    var cal_el = document.getElementById("payment-calendar-wrapper");
+                    if (cal_el && typeof PaymentCalendar !== "undefined") {
+                        window.payment_calendar = new PaymentCalendar(cal_el, {
+                            entity: state.company,
+                        });
+                    }
+                }
+            },
+            error: function () {
+                state.loading = false;
+                $("#apd-loading").html('<span style="color:#ef4444">Failed to load data.</span>');
+            },
+        });
+    }
+
+    // ── Render KPIs ───────────────────────────────────────────────────────
+    function renderKPIs(k) {
+        var html = `
+        <div class="apd-kpi apd-kpi-total">
+            <div class="apd-kpi-label">Total AP Balance</div>
+            <div class="apd-kpi-value">${fmt$(k.total_ap)}</div>
+            <div class="apd-kpi-sub">${k.open_vendors} open vendors</div>
+        </div>
+        <div class="apd-kpi apd-kpi-tsbc">
+            <div class="apd-kpi-label">TSBC Ranch</div>
+            <div class="apd-kpi-value">${fmt$(k.tsbc_ap)}</div>
+            <div class="apd-kpi-sub">entity balance</div>
+        </div>
+        <div class="apd-kpi apd-kpi-motley">
+            <div class="apd-kpi-label">Motley Terpz</div>
+            <div class="apd-kpi-value">${fmt$(k.motley_ap)}</div>
+            <div class="apd-kpi-sub">entity balance</div>
+        </div>
+        <div class="apd-kpi apd-kpi-sched">
+            <div class="apd-kpi-label">Scheduled (30d)</div>
+            <div class="apd-kpi-value">${fmt$(k.scheduled_payments)}</div>
+            <div class="apd-kpi-sub">due in next 30 days</div>
+        </div>
+        <div class="apd-kpi apd-kpi-paid">
+            <div class="apd-kpi-label">Paid This Period</div>
+            <div class="apd-kpi-value">${fmt$(k.paid_this_period)}</div>
+            <div class="apd-kpi-sub">last ${k.period_days} days</div>
+        </div>
+        <div class="apd-kpi apd-kpi-credit">
+            <div class="apd-kpi-label">Credits / Overpaid</div>
+            <div class="apd-kpi-value">${fmt$(k.total_credits)}</div>
+            <div class="apd-kpi-sub">vendor credits on account</div>
+        </div>
+        `;
+        $("#apd-kpis").html(html);
+    }
+
+    // ── Render Table ──────────────────────────────────────────────────────
+    function renderTable(d) {
+        var vendors = (d.vendors || []).slice();
+
+        if (state.search) {
+            vendors = vendors.filter(function (v) {
+                return (
+                    v.supplier.toLowerCase().includes(state.search) ||
+                    v.company.toLowerCase().includes(state.search)
+                );
+            });
+        }
+
+        var col = state.sort_col;
+        var asc = state.sort_asc;
+        if (col) {
+            vendors.sort(function (a, b) {
+                var va = a[col];
+                var vb = b[col];
+                if (typeof va === "string") va = va.toLowerCase();
+                if (typeof vb === "string") vb = vb.toLowerCase();
+                if (va === null || va === undefined) va = "";
+                if (vb === null || vb === undefined) vb = "";
+                if (va < vb) return asc ? -1 : 1;
+                if (va > vb) return asc ? 1 : -1;
+                return 0;
+            });
+        }
+
+        function sortArrow(col_name) {
+            if (state.sort_col !== col_name) return '<span class="apd-sort-arrow">↕</span>';
+            return state.sort_asc
+                ? '<span class="apd-sort-arrow active">↑</span>'
+                : '<span class="apd-sort-arrow active">↓</span>';
+        }
+
+        var rows = vendors.map(function (v) {
+            var statusClass = {
+                CLEARED: "apd-status-cleared",
+                CREDIT: "apd-status-credit",
+                HIGH: "apd-status-high",
+                OPEN: "apd-status-open",
+            }[v.status] || "apd-status-open";
+
+            var nextDue = v.next_due_date
+                ? `<a href="#" class="apd-pt-link" data-supplier="${escHtml(v.supplier)}" data-company="${escHtml(v.company)}">${fmtDate(v.next_due_date)}</a>`
+                : '<span class="apd-muted">—</span>';
+
+            var outstandingCell =
+                v.outstanding < 0
+                    ? `<span class="apd-credit-val">(${fmt$(Math.abs(v.outstanding))})</span>`
+                    : fmt$(v.outstanding);
+
+            var liveBalance =
+                v.live_balance > 0 ? fmt$(v.live_balance) : '<span class="apd-muted">—</span>';
+
+            var expandKey = v.supplier + "::" + v.company;
+            var isExpanded = state.expanded[expandKey];
+            var arrowClass = isExpanded ? "apd-expand-btn expanded" : "apd-expand-btn";
+
+            var countLabel = v.invoice_count ? '<span class="apd-inv-count">' + v.invoice_count + ' invoice(s)</span>' : '';
+
+            return `<tr class="${statusClass === 'apd-status-cleared' ? 'apd-row-cleared' : statusClass === 'apd-status-high' ? 'apd-row-high' : ''}">
+                <td class="apd-td-vendor">
+                    <div class="apd-vendor-name">
+                        <button class="${arrowClass}" data-supplier="${escHtml(v.supplier)}" data-company="${escHtml(v.company)}" title="Expand invoices">
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M4 2L8 6L4 10"/>
+                            </svg>
+                        </button>
+                        <span>${escHtml(v.supplier)}</span>
+                        ${countLabel}
+                    </div>
+                </td>
+                <td><span class="apd-entity apd-entity-${v.company === 'Motley Terpz' ? 'motley' : 'tsbc'}">${v.company === "Motley Terpz" ? "Motley" : "TSBC"}</span></td>
+                <td class="apd-num">${outstandingCell}</td>
+                <td class="apd-num">${v.paid_this_period > 0 ? fmt$(v.paid_this_period) : '<span class="apd-muted">—</span>'}</td>
+                <td class="apd-num">${liveBalance}</td>
+                <td>${nextDue}</td>
+                <td><span class="apd-status-badge ${statusClass}">${v.status}</span></td>
+            </tr>`;
+        }).join("");
+
+        if (!rows) {
+            rows = `<tr><td colspan="7" class="apd-empty">No vendors match your filters.</td></tr>`;
+        }
+
+        var tableHtml = `
+        <table class="apd-table">
+            <thead>
+                <tr>
+                    <th class="apd-th-sort" data-col="supplier">Vendor ${sortArrow("supplier")}</th>
+                    <th class="apd-th-sort" data-col="company">Entity ${sortArrow("company")}</th>
+                    <th class="apd-th-sort apd-num" data-col="outstanding">Ledger Balance ${sortArrow("outstanding")}</th>
+                    <th class="apd-th-sort apd-num" data-col="paid_this_period">Paid This Period ${sortArrow("paid_this_period")}</th>
+                    <th class="apd-th-sort apd-num" data-col="live_balance">Live Balance ${sortArrow("live_balance")}</th>
+                    <th class="apd-th-sort" data-col="next_due_date">Next Payment ${sortArrow("next_due_date")}</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+        </table>`;
+
+        $("#apd-table-wrap").html(tableHtml + '<div class="apd-loading" id="apd-loading" style="display:none"><div class="apd-spinner"></div><span>Loading…</span></div>');
+
+        // Re-expand any vendors that were expanded before re-render
+        Object.keys(state.expanded).forEach(function (key) {
+            var parts = key.split("::");
+            var $btn = $root.find('.apd-expand-btn[data-supplier="' + escHtml(parts[0]) + '"][data-company="' + escHtml(parts[1]) + '"]');
+            if ($btn.length) {
+                $btn.addClass("expanded");
+                loadInvoicesForVendor(parts[0], parts[1], $btn.closest("tr"));
+            }
+        });
+
+        $root.off("click", ".apd-pt-link").on("click", ".apd-pt-link", function (e) {
+            e.preventDefault();
+            var supplier = $(this).data("supplier");
+            var company = $(this).data("company");
+            showPaymentTermsPopup(supplier, company);
+        });
+    }
+
+    // ── Payment Terms Popup ───────────────────────────────────────────────
+    function showPaymentTermsPopup(supplier, company) {
+        frappe.call({
+            method: "frappe.client.get_list",
+            args: {
+                doctype: "Purchase Invoice",
+                filters: [
+                    ["supplier", "=", supplier],
+                    ["docstatus", "=", 1],
+                    ["outstanding_amount", ">", 0],
+                ],
+                fields: ["name", "posting_date", "grand_total", "outstanding_amount", "payment_terms_template", "company"],
+                limit: 20,
+                order_by: "posting_date desc",
+            },
+            callback: function (r) {
+                var invoices = r.message || [];
+                if (!invoices.length) {
+                    frappe.msgprint("No open invoices found for " + supplier);
+                    return;
+                }
+
+                var rows = invoices.map(function (inv) {
+                    var ptLink = inv.payment_terms_template
+                        ? `<a href="/app/payment-terms-template/${encodeURIComponent(inv.payment_terms_template)}" target="_blank">${escHtml(inv.payment_terms_template)}</a>`
+                        : '<span class="apd-muted">—</span>';
+                    return `<tr>
+                        <td><a href="/app/purchase-invoice/${inv.name}" target="_blank">${inv.name}</a></td>
+                        <td>${fmtDate(inv.posting_date)}</td>
+                        <td class="apd-num">${fmt$(inv.grand_total)}</td>
+                        <td class="apd-num">${fmt$(inv.outstanding_amount)}</td>
+                        <td>${ptLink}</td>
+                        <td><span class="apd-entity apd-entity-${inv.company === 'Motley Terpz' ? 'motley' : 'tsbc'}">${inv.company === "Motley Terpz" ? "Motley" : "TSBC"}</span></td>
+                    </tr>`;
+                }).join("");
+
+                var d = new frappe.ui.Dialog({
+                    title: supplier + " — Open Invoices",
+                    size: "extra-large",
+                });
+                $(d.body).html(`
+                    <div style="overflow-x:auto">
+                    <table class="apd-table apd-popup-table">
+                        <thead><tr>
+                            <th>Invoice</th><th>Date</th>
+                            <th class="apd-num">Total</th>
+                            <th class="apd-num">Outstanding</th>
+                            <th>Payment Terms</th>
+                            <th>Entity</th>
+                        </tr></thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                    </div>
+                `);
+                d.show();
+            },
+        });
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────
+    function fmt$(n) {
+        if (n == null || isNaN(n)) return "—";
+        return "$" + parseFloat(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function fmtDate(d) {
+        if (!d) return "—";
+        var dt = new Date(d);
+        if (isNaN(dt.getTime())) return d;
+        return dt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    }
+
+    function escHtml(s) {
+        if (!s) return "";
+        return String(s)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;");
+    }
+};

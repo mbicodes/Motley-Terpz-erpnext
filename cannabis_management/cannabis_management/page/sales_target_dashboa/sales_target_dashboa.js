@@ -93,7 +93,7 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
         var cols       = matrix.columns;
         var showAvg    = currentMatrix === 'weekly';
         var AVG        = 'Avg (8 Wks)';
-        var FF_KEY     = 'Fresh Frozen';
+        var FF_KEY     = 'Fresh Frozen Main';
         var totalCols  = 4 + cols.length + (showAvg ? 1 : 0);
 
         // Divisor for the static "Target" column header

@@ -46,8 +46,13 @@ csrf_exempt = [
 # page_js = {"page" : "public/js/file.js"}
 app_include_js = [
     "/assets/cannabis_management/js/stock_balance_custom.js",
+    "/assets/cannabis_management/js/payment_calendar.js"
 ]
 
+
+app_include_css = [
+    "/assets/cannabis_management/css/payment_calendar.css"
+]
 # include js in doctype views
 doctype_js = {
     "Stock Entry": "public/js/stock_entry.js",
