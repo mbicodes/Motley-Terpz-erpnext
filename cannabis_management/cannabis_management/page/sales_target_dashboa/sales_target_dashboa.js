@@ -275,24 +275,20 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
         if (showAvg) html += '<td class="sd-matrix-num sd-matrix-avg">—</td>';
         html += '</tr>';
 
-        // 6. TSBC billing row — shows actuals
+        // 6. TSBC billing row — mirrors Fresh Frozen Main
         html += '<tr>';
         html += '<td class="sd-matrix-product sd-matrix-foot-label">TSBC</td>';
-        html += '<td class="sd-matrix-num">' + fmtQty(tsbcTargetUnits) + ' lbs</td>';
-        html += '<td class="sd-matrix-num">$ 50.00</td>';
-        if (isQty) {
-            html += '<td class="sd-matrix-num sd-matrix-target-rev">' + fmtQty(tsbcTargetUnits) + ' lbs</td>';
-        } else {
-            html += '<td class="sd-matrix-num sd-matrix-target-rev">' + fmtCurrency(tsbcTargetRev) + '</td>';
-        }
-        cols.forEach(function (c) {
-            var v   = (matrix.tsbc_totals && matrix.tsbc_totals[c]) || 0;
-            var tgt = (matrix.tsbc_target_by_col && matrix.tsbc_target_by_col[c]) || 0;
-            html += '<td class="sd-matrix-num ' + cellClass(v, tgt) + '">' + (v > 0 ? fmtCurrency(v) : '—') + '</td>';
+        html += '<td class="sd-matrix-num">—</td>';
+        html += '<td class="sd-matrix-num">—</td>';
+        html += '<td class="sd-matrix-num">—</td>';
+        cols.forEach(function (col) {
+            var v   = ffProduct ? (isQty ? ((ffProduct.units && ffProduct.units[col]) || 0) : (ffProduct.actuals[col] || 0)) : 0;
+            var ct  = ffProduct ? ((ffProduct.cell_targets && ffProduct.cell_targets[col]) || 0) : 0;
+            html += '<td class="sd-matrix-num ' + cellClass(v, ct) + '">' + (v > 0 ? (isQty ? fmtQty(v) : fmtCurrency(v)) : '—') + '</td>';
         });
         if (showAvg) {
-            var avgTsbc = matrix.avg_tsbc || 0;
-            html += '<td class="sd-matrix-num sd-matrix-avg ' + cellClass(avgTsbc, matrix.avg_tsbc_target || 0) + '">' + (avgTsbc > 0 ? fmtCurrency(avgTsbc) : '—') + '</td>';
+            var ffAvgTsbc = isQty ? (avgUnits[FF_KEY] || 0) : (avgActuals[FF_KEY] || 0);
+            html += '<td class="sd-matrix-num sd-matrix-avg">' + (ffAvgTsbc > 0 ? (isQty ? fmtQty(ffAvgTsbc) : fmtCurrency(ffAvgTsbc)) : '—') + '</td>';
         }
         html += '</tr>';
 
@@ -528,21 +524,19 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
         // ── TSBC billing row ──────────────────────────────────────
         html += '<tr class="tsbc-row">';
         html += td('TSBC', 'lbl');
-        html += td(Math.round(tsbcTargetUnits).toLocaleString() + ' lbs', 'num dim');
-        html += td('$ 50.00', 'num dim');
-        var tsV = isQty ? (Math.round(tsbcTargetUnits).toLocaleString() + ' lbs')
-                        : ('$ ' + tsbcTargetRev.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}));
-        html += td(tsV, 'num tgt');
+        html += td('—', 'num dim');
+        html += td('—', 'num dim');
+        html += td('—', 'num dim');
         cols.forEach(function (c) {
-            var v   = (matrix.tsbc_totals && matrix.tsbc_totals[c]) || 0;
-            var tgt = (matrix.tsbc_target_by_col && matrix.tsbc_target_by_col[c]) || 0;
+            var v   = ffProduct ? (isQty ? ((ffProduct.units && ffProduct.units[c]) || 0) : (ffProduct.actuals[c] || 0)) : 0;
+            var tgt = ffProduct ? ((ffProduct.cell_targets && ffProduct.cell_targets[c]) || 0) : 0;
             var cls = '';
             if (v > 0 && tgt > 0) { var r = v/tgt; cls = r>=1 ? 'green' : r>=0.7 ? 'amber' : 'red'; }
             html += td(v > 0 ? fmtNum(v) : '—', 'num' + (cls ? ' ' + cls : ''));
         });
         if (showAvg) {
-            var avgTsbc = matrix.avg_tsbc || 0;
-            html += td(avgTsbc > 0 ? fmtNum(avgTsbc) : '—', 'num');
+            var ffAvgEx = isQty ? (avgUnits[FF_KEY] || 0) : (avgActuals[FF_KEY] || 0);
+            html += td(ffAvgEx > 0 ? fmtNum(ffAvgEx) : '—', 'num');
         }
         html += '</tr>';
 

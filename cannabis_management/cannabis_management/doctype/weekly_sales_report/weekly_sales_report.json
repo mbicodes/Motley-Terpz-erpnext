@@ -1,0 +1,39 @@
+{
+ "name": "Weekly Sales Report",
+ "doctype": "DocType",
+ "module": "Cannabis Management",
+ "naming_rule": "Expression",
+ "autoname": "format:WSR-{week_start}",
+ "title_field": "week_start",
+ "track_changes": 1,
+ "fields": [
+  {"fieldname": "week_section", "fieldtype": "Section Break", "label": "Report Period"},
+  {"fieldname": "week_start", "fieldtype": "Date", "label": "Week Start", "reqd": 1, "in_list_view": 1, "in_standard_filter": 1},
+  {"fieldname": "week_end", "fieldtype": "Date", "label": "Week End", "reqd": 1, "in_list_view": 1},
+  {"fieldname": "col_break_1", "fieldtype": "Column Break"},
+  {"fieldname": "generated_at", "fieldtype": "Datetime", "label": "Generated At", "read_only": 1},
+  {"fieldname": "notification_sent", "fieldtype": "Check", "label": "Notification Sent", "read_only": 1},
+  {"fieldname": "reminder_sent", "fieldtype": "Check", "label": "Reminder Sent", "read_only": 1},
+
+  {"fieldname": "snapshot_section", "fieldtype": "Section Break", "label": "Week Snapshot"},
+  {"fieldname": "total_orders", "fieldtype": "Int", "label": "Sales Orders", "read_only": 1, "in_list_view": 1},
+  {"fieldname": "total_order_value", "fieldtype": "Currency", "label": "Total Order Value", "read_only": 1},
+  {"fieldname": "total_invoiced", "fieldtype": "Currency", "label": "Total Invoiced", "read_only": 1, "in_list_view": 1},
+  {"fieldname": "col_break_2", "fieldtype": "Column Break"},
+  {"fieldname": "total_collected", "fieldtype": "Currency", "label": "Total Collected", "read_only": 1, "in_list_view": 1},
+  {"fieldname": "total_outstanding", "fieldtype": "Currency", "label": "Total Outstanding AR", "read_only": 1},
+
+  {"fieldname": "signoff_section", "fieldtype": "Section Break", "label": "Sign-Off"},
+  {"fieldname": "is_acknowledged", "fieldtype": "Check", "label": "Acknowledged", "read_only": 1, "in_list_view": 1},
+  {"fieldname": "acknowledged_by", "fieldtype": "Link", "options": "User", "label": "Acknowledged By", "read_only": 1, "in_list_view": 1},
+  {"fieldname": "col_break_3", "fieldtype": "Column Break"},
+  {"fieldname": "acknowledged_at", "fieldtype": "Datetime", "label": "Acknowledged At", "read_only": 1},
+  {"fieldname": "acknowledgment_notes", "fieldtype": "Small Text", "label": "Acknowledgment Notes"}
+ ],
+ "permissions": [
+  {"role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 1, "report": 1, "export": 1},
+  {"role": "Accounts Manager", "read": 1, "write": 1, "create": 1, "report": 1, "export": 1},
+  {"role": "Sales Manager", "read": 1, "report": 1, "export": 1},
+  {"role": "All", "read": 1}
+ ]
+}

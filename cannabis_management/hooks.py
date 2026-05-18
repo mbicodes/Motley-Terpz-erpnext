@@ -266,6 +266,13 @@ scheduler_events = {
         "0 14 * * 5": [
             "cannabis_management.overrides.payment_overdue_alert.friday_overdue_report",
         ],
+        # Weekly Sales Report: generate Monday 8 AM UTC, remind Tuesday 8 AM UTC if unacknowledged
+        "0 8 * * 1": [
+            "cannabis_management.cannabis_management.overrides.weekly_signoff.generate_weekly_signoff",
+        ],
+        "0 8 * * 2": [
+            "cannabis_management.cannabis_management.overrides.weekly_signoff.send_acknowledgment_reminder",
+        ],
     },
     "weekly": [
         # MTM: weekly production summary to Slack
@@ -379,6 +386,7 @@ fixtures = [
     "Workflow Action",
     # MTM module — export all module-specific records so they survive reinstall
     {"dt": "DocType", "filters": [["module", "=", "Master Touch Manufacturing"]]},
+    {"dt": "DocType", "filters": [["name", "=", "Weekly Sales Report"]]},
     {"dt": "Role", "filters": [["name", "in", [
         "Lab Tech", "Lab Supervisor", "Production Manager",
         "Distro Manager", "Compliance Officer"
