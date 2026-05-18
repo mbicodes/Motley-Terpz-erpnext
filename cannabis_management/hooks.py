@@ -273,6 +273,9 @@ scheduler_events = {
         "0 8 * * 2": [
             "cannabis_management.cannabis_management.overrides.weekly_signoff.send_acknowledgment_reminder",
         ],
+        "0 23 * * 1-5": [
+            "cannabis_management.api.daily_report.send_daily_report",
+        ],
     },
     "weekly": [
         # MTM: weekly production summary to Slack
