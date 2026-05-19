@@ -292,11 +292,7 @@ def get_data(filters):
 			ltd.yield_,
 			ltd.actual_rosin_yield,
 			ltd.actual_yield_to_hash,
-			CASE
-				WHEN flt(ltd.amount_ran_grams) != 0
-				THEN (flt(ltd.total_rosin) / flt(ltd.amount_ran_grams)) * 100
-				ELSE 0
-			END AS rosin_efficiency,
+			(ltd.total_rosin / NULLIF(ltd.amount_ran_grams, 0)) * 100 AS rosin_efficiency,
 			ltd.prime_strain,
 			ltd.subprime_strain,
 			ltd.raw_material_quantity
