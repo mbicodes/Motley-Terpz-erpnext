@@ -48,6 +48,12 @@ def get_columns():
 			"width": 130
 		},
 		{
+			"label": _("Item Name"),
+			"fieldname": "item_name",
+			"fieldtype": "Data",
+			"width": 150
+		},
+		{
 			"label": _("Batch No (Child)"),
 			"fieldname": "batch_no",
 			"fieldtype": "Link",
@@ -79,12 +85,6 @@ def get_columns():
 			"options": "Warehouse",
 			"width": 120
 		},
-		# {
-		# 	"label": _("Rosin Yield %"),
-		# 	"fieldname": "rosin_yield_",
-		# 	"fieldtype": "Percent",
-		# 	"width": 100
-		# },
 		{
 			"label": _("Run For"),
 			"fieldname": "run_for",
@@ -219,28 +219,16 @@ def get_columns():
 			"width": 130
 		},
 		{
-			"label": _("Expected Rosin Yield"),
-			"fieldname": "expected_rosin_yield",
-			"fieldtype": "Percent",
-			"width": 150
-		},
-		{
-			"label": _("Expected Yield To Hash"),
-			"fieldname": "expected__yield__to_hash",
-			"fieldtype": "Percent",
-			"width": 150
-		},
-		{
-			"label": _("Expected Hash Yield"),
-			"fieldname": "expected_hash_yield",
-			"fieldtype": "Percent",
-			"width": 150
-		},
-		{
 			"label": _("Actual Yield To Hash"),
 			"fieldname": "actual_yield_to_hash",
 			"fieldtype": "Percent",
 			"width": 150
+		},
+		{
+			"label": _("Rosin Efficiency %"),
+			"fieldname": "rosin_efficiency",
+			"fieldtype": "Percent",
+			"width": 140
 		},
 		{
 			"label": _("Prime Strain"),
@@ -283,6 +271,7 @@ def get_data(filters):
 			ltd.run_for,
 			ltd.amount_ran_grams,
 			ltd.hash_to_rosin_,
+			item.item_name,
 			ltd.150u_hash,
 			ltd.120u_hash,
 			ltd.90u_hash,
@@ -302,10 +291,12 @@ def get_data(filters):
 			ltd.live_resin_produced,
 			ltd.yield_,
 			ltd.actual_rosin_yield,
-			ltd.expected_rosin_yield,
-			ltd.expected__yield__to_hash,
-			ltd.expected_hash_yield,
 			ltd.actual_yield_to_hash,
+			CASE
+				WHEN flt(ltd.amount_ran_grams) != 0
+				THEN (flt(ltd.total_rosin) / flt(ltd.amount_ran_grams)) * 100
+				ELSE 0
+			END AS rosin_efficiency,
 			ltd.prime_strain,
 			ltd.subprime_strain,
 			ltd.raw_material_quantity
@@ -313,6 +304,8 @@ def get_data(filters):
 			`tabRosin Recording` rr
 		INNER JOIN
 			`tabLab Tolling Data` ltd ON ltd.parent = rr.name
+		LEFT JOIN
+			`tabItem` item ON item.name = ltd.strain_name
 		WHERE
 			rr.docstatus < 2
 			{conditions}

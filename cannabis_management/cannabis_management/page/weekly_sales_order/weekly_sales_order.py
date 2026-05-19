@@ -589,3 +589,184 @@ def _send_acknowledgment_notification(doc):
 		frappe.sendmail(recipients=recipients, subject=subject, message=message)
 	except Exception:
 		pass
+
+
+# ─────────────────────────────────────────────────────────────
+#  PDF EXPORT DATA  (separate endpoint — page display unchanged)
+# ─────────────────────────────────────────────────────────────
+
+@frappe.whitelist()
+def get_pdf_export_data(from_date, to_date):
+	from_date = getdate(from_date)
+	to_date   = getdate(to_date)
+	return {
+		"kpis":           _pdf_kpis(from_date, to_date),
+		"orders_table":   get_orders_table(from_date, to_date),
+		"payments_table": _pdf_payments(from_date, to_date),
+		"delivery_notes": _pdf_delivery_notes(from_date, to_date),
+	}
+
+
+def _pdf_kpis(from_date, to_date):
+	so = frappe.db.sql("""
+		SELECT COUNT(*) as cnt,
+		       COALESCE(SUM(IFNULL(rounded_total, grand_total)), 0) as val
+		FROM `tabSales Order`
+		WHERE docstatus=1 AND transaction_date BETWEEN %s AND %s
+	""", (from_date, to_date), as_dict=True)[0]
+
+	dn = frappe.db.sql("""
+		SELECT COUNT(*) as cnt FROM `tabDelivery Note`
+		WHERE docstatus=1 AND posting_date BETWEEN %s AND %s
+	""", (from_date, to_date), as_dict=True)[0]
+
+	si = frappe.db.sql("""
+		SELECT COUNT(*) as cnt FROM `tabSales Invoice`
+		WHERE docstatus=1 AND posting_date BETWEEN %s AND %s
+	""", (from_date, to_date), as_dict=True)[0]
+
+	pe = frappe.db.sql("""
+		SELECT COUNT(*) as cnt, COALESCE(SUM(paid_amount), 0) as val
+		FROM `tabPayment Entry`
+		WHERE docstatus=1 AND payment_type='Receive'
+		AND posting_date BETWEEN %s AND %s
+	""", (from_date, to_date), as_dict=True)[0]
+
+	prev = frappe.db.sql("""
+		SELECT COALESCE(SUM(per.allocated_amount), 0) as val
+		FROM `tabPayment Entry Reference` per
+		JOIN `tabPayment Entry` pe ON pe.name = per.parent
+		JOIN `tabSales Invoice` si ON si.name = per.reference_name
+		WHERE pe.docstatus=1 AND pe.payment_type='Receive'
+		  AND pe.posting_date BETWEEN %s AND %s
+		  AND per.reference_doctype = 'Sales Invoice'
+		  AND si.posting_date < %s
+	""", (from_date, to_date, from_date), as_dict=True)[0]
+
+	ar = frappe.db.sql("""
+		SELECT COALESCE(SUM(outstanding_amount), 0) as val
+		FROM `tabSales Invoice`
+		WHERE docstatus=1 AND outstanding_amount > 0
+	""", as_dict=True)[0]
+
+	return {
+		"so_count":              int(so.cnt),
+		"dn_count":              int(dn.cnt),
+		"invoice_count":         int(si.cnt),
+		"payment_count":         int(pe.cnt),
+		"so_value":              flt(so.val),
+		"collected":             flt(pe.val),
+		"collected_prev_period": flt(prev.val),
+		"outstanding_ar":        flt(ar.val),
+	}
+
+
+def _pdf_payments(from_date, to_date):
+	payments = frappe.db.sql("""
+		SELECT pe.name, pe.party as customer, pe.paid_amount,
+		       pe.mode_of_payment, pe.paid_to, pe.posting_date
+		FROM `tabPayment Entry` pe
+		WHERE pe.docstatus=1 AND pe.payment_type='Receive'
+		  AND pe.posting_date BETWEEN %s AND %s
+		ORDER BY pe.posting_date DESC, pe.name
+	""", (from_date, to_date), as_dict=True)
+
+	if not payments:
+		return []
+
+	pe_names = [p.name for p in payments]
+	placeholders = ", ".join(["%s"] * len(pe_names))
+
+	refs = frappe.db.sql(f"""
+		SELECT per.parent as pname, per.reference_doctype,
+		       per.reference_name, per.allocated_amount,
+		       CASE WHEN per.reference_doctype='Sales Invoice'
+		            THEN si.grand_total ELSE NULL END as inv_total,
+		       CASE WHEN per.reference_doctype='Sales Invoice'
+		            THEN si.posting_date ELSE NULL END as inv_date
+		FROM `tabPayment Entry Reference` per
+		LEFT JOIN `tabSales Invoice` si
+		    ON si.name=per.reference_name AND per.reference_doctype='Sales Invoice'
+		WHERE per.parent IN ({placeholders}) AND per.docstatus=1
+	""", pe_names, as_dict=True)
+
+	si_names = [r.reference_name for r in refs if r.reference_doctype == 'Sales Invoice']
+	si_to_so = {}
+	if si_names:
+		si_pl = ", ".join(["%s"] * len(si_names))
+		for r in frappe.db.sql(f"""
+			SELECT DISTINCT sii.parent as si_name, sii.sales_order
+			FROM `tabSales Invoice Item` sii
+			WHERE sii.parent IN ({si_pl})
+			  AND IFNULL(sii.sales_order,'') != '' AND sii.docstatus=1
+		""", si_names, as_dict=True):
+			si_to_so[r.si_name] = r.sales_order
+
+	ref_map = {}
+	for r in refs:
+		ref_map.setdefault(r.pname, []).append(r)
+
+	rows = []
+	for p in payments:
+		si_refs = [r for r in ref_map.get(p.name, []) if r.reference_doctype == 'Sales Invoice']
+		if si_refs:
+			for sr in si_refs:
+				inv_date = getdate(sr.inv_date) if sr.inv_date else None
+				is_prev  = bool(inv_date and inv_date < from_date)
+				rows.append({
+					"name":      p.name,
+					"customer":  p.customer,
+					"invoice":   sr.reference_name,
+					"linked_so": si_to_so.get(sr.reference_name, ""),
+					"inv_total": flt(sr.inv_total or 0),
+					"paid":      flt(sr.allocated_amount or 0),
+					"account":   p.paid_to or "",
+					"date":      str(p.posting_date),
+					"reason":    "Invoice from previous period" if is_prev else "",
+				})
+		else:
+			rows.append({
+				"name":      p.name,
+				"customer":  p.customer,
+				"invoice":   "",
+				"linked_so": "",
+				"inv_total": 0,
+				"paid":      flt(p.paid_amount),
+				"account":   p.paid_to or "",
+				"date":      str(p.posting_date),
+				"reason":    "",
+			})
+	return rows
+
+
+def _pdf_delivery_notes(from_date, to_date):
+	dns = frappe.get_all("Delivery Note",
+		filters={"docstatus": 1, "posting_date": ["between", [from_date, to_date]]},
+		fields=["name", "customer", "posting_date", "company"],
+		order_by="posting_date asc, name asc",
+		limit_page_length=0
+	)
+	if not dns:
+		return []
+
+	dn_names = [d.name for d in dns]
+	placeholders = ", ".join(["%s"] * len(dn_names))
+
+	dn_so = {}
+	for r in frappe.db.sql(f"""
+		SELECT DISTINCT dni.parent as dn_name, dni.against_sales_order
+		FROM `tabDelivery Note Item` dni
+		WHERE dni.parent IN ({placeholders})
+		  AND IFNULL(dni.against_sales_order,'') != '' AND dni.docstatus=1
+	""", dn_names, as_dict=True):
+		sos = dn_so.setdefault(r.dn_name, [])
+		if r.against_sales_order not in sos:
+			sos.append(r.against_sales_order)
+
+	return [{
+		"name":         d.name,
+		"customer":     d.customer,
+		"posting_date": str(d.posting_date),
+		"company":      d.company,
+		"linked_sos":   dn_so.get(d.name, []),
+	} for d in dns]

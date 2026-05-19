@@ -525,31 +525,187 @@ class WeeklySalesOrder {
 	// ── Print / Export PDF ───────────────────────────────────────────
 
 	print_report() {
-		let from = $('#wso-from-date').val() || '';
-		let to   = $('#wso-to-date').val()   || '';
-		let title = `Weekly Sales Order Report — ${frappe.datetime.str_to_user(from)} to ${frappe.datetime.str_to_user(to)}`;
-		let style_links = Array.from(document.querySelectorAll('link[rel="stylesheet"]'))
-			.map(l => `<link rel="stylesheet" href="${l.href}">`)
-			.join('\n');
-		let content = this.wrapper.find('.weekly-so-wrapper').prop('outerHTML') || '';
+		let from_date = $('#wso-from-date').val() || '';
+		let to_date   = $('#wso-to-date').val()   || '';
+		if (!from_date || !to_date) { frappe.msgprint(__('Please select a date range.')); return; }
+
+		frappe.call({
+			method: 'cannabis_management.cannabis_management.page.weekly_sales_order.weekly_sales_order.get_pdf_export_data',
+			args: { from_date, to_date },
+			callback: (r) => {
+				if (!r.message) return;
+				this._open_pdf_window(r.message, from_date, to_date);
+			},
+			error: () => frappe.msgprint(__('Error generating PDF. Please try again.'))
+		});
+	}
+
+	_open_pdf_window(data, from_date, to_date) {
+		let k = data.kpis || {};
+		let from_str = frappe.datetime.str_to_user(from_date);
+		let to_str   = frappe.datetime.str_to_user(to_date);
+		let today    = frappe.datetime.str_to_user(frappe.datetime.nowdate());
+		let title    = `Weekly Sales Order Report — ${from_str} to ${to_str}`;
+		let f = v => (v == null || isNaN(v)) ? '—' : '$' + parseFloat(v).toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0});
+		let lnk = (dt, name) => name ? `<a href="/app/${dt.toLowerCase().replace(/ /g,'-')}/${encodeURIComponent(name)}">${name}</a>` : '—';
+
+		/* ── KPI Row ─────────────────────────────────────── */
+		let kpi_cards = [
+			{ v: k.so_count,              l: 'Sales Orders' },
+			{ v: k.dn_count,              l: 'Delivery Notes (week)' },
+			{ v: k.invoice_count,         l: 'Invoices (week)' },
+			{ v: k.payment_count,         l: 'Payments (week)' },
+			{ v: f(k.so_value),           l: 'Total Order Value' },
+			{ v: f(k.collected_prev_period), l: 'Collected — Prev. Period', sub: 'SO' },
+			{ v: f(k.outstanding_ar),     l: 'Outstanding', sub: 'AR' },
+			{ v: f(k.collected),          l: 'Grand Total Collected', hi: true },
+		].map(c => `<div class="kpi-card${c.hi?' kpi-hi':''}">
+			<div class="kpi-val">${c.v}${c.sub?`<span class="kpi-sub">${c.sub}</span>`:''}</div>
+			<div class="kpi-lbl">${c.l}</div>
+		</div>`).join('');
+
+		/* ── Orders Table ────────────────────────────────── */
+		let orders = data.orders_table || [];
+		let ord_total_so = 0, ord_total_paid = 0;
+		let ord_rows = orders.map(row => {
+			let dn   = (row.delivery_notes||[]).map(d=>lnk('Delivery Note',d)).join('<br>')||'—';
+			let inv  = (row.invoices||[]).map(i=>lnk('Sales Invoice',i)).join('<br>')||'—';
+			let pes  = row.payment_entries||[];
+			let acct = pes.map(p=>p.account||p.name).join('<br>')||'—';
+			let paid = pes.reduce((s,p)=>s+(p.amount||0),0);
+			ord_total_so   += row.grand_total||0;
+			ord_total_paid += paid;
+			return `<tr>
+				<td>${lnk('Sales Order',row.name)}</td>
+				<td style="white-space:nowrap">${frappe.datetime.str_to_user(row.transaction_date)}</td>
+				<td><b>${row.customer}</b></td>
+				<td>${row.sales_person||'—'}</td>
+				<td class="tr">${f(row.grand_total)}</td>
+				<td>${dn}</td><td>${inv}</td>
+				<td class="acct">${acct}</td>
+				<td class="tr${paid>0?' paid':''}">${paid>0?f(paid):'—'}</td>
+			</tr>`;
+		}).join('');
+		let ord_tfoot = `<tr class="tot"><td colspan="4"><b>TOTAL</b></td><td class="tr"><b>${f(ord_total_so)}</b></td><td colspan="3"></td><td class="tr"><b>${f(ord_total_paid)}</b></td></tr>`;
+
+		/* ── Payments Table ───────────────────────────────── */
+		let payments = data.payments_table || [];
+		let pay_total = payments.reduce((s,p)=>s+(p.paid||0),0);
+		let pay_head  = `PAYMENTS COLLECTED THIS WEEK — Against Previous Period (${payments.length} payment${payments.length!==1?'s':''} | Total: ${f(pay_total)})`;
+		let pay_rows  = payments.map(p=>`<tr>
+			<td>${lnk('Payment Entry',p.name)}</td>
+			<td><b>${p.customer}</b></td>
+			<td>${p.invoice?lnk('Sales Invoice',p.invoice):'—'}</td>
+			<td>${p.linked_so?lnk('Sales Order',p.linked_so):'—'}</td>
+			<td class="tr">${p.inv_total>0?f(p.inv_total):'—'}</td>
+			<td class="tr paid">${f(p.paid)}</td>
+			<td class="acct">${p.account||'—'}</td>
+			<td class="reason">${p.reason?`<em>${p.reason}</em>`:'—'}</td>
+		</tr>`).join('');
+		let pay_tfoot = payments.length ? `<tr class="tot"><td colspan="5"><b>TOTAL</b></td><td class="tr"><b>${f(pay_total)}</b></td><td colspan="2"></td></tr>` : '';
+		let pay_empty = !payments.length ? '<tr><td colspan="8" class="empty">No payments collected this week.</td></tr>' : '';
+
+		/* ── Delivery Notes Table ─────────────────────────── */
+		let dns      = data.delivery_notes || [];
+		let dn_head  = `DELIVERY NOTES DISPATCHED THIS WEEK — Against Previous Sales Orders (${dns.length} note${dns.length!==1?'s':''})`;
+		let dn_rows  = dns.map(d=>{
+			let sos = (d.linked_sos||[]).map(s=>lnk('Sales Order',s)).join('<br>')||'—';
+			return `<tr>
+				<td>${lnk('Delivery Note',d.name)}</td>
+				<td><b>${d.customer}</b></td>
+				<td style="white-space:nowrap">${frappe.datetime.str_to_user(d.posting_date)}</td>
+				<td>${d.company}</td>
+				<td>${sos}</td>
+			</tr>`;
+		}).join('') || '<tr><td colspan="5" class="empty">No delivery notes this week.</td></tr>';
+
+		/* ── Full HTML ────────────────────────────────────── */
 		let html = `<!DOCTYPE html><html lang="en"><head>
-			<meta charset="utf-8">
-			<title>${title}</title>
-			${style_links}
-			<style>
-				html,body{margin:0;padding:0;background:#fff;}
-				.wso-filter-bar,.wso-signoff-banner{display:none!important;}
-				.wso-header{border-radius:0!important;}
-				@page{size:A4 landscape;margin:.4in .3in;}
-				@media print{
-					.wso-glance-grid{grid-template-columns:repeat(3,1fr)!important;}
-					.wso-gap-grid{grid-template-columns:repeat(2,1fr)!important;}
-					.wso-collections-grid{grid-template-columns:1fr!important;}
-				}
-			</style>
-		</head><body>${content}
-		<script>window.addEventListener('load',function(){setTimeout(function(){window.print();},600);window.addEventListener('afterprint',function(){window.close();});});<\/script>
-		</body></html>`;
+<meta charset="utf-8"><title>${title}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;print-color-adjust:exact;-webkit-print-color-adjust:exact;}
+html,body{background:#fff;font-family:Arial,Helvetica,sans-serif;font-size:10.5px;color:#222;print-color-adjust:exact;-webkit-print-color-adjust:exact;}
+/* Header */
+.hdr{background:#1a2744!important;color:#fff!important;display:flex;justify-content:space-between;align-items:center;padding:13px 20px;print-color-adjust:exact;-webkit-print-color-adjust:exact;}
+.hdr-title{font-size:18px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;}
+.hdr-meta{font-size:9.5px;opacity:.8;text-align:right;line-height:1.6;}
+/* KPIs */
+.kpi-row{display:grid;grid-template-columns:repeat(8,1fr);border-bottom:2px solid #cdd3de;}
+.kpi-card{padding:9px 6px;text-align:center;border-right:1px solid #d4d9e8;background:#f7f9fc!important;print-color-adjust:exact;-webkit-print-color-adjust:exact;}
+.kpi-card:last-child{border-right:none;}
+.kpi-hi{background:#1a2744!important;print-color-adjust:exact;-webkit-print-color-adjust:exact;}
+.kpi-val{font-size:14px;font-weight:800;color:#1a2744;line-height:1.2;}
+.kpi-hi .kpi-val{color:#fff!important;}
+.kpi-lbl{font-size:8px;color:#777;margin-top:3px;text-transform:uppercase;letter-spacing:.4px;line-height:1.3;}
+.kpi-hi .kpi-lbl{color:rgba(255,255,255,.75)!important;}
+.kpi-sub{font-size:8px;font-weight:normal;color:#aaa;margin-left:2px;}
+.kpi-hi .kpi-sub{color:rgba(255,255,255,.55)!important;}
+/* Section headers */
+.sec-hd{padding:7px 14px;font-size:10px;font-weight:700;color:#fff!important;letter-spacing:.3px;text-transform:uppercase;margin-top:10px;print-color-adjust:exact;-webkit-print-color-adjust:exact;}
+.sec-blue{background:#1e3a5f!important;}
+.sec-teal{background:#1e5f52!important;}
+.sec-purple{background:#4a1e5f!important;}
+/* Tables */
+table{width:100%;border-collapse:collapse;font-size:9.5px;}
+th{background:#2d4a6e!important;color:#fff!important;padding:5px 7px;text-align:left;font-size:8.5px;font-weight:700;border:1px solid #1a2744;print-color-adjust:exact;-webkit-print-color-adjust:exact;}
+th.tr{text-align:right;}
+td{padding:4px 7px;border:1px solid #dde3ed;vertical-align:top;line-height:1.35;}
+tr:nth-child(even) td{background:#eef2fb!important;print-color-adjust:exact;-webkit-print-color-adjust:exact;}
+tr:nth-child(odd) td{background:#fff!important;}
+td.tr{text-align:right;}
+a{color:#1e3a5f;text-decoration:none;}
+.paid{color:#1a6644;font-weight:600;}
+.acct{font-size:8.5px;color:#444;}
+.reason{font-style:italic;color:#666;font-size:8.5px;}
+.tot td{background:#e3e9f5!important;font-weight:700;border-top:2px solid #1a2744;print-color-adjust:exact;-webkit-print-color-adjust:exact;}
+.empty{text-align:center;color:#999;padding:14px;font-style:italic;}
+/* Footer */
+.ftr{text-align:center;font-size:8.5px;color:#aaa;padding:10px;border-top:1px solid #dde3ed;margin-top:10px;}
+@page{size:A4 landscape;margin:.35in .3in;}
+</style>
+</head><body>
+
+<div class="hdr">
+	<div class="hdr-title">WEEKLY SALES ORDER REPORT</div>
+	<div class="hdr-meta">Generated: ${today}<br>${from_str} &mdash; ${to_str}</div>
+</div>
+
+<div class="kpi-row">${kpi_cards}</div>
+
+<div class="sec-hd sec-blue">THIS WEEK &mdash; Sales Orders with Delivery Notes, Invoices &amp; Payments</div>
+<table>
+<thead><tr>
+	<th>Sales Order</th><th>Date</th><th>Customer</th><th>Sales Person</th>
+	<th class="tr">SO Value ($)</th><th>Delivery Notes</th><th>Invoices</th>
+	<th>Payment Account</th><th class="tr">Paid ($)</th>
+</tr></thead>
+<tbody>${ord_rows||'<tr><td colspan="9" class="empty">No sales orders found for this period.</td></tr>'}</tbody>
+<tfoot>${ord_tfoot}</tfoot>
+</table>
+
+<div class="sec-hd sec-teal">${pay_head}</div>
+<table>
+<thead><tr>
+	<th>Payment ID</th><th>Customer</th><th>Invoice</th><th>Linked Sales Order</th>
+	<th class="tr">Inv. Total ($)</th><th class="tr">Paid ($)</th><th>Account Paid To</th><th>Reason</th>
+</tr></thead>
+<tbody>${pay_rows||pay_empty}</tbody>
+<tfoot>${pay_tfoot}</tfoot>
+</table>
+
+<div class="sec-hd sec-purple">${dn_head}</div>
+<table>
+<thead><tr>
+	<th>Delivery Note ID</th><th>Customer</th><th>Dispatch Date</th><th>Company</th><th>Previous Sales Order</th>
+</tr></thead>
+<tbody>${dn_rows}</tbody>
+</table>
+
+<div class="ftr">Report generated: ${today} &nbsp;|&nbsp; Data sourced from ERPNext &mdash; Confidential &mdash; for internal use only</div>
+
+<script>window.addEventListener('load',function(){setTimeout(function(){window.print();},700);window.addEventListener('afterprint',function(){window.close();});});<\/script>
+</body></html>`;
+
 		let w = window.open('', '_blank', 'width=1280,height=900');
 		if (!w) { frappe.msgprint(__('Please allow pop-ups to export the report.')); return; }
 		w.document.open(); w.document.write(html); w.document.close();
