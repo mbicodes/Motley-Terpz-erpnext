@@ -160,9 +160,14 @@ has_permission = {
 # ---------------
 # Override standard doctype classes
 
-# override_doctype_class = {
-# 	"ToDo": "custom_app.overrides.CustomToDo"
-# }
+override_doctype_class = {
+    # Item Group → Account mapping: substitute warehouse inventory accounts
+    # in GL entries based on the item's group. Falls back to warehouse default.
+    "Stock Entry":          "cannabis_management.overrides.stock_entry_gl.CMStockEntry",
+    "Purchase Receipt":     "cannabis_management.overrides.purchase_receipt_gl.CMPurchaseReceipt",
+    "Delivery Note":        "cannabis_management.overrides.delivery_note_gl.CMDeliveryNote",
+    "Stock Reconciliation": "cannabis_management.overrides.stock_reconciliation_gl.CMStockReconciliation",
+}
 
 # Document Events
 # ---------------
@@ -329,9 +334,9 @@ scheduler_events = {
 # each overriding function accepts a `data` argument;
 # generated from the base implementation of the doctype dashboard,
 # along with any modifications made in other Frappe apps
-# override_doctype_dashboards = {
-# 	"Task": "cannabis_management.task.get_dashboard_data"
-# }
+override_doctype_dashboards = {
+	"Sales Order": "cannabis_management.overrides.sales_order_dashboard.get_data"
+}
 
 # exempt linked doctypes from being automatically cancelled
 #
@@ -397,6 +402,8 @@ fixtures = [
     "Workflow",
     "Workflow State",
     "Workflow Action",
+    # Item Group Account Mapping child doctype
+    {"dt": "DocType", "filters": [["name", "=", "Warehouse Item Group Account Mapping"]]},
     # MTM module — export all module-specific records so they survive reinstall
     {"dt": "DocType", "filters": [["module", "=", "Master Touch Manufacturing"]]},
     {"dt": "DocType", "filters": [["name", "=", "Weekly Sales Report"]]},
