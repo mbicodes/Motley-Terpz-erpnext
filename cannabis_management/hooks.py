@@ -169,6 +169,10 @@ has_permission = {
 # Hook on document methods and events
 
 doc_events = {
+    # AR Policy: cap check + overdue warning on every save
+    "Sales Invoice": {
+        "validate": "cannabis_management.doc_hooks.sales_invoice.validate",
+    },
     # Lab mapping: auto-create BOMs on Material Request submit
     "Material Request": {
         "on_submit": "cannabis_management.doc_hooks.material_request.on_submit",
@@ -252,29 +256,32 @@ scheduler_events = {
         "cannabis_management.master_touch_manufacturing.tasks.daily",
         # Payment Terms SO: remind creator 14 and 7 days before each payment due date
         "cannabis_management.overrides.payment_schedule_reminder.send_payment_schedule_reminders",
+        # AR Policy: total AR cap check + DSO from GL ledger
+        "cannabis_management.api.ar_monitor.check_ar_cap",
+        "cannabis_management.api.ar_monitor.compute_dso",
     ],
-    # Sales Order delivery-date reminder fires at 10:00 AM Eastern (EDT = UTC-4 → 14:00 UTC).
-    # Note: during EST (Nov–Mar, UTC-5) this fires at 9:00 AM Eastern.
     "cron": {
+        # SO delivery-date reminder: 10 AM Eastern (UTC-4 EDT → 14:00 UTC; UTC-5 EST → 15:00 UTC)
         "0 14 * * *": [
             "cannabis_management.overrides.sales_order_delivery_reminder.send_delivery_date_reminders",
+            "cannabis_management.overrides.payment_overdue_alert.on_sales_invoice_submit",
         ],
-        # Payment overdue check: Mon–Fri at 9 AM EST (UTC-4 EDT → 13:00 UTC; UTC-5 EST → 14:00 UTC)
-        "0 14 * * *": [
-            "cannabis_management.overrides.sales_order_delivery_reminder.send_delivery_date_reminders",
-        ],
+        # Friday: payment overdue report at 9 AM PDT (14:00 UTC / 15:00 PST)
         "0 14 * * 5": [
             "cannabis_management.overrides.payment_overdue_alert.friday_overdue_report",
+            # AR Policy: weekly AR report every Friday 8 AM UTC
+            "cannabis_management.api.ar_monitor.send_weekly_ar_report",
         ],
-        # Weekly Sales Report: generate Monday 8 AM UTC, remind Tuesday 8 AM UTC if unacknowledged
+        # Weekly Sales Report: generate Monday 8 AM UTC
         "0 8 * * 1": [
             "cannabis_management.cannabis_management.overrides.weekly_signoff.generate_weekly_signoff",
         ],
+        # Weekly Sales Report: remind Tuesday 8 AM UTC if unacknowledged
         "0 8 * * 2": [
             "cannabis_management.cannabis_management.overrides.weekly_signoff.send_acknowledgment_reminder",
         ],
         # Daily Sale Report: Mon–Fri at 7 PM PDT (02:00 UTC Tue–Sat; 8 PM PST Nov–Mar)
-        "0 14 * * 2-6": [
+        "0 2 * * 2-6": [
             "cannabis_management.api.daily_report.send_daily_report",
         ],
     },
@@ -285,6 +292,8 @@ scheduler_events = {
     "monthly": [
         # MTM: monthly yield + cost report
         "cannabis_management.master_touch_manufacturing.tasks.monthly",
+        # AR Policy: CEI calculation from GL ledger
+        "cannabis_management.api.ar_monitor.compute_cei",
     ],
 }
 # scheduler_events = {

@@ -225,7 +225,7 @@ def get_columns():
 			"width": 150
 		},
 		{
-			"label": _("Rosin Efficiency %"),
+			"label": _("Rosin Yeild %"),
 			"fieldname": "rosin_efficiency",
 			"fieldtype": "Percent",
 			"width": 140

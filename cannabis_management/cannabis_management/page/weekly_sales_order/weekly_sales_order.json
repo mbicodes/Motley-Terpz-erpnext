@@ -4,7 +4,7 @@
  "docstatus": 0,
  "doctype": "Page",
  "idx": 0,
- "modified": "2026-05-15 10:22:50.525000",
+ "modified": "2026-05-20 06:15:30.914778",
  "modified_by": "Administrator",
  "module": "Cannabis Management",
  "name": "weekly-sales-order",
@@ -15,5 +15,5 @@
  "standard": "Yes",
  "style": null,
  "system_page": 0,
- "title": "Weekly Sales Order"
+ "title": "Weekly Sales Report"
 }

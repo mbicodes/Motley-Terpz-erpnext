@@ -1,7 +1,7 @@
 frappe.pages['weekly-sales-order'].on_page_load = function(wrapper) {
 	var page = frappe.ui.make_app_page({
 		parent: wrapper,
-		title: 'Weekly Sales Order',
+		title: 'Weekly Sales Report',
 		single_column: true
 	});
 	wrapper.page_instance = new WeeklySalesOrder(page);
@@ -52,7 +52,7 @@ class WeeklySalesOrder {
 			<!-- Header -->
 			<div class="wso-header">
 				<div class="wso-header-left">
-					<h1>WEEKLY SALES ORDER REPORT</h1>
+					<h1>WEEKLY SALES REPORT</h1>
 					<span class="wso-header-accent"></span>
 				</div>
 				<div class="wso-generated-date">Generated: ${frappe.datetime.str_to_user(frappe.datetime.nowdate())}</div>
@@ -545,7 +545,7 @@ class WeeklySalesOrder {
 		let from_str = frappe.datetime.str_to_user(from_date);
 		let to_str   = frappe.datetime.str_to_user(to_date);
 		let today    = frappe.datetime.str_to_user(frappe.datetime.nowdate());
-		let title    = `Weekly Sales Order Report — ${from_str} to ${to_str}`;
+		let title    = `Weekly Sales Report — ${from_str} to ${to_str}`;
 		let f = v => (v == null || isNaN(v)) ? '—' : '$' + parseFloat(v).toLocaleString('en-US', {minimumFractionDigits:0, maximumFractionDigits:0});
 		let lnk = (dt, name) => name ? `<a href="/app/${dt.toLowerCase().replace(/ /g,'-')}/${encodeURIComponent(name)}">${name}</a>` : '—';
 
@@ -666,7 +666,7 @@ a{color:#1e3a5f;text-decoration:none;}
 </head><body>
 
 <div class="hdr">
-	<div class="hdr-title">WEEKLY SALES ORDER REPORT</div>
+	<div class="hdr-title">WEEKLY SALES REPORT</div>
 	<div class="hdr-meta">Generated: ${today}<br>${from_str} &mdash; ${to_str}</div>
 </div>
 
