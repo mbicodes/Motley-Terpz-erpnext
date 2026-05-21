@@ -184,9 +184,6 @@ doc_events = {
     },
     "Stock Entry": {
         "validate": "cannabis_management.cannabis_management.custom.stock_entry.validate",
-        # MTM: yield threshold check + batch auto-creation on Manufacture entries
-        "before_submit": "cannabis_management.master_touch_manufacturing.overrides.stock_entry.before_submit",
-        "on_submit": "cannabis_management.master_touch_manufacturing.overrides.stock_entry.on_submit",
     },
     "Sales Order": {
         "validate": "cannabis_management.overrides.sales_order_restrictions.validate",
@@ -209,45 +206,13 @@ doc_events = {
     "Payment Entry": {
         "on_submit": "cannabis_management.cannabis_management.utils.irs_8300.check_cash_threshold"
     },
-    # MTM: Work Order status changes → update Production Batch Group status
-    "Work Order": {
-        "on_update": "cannabis_management.master_touch_manufacturing.overrides.work_order.on_update",
-        "on_update_after_submit": "cannabis_management.master_touch_manufacturing.overrides.work_order.on_update",
-    },
-    # MTM: Job Card completion → clock-out, notify Slack
     "Job Card": {
         "validate": [
             "cannabis_management.doc_hooks.job_card.validate",
         ],
         "on_submit": [
             "cannabis_management.doc_hooks.job_card.validate",
-            "cannabis_management.master_touch_manufacturing.overrides.job_card.on_submit",
         ],
-    },
-    # MTM: Purchase Receipt — weight variance, FF batch creation, retag alerts
-    "Purchase Receipt": {
-        "on_submit": "cannabis_management.master_touch_manufacturing.overrides.purchase_receipt.on_submit",
-    },
-    # MTM: Wash Batch submit → auto-create Bubble Hash ERPNext Batches per detail row
-    "Wash Batch": {
-        "on_submit": "cannabis_management.master_touch_manufacturing.overrides.wash_batch.on_submit",
-    },
-    # MTM: Press Batch submit → auto-create Rosin ERPNext Batches per detail row
-    "Press Batch": {
-        "on_submit": "cannabis_management.master_touch_manufacturing.overrides.press_batch.on_submit",
-    },
-    # MTM: Inventory Verification approval → release batches + auto-create QI
-    "Inventory Verification": {
-        "on_update": "cannabis_management.master_touch_manufacturing.overrides.inventory_verification.on_update",
-    },
-    # MTM: Purchase Order → inter-company Sales Order in supplier's company
-    "Purchase Order": {
-        "on_submit": "cannabis_management.master_touch_manufacturing.overrides.purchase_order.on_submit",
-    },
-    # MTM: Production Batch Group — sequence lock + toll invoice on close
-    "Production Batch Group": {
-        "before_insert": "cannabis_management.master_touch_manufacturing.overrides.production_batch_group.on_before_insert",
-        "on_update": "cannabis_management.master_touch_manufacturing.overrides.production_batch_group.on_update",
     },
 }
 
@@ -257,8 +222,6 @@ scheduler_events = {
     "daily": [
         "cannabis_management.cannabis_management.utils.irs_8300.check_overdue_filings",
         "cannabis_management.cannabis_management.utils.irs_8300.send_january_notices",
-        # MTM: stale batch alerts
-        "cannabis_management.master_touch_manufacturing.tasks.daily",
         # Payment Terms SO: remind creator 14 and 7 days before each payment due date
         "cannabis_management.overrides.payment_schedule_reminder.send_payment_schedule_reminders",
         # AR Policy: total AR cap check + DSO from GL ledger
@@ -290,13 +253,7 @@ scheduler_events = {
             "cannabis_management.api.daily_report.send_daily_report",
         ],
     },
-    "weekly": [
-        # MTM: weekly production summary to Slack
-        "cannabis_management.master_touch_manufacturing.tasks.weekly",
-    ],
     "monthly": [
-        # MTM: monthly yield + cost report
-        "cannabis_management.master_touch_manufacturing.tasks.monthly",
         # AR Policy: CEI calculation from GL ledger
         "cannabis_management.api.ar_monitor.compute_cei",
     ],
@@ -404,18 +361,6 @@ fixtures = [
     "Workflow Action",
     # Item Group Account Mapping child doctype
     {"dt": "DocType", "filters": [["name", "=", "Warehouse Item Group Account Mapping"]]},
-    # MTM module — export all module-specific records so they survive reinstall
-    {"dt": "DocType", "filters": [["module", "=", "Master Touch Manufacturing"]]},
     {"dt": "DocType", "filters": [["name", "=", "Weekly Sales Report"]]},
-    {"dt": "Role", "filters": [["name", "in", [
-        "Lab Tech", "Lab Supervisor", "Production Manager",
-        "Distro Manager", "Compliance Officer"
-    ]]]},
-    {"dt": "Workstation", "filters": [["name", "like", "WS%"]]},
-    {"dt": "Operation", "filters": [["workstation", "like", "WS%"]]},
-    {"dt": "Workspace", "filters": [["module", "=", "Master Touch Manufacturing"]]},
-    {"dt": "Quality Inspection Template", "filters": [["quality_inspection_template_name", "in", [
-        "Bubble Hash QI", "Rosin QI"
-    ]]]},
 ]
 

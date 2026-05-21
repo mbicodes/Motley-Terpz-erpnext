@@ -4,6 +4,5 @@
 
 [post_model_sync]
 # Patches added in this section will be executed after doctypes are migrated
-cannabis_management.patches.setup_mtm_phases
 cannabis_management.patches.create_sales_dashboard_block
 cannabis_management.patches.add_warehouse_item_group_mapping
