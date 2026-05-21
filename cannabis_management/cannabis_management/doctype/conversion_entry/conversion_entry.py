@@ -115,6 +115,8 @@ class ConversionEntry(Document):
 			se.posting_date = self.posting_date
 			se.set_posting_time = 1
 		se.custom_conversion_entry_reference = self.name
+		if self.sales_order:
+			se.custom_sales_order = self.sales_order
 
 		has_items = False
 

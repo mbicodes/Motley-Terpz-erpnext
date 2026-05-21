@@ -2,21 +2,15 @@ frappe.ui.form.on('Sales Order', {
 	refresh(frm) {
 		apply_payment_terms_restrictions(frm);
 
-		// Show linked Conversion Entries in the dashboard connections section
-		frm.dashboard.add_transactions([{
-			label: __('Manufacturing'),
-			items: ['Conversion Entry']
-		}]);
-
 		// Add "Conversion Entry" to the Create dropdown (submitted SO only)
 		if (frm.doc.docstatus === 1) {
 			frm.add_custom_button(__('Conversion Entry'), function () {
-				frappe.new_doc('Conversion Entry', {
+				frappe.route_options = {
 					sales_order: frm.doc.name,
 					customer: frm.doc.customer,
-					company: frm.doc.company,
-					posting_date: frappe.datetime.get_today()
-				});
+					company: frm.doc.company
+				};
+				frappe.new_doc('Conversion Entry');
 			}, __('Create'));
 		}
 	},
