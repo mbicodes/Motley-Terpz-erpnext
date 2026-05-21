@@ -805,10 +805,25 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
             // Search filter
             if (search && accountName.toLowerCase().indexOf(search) === -1) continue;
 
-            // Visibility based on expand state
+            // Visibility based on expand state — walk up the full ancestor chain
             if (!isNetProfit && !isTotal && !isSection) {
                 var parentKey = row.parent_account || row.parent_section || "";
-                if (parentKey && state.expanded[parentKey] === false) continue;
+                if (!parentKey) continue; // safety: non-section with no parent, skip
+                // Hide if ANY ancestor is collapsed
+                var ancestor = parentKey;
+                var hidden = false;
+                while (ancestor) {
+                    if (state.expanded[ancestor] === false) { hidden = true; break; }
+                    // find the parent row to walk up further
+                    var parentRow = null;
+                    for (var pi = 0; pi < rows.length; pi++) {
+                        if (rows[pi] && (rows[pi].account === ancestor || rows[pi].section === ancestor)) {
+                            parentRow = rows[pi]; break;
+                        }
+                    }
+                    ancestor = parentRow ? (parentRow.parent_account || parentRow.parent_section || "") : "";
+                }
+                if (hidden) continue;
             }
 
             var rowClass = "";
@@ -827,8 +842,9 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
             var iconHtml = "";
 
             if (isGroup && !isTotal && !isNetProfit) {
-                var isOpen = state.expanded[accountName] !== false;
-                toggleHtml = '<span class="pnl-toggle ' + (isOpen ? "open" : "") + '" data-acct="' + escHtml(accountName) + '">▶</span>';
+                var accountKey = row.account || row.section || accountName;
+                var isOpen = state.expanded[accountKey] !== false;
+                toggleHtml = '<span class="pnl-toggle ' + (isOpen ? "open" : "") + '" data-acct="' + escHtml(accountKey) + '">▶</span>';
             } else if (!isTotal && !isNetProfit && !isSection) {
                 toggleHtml = '<span class="pnl-toggle-spacer"></span>';
             }
@@ -915,13 +931,19 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
         // Expand / Collapse all
         $("#pnl-expand-all").off("click").on("click", function() {
             (state.data || []).forEach(function(r) {
-                if (r && r.is_group === 1) state.expanded[r.account_name] = true;
+                if (r && r.is_group === 1) {
+                    var key = r.account || r.section || r.account_name;
+                    state.expanded[key] = true;
+                }
             });
             rebuildTableBody(getCurrency());
         });
         $("#pnl-collapse-all").off("click").on("click", function() {
             (state.data || []).forEach(function(r) {
-                if (r && r.is_group === 1) state.expanded[r.account_name] = false;
+                if (r && r.is_group === 1) {
+                    var key = r.account || r.section || r.account_name;
+                    state.expanded[key] = false;
+                }
             });
             rebuildTableBody(getCurrency());
         });
