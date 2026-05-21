@@ -174,9 +174,9 @@ override_doctype_class = {
 # Hook on document methods and events
 
 doc_events = {
-    # AR Policy: cap check + overdue warning on every save
+    # AR Policy: cap check + overdue warning on submit only
     "Sales Invoice": {
-        "validate": "cannabis_management.doc_hooks.sales_invoice.validate",
+        "before_submit": "cannabis_management.doc_hooks.sales_invoice.before_submit",
     },
     # Lab mapping: auto-create BOMs on Material Request submit
     "Material Request": {

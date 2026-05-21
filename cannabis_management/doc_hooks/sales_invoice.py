@@ -1,8 +1,8 @@
 """
 Sales Invoice doc hooks — AR Policy enforcement.
 
-Fires on validate (every save, draft or otherwise) so Finance is blocked
-before the invoice ever reaches submission.
+Fires on before_submit so checks only run when the user actually submits.
+Admin (System Manager / Administrator) sees warnings but is never hard-blocked.
 
 Checks:
   1. Total company AR (from GL Entry ledger) + this invoice would not breach $400k.
@@ -26,11 +26,25 @@ AR_ALERT_RECIPIENTS = [
 ]
 
 
-# ── Hook entry point ──────────────────────────────────────────────────────────
+# ── Hook entry points ─────────────────────────────────────────────────────────
 
-def validate(doc, method=None):
+def before_submit(doc, method=None):
+    check_ar_policy(doc)
+
+
+def check_ar_policy(doc):
+    """Public — called by Sales Invoice and Sales Order before_submit."""
     _check_total_ar_cap(doc)
     _warn_customer_overdue(doc)
+
+
+def _is_admin():
+    roles = frappe.get_roles()
+    return (
+        frappe.session.user == "Administrator"
+        or "System Manager" in roles
+        or "Administrator" in roles
+    )
 
 
 # ── Hard block: total AR cap ──────────────────────────────────────────────────
@@ -45,21 +59,21 @@ def _check_total_ar_cap(doc):
     projected = total_ar + flt(doc.grand_total)
 
     if projected >= AR_CAP_HARD:
-        frappe.throw(
-            _(
-                "AR Hard Cap Exceeded — this invoice cannot be saved.<br><br>"
-                "Current outstanding AR (from ledger): <b>${0}</b><br>"
-                "This invoice: <b>${1}</b><br>"
-                "Projected total: <b>${2}</b><br><br>"
-                "The policy cap is <b>$400,000</b>. "
-                "Contact Finance to collect outstanding balances before proceeding."
-            ).format(
-                "{:,.2f}".format(total_ar),
-                "{:,.2f}".format(flt(doc.grand_total)),
-                "{:,.2f}".format(projected),
-            ),
-            title=_("AR Policy: Hard Block")
+        msg = _(
+            "AR Hard Cap Exceeded — total outstanding AR would reach <b>${0}</b>.<br><br>"
+            "Current AR (ledger): <b>${1}</b> &nbsp;·&nbsp; "
+            "This invoice: <b>${2}</b><br>"
+            "Policy cap: <b>$400,000</b>. "
+            "Collect outstanding balances before adding new credit."
+        ).format(
+            "{:,.2f}".format(projected),
+            "{:,.2f}".format(total_ar),
+            "{:,.2f}".format(flt(doc.grand_total)),
         )
+        if _is_admin():
+            frappe.msgprint(msg, title=_("AR Policy: Hard Cap (Admin Override)"), indicator="red")
+        else:
+            frappe.throw(msg, title=_("AR Policy: Hard Block"))
 
     elif projected >= AR_CAP_WARN:
         # Show in-app warning to the user saving the invoice
