@@ -1,6 +1,6 @@
 """
 Daily Sale Report
-Scheduled: Mon–Fri at 4 PM Pacific (23:00 UTC / 3 PM PST Nov–Mar)
+Scheduled: Mon–Fri at 4 PM PDT / 4 AM PKT (23:00 UTC; 00:00 UTC Nov–Mar PST)
 Covers: Sales Orders, Sales Invoices, Delivery Notes, Client Payments, Tomorrow's Orders
 """
 

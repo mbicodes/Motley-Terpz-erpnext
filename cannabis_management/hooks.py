@@ -285,8 +285,8 @@ scheduler_events = {
         "0 8 * * 2": [
             "cannabis_management.cannabis_management.overrides.weekly_signoff.send_acknowledgment_reminder",
         ],
-        # Daily Sale Report: Mon–Fri at 7 PM PDT (02:00 UTC Tue–Sat; 8 PM PST Nov–Mar)
-        "0 2 * * 2-6": [
+        # Daily Sale Report: Mon–Fri at 4 PM PDT / 4 AM PKT (23:00 UTC; 00:00 UTC Nov–Mar)
+        "0 23 * * 1-5": [
             "cannabis_management.api.daily_report.send_daily_report",
         ],
     },
