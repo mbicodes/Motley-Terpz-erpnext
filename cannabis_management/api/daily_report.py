@@ -24,6 +24,13 @@ COMPANIES = ["Motley Terpz", "TSBC Ranch"]
 
 def send_daily_report():
     today = nowdate()
+
+    # Guard: never send more than once per calendar day (prevents migrate-triggered double sends)
+    cache_key = f"daily_report_sent_{today}"
+    if frappe.cache().get_value(cache_key):
+        frappe.logger().info(f"[daily_report] already sent for {today}, skipping")
+        return
+
     tomorrow = add_days(today, 1)
     try:
         html = _build_email(today, tomorrow)
@@ -34,6 +41,8 @@ def send_daily_report():
             message=html,
             delayed=False,
         )
+        # Mark as sent for the rest of today (TTL 26 h covers any clock skew)
+        frappe.cache().set_value(cache_key, True, expires_in_sec=26 * 3600)
         frappe.logger().info(f"[daily_report] sent for {today}")
     except Exception:
         frappe.log_error(frappe.get_traceback(), "[daily_report] send failed")
