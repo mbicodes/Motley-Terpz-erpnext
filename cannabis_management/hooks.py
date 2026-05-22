@@ -243,13 +243,15 @@ scheduler_events = {
         # Weekly Sales Report: generate Monday 8 AM UTC
         "0 8 * * 1": [
             "cannabis_management.cannabis_management.overrides.weekly_signoff.generate_weekly_signoff",
+            "cannabis_management.api.weekly_report.send_weekly_report",
         ],
         # Weekly Sales Report: remind Tuesday 8 AM UTC if unacknowledged
         "0 8 * * 2": [
             "cannabis_management.cannabis_management.overrides.weekly_signoff.send_acknowledgment_reminder",
         ],
-        # Daily Sale Report: Mon–Fri at 4 PM PDT / 4 AM PKT (23:00 UTC; 00:00 UTC Nov–Mar)
-        "0 23 * * 1-5": [
+        # Daily Sale Report: Sun–Thu at 23:00 UTC → delivered Mon–Fri at 04:00 PKT
+        # PKT is UTC+5 year-round (no DST in Pakistan)
+        "0 23 * * 0-4": [
             "cannabis_management.api.daily_report.send_daily_report",
         ],
     },
