@@ -46,375 +46,550 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
         var style = document.createElement("style");
         style.id = "pnl-styles";
         style.textContent = `
-            #pnl-root {
-                font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-                background: #f0f2f5;
-                min-height: 100vh;
-                padding: 0;
+            /* ── Google Font ── */
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+            /* ── Animations ── */
+            @keyframes pnl-spin    { to { transform: rotate(360deg); } }
+            @keyframes pnl-fade-up { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:translateY(0); } }
+            @keyframes pnl-shimmer { from { background-position: -600px 0; } to { background-position: 600px 0; } }
+            @keyframes pnl-pulse-ring {
+                0%   { box-shadow: 0 0 0 0 rgba(99,102,241,0.35); }
+                70%  { box-shadow: 0 0 0 8px rgba(99,102,241,0); }
+                100% { box-shadow: 0 0 0 0 rgba(99,102,241,0); }
             }
 
-            /* ── Header ── */
+            /* ── Root ── */
+            #pnl-root {
+                font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                background: #eef0f6;
+                min-height: 100vh;
+                padding: 0;
+                -webkit-font-smoothing: antialiased;
+            }
+
+            /* ── Scrollbar ── */
+            #pnl-root ::-webkit-scrollbar { width: 6px; height: 6px; }
+            #pnl-root ::-webkit-scrollbar-track { background: #f1f5f9; }
+            #pnl-root ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
+            #pnl-root ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+            /* ═══════════════════════════════════════
+               HEADER
+            ═══════════════════════════════════════ */
             .pnl-header {
-                background: linear-gradient(135deg, #1a1f36 0%, #2d3561 50%, #1a1f36 100%);
-                padding: 28px 36px 24px;
+                background:
+                    radial-gradient(ellipse 80% 60% at 10% -10%, rgba(99,102,241,0.28) 0%, transparent 55%),
+                    radial-gradient(ellipse 60% 50% at 90% 110%, rgba(16,185,129,0.18) 0%, transparent 55%),
+                    linear-gradient(160deg, #0f1225 0%, #1e2347 45%, #151929 100%);
+                padding: 26px 40px 22px;
                 color: #fff;
                 position: relative;
                 overflow: hidden;
+                border-bottom: 1px solid rgba(255,255,255,0.06);
             }
+            /* Dot-grid texture */
             .pnl-header::before {
                 content: '';
-                position: absolute;
-                top: -60px; right: -60px;
-                width: 260px; height: 260px;
-                background: radial-gradient(circle, rgba(99,102,241,0.25) 0%, transparent 70%);
-                border-radius: 50%;
-            }
-            .pnl-header::after {
-                content: '';
-                position: absolute;
-                bottom: -80px; left: 40%;
-                width: 340px; height: 340px;
-                background: radial-gradient(circle, rgba(16,185,129,0.12) 0%, transparent 70%);
-                border-radius: 50%;
+                position: absolute; inset: 0;
+                background-image: radial-gradient(rgba(255,255,255,0.04) 1px, transparent 1px);
+                background-size: 24px 24px;
+                pointer-events: none;
             }
             .pnl-header-inner {
                 position: relative; z-index: 1;
                 display: flex; align-items: center; justify-content: space-between;
-                flex-wrap: wrap; gap: 12px;
+                flex-wrap: wrap; gap: 14px;
             }
-            .pnl-title-block { display: flex; align-items: center; gap: 14px; }
+            .pnl-title-block { display: flex; align-items: center; gap: 16px; }
             .pnl-logo-icon {
-                width: 48px; height: 48px;
-                background: linear-gradient(135deg, #6366f1, #8b5cf6);
-                border-radius: 14px;
+                width: 50px; height: 50px;
+                background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+                border-radius: 15px;
                 display: flex; align-items: center; justify-content: center;
-                font-size: 22px; box-shadow: 0 4px 16px rgba(99,102,241,0.4);
+                font-size: 24px;
+                box-shadow: 0 0 0 1px rgba(255,255,255,0.12), 0 8px 24px rgba(99,102,241,0.5);
             }
             .pnl-main-title {
-                font-size: 24px; font-weight: 700; letter-spacing: -0.3px; margin: 0;
+                font-size: 22px; font-weight: 800; letter-spacing: -0.5px; margin: 0;
                 color: #fff;
             }
             .pnl-subtitle {
-                font-size: 13px; color: rgba(255,255,255,0.6); margin: 2px 0 0;
+                font-size: 12.5px; color: rgba(255,255,255,0.5);
+                margin: 3px 0 0; letter-spacing: 0.1px;
             }
+            /* Header stat chips */
+            .pnl-header-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 2px; }
+            .pnl-chip {
+                display: inline-flex; align-items: center; gap: 5px;
+                background: rgba(255,255,255,0.08);
+                border: 1px solid rgba(255,255,255,0.12);
+                border-radius: 20px; padding: 3px 10px;
+                font-size: 11.5px; font-weight: 500; color: rgba(255,255,255,0.75);
+                backdrop-filter: blur(4px);
+            }
+            .pnl-chip-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
             .pnl-run-btn {
-                background: linear-gradient(135deg, #6366f1, #8b5cf6);
+                background: linear-gradient(135deg, #6366f1 0%, #7c3aed 100%);
                 border: none; color: #fff;
-                padding: 10px 24px; border-radius: 10px;
-                font-size: 14px; font-weight: 600; cursor: pointer;
-                box-shadow: 0 4px 14px rgba(99,102,241,0.5);
+                padding: 11px 26px; border-radius: 12px;
+                font-size: 13.5px; font-weight: 700; cursor: pointer;
+                box-shadow: 0 1px 0 rgba(255,255,255,0.15) inset,
+                            0 6px 20px rgba(99,102,241,0.55);
                 transition: all 0.2s; display: flex; align-items: center; gap: 8px;
-                white-space: nowrap;
+                white-space: nowrap; letter-spacing: 0.1px;
             }
-            .pnl-run-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(99,102,241,0.6); }
+            .pnl-run-btn:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 1px 0 rgba(255,255,255,0.15) inset, 0 10px 28px rgba(99,102,241,0.65);
+            }
             .pnl-run-btn:active { transform: translateY(0); }
-            .pnl-run-btn .btn-spinner { display: none; }
+            .pnl-run-btn.loading { animation: pnl-pulse-ring 1.2s ease-out infinite; }
+            .pnl-run-btn .btn-spinner { display: none; font-size: 16px; }
             .pnl-run-btn.loading .btn-text { display: none; }
             .pnl-run-btn.loading .btn-spinner { display: inline-block; }
 
-            /* ── Filter Panel ── */
+            /* ═══════════════════════════════════════
+               FILTER PANEL
+            ═══════════════════════════════════════ */
             .pnl-filters-panel {
                 background: #fff;
-                border-bottom: 1px solid #e5e7eb;
-                padding: 18px 36px;
-                box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+                border-bottom: 1px solid #e8eaf0;
+                padding: 16px 40px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.04);
             }
             .pnl-filters-grid {
                 display: grid;
-                grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-                gap: 12px 16px;
+                grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+                gap: 10px 14px;
                 align-items: end;
             }
-            .pnl-field { display: flex; flex-direction: column; gap: 4px; }
+            .pnl-field { display: flex; flex-direction: column; gap: 5px; }
             .pnl-field label {
-                font-size: 11px; font-weight: 600; color: #6b7280;
-                text-transform: uppercase; letter-spacing: 0.6px;
+                font-size: 10.5px; font-weight: 700; color: #94a3b8;
+                text-transform: uppercase; letter-spacing: 0.7px;
             }
             .pnl-field select,
             .pnl-field input[type="text"],
             .pnl-field input[type="date"] {
-                border: 1.5px solid #e5e7eb;
-                border-radius: 8px;
+                border: 1.5px solid #e2e8f0;
+                border-radius: 9px;
                 padding: 7px 10px;
-                font-size: 13px;
-                color: #111827;
-                background: #f9fafb;
+                font-size: 13px; font-weight: 500;
+                color: #1e293b;
+                background: #f8fafc;
                 outline: none;
-                transition: border-color 0.15s, box-shadow 0.15s;
+                transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
                 width: 100%;
                 box-sizing: border-box;
+                font-family: inherit;
             }
+            .pnl-field select:hover,
+            .pnl-field input:hover { border-color: #c7d2fe; }
             .pnl-field select:focus,
             .pnl-field input:focus {
                 border-color: #6366f1;
-                box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
+                box-shadow: 0 0 0 3px rgba(99,102,241,0.14);
                 background: #fff;
             }
-            .pnl-check-field {
-                display: flex; align-items: center; gap: 8px;
-                padding: 8px 0 2px;
-            }
-            .pnl-check-field input[type="checkbox"] {
-                width: 16px; height: 16px; accent-color: #6366f1; cursor: pointer;
-            }
-            .pnl-check-field label {
-                font-size: 13px; color: #374151; cursor: pointer; font-weight: 500;
-            }
+            /* Custom toggle switch */
             .pnl-filters-row2 {
-                margin-top: 12px;
-                display: flex; gap: 20px; flex-wrap: wrap; align-items: center;
+                margin-top: 14px;
+                display: flex; gap: 24px; flex-wrap: wrap; align-items: center;
+                padding-top: 14px;
+                border-top: 1px dashed #e8eaf0;
+            }
+            .pnl-check-field {
+                display: flex; align-items: center; gap: 9px; cursor: pointer;
+            }
+            .pnl-check-field input[type="checkbox"] { display: none; }
+            .pnl-toggle-track {
+                width: 34px; height: 19px;
+                background: #d1d5db; border-radius: 99px;
+                position: relative; transition: background 0.2s; flex-shrink: 0;
+                cursor: pointer;
+            }
+            .pnl-toggle-track::after {
+                content: '';
+                position: absolute; top: 2px; left: 2px;
+                width: 15px; height: 15px;
+                background: #fff; border-radius: 50%;
+                transition: transform 0.2s;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+            }
+            .pnl-check-field input:checked + .pnl-toggle-track { background: #6366f1; }
+            .pnl-check-field input:checked + .pnl-toggle-track::after { transform: translateX(15px); }
+            .pnl-check-field span {
+                font-size: 12.5px; color: #475569; font-weight: 500; cursor: pointer;
+                user-select: none;
             }
 
-            /* ── Body ── */
-            .pnl-body { padding: 24px 36px; }
+            /* ═══════════════════════════════════════
+               BODY
+            ═══════════════════════════════════════ */
+            .pnl-body { padding: 24px 40px 32px; }
 
-            /* ── Empty/Loading states ── */
+            /* ── Empty state ── */
             .pnl-placeholder {
-                background: #fff; border-radius: 16px;
-                padding: 60px 24px; text-align: center;
-                box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-                color: #9ca3af;
+                background: #fff; border-radius: 20px;
+                padding: 72px 24px; text-align: center;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 4px 16px rgba(0,0,0,0.04);
+                border: 1px solid #f1f5f9;
+                color: #94a3b8;
             }
-            .pnl-placeholder .ph-icon { font-size: 52px; margin-bottom: 12px; }
-            .pnl-placeholder p { font-size: 15px; }
+            .pnl-placeholder .ph-icon {
+                font-size: 56px; margin-bottom: 16px;
+                display: block; filter: grayscale(0.2);
+            }
+            .pnl-placeholder p { font-size: 15px; color: #64748b; line-height: 1.6; }
+            .pnl-placeholder strong { color: #6366f1; }
+
+            /* ── Loading state ── */
             .pnl-loader {
-                background: #fff; border-radius: 16px;
-                padding: 60px 24px; text-align: center;
-                box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+                background: #fff; border-radius: 20px;
+                padding: 72px 24px; text-align: center;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 4px 16px rgba(0,0,0,0.04);
+                border: 1px solid #f1f5f9;
             }
             .pnl-spinner {
-                width: 42px; height: 42px;
-                border: 4px solid #e5e7eb;
+                width: 44px; height: 44px;
+                border: 3px solid #e2e8f0;
                 border-top-color: #6366f1;
                 border-radius: 50%;
-                animation: pnl-spin 0.7s linear infinite;
-                margin: 0 auto 14px;
+                animation: pnl-spin 0.65s linear infinite;
+                margin: 0 auto 16px;
             }
-            @keyframes pnl-spin { to { transform: rotate(360deg); } }
+            .pnl-loader p { color: #64748b; font-size: 14px; font-weight: 500; }
 
-            /* ── KPI Cards ── */
+            /* ── Skeleton rows ── */
+            .pnl-skeleton-row {
+                height: 20px; border-radius: 6px;
+                background: linear-gradient(90deg, #f1f5f9 25%, #e8edf4 50%, #f1f5f9 75%);
+                background-size: 600px 100%;
+                animation: pnl-shimmer 1.4s infinite linear;
+                margin: 10px 0;
+            }
+
+            /* ═══════════════════════════════════════
+               KPI CARDS
+            ═══════════════════════════════════════ */
             .pnl-kpis {
                 display: grid;
                 grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
                 gap: 16px;
-                margin-bottom: 24px;
+                margin-bottom: 22px;
             }
             .pnl-kpi-card {
                 background: #fff;
-                border-radius: 16px;
-                padding: 20px 22px;
-                box-shadow: 0 1px 4px rgba(0,0,0,0.07);
-                border: 1px solid #f3f4f6;
+                border-radius: 18px;
+                padding: 22px 24px 18px;
+                box-shadow:
+                    0 1px 0 rgba(255,255,255,0.8) inset,
+                    0 2px 6px rgba(0,0,0,0.05),
+                    0 8px 24px rgba(0,0,0,0.05);
+                border: 1px solid rgba(226,232,240,0.8);
                 position: relative; overflow: hidden;
-                transition: transform 0.15s, box-shadow 0.15s;
+                transition: transform 0.2s cubic-bezier(.34,1.56,.64,1), box-shadow 0.2s;
+                animation: pnl-fade-up 0.4s ease both;
             }
-            .pnl-kpi-card:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,0.1); }
+            .pnl-kpi-card:nth-child(1) { animation-delay: 0.05s; }
+            .pnl-kpi-card:nth-child(2) { animation-delay: 0.10s; }
+            .pnl-kpi-card:nth-child(3) { animation-delay: 0.15s; }
+            .pnl-kpi-card:nth-child(4) { animation-delay: 0.20s; }
+            .pnl-kpi-card:hover {
+                transform: translateY(-4px) scale(1.01);
+                box-shadow: 0 1px 0 rgba(255,255,255,0.8) inset, 0 12px 32px rgba(0,0,0,0.1);
+            }
+            /* Colored left accent bar */
+            .pnl-kpi-card::before {
+                content: '';
+                position: absolute; top: 0; left: 0; bottom: 0; width: 4px;
+                border-radius: 18px 0 0 18px;
+            }
+            /* Subtle corner glow */
             .pnl-kpi-card::after {
                 content: '';
-                position: absolute; top: 0; left: 0; right: 0; height: 4px;
-                border-radius: 16px 16px 0 0;
+                position: absolute; top: -30px; right: -30px;
+                width: 100px; height: 100px; border-radius: 50%;
+                opacity: 0.07;
             }
-            .pnl-kpi-income::after { background: linear-gradient(90deg, #10b981, #059669); }
-            .pnl-kpi-expense::after { background: linear-gradient(90deg, #f59e0b, #d97706); }
-            .pnl-kpi-profit::after { background: linear-gradient(90deg, #6366f1, #8b5cf6); }
-            .pnl-kpi-ratio::after  { background: linear-gradient(90deg, #0ea5e9, #0284c7); }
+            .pnl-kpi-income::before { background: linear-gradient(180deg, #10b981, #059669); }
+            .pnl-kpi-income::after  { background: #10b981; }
+            .pnl-kpi-expense::before { background: linear-gradient(180deg, #f59e0b, #d97706); }
+            .pnl-kpi-expense::after  { background: #f59e0b; }
+            .pnl-kpi-profit::before  { background: linear-gradient(180deg, #6366f1, #8b5cf6); }
+            .pnl-kpi-profit::after   { background: #6366f1; }
+            .pnl-kpi-ratio::before   { background: linear-gradient(180deg, #0ea5e9, #0284c7); }
+            .pnl-kpi-ratio::after    { background: #0ea5e9; }
             .kpi-icon {
-                width: 40px; height: 40px; border-radius: 12px;
+                width: 42px; height: 42px; border-radius: 13px;
                 display: flex; align-items: center; justify-content: center;
-                font-size: 18px; margin-bottom: 12px;
+                font-size: 20px; margin-bottom: 14px; position: relative; z-index: 1;
             }
-            .pnl-kpi-income .kpi-icon { background: #ecfdf5; }
-            .pnl-kpi-expense .kpi-icon { background: #fffbeb; }
-            .pnl-kpi-profit .kpi-icon { background: #eef2ff; }
-            .pnl-kpi-ratio .kpi-icon  { background: #f0f9ff; }
-            .kpi-label { font-size: 12px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; }
-            .kpi-value { font-size: 26px; font-weight: 700; color: #111827; margin: 4px 0; letter-spacing: -0.5px; }
+            .pnl-kpi-income .kpi-icon { background: linear-gradient(135deg, #d1fae5, #a7f3d0); }
+            .pnl-kpi-expense .kpi-icon { background: linear-gradient(135deg, #fef3c7, #fde68a); }
+            .pnl-kpi-profit .kpi-icon  { background: linear-gradient(135deg, #ede9fe, #ddd6fe); }
+            .pnl-kpi-ratio .kpi-icon   { background: linear-gradient(135deg, #e0f2fe, #bae6fd); }
+            .kpi-label {
+                font-size: 11px; font-weight: 700; color: #94a3b8;
+                text-transform: uppercase; letter-spacing: 0.7px;
+                position: relative; z-index: 1;
+            }
+            .kpi-value {
+                font-size: 28px; font-weight: 800; color: #0f172a;
+                margin: 5px 0 8px; letter-spacing: -1px; line-height: 1;
+                position: relative; z-index: 1;
+            }
             .kpi-value.positive { color: #059669; }
             .kpi-value.negative { color: #dc2626; }
             .kpi-badge {
                 display: inline-flex; align-items: center; gap: 4px;
-                font-size: 12px; font-weight: 600;
-                padding: 2px 8px; border-radius: 20px;
+                font-size: 11.5px; font-weight: 700;
+                padding: 3px 9px; border-radius: 20px;
+                position: relative; z-index: 1;
             }
-            .kpi-badge.up { background: #dcfce7; color: #166534; }
-            .kpi-badge.down { background: #fee2e2; color: #991b1b; }
-            .kpi-badge.neutral { background: #f3f4f6; color: #6b7280; }
+            .kpi-badge.up     { background: #dcfce7; color: #15803d; }
+            .kpi-badge.down   { background: #fee2e2; color: #b91c1c; }
+            .kpi-badge.neutral { background: #f1f5f9; color: #64748b; }
 
-            /* ── Chart + Table Layout ── */
+            /* ═══════════════════════════════════════
+               CONTENT GRID
+            ═══════════════════════════════════════ */
             .pnl-content-grid {
                 display: grid;
                 grid-template-columns: 1fr;
                 gap: 20px;
             }
 
-            /* ── Chart ── */
+            /* ═══════════════════════════════════════
+               CHART CARD
+            ═══════════════════════════════════════ */
             .pnl-chart-card {
-                background: #fff; border-radius: 16px;
-                padding: 22px 24px;
-                box-shadow: 0 1px 4px rgba(0,0,0,0.07);
-                border: 1px solid #f3f4f6;
+                background: #fff; border-radius: 18px;
+                padding: 24px 26px;
+                box-shadow: 0 2px 6px rgba(0,0,0,0.05), 0 8px 24px rgba(0,0,0,0.05);
+                border: 1px solid rgba(226,232,240,0.8);
+                animation: pnl-fade-up 0.4s 0.1s ease both;
             }
             .pnl-card-header {
                 display: flex; align-items: center; justify-content: space-between;
-                margin-bottom: 18px; flex-wrap: wrap; gap: 10px;
+                margin-bottom: 20px; flex-wrap: wrap; gap: 10px;
             }
             .pnl-card-title {
-                font-size: 15px; font-weight: 700; color: #111827;
+                font-size: 15px; font-weight: 700; color: #0f172a; letter-spacing: -0.2px;
             }
-            .pnl-chart-tabs { display: flex; gap: 6px; }
+            .pnl-card-subtitle { font-size: 12px; color: #94a3b8; margin-top: 2px; }
+            .pnl-chart-tabs { display: flex; gap: 4px; background: #f1f5f9; border-radius: 9px; padding: 3px; }
             .pnl-chart-tab {
-                padding: 5px 12px; border-radius: 8px; font-size: 12px; font-weight: 600;
-                border: 1.5px solid #e5e7eb; background: #f9fafb; color: #6b7280;
+                padding: 5px 13px; border-radius: 7px; font-size: 12px; font-weight: 600;
+                border: none; background: transparent; color: #64748b;
                 cursor: pointer; transition: all 0.15s;
             }
-            .pnl-chart-tab.active { background: #6366f1; border-color: #6366f1; color: #fff; }
-            .pnl-chart-wrap { position: relative; height: 280px; }
-            .pnl-chart-wrap canvas { max-height: 280px; }
+            .pnl-chart-tab:hover { color: #475569; }
+            .pnl-chart-tab.active {
+                background: #fff; color: #4338ca;
+                box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+            }
+            .pnl-chart-wrap { position: relative; height: 290px; }
+            .pnl-chart-wrap canvas { max-height: 290px; }
 
-            /* ── Table Card ── */
+            /* ═══════════════════════════════════════
+               TABLE CARD
+            ═══════════════════════════════════════ */
             .pnl-table-card {
-                background: #fff; border-radius: 16px;
-                box-shadow: 0 1px 4px rgba(0,0,0,0.07);
-                border: 1px solid #f3f4f6; overflow: hidden;
+                background: #fff; border-radius: 18px;
+                box-shadow: 0 2px 6px rgba(0,0,0,0.05), 0 8px 24px rgba(0,0,0,0.05);
+                border: 1px solid rgba(226,232,240,0.8);
+                overflow: hidden;
+                animation: pnl-fade-up 0.4s 0.15s ease both;
             }
             .pnl-table-card-header {
                 display: flex; align-items: center; justify-content: space-between;
-                padding: 18px 24px 16px; flex-wrap: wrap; gap: 10px;
-                border-bottom: 1px solid #f3f4f6;
+                padding: 18px 24px 16px; flex-wrap: wrap; gap: 12px;
+                border-bottom: 1px solid #f1f5f9;
+                background: linear-gradient(180deg, #fafbff, #fff);
             }
             .pnl-search-box {
                 display: flex; align-items: center; gap: 8px;
-                background: #f3f4f6; border-radius: 8px; padding: 6px 12px;
-                border: 1.5px solid transparent; transition: all 0.15s;
+                background: #f8fafc; border-radius: 9px; padding: 7px 13px;
+                border: 1.5px solid #e2e8f0; transition: all 0.15s;
             }
             .pnl-search-box:focus-within {
                 background: #fff; border-color: #6366f1;
-                box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+                box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
             }
-            .pnl-search-box svg { color: #9ca3af; flex-shrink: 0; }
+            .pnl-search-box svg { color: #94a3b8; flex-shrink: 0; }
             .pnl-search-input {
                 border: none; background: transparent; outline: none;
-                font-size: 13px; color: #111827; width: 180px;
+                font-size: 13px; color: #1e293b; width: 190px; font-family: inherit;
             }
-            .pnl-table-actions { display: flex; gap: 8px; }
+            .pnl-search-input::placeholder { color: #94a3b8; }
+            .pnl-table-actions { display: flex; gap: 8px; flex-wrap: wrap; }
             .pnl-action-btn {
-                padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 600;
-                border: 1.5px solid #e5e7eb; background: #f9fafb; color: #374151;
-                cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 6px;
+                padding: 7px 14px; border-radius: 9px; font-size: 12px; font-weight: 600;
+                border: 1.5px solid #e2e8f0; background: #f8fafc; color: #475569;
+                cursor: pointer; transition: all 0.15s;
+                display: flex; align-items: center; gap: 5px;
+                font-family: inherit;
             }
-            .pnl-action-btn:hover { background: #f3f4f6; border-color: #d1d5db; }
-            .pnl-action-btn.primary { background: #6366f1; border-color: #6366f1; color: #fff; }
-            .pnl-action-btn.primary:hover { background: #4f46e5; }
+            .pnl-action-btn:hover { background: #f1f5f9; border-color: #c7d2fe; color: #4338ca; }
+            .pnl-action-btn.primary {
+                background: linear-gradient(135deg, #6366f1, #7c3aed);
+                border-color: transparent; color: #fff;
+                box-shadow: 0 2px 8px rgba(99,102,241,0.35);
+            }
+            .pnl-action-btn.primary:hover {
+                background: linear-gradient(135deg, #4f46e5, #6d28d9);
+                box-shadow: 0 4px 12px rgba(99,102,241,0.45);
+                transform: translateY(-1px);
+            }
 
-            /* ── Table ── */
+            /* ═══════════════════════════════════════
+               TABLE
+            ═══════════════════════════════════════ */
             .pnl-table-scroll { overflow-x: auto; }
             .pnl-table {
-                width: 100%; border-collapse: collapse; font-size: 13.5px;
+                width: 100%; border-collapse: collapse; font-size: 13px;
+            }
+            /* Sticky header */
+            .pnl-table thead {
+                position: sticky; top: 0; z-index: 2;
             }
             .pnl-table thead tr {
-                background: #f8f9fc;
-                border-bottom: 2px solid #e5e7eb;
+                background: #f8fafc;
+                border-bottom: 2px solid #e2e8f0;
             }
             .pnl-table thead th {
-                padding: 11px 16px; text-align: left;
-                font-size: 11px; font-weight: 700; color: #6b7280;
-                text-transform: uppercase; letter-spacing: 0.6px;
+                padding: 12px 16px; text-align: left;
+                font-size: 10.5px; font-weight: 700; color: #94a3b8;
+                text-transform: uppercase; letter-spacing: 0.8px;
                 white-space: nowrap;
+                background: #f8fafc;
             }
             .pnl-table thead th.num { text-align: right; }
-            .pnl-table tbody tr { border-bottom: 1px solid #f3f4f6; transition: background 0.1s; }
-            .pnl-table tbody tr:hover { background: #fafbff; }
+            /* Zebra stripe on leaf rows */
+            .pnl-table tbody tr.row-leaf:nth-child(even) td { background: #fafbff; }
+            .pnl-table tbody tr { border-bottom: 1px solid #f1f5f9; transition: background 0.12s; }
+            .pnl-table tbody tr:not(.row-section-header):not(.row-total):not(.row-net-profit):hover td {
+                background: #f0f4ff !important;
+            }
             .pnl-table td {
-                padding: 10px 16px; color: #374151; vertical-align: middle;
+                padding: 9px 16px; color: #334155; vertical-align: middle;
             }
-            .pnl-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+            .pnl-table td.num {
+                text-align: right; font-variant-numeric: tabular-nums; font-feature-settings: "tnum";
+            }
 
-            /* Row types */
+            /* ── Row: Section Header (Income / Expense) ── */
             .row-section-header td {
-                background: linear-gradient(90deg, #f0f4ff, #f8f9fc);
-                font-weight: 700; font-size: 13px; color: #1e1b4b;
-                border-top: 2px solid #e0e7ff;
-                border-bottom: 1px solid #e0e7ff;
+                background: linear-gradient(90deg, #eef2ff 0%, #f5f3ff 100%) !important;
+                font-weight: 800; font-size: 13px; color: #312e81;
+                border-top: 2px solid #c7d2fe;
+                border-bottom: 2px solid #c7d2fe;
+                padding-top: 12px; padding-bottom: 12px;
+                letter-spacing: 0.1px;
             }
+
+            /* ── Row: Group Header (sub-section) ── */
             .row-group-header td {
-                background: #fafbff;
-                font-weight: 600; color: #374151;
-                font-size: 13px;
+                background: #f8fafc !important;
+                font-weight: 600; color: #1e293b;
+                font-size: 13px; border-bottom: 1px solid #e8edf4;
             }
+
+            /* ── Row: Total (Total Income / Total Expense) ── */
             .row-total td {
-                background: #1a1f36 !important;
-                color: #fff !important;
-                font-weight: 700;
-                font-size: 13.5px;
-                border-top: 2px solid #374151 !important;
+                background: linear-gradient(90deg, #1e293b, #0f172a) !important;
+                color: #e2e8f0 !important;
+                font-weight: 700; font-size: 13px;
+                border-top: 2px solid #334155 !important;
+                border-bottom: 2px solid #334155 !important;
+                padding-top: 11px; padding-bottom: 11px;
             }
+            .row-total td .num-positive { color: #86efac !important; }
+            .row-total td .num-negative { color: #fca5a5 !important; }
+
+            /* ── Row: Net Profit / Loss ── */
             .row-net-profit td {
-                background: linear-gradient(90deg, #1e1b4b, #2d3561) !important;
-                color: #fff !important;
-                font-weight: 800;
-                font-size: 14px;
+                background: linear-gradient(90deg, #1e1b4b 0%, #312e81 50%, #1e1b4b 100%) !important;
+                color: #e0e7ff !important;
+                font-weight: 800; font-size: 14px;
                 border-top: 3px solid #6366f1 !important;
+                border-bottom: 3px solid #6366f1 !important;
+                padding-top: 14px; padding-bottom: 14px;
+                letter-spacing: -0.2px;
             }
-            .row-net-profit td .net-positive { color: #34d399; }
-            .row-net-profit td .net-negative { color: #f87171; }
-            .row-subtotal td {
-                background: #f5f7ff;
-                font-weight: 600; color: #4338ca;
-                border-top: 1px solid #e0e7ff;
-            }
+            .row-net-profit td .net-positive { color: #6ee7b7; font-size: 15px; }
+            .row-net-profit td .net-negative { color: #fca5a5; font-size: 15px; }
 
-            .pnl-account-cell {
-                display: flex; align-items: center; gap: 0;
-            }
-            .pnl-indent { display: inline-block; }
+            /* ── Account cell ── */
+            .pnl-account-cell { display: flex; align-items: center; }
+            .pnl-indent { display: inline-block; flex-shrink: 0; }
             .pnl-toggle {
-                width: 18px; height: 18px;
+                width: 20px; height: 20px;
                 display: inline-flex; align-items: center; justify-content: center;
-                cursor: pointer; color: #9ca3af; flex-shrink: 0;
-                font-size: 10px; transition: transform 0.15s;
-                margin-right: 4px; user-select: none;
+                cursor: pointer; color: #cbd5e1; flex-shrink: 0;
+                font-size: 9px; transition: transform 0.18s, color 0.15s;
+                margin-right: 3px; user-select: none; border-radius: 4px;
             }
+            .pnl-toggle:hover { background: #e0e7ff; color: #6366f1; }
             .pnl-toggle.open { transform: rotate(90deg); color: #6366f1; }
-            .pnl-toggle-spacer { width: 22px; display: inline-block; flex-shrink: 0; }
-
+            .pnl-toggle-spacer { width: 23px; display: inline-block; flex-shrink: 0; }
             .pnl-acct-icon {
-                width: 22px; height: 22px; border-radius: 6px;
+                width: 24px; height: 24px; border-radius: 7px;
                 display: inline-flex; align-items: center; justify-content: center;
-                font-size: 11px; margin-right: 6px; flex-shrink: 0;
+                font-size: 12px; margin-right: 8px; flex-shrink: 0;
             }
-            .icon-income { background: #dcfce7; color: #166534; }
-            .icon-expense { background: #fef3c7; color: #92400e; }
-            .icon-profit { background: #ede9fe; color: #5b21b6; }
-            .icon-leaf { background: #dbeafe; color: #1e40af; }
+            .icon-income  { background: linear-gradient(135deg, #d1fae5, #a7f3d0); color: #065f46; }
+            .icon-expense { background: linear-gradient(135deg, #fef3c7, #fde68a); color: #78350f; }
+            .icon-profit  { background: linear-gradient(135deg, #ede9fe, #ddd6fe); color: #4c1d95; }
 
-            .num-positive { color: #059669; }
-            .num-negative { color: #dc2626; }
-            .num-zero { color: #9ca3af; }
+            /* ── Number colours ── */
+            .num-positive { color: #16a34a; font-weight: 600; }
+            .num-negative { color: #dc2626; font-weight: 600; }
+            .num-zero     { color: #cbd5e1; }
 
-            /* ── View toggle ── */
+            /* ── View pills ── */
             .pnl-view-pills {
-                display: flex; gap: 4px;
-                background: #f3f4f6; border-radius: 10px; padding: 3px;
+                display: flex; gap: 3px;
+                background: #f1f5f9; border-radius: 10px; padding: 3px;
             }
             .pnl-view-pill {
-                padding: 5px 14px; border-radius: 7px; font-size: 12px; font-weight: 600;
-                cursor: pointer; transition: all 0.15s; color: #6b7280;
-                border: none; background: transparent;
+                padding: 5px 14px; border-radius: 8px; font-size: 12px; font-weight: 600;
+                cursor: pointer; transition: all 0.15s; color: #64748b;
+                border: none; background: transparent; font-family: inherit;
             }
-            .pnl-view-pill.active { background: #fff; color: #4338ca; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+            .pnl-view-pill:hover { color: #475569; }
+            .pnl-view-pill.active {
+                background: #fff; color: #4338ca;
+                box-shadow: 0 1px 4px rgba(0,0,0,0.1), 0 0 0 1px rgba(99,102,241,0.1);
+            }
 
-            /* ── Footer ── */
+            /* ═══════════════════════════════════════
+               FOOTER
+            ═══════════════════════════════════════ */
             .pnl-footer {
-                text-align: center; padding: 20px;
-                font-size: 12px; color: #9ca3af;
+                text-align: center; padding: 18px 40px 24px;
+                font-size: 12px; color: #94a3b8; letter-spacing: 0.1px;
             }
+            .pnl-footer strong { color: #6366f1; }
 
-            /* ── Responsive ── */
-            @media (max-width: 768px) {
-                .pnl-header { padding: 20px 16px; }
-                .pnl-filters-panel { padding: 14px 16px; }
-                .pnl-body { padding: 16px; }
+            /* ═══════════════════════════════════════
+               RESPONSIVE
+            ═══════════════════════════════════════ */
+            @media (max-width: 900px) {
+                .pnl-header { padding: 20px 20px; }
+                .pnl-filters-panel { padding: 14px 20px; }
+                .pnl-body { padding: 16px 20px 24px; }
                 .pnl-filters-grid { grid-template-columns: 1fr 1fr; }
+            }
+            @media (max-width: 600px) {
+                .pnl-filters-grid { grid-template-columns: 1fr; }
+                .pnl-kpis { grid-template-columns: 1fr 1fr; }
+                .pnl-kpi-card { padding: 16px; }
+                .kpi-value { font-size: 22px; }
+                .pnl-table-card-header { flex-direction: column; align-items: flex-start; }
+                .pnl-search-input { width: 140px; }
             }
         `;
         document.head.appendChild(style);
@@ -530,14 +705,17 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
             <div class="pnl-filters-row2">
                 <label class="pnl-check-field">
                     <input type="checkbox" id="pnl-accum" checked/>
+                    <span class="pnl-toggle-track"></span>
                     <span>Accumulated Values</span>
                 </label>
                 <label class="pnl-check-field">
                     <input type="checkbox" id="pnl-show-zero"/>
+                    <span class="pnl-toggle-track"></span>
                     <span>Show Zero Values</span>
                 </label>
                 <label class="pnl-check-field">
                     <input type="checkbox" id="pnl-default-book" checked/>
+                    <span class="pnl-toggle-track"></span>
                     <span>Include Default Book Entries</span>
                 </label>
             </div>
@@ -551,7 +729,7 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
         </div>
 
         <div class="pnl-footer" id="pnl-footer" style="display:none">
-            Generated on <span id="pnl-gen-time"></span> &nbsp;·&nbsp; Data from <strong id="pnl-company-name"></strong>
+            Generated on <span id="pnl-gen-time"></span> &nbsp;·&nbsp; <strong id="pnl-company-name"></strong>
         </div>
         `;
     }
@@ -628,10 +806,15 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
 
     // ── Chart Card ────────────────────────────────────────────────────────────
     function buildChartCard() {
+        var period = state.from_fiscal_year || state.period_start_date || "";
+        if (state.to_fiscal_year && state.to_fiscal_year !== state.from_fiscal_year) period += " – " + state.to_fiscal_year;
         return `
             <div class="pnl-chart-card">
                 <div class="pnl-card-header">
-                    <div class="pnl-card-title">Financial Overview</div>
+                    <div>
+                        <div class="pnl-card-title">Financial Overview</div>
+                        <div class="pnl-card-subtitle">${escHtml(state.company)}${period ? " &nbsp;·&nbsp; " + escHtml(period) : ""}</div>
+                    </div>
                     <div class="pnl-chart-tabs">
                         <button class="pnl-chart-tab active" data-type="bar">Bar</button>
                         <button class="pnl-chart-tab" data-type="line">Line</button>
