@@ -82,6 +82,23 @@ def send_weekly_report():
 # ── Manual trigger ────────────────────────────────────────────────────────────
 
 @frappe.whitelist()
+def send_now_2(week_start=None, week_end=None):
+    if not week_start:
+        week_start, week_end = _week_range()
+    if not week_end:
+        week_end = str(getdate(week_start) + timedelta(days=6))
+    html  = _build_email(week_start, week_end)
+    label = _week_label(week_start, week_end)
+    frappe.sendmail(
+        recipients=["mbi@alltechvirtual.com", "osama.ahmad@alltechvirtual.com"],
+        subject=f"Weekly Sale Report — {label}",
+        message=html,
+        delayed=False,
+    )
+    return "sent"
+
+
+@frappe.whitelist()
 def send_now(week_start=None, week_end=None):
     if not week_start:
         week_start, week_end = _week_range()
