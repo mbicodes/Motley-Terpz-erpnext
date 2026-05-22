@@ -6,6 +6,9 @@ import frappe
 
 
 def execute():
+    if not frappe.db.exists("DocType", "CRM Lead"):
+        frappe.logger().info("[crm_fields] CRM Lead doctype not found — skipping (install Frappe CRM first)")
+        return
     _create_fields()
     frappe.db.commit()
 
