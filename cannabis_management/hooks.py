@@ -140,7 +140,8 @@ doctype_js = {
 # Permissions evaluated in scripted ways
 
 permission_query_conditions = {
-    "Customer": "cannabis_management.permissions.customer_query_conditions"
+    "Customer": "cannabis_management.permissions.customer_query_conditions",
+    "CRM Lead": "cannabis_management.overrides.crm_enforcement.crm_lead_query_conditions",
 }
 
 has_permission = {
@@ -174,9 +175,12 @@ override_doctype_class = {
 # Hook on document methods and events
 
 doc_events = {
-    # AR Policy: cap check + overdue warning on submit only
+    # AR Policy: cap check + overdue warning + blocked customer check on submit
     "Sales Invoice": {
-        "before_submit": "cannabis_management.doc_hooks.sales_invoice.before_submit",
+        "before_submit": [
+            "cannabis_management.doc_hooks.sales_invoice.before_submit",
+            "cannabis_management.overrides.crm_enforcement.check_customer_blocked",
+        ],
     },
     # Lab mapping: auto-create BOMs on Material Request submit
     "Material Request": {
@@ -188,7 +192,10 @@ doc_events = {
     "Sales Order": {
         "validate": "cannabis_management.overrides.sales_order_restrictions.validate",
         "on_update": "cannabis_management.overrides.sales_order_restrictions.on_update",
-        "before_submit": "cannabis_management.overrides.sales_order_restrictions.before_submit",
+        "before_submit": [
+            "cannabis_management.overrides.sales_order_restrictions.before_submit",
+            "cannabis_management.overrides.crm_enforcement.check_customer_blocked",
+        ],
         "on_submit": [
             "cannabis_management.overrides.sales_order_restrictions.on_submit",
             "cannabis_management.overrides.sales_invoice_hooks.check_inventory_and_notify_slack",
@@ -220,6 +227,7 @@ doc_events = {
 # ---------------
 scheduler_events = {
     "daily": [
+        "cannabis_management.api.crm_sync.sync_crm_ar_data",
         "cannabis_management.cannabis_management.utils.irs_8300.check_overdue_filings",
         "cannabis_management.cannabis_management.utils.irs_8300.send_january_notices",
         # Payment Terms SO: remind creator 14 and 7 days before each payment due date
