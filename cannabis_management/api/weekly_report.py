@@ -30,14 +30,10 @@ COMPANIES = ["Motley Terpz", "TSBC Ranch"]
 # ── Week helpers ──────────────────────────────────────────────────────────────
 
 def _week_range(anchor=None):
-    if anchor:
-        ref = getdate(anchor)
-    else:
-        today = getdate(nowdate())
-        ref = today - timedelta(days=today.weekday() + 7)
+    ref = getdate(anchor) if anchor else getdate(nowdate())
     monday = ref - timedelta(days=ref.weekday())
-    sunday = monday + timedelta(days=6)
-    return str(monday), str(sunday)
+    friday = monday + timedelta(days=4)
+    return str(monday), str(friday)
 
 
 def _week_label(week_start, week_end):
@@ -70,7 +66,7 @@ def send_now_2(week_start=None, week_end=None):
     if not week_start:
         week_start, week_end = _week_range()
     if not week_end:
-        week_end = str(getdate(week_start) + timedelta(days=6))
+        week_end = str(getdate(week_start) + timedelta(days=4))
     _do_send(week_start, week_end, ["mbi@alltechvirtual.com", "osama.ahmad@alltechvirtual.com"])
     return "sent"
 
@@ -80,7 +76,7 @@ def send_now(week_start=None, week_end=None):
     if not week_start:
         week_start, week_end = _week_range()
     if not week_end:
-        week_end = str(getdate(week_start) + timedelta(days=6))
+        week_end = str(getdate(week_start) + timedelta(days=4))
     _do_send(week_start, week_end, RECIPIENTS)
     _send_week_closure_email(week_start, week_end)
     return "sent"
