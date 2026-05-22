@@ -336,38 +336,54 @@ def _build_email_body(data, label):
     Sales Orders &bull; Sales Invoices &bull; Delivery Notes &bull;
     AR Gathered &bull; AR Collected &bull; Legacy Collected
   </div>
-  <div class="grid">
-    <div class="kpi">
-      <div class="kpi-l">Sales Orders</div>
-      <div class="kpi-v blue">{so_count}</div>
-      <div class="kpi-s">{_fmt(so_total)}</div>
-    </div>
-    <div class="kpi">
-      <div class="kpi-l">Sales Invoices</div>
-      <div class="kpi-v indigo">{si_count}</div>
-      <div class="kpi-s">{_fmt(si_total)}</div>
-    </div>
-    <div class="kpi">
-      <div class="kpi-l">Delivery Notes</div>
-      <div class="kpi-v teal">{dn_count}</div>
-      <div class="kpi-s">{_fmt(dn_total)}</div>
-    </div>
-    <div class="kpi">
-      <div class="kpi-l">AR Gathered</div>
-      <div class="kpi-v red">{_fmt(g_total)}</div>
-      <div class="kpi-s">{g_count} invoice{'s' if g_count != 1 else ''} unpaid</div>
-    </div>
-    <div class="kpi">
-      <div class="kpi-l">AR Collected</div>
-      <div class="kpi-v green">{_fmt(c_total)}</div>
-      <div class="kpi-s">{c_count} invoice{'s' if c_count != 1 else ''} paid</div>
-    </div>
-    <div class="kpi">
-      <div class="kpi-l">Legacy Collected</div>
-      <div class="kpi-v violet">{_fmt(leg_total)}</div>
-      <div class="kpi-s">{leg_count} payment{'s' if leg_count != 1 else ''}</div>
-    </div>
-  </div>
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:14px"><tbody>
+    <tr>
+      <td width="33%" style="padding:5px">
+        <div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:16px 18px">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#64748b;margin-bottom:8px">Sales Orders</div>
+          <div style="font-size:20px;font-weight:800;line-height:1;color:#2563eb">{so_count}</div>
+          <div style="font-size:11px;color:#94a3b8;margin-top:5px">{_fmt(so_total)}</div>
+        </div>
+      </td>
+      <td width="33%" style="padding:5px">
+        <div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:16px 18px">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#64748b;margin-bottom:8px">Sales Invoices</div>
+          <div style="font-size:20px;font-weight:800;line-height:1;color:#4f46e5">{si_count}</div>
+          <div style="font-size:11px;color:#94a3b8;margin-top:5px">{_fmt(si_total)}</div>
+        </div>
+      </td>
+      <td width="34%" style="padding:5px">
+        <div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:16px 18px">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#64748b;margin-bottom:8px">Delivery Notes</div>
+          <div style="font-size:20px;font-weight:800;line-height:1;color:#0d9488">{dn_count}</div>
+          <div style="font-size:11px;color:#94a3b8;margin-top:5px">{_fmt(dn_total)}</div>
+        </div>
+      </td>
+    </tr>
+    <tr>
+      <td width="33%" style="padding:5px">
+        <div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:16px 18px">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#64748b;margin-bottom:8px">AR Gathered</div>
+          <div style="font-size:20px;font-weight:800;line-height:1;color:#dc2626">{_fmt(g_total)}</div>
+          <div style="font-size:11px;color:#94a3b8;margin-top:5px">{g_count} invoice{'s' if g_count != 1 else ''} unpaid</div>
+        </div>
+      </td>
+      <td width="33%" style="padding:5px">
+        <div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:16px 18px">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#64748b;margin-bottom:8px">AR Collected</div>
+          <div style="font-size:20px;font-weight:800;line-height:1;color:#059669">{_fmt(c_total)}</div>
+          <div style="font-size:11px;color:#94a3b8;margin-top:5px">{c_count} invoice{'s' if c_count != 1 else ''} paid</div>
+        </div>
+      </td>
+      <td width="34%" style="padding:5px">
+        <div style="background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:16px 18px">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#64748b;margin-bottom:8px">Legacy Collected</div>
+          <div style="font-size:20px;font-weight:800;line-height:1;color:#7c3aed">{_fmt(leg_total)}</div>
+          <div style="font-size:11px;color:#94a3b8;margin-top:5px">{leg_count} payment{'s' if leg_count != 1 else ''}</div>
+        </div>
+      </td>
+    </tr>
+  </tbody></table>
   <div class="sf">
     <div class="sf-row">
       <div class="sf-dot"></div>
@@ -375,21 +391,27 @@ def _build_email_body(data, label):
       <div class="sf-bdg">{sf_status}</div>
     </div>
     <p class="sf-note">{sf_note}</p>
-    <div class="sf-stats">
-      <div class="sf-st">
-        <div class="sf-sl">Collected This Week</div>
-        <div class="sf-sv green">{_fmt(c_total)}</div>
-      </div>
-      <div class="sf-st">
-        <div class="sf-sl">Legacy Collected</div>
-        <div class="sf-sv violet">{_fmt(leg_total)}</div>
-      </div>
-      <div class="sf-st">
-        <div class="sf-sl">Outstanding AR</div>
-        <div class="sf-sv red">{_fmt(g_total)}</div>
-      </div>
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:14px"><tbody><tr>
+      <td width="33%" style="vertical-align:top;padding-right:12px">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#64748b;margin-bottom:4px">Collected This Week</div>
+        <div style="font-size:16px;font-weight:800;color:#059669">{_fmt(c_total)}</div>
+      </td>
+      <td width="33%" style="vertical-align:top;padding-right:12px">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#64748b;margin-bottom:4px">Legacy Collected</div>
+        <div style="font-size:16px;font-weight:800;color:#7c3aed">{_fmt(leg_total)}</div>
+      </td>
+      <td width="34%" style="vertical-align:top">
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#64748b;margin-bottom:4px">Outstanding AR</div>
+        <div style="font-size:16px;font-weight:800;color:#dc2626">{_fmt(g_total)}</div>
+      </td>
+    </tr></tbody></table>
+    <div style="margin-top:14px;padding:12px 14px;border:1px solid #e2e8f0;border-radius:8px;
+                background:#f8fafc;font-size:12px;color:#374151;line-height:1.7">
+      <p>Please reply to this email to <strong>muhammad@motleyterpz.com</strong> and
+      <strong>bot@motleyterpz.com</strong> and CC Matt and Imran to sign off the week for closure.</p>
+      <p style="margin-top:8px">If there is a problem, reply to <strong>muhammad@motleyterpz.com</strong>
+      and <strong>bot@motleyterpz.com</strong> and let them know about the adjustments.</p>
     </div>
-    <p class="sf-foot">Sign-off notification sent to Muhammad &amp; bot — CC: Matt, Imran</p>
   </div>
   <div class="footer">
     Auto-generated by ERPNext &nbsp;·&nbsp; {datetime.now().strftime("%B %-d, %Y %H:%M")} UTC
