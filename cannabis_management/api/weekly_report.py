@@ -1,11 +1,10 @@
 """
 Weekly Sale Report
 Scheduled: Monday 8 AM UTC — covers the previous Mon–Sun week.
-Sections:
-  A. Sales Orders for the week
-  B. Weekly AR Gathered  — invoices created this week, payment NOT yet received
-  C. Weekly AR Collected — invoices created this week, payment received
-  D. AR Legacy Collected — invoices created BEFORE this week, paid THIS week
+
+Email body: summary KPIs + sign-off only.
+PDF attachment: full detail — Sales Orders, Sales Invoices, Delivery Notes,
+                AR Gathered, AR Collected, Legacy Collected.
 """
 
 import frappe
@@ -31,19 +30,11 @@ COMPANIES = ["Motley Terpz", "TSBC Ranch"]
 # ── Week helpers ──────────────────────────────────────────────────────────────
 
 def _week_range(anchor=None):
-    """
-    Return (week_start, week_end) as 'YYYY-MM-DD' strings.
-    anchor = a date string; defaults to last completed Mon–Sun week.
-    When called on Monday with no anchor, returns the previous Mon–Sun.
-    """
     if anchor:
         ref = getdate(anchor)
     else:
         today = getdate(nowdate())
-        # day_of_week: Mon=0 … Sun=6
-        ref = today - timedelta(days=today.weekday() + 7)   # last Monday
-
-    # Snap ref to the Monday of its week
+        ref = today - timedelta(days=today.weekday() + 7)
     monday = ref - timedelta(days=ref.weekday())
     sunday = monday + timedelta(days=6)
     return str(monday), str(sunday)
@@ -64,14 +55,7 @@ def send_weekly_report():
         frappe.logger().info(f"[weekly_report] already sent for {week_start}, skipping")
         return
     try:
-        html = _build_email(week_start, week_end)
-        label = _week_label(week_start, week_end)
-        frappe.sendmail(
-            recipients=RECIPIENTS,
-            subject=f"Weekly Sale Report — {label}",
-            message=html,
-            delayed=False,
-        )
+        _do_send(week_start, week_end, RECIPIENTS)
         _send_week_closure_email(week_start, week_end)
         frappe.cache().set_value(cache_key, True, expires_in_sec=8 * 24 * 3600)
         frappe.logger().info(f"[weekly_report] sent for {week_start}–{week_end}")
@@ -79,7 +63,7 @@ def send_weekly_report():
         frappe.log_error(frappe.get_traceback(), "[weekly_report] send failed")
 
 
-# ── Manual trigger ────────────────────────────────────────────────────────────
+# ── Manual triggers ───────────────────────────────────────────────────────────
 
 @frappe.whitelist()
 def send_now_2(week_start=None, week_end=None):
@@ -87,14 +71,7 @@ def send_now_2(week_start=None, week_end=None):
         week_start, week_end = _week_range()
     if not week_end:
         week_end = str(getdate(week_start) + timedelta(days=6))
-    html  = _build_email(week_start, week_end)
-    label = _week_label(week_start, week_end)
-    frappe.sendmail(
-        recipients=["mbi@alltechvirtual.com", "osama.ahmad@alltechvirtual.com"],
-        subject=f"Weekly Sale Report — {label}",
-        message=html,
-        delayed=False,
-    )
+    _do_send(week_start, week_end, ["mbi@alltechvirtual.com", "osama.ahmad@alltechvirtual.com"])
     return "sent"
 
 
@@ -104,16 +81,41 @@ def send_now(week_start=None, week_end=None):
         week_start, week_end = _week_range()
     if not week_end:
         week_end = str(getdate(week_start) + timedelta(days=6))
-    html  = _build_email(week_start, week_end)
-    label = _week_label(week_start, week_end)
-    frappe.sendmail(
-        recipients=RECIPIENTS,
-        subject=f"Weekly Sale Report — {label}",
-        message=html,
-        delayed=False,
-    )
+    _do_send(week_start, week_end, RECIPIENTS)
     _send_week_closure_email(week_start, week_end)
     return "sent"
+
+
+def _do_send(week_start, week_end, recipients):
+    data      = _fetch_all_data(week_start, week_end)
+    label     = _week_label(week_start, week_end)
+    body      = _build_email_body(data, label)
+    pdf_bytes = _make_pdf(_build_pdf_html(data, label))
+
+    attachments = []
+    if pdf_bytes:
+        attachments = [{"fname": f"Weekly_Report_{week_start}.pdf", "fcontent": pdf_bytes}]
+
+    frappe.sendmail(
+        recipients=recipients,
+        subject=f"Weekly Sale Report — {label}",
+        message=body,
+        attachments=attachments,
+        delayed=False,
+    )
+
+
+# ── Data fetching ─────────────────────────────────────────────────────────────
+
+def _fetch_all_data(week_start, week_end):
+    return {
+        "so_rows":   _get_weekly_sales_orders(week_start, week_end),
+        "si_rows":   _get_weekly_sales_invoices(week_start, week_end),
+        "dn_rows":   _get_weekly_delivery_notes(week_start, week_end),
+        "gathered":  _get_ar_gathered(week_start, week_end),
+        "collected": _get_ar_collected(week_start, week_end),
+        "legacy":    _get_ar_legacy_collected(week_start, week_end),
+    }
 
 
 # ── Data queries ──────────────────────────────────────────────────────────────
@@ -134,8 +136,41 @@ def _get_weekly_sales_orders(week_start, week_end):
     """, (week_start, week_end), as_dict=True)
 
 
+def _get_weekly_sales_invoices(week_start, week_end):
+    return frappe.db.sql("""
+        SELECT
+            si.name, si.customer, si.grand_total,
+            si.outstanding_amount, si.posting_date, si.company,
+            sii.item_group,
+            SUM(sii.qty)    AS qty,
+            SUM(sii.amount) AS amount
+        FROM `tabSales Invoice` si
+        JOIN `tabSales Invoice Item` sii ON sii.parent = si.name
+        WHERE si.posting_date BETWEEN %s AND %s
+          AND si.docstatus = 1
+        GROUP BY si.name, sii.item_group
+        ORDER BY si.customer, sii.item_group
+    """, (week_start, week_end), as_dict=True)
+
+
+def _get_weekly_delivery_notes(week_start, week_end):
+    return frappe.db.sql("""
+        SELECT
+            dn.name, dn.customer, dn.grand_total,
+            dn.posting_date, dn.company,
+            dni.item_group,
+            SUM(dni.qty)    AS qty,
+            SUM(dni.amount) AS amount
+        FROM `tabDelivery Note` dn
+        JOIN `tabDelivery Note Item` dni ON dni.parent = dn.name
+        WHERE dn.posting_date BETWEEN %s AND %s
+          AND dn.docstatus = 1
+        GROUP BY dn.name, dni.item_group
+        ORDER BY dn.customer, dni.item_group
+    """, (week_start, week_end), as_dict=True)
+
+
 def _get_ar_gathered(week_start, week_end):
-    """Invoices created this week with NO payment received (outstanding = grand_total)."""
     return frappe.db.sql("""
         SELECT
             si.name, si.customer, si.grand_total,
@@ -155,7 +190,6 @@ def _get_ar_gathered(week_start, week_end):
 
 
 def _get_ar_collected(week_start, week_end):
-    """Invoices created this week with payment received (outstanding = 0)."""
     return frappe.db.sql("""
         SELECT
             si.name, si.customer, si.grand_total,
@@ -174,10 +208,6 @@ def _get_ar_collected(week_start, week_end):
 
 
 def _get_ar_legacy_collected(week_start, week_end):
-    """
-    Payment Entries posted THIS week that are linked to invoices created
-    BEFORE this week.  Returns one row per payment+invoice allocation.
-    """
     return frappe.db.sql("""
         SELECT
             pe.name          AS payment_name,
@@ -201,454 +231,588 @@ def _get_ar_legacy_collected(week_start, week_end):
     """, (week_start, week_end, week_start), as_dict=True)
 
 
-# ── Email builder ─────────────────────────────────────────────────────────────
+# ── Email body (summary only) ─────────────────────────────────────────────────
 
-def _build_email(week_start, week_end):
-    so_rows      = _get_weekly_sales_orders(week_start, week_end)
-    gathered     = _get_ar_gathered(week_start, week_end)
-    collected    = _get_ar_collected(week_start, week_end)
-    legacy       = _get_ar_legacy_collected(week_start, week_end)
-    label        = _week_label(week_start, week_end)
+def _build_email_body(data, label):
+    so_rows   = data["so_rows"]
+    si_rows   = data["si_rows"]
+    dn_rows   = data["dn_rows"]
+    gathered  = data["gathered"]
+    collected = data["collected"]
+    legacy    = data["legacy"]
 
-    html = f"""<!DOCTYPE html>
-<html>
-<head>
+    so_count  = len({r.name for r in so_rows})
+    so_total  = sum(flt(r.grand_total) for r in {r.name: r for r in so_rows}.values())
+    si_count  = len({r.name for r in si_rows})
+    si_total  = sum(flt(r.grand_total) for r in {r.name: r for r in si_rows}.values())
+    dn_count  = len({r.name for r in dn_rows})
+    dn_total  = sum(flt(r.grand_total) for r in {r.name: r for r in dn_rows}.values())
+    g_count   = len({r.name for r in gathered})
+    g_total   = sum(flt(r.grand_total) for r in {r.name: r for r in gathered}.values())
+    c_count   = len({r.name for r in collected})
+    c_total   = sum(flt(r.grand_total) for r in {r.name: r for r in collected}.values())
+    leg_total = sum(flt(r.collected_amount) for r in legacy)
+    leg_count = len({r.payment_name for r in legacy})
+
+    has_problem = g_count > 0
+    sf_color    = "#dc2626" if has_problem else "#059669"
+    sf_bg       = "#fee2e2" if has_problem else "#d1fae5"
+    sf_status   = "Action Required" if has_problem else "Clean Week"
+    sf_note     = (
+        f"{g_count} invoice{'s' if g_count != 1 else ''} unpaid — "
+        f"<strong>{_fmt(g_total)}</strong> outstanding. Adjustments required."
+        if has_problem else
+        "All invoices from this week collected. Week is clear for closure."
+    )
+
+    return f"""<!DOCTYPE html>
+<html><head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
-  * {{ margin:0; padding:0; box-sizing:border-box; }}
-  body {{ font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-          background:#f1f5f9; color:#0f172a; }}
-  .wrap {{ max-width:780px; margin:0 auto; background:#f1f5f9; padding:20px 16px 40px; }}
-
-  /* ── Header ── */
-  .hdr {{ background:linear-gradient(150deg,#0f172a 0%,#1e3a5f 60%,#0f2942 100%);
-          border-radius:16px; padding:36px 36px 30px; margin-bottom:14px;
-          text-align:center; }}
-  .hdr-eyebrow {{ font-size:10px; font-weight:700; text-transform:uppercase;
-                  letter-spacing:2.5px; color:rgba(255,255,255,.4);
-                  margin-bottom:12px; }}
-  .hdr-title {{ font-size:28px; font-weight:800; color:#fff;
-                letter-spacing:.2px; line-height:1.1; margin-bottom:14px; }}
-  .hdr-title span {{ color:#38bdf8; }}
-  .hdr-date {{ display:inline-block; background:rgba(255,255,255,.1);
-               border:1px solid rgba(255,255,255,.15); border-radius:20px;
-               padding:7px 20px; color:rgba(255,255,255,.85); font-size:13px;
-               font-weight:600; }}
-
-  /* ── KPI bar ── */
-  .kpi-bar {{ display:flex; gap:14px; margin-bottom:20px; flex-wrap:wrap; }}
-  .kpi {{ flex:1; min-width:150px; background:#fff; border-radius:12px;
-          border:1px solid #e2e8f0; padding:20px 22px;
-          box-shadow:0 1px 4px rgba(0,0,0,.07); }}
-  .kpi-lbl {{ font-size:10px; font-weight:700; text-transform:uppercase;
-              letter-spacing:.6px; color:#64748b; margin-bottom:8px; }}
-  .kpi-val {{ font-size:22px; font-weight:800; color:#0f172a; line-height:1; }}
-  .kpi-sub {{ font-size:12px; color:#94a3b8; margin-top:6px; }}
-  .kpi.accent-blue   .kpi-val {{ color:#2563eb; }}
-  .kpi.accent-green  .kpi-val {{ color:#059669; }}
-  .kpi.accent-violet .kpi-val {{ color:#7c3aed; }}
-  .kpi.accent-amber  .kpi-val {{ color:#d97706; }}
-  .kpi.accent-red    .kpi-val {{ color:#dc2626; }}
-
-  /* ── Section cards ── */
-  .card {{ background:#fff; border-radius:12px; border:1px solid #e2e8f0;
-           box-shadow:0 1px 3px rgba(0,0,0,.06); margin-bottom:20px;
-           overflow:hidden; }}
-  .card-hdr {{ padding:14px 20px; display:flex; align-items:center; gap:10px;
-               border-bottom:1px solid #f1f5f9; }}
-  .card-dot {{ width:10px; height:10px; border-radius:50%; flex-shrink:0; }}
-  .card-title {{ font-size:13px; font-weight:700; color:#0f172a;
-                 text-transform:uppercase; letter-spacing:.4px; }}
-  .card-count {{ margin-left:auto; background:#f8fafc; border:1px solid #e2e8f0;
-                 border-radius:20px; padding:2px 10px; font-size:11px;
-                 font-weight:600; color:#64748b; }}
-  .card-total {{ font-size:13px; font-weight:700; color:#059669; margin-left:8px; }}
-
-  /* ── Tables ── */
-  table {{ width:100%; border-collapse:collapse; font-size:12px; }}
-  th {{ padding:9px 14px; background:#f8fafc; color:#64748b; font-weight:700;
-        font-size:10px; text-transform:uppercase; letter-spacing:.4px;
-        text-align:left; border-bottom:1px solid #e2e8f0; white-space:nowrap; }}
-  th.r {{ text-align:right; }}
-  td {{ padding:9px 14px; border-bottom:1px solid #f1f5f9; color:#0f172a;
-        vertical-align:top; }}
-  td.r {{ text-align:right; font-variant-numeric:tabular-nums; }}
-  td.muted {{ color:#94a3b8; font-size:11px; }}
-  td.bold  {{ font-weight:700; }}
-  tr:last-child td {{ border-bottom:none; }}
-  tr.subtotal td {{ background:#f8fafc; font-weight:700; border-top:2px solid #e2e8f0; }}
-  tr.group-hdr td {{ background:#f1f5f9; font-weight:700; color:#374151;
-                     font-size:11px; padding:6px 14px; }}
-
-  /* ── Entity badge ── */
-  .ent {{ display:inline-block; padding:1px 7px; border-radius:20px;
-          font-size:9px; font-weight:700; text-transform:uppercase; }}
-  .ent-mt {{ background:#ede9fe; color:#6d28d9; }}
-  .ent-ts {{ background:#d1fae5; color:#065f46; }}
-
-  /* ── Mode badge ── */
-  .mode {{ display:inline-block; padding:2px 8px; border-radius:6px;
-           font-size:10px; font-weight:700; }}
-  .mode-bank  {{ background:#dbeafe; color:#1d4ed8; }}
-  .mode-cash  {{ background:#fef3c7; color:#92400e; }}
-  .mode-other {{ background:#f1f5f9; color:#475569; }}
-
-  /* ── Status badge ── */
-  .badge-unpaid  {{ display:inline-block; padding:2px 8px; border-radius:6px;
-                    font-size:10px; font-weight:700;
-                    background:#fee2e2; color:#991b1b; }}
-  .badge-paid    {{ display:inline-block; padding:2px 8px; border-radius:6px;
-                    font-size:10px; font-weight:700;
-                    background:#d1fae5; color:#065f46; }}
-
-  /* ── Empty state ── */
-  .empty {{ padding:24px; text-align:center; color:#94a3b8;
-            font-size:12px; font-style:italic; }}
-
-  /* ── Footer ── */
-  .footer {{ text-align:center; color:#94a3b8; font-size:11px;
-             margin-top:8px; padding:0 16px; }}
+  *{{margin:0;padding:0;box-sizing:border-box;}}
+  body{{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+       background:#f1f5f9;color:#0f172a;}}
+  .wrap{{max-width:660px;margin:0 auto;background:#f1f5f9;padding:20px 16px 40px;}}
+  .hdr{{background:linear-gradient(150deg,#0f172a 0%,#1e3a5f 60%,#0f2942 100%);
+       border-radius:16px;padding:36px 36px 30px;margin-bottom:14px;text-align:center;}}
+  .hdr-ey{{font-size:10px;font-weight:700;text-transform:uppercase;
+           letter-spacing:2.5px;color:rgba(255,255,255,.4);margin-bottom:12px;}}
+  .hdr-tt{{font-size:28px;font-weight:800;color:#fff;letter-spacing:.2px;
+           line-height:1.1;margin-bottom:14px;}}
+  .hdr-tt span{{color:#38bdf8;}}
+  .hdr-dt{{display:inline-block;background:rgba(255,255,255,.1);
+           border:1px solid rgba(255,255,255,.15);border-radius:20px;
+           padding:7px 20px;color:rgba(255,255,255,.85);font-size:13px;font-weight:600;}}
+  .note{{background:#fff;border-radius:10px;border:1px solid #e2e8f0;
+         padding:12px 20px;margin-bottom:14px;text-align:center;
+         font-size:13px;color:#475569;line-height:1.6;}}
+  .grid{{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;}}
+  .kpi{{background:#fff;border-radius:12px;border:1px solid #e2e8f0;
+        padding:16px 18px;box-shadow:0 1px 4px rgba(0,0,0,.07);}}
+  .kpi-l{{font-size:10px;font-weight:700;text-transform:uppercase;
+          letter-spacing:.6px;color:#64748b;margin-bottom:8px;}}
+  .kpi-v{{font-size:20px;font-weight:800;line-height:1;}}
+  .kpi-s{{font-size:11px;color:#94a3b8;margin-top:5px;}}
+  .blue{{color:#2563eb;}} .indigo{{color:#4f46e5;}} .teal{{color:#0d9488;}}
+  .red{{color:#dc2626;}}  .green{{color:#059669;}} .violet{{color:#7c3aed;}}
+  .sf{{background:#fff;border-radius:12px;border:1px solid #e2e8f0;
+       padding:18px 22px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,.07);}}
+  .sf-row{{display:flex;align-items:center;gap:10px;margin-bottom:12px;}}
+  .sf-dot{{width:10px;height:10px;border-radius:50%;background:{sf_color};flex-shrink:0;}}
+  .sf-tit{{font-size:12px;font-weight:700;text-transform:uppercase;
+           letter-spacing:.4px;color:#0f172a;}}
+  .sf-bdg{{margin-left:auto;display:inline-block;padding:3px 12px;
+           border-radius:20px;font-size:11px;font-weight:700;
+           background:{sf_bg};color:{sf_color};}}
+  .sf-note{{font-size:13px;color:#374151;margin-bottom:14px;line-height:1.6;}}
+  .sf-stats{{display:flex;gap:16px;flex-wrap:wrap;}}
+  .sf-st{{flex:1;min-width:100px;}}
+  .sf-sl{{font-size:10px;font-weight:700;text-transform:uppercase;
+          letter-spacing:.4px;color:#64748b;margin-bottom:4px;}}
+  .sf-sv{{font-size:16px;font-weight:800;}}
+  .sf-foot{{margin-top:14px;font-size:11px;color:#94a3b8;}}
+  .footer{{text-align:center;color:#94a3b8;font-size:11px;margin-top:8px;}}
 </style>
 </head>
 <body>
 <div class="wrap">
-
-  <!-- Header -->
   <div class="hdr">
-    <div class="hdr-eyebrow">Motley Terpz &amp; TSBC Ranch</div>
-    <div class="hdr-title">Weekly <span>Sale</span> Report</div>
-    <div class="hdr-date">{label}</div>
+    <div class="hdr-ey">Motley Terpz &amp; TSBC Ranch</div>
+    <div class="hdr-tt">Weekly <span>Sale</span> Report</div>
+    <div class="hdr-dt">{label}</div>
   </div>
-
-{_kpi_bar(so_rows, gathered, collected, legacy)}
-{_so_section(so_rows)}
-{_gathered_section(gathered)}
-{_collected_section(collected)}
-{_legacy_section(legacy)}
-{_signoff_section(gathered, collected, legacy, label)}
-
+  <div class="note">
+    <strong>Full detail is in the attached PDF.</strong><br>
+    Sales Orders &bull; Sales Invoices &bull; Delivery Notes &bull;
+    AR Gathered &bull; AR Collected &bull; Legacy Collected
+  </div>
+  <div class="grid">
+    <div class="kpi">
+      <div class="kpi-l">Sales Orders</div>
+      <div class="kpi-v blue">{so_count}</div>
+      <div class="kpi-s">{_fmt(so_total)}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-l">Sales Invoices</div>
+      <div class="kpi-v indigo">{si_count}</div>
+      <div class="kpi-s">{_fmt(si_total)}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-l">Delivery Notes</div>
+      <div class="kpi-v teal">{dn_count}</div>
+      <div class="kpi-s">{_fmt(dn_total)}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-l">AR Gathered</div>
+      <div class="kpi-v red">{_fmt(g_total)}</div>
+      <div class="kpi-s">{g_count} invoice{'s' if g_count != 1 else ''} unpaid</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-l">AR Collected</div>
+      <div class="kpi-v green">{_fmt(c_total)}</div>
+      <div class="kpi-s">{c_count} invoice{'s' if c_count != 1 else ''} paid</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-l">Legacy Collected</div>
+      <div class="kpi-v violet">{_fmt(leg_total)}</div>
+      <div class="kpi-s">{leg_count} payment{'s' if leg_count != 1 else ''}</div>
+    </div>
+  </div>
+  <div class="sf">
+    <div class="sf-row">
+      <div class="sf-dot"></div>
+      <div class="sf-tit">Week Sign-Off &mdash; {label}</div>
+      <div class="sf-bdg">{sf_status}</div>
+    </div>
+    <p class="sf-note">{sf_note}</p>
+    <div class="sf-stats">
+      <div class="sf-st">
+        <div class="sf-sl">Collected This Week</div>
+        <div class="sf-sv green">{_fmt(c_total)}</div>
+      </div>
+      <div class="sf-st">
+        <div class="sf-sl">Legacy Collected</div>
+        <div class="sf-sv violet">{_fmt(leg_total)}</div>
+      </div>
+      <div class="sf-st">
+        <div class="sf-sl">Outstanding AR</div>
+        <div class="sf-sv red">{_fmt(g_total)}</div>
+      </div>
+    </div>
+    <p class="sf-foot">Sign-off notification sent to Muhammad &amp; bot — CC: Matt, Imran</p>
+  </div>
   <div class="footer">
-    Auto-generated by ERPNext &nbsp;·&nbsp; {datetime.now().strftime("%B %-d, %Y %H:%M")} UTC &nbsp;·&nbsp;
-    Do not reply to this message.
+    Auto-generated by ERPNext &nbsp;·&nbsp; {datetime.now().strftime("%B %-d, %Y %H:%M")} UTC
+    &nbsp;·&nbsp; Do not reply to this message.
   </div>
-
 </div>
-</body>
-</html>"""
-    return html
+</body></html>"""
 
 
-# ── KPI bar ───────────────────────────────────────────────────────────────────
+# ── PDF HTML (full detail) ────────────────────────────────────────────────────
 
-def _kpi_bar(so_rows, gathered, collected, legacy):
-    so_count     = len({r.name for r in so_rows})
-    so_total     = sum(flt(r.grand_total) for r in {r.name: r for r in so_rows}.values())
+_PDF_CSS = """
+@page { size:A4; margin:12mm 14mm 14mm; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:Arial,Helvetica,sans-serif; font-size:10px; color:#0f172a; background:#fff; }
 
-    g_count      = len({r.name for r in gathered})
-    g_total      = sum(flt(r.grand_total) for r in {r.name: r for r in gathered}.values())
+.pdf-hdr { background:#0f172a; color:#fff; padding:16px 20px; border-radius:6px; margin-bottom:14px; }
+.pdf-hdr-co { font-size:9px; color:rgba(255,255,255,.45); text-transform:uppercase;
+              letter-spacing:2px; margin-bottom:3px; }
+.pdf-hdr-title { font-size:18px; font-weight:700; }
+.pdf-hdr-title span { color:#38bdf8; }
+.pdf-hdr-date { font-size:11px; color:rgba(255,255,255,.65); margin-top:4px; }
 
-    c_count      = len({r.name for r in collected})
-    c_total      = sum(flt(r.grand_total) for r in {r.name: r for r in collected}.values())
+.sec { margin-bottom:18px; page-break-inside:avoid; }
+.sec-hdr { padding:6px 10px; margin-bottom:4px; border-radius:4px; }
+.sec-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.3px; color:#fff; }
+.sec-meta { font-size:9px; color:rgba(255,255,255,.7); margin-top:2px; }
 
-    leg_total    = sum(flt(r.collected_amount) for r in legacy)
-    leg_count    = len({r.payment_name for r in legacy})
+table { width:100%; border-collapse:collapse; font-size:9px; }
+th { padding:5px 7px; background:#f1f5f9; color:#475569; font-weight:700;
+     font-size:8px; text-transform:uppercase; letter-spacing:.3px;
+     text-align:left; border-bottom:2px solid #cbd5e1; white-space:nowrap; }
+th.r { text-align:right; }
+td { padding:4px 7px; border-bottom:1px solid #f1f5f9; vertical-align:top; }
+td.r { text-align:right; font-variant-numeric:tabular-nums; }
+td.m { color:#94a3b8; font-size:8px; }
+td.b { font-weight:700; }
+tr.sub td { background:#f8fafc; font-weight:700; border-top:2px solid #e2e8f0; font-size:9px; }
+tr.igh td { background:#f1f5f9; font-weight:700; color:#374151; font-size:9px; padding:4px 7px; }
 
-    return f"""  <div class="kpi-bar">
-    <div class="kpi accent-blue">
-      <div class="kpi-lbl">Sales Orders</div>
-      <div class="kpi-val">{so_count}</div>
-      <div class="kpi-sub">{_fmt(so_total)}</div>
-    </div>
-    <div class="kpi accent-red">
-      <div class="kpi-lbl">AR Gathered</div>
-      <div class="kpi-val">{_fmt(g_total)}</div>
-      <div class="kpi-sub">{g_count} invoice{'s' if g_count != 1 else ''} unpaid</div>
-    </div>
-    <div class="kpi accent-green">
-      <div class="kpi-lbl">AR Collected</div>
-      <div class="kpi-val">{_fmt(c_total)}</div>
-      <div class="kpi-sub">{c_count} invoice{'s' if c_count != 1 else ''} paid</div>
-    </div>
-    <div class="kpi accent-violet">
-      <div class="kpi-lbl">Legacy Collected</div>
-      <div class="kpi-val">{_fmt(leg_total)}</div>
-      <div class="kpi-sub">{leg_count} payment{'s' if leg_count != 1 else ''}</div>
-    </div>
-  </div>"""
+.ent { padding:1px 5px; border-radius:8px; font-size:7px; font-weight:700; text-transform:uppercase; }
+.ent-mt { background:#ede9fe; color:#6d28d9; }
+.ent-ts { background:#d1fae5; color:#065f46; }
+
+.bu { padding:1px 5px; border-radius:3px; font-size:8px; font-weight:700;
+      background:#fee2e2; color:#991b1b; }
+.bp { padding:1px 5px; border-radius:3px; font-size:8px; font-weight:700;
+      background:#d1fae5; color:#065f46; }
+
+.mb { padding:1px 5px; border-radius:3px; font-size:8px; font-weight:700;
+      background:#dbeafe; color:#1d4ed8; }
+.mc { padding:1px 5px; border-radius:3px; font-size:8px; font-weight:700;
+      background:#fef3c7; color:#92400e; }
+.mo { padding:1px 5px; border-radius:3px; font-size:8px; font-weight:700;
+      background:#f1f5f9; color:#475569; }
+
+.empty { padding:10px; text-align:center; color:#94a3b8; font-style:italic; font-size:9px; }
+
+.ig-tbl { margin-top:0; border-top:1px dashed #cbd5e1; }
+.ig-tbl th { background:#fafbff; color:#7c3aed; }
+
+.sf-box { border-radius:6px; padding:12px 16px; margin-top:14px; }
+.sf-box.clean  { border:2px solid #059669; background:#f0fdf4; }
+.sf-box.action { border:2px solid #dc2626; background:#fef2f2; }
+.sf-title { font-size:11px; font-weight:700; margin-bottom:6px; }
+.sf-note  { font-size:10px; color:#374151; margin-bottom:8px; }
+.sf-row   { display:flex; gap:20px; flex-wrap:wrap; }
+.sf-cell  { flex:1; min-width:100px; }
+.sf-lbl   { font-size:8px; font-weight:700; text-transform:uppercase;
+            letter-spacing:.3px; color:#64748b; margin-bottom:2px; }
+.sf-val   { font-size:13px; font-weight:800; }
+
+.pdf-footer { text-align:center; font-size:8px; color:#94a3b8;
+              border-top:1px solid #e2e8f0; padding-top:6px; margin-top:12px; }
+"""
 
 
-# ── Section: Sales Orders ─────────────────────────────────────────────────────
+def _build_pdf_html(data, label):
+    so_rows   = data["so_rows"]
+    si_rows   = data["si_rows"]
+    dn_rows   = data["dn_rows"]
+    gathered  = data["gathered"]
+    collected = data["collected"]
+    legacy    = data["legacy"]
 
-def _so_section(rows):
+    return f"""<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<style>{_PDF_CSS}</style>
+</head><body>
+
+<div class="pdf-hdr">
+  <div class="pdf-hdr-co">Motley Terpz &amp; TSBC Ranch</div>
+  <div class="pdf-hdr-title">Weekly <span>Sale</span> Report</div>
+  <div class="pdf-hdr-date">{label} &nbsp;&middot;&nbsp; Generated {datetime.now().strftime("%B %-d, %Y")}</div>
+</div>
+
+{_pdf_so_section(so_rows)}
+{_pdf_si_section(si_rows)}
+{_pdf_dn_section(dn_rows)}
+{_pdf_gathered_section(gathered)}
+{_pdf_collected_section(collected)}
+{_pdf_legacy_section(legacy)}
+{_pdf_signoff(gathered, collected, legacy, label)}
+
+<div class="pdf-footer">
+  Auto-generated by ERPNext &nbsp;&middot;&nbsp; {datetime.now().strftime("%B %-d, %Y %H:%M")} UTC
+</div>
+</body></html>"""
+
+
+# ── PDF section builders ──────────────────────────────────────────────────────
+
+def _pdf_section_wrap(bg_color, title, meta, table_html, ig_html=""):
+    return f"""<div class="sec">
+  <div class="sec-hdr" style="background:{bg_color}">
+    <div class="sec-title">{title}</div>
+    <div class="sec-meta">{meta}</div>
+  </div>
+  {table_html}
+  {ig_html}
+</div>"""
+
+
+def _pdf_so_section(rows):
     count = len({r.name for r in rows})
     total = sum(flt(r.grand_total) for r in {r.name: r for r in rows}.values())
-    body  = _doc_table(rows, "Sales Order") + _ig_summary(rows)
-    return _card("#2563eb", "Sales Orders — This Week",
-                 f"{count} order{'s' if count != 1 else ''}", _fmt(total), body)
+    tbl   = _pdf_doc_table(rows, date_field=None)
+    ig    = _pdf_ig_summary(rows)
+    return _pdf_section_wrap(
+        "#2563eb", "Sales Orders — This Week",
+        f"{count} order{'s' if count != 1 else ''} &nbsp;&middot;&nbsp; {_fmt(total)}",
+        tbl, ig
+    )
 
 
-# ── Section: AR Gathered ──────────────────────────────────────────────────────
+def _pdf_si_section(rows):
+    count = len({r.name for r in rows})
+    total = sum(flt(r.grand_total) for r in {r.name: r for r in rows}.values())
+    tbl   = _pdf_invoice_table(rows, mode="all")
+    ig    = _pdf_ig_summary(rows)
+    return _pdf_section_wrap(
+        "#4f46e5", "Sales Invoices — This Week",
+        f"{count} invoice{'s' if count != 1 else ''} &nbsp;&middot;&nbsp; {_fmt(total)}",
+        tbl, ig
+    )
 
-def _gathered_section(rows):
+
+def _pdf_dn_section(rows):
+    count = len({r.name for r in rows})
+    total = sum(flt(r.grand_total) for r in {r.name: r for r in rows}.values())
+    tbl   = _pdf_doc_table(rows, date_field="posting_date")
+    ig    = _pdf_ig_summary(rows)
+    return _pdf_section_wrap(
+        "#0d9488", "Delivery Notes — This Week",
+        f"{count} delivery note{'s' if count != 1 else ''} &nbsp;&middot;&nbsp; {_fmt(total)}",
+        tbl, ig
+    )
+
+
+def _pdf_gathered_section(rows):
     count = len({r.name for r in rows})
     total = sum(flt(r.grand_total) for r in {r.name: r for r in rows}.values())
     if not rows:
-        body = '<div class="empty">No unpaid invoices created this week.</div>'
+        tbl = '<div class="empty">No unpaid invoices created this week.</div>'
+        ig  = ""
     else:
-        body = _ar_invoice_table(rows, show_outstanding=True) + _ig_summary(rows)
-    return _card("#dc2626", "AR Gathered — Invoices Created, Not Yet Paid",
-                 f"{count} invoice{'s' if count != 1 else ''}", _fmt(total), body)
+        tbl = _pdf_invoice_table(rows, mode="unpaid")
+        ig  = _pdf_ig_summary(rows)
+    return _pdf_section_wrap(
+        "#dc2626", "AR Gathered — Invoices Created, Not Yet Paid",
+        f"{count} invoice{'s' if count != 1 else ''} unpaid &nbsp;&middot;&nbsp; {_fmt(total)}",
+        tbl, ig
+    )
 
 
-# ── Section: AR Collected ─────────────────────────────────────────────────────
-
-def _collected_section(rows):
+def _pdf_collected_section(rows):
     count = len({r.name for r in rows})
     total = sum(flt(r.grand_total) for r in {r.name: r for r in rows}.values())
     if not rows:
-        body = '<div class="empty">No invoices from this week have been fully collected.</div>'
+        tbl = '<div class="empty">No invoices from this week fully collected.</div>'
+        ig  = ""
     else:
-        body = _ar_invoice_table(rows, show_outstanding=False) + _ig_summary(rows)
-    return _card("#059669", "AR Collected — Invoices Created &amp; Paid This Week",
-                 f"{count} invoice{'s' if count != 1 else ''}", _fmt(total), body)
+        tbl = _pdf_invoice_table(rows, mode="paid")
+        ig  = _pdf_ig_summary(rows)
+    return _pdf_section_wrap(
+        "#059669", "AR Collected — Invoices Created &amp; Paid This Week",
+        f"{count} invoice{'s' if count != 1 else ''} &nbsp;&middot;&nbsp; {_fmt(total)}",
+        tbl, ig
+    )
 
 
-# ── Section: Legacy Collected ─────────────────────────────────────────────────
-
-def _legacy_section(rows):
+def _pdf_legacy_section(rows):
     total     = sum(flt(r.collected_amount) for r in rows)
     pay_count = len({r.payment_name for r in rows})
     if not rows:
-        body = '<div class="empty">No legacy invoice payments received this week.</div>'
+        tbl = '<div class="empty">No legacy invoice payments received this week.</div>'
     else:
-        body = _legacy_table(rows)
-    return _card("#7c3aed", "AR Legacy Collected — Old Invoices Paid This Week",
-                 f"{pay_count} payment{'s' if pay_count != 1 else ''}", _fmt(total), body)
+        tbl = _pdf_legacy_table(rows)
+    return _pdf_section_wrap(
+        "#7c3aed", "AR Legacy Collected — Old Invoices Paid This Week",
+        f"{pay_count} payment{'s' if pay_count != 1 else ''} &nbsp;&middot;&nbsp; {_fmt(total)}",
+        tbl
+    )
 
 
-# ── Table builders ────────────────────────────────────────────────────────────
+def _pdf_signoff(gathered, collected, legacy, label):
+    g_count   = len({r.name for r in gathered})
+    g_total   = sum(flt(r.grand_total) for r in {r.name: r for r in gathered}.values())
+    c_total   = sum(flt(r.grand_total) for r in {r.name: r for r in collected}.values())
+    leg_total = sum(flt(r.collected_amount) for r in legacy)
+    has_problem = g_count > 0
 
-def _doc_table(rows, doc_type_label):
+    cls    = "action" if has_problem else "clean"
+    status = "Action Required" if has_problem else "Clean Week"
+    color  = "#dc2626" if has_problem else "#059669"
+    note   = (
+        f"{g_count} invoice{'s' if g_count != 1 else ''} unpaid — {_fmt(g_total)} outstanding."
+        if has_problem else
+        "All invoices from this week have been collected. Week is clear for closure."
+    )
+    return f"""<div class="sf-box {cls}">
+  <div class="sf-title" style="color:{color}">Week Sign-Off — {label} &nbsp; [{status}]</div>
+  <div class="sf-note">{note}</div>
+  <div class="sf-row">
+    <div class="sf-cell">
+      <div class="sf-lbl">Collected This Week</div>
+      <div class="sf-val" style="color:#059669">{_fmt(c_total)}</div>
+    </div>
+    <div class="sf-cell">
+      <div class="sf-lbl">Legacy Collected</div>
+      <div class="sf-val" style="color:#7c3aed">{_fmt(leg_total)}</div>
+    </div>
+    <div class="sf-cell">
+      <div class="sf-lbl">Outstanding AR</div>
+      <div class="sf-val" style="color:#dc2626">{_fmt(g_total)}</div>
+    </div>
+  </div>
+</div>"""
+
+
+# ── PDF table builders ────────────────────────────────────────────────────────
+
+def _pdf_doc_table(rows, date_field=None):
+    """Generic table for Sales Orders and Delivery Notes."""
     if not rows:
-        return f'<div class="empty">No {doc_type_label}s this week.</div>'
+        return '<div class="empty">No records this week.</div>'
 
     docs = {}
     for r in rows:
         if r.name not in docs:
-            docs[r.name] = {"name": r.name, "customer": r.customer,
-                            "grand_total": r.grand_total, "company": r.company,
-                            "items": []}
+            docs[r.name] = {
+                "name": r.name, "customer": r.customer,
+                "grand_total": r.grand_total, "company": r.company,
+                "date": str(getattr(r, date_field, "") or "")[:10] if date_field else "",
+                "items": [],
+            }
         docs[r.name]["items"].append(r)
 
-    html = """<table>
-      <thead><tr>
-        <th>Client</th><th>Entity</th><th>Item Group</th>
-        <th class="r">Qty</th><th class="r">Line Amt</th><th class="r">Order Total</th>
-      </tr></thead><tbody>"""
+    date_col = f"<th>Date</th>" if date_field else ""
+    html = f"""<table><thead><tr>
+      <th>Client</th><th>Entity</th>{date_col}
+      <th>Item Group</th><th class="r">Qty</th>
+      <th class="r">Line Amt</th><th class="r">Total</th>
+    </tr></thead><tbody>"""
 
-    for doc_name, doc in docs.items():
+    for doc in docs.values():
         ent_cls = "ent-mt" if doc["company"] == "Motley Terpz" else "ent-ts"
         ent_lbl = "Motley"  if doc["company"] == "Motley Terpz" else "TSBC"
         items = doc["items"]
         for j, item in enumerate(items):
             first = j == 0
             last  = j == len(items) - 1
+            date_td = f"<td class='m'>{doc['date'] if first else ''}</td>" if date_field else ""
             html += f"""<tr>
-              <td class="bold">{_esc(doc["customer"]) if first else ""}</td>
-              <td>{"<span class='ent " + ent_cls + "'>" + ent_lbl + "</span>" if first else ""}</td>
-              <td>{_esc(item.item_group or "—")}</td>
+              <td class="b">{_esc(doc['customer']) if first else ''}</td>
+              <td>{"<span class='ent " + ent_cls + "'>" + ent_lbl + "</span>" if first else ''}</td>
+              {date_td}
+              <td>{_esc(item.item_group or '—')}</td>
               <td class="r">{_qty(item.qty)}</td>
               <td class="r">{_fmt(item.amount)}</td>
-              <td class="r bold">{"" if not last else _fmt(doc["grand_total"])}</td>
+              <td class="r b">{"" if not last else _fmt(doc['grand_total'])}</td>
             </tr>"""
 
-    total_amt  = sum(flt(r.grand_total) for r in {r.name: r for r in rows}.values())
-    total_docs = len(docs)
-    html += f"""<tr class="subtotal">
-      <td colspan="5">Total — {total_docs} {doc_type_label}{"s" if total_docs != 1 else ""}</td>
-      <td class="r">{_fmt(total_amt)}</td>
+    total = sum(flt(r.grand_total) for r in {r.name: r for r in rows}.values())
+    count = len(docs)
+    span  = 6 if date_field else 5
+    html += f"""<tr class="sub">
+      <td colspan="{span}">Total — {count} record{"s" if count != 1 else ""}</td>
+      <td class="r">{_fmt(total)}</td>
     </tr></tbody></table>"""
     return html
 
 
-def _ar_invoice_table(rows, show_outstanding=True):
-    """Table for AR Gathered / AR Collected — invoice rows with item group detail."""
+def _pdf_invoice_table(rows, mode="all"):
+    """Table for Sales Invoices / AR Gathered / AR Collected."""
+    if not rows:
+        return '<div class="empty">No records this week.</div>'
+
     docs = {}
     for r in rows:
         if r.name not in docs:
-            docs[r.name] = {"name": r.name, "customer": r.customer,
-                            "grand_total": r.grand_total,
-                            "outstanding_amount": r.outstanding_amount,
-                            "posting_date": r.posting_date,
-                            "company": r.company, "items": []}
+            docs[r.name] = {
+                "name": r.name, "customer": r.customer,
+                "grand_total": r.grand_total,
+                "outstanding_amount": r.outstanding_amount,
+                "posting_date": str(r.posting_date)[:10],
+                "company": r.company, "items": [],
+            }
         docs[r.name]["items"].append(r)
 
-    status_col = "<th>Status</th>" if show_outstanding else "<th>Status</th>"
-    html = f"""<table>
-      <thead><tr>
-        <th>Client</th><th>Entity</th><th>Invoice Date</th>
-        <th>Item Group</th><th class="r">Qty</th><th class="r">Line Amt</th>
-        <th class="r">Invoice Total</th>{status_col}
-      </tr></thead><tbody>"""
+    html = """<table><thead><tr>
+      <th>Client</th><th>Entity</th><th>Date</th>
+      <th>Item Group</th><th class="r">Qty</th>
+      <th class="r">Line Amt</th><th class="r">Total</th><th>Status</th>
+    </tr></thead><tbody>"""
 
-    for doc_name, doc in docs.items():
-        ent_cls = "ent-mt" if doc["company"] == "Motley Terpz" else "ent-ts"
-        ent_lbl = "Motley"  if doc["company"] == "Motley Terpz" else "TSBC"
-        items = doc["items"]
+    for doc in docs.values():
+        ent_cls     = "ent-mt" if doc["company"] == "Motley Terpz" else "ent-ts"
+        ent_lbl     = "Motley"  if doc["company"] == "Motley Terpz" else "TSBC"
         outstanding = flt(doc["outstanding_amount"])
-        status_html = (
-            f'<span class="badge-unpaid">Unpaid {_fmt(outstanding)}</span>'
-            if show_outstanding
-            else '<span class="badge-paid">Collected</span>'
-        )
+        if mode == "unpaid":
+            status_html = f'<span class="bu">Unpaid {_fmt(outstanding)}</span>'
+        elif mode == "paid":
+            status_html = '<span class="bp">Collected</span>'
+        else:
+            status_html = (
+                f'<span class="bu">Unpaid {_fmt(outstanding)}</span>'
+                if outstanding > 0.01 else
+                '<span class="bp">Paid</span>'
+            )
+        items = doc["items"]
         for j, item in enumerate(items):
             first = j == 0
             last  = j == len(items) - 1
-            inv_date = str(doc["posting_date"])[:10] if first else ""
             html += f"""<tr>
-              <td class="bold">{_esc(doc["customer"]) if first else ""}</td>
-              <td>{"<span class='ent " + ent_cls + "'>" + ent_lbl + "</span>" if first else ""}</td>
-              <td class="muted">{inv_date}</td>
-              <td>{_esc(item.item_group or "—")}</td>
+              <td class="b">{_esc(doc['customer']) if first else ''}</td>
+              <td>{"<span class='ent " + ent_cls + "'>" + ent_lbl + "</span>" if first else ''}</td>
+              <td class="m">{doc['posting_date'] if first else ''}</td>
+              <td>{_esc(item.item_group or '—')}</td>
               <td class="r">{_qty(item.qty)}</td>
               <td class="r">{_fmt(item.amount)}</td>
-              <td class="r bold">{"" if not last else _fmt(doc["grand_total"])}</td>
-              <td>{status_html if last else ""}</td>
+              <td class="r b">{"" if not last else _fmt(doc['grand_total'])}</td>
+              <td>{status_html if last else ''}</td>
             </tr>"""
 
-    total_amt  = sum(flt(r.grand_total) for r in {r.name: r for r in rows}.values())
-    total_docs = len(docs)
-    html += f"""<tr class="subtotal">
-      <td colspan="6">Total — {total_docs} invoice{"s" if total_docs != 1 else ""}</td>
-      <td class="r">{_fmt(total_amt)}</td><td></td>
+    total = sum(flt(r.grand_total) for r in {r.name: r for r in rows}.values())
+    count = len(docs)
+    html += f"""<tr class="sub">
+      <td colspan="6">Total — {count} invoice{"s" if count != 1 else ""}</td>
+      <td class="r">{_fmt(total)}</td><td></td>
     </tr></tbody></table>"""
     return html
 
 
-def _legacy_table(rows):
-    """Table for Legacy Collected — payment rows linked to old invoices."""
-    html = """<table>
-      <thead><tr>
-        <th>Client</th><th>Entity</th><th>Payment Date</th>
-        <th>Mode</th><th>Invoice</th><th class="r">Inv. Date</th>
-        <th class="r">Inv. Total</th><th class="r">Collected</th>
-      </tr></thead><tbody>"""
+def _pdf_legacy_table(rows):
+    html = """<table><thead><tr>
+      <th>Client</th><th>Entity</th><th>Pay Date</th><th>Mode</th>
+      <th>Invoice</th><th class="r">Inv Date</th>
+      <th class="r">Inv Total</th><th class="r">Collected</th>
+    </tr></thead><tbody>"""
 
-    # Group by payment
     payments = {}
     for r in rows:
         if r.payment_name not in payments:
             payments[r.payment_name] = []
         payments[r.payment_name].append(r)
 
-    for pay_name, pay_rows in payments.items():
+    for pay_rows in payments.values():
         for j, r in enumerate(pay_rows):
-            first = j == 0
+            first   = j == 0
             ent_cls = "ent-mt" if r.company == "Motley Terpz" else "ent-ts"
             ent_lbl = "Motley"  if r.company == "Motley Terpz" else "TSBC"
             mt      = _mode_type(r.mode_of_payment)
-            mcls    = f"mode-{mt}"
+            mcls    = f"m{'b' if mt == 'bank' else 'c' if mt == 'cash' else 'o'}"
             html += f"""<tr>
-              <td class="bold">{_esc(r.customer) if first else ""}</td>
-              <td>{"<span class='ent " + ent_cls + "'>" + ent_lbl + "</span>" if first else ""}</td>
-              <td class="muted">{str(r.payment_date)[:10] if first else ""}</td>
-              <td>{"<span class='mode " + mcls + "'>" + _esc(r.mode_of_payment) + "</span>" if first else ""}</td>
-              <td class="muted">{r.invoice}</td>
-              <td class="r muted">{str(r.invoice_date)[:10]}</td>
+              <td class="b">{_esc(r.customer) if first else ''}</td>
+              <td>{"<span class='ent " + ent_cls + "'>" + ent_lbl + "</span>" if first else ''}</td>
+              <td class="m">{str(r.payment_date)[:10] if first else ''}</td>
+              <td>{"<span class='" + mcls + "'>" + _esc(r.mode_of_payment) + "</span>" if first else ''}</td>
+              <td class="m">{r.invoice}</td>
+              <td class="r m">{str(r.invoice_date)[:10]}</td>
               <td class="r">{_fmt(r.invoice_total)}</td>
-              <td class="r bold">{_fmt(r.collected_amount)}</td>
+              <td class="r b">{_fmt(r.collected_amount)}</td>
             </tr>"""
 
     leg_total = sum(flt(r.collected_amount) for r in rows)
-    html += f"""<tr class="subtotal">
+    html += f"""<tr class="sub">
       <td colspan="7">Total Collected</td>
       <td class="r">{_fmt(leg_total)}</td>
     </tr></tbody></table>"""
     return html
 
 
-def _ig_summary(rows):
+def _pdf_ig_summary(rows):
     if not rows:
         return ""
     ig = {}
     for r in rows:
         key = r.item_group or "Other"
         if key not in ig:
-            ig[key] = {"qty": 0, "amount": 0}
+            ig[key] = {"qty": 0.0, "amount": 0.0}
         ig[key]["qty"]    += flt(r.qty)
         ig[key]["amount"] += flt(r.amount)
 
-    html = """<table style="margin-top:0">
-      <thead><tr style="background:#fafbff">
-        <th colspan="2" style="color:#7c3aed;letter-spacing:.3px">Item Group Summary</th>
-        <th class="r">Total Qty</th><th class="r">Total Amount</th>
-      </tr></thead><tbody>"""
+    html = """<table class="ig-tbl"><thead><tr>
+      <th colspan="2">Item Group Summary</th>
+      <th class="r">Total Qty</th><th class="r">Total Amount</th>
+    </tr></thead><tbody>"""
     for key, v in sorted(ig.items()):
         html += f"""<tr>
           <td colspan="2">{_esc(key)}</td>
-          <td class="r">{_qty(v["qty"])}</td>
-          <td class="r">{_fmt(v["amount"])}</td>
+          <td class="r">{_qty(v['qty'])}</td>
+          <td class="r">{_fmt(v['amount'])}</td>
         </tr>"""
     html += "</tbody></table>"
     return html
 
 
-def _signoff_section(gathered, collected, legacy, label):
-    """Bottom card: week closure status — clean or action required."""
-    g_count   = len({r.name for r in gathered})
-    g_total   = sum(flt(r.grand_total) for r in {r.name: r for r in gathered}.values())
-    c_total   = sum(flt(r.grand_total) for r in {r.name: r for r in collected}.values())
-    leg_total = sum(flt(r.collected_amount) for r in legacy)
+# ── PDF generation ────────────────────────────────────────────────────────────
 
-    has_problem = g_count > 0
-    dot_color   = "#dc2626" if has_problem else "#059669"
+def _make_pdf(html):
+    try:
+        from frappe.utils.pdf import get_pdf
+        return get_pdf(html)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "[weekly_report] PDF generation failed")
+        return None
 
-    if has_problem:
-        status_badge = '<span class="badge-unpaid">Action Required</span>'
-        note = (
-            f"{g_count} invoice{'s' if g_count != 1 else ''} created this week "
-            f"remain unpaid — <strong>{_fmt(g_total)}</strong> outstanding. "
-            "Please review and reconcile before closing the week."
-        )
-    else:
-        status_badge = '<span class="badge-paid">Clean Week</span>'
-        note = "All invoices created this week have been collected. Week is clear for closure."
 
-    return f"""  <div class="card">
-    <div class="card-hdr">
-      <div class="card-dot" style="background:{dot_color}"></div>
-      <div class="card-title">Week Sign-Off &mdash; {label}</div>
-      <div class="card-count">{status_badge}</div>
-    </div>
-    <div style="padding:18px 20px 20px">
-      <p style="font-size:13px;color:#374151;margin-bottom:14px">{note}</p>
-      <table style="font-size:12px;border-collapse:collapse;width:auto">
-        <tr>
-          <td style="padding:3px 20px 3px 0;color:#64748b;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.4px">Collected This Week</td>
-          <td style="font-weight:800;color:#059669;font-size:14px">{_fmt(c_total)}</td>
-          <td style="padding:3px 20px 3px 24px;color:#64748b;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.4px">Legacy Collected</td>
-          <td style="font-weight:800;color:#7c3aed;font-size:14px">{_fmt(leg_total)}</td>
-        </tr>
-        <tr>
-          <td style="padding:3px 20px 3px 0;color:#64748b;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.4px">Outstanding AR</td>
-          <td style="font-weight:800;color:#dc2626;font-size:14px">{_fmt(g_total)}</td>
-          <td colspan="2"></td>
-        </tr>
-      </table>
-      <p style="margin-top:14px;font-size:11px;color:#94a3b8">
-        Sign-off notification sent to Muhammad &amp; bot &mdash; CC: Matt, Imran
-      </p>
-    </div>
-  </div>"""
-
+# ── Week closure sign-off email ───────────────────────────────────────────────
 
 def _send_week_closure_email(week_start, week_end):
-    """
-    Separate closure/adjustment email to Muhammad and bot, CC Matt and Imran.
-    Clean week → subject 'Week Closed'.
-    Outstanding AR → subject 'Adjustments Required'.
-    """
     try:
         label     = _week_label(week_start, week_end)
         gathered  = _get_ar_gathered(week_start, week_end)
@@ -684,32 +848,29 @@ def _send_week_closure_email(week_start, week_end):
             )
 
         html = f"""<!DOCTYPE html>
-<html>
-<head><meta charset="UTF-8">
+<html><head><meta charset="UTF-8">
 <style>
-  * {{ margin:0; padding:0; box-sizing:border-box; }}
-  body {{ font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-          background:#f1f5f9; color:#0f172a; }}
-  .wrap  {{ max-width:580px; margin:20px auto; background:#fff;
-            border-radius:14px; overflow:hidden;
-            box-shadow:0 2px 10px rgba(0,0,0,.08); }}
-  .hdr   {{ background:linear-gradient(150deg,#0f172a 0%,#1e3a5f 100%);
-            padding:28px 32px; text-align:center; }}
-  .hdr-t {{ font-size:20px; font-weight:800; color:#fff; margin-bottom:6px; }}
-  .hdr-d {{ color:rgba(255,255,255,.7); font-size:13px; }}
-  .body  {{ padding:28px 32px; }}
-  .badge {{ display:inline-block; padding:6px 18px; border-radius:20px;
-            font-weight:700; font-size:13px; margin-bottom:18px;
-            background:{status_bg}; color:{status_color}; }}
-  .stats {{ display:flex; gap:14px; margin-top:18px; flex-wrap:wrap; }}
-  .stat  {{ flex:1; min-width:140px; padding:14px 18px; background:#f8fafc;
-            border-radius:10px; border:1px solid #e2e8f0; }}
-  .stat-lbl {{ font-size:10px; font-weight:700; text-transform:uppercase;
-               letter-spacing:.5px; color:#64748b; margin-bottom:6px; }}
-  .stat-val {{ font-size:18px; font-weight:800; }}
-  .footer {{ padding:14px 32px; background:#f8fafc;
-             border-top:1px solid #e2e8f0;
-             font-size:11px; color:#94a3b8; text-align:center; }}
+  *{{margin:0;padding:0;box-sizing:border-box;}}
+  body{{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+       background:#f1f5f9;color:#0f172a;}}
+  .wrap{{max-width:560px;margin:20px auto;background:#fff;border-radius:14px;
+         overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.08);}}
+  .hdr{{background:linear-gradient(150deg,#0f172a 0%,#1e3a5f 100%);
+        padding:26px 30px;text-align:center;}}
+  .hdr-t{{font-size:18px;font-weight:800;color:#fff;margin-bottom:5px;}}
+  .hdr-d{{color:rgba(255,255,255,.65);font-size:13px;}}
+  .body{{padding:26px 30px;}}
+  .badge{{display:inline-block;padding:5px 16px;border-radius:20px;
+          font-weight:700;font-size:13px;margin-bottom:16px;
+          background:{status_bg};color:{status_color};}}
+  .stats{{display:flex;gap:12px;margin-top:16px;flex-wrap:wrap;}}
+  .stat{{flex:1;min-width:130px;padding:12px 16px;background:#f8fafc;
+         border-radius:10px;border:1px solid #e2e8f0;}}
+  .stat-l{{font-size:10px;font-weight:700;text-transform:uppercase;
+           letter-spacing:.5px;color:#64748b;margin-bottom:5px;}}
+  .stat-v{{font-size:17px;font-weight:800;}}
+  .footer{{padding:12px 30px;background:#f8fafc;border-top:1px solid #e2e8f0;
+           font-size:11px;color:#94a3b8;text-align:center;}}
 </style>
 </head>
 <body>
@@ -723,25 +884,22 @@ def _send_week_closure_email(week_start, week_end):
     {body_note}
     <div class="stats">
       <div class="stat">
-        <div class="stat-lbl">Collected This Week</div>
-        <div class="stat-val" style="color:#059669">{_fmt(c_total)}</div>
+        <div class="stat-l">Collected This Week</div>
+        <div class="stat-v" style="color:#059669">{_fmt(c_total)}</div>
       </div>
       <div class="stat">
-        <div class="stat-lbl">Legacy Collected</div>
-        <div class="stat-val" style="color:#7c3aed">{_fmt(leg_total)}</div>
+        <div class="stat-l">Legacy Collected</div>
+        <div class="stat-v" style="color:#7c3aed">{_fmt(leg_total)}</div>
       </div>
       <div class="stat">
-        <div class="stat-lbl">Outstanding AR</div>
-        <div class="stat-val" style="color:#dc2626">{_fmt(g_total)}</div>
+        <div class="stat-l">Outstanding AR</div>
+        <div class="stat-v" style="color:#dc2626">{_fmt(g_total)}</div>
       </div>
     </div>
   </div>
-  <div class="footer">
-    Auto-generated by ERPNext &nbsp;&middot;&nbsp; Do not reply to this message.
-  </div>
+  <div class="footer">Auto-generated by ERPNext &nbsp;&middot;&nbsp; Do not reply.</div>
 </div>
-</body>
-</html>"""
+</body></html>"""
 
         frappe.sendmail(
             recipients=SIGNOFF_TO,
@@ -752,18 +910,6 @@ def _send_week_closure_email(week_start, week_end):
         )
     except Exception:
         frappe.log_error(frappe.get_traceback(), "[weekly_report] sign-off email failed")
-
-
-def _card(dot_color, title, count, total, body_html):
-    return f"""  <div class="card">
-    <div class="card-hdr">
-      <div class="card-dot" style="background:{dot_color}"></div>
-      <div class="card-title">{title}</div>
-      <div class="card-count">{count}</div>
-      <div class="card-total">{total}</div>
-    </div>
-    {body_html}
-  </div>"""
 
 
 # ── Utilities ─────────────────────────────────────────────────────────────────
