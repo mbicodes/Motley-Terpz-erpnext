@@ -22,6 +22,8 @@ OVERDUE_AGING_DAYS    = 30
 
 def sync_crm_ar_data():
     """Scheduled nightly entry point."""
+    if not frappe.db.exists("DocType", "CRM Lead"):
+        return
     leads = frappe.get_all(
         "CRM Lead",
         filters=[["custom_erp_customer", "not in", ["", None]]],
