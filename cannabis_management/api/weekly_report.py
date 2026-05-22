@@ -513,10 +513,11 @@ def _pdf_section_wrap(bg_color, title, meta, table_html, ig_html=""):
 
 
 def _pdf_so_section(rows):
-    count = len({r.name for r in rows})
-    total = sum(flt(r.grand_total) for r in {r.name: r for r in rows}.values())
-    tbl   = _pdf_doc_table(rows, date_field=None)
-    ig    = _pdf_ig_summary(rows)
+    count    = len({r.name for r in rows})
+    total    = sum(flt(r.grand_total) for r in {r.name: r for r in rows}.values())
+    site_url = frappe.utils.get_url()
+    tbl      = _pdf_doc_table(rows, date_field=None, doc_slug="sales-order", site_url=site_url)
+    ig       = _pdf_ig_summary(rows)
     return _pdf_section_wrap(
         "#2563eb", "Sales Orders — This Week",
         f"{count} order{'s' if count != 1 else ''} &nbsp;&middot;&nbsp; {_fmt(total)}",
@@ -525,10 +526,11 @@ def _pdf_so_section(rows):
 
 
 def _pdf_si_section(rows):
-    count = len({r.name for r in rows})
-    total = sum(flt(r.grand_total) for r in {r.name: r for r in rows}.values())
-    tbl   = _pdf_invoice_table(rows, mode="all")
-    ig    = _pdf_ig_summary(rows)
+    count    = len({r.name for r in rows})
+    total    = sum(flt(r.grand_total) for r in {r.name: r for r in rows}.values())
+    site_url = frappe.utils.get_url()
+    tbl      = _pdf_invoice_table(rows, mode="all", doc_slug="sales-invoice", site_url=site_url)
+    ig       = _pdf_ig_summary(rows)
     return _pdf_section_wrap(
         "#4f46e5", "Sales Invoices — This Week",
         f"{count} invoice{'s' if count != 1 else ''} &nbsp;&middot;&nbsp; {_fmt(total)}",
@@ -537,10 +539,11 @@ def _pdf_si_section(rows):
 
 
 def _pdf_dn_section(rows):
-    count = len({r.name for r in rows})
-    total = sum(flt(r.grand_total) for r in {r.name: r for r in rows}.values())
-    tbl   = _pdf_doc_table(rows, date_field="posting_date")
-    ig    = _pdf_ig_summary(rows)
+    count    = len({r.name for r in rows})
+    total    = sum(flt(r.grand_total) for r in {r.name: r for r in rows}.values())
+    site_url = frappe.utils.get_url()
+    tbl      = _pdf_doc_table(rows, date_field="posting_date", doc_slug="delivery-note", site_url=site_url)
+    ig       = _pdf_ig_summary(rows)
     return _pdf_section_wrap(
         "#0d9488", "Delivery Notes — This Week",
         f"{count} delivery note{'s' if count != 1 else ''} &nbsp;&middot;&nbsp; {_fmt(total)}",
@@ -549,13 +552,14 @@ def _pdf_dn_section(rows):
 
 
 def _pdf_gathered_section(rows):
-    count = len({r.name for r in rows})
-    total = sum(flt(r.grand_total) for r in {r.name: r for r in rows}.values())
+    count    = len({r.name for r in rows})
+    total    = sum(flt(r.grand_total) for r in {r.name: r for r in rows}.values())
+    site_url = frappe.utils.get_url()
     if not rows:
         tbl = '<div class="empty">No unpaid invoices created this week.</div>'
         ig  = ""
     else:
-        tbl = _pdf_invoice_table(rows, mode="unpaid")
+        tbl = _pdf_invoice_table(rows, mode="unpaid", doc_slug="sales-invoice", site_url=site_url)
         ig  = _pdf_ig_summary(rows)
     return _pdf_section_wrap(
         "#dc2626", "AR Gathered — Invoices Created, Not Yet Paid",
@@ -565,13 +569,14 @@ def _pdf_gathered_section(rows):
 
 
 def _pdf_collected_section(rows):
-    count = len({r.name for r in rows})
-    total = sum(flt(r.grand_total) for r in {r.name: r for r in rows}.values())
+    count    = len({r.name for r in rows})
+    total    = sum(flt(r.grand_total) for r in {r.name: r for r in rows}.values())
+    site_url = frappe.utils.get_url()
     if not rows:
         tbl = '<div class="empty">No invoices from this week fully collected.</div>'
         ig  = ""
     else:
-        tbl = _pdf_invoice_table(rows, mode="paid")
+        tbl = _pdf_invoice_table(rows, mode="paid", doc_slug="sales-invoice", site_url=site_url)
         ig  = _pdf_ig_summary(rows)
     return _pdf_section_wrap(
         "#059669", "AR Collected — Invoices Created &amp; Paid This Week",
@@ -583,10 +588,11 @@ def _pdf_collected_section(rows):
 def _pdf_legacy_section(rows):
     total     = sum(flt(r.collected_amount) for r in rows)
     pay_count = len({r.payment_name for r in rows})
+    site_url  = frappe.utils.get_url()
     if not rows:
         tbl = '<div class="empty">No legacy invoice payments received this week.</div>'
     else:
-        tbl = _pdf_legacy_table(rows)
+        tbl = _pdf_legacy_table(rows, site_url=site_url)
     return _pdf_section_wrap(
         "#7c3aed", "AR Legacy Collected — Old Invoices Paid This Week",
         f"{pay_count} payment{'s' if pay_count != 1 else ''} &nbsp;&middot;&nbsp; {_fmt(total)}",
@@ -631,7 +637,7 @@ def _pdf_signoff(gathered, collected, legacy, label):
 
 # ── PDF table builders ────────────────────────────────────────────────────────
 
-def _pdf_doc_table(rows, date_field=None):
+def _pdf_doc_table(rows, date_field=None, doc_slug="", site_url=""):
     """Generic table for Sales Orders and Delivery Notes."""
     if not rows:
         return '<div class="empty">No records this week.</div>'
@@ -647,22 +653,28 @@ def _pdf_doc_table(rows, date_field=None):
             }
         docs[r.name]["items"].append(r)
 
-    date_col = f"<th>Date</th>" if date_field else ""
+    date_col = "<th>Date</th>" if date_field else ""
     html = f"""<table><thead><tr>
-      <th>Client</th><th>Entity</th>{date_col}
+      <th>ID</th><th>Client</th><th>Entity</th>{date_col}
       <th>Item Group</th><th class="r">Qty</th>
       <th class="r">Line Amt</th><th class="r">Total</th>
     </tr></thead><tbody>"""
 
     for doc in docs.values():
-        ent_cls = "ent-mt" if doc["company"] == "Motley Terpz" else "ent-ts"
-        ent_lbl = "Motley"  if doc["company"] == "Motley Terpz" else "TSBC"
+        ent_cls  = "ent-mt" if doc["company"] == "Motley Terpz" else "ent-ts"
+        ent_lbl  = "Motley"  if doc["company"] == "Motley Terpz" else "TSBC"
+        doc_link = (
+            f'<a href="{site_url}/app/{doc_slug}/{doc["name"]}" '
+            f'style="color:#2563eb;text-decoration:none;font-size:8px">{_esc(doc["name"])}</a>'
+            if site_url and doc_slug else _esc(doc["name"])
+        )
         items = doc["items"]
         for j, item in enumerate(items):
-            first = j == 0
-            last  = j == len(items) - 1
+            first   = j == 0
+            last    = j == len(items) - 1
             date_td = f"<td class='m'>{doc['date'] if first else ''}</td>" if date_field else ""
             html += f"""<tr>
+              <td class="m">{doc_link if first else ''}</td>
               <td class="b">{_esc(doc['customer']) if first else ''}</td>
               <td>{"<span class='ent " + ent_cls + "'>" + ent_lbl + "</span>" if first else ''}</td>
               {date_td}
@@ -674,7 +686,7 @@ def _pdf_doc_table(rows, date_field=None):
 
     total = sum(flt(r.grand_total) for r in {r.name: r for r in rows}.values())
     count = len(docs)
-    span  = 6 if date_field else 5
+    span  = 7 if date_field else 6
     html += f"""<tr class="sub">
       <td colspan="{span}">Total — {count} record{"s" if count != 1 else ""}</td>
       <td class="r">{_fmt(total)}</td>
@@ -682,7 +694,7 @@ def _pdf_doc_table(rows, date_field=None):
     return html
 
 
-def _pdf_invoice_table(rows, mode="all"):
+def _pdf_invoice_table(rows, mode="all", doc_slug="sales-invoice", site_url=""):
     """Table for Sales Invoices / AR Gathered / AR Collected."""
     if not rows:
         return '<div class="empty">No records this week.</div>'
@@ -700,7 +712,7 @@ def _pdf_invoice_table(rows, mode="all"):
         docs[r.name]["items"].append(r)
 
     html = """<table><thead><tr>
-      <th>Client</th><th>Entity</th><th>Date</th>
+      <th>ID</th><th>Client</th><th>Entity</th><th>Date</th>
       <th>Item Group</th><th class="r">Qty</th>
       <th class="r">Line Amt</th><th class="r">Total</th><th>Status</th>
     </tr></thead><tbody>"""
@@ -709,6 +721,11 @@ def _pdf_invoice_table(rows, mode="all"):
         ent_cls     = "ent-mt" if doc["company"] == "Motley Terpz" else "ent-ts"
         ent_lbl     = "Motley"  if doc["company"] == "Motley Terpz" else "TSBC"
         outstanding = flt(doc["outstanding_amount"])
+        doc_link    = (
+            f'<a href="{site_url}/app/{doc_slug}/{doc["name"]}" '
+            f'style="color:#2563eb;text-decoration:none;font-size:8px">{_esc(doc["name"])}</a>'
+            if site_url and doc_slug else _esc(doc["name"])
+        )
         if mode == "unpaid":
             status_html = f'<span class="bu">Unpaid {_fmt(outstanding)}</span>'
         elif mode == "paid":
@@ -724,6 +741,7 @@ def _pdf_invoice_table(rows, mode="all"):
             first = j == 0
             last  = j == len(items) - 1
             html += f"""<tr>
+              <td class="m">{doc_link if first else ''}</td>
               <td class="b">{_esc(doc['customer']) if first else ''}</td>
               <td>{"<span class='ent " + ent_cls + "'>" + ent_lbl + "</span>" if first else ''}</td>
               <td class="m">{doc['posting_date'] if first else ''}</td>
@@ -737,13 +755,13 @@ def _pdf_invoice_table(rows, mode="all"):
     total = sum(flt(r.grand_total) for r in {r.name: r for r in rows}.values())
     count = len(docs)
     html += f"""<tr class="sub">
-      <td colspan="6">Total — {count} invoice{"s" if count != 1 else ""}</td>
+      <td colspan="7">Total — {count} invoice{"s" if count != 1 else ""}</td>
       <td class="r">{_fmt(total)}</td><td></td>
     </tr></tbody></table>"""
     return html
 
 
-def _pdf_legacy_table(rows):
+def _pdf_legacy_table(rows, site_url=""):
     html = """<table><thead><tr>
       <th>Client</th><th>Entity</th><th>Pay Date</th><th>Mode</th>
       <th>Invoice</th><th class="r">Inv Date</th>
@@ -763,12 +781,17 @@ def _pdf_legacy_table(rows):
             ent_lbl = "Motley"  if r.company == "Motley Terpz" else "TSBC"
             mt      = _mode_type(r.mode_of_payment)
             mcls    = f"m{'b' if mt == 'bank' else 'c' if mt == 'cash' else 'o'}"
+            inv_link = (
+                f'<a href="{site_url}/app/sales-invoice/{r.invoice}" '
+                f'style="color:#2563eb;text-decoration:none;font-size:8px">{_esc(r.invoice)}</a>'
+                if site_url else _esc(r.invoice)
+            )
             html += f"""<tr>
               <td class="b">{_esc(r.customer) if first else ''}</td>
               <td>{"<span class='ent " + ent_cls + "'>" + ent_lbl + "</span>" if first else ''}</td>
               <td class="m">{str(r.payment_date)[:10] if first else ''}</td>
               <td>{"<span class='" + mcls + "'>" + _esc(r.mode_of_payment) + "</span>" if first else ''}</td>
-              <td class="m">{r.invoice}</td>
+              <td class="m">{inv_link}</td>
               <td class="r m">{str(r.invoice_date)[:10]}</td>
               <td class="r">{_fmt(r.invoice_total)}</td>
               <td class="r b">{_fmt(r.collected_amount)}</td>
