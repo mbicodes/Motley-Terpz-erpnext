@@ -129,8 +129,10 @@ def _get_weekly_sales_orders(week_start, week_end):
             SUM(soi.amount) AS amount
         FROM `tabSales Order` so
         JOIN `tabSales Order Item` soi ON soi.parent = so.name
+        LEFT JOIN `tabCustomer` c ON c.name = so.customer
         WHERE so.transaction_date BETWEEN %s AND %s
           AND so.docstatus = 1
+          AND (c.is_internal_customer = 0 OR c.is_internal_customer IS NULL)
         GROUP BY so.name, soi.item_group
         ORDER BY so.customer, soi.item_group
     """, (week_start, week_end), as_dict=True)
@@ -146,8 +148,10 @@ def _get_weekly_sales_invoices(week_start, week_end):
             SUM(sii.amount) AS amount
         FROM `tabSales Invoice` si
         JOIN `tabSales Invoice Item` sii ON sii.parent = si.name
+        LEFT JOIN `tabCustomer` c ON c.name = si.customer
         WHERE si.posting_date BETWEEN %s AND %s
           AND si.docstatus = 1
+          AND (c.is_internal_customer = 0 OR c.is_internal_customer IS NULL)
         GROUP BY si.name, sii.item_group
         ORDER BY si.customer, sii.item_group
     """, (week_start, week_end), as_dict=True)
@@ -163,8 +167,10 @@ def _get_weekly_delivery_notes(week_start, week_end):
             SUM(dni.amount) AS amount
         FROM `tabDelivery Note` dn
         JOIN `tabDelivery Note Item` dni ON dni.parent = dn.name
+        LEFT JOIN `tabCustomer` c ON c.name = dn.customer
         WHERE dn.posting_date BETWEEN %s AND %s
           AND dn.docstatus = 1
+          AND (c.is_internal_customer = 0 OR c.is_internal_customer IS NULL)
         GROUP BY dn.name, dni.item_group
         ORDER BY dn.customer, dni.item_group
     """, (week_start, week_end), as_dict=True)
@@ -180,10 +186,12 @@ def _get_ar_gathered(week_start, week_end):
             SUM(sii.amount) AS amount
         FROM `tabSales Invoice` si
         JOIN `tabSales Invoice Item` sii ON sii.parent = si.name
+        LEFT JOIN `tabCustomer` c ON c.name = si.customer
         WHERE si.posting_date BETWEEN %s AND %s
           AND si.docstatus = 1
           AND si.outstanding_amount > 0.01
           AND si.outstanding_amount >= (si.grand_total - 0.01)
+          AND (c.is_internal_customer = 0 OR c.is_internal_customer IS NULL)
         GROUP BY si.name, sii.item_group
         ORDER BY si.customer, sii.item_group
     """, (week_start, week_end), as_dict=True)
@@ -199,9 +207,11 @@ def _get_ar_collected(week_start, week_end):
             SUM(sii.amount) AS amount
         FROM `tabSales Invoice` si
         JOIN `tabSales Invoice Item` sii ON sii.parent = si.name
+        LEFT JOIN `tabCustomer` c ON c.name = si.customer
         WHERE si.posting_date BETWEEN %s AND %s
           AND si.docstatus = 1
           AND si.outstanding_amount <= 0.01
+          AND (c.is_internal_customer = 0 OR c.is_internal_customer IS NULL)
         GROUP BY si.name, sii.item_group
         ORDER BY si.customer, sii.item_group
     """, (week_start, week_end), as_dict=True)
@@ -222,11 +232,14 @@ def _get_ar_legacy_collected(week_start, week_end):
         FROM `tabPayment Entry` pe
         JOIN `tabPayment Entry Reference` per ON per.parent = pe.name
         JOIN `tabSales Invoice` si ON si.name = per.reference_name
+        LEFT JOIN `tabCustomer` c ON c.name = pe.party
         WHERE pe.docstatus = 1
           AND pe.payment_type = 'Receive'
+          AND pe.party_type = 'Customer'
           AND pe.posting_date BETWEEN %s AND %s
           AND si.posting_date < %s
           AND per.reference_doctype = 'Sales Invoice'
+          AND (c.is_internal_customer = 0 OR c.is_internal_customer IS NULL)
         ORDER BY pe.party, pe.posting_date, si.posting_date
     """, (week_start, week_end, week_start), as_dict=True)
 

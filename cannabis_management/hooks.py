@@ -180,6 +180,7 @@ doc_events = {
         "before_submit": [
             "cannabis_management.doc_hooks.sales_invoice.before_submit",
             "cannabis_management.overrides.crm_enforcement.check_customer_blocked",
+            "cannabis_management.overrides.crm_enforcement.check_cod_customer",
         ],
     },
     # Lab mapping: auto-create BOMs on Material Request submit
@@ -252,6 +253,7 @@ scheduler_events = {
         "0 8 * * 1": [
             "cannabis_management.cannabis_management.overrides.weekly_signoff.generate_weekly_signoff",
             "cannabis_management.api.weekly_report.send_weekly_report",
+            "cannabis_management.api.nikki_ar_report.send_nikki_ar_report",
         ],
         # Weekly Sales Report: remind Tuesday 8 AM UTC if unacknowledged
         "0 8 * * 2": [

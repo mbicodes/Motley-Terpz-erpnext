@@ -23,6 +23,8 @@ BLOCKED_SLACK_USERS = [
     "nikki@motleyterpz.com",
 ]
 
+COD_NOTIFY_EMAIL = "mbi@alltechvirtual.com"
+
 
 # ── Doc hook: fires on Sales Invoice + Sales Order before_submit ──────────────
 
@@ -47,6 +49,77 @@ def check_customer_blocked(doc, method=None):
         frappe.msgprint(msg, title=_("Blocked Customer — Admin Override"), indicator="red")
     else:
         frappe.throw(msg, title=_("Customer Blocked — Submission Not Allowed"))
+
+
+# ── COD enforcement: notify Muhammad when a COD customer gets an invoice ─────
+
+def check_cod_customer(doc, method=None):
+    """
+    If the customer is flagged COD-only in CRM, send a Slack alert to Muhammad
+    so he can verify cash was collected before the invoice is posted.
+    """
+    if not doc.customer or not frappe.db.exists("DocType", "CRM Lead"):
+        return
+
+    is_cod = frappe.db.get_value(
+        "CRM Lead",
+        {"custom_erp_customer": doc.customer, "custom_cod_only": 1},
+        "name",
+    )
+    if not is_cod:
+        return
+
+    _send_cod_slack(doc)
+
+
+def _send_cod_slack(doc):
+    try:
+        import json
+        import urllib.request
+
+        slack_webhook_url = frappe.conf.get("slack_webhook_url")
+        if not slack_webhook_url:
+            return
+
+        site_url = frappe.utils.get_url()
+        doc_link = f"{site_url}/app/sales-invoice/{doc.name or 'new'}"
+        amount   = frappe.utils.flt(doc.grand_total)
+
+        blocks = [
+            {
+                "type": "header",
+                "text": {"type": "plain_text", "text": "💵 COD Customer Invoice Submitted", "emoji": True},
+            },
+            {
+                "type": "section",
+                "fields": [
+                    {"type": "mrkdwn", "text": f"*Customer:*\n{doc.customer}"},
+                    {"type": "mrkdwn", "text": f"*Amount:*\n${amount:,.2f}"},
+                ],
+            },
+            {
+                "type": "section",
+                "fields": [
+                    {"type": "mrkdwn", "text": f"*Invoice:*\n<{doc_link}|{doc.name or 'New'}>"},
+                    {"type": "mrkdwn", "text": f"*Submitted by:*\n{frappe.get_fullname(frappe.session.user)}"},
+                ],
+            },
+            {
+                "type": "context",
+                "elements": [{"type": "mrkdwn", "text": "This customer is marked *COD Only* in CRM. Confirm cash was collected."}],
+            },
+        ]
+
+        slack_channel = frappe.conf.get("slack_channel") or "#ar-alerts"
+        payload = json.dumps({"channel": slack_channel, "blocks": blocks}).encode("utf-8")
+        req = urllib.request.Request(
+            slack_webhook_url,
+            data=payload,
+            headers={"Content-Type": "application/json"},
+        )
+        urllib.request.urlopen(req, timeout=5)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "[crm_enforcement] COD Slack notification failed")
 
 
 # ── CRM Lead permission filter: hide Tolling from unauthorised users ──────────
