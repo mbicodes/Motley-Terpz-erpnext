@@ -248,11 +248,11 @@ scheduler_events = {
             "cannabis_management.overrides.payment_overdue_alert.friday_overdue_report",
             # AR Policy: weekly AR report every Friday 8 AM UTC
             "cannabis_management.api.ar_monitor.send_weekly_ar_report",
+            "cannabis_management.api.weekly_report.send_weekly_report",
         ],
         # Weekly Sales Report: generate Monday 8 AM UTC
         "0 8 * * 1": [
             "cannabis_management.cannabis_management.overrides.weekly_signoff.generate_weekly_signoff",
-            "cannabis_management.api.weekly_report.send_weekly_report",
             "cannabis_management.api.nikki_ar_report.send_nikki_ar_report",
         ],
         # Weekly Sales Report: remind Tuesday 8 AM UTC if unacknowledged

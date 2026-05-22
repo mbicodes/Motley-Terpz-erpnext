@@ -4,7 +4,7 @@ import frappe
 @frappe.whitelist()
 def get_item_groups():
     return frappe.db.sql("""
-        SELECT ig.name, COUNT(i.name) as item_count
+        SELECT ig.name, COUNT(i.name) AS item_count
         FROM `tabItem Group` ig
         INNER JOIN `tabItem` i ON i.item_group = ig.name
             AND i.disabled = 0
@@ -18,34 +18,64 @@ def get_item_groups():
 
 @frappe.whitelist()
 def get_stock_with_sales(item_group):
-    groups_to_load = _get_groups_to_load(item_group)
-    placeholders = ", ".join(["%s"] * len(groups_to_load))
+    groups = _get_groups_to_load(item_group)
+    gph = ", ".join(["%s"] * len(groups))
 
-    items = frappe.db.sql("""
-        SELECT
-            b.item_code,
-            i.item_name,
-            i.item_group,
-            b.warehouse,
-            b.actual_qty,
-            b.reserved_stock AS reserved_qty
-        FROM `tabBin` b
-        INNER JOIN `tabItem` i ON i.name = b.item_code
-        WHERE i.item_group IN ({ph})
-          AND i.disabled = 0
-          AND i.custom_show_in_dashboard = 1
-          AND b.actual_qty != 0
-          AND b.warehouse NOT LIKE 'Virtual%%'
-        ORDER BY i.item_group, i.item_name
-    """.format(ph=placeholders), tuple(groups_to_load), as_dict=True)
+    # Every dashboard item in the group(s) — regardless of stock level
+    all_items = frappe.db.sql("""
+        SELECT item_code, item_name, item_group
+        FROM `tabItem`
+        WHERE item_group IN ({ph})
+          AND disabled = 0
+          AND custom_show_in_dashboard = 1
+        ORDER BY item_group, item_name
+    """.format(ph=gph), tuple(groups), as_dict=True)
 
-    if not items:
+    if not all_items:
         return {"items": [], "sales_data": {}}
 
-    item_codes = list(set(i.item_code for i in items))
+    item_codes = [i.item_code for i in all_items]
+    iph = ", ".join(["%s"] * len(item_codes))
+
+    # Warehouse stock rows — one per (item, warehouse)
+    bin_rows = frappe.db.sql("""
+        SELECT item_code, warehouse,
+               actual_qty,
+               reserved_stock AS reserved_qty
+        FROM `tabBin`
+        WHERE item_code IN ({ph})
+          AND warehouse NOT LIKE 'Virtual%%'
+    """.format(ph=iph), tuple(item_codes), as_dict=True)
+
+    bin_map = {}
+    for row in bin_rows:
+        bin_map.setdefault(row.item_code, []).append(row)
+
+    # Build final list: one row per warehouse; or one empty row if never stocked
+    items = []
+    for item in all_items:
+        wh_rows = bin_map.get(item.item_code, [])
+        if wh_rows:
+            for row in wh_rows:
+                items.append({
+                    "item_code": item.item_code,
+                    "item_name": item.item_name,
+                    "item_group": item.item_group,
+                    "warehouse": row.warehouse,
+                    "actual_qty": float(row.actual_qty or 0),
+                    "reserved_qty": float(row.reserved_qty or 0),
+                })
+        else:
+            items.append({
+                "item_code": item.item_code,
+                "item_name": item.item_name,
+                "item_group": item.item_group,
+                "warehouse": "",
+                "actual_qty": 0.0,
+                "reserved_qty": 0.0,
+            })
 
     sales_data = _get_sales_data(item_codes)
-
     return {"items": items, "sales_data": sales_data}
 
 
@@ -61,16 +91,15 @@ def _get_sales_data(item_codes):
 
     ph = ", ".join(["%s"] * len(item_codes))
 
-    # All submitted delivery note lines for these items
     dn_rows = frappe.db.sql("""
         SELECT
             dni.item_code,
             dni.qty,
             dni.uom,
-            dn.name        AS delivery_note,
+            dn.name         AS delivery_note,
             dn.customer,
             dn.posting_date,
-            dn.status
+            dn.status       AS dn_status
         FROM `tabDelivery Note Item` dni
         JOIN `tabDelivery Note` dn ON dn.name = dni.parent
         WHERE dni.item_code IN ({ph})
@@ -78,13 +107,12 @@ def _get_sales_data(item_codes):
         ORDER BY dn.posting_date DESC
     """.format(ph=ph), tuple(item_codes), as_dict=True)
 
-    # All submitted sales invoice lines for these items
     si_rows = frappe.db.sql("""
         SELECT
             sii.item_code,
             sii.qty,
             sii.delivery_note,
-            si.name          AS sales_invoice,
+            si.name              AS sales_invoice,
             si.customer,
             si.posting_date,
             si.status,
@@ -97,42 +125,46 @@ def _get_sales_data(item_codes):
         ORDER BY si.posting_date DESC
     """.format(ph=ph), tuple(item_codes), as_dict=True)
 
-    # Index SI rows by (item_code, delivery_note) and by (item_code, customer) for direct invoices
-    # dn_name -> list of SI rows
+    # --- build DN -> [invoices] map ---
+    # Deduplicate per (dn, sales_invoice) so the same SI isn't listed twice under one DN.
     si_by_dn = {}
-    si_direct = {}  # item_code -> list (SIs with no DN reference)
-    seen_si = set()
+    seen_dn_si = set()
+
+    # --- build item_code -> [direct invoices] map ---
+    # Deduplicate per (item_code, sales_invoice).
+    si_direct = {}
+    seen_item_si = set()
 
     for row in si_rows:
-        key = row.sales_invoice
-        if key in seen_si:
-            continue
-        seen_si.add(key)
-
         dn_ref = row.get("delivery_note") or ""
         if dn_ref:
-            si_by_dn.setdefault(dn_ref, []).append(row)
+            key = (dn_ref, row.sales_invoice)
+            if key not in seen_dn_si:
+                seen_dn_si.add(key)
+                si_by_dn.setdefault(dn_ref, []).append(row)
         else:
-            si_direct.setdefault(row.item_code, []).append(row)
+            key = (row.item_code, row.sales_invoice)
+            if key not in seen_item_si:
+                seen_item_si.add(key)
+                si_direct.setdefault(row.item_code, []).append(row)
 
-    # Build per-item sales data
-    # Structure: item_code -> { customers: { customer: { dns: [...], direct_invoices: [...] } } }
-    seen_dn = set()
+    # --- build per-(item, customer) delivery note data ---
+    # Deduplicate per (item_code, delivery_note): a DN can have multiple item lines
+    # so the same DN name appears in dn_rows more than once for the same item.
+    seen_item_dn = set()
     item_map = {}
 
     for row in dn_rows:
         ic = row.item_code
-        if ic not in item_map:
-            item_map[ic] = {}
+        dn = row.delivery_note
+        key = (ic, dn)
+        if key in seen_item_dn:
+            continue
+        seen_item_dn.add(key)
 
         cust = row.customer or "Unknown"
-        if cust not in item_map[ic]:
-            item_map[ic][cust] = {"delivery_notes": [], "direct_invoices": []}
-
-        dn = row.delivery_note
-        if dn in seen_dn:
-            continue
-        seen_dn.add(dn)
+        item_map.setdefault(ic, {})
+        item_map[ic].setdefault(cust, {"delivery_notes": [], "direct_invoices": []})
 
         linked_invoices = si_by_dn.get(dn, [])
         item_map[ic][cust]["delivery_notes"].append({
@@ -140,7 +172,7 @@ def _get_sales_data(item_codes):
             "date": str(row.posting_date or ""),
             "qty": float(row.qty or 0),
             "uom": row.uom or "",
-            "status": row.status or "",
+            "dn_status": row.dn_status or "",
             "invoices": [
                 {
                     "name": si.sales_invoice,
@@ -153,14 +185,12 @@ def _get_sales_data(item_codes):
             ],
         })
 
-    # Attach direct invoices (SI with no DN reference)
+    # Attach direct invoices (SI with no delivery_note reference)
     for ic, si_list in si_direct.items():
-        if ic not in item_map:
-            item_map[ic] = {}
+        item_map.setdefault(ic, {})
         for si in si_list:
             cust = si.customer or "Unknown"
-            if cust not in item_map[ic]:
-                item_map[ic][cust] = {"delivery_notes": [], "direct_invoices": []}
+            item_map[ic].setdefault(cust, {"delivery_notes": [], "direct_invoices": []})
             item_map[ic][cust]["direct_invoices"].append({
                 "name": si.sales_invoice,
                 "date": str(si.posting_date or ""),
@@ -169,34 +199,46 @@ def _get_sales_data(item_codes):
                 "status": si.status or "",
             })
 
-    # Flatten to a list-based structure for JSON serialisation
+    # Flatten and compute per-customer sale_status
     result = {}
     for ic, customers in item_map.items():
         result[ic] = []
         for cust, data in customers.items():
-            dns = data["delivery_notes"]
+            dns    = data["delivery_notes"]
             direct = data["direct_invoices"]
 
-            has_dn = len(dns) > 0
+            has_dn       = bool(dns)
+            has_direct   = bool(direct)
             all_invoiced = has_dn and all(len(d["invoices"]) > 0 for d in dns)
             any_invoiced = has_dn and any(len(d["invoices"]) > 0 for d in dns)
 
-            if not has_dn and direct:
+            if not has_dn and not has_direct:
+                sale_status = "no_activity"
+            elif not has_dn and has_direct:
+                # Invoice exists but no delivery note at all
                 sale_status = "invoiced_direct"
             elif has_dn and all_invoiced:
+                # Every DN has a linked invoice (standard flow)
                 sale_status = "fully_invoiced"
             elif has_dn and any_invoiced:
+                # Some DNs have linked invoices, some don't
                 sale_status = "partially_invoiced"
+            elif has_dn and has_direct:
+                # DN exists + a separate SI exists but the SI wasn't created from the DN
+                # (delivery_note field on SI item is blank) — likely the same transaction
+                # but not linked through the standard ERPNext flow
+                sale_status = "delivered_invoiced_unlinked"
             elif has_dn:
+                # DN exists, zero invoices anywhere for this customer
                 sale_status = "delivered_not_invoiced"
             else:
                 sale_status = "no_activity"
 
             result[ic].append({
-                "customer": cust,
+                "customer":       cust,
                 "delivery_notes": dns,
                 "direct_invoices": direct,
-                "sale_status": sale_status,
+                "sale_status":    sale_status,
             })
 
     return result
