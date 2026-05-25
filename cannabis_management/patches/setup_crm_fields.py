@@ -100,8 +100,8 @@ def _create_fields():
         _cf("custom_col_break_flags2", "Column Break", "",
             insert_after="custom_col_break_flags"),
 
-        _cf("custom_account_flags", "Multi Select", "Account Flags",
-            options="No-OCAL\nCOD Only\nCustom QC Process\nSingle Source\nDo Not Contact",
+        _cf("custom_account_flags", "Small Text", "Account Flags",
+            description="Comma-separated: No-OCAL, COD Only, Custom QC Process, Single Source, Do Not Contact",
             insert_after="custom_col_break_flags2"),
 
         _cf("custom_clickup_link", "Data", "ClickUp Link",
