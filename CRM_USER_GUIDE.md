@@ -29,10 +29,10 @@
 The Frappe CRM module replaces the Google Sheet that Matt used to track brands, buyers, and distributors. Every account from the sheet maps to a **CRM Lead** in Frappe. The key additions on top of standard Frappe CRM:
 
 - **4 separate pipeline Kanban views** (one per business line)
-- **Custom fields** on every lead card — tiers, demand estimates, flags, ClickUp link
+- **Custom fields** on every lead card — tiers, demand estimates, flags, ClickUp link, company, revenue size
 - **Live AR data** pulled nightly from ERPNext — balance, aging, last invoice, last payment, MTD revenue
 - **AR enforcement** — blocked customers cannot have invoices/orders submitted
-- **COD enforcement** — Muhammad gets a Slack alert whenever a COD customer is invoiced
+- **COD enforcement** — Slack alert fires whenever a COD customer is invoiced
 - **Nikki's weekly AR report** — emailed every Monday morning
 
 ---
@@ -52,7 +52,7 @@ Each pipeline is a separate Kanban view in CRM. They appear pinned in the left s
 
 ### How to assign a lead to a pipeline
 
-Open the lead card → **Motley Terpz** tab → **Account Info** section → set the **Pipeline** field.
+Open the lead card → **Motley Terpz** tab → **Identity & Ownership** section → set the **Pipeline** field.
 
 ---
 
@@ -75,40 +75,86 @@ To move a lead between stages: drag the card on the Kanban board, or open the ca
 
 ## 4. CRM Lead Card — Fields Reference
 
-All custom fields are on the **Motley Terpz** tab of the lead card.
+All custom fields are on the **Motley Terpz** tab of the lead card, organized into five sections.
 
-### Account Info Section
+---
+
+### Section A — Identity & Ownership
 
 | Field | Type | Description |
 |---|---|---|
 | **Relationship Tier** ⚠️ | Select (required) | AAA / AA / A / Friends & Family / WIP / Lead |
 | **Pipeline** | Select | Fresh Frozen / Rosin / Retail-Distro / Tolling |
 | **Account Owner** | Link → User | Nikki, Matt, or Jamie |
-| **Buyer Activity** | Select | Consistent / Inconsistent / Deposit / Never Purchased |
-| **COD Only** | Checkbox | If checked, customer can only pay cash on delivery |
-| **No-OCAL** | Checkbox | Customer does not use OCAL |
-| **Single Source** | Checkbox | Customer buys from us exclusively |
-| **Special Flags / Notes** | Text | Free-text notes (allergies, restrictions, special handling) |
-| **ClickUp Link** | URL | Direct link to this account's ClickUp task |
+| **Company** | Select | TSBC Ranch / Motley Terpz / Both |
+| **Revenue Size (Est.)** | Select | $25M+ / $5M+ / $1M+ / $500K+ / $100K+ / <$50K / Unknown |
+
+---
+
+### Section B — Activity & Behavior
+
+| Field | Type | Description |
+|---|---|---|
+| **Buyer Activity** | Select | Consistent / Inconsistent / Deposit / Never Purchased / Collab / Have not contacted |
 | **Last Contact Date** | Date | When you last spoke to this account |
 | **Next Follow-up Date** | Date | When to follow up next |
+| **Notes** | Long Text | Free-text notes — context, history, special instructions |
 
-### Monthly Demand Section (lbs)
+---
+
+### Section C — Flags & Special Handling
+
+| Field | Type | Description |
+|---|---|---|
+| **Single Source** | Checkbox | Customer buys from us exclusively |
+| **COD Only** | Checkbox | Customer can only pay cash on delivery — triggers Slack alert on invoice |
+| **No-OCAL** | Checkbox | Customer does not use OCAL |
+| **Account Flags** | Text | Comma-separated additional flags: No-OCAL, COD Only, Custom QC Process, Single Source, Do Not Contact |
+| **ClickUp Link** | Data | Direct link to this account's ClickUp task |
+| **Slack Channel** | Data | Slack channel for this account e.g. `#tsbc-accounts` |
+
+> **COD enforcement** reads both the **COD Only** checkbox and the **Account Flags** field. Either is enough to trigger the alert.
+
+---
+
+### Section D — Monthly Demand (lbs)
 
 Matt's most important metric. Fill in the estimated monthly demand per product type.
 
-| Field | Product |
+| Field | Unit | Product |
+|---|---|---|
+| Fresh Frozen | lbs/month | Fresh frozen biomass |
+| Rosin | lbs/month | Rosin / live rosin |
+| VRR | lbs/month | Vape-ready rosin |
+| Food Grade | lbs/month | Food-grade trim |
+| Bubble Hash | lbs/month | Bubble / ice water hash |
+| CPG | units/month | Consumer packaged goods |
+| BHO / Live Resin | lbs/month | BHO extracts / live resin |
+| THCA | lbs/month | THCA flower |
+| Trim / Biomass | lbs/month | Trim and biomass |
+| Flower / Pre-rolls | lbs/month | Flower and pre-rolls |
+| Other Demand Notes | Text | Free-text for non-standard products |
+
+---
+
+### Section E — ERPNext Live Data (read-only, auto-synced)
+
+> All fields in this section are **read-only**. They update automatically every weeknight.
+
+| Field | Description |
 |---|---|
-| Fresh Frozen | Fresh frozen biomass |
-| Rosin | Rosin / live rosin |
-| VRR | VRR product |
-| Food Grade | Food-grade trim |
-| Bubble Hash | Bubble / ice water hash |
-| CPG | CPG products |
-| BHO | BHO extracts |
-| THCA | THCA flower |
-| Trim | Trim |
-| Flower | Flower |
+| **ERPNext Customer** | Linked Customer record in ERPNext — fill this to activate the sync |
+| **AR Balance** | Total outstanding invoice balance |
+| **AR Aging (days)** | Days since oldest unpaid invoice was due |
+| **AR Status** | Clean / Watch / Overdue / Blocked |
+| **COD Flag** | Auto-set from Payment Terms nightly |
+| **Last Invoice Date** | Date of most recent Sales Invoice |
+| **Last Invoice Amount** | Amount of most recent Sales Invoice |
+| **Last Payment Date** | Date of most recent payment received |
+| **MTD Revenue** | Revenue this calendar month |
+| **8-Week Trailing Revenue** | Total revenue over the past 8 weeks |
+| **Payment Terms** | Customer's payment terms from ERPNext |
+| **Last Synced** | Timestamp of last nightly sync |
 
 ---
 
@@ -129,30 +175,16 @@ Matt's most important metric. Fill in the estimated monthly demand per product t
 
 ## 6. ERPNext Live Data (Auto-Synced)
 
-The **ERPNext — Live Data** section (collapsible) at the bottom of the Motley Terpz tab shows real-time financial data pulled from ERPNext. **All fields are read-only** — they are updated automatically every night.
-
-| Field | What it shows |
-|---|---|
-| **ERPNext Customer** | The linked Customer record in ERPNext |
-| **AR Balance** | Total outstanding invoice balance |
-| **AR Aging (days)** | How many days the oldest unpaid invoice is overdue |
-| **AR Status** | Clean / Watch / Overdue / Blocked (see table below) |
-| **Last Invoice Date** | Date of the most recent sales invoice |
-| **Last Invoice Amount** | Amount of the most recent sales invoice |
-| **Last Payment Date** | Date of the most recent payment received |
-| **MTD Revenue** | Revenue this calendar month |
-| **8-Week Trailing Revenue** | Total revenue over the past 8 weeks |
-| **Payment Terms** | Customer's payment terms from ERPNext |
-| **Last Synced** | Timestamp of last nightly sync |
+The **ERPNext — Live Data** section at the bottom of the Motley Terpz tab shows financial data pulled from ERPNext nightly. All fields are **read-only**.
 
 ### AR Status Values
 
 | Status | Condition |
 |---|---|
 | ✅ **Clean** | AR balance = $0 |
-| 👀 **Watch** | AR balance > $0, aging under 30 days |
-| ⚠️ **Overdue** | Oldest unpaid invoice 30–60 days overdue |
-| 🚫 **Blocked** | AR balance > **$50,000** OR oldest invoice > **60 days** overdue |
+| 👀 **Watch** | AR balance > $0, aging 1–30 days |
+| ⚠️ **Overdue** | Oldest unpaid invoice **31–90 days** overdue |
+| 🚫 **Blocked** | AR balance > **$50,000** OR oldest invoice > **90 days** overdue |
 
 > To link a CRM lead to an ERPNext customer, fill in the **ERPNext Customer** field. The nightly sync picks it up automatically from that point on.
 
@@ -163,9 +195,10 @@ The **ERPNext — Live Data** section (collapsible) at the bottom of the Motley 
 When someone tries to submit a **Sales Invoice** or **Sales Order** for a blocked customer, the system intervenes automatically.
 
 ### What "Blocked" means
+
 A customer is blocked if **either** condition is true:
 - Outstanding AR balance exceeds **$50,000**, OR
-- The oldest unpaid invoice is more than **60 days** past due date
+- The oldest unpaid invoice is more than **90 days** past due date
 
 ### What happens on submit
 
@@ -179,41 +212,40 @@ A customer is blocked if **either** condition is true:
 > An automatic **Slack notification** is sent to Matt, Imran, and Nikki with the customer name, document type, submitted-by user, and the reason (balance / aging).
 
 ### How to unblock a customer
-1. Collect outstanding payments in ERPNext (Payment Entry against the overdue invoices)
-2. The nightly sync will update the AR Status to Clean/Watch/Overdue
-3. The block is lifted automatically once the threshold conditions are no longer met
+1. Record outstanding payments in ERPNext via **Payment Entry** against the overdue invoices
+2. The nightly sync recalculates AR Status
+3. The block lifts automatically once neither threshold condition is met
 
 ---
 
 ## 8. COD Enforcement
 
-If a customer is marked **COD Only** in CRM and someone submits a **Sales Invoice** for them, Muhammad (mbi@alltechvirtual.com) receives an automatic **Slack alert** to verify that cash was collected before the invoice posts.
+If a customer is flagged **COD Only** in CRM and someone submits a **Sales Invoice** for them, an automatic **Slack alert** is sent to verify that cash was collected before the invoice posts.
 
 ### How to mark a customer as COD Only
-Open the CRM Lead → **Motley Terpz** tab → **Account Info** → check **COD Only**.
 
-The sync ensures this flag is also visible in the ERPNext Live Data section as the Payment Terms field.
+Two ways — either is enough to trigger enforcement:
+1. Open the CRM Lead → **Motley Terpz** tab → **Flags & Special Handling** → check **COD Only**
+2. Or add `COD Only` to the **Account Flags** text field (comma-separated)
+
+The nightly sync also sets the **COD Flag** in the Live Data section automatically if the customer's ERPNext Payment Terms contain "COD".
 
 ### What the Slack alert contains
 - Customer name
 - Invoice number and amount
 - Who submitted the invoice
-- A reminder: *"This customer is marked COD Only in CRM. Confirm cash was collected."*
+- Reminder: *"This customer is marked COD Only in CRM. Confirm cash was collected."*
 
 ---
 
 ## 9. Tolling Pipeline — Access Control
 
-The **Tolling** pipeline is hidden from most users. Only users with the **"CRM Tolling Access"** role assigned in ERPNext can see Tolling leads.
+The **Tolling** pipeline is hidden from most users. Only users with the **"CRM Tolling Access"** role assigned in ERPNext can see Tolling leads. Users without this role see zero Tolling leads in all views, searches, and reports.
 
 ### How to grant Tolling access
-1. In ERPNext go to: **User** → open the user's record
+1. In ERPNext go to: **Settings → User** → open the user's record
 2. In the **Roles** table, add the role **CRM Tolling Access**
-3. Save the user
-
-Users without this role will see Fresh Frozen, Rosin/Solventless, and Retail/Distro leads normally — Tolling leads are simply invisible to them in all views, searches, and reports.
-
-> Currently Matt needs this role assigned. See [Pending Steps](#13-pending-steps).
+3. Save — access takes effect immediately
 
 ---
 
@@ -225,22 +257,21 @@ Every **Monday at 8:00 AM UTC**, an email is automatically sent to:
 
 ### What the report contains
 
-One row per customer with outstanding AR > $0:
+One row per customer with outstanding AR > $0. Rows with overdue invoices or COD flags are highlighted in amber.
 
 | Column | Description |
 |---|---|
 | Account | Customer name |
+| Company | TSBC Ranch / Motley Terpz / Both |
 | Tier | Relationship tier badge (AAA / AA / A / etc.) |
+| Rev. Size | Estimated revenue size ($5M+, etc.) |
 | Outstanding AR | Total unpaid invoice balance |
 | Oldest Due Date | Earliest unpaid invoice due date (red if overdue) |
 | Last Payment | Date of last payment received |
 | New Orders | Count of new Sales Orders placed this week |
 | COD | COD flag if the customer is COD Only |
 
-Rows with overdue invoices or COD flags are highlighted in amber.
-
 ### How to trigger it manually
-In ERPNext console or via a whitelisted API call:
 ```python
 from cannabis_management.api.nikki_ar_report import send_now
 send_now()
@@ -250,19 +281,25 @@ send_now()
 
 ## 11. Nightly Sync — How It Works
 
-Every night (Mon–Fri), a background job runs `crm_sync.sync_crm_ar_data()`. It:
-
-1. Fetches all CRM Leads that have an **ERPNext Customer** linked
-2. Queries live ERPNext data for each customer
-3. Writes the results back to the CRM Lead's read-only fields
+Every weeknight (Mon–Fri), a background job updates every CRM Lead that has an **ERPNext Customer** field filled in.
 
 ### What gets synced
 - AR Balance, AR Aging Days, AR Status
+- COD Flag (from Payment Terms)
 - Last Invoice Date + Amount
 - Last Payment Date
 - MTD Revenue, 8-Week Trailing Revenue
 - Payment Terms
 - Last Synced timestamp
+
+### AR Status thresholds (applied each night)
+
+| Status | Rule |
+|---|---|
+| Clean | AR balance = $0 |
+| Watch | AR > $0, aging ≤ 30 days |
+| Overdue | Aging 31–90 days |
+| Blocked | AR > $50,000 OR aging > 90 days |
 
 ### How to trigger a manual sync
 ```python
@@ -296,7 +333,7 @@ Matt's original Google Sheet (`CRM Sales.xlsx`) has 4 tabs. Below is the complet
 
 ### Column → CRM Lead Field
 
-Both **Sales Brand** and **Sales- Frozen Manufactures** share the same column structure (headers are on row 8; rows 1–7 are the legend key).
+Both **Sales Brand** and **Sales- Frozen Manufactures** share the same column structure (headers on row 8; rows 1–7 are the legend key).
 
 | Col | Sheet Header | → CRM Lead Field | Notes |
 |---|---|---|---|
@@ -304,20 +341,21 @@ Both **Sales Brand** and **Sales- Frozen Manufactures** share the same column st
 | B | Account | `lead_name` | Often contains description after a dash — clean to name only |
 | C | Location | `city` | |
 | D | Date new lead | `custom_last_contact_date` | Use as lead creation date on import |
-| E | Status flags | `custom_single_source`, `custom_no_ocal` checkboxes | Contains text values: "Single Source", "No Ocal", "QC Process", "Custom" |
+| E | Status flags | `custom_single_source`, `custom_no_ocal` checkboxes | Text values: "Single Source", "No Ocal", "QC Process", "Custom" |
 | G | Last contact | `custom_last_contact_date` | Overrides col D if present |
-| H | Buyer activity | `custom_buyer_activity` | Values: consistent / inconsistent / deposit / have not purchased |
-| J | Notes | `custom_special_flags_notes` | |
-| K | What do you know | Append to `custom_special_flags_notes` | |
-| L | FROZEN | `custom_demand_fresh_frozen` | Numbers in lbs; some rows have text ("8k a month") — set to null |
+| H | Buyer activity | `custom_buyer_activity` | consistent / inconsistent / deposit / have not purchased |
+| J | Notes | `custom_notes` | |
+| K | What do you know | Append to `custom_notes` | |
+| L | FROZEN | `custom_demand_fresh_frozen` | Numbers in lbs; text values ("8k a month") → null |
 | M | ROSIN | `custom_demand_rosin` | |
 | N | VRR | `custom_demand_vrr` | |
 | O | FOOD GRD | `custom_demand_food_grade` | |
-| P | BUBBLE | `custom_demand_bubble_hash` | |
-| Q | EDIBLES | *(no CRM field — append to notes)* | |
+| P | BUBBLE | `custom_demand_bubble` | |
+| Q | EDIBLES | `custom_demand_other` (append) | No dedicated field |
 | S | CPG | `custom_demand_cpg` | |
-| T | BHO LIVE | `custom_demand_bho` | Sheet uses col 28 for BHO too — use whichever is populated |
+| T | BHO LIVE | `custom_demand_bho` | col 28 also has BHO — use whichever is populated |
 | U | FLOWER | `custom_demand_flower` | |
+| V | P-ROLLS | `custom_demand_other` (append) | No dedicated field |
 | W | Point of Contact | Contact record name | |
 | X | Phone Number | `mobile_no` | |
 | Y | Email | `email_id` | |
@@ -325,27 +363,25 @@ Both **Sales Brand** and **Sales- Frozen Manufactures** share the same column st
 | col 28 | BHO | `custom_demand_bho` | |
 | col 30 | TRIM | `custom_demand_trim` | |
 | col 31 | THCA | `custom_demand_thca` | |
-| col 33 | ClickUp Notes | `custom_clickup_link` | Contains ClickUp task URL or account label |
-| col 34 | Revenue potential | Append to `custom_special_flags_notes` | Values like "$5M+", "$25M+", "$1M+", "$100K+" |
-| col 35 | Product Types / tags | Append to `custom_special_flags_notes` | Values like "Top 100", "HASHBRAND", "Bho toll" |
+| col 33 | ClickUp Notes | `custom_clickup_link` | |
+| col 34 | Revenue potential | `custom_revenue_size` | Map $25M+ / $5M+ / $1M+ / $500K+ / $100K+ / <$50K to Select options |
+| col 35 | Product Types / tags | `custom_demand_other` (append) | "Top 100", "HASHBRAND", etc. |
 
-**Sales Retailers** columns are simpler:
+**Sales Retailers** columns:
 
 | Col | Sheet Header | → CRM Lead Field |
 |---|---|---|
 | A | Store name | `lead_name` |
 | B | Owners | `custom_account_owner` |
 | C | Location | `city` |
-| D | Info | `custom_special_flags_notes` |
-| E | # Locations | Append to notes |
+| D | Info | `custom_notes` |
+| E | # Locations | Append to `custom_notes` |
 | F | Confirmed | Stage → Active if confirmed |
-| G | To Big? | Append to notes |
+| G | To Big? | Append to `custom_notes` |
 
 ---
 
 ### Tier + Owner Parsing (Column A)
-
-Column A combines tier and owner in one string. Parsing rules:
 
 | Col A value | → Tier | → Owner |
 |---|---|---|
@@ -368,8 +404,8 @@ Column A combines tier and owner in one string. Parsing rules:
 | consistent | **Active** |
 | inconsistent | **Inactive** |
 | deposit | **Active** |
-| have not purchased (+ active outreach in notes) | **Contacted** or **Sample/QC** |
-| have not purchased (+ no recent notes) | **Lead** |
+| have not purchased + active outreach in notes | **Contacted** or **Sample/QC** |
+| have not purchased + no recent notes | **Lead** |
 | No puchase in a year | **Inactive** |
 | Not in business | **Lost** |
 
@@ -381,77 +417,53 @@ Column A combines tier and owner in one string. Parsing rules:
 |---|---|---|
 | Demand cells contain text, not numbers ("8k a month", "YES", "A lot") | ~10–15% | Normalization script: if not numeric, set to null |
 | Account name in col B contains description after a dash | Very common | Truncate at ` - ` or clean manually post-import |
-| Duplicate accounts ("dup", "duplicate" in Notes column J) | ~20 rows | Skip any row where col J contains "dup" or "duplicate" |
+| Duplicate accounts ("dup", "duplicate" in Notes column J) | ~20 rows | Skip rows where col J contains "dup" or "duplicate" |
 | Col A non-standard values ("Click up", "Nikki", "Jake") | ~30 rows | Default to tier = WIP, derive owner from col A text |
-| Some demand values show `#REF!` (broken Excel formula) | A few cells | Treat as null |
-| No ERPNext Customer link exists in the sheet | All rows | Must be matched by name and linked manually after import |
-
----
-
-### Fields in the Sheet With No CRM Equivalent
-
-These have no dedicated field today. All should be appended to `custom_special_flags_notes` during import so the data is not lost:
-
-- **EDIBLES demand** (col Q)
-- **P-ROLLS (pre-rolls) demand** (col V)
-- **Revenue potential** (col 34: "$5M+", "$25M+", etc.)
-- **"Top 100" / "HASHBRAND"** tags (col 35)
-- **"What do you know"** text (col K)
-- **Last Purchase** (col I — no dedicated field; only `last_invoice_date` exists via ERPNext sync)
-
----
-
-### What CRM Adds That the Sheet Never Had
-
-| New capability | How it works |
-|---|---|
-| Live AR balance, aging, last payment date | Pulled nightly from ERPNext once ERPNext Customer is linked |
-| AR Status (Clean / Watch / Overdue / Blocked) | Auto-calculated each night |
-| Hard block on invoice submit for overdue customers | Enforced at Sales Invoice / Sales Order submit |
-| COD Slack alert | Fires automatically when a COD-flagged customer is invoiced |
-| Nikki's weekly AR report | Auto-emailed every Monday |
+| Demand values show `#REF!` (broken Excel formula) | A few cells | Treat as null |
+| No ERPNext Customer link in the sheet | All rows | Must be matched by name and linked manually after import |
 
 ---
 
 ## 13. Pending Steps
 
-These items need to be done manually before CRM is fully live:
-
 ### A. Assign Tolling Access to Matt
-1. ERPNext → **Settings** → **User** → open Matt's user
+1. ERPNext → **Settings → User** → open Matt's user
 2. Roles table → add **CRM Tolling Access**
 3. Save
 
 ### B. Run `bench migrate` on live server
-The following patches are committed and waiting:
-- `setup_crm_fields` — creates all custom fields on CRM Lead
-- `setup_crm_lead_statuses` — creates the 6 pipeline stages
-- `setup_crm_pipelines` — creates the 4 Kanban pipeline views
-- `remove_production_batch_group` — removes stale custom fields from Purchase Receipt etc.
+✅ **Staging (`stage.alltechvirtual.com`) — migrated May 2026**
 
+Live server still needs migration:
 ```bash
 bench --site erp.alltechvirtual.com migrate
 ```
 
+Patches that will apply:
+- `setup_crm_fields` — all 36 custom fields across 5 sections
+- `setup_crm_lead_statuses` — 6 pipeline stages
+- `setup_crm_pipelines` — 4 Kanban pipeline views
+- `remove_production_batch_group` — removes stale custom fields
+
 ### C. Link CRM Leads to ERPNext Customers
-For the nightly sync and AR enforcement to work, each CRM Lead needs its **ERPNext Customer** field filled in. This maps the CRM contact to the ERPNext billing record.
+For the nightly sync and AR enforcement to work, each CRM Lead needs its **ERPNext Customer** field filled in.
 
 Open each lead → **Motley Terpz** tab → **ERPNext — Live Data** section → set **ERPNext Customer**.
 
 ### D. Google Sheet Data Migration
-~1,850 existing accounts from Matt's Google Sheet (`CRM Sales.xlsx`) need to be imported as CRM Leads across 3 tabs. See [Section 12](#12-google-sheet-migration--field-mapping) for the full column-to-field mapping and cleaning rules. Steps:
-1. Run the normalization script to parse tier+owner from col A, clean account names, skip duplicates, coerce demand values to numbers
+~1,850 existing accounts from `CRM Sales.xlsx` need to be imported across 3 tabs. See [Section 12](#12-google-sheet-migration--field-mapping) for the full mapping. Steps:
+1. Run normalization script — parse tier+owner from col A, clean account names, skip duplicates, coerce demand values to numbers, map revenue potential to Select options
 2. Generate one CSV per pipeline (Rosin, Fresh Frozen, Retail/Distro, Tolling)
 3. Upload each CSV via Frappe Data Import Tool
 
 ### E. Matt's Pipeline Health Dashboard
 Not yet built. Planned to show:
-- Total pipeline value
-- Active accounts by pipeline
+- Total pipeline value by pipeline
+- Active accounts per pipeline
 - Total outstanding AR and AR > 30 days
 - New leads this week
 - Accounts with no contact in 30+ days
 
 ---
 
-*This guide covers everything built in the May 2026 CRM implementation sprint. For questions contact Osama (osama.ahmad@alltechvirtual.com).*
+*CRM implementation sprint — May 2026. For questions contact Osama (osama.ahmad@alltechvirtual.com).*
