@@ -9,3 +9,4 @@ cannabis_management.patches.add_warehouse_item_group_mapping
 cannabis_management.patches.remove_mtm_db_records
 cannabis_management.patches.setup_crm_fields
 cannabis_management.patches.setup_crm_lead_statuses
+cannabis_management.patches.remove_production_batch_group

@@ -60,6 +60,8 @@ def check_cod_customer(doc, method=None):
     """
     if not doc.customer or not frappe.db.exists("DocType", "CRM Lead"):
         return
+    if not frappe.db.has_column("CRM Lead", "custom_erp_customer"):
+        return
 
     is_cod = frappe.db.get_value(
         "CRM Lead",

@@ -259,9 +259,9 @@ scheduler_events = {
         "0 8 * * 2": [
             "cannabis_management.cannabis_management.overrides.weekly_signoff.send_acknowledgment_reminder",
         ],
-        # Daily Sale Report: Sun–Thu at 23:00 UTC → delivered Mon–Fri at 04:00 PKT
-        # PKT is UTC+5 year-round (no DST in Pakistan)
-        "0 23 * * 0-4": [
+        # Daily Sale Report: Mon–Fri 01:00 Berlin (CEST=UTC+2) = Sun–Thu 23:00 UTC = Mon–Fri 04:00 PKT
+        # Server is Europe/Berlin; cron uses server local time, not UTC
+        "0 1 * * 1-5": [
             "cannabis_management.api.daily_report.send_daily_report",
         ],
     },
