@@ -74,8 +74,11 @@ def _get_sales_orders(date):
             SUM(soi.amount) AS amount
         FROM `tabSales Order` so
         JOIN `tabSales Order Item` soi ON soi.parent = so.name
+        LEFT JOIN `tabCustomer` c ON c.name = so.customer
         WHERE DATE(so.transaction_date) = %s
           AND so.docstatus = 1
+          AND COALESCE(c.is_internal_customer, 0) = 0
+          AND (c.represents_company IS NULL OR c.represents_company = '')
         GROUP BY so.name, soi.item_group
         ORDER BY so.customer, soi.item_group
     """, date, as_dict=True)
@@ -94,8 +97,11 @@ def _get_sales_invoices(date):
             SUM(sii.amount) AS amount
         FROM `tabSales Invoice` si
         JOIN `tabSales Invoice Item` sii ON sii.parent = si.name
+        LEFT JOIN `tabCustomer` c ON c.name = si.customer
         WHERE DATE(si.posting_date) = %s
           AND si.docstatus = 1
+          AND COALESCE(c.is_internal_customer, 0) = 0
+          AND (c.represents_company IS NULL OR c.represents_company = '')
         GROUP BY si.name, sii.item_group
         ORDER BY si.customer, sii.item_group
     """, date, as_dict=True)
@@ -114,8 +120,11 @@ def _get_delivery_notes(date):
             SUM(dni.amount) AS amount
         FROM `tabDelivery Note` dn
         JOIN `tabDelivery Note Item` dni ON dni.parent = dn.name
+        LEFT JOIN `tabCustomer` c ON c.name = dn.customer
         WHERE DATE(dn.posting_date) = %s
           AND dn.docstatus = 1
+          AND COALESCE(c.is_internal_customer, 0) = 0
+          AND (c.represents_company IS NULL OR c.represents_company = '')
         GROUP BY dn.name, dni.item_group
         ORDER BY dn.customer, dni.item_group
     """, date, as_dict=True)
@@ -132,9 +141,13 @@ def _get_payments(date):
             pe.company,
             pe.remarks
         FROM `tabPayment Entry` pe
+        LEFT JOIN `tabCustomer` c ON c.name = pe.party
         WHERE DATE(pe.posting_date) = %s
           AND pe.docstatus = 1
           AND pe.payment_type = 'Receive'
+          AND pe.party_type = 'Customer'
+          AND COALESCE(c.is_internal_customer, 0) = 0
+          AND (c.represents_company IS NULL OR c.represents_company = '')
         ORDER BY pe.mode_of_payment, pe.party
     """, date, as_dict=True)
     return rows
@@ -152,9 +165,12 @@ def _get_tomorrow_orders(tomorrow):
             SUM(soi.qty) AS total_qty
         FROM `tabSales Order` so
         JOIN `tabSales Order Item` soi ON soi.parent = so.name
+        LEFT JOIN `tabCustomer` c ON c.name = so.customer
         WHERE so.delivery_date = %s
           AND so.docstatus = 1
           AND so.status NOT IN ('Completed', 'Cancelled', 'Closed')
+          AND COALESCE(c.is_internal_customer, 0) = 0
+          AND (c.represents_company IS NULL OR c.represents_company = '')
         GROUP BY so.name
         ORDER BY so.customer
     """, tomorrow, as_dict=True)

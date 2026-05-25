@@ -128,7 +128,8 @@ def _get_weekly_sales_orders(week_start, week_end):
         LEFT JOIN `tabCustomer` c ON c.name = so.customer
         WHERE so.transaction_date BETWEEN %s AND %s
           AND so.docstatus = 1
-          AND (c.is_internal_customer = 0 OR c.is_internal_customer IS NULL)
+          AND COALESCE(c.is_internal_customer, 0) = 0
+          AND (c.represents_company IS NULL OR c.represents_company = '')
         GROUP BY so.name, soi.item_group
         ORDER BY so.customer, soi.item_group
     """, (week_start, week_end), as_dict=True)
@@ -147,7 +148,8 @@ def _get_weekly_sales_invoices(week_start, week_end):
         LEFT JOIN `tabCustomer` c ON c.name = si.customer
         WHERE si.posting_date BETWEEN %s AND %s
           AND si.docstatus = 1
-          AND (c.is_internal_customer = 0 OR c.is_internal_customer IS NULL)
+          AND COALESCE(c.is_internal_customer, 0) = 0
+          AND (c.represents_company IS NULL OR c.represents_company = '')
         GROUP BY si.name, sii.item_group
         ORDER BY si.customer, sii.item_group
     """, (week_start, week_end), as_dict=True)
@@ -166,7 +168,8 @@ def _get_weekly_delivery_notes(week_start, week_end):
         LEFT JOIN `tabCustomer` c ON c.name = dn.customer
         WHERE dn.posting_date BETWEEN %s AND %s
           AND dn.docstatus = 1
-          AND (c.is_internal_customer = 0 OR c.is_internal_customer IS NULL)
+          AND COALESCE(c.is_internal_customer, 0) = 0
+          AND (c.represents_company IS NULL OR c.represents_company = '')
         GROUP BY dn.name, dni.item_group
         ORDER BY dn.customer, dni.item_group
     """, (week_start, week_end), as_dict=True)
@@ -187,7 +190,8 @@ def _get_ar_gathered(week_start, week_end):
           AND si.docstatus = 1
           AND si.outstanding_amount > 0.01
           AND si.outstanding_amount >= (si.grand_total - 0.01)
-          AND (c.is_internal_customer = 0 OR c.is_internal_customer IS NULL)
+          AND COALESCE(c.is_internal_customer, 0) = 0
+          AND (c.represents_company IS NULL OR c.represents_company = '')
         GROUP BY si.name, sii.item_group
         ORDER BY si.customer, sii.item_group
     """, (week_start, week_end), as_dict=True)
@@ -207,7 +211,8 @@ def _get_ar_collected(week_start, week_end):
         WHERE si.posting_date BETWEEN %s AND %s
           AND si.docstatus = 1
           AND si.outstanding_amount <= 0.01
-          AND (c.is_internal_customer = 0 OR c.is_internal_customer IS NULL)
+          AND COALESCE(c.is_internal_customer, 0) = 0
+          AND (c.represents_company IS NULL OR c.represents_company = '')
         GROUP BY si.name, sii.item_group
         ORDER BY si.customer, sii.item_group
     """, (week_start, week_end), as_dict=True)
@@ -235,7 +240,8 @@ def _get_ar_legacy_collected(week_start, week_end):
           AND pe.posting_date BETWEEN %s AND %s
           AND si.posting_date < %s
           AND per.reference_doctype = 'Sales Invoice'
-          AND (c.is_internal_customer = 0 OR c.is_internal_customer IS NULL)
+          AND COALESCE(c.is_internal_customer, 0) = 0
+          AND (c.represents_company IS NULL OR c.represents_company = '')
         ORDER BY pe.party, pe.posting_date, si.posting_date
     """, (week_start, week_end, week_start), as_dict=True)
 

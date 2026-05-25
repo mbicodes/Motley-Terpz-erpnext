@@ -401,6 +401,11 @@ def _sec_a_legacy(today):
           AND account IN %(accounts)s
           AND is_cancelled = 0
           AND posting_date <= %(cutoff)s
+          AND party NOT IN (
+              SELECT name FROM `tabCustomer`
+              WHERE is_internal_customer = 1
+                 OR (represents_company IS NOT NULL AND represents_company != '')
+          )
         GROUP BY party
         HAVING balance > 0
         ORDER BY balance DESC
@@ -478,8 +483,11 @@ def _sec_b_new_ar(week_start, today):
                si.grand_total, si.outstanding_amount,
                si.payment_terms_template
         FROM `tabSales Invoice` si
+        LEFT JOIN `tabCustomer` c ON c.name = si.customer
         WHERE si.docstatus = 1
           AND si.posting_date BETWEEN %(ws)s AND %(today)s
+          AND COALESCE(c.is_internal_customer, 0) = 0
+          AND (c.represents_company IS NULL OR c.represents_company = '')
         ORDER BY si.posting_date DESC
         """,
         {"ws": week_start, "today": today},
@@ -532,9 +540,12 @@ def _sec_c_cod_credit(week_start, today):
             END AS pay_mode,
             COUNT(*)          AS cnt,
             SUM(grand_total)  AS total
-        FROM `tabSales Invoice`
-        WHERE docstatus = 1
-          AND posting_date BETWEEN %(ws)s AND %(today)s
+        FROM `tabSales Invoice` si
+        LEFT JOIN `tabCustomer` c ON c.name = si.customer
+        WHERE si.docstatus = 1
+          AND si.posting_date BETWEEN %(ws)s AND %(today)s
+          AND COALESCE(c.is_internal_customer, 0) = 0
+          AND (c.represents_company IS NULL OR c.represents_company = '')
         GROUP BY pay_mode
         ORDER BY total DESC
         """,
@@ -590,9 +601,12 @@ def _sec_d_red_list():
         FROM `tabSales Invoice` si
         LEFT JOIN `tabSales Team` st
                ON st.parent = si.name AND st.parenttype = 'Sales Invoice'
+        LEFT JOIN `tabCustomer` c ON c.name = si.customer
         WHERE si.docstatus = 1
           AND si.outstanding_amount > 0
           AND si.due_date < DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+          AND COALESCE(c.is_internal_customer, 0) = 0
+          AND (c.represents_company IS NULL OR c.represents_company = '')
         GROUP BY si.customer
         ORDER BY overdue_amount DESC
         """,
