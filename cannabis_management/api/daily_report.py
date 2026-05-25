@@ -9,12 +9,7 @@ from frappe.utils import nowdate, add_days, fmt_money, flt, format_datetime
 from datetime import datetime
 
 CEO_RECIPIENTS = [
-    "jamie@motleyterpz.com",       # Jamie Hawk
-    "matt@motleyterpz.com",        # Matt Schneider
-    "imran@motleyterpz.com",       # Imran
-    "mbi@alltechvirtual.com",      # Muhammad (MBI)
-    "nikki@motleyterpz.com",       # Nikki M
-    "osama.ahmad@alltechvirtual.com",  # Osama (test)
+    "osama.ahmad@alltechvirtual.com",
 ]
 
 COMPANIES = ["Motley Terpz", "TSBC Ranch"]
