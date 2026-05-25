@@ -4,8 +4,8 @@ For every CRM Lead with custom_erp_customer set, pulls live AR data
 from ERPNext and writes it back to the CRM Lead.
 
 AR Status thresholds:
-  Blocked  — AR > $50,000  OR  oldest unpaid invoice > 60 days overdue
-  Overdue  — oldest unpaid invoice 30–60 days overdue
+  Blocked  — AR > $50,000  OR  oldest unpaid invoice > 90 days overdue
+  Overdue  — oldest unpaid invoice 31–90 days overdue
   Watch    — AR > 0, aging < 30 days
   Clean    — AR = 0
 """
@@ -16,7 +16,7 @@ from datetime import timedelta
 
 
 BLOCKED_AR_THRESHOLD  = 50_000.0
-BLOCKED_AGING_DAYS    = 60
+BLOCKED_AGING_DAYS    = 90
 OVERDUE_AGING_DAYS    = 30
 
 
@@ -71,8 +71,15 @@ def _sync_lead(lead_name, customer):
         "custom_mtd_revenue":         data["mtd_revenue"],
         "custom_trailing_8w_revenue": data["trailing_8w"],
         "custom_payment_terms":       data["payment_terms"],
+        "custom_cod_flag":            1 if _is_cod_customer(data["payment_terms"]) else 0,
         "custom_last_sync":           now_datetime(),
     }, update_modified=False)
+
+
+def _is_cod_customer(payment_terms):
+    if not payment_terms:
+        return False
+    return "cod" in payment_terms.lower() or "cash on delivery" in payment_terms.lower()
 
 
 def _compute_ar_data(customer):

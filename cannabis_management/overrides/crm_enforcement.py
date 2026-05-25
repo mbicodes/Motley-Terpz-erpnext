@@ -1,7 +1,7 @@
 """
 CRM AR Enforcement
   - check_customer_blocked(): fires on Sales Invoice + Sales Order before_submit.
-    Blocked = customer AR > $50k OR oldest unpaid invoice > 60 days overdue.
+    Blocked = customer AR > $50k OR oldest unpaid invoice > 90 days overdue.
     Non-admin → hard throw.  Admin → red warning (can proceed).
     Always fires a Slack notification to Matt, Imran, and Nikki.
 
@@ -15,7 +15,7 @@ from frappe.utils import flt
 
 
 BLOCKED_AR_THRESHOLD = 50_000.0
-BLOCKED_AGING_DAYS   = 60
+BLOCKED_AGING_DAYS   = 90
 
 BLOCKED_SLACK_USERS = [
     "matt@motleyterpz.com",
@@ -63,14 +63,17 @@ def check_cod_customer(doc, method=None):
     if not frappe.db.has_column("CRM Lead", "custom_erp_customer"):
         return
 
-    is_cod = frappe.db.get_value(
+    lead_data = frappe.db.get_value(
         "CRM Lead",
-        {"custom_erp_customer": doc.customer, "custom_cod_only": 1},
-        "name",
+        {"custom_erp_customer": doc.customer},
+        ["custom_cod_only", "custom_account_flags"],
+        as_dict=True,
     )
+    if not lead_data:
+        return
+    is_cod = lead_data.custom_cod_only or "COD Only" in (lead_data.custom_account_flags or "")
     if not is_cod:
         return
-
     _send_cod_slack(doc)
 
 

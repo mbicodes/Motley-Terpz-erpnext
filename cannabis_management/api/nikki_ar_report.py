@@ -73,6 +73,8 @@ def _get_ar_data(week_start, week_end):
             si.customer,
             MAX(cl.custom_relationship_tier)          AS tier,
             MAX(cl.custom_cod_only)                   AS cod_only,
+            MAX(cl.custom_company)                    AS company,
+            MAX(cl.custom_revenue_size)               AS revenue_size,
             COALESCE(SUM(si.outstanding_amount), 0)   AS outstanding_ar,
             MIN(CASE WHEN si.outstanding_amount > 0.01
                      THEN si.due_date ELSE NULL END)  AS oldest_due,
@@ -235,7 +237,7 @@ def _ar_table(rows):
     today = getdate(nowdate())
 
     html = """<table><thead><tr>
-      <th>Account</th><th>Tier</th>
+      <th>Account</th><th>Company</th><th>Tier</th><th>Rev. Size</th>
       <th class="r">Outstanding AR</th>
       <th>Oldest Due Date</th>
       <th>Last Payment</th>
@@ -267,7 +269,9 @@ def _ar_table(rows):
 
         html += f"""<tr{row_cls}>
           <td style="font-weight:700">{_esc(r.customer)}</td>
+          <td class="m">{_esc(r.company or "—")}</td>
           <td>{tier_html}</td>
+          <td class="m" style="font-size:11px">{_esc(r.revenue_size or "—")}</td>
           <td class="r" style="font-weight:700;color:#dc2626">{_fmt(r.outstanding_ar)}</td>
           <td>{oldest_html}</td>
           <td class="m">{last_pay}</td>
@@ -277,7 +281,7 @@ def _ar_table(rows):
 
     total = sum(flt(r.outstanding_ar) for r in rows)
     html += f"""<tr class="sub">
-      <td colspan="2">Total</td>
+      <td colspan="4">Total</td>
       <td class="r">{_fmt(total)}</td>
       <td colspan="4"></td>
     </tr></tbody></table>"""
