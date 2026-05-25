@@ -2,34 +2,20 @@
 Patch: create the 4 Kanban pipeline views in CRM View Settings for CRM Lead.
 
 Each view is a public, pinned Kanban filtered by custom_pipeline.
-Columns come from CRM Lead Status (synced automatically by the CRM app).
-Safe to re-run — skips views that already exist.
+Safe to re-run — skips views that already exist (checked by label + dt + type).
+Also repairs any existing views that have user=NULL or wrong kanban_columns.
 """
 import json
 import frappe
 
 
+KANBAN_COLUMNS = ["Lead", "Contacted", "Sample/QC", "Active", "Inactive", "Lost"]
+
 PIPELINES = [
-    {
-        "label":  "Fresh Frozen",
-        "icon":   "❄️",
-        "filter": "Fresh Frozen",
-    },
-    {
-        "label":  "Rosin / Solventless",
-        "icon":   "🌿",
-        "filter": "Rosin / Solventless",
-    },
-    {
-        "label":  "Retail / Distro",
-        "icon":   "🏪",
-        "filter": "Retail / Distro",
-    },
-    {
-        "label":  "Tolling",
-        "icon":   "⚙️",
-        "filter": "Tolling",
-    },
+    {"label": "Fresh Frozen",      "icon": "❄️", "filter": "Fresh Frozen"},
+    {"label": "Rosin / Solventless","icon": "🌿", "filter": "Rosin / Solventless"},
+    {"label": "Retail / Distro",   "icon": "🏪", "filter": "Retail / Distro"},
+    {"label": "Tolling",           "icon": "⚙️", "filter": "Tolling"},
 ]
 
 
@@ -41,28 +27,34 @@ def execute():
         frappe.logger().info("[setup_crm_pipelines] CRM Lead not found — skipping")
         return
 
-    # Fetch the status values to pre-populate kanban columns
-    statuses = frappe.get_all(
-        "CRM Lead Status",
-        fields=["lead_status as status"],
-        order_by="position asc",
-    )
-    kanban_columns = [s.status for s in statuses] if statuses else []
+    columns_json = json.dumps(KANBAN_COLUMNS)
 
     for p in PIPELINES:
-        if frappe.db.exists("CRM View Settings", p["label"]):
-            frappe.logger().info(f"[setup_crm_pipelines] already exists: {p['label']}")
+        existing = frappe.db.get_value(
+            "CRM View Settings",
+            {"label": p["label"], "dt": "CRM Lead", "type": "kanban"},
+            "name",
+        )
+        if existing:
+            # Repair user=NULL and fix kanban_columns on existing records
+            frappe.db.set_value("CRM View Settings", existing, {
+                "user": "",
+                "kanban_columns": columns_json,
+                "public": 1,
+                "pinned": 1,
+            })
+            frappe.logger().info(f"[setup_crm_pipelines] repaired: {p['label']}")
             continue
 
         doc = frappe.new_doc("CRM View Settings")
-        doc.name          = p["label"]
-        doc.label         = p["label"]
-        doc.dt            = "CRM Lead"
-        doc.type          = "kanban"
-        doc.icon          = p["icon"]
-        doc.column_field  = "status"
-        doc.filters       = json.dumps({"custom_pipeline": ["=", p["filter"]]})
-        doc.kanban_columns = json.dumps(kanban_columns)
+        doc.label          = p["label"]
+        doc.dt             = "CRM Lead"
+        doc.type           = "kanban"
+        doc.icon           = p["icon"]
+        doc.column_field   = "status"
+        doc.user           = ""
+        doc.filters        = json.dumps({"custom_pipeline": ["=", p["filter"]]})
+        doc.kanban_columns = columns_json
         doc.kanban_fields  = json.dumps([])
         doc.public         = 1
         doc.pinned         = 1
