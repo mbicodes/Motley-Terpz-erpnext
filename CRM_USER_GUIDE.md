@@ -19,7 +19,8 @@
 9. [Tolling Pipeline — Access Control](#9-tolling-pipeline--access-control)
 10. [Nikki's Weekly AR Report](#10-nikkis-weekly-ar-report)
 11. [Nightly Sync — How It Works](#11-nightly-sync--how-it-works)
-12. [Pending Steps](#12-pending-steps)
+12. [Google Sheet Migration — Field Mapping](#12-google-sheet-migration--field-mapping)
+13. [Pending Steps](#13-pending-steps)
 
 ---
 
@@ -212,7 +213,7 @@ The **Tolling** pipeline is hidden from most users. Only users with the **"CRM T
 
 Users without this role will see Fresh Frozen, Rosin/Solventless, and Retail/Distro leads normally — Tolling leads are simply invisible to them in all views, searches, and reports.
 
-> Currently Matt needs this role assigned. See [Pending Steps](#12-pending-steps).
+> Currently Matt needs this role assigned. See [Pending Steps](#13-pending-steps).
 
 ---
 
@@ -275,7 +276,144 @@ sync_now()
 
 ---
 
-## 12. Pending Steps
+## 12. Google Sheet Migration — Field Mapping
+
+Matt's original Google Sheet (`CRM Sales.xlsx`) has 4 tabs. Below is the complete map of every column to its CRM Lead field, what pipeline each tab feeds, and what needs cleaning before import.
+
+### Sheet → Pipeline
+
+| Sheet tab | # Accounts | → CRM Pipeline |
+|---|---|---|
+| Sales Brand | ~1,691 rows | Rosin / Solventless |
+| Sales- Frozen Manufactures | ~127 rows | Fresh Frozen |
+| Sales Retailers | ~33 rows | Retail / Distro |
+| Sales Distro | Empty | — (Distro accounts appear in Sales Brand) |
+| Any row in Brand/Frozen where TOLLING demand > 0 | Scattered | Tolling |
+
+> **Total: ~1,850 accounts to import.**
+
+---
+
+### Column → CRM Lead Field
+
+Both **Sales Brand** and **Sales- Frozen Manufactures** share the same column structure (headers are on row 8; rows 1–7 are the legend key).
+
+| Col | Sheet Header | → CRM Lead Field | Notes |
+|---|---|---|---|
+| A | Relationship Status | `custom_relationship_tier` + `custom_account_owner` | Combined in one cell — needs parsing (see below) |
+| B | Account | `lead_name` | Often contains description after a dash — clean to name only |
+| C | Location | `city` | |
+| D | Date new lead | `custom_last_contact_date` | Use as lead creation date on import |
+| E | Status flags | `custom_single_source`, `custom_no_ocal` checkboxes | Contains text values: "Single Source", "No Ocal", "QC Process", "Custom" |
+| G | Last contact | `custom_last_contact_date` | Overrides col D if present |
+| H | Buyer activity | `custom_buyer_activity` | Values: consistent / inconsistent / deposit / have not purchased |
+| J | Notes | `custom_special_flags_notes` | |
+| K | What do you know | Append to `custom_special_flags_notes` | |
+| L | FROZEN | `custom_demand_fresh_frozen` | Numbers in lbs; some rows have text ("8k a month") — set to null |
+| M | ROSIN | `custom_demand_rosin` | |
+| N | VRR | `custom_demand_vrr` | |
+| O | FOOD GRD | `custom_demand_food_grade` | |
+| P | BUBBLE | `custom_demand_bubble_hash` | |
+| Q | EDIBLES | *(no CRM field — append to notes)* | |
+| S | CPG | `custom_demand_cpg` | |
+| T | BHO LIVE | `custom_demand_bho` | Sheet uses col 28 for BHO too — use whichever is populated |
+| U | FLOWER | `custom_demand_flower` | |
+| W | Point of Contact | Contact record name | |
+| X | Phone Number | `mobile_no` | |
+| Y | Email | `email_id` | |
+| Z | Contact / Website | `website` | |
+| col 28 | BHO | `custom_demand_bho` | |
+| col 30 | TRIM | `custom_demand_trim` | |
+| col 31 | THCA | `custom_demand_thca` | |
+| col 33 | ClickUp Notes | `custom_clickup_link` | Contains ClickUp task URL or account label |
+| col 34 | Revenue potential | Append to `custom_special_flags_notes` | Values like "$5M+", "$25M+", "$1M+", "$100K+" |
+| col 35 | Product Types / tags | Append to `custom_special_flags_notes` | Values like "Top 100", "HASHBRAND", "Bho toll" |
+
+**Sales Retailers** columns are simpler:
+
+| Col | Sheet Header | → CRM Lead Field |
+|---|---|---|
+| A | Store name | `lead_name` |
+| B | Owners | `custom_account_owner` |
+| C | Location | `city` |
+| D | Info | `custom_special_flags_notes` |
+| E | # Locations | Append to notes |
+| F | Confirmed | Stage → Active if confirmed |
+| G | To Big? | Append to notes |
+
+---
+
+### Tier + Owner Parsing (Column A)
+
+Column A combines tier and owner in one string. Parsing rules:
+
+| Col A value | → Tier | → Owner |
+|---|---|---|
+| `1 Nikki AAA` / `1 NIKKI AAA` | AAA | Nikki |
+| `2 Nikki AA` | AA | Nikki |
+| `3 Nikki A` / `3 NIKKI A` | A | Nikki |
+| `4 NIKKI FRIENDS` / `4 Friends and family` | Friends & Family | Nikki |
+| `5 Jake` | Lead | Jake |
+| `6 Matt 1` / `A -Top Brand` / `A- Top brand` | AAA | Matt |
+| `HOUSE AAA` | AAA | Internal / House |
+| `Click up` | WIP | (derive from notes) |
+| `Nikki` / `Jake` / `Jakes ` | WIP | Nikki / Jake |
+
+---
+
+### Buyer Activity → Lead Stage
+
+| Sheet value (col H) | → CRM Stage |
+|---|---|
+| consistent | **Active** |
+| inconsistent | **Inactive** |
+| deposit | **Active** |
+| have not purchased (+ active outreach in notes) | **Contacted** or **Sample/QC** |
+| have not purchased (+ no recent notes) | **Lead** |
+| No puchase in a year | **Inactive** |
+| Not in business | **Lost** |
+
+---
+
+### Migration Blockers — Fix Before Import
+
+| Issue | Affected rows | Fix |
+|---|---|---|
+| Demand cells contain text, not numbers ("8k a month", "YES", "A lot") | ~10–15% | Normalization script: if not numeric, set to null |
+| Account name in col B contains description after a dash | Very common | Truncate at ` - ` or clean manually post-import |
+| Duplicate accounts ("dup", "duplicate" in Notes column J) | ~20 rows | Skip any row where col J contains "dup" or "duplicate" |
+| Col A non-standard values ("Click up", "Nikki", "Jake") | ~30 rows | Default to tier = WIP, derive owner from col A text |
+| Some demand values show `#REF!` (broken Excel formula) | A few cells | Treat as null |
+| No ERPNext Customer link exists in the sheet | All rows | Must be matched by name and linked manually after import |
+
+---
+
+### Fields in the Sheet With No CRM Equivalent
+
+These have no dedicated field today. All should be appended to `custom_special_flags_notes` during import so the data is not lost:
+
+- **EDIBLES demand** (col Q)
+- **P-ROLLS (pre-rolls) demand** (col V)
+- **Revenue potential** (col 34: "$5M+", "$25M+", etc.)
+- **"Top 100" / "HASHBRAND"** tags (col 35)
+- **"What do you know"** text (col K)
+- **Last Purchase** (col I — no dedicated field; only `last_invoice_date` exists via ERPNext sync)
+
+---
+
+### What CRM Adds That the Sheet Never Had
+
+| New capability | How it works |
+|---|---|
+| Live AR balance, aging, last payment date | Pulled nightly from ERPNext once ERPNext Customer is linked |
+| AR Status (Clean / Watch / Overdue / Blocked) | Auto-calculated each night |
+| Hard block on invoice submit for overdue customers | Enforced at Sales Invoice / Sales Order submit |
+| COD Slack alert | Fires automatically when a COD-flagged customer is invoiced |
+| Nikki's weekly AR report | Auto-emailed every Monday |
+
+---
+
+## 13. Pending Steps
 
 These items need to be done manually before CRM is fully live:
 
@@ -301,10 +439,10 @@ For the nightly sync and AR enforcement to work, each CRM Lead needs its **ERPNe
 Open each lead → **Motley Terpz** tab → **ERPNext — Live Data** section → set **ERPNext Customer**.
 
 ### D. Google Sheet Data Migration
-~200 existing accounts from Matt's Google Sheet need to be imported as CRM Leads. This requires:
-1. Export the Google Sheet to CSV
-2. Run the normalization script to parse tiers, owners, pipelines
-3. Upload via Frappe Data Import Tool
+~1,850 existing accounts from Matt's Google Sheet (`CRM Sales.xlsx`) need to be imported as CRM Leads across 3 tabs. See [Section 12](#12-google-sheet-migration--field-mapping) for the full column-to-field mapping and cleaning rules. Steps:
+1. Run the normalization script to parse tier+owner from col A, clean account names, skip duplicates, coerce demand values to numbers
+2. Generate one CSV per pipeline (Rosin, Fresh Frozen, Retail/Distro, Tolling)
+3. Upload each CSV via Frappe Data Import Tool
 
 ### E. Matt's Pipeline Health Dashboard
 Not yet built. Planned to show:

@@ -1,0 +1,871 @@
+{% extends "templates/web.html" %}
+
+{% block title %}CRM User Guide{% endblock %}
+
+{% block head_include %}
+<style>
+:root {
+  --green:   #16a34a;
+  --green-l: #dcfce7;
+  --blue:    #2563eb;
+  --blue-l:  #dbeafe;
+  --amber:   #d97706;
+  --amber-l: #fef3c7;
+  --red:     #dc2626;
+  --red-l:   #fee2e2;
+  --gray:    #6b7280;
+  --border:  #e5e7eb;
+  --bg:      #f9fafb;
+  --card:    #ffffff;
+  --text:    #111827;
+  --text-sm: #374151;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+
+.cg-wrap {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 40px 24px 80px;
+}
+
+/* ── HEADER ── */
+.cg-header {
+  background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
+  border-radius: 16px;
+  padding: 40px 48px;
+  margin-bottom: 40px;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+.cg-header-logo {
+  font-size: 48px;
+  flex-shrink: 0;
+}
+.cg-header-eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: #94a3b8;
+  margin-bottom: 6px;
+}
+.cg-header h1 {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.2;
+  margin-bottom: 8px;
+}
+.cg-header-meta {
+  font-size: 13px;
+  color: #94a3b8;
+}
+.cg-header-meta span { color: #cbd5e1; font-weight: 600; }
+
+/* ── TOC ── */
+.cg-toc {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px 28px;
+  margin-bottom: 36px;
+}
+.cg-toc h2 {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--gray);
+  margin-bottom: 16px;
+}
+.cg-toc-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 32px;
+}
+.cg-toc a {
+  font-size: 14px;
+  color: var(--blue);
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 0;
+}
+.cg-toc a:hover { text-decoration: underline; }
+.cg-toc-num {
+  font-size: 11px;
+  font-weight: 700;
+  color: #9ca3af;
+  min-width: 20px;
+}
+
+/* ── SECTIONS ── */
+.cg-section {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 32px 36px;
+  margin-bottom: 24px;
+  scroll-margin-top: 24px;
+}
+.cg-section-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.cg-section-num {
+  background: #0f172a;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.cg-section-icon { font-size: 22px; }
+.cg-section h2 {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+}
+.cg-section p {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text-sm);
+  margin-bottom: 12px;
+}
+.cg-section p:last-child { margin-bottom: 0; }
+
+/* ── CALLOUT ── */
+.cg-callout {
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 16px 0;
+  display: flex;
+  gap: 10px;
+}
+.cg-callout.blue  { background: var(--blue-l);  border-left: 3px solid var(--blue);  color: #1e40af; }
+.cg-callout.green { background: var(--green-l); border-left: 3px solid var(--green); color: #14532d; }
+.cg-callout.amber { background: var(--amber-l); border-left: 3px solid var(--amber); color: #92400e; }
+.cg-callout.red   { background: var(--red-l);   border-left: 3px solid var(--red);   color: #7f1d1d; }
+.cg-callout-icon  { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+
+/* ── TABLES ── */
+.cg-table-wrap { overflow-x: auto; margin: 16px 0; }
+table.cg-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+table.cg-table th {
+  background: #f1f5f9;
+  font-weight: 600;
+  text-align: left;
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--border);
+  color: #374151;
+  white-space: nowrap;
+}
+table.cg-table td {
+  padding: 9px 14px;
+  border-bottom: 1px solid #f3f4f6;
+  color: var(--text-sm);
+  vertical-align: top;
+}
+table.cg-table tr:last-child td { border-bottom: none; }
+table.cg-table tr:hover td { background: #fafafa; }
+
+/* ── PIPELINE CARDS ── */
+.cg-pipeline-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+  margin: 20px 0;
+}
+.cg-pipeline-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 18px 20px;
+  position: relative;
+  overflow: hidden;
+}
+.cg-pipeline-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+}
+.cg-pipeline-card.ff::before  { background: #0891b2; }
+.cg-pipeline-card.ros::before { background: var(--green); }
+.cg-pipeline-card.ret::before { background: var(--amber); }
+.cg-pipeline-card.tol::before { background: #7c3aed; }
+.cg-pipeline-emoji { font-size: 28px; margin-bottom: 8px; }
+.cg-pipeline-name  { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+.cg-pipeline-co    { font-size: 12px; color: var(--gray); margin-bottom: 4px; }
+.cg-pipeline-owner { font-size: 12px; font-weight: 600; color: var(--blue); }
+.cg-pipeline-restricted {
+  font-size: 11px;
+  background: #f3e8ff;
+  color: #6b21a8;
+  border-radius: 4px;
+  padding: 2px 7px;
+  display: inline-block;
+  margin-top: 6px;
+  font-weight: 600;
+}
+
+/* ── STAGE KANBAN ── */
+.cg-stages {
+  display: flex;
+  gap: 8px;
+  margin: 16px 0;
+  flex-wrap: wrap;
+}
+.cg-stage {
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  flex: 1;
+  min-width: 110px;
+  text-align: center;
+}
+.cg-stage-name { font-weight: 700; margin-bottom: 3px; }
+.cg-stage-desc { font-size: 11px; opacity: .8; }
+.cg-stage.s1 { background: #f1f5f9; color: #334155; }
+.cg-stage.s2 { background: #fff7ed; color: #9a3412; }
+.cg-stage.s3 { background: #eff6ff; color: #1e40af; }
+.cg-stage.s4 { background: #f0fdf4; color: #14532d; }
+.cg-stage.s5 { background: var(--amber-l); color: #92400e; }
+.cg-stage.s6 { background: var(--red-l); color: #7f1d1d; }
+
+/* ── AR STATUS BADGES ── */
+.cg-ar-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin: 16px 0;
+}
+.cg-ar-badge {
+  border-radius: 8px;
+  padding: 14px 16px;
+  font-size: 13px;
+}
+.cg-ar-badge .badge-title { font-weight: 700; font-size: 15px; margin-bottom: 4px; }
+.cg-ar-badge .badge-cond  { font-size: 12px; opacity: .85; }
+.cg-ar-badge.clean  { background: var(--green-l); color: #14532d; }
+.cg-ar-badge.watch  { background: #f0f9ff; color: #0c4a6e; border: 1px solid #bae6fd; }
+.cg-ar-badge.overdue{ background: var(--amber-l); color: #92400e; }
+.cg-ar-badge.blocked{ background: var(--red-l);   color: #7f1d1d; }
+
+/* ── TIER PILLS ── */
+.cg-tier-list { display: flex; flex-direction: column; gap: 8px; margin: 16px 0; }
+.cg-tier-row  { display: flex; align-items: center; gap: 12px; }
+.cg-tier-pill {
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 100px;
+  padding: 3px 12px;
+  min-width: 80px;
+  text-align: center;
+}
+.tier-aaa { background: #0f172a; color: #fff; }
+.tier-aa  { background: #1e40af; color: #fff; }
+.tier-a   { background: #0369a1; color: #fff; }
+.tier-ff  { background: #be185d; color: #fff; }
+.tier-wip { background: var(--amber); color: #fff; }
+.tier-lead{ background: #e5e7eb; color: #374151; }
+.cg-tier-desc { font-size: 13px; color: var(--text-sm); }
+
+/* ── STEPS ── */
+.cg-steps { margin: 16px 0; }
+.cg-step  {
+  display: flex;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+.cg-step-num {
+  background: #0f172a;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  min-width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.cg-step-body { font-size: 14px; color: var(--text-sm); line-height: 1.6; }
+.cg-step-body strong { color: var(--text); }
+
+/* ── CODE ── */
+.cg-code {
+  background: #0f172a;
+  color: #e2e8f0;
+  border-radius: 8px;
+  padding: 14px 18px;
+  font-family: "SF Mono", "Fira Code", monospace;
+  font-size: 12.5px;
+  line-height: 1.7;
+  margin: 12px 0;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+/* ── SUB-HEADINGS ── */
+.cg-sub {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: #6b7280;
+  margin: 20px 0 10px;
+}
+
+/* ── PENDING CHECKLIST ── */
+.cg-pending { margin: 16px 0; }
+.cg-pending-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+.cg-pending-item:last-child { border-bottom: none; }
+.cg-pending-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.badge-manual  { background: #fef9c3; color: #713f12; }
+.badge-server  { background: #fee2e2; color: #7f1d1d; }
+.badge-data    { background: #ede9fe; color: #4c1d95; }
+.badge-planned { background: #f0fdf4; color: #14532d; }
+
+/* ── FOOTER ── */
+.cg-footer {
+  text-align: center;
+  margin-top: 48px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--gray);
+}
+.cg-footer a { color: var(--blue); text-decoration: none; }
+
+/* ── PRINT ── */
+@media print {
+  .cg-header { background: #0f172a !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .cg-section { break-inside: avoid; }
+  body { background: #fff; }
+}
+
+@media (max-width: 600px) {
+  .cg-pipeline-grid { grid-template-columns: 1fr; }
+  .cg-toc-grid { grid-template-columns: 1fr; }
+  .cg-ar-grid  { grid-template-columns: 1fr; }
+  .cg-header   { flex-direction: column; padding: 28px 24px; }
+  .cg-section  { padding: 24px 20px; }
+}
+</style>
+{% endblock %}
+
+{% block page_content %}
+<div class="cg-wrap">
+
+  <!-- ══ HEADER ══ -->
+  <div class="cg-header">
+    <div class="cg-header-logo">🌿</div>
+    <div>
+      <div class="cg-header-eyebrow">Frappe CRM · ERPNext</div>
+      <h1>CRM User Guide</h1>
+      <div class="cg-header-meta">
+        <span>Motley Terpz</span> &amp; <span>TSBC Ranch</span>
+        &nbsp;·&nbsp; Last updated May 2026
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ TABLE OF CONTENTS ══ -->
+  <div class="cg-toc">
+    <h2>Contents</h2>
+    <div class="cg-toc-grid">
+      <a href="#overview"><span class="cg-toc-num">1</span> Overview</a>
+      <a href="#ar-enforcement"><span class="cg-toc-num">7</span> AR Enforcement</a>
+      <a href="#pipelines"><span class="cg-toc-num">2</span> The 4 Pipelines</a>
+      <a href="#cod-enforcement"><span class="cg-toc-num">8</span> COD Enforcement</a>
+      <a href="#stages"><span class="cg-toc-num">3</span> Lead Stages</a>
+      <a href="#tolling-access"><span class="cg-toc-num">9</span> Tolling Access Control</a>
+      <a href="#fields"><span class="cg-toc-num">4</span> Lead Card Fields</a>
+      <a href="#ar-report"><span class="cg-toc-num">10</span> Nikki's Weekly AR Report</a>
+      <a href="#tiers"><span class="cg-toc-num">5</span> Relationship Tiers</a>
+      <a href="#nightly-sync"><span class="cg-toc-num">11</span> Nightly Sync</a>
+      <a href="#live-data"><span class="cg-toc-num">6</span> ERPNext Live Data</a>
+      <a href="#pending"><span class="cg-toc-num">12</span> Pending Steps</a>
+    </div>
+  </div>
+
+
+  <!-- ══ 1. OVERVIEW ══ -->
+  <div class="cg-section" id="overview">
+    <div class="cg-section-header">
+      <div class="cg-section-num">1</div>
+      <div class="cg-section-icon">📋</div>
+      <h2>Overview</h2>
+    </div>
+    <p>The Frappe CRM module replaces the Google Sheet that Matt used to track brands, buyers, and distributors. Every account from the sheet maps to a <strong>CRM Lead</strong> in Frappe.</p>
+    <div class="cg-table-wrap">
+      <table class="cg-table">
+        <thead><tr><th>Feature</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr><td>4 Pipeline Kanban views</td><td>One per business line — Fresh Frozen, Rosin, Retail/Distro, Tolling</td></tr>
+          <tr><td>Custom fields on every lead</td><td>Tiers, demand estimates, flags, ClickUp link, contact dates</td></tr>
+          <tr><td>Live AR data (nightly)</td><td>Balance, aging, last invoice, last payment, MTD & 8-week revenue pulled from ERPNext</td></tr>
+          <tr><td>AR enforcement</td><td>Blocked customers cannot have invoices or orders submitted</td></tr>
+          <tr><td>COD enforcement</td><td>Muhammad gets a Slack alert whenever a COD customer is invoiced</td></tr>
+          <tr><td>Nikki's weekly AR report</td><td>Emailed every Monday morning with all outstanding balances</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+
+  <!-- ══ 2. PIPELINES ══ -->
+  <div class="cg-section" id="pipelines">
+    <div class="cg-section-header">
+      <div class="cg-section-num">2</div>
+      <div class="cg-section-icon">🗂</div>
+      <h2>The 4 Pipelines</h2>
+    </div>
+    <p>Each pipeline is a public pinned Kanban view in CRM, visible in the left sidebar.</p>
+    <div class="cg-pipeline-grid">
+      <div class="cg-pipeline-card ff">
+        <div class="cg-pipeline-emoji">❄️</div>
+        <div class="cg-pipeline-name">Fresh Frozen</div>
+        <div class="cg-pipeline-co">TSBC Ranch</div>
+        <div class="cg-pipeline-owner">Nikki / Matt</div>
+      </div>
+      <div class="cg-pipeline-card ros">
+        <div class="cg-pipeline-emoji">🌿</div>
+        <div class="cg-pipeline-name">Rosin / Solventless</div>
+        <div class="cg-pipeline-co">Motley Terpz</div>
+        <div class="cg-pipeline-owner">Nikki / Matt</div>
+      </div>
+      <div class="cg-pipeline-card ret">
+        <div class="cg-pipeline-emoji">🏪</div>
+        <div class="cg-pipeline-name">Retail / Distro</div>
+        <div class="cg-pipeline-co">Both companies</div>
+        <div class="cg-pipeline-owner">Nikki</div>
+      </div>
+      <div class="cg-pipeline-card tol">
+        <div class="cg-pipeline-emoji">⚙️</div>
+        <div class="cg-pipeline-name">Tolling</div>
+        <div class="cg-pipeline-co">Motley Terpz</div>
+        <div class="cg-pipeline-owner">Matt only</div>
+        <div class="cg-pipeline-restricted">🔒 Restricted Access</div>
+      </div>
+    </div>
+    <div class="cg-callout blue">
+      <span class="cg-callout-icon">ℹ️</span>
+      <div>To assign a lead to a pipeline: open the lead card → <strong>Motley Terpz</strong> tab → <strong>Account Info</strong> section → set the <strong>Pipeline</strong> field.</div>
+    </div>
+  </div>
+
+
+  <!-- ══ 3. STAGES ══ -->
+  <div class="cg-section" id="stages">
+    <div class="cg-section-header">
+      <div class="cg-section-num">3</div>
+      <div class="cg-section-icon">📊</div>
+      <h2>Lead Stages</h2>
+    </div>
+    <p>Every pipeline uses the same 6 stages. Drag cards on the Kanban board or change the <strong>Status</strong> field on the lead card to move between stages.</p>
+    <div class="cg-stages">
+      <div class="cg-stage s1"><div class="cg-stage-name">Lead</div><div class="cg-stage-desc">Initial contact — not yet reached</div></div>
+      <div class="cg-stage s2"><div class="cg-stage-name">Contacted</div><div class="cg-stage-desc">Reached out, awaiting response</div></div>
+      <div class="cg-stage s3"><div class="cg-stage-name">Sample / QC</div><div class="cg-stage-desc">Sample sent or QC in progress</div></div>
+      <div class="cg-stage s4"><div class="cg-stage-name">Active</div><div class="cg-stage-desc">Buying regularly</div></div>
+      <div class="cg-stage s5"><div class="cg-stage-name">Inactive</div><div class="cg-stage-desc">Was active, gone quiet</div></div>
+      <div class="cg-stage s6"><div class="cg-stage-name">Lost</div><div class="cg-stage-desc">Closed — not going forward</div></div>
+    </div>
+  </div>
+
+
+  <!-- ══ 4. FIELDS ══ -->
+  <div class="cg-section" id="fields">
+    <div class="cg-section-header">
+      <div class="cg-section-num">4</div>
+      <div class="cg-section-icon">📝</div>
+      <h2>CRM Lead Card — Fields Reference</h2>
+    </div>
+    <p>All custom fields live on the <strong>Motley Terpz</strong> tab of the lead card.</p>
+
+    <div class="cg-sub">Account Info Section</div>
+    <div class="cg-table-wrap">
+      <table class="cg-table">
+        <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Relationship Tier ⚠️</strong></td><td>Select (required)</td><td>AAA / AA / A / Friends &amp; Family / WIP / Lead</td></tr>
+          <tr><td><strong>Pipeline</strong></td><td>Select</td><td>Fresh Frozen / Rosin / Retail-Distro / Tolling</td></tr>
+          <tr><td><strong>Account Owner</strong></td><td>Link → User</td><td>Nikki, Matt, or Jamie</td></tr>
+          <tr><td><strong>Buyer Activity</strong></td><td>Select</td><td>Consistent / Inconsistent / Deposit / Never Purchased</td></tr>
+          <tr><td><strong>COD Only</strong></td><td>Checkbox</td><td>Customer can only pay cash on delivery</td></tr>
+          <tr><td><strong>No-OCAL</strong></td><td>Checkbox</td><td>Customer does not use OCAL</td></tr>
+          <tr><td><strong>Single Source</strong></td><td>Checkbox</td><td>Customer buys from us exclusively</td></tr>
+          <tr><td><strong>Special Flags / Notes</strong></td><td>Text</td><td>Free-text — allergies, restrictions, special handling</td></tr>
+          <tr><td><strong>ClickUp Link</strong></td><td>URL</td><td>Direct link to this account's ClickUp task</td></tr>
+          <tr><td><strong>Last Contact Date</strong></td><td>Date</td><td>When you last spoke to this account</td></tr>
+          <tr><td><strong>Next Follow-up Date</strong></td><td>Date</td><td>When to follow up next</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="cg-sub">Monthly Demand Section (lbs)</div>
+    <p>Matt's most important metric. Fill in the estimated monthly demand per product type.</p>
+    <div class="cg-table-wrap">
+      <table class="cg-table">
+        <thead><tr><th>Field</th><th>Product</th></tr></thead>
+        <tbody>
+          <tr><td>Fresh Frozen</td><td>Fresh frozen biomass</td></tr>
+          <tr><td>Rosin</td><td>Rosin / live rosin</td></tr>
+          <tr><td>VRR</td><td>VRR product</td></tr>
+          <tr><td>Food Grade</td><td>Food-grade trim</td></tr>
+          <tr><td>Bubble Hash</td><td>Bubble / ice water hash</td></tr>
+          <tr><td>CPG</td><td>CPG products</td></tr>
+          <tr><td>BHO</td><td>BHO extracts</td></tr>
+          <tr><td>THCA</td><td>THCA flower</td></tr>
+          <tr><td>Trim</td><td>Trim</td></tr>
+          <tr><td>Flower</td><td>Flower</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+
+  <!-- ══ 5. TIERS ══ -->
+  <div class="cg-section" id="tiers">
+    <div class="cg-section-header">
+      <div class="cg-section-num">5</div>
+      <div class="cg-section-icon">🏆</div>
+      <h2>Relationship Tiers</h2>
+    </div>
+    <div class="cg-tier-list">
+      <div class="cg-tier-row"><span class="cg-tier-pill tier-aaa">AAA</span><span class="cg-tier-desc">Top-tier — highest volume, most reliable</span></div>
+      <div class="cg-tier-row"><span class="cg-tier-pill tier-aa">AA</span><span class="cg-tier-desc">Strong account — consistent buyer</span></div>
+      <div class="cg-tier-row"><span class="cg-tier-pill tier-a">A</span><span class="cg-tier-desc">Good account — regular but smaller volume</span></div>
+      <div class="cg-tier-row"><span class="cg-tier-pill tier-ff">F&amp;F</span><span class="cg-tier-desc">Friends &amp; Family — personal relationship, special pricing</span></div>
+      <div class="cg-tier-row"><span class="cg-tier-pill tier-wip">WIP</span><span class="cg-tier-desc">Work in progress — being onboarded</span></div>
+      <div class="cg-tier-row"><span class="cg-tier-pill tier-lead">Lead</span><span class="cg-tier-desc">Prospect — no transaction yet</span></div>
+    </div>
+    <div class="cg-callout amber">
+      <span class="cg-callout-icon">⚠️</span>
+      <div><strong>Tier is required.</strong> You cannot save a lead without setting this field.</div>
+    </div>
+  </div>
+
+
+  <!-- ══ 6. LIVE DATA ══ -->
+  <div class="cg-section" id="live-data">
+    <div class="cg-section-header">
+      <div class="cg-section-num">6</div>
+      <div class="cg-section-icon">🔄</div>
+      <h2>ERPNext Live Data (Auto-Synced)</h2>
+    </div>
+    <p>The <strong>ERPNext — Live Data</strong> section at the bottom of the Motley Terpz tab shows financial data pulled from ERPNext every night. All fields are <strong>read-only</strong>.</p>
+    <div class="cg-table-wrap">
+      <table class="cg-table">
+        <thead><tr><th>Field</th><th>What it shows</th></tr></thead>
+        <tbody>
+          <tr><td><strong>ERPNext Customer</strong></td><td>The linked Customer record in ERPNext</td></tr>
+          <tr><td><strong>AR Balance</strong></td><td>Total outstanding invoice balance</td></tr>
+          <tr><td><strong>AR Aging (days)</strong></td><td>How many days the oldest unpaid invoice is overdue</td></tr>
+          <tr><td><strong>AR Status</strong></td><td>Clean / Watch / Overdue / Blocked</td></tr>
+          <tr><td><strong>Last Invoice Date</strong></td><td>Date of the most recent sales invoice</td></tr>
+          <tr><td><strong>Last Invoice Amount</strong></td><td>Amount of the most recent sales invoice</td></tr>
+          <tr><td><strong>Last Payment Date</strong></td><td>Date of the most recent payment received</td></tr>
+          <tr><td><strong>MTD Revenue</strong></td><td>Revenue this calendar month</td></tr>
+          <tr><td><strong>8-Week Trailing Revenue</strong></td><td>Total revenue over the past 8 weeks</td></tr>
+          <tr><td><strong>Payment Terms</strong></td><td>Customer's payment terms from ERPNext</td></tr>
+          <tr><td><strong>Last Synced</strong></td><td>Timestamp of last nightly sync</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="cg-sub">AR Status Values</div>
+    <div class="cg-ar-grid">
+      <div class="cg-ar-badge clean">
+        <div class="badge-title">✅ Clean</div>
+        <div class="badge-cond">AR balance = $0</div>
+      </div>
+      <div class="cg-ar-badge watch">
+        <div class="badge-title">👀 Watch</div>
+        <div class="badge-cond">AR balance &gt; $0, aging under 30 days</div>
+      </div>
+      <div class="cg-ar-badge overdue">
+        <div class="badge-title">⚠️ Overdue</div>
+        <div class="badge-cond">Oldest unpaid invoice 30–60 days overdue</div>
+      </div>
+      <div class="cg-ar-badge blocked">
+        <div class="badge-title">🚫 Blocked</div>
+        <div class="badge-cond">AR &gt; $50,000 OR oldest invoice &gt; 60 days overdue</div>
+      </div>
+    </div>
+    <div class="cg-callout blue">
+      <span class="cg-callout-icon">ℹ️</span>
+      <div>To link a CRM lead to an ERPNext customer, fill in the <strong>ERPNext Customer</strong> field on the lead card. The nightly sync picks it up automatically from that point on.</div>
+    </div>
+  </div>
+
+
+  <!-- ══ 7. AR ENFORCEMENT ══ -->
+  <div class="cg-section" id="ar-enforcement">
+    <div class="cg-section-header">
+      <div class="cg-section-num">7</div>
+      <div class="cg-section-icon">🚫</div>
+      <h2>AR Enforcement — Blocked Customers</h2>
+    </div>
+    <p>When someone tries to submit a <strong>Sales Invoice</strong> or <strong>Sales Order</strong> for a blocked customer, the system intervenes automatically.</p>
+
+    <div class="cg-sub">What "Blocked" means</div>
+    <p>A customer is blocked if <strong>either</strong> condition is true:</p>
+    <div class="cg-table-wrap">
+      <table class="cg-table">
+        <thead><tr><th>Condition</th><th>Threshold</th></tr></thead>
+        <tbody>
+          <tr><td>Outstanding AR balance exceeds</td><td><strong>$50,000</strong></td></tr>
+          <tr><td>Oldest unpaid invoice is overdue by more than</td><td><strong>60 days</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="cg-sub">What happens on submit</div>
+    <div class="cg-table-wrap">
+      <table class="cg-table">
+        <thead><tr><th>User type</th><th>Outcome</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Regular users</strong></td><td>Hard error — document <strong>cannot be submitted</strong>. Contact Finance to resolve the balance first.</td></tr>
+          <tr><td><strong>Admin / System Manager</strong></td><td>Red warning shown — admin <strong>can proceed</strong> but is warned. Use only when Finance has confirmed it is safe.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="cg-callout amber">
+      <span class="cg-callout-icon">📣</span>
+      <div>In both cases, an automatic <strong>Slack notification</strong> is sent to Matt, Imran, and Nikki with the customer name, document type, submitted-by user, and the reason (balance / aging).</div>
+    </div>
+
+    <div class="cg-sub">How to unblock a customer</div>
+    <div class="cg-steps">
+      <div class="cg-step"><div class="cg-step-num">1</div><div class="cg-step-body">Record outstanding payments in ERPNext via <strong>Payment Entry</strong> against the overdue invoices.</div></div>
+      <div class="cg-step"><div class="cg-step-num">2</div><div class="cg-step-body">The nightly sync will recalculate the AR Status.</div></div>
+      <div class="cg-step"><div class="cg-step-num">3</div><div class="cg-step-body">The block lifts automatically once neither threshold condition is met.</div></div>
+    </div>
+  </div>
+
+
+  <!-- ══ 8. COD ENFORCEMENT ══ -->
+  <div class="cg-section" id="cod-enforcement">
+    <div class="cg-section-header">
+      <div class="cg-section-num">8</div>
+      <div class="cg-section-icon">💵</div>
+      <h2>COD Enforcement</h2>
+    </div>
+    <p>If a customer is marked <strong>COD Only</strong> and someone submits a Sales Invoice for them, Muhammad receives an automatic Slack alert to verify that cash was collected before the invoice posts.</p>
+
+    <div class="cg-sub">How to mark a customer as COD Only</div>
+    <p>Open the CRM Lead → <strong>Motley Terpz</strong> tab → <strong>Account Info</strong> → check <strong>COD Only</strong>.</p>
+
+    <div class="cg-sub">What the Slack alert contains</div>
+    <div class="cg-table-wrap">
+      <table class="cg-table">
+        <thead><tr><th>Alert field</th><th>Details</th></tr></thead>
+        <tbody>
+          <tr><td>Customer name</td><td></td></tr>
+          <tr><td>Invoice number and amount</td><td></td></tr>
+          <tr><td>Submitted by</td><td>The ERPNext user who submitted the invoice</td></tr>
+          <tr><td>Reminder message</td><td>"This customer is marked COD Only. Confirm cash was collected."</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+
+  <!-- ══ 9. TOLLING ACCESS ══ -->
+  <div class="cg-section" id="tolling-access">
+    <div class="cg-section-header">
+      <div class="cg-section-num">9</div>
+      <div class="cg-section-icon">🔒</div>
+      <h2>Tolling Pipeline — Access Control</h2>
+    </div>
+    <p>The Tolling pipeline is hidden from most users. Only users with the <strong>"CRM Tolling Access"</strong> role assigned in ERPNext can see Tolling leads. All other users see Fresh Frozen, Rosin/Solventless, and Retail/Distro normally.</p>
+
+    <div class="cg-sub">How to grant Tolling access</div>
+    <div class="cg-steps">
+      <div class="cg-step"><div class="cg-step-num">1</div><div class="cg-step-body">In ERPNext go to: <strong>Settings → User</strong> → open the user's record.</div></div>
+      <div class="cg-step"><div class="cg-step-num">2</div><div class="cg-step-body">In the <strong>Roles</strong> table, add the role <strong>CRM Tolling Access</strong>.</div></div>
+      <div class="cg-step"><div class="cg-step-num">3</div><div class="cg-step-body">Save the user record. Access takes effect immediately.</div></div>
+    </div>
+    <div class="cg-callout red">
+      <span class="cg-callout-icon">⚠️</span>
+      <div>Users without this role will see <strong>zero Tolling leads</strong> — they are invisible in all views, searches, and reports.</div>
+    </div>
+  </div>
+
+
+  <!-- ══ 10. AR REPORT ══ -->
+  <div class="cg-section" id="ar-report">
+    <div class="cg-section-header">
+      <div class="cg-section-num">10</div>
+      <div class="cg-section-icon">📧</div>
+      <h2>Nikki's Weekly AR Report</h2>
+    </div>
+    <p>Every <strong>Monday at 8:00 AM UTC</strong> an automated email is sent to:</p>
+    <div class="cg-table-wrap">
+      <table class="cg-table">
+        <thead><tr><th>Field</th><th>Recipient</th></tr></thead>
+        <tbody>
+          <tr><td>To</td><td>nikki@motleyterpz.com</td></tr>
+          <tr><td>CC</td><td>matt@motleyterpz.com, imran@motleyterpz.com</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="cg-sub">What the report contains</div>
+    <p>One row per customer with outstanding AR &gt; $0. Rows with overdue invoices or COD flags are highlighted in amber.</p>
+    <div class="cg-table-wrap">
+      <table class="cg-table">
+        <thead><tr><th>Column</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td>Account</td><td>Customer name</td></tr>
+          <tr><td>Tier</td><td>Relationship tier badge (AAA / AA / A / etc.)</td></tr>
+          <tr><td>Outstanding AR</td><td>Total unpaid invoice balance</td></tr>
+          <tr><td>Oldest Due Date</td><td>Earliest unpaid invoice due date (red if overdue)</td></tr>
+          <tr><td>Last Payment</td><td>Date of last payment received</td></tr>
+          <tr><td>New Orders</td><td>Count of new Sales Orders placed this week</td></tr>
+          <tr><td>COD</td><td>COD flag if the customer is COD Only</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="cg-sub">How to trigger manually</div>
+    <div class="cg-code">from cannabis_management.api.nikki_ar_report import send_now
+send_now()</div>
+  </div>
+
+
+  <!-- ══ 11. NIGHTLY SYNC ══ -->
+  <div class="cg-section" id="nightly-sync">
+    <div class="cg-section-header">
+      <div class="cg-section-num">11</div>
+      <div class="cg-section-icon">🌙</div>
+      <h2>Nightly Sync — How It Works</h2>
+    </div>
+    <p>Every weeknight (Mon–Fri) a background job runs and updates every CRM Lead that has an <strong>ERPNext Customer</strong> field filled in.</p>
+
+    <div class="cg-sub">What gets synced</div>
+    <div class="cg-table-wrap">
+      <table class="cg-table">
+        <tbody>
+          <tr><td>AR Balance, AR Aging Days, AR Status</td></tr>
+          <tr><td>Last Invoice Date + Amount</td></tr>
+          <tr><td>Last Payment Date</td></tr>
+          <tr><td>MTD Revenue, 8-Week Trailing Revenue</td></tr>
+          <tr><td>Payment Terms</td></tr>
+          <tr><td>Last Synced timestamp</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="cg-sub">How to trigger a manual sync</div>
+    <div class="cg-code"># Sync a single lead
+from cannabis_management.api.crm_sync import sync_now
+sync_now("LEAD-0001")
+
+# Sync all linked leads
+sync_now()</div>
+  </div>
+
+
+  <!-- ══ 12. PENDING ══ -->
+  <div class="cg-section" id="pending">
+    <div class="cg-section-header">
+      <div class="cg-section-num">12</div>
+      <div class="cg-section-icon">✅</div>
+      <h2>Pending Steps</h2>
+    </div>
+    <p>These items need to be completed before CRM is fully live.</p>
+    <div class="cg-pending">
+
+      <div class="cg-pending-item">
+        <span class="cg-pending-badge badge-server">SERVER</span>
+        <div>
+          <strong>Run bench migrate on live server</strong><br>
+          <span style="font-size:13px;color:var(--gray)">Applies patches: setup_crm_fields, setup_crm_lead_statuses, setup_crm_pipelines, remove_production_batch_group</span>
+          <div class="cg-code" style="margin-top:8px">bench --site erp.alltechvirtual.com migrate</div>
+        </div>
+      </div>
+
+      <div class="cg-pending-item">
+        <span class="cg-pending-badge badge-manual">MANUAL</span>
+        <div>
+          <strong>Assign "CRM Tolling Access" role to Matt</strong><br>
+          <span style="font-size:13px;color:var(--gray)">ERPNext → Settings → User → Matt → Roles table → add CRM Tolling Access → Save</span>
+        </div>
+      </div>
+
+      <div class="cg-pending-item">
+        <span class="cg-pending-badge badge-data">DATA</span>
+        <div>
+          <strong>Link CRM Leads to ERPNext Customers</strong><br>
+          <span style="font-size:13px;color:var(--gray)">Open each lead → Motley Terpz tab → ERPNext — Live Data section → set ERPNext Customer. Required for nightly sync and AR enforcement to work.</span>
+        </div>
+      </div>
+
+      <div class="cg-pending-item">
+        <span class="cg-pending-badge badge-data">DATA</span>
+        <div>
+          <strong>Google Sheet Data Migration (~200 accounts)</strong><br>
+          <span style="font-size:13px;color:var(--gray)">Export sheet to CSV → run normalization script to parse tiers, owners, pipelines → upload via Frappe Data Import Tool</span>
+        </div>
+      </div>
+
+      <div class="cg-pending-item">
+        <span class="cg-pending-badge badge-planned">PLANNED</span>
+        <div>
+          <strong>Matt's Pipeline Health Dashboard</strong><br>
+          <span style="font-size:13px;color:var(--gray)">Not yet built. Will show: total pipeline value, active accounts by pipeline, outstanding AR, AR &gt; 30 days, new leads this week, accounts with no contact in 30+ days.</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+
+  <!-- ══ FOOTER ══ -->
+  <div class="cg-footer">
+    <p>CRM implementation sprint — May 2026</p>
+    <p style="margin-top:6px">Questions? Contact <a href="mailto:osama.ahmad@alltechvirtual.com">osama.ahmad@alltechvirtual.com</a></p>
+  </div>
+
+</div>
+{% endblock %}
