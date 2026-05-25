@@ -101,6 +101,12 @@ doctype_js = {
 # 	"filters": "cannabis_management.cannabis_management.utils.jinja_filters"
 # }
 
+# Migration hooks
+# ---------------
+# Installs backward-compat shims for Frappe API removed in ~v15.97 that
+# Frappe CRM still imports.  Runs before after_migrate hooks fire.
+before_migrate = ["cannabis_management.compat.install_frappe_shims"]
+
 # Installation
 # ------------
 
