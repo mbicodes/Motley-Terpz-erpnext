@@ -233,19 +233,20 @@ doc_events = {
 # Scheduled Tasks
 # ---------------
 scheduler_events = {
-    "daily": [
-        "cannabis_management.api.crm_sync.sync_crm_ar_data",
-        "cannabis_management.cannabis_management.utils.irs_8300.check_overdue_filings",
-        "cannabis_management.cannabis_management.utils.irs_8300.send_january_notices",
-        # Payment Terms SO: remind creator 14 and 7 days before each payment due date
-        "cannabis_management.overrides.payment_schedule_reminder.send_payment_schedule_reminders",
-        # AR Policy: total AR cap check + DSO from GL ledger
-        "cannabis_management.api.ar_monitor.check_ar_cap",
-        "cannabis_management.api.ar_monitor.compute_dso",
-    ],
     "cron": {
-        # SO delivery-date reminder: 10 AM Eastern (UTC-4 EDT → 14:00 UTC; UTC-5 EST → 15:00 UTC)
-        "0 14 * * *": [
+        # Daily jobs: Mon–Fri only (midnight Berlin time)
+        "0 0 * * 1-5": [
+            "cannabis_management.api.crm_sync.sync_crm_ar_data",
+            "cannabis_management.cannabis_management.utils.irs_8300.check_overdue_filings",
+            "cannabis_management.cannabis_management.utils.irs_8300.send_january_notices",
+            # Payment Terms SO: remind creator 14 and 7 days before each payment due date
+            "cannabis_management.overrides.payment_schedule_reminder.send_payment_schedule_reminders",
+            # AR Policy: total AR cap check + DSO from GL ledger
+            "cannabis_management.api.ar_monitor.check_ar_cap",
+            "cannabis_management.api.ar_monitor.compute_dso",
+        ],
+        # SO delivery-date reminder: 10 AM Eastern (UTC-4 EDT → 14:00 UTC) — weekdays only
+        "0 14 * * 1-5": [
             "cannabis_management.overrides.sales_order_delivery_reminder.send_delivery_date_reminders",
             "cannabis_management.overrides.payment_overdue_alert.on_sales_invoice_submit",
         ],
