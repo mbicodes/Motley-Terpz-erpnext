@@ -10,11 +10,7 @@
  "name": "ap-dashboard",
  "owner": "Administrator",
  "page_name": "ap-dashboard",
- "roles": [
-  {
-   "role": "Account Payable"
-  }
- ],
+ "roles": [],
  "script": null,
  "standard": "Yes",
  "style": null,

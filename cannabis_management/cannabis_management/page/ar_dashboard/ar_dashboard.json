@@ -10,11 +10,7 @@
  "name": "ar-dashboard",
  "owner": "Administrator",
  "page_name": "ar-dashboard",
- "roles": [
-  {
-   "role": "Account Receivable"
-  }
- ],
+ "roles": [],
  "script": null,
  "standard": "Yes",
  "style": null,
