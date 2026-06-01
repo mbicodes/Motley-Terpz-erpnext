@@ -1085,7 +1085,7 @@ def get_sales_matrix(territory=None):
     # Queries — item-group-based actuals (BHO/Distillate now included via all_si_item_groups)
     if all_si_item_groups:
         rev_rows = frappe.db.sql("""
-            SELECT si.posting_date,
+            SELECT si.posting_date, si.company,
                    COALESCE(i.item_group, 'Other') AS item_group,
                    SUM(sii.qty) AS qty,
                    SUM(sii.base_net_amount) AS rev
@@ -1096,7 +1096,7 @@ def get_sales_matrix(territory=None):
                 AND si.posting_date BETWEEN %(s)s AND %(e)s
                 AND si.customer NOT IN %(ic)s
                 AND i.item_group IN %(ig)s
-            GROUP BY si.posting_date, i.item_group
+            GROUP BY si.posting_date, si.company, i.item_group
         """, {'s': min_date, 'e': max_date,
               'ic': excluded_customers, 'ig': tuple(all_si_item_groups)}, as_dict=True)
 
@@ -1131,6 +1131,21 @@ def get_sales_matrix(territory=None):
               'toll': TOLLING_ITEM_CODE}, as_dict=True)
     else:
         rev_rows, cogs_rows, company_rev_rows = [], [], []
+
+    # All-companies, all item groups — used to build the company_ig_map (company-wise display)
+    all_company_ig_rows = frappe.db.sql("""
+        SELECT si.posting_date, si.company,
+               COALESCE(i.item_group, 'Other') AS item_group,
+               SUM(sii.qty) AS qty,
+               SUM(sii.base_net_amount) AS rev
+        FROM `tabSales Invoice Item` sii
+        JOIN `tabSales Invoice` si ON si.name = sii.parent
+        LEFT JOIN `tabItem` i ON i.name = sii.item_code
+        WHERE si.docstatus = 1 AND si.is_return = 0
+          AND si.posting_date BETWEEN %(s)s AND %(e)s
+          AND si.customer NOT IN %(ic)s
+        GROUP BY si.posting_date, si.company, i.item_group
+    """, {'s': min_date, 'e': max_date, 'ic': excluded_customers}, as_dict=True) if min_date and max_date else []
 
     # MTM + LA Canna: all items, no item-group filter (separate companies)
     mtm_lacanna_rows = frappe.db.sql("""
@@ -1170,17 +1185,17 @@ def get_sales_matrix(territory=None):
     _week_subs  = [c for c in monthly_columns if c.get('col_type') == 'weekly']
     _m1 = _build_matrix(_month_only, target_index, rev_rows, cogs_rows,
                         company_rev_rows, monthly_oh, default_margin_pct,
-                        'monthly', child_to_parent, DISPLAY_ORDER, mtm_lacanna_rows)
+                        'monthly', child_to_parent, DISPLAY_ORDER, mtm_lacanna_rows, all_company_ig_rows)
     _m2 = _build_matrix(_week_subs, target_index, rev_rows, cogs_rows,
                         company_rev_rows, monthly_oh, default_margin_pct,
-                        'weekly', child_to_parent, DISPLAY_ORDER, mtm_lacanna_rows)
+                        'weekly', child_to_parent, DISPLAY_ORDER, mtm_lacanna_rows, all_company_ig_rows)
     monthly = _merge_matrices(_m1, _m2)
     weekly = _build_matrix(weekly_columns, target_index, rev_rows, cogs_rows,
                            company_rev_rows, monthly_oh, default_margin_pct,
-                           'weekly', child_to_parent, DISPLAY_ORDER, mtm_lacanna_rows)
+                           'weekly', child_to_parent, DISPLAY_ORDER, mtm_lacanna_rows, all_company_ig_rows)
     daily = _build_matrix(daily_columns, target_index, rev_rows, cogs_rows,
                           company_rev_rows, monthly_oh, default_margin_pct,
-                          'daily', child_to_parent, DISPLAY_ORDER, mtm_lacanna_rows)
+                          'daily', child_to_parent, DISPLAY_ORDER, mtm_lacanna_rows, all_company_ig_rows)
 
     return {
         "monthly": monthly, "weekly": weekly, "daily": daily,
@@ -1189,6 +1204,23 @@ def get_sales_matrix(territory=None):
         "monthly_oh": monthly_oh,
         "default_margin_pct": default_margin_pct,
     }
+
+
+def _merge_company_ig(a, b):
+    """Merge two company_ig_map dicts (from different column sets)."""
+    result = {}
+    for co in set(a) | set(b):
+        result[co] = {}
+        for ig in set(a.get(co, {})) | set(b.get(co, {})):
+            a_cols = a.get(co, {}).get(ig, {})
+            b_cols = b.get(co, {}).get(ig, {})
+            merged = {}
+            for col in set(a_cols) | set(b_cols):
+                av = a_cols.get(col, {"qty": 0.0, "rev": 0.0})
+                bv = b_cols.get(col, {"qty": 0.0, "rev": 0.0})
+                merged[col] = {"qty": av["qty"] + bv["qty"], "rev": av["rev"] + bv["rev"]}
+            result[co][ig] = merged
+    return result
 
 
 def _merge_matrices(a, b):
@@ -1259,6 +1291,7 @@ def _merge_matrices(a, b):
         "mtm_totals":       mtm,
         "la_canna_totals":  lacanna,
         "other_totals":     _md(a["other_totals"],   b["other_totals"]),
+        "company_ig_map":   _merge_company_ig(a.get("company_ig_map",{}), b.get("company_ig_map",{})),
         "grand_totals":     grnd,
         "tsbc_target_by_col": tsbc_tgt,
         "avg_motley":      _recompute_avg(mot),
@@ -1305,7 +1338,7 @@ def _empty_matrix(columns, target_index=None, display_order=None):
         "target_rev_by_col": dict(empty_cols),
         "motley_totals": dict(empty_cols), "tsbc_totals": dict(empty_cols),
         "mtm_totals": dict(empty_cols), "la_canna_totals": dict(empty_cols),
-        "other_totals": dict(empty_cols),
+        "other_totals": dict(empty_cols), "company_ig_map": {},
         "grand_totals": dict(empty_cols), "tsbc_target_by_col": dict(empty_cols),
         "avg_motley": 0, "avg_tsbc": 0, "avg_mtm": 0, "avg_la_canna": 0,
         "avg_grand": 0, "avg_tsbc_target": 0, "avg_net": 0,
@@ -1315,7 +1348,8 @@ def _empty_matrix(columns, target_index=None, display_order=None):
 
 def _build_matrix(columns, target_index, rev_rows, cogs_rows,
                   company_rev_rows, monthly_oh, default_margin_pct, granularity,
-                  child_to_parent=None, display_order=None, mtm_lacanna_rows=None):
+                  child_to_parent=None, display_order=None, mtm_lacanna_rows=None,
+                  all_company_ig_rows=None):
     import datetime as dt_mod
     from frappe.utils import getdate, get_first_day, get_last_day, flt as _flt
 
@@ -1390,6 +1424,25 @@ def _build_matrix(columns, target_index, rev_rows, cogs_rows,
                     mtm_totals[label] += _flt(r.rev)
                 elif 'canna' in company:
                     la_canna_totals[label] += _flt(r.rev)
+                break
+
+    # company_ig_map: {company_name: {item_group: {col: {qty, rev}}}}
+    company_ig_map = {}
+    for r in (all_company_ig_rows or []):
+        if not r.posting_date:
+            continue
+        pd  = r.posting_date if isinstance(r.posting_date, dt_mod.date) else getdate(str(r.posting_date))
+        co  = (r.company or 'Other').strip()
+        raw_ig = r.item_group or 'Other'
+        ig  = child_to_parent.get(raw_ig, raw_ig) if child_to_parent else raw_ig
+        if co not in company_ig_map:
+            company_ig_map[co] = {}
+        if ig not in company_ig_map[co]:
+            company_ig_map[co][ig] = {col: {"qty": 0.0, "rev": 0.0} for col in col_labels}
+        for label, fd, td, _ct in col_ranges:
+            if fd <= pd <= td:
+                company_ig_map[co][ig][label]["qty"] += _flt(r.qty)
+                company_ig_map[co][ig][label]["rev"]  += _flt(r.rev)
                 break
 
     # TSBC frozen-sales target: 2,000 lbs/week @ $50/lb = $100K/week = $400K/month
@@ -1483,6 +1536,7 @@ def _build_matrix(columns, target_index, rev_rows, cogs_rows,
         "mtm_totals":       mtm_totals,
         "la_canna_totals":  la_canna_totals,
         "other_totals":     other_totals,
+        "company_ig_map":   company_ig_map,
         "grand_totals":     grand_totals,
         "tsbc_target_by_col": tsbc_target_by_col,
         "avg_motley":     _avg(motley_totals),

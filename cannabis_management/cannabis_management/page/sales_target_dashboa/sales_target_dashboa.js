@@ -80,7 +80,7 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
         if (matrixCache[currentMatrix]) renderMatrix('sd-matrix', matrixCache[currentMatrix]);
     }
 
-    // ── Matrix renderer ───────────────────────────────────────────
+    // ── Matrix renderer (company-wise) ─────────────────────────
     function renderMatrix(containerId, matrix) {
         var el = rootEl.querySelector('#' + containerId);
         if (!el) return;
@@ -88,241 +88,138 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
             el.innerHTML = '<p class="sd-empty">No data for this period.</p>';
             return;
         }
-        if (!matrix.products || !matrix.products.length) {
-            el.innerHTML = '<p class="sd-empty">No targets configured. Set Territory › Target Detail to see this matrix.</p>';
-            return;
-        }
 
-        var isQty      = currentView === 'qty';
-        var cols       = matrix.columns;
-        var showAvg    = currentMatrix === 'weekly';
-        var AVG        = 'Avg (8 Wks)';
-        var FF_KEY     = 'Fresh Frozen Main';
-        var totalCols  = 4 + cols.length + (showAvg ? 1 : 0);
+        var isQty   = currentView === 'qty';
+        var cols    = matrix.columns;
+        var showAvg = currentMatrix === 'weekly';
+        var AVG     = 'Avg (8 Wks)';
 
-        // Divisor for the static "Target" column header
         var targetDiv, targetLabel;
-        if (currentMatrix === 'monthly') { targetDiv = 1;  targetLabel = 'Monthly Target'; }
+        if (currentMatrix === 'monthly')    { targetDiv = 1;  targetLabel = 'Monthly Target'; }
         else if (currentMatrix === 'daily') { targetDiv = 20; targetLabel = 'Daily Target'; }
-        else                              { targetDiv = 4;  targetLabel = 'Weekly Target'; }
+        else                                { targetDiv = 4;  targetLabel = 'Weekly Target'; }
 
-        // Split products: Motley body rows vs Fresh Frozen (TSBC)
-        var motleyProducts = matrix.products.filter(function (p) { return p.item_group !== FF_KEY; });
-        var ffProduct      = matrix.products.find(function (p)   { return p.item_group === FF_KEY; }) || null;
+        // Quick lookup: item_group → product (targets etc.)
+        var pByIG = {};
+        (matrix.products || []).forEach(function(p) { pByIG[p.item_group] = p; });
 
-        // Pre-compute averages (all products so Fresh Frozen avg is available)
-        var avgActuals = {}, avgUnits = {};
-        if (showAvg) {
-            matrix.products.forEach(function (p) {
-                var rSum = 0, qSum = 0;
-                cols.forEach(function (c) { rSum += p.actuals[c] || 0; qSum += (p.units && p.units[c]) || 0; });
-                avgActuals[p.item_group] = cols.length ? rSum / cols.length : 0;
-                avgUnits[p.item_group]   = cols.length ? qSum / cols.length : 0;
-            });
-        }
+        var cig = matrix.company_ig_map || {};
 
-        // Motley target totals (sum across all Motley products)
-        var motleyTargetRev = 0, motleyTargetUnits = 0;
-        motleyProducts.forEach(function (p) {
-            motleyTargetRev   += p.monthly_target ? p.monthly_target / targetDiv : 0;
-            motleyTargetUnits += p.target_units   ? p.target_units   / targetDiv : 0;
-        });
+        // Company display order + styling
+        var COMPANIES = [
+            {name:'TSBC Ranch',                 tot:'tsbc_totals',     avg:'avg_tsbc',
+             color:'#059669', bg:'#f0fdf4', border:'#059669'},
+            {name:'Motley Terpz',               tot:'motley_totals',   avg:'avg_motley',
+             color:'#7c3aed', bg:'#f5f3ff', border:'#7c3aed'},
+            {name:'MTPZ',                       tot:'motley_totals',   avg:'avg_motley',
+             color:'#7c3aed', bg:'#f5f3ff', border:'#7c3aed', skipEmpty:true},
+            {name:'Master Touch Manufacturing', tot:'mtm_totals',      avg:'avg_mtm',
+             color:'#2563eb', bg:'#eef2ff', border:'#2563eb'},
+            {name:'LA Canna Distro',            tot:'la_canna_totals', avg:'avg_la_canna',
+             color:'#0891b2', bg:'#ecfeff', border:'#0891b2'},
+        ];
 
-        // TSBC targets
-        var tsbcMonthly     = matrix.tsbc_monthly_target || 400000;
-        var tsbcTargetRev   = tsbcMonthly / targetDiv;
-        var tsbcTargetUnits = 2000 / targetDiv;
-        var ffTargetRev     = ffProduct ? (ffProduct.monthly_target  ? ffProduct.monthly_target  / targetDiv : 0) : 0;
-        var ffTargetUnits   = ffProduct ? (ffProduct.target_units    ? ffProduct.target_units    / targetDiv : 0) : 0;
-
-        function cellClass(actual, target) {
+        function cc(actual, target) {
             if (!target || target <= 0) return '';
             var r = actual / target;
-            if (r >= 1)   return 'sd-cell-green';
-            if (r >= 0.7) return 'sd-cell-amber';
-            if (actual > 0) return 'sd-cell-red';
-            return '';
-        }
-
-        function blankCells(n) {
-            var s = '';
-            for (var i = 0; i < n; i++) s += '<td class="sd-matrix-num">—</td>';
-            return s;
+            return r >= 1 ? 'sd-cell-green' : r >= 0.7 ? 'sd-cell-amber' : actual > 0 ? 'sd-cell-red' : '';
         }
 
         // ── Header ────────────────────────────────────────────────
         var html = '<table class="sd-matrix"><thead><tr>';
-        html += '<th class="sd-matrix-th-product">Item Group</th>';
+        html += '<th class="sd-matrix-th-product">Company / Item Group</th>';
         html += '<th class="sd-matrix-th-static">Target Units</th>';
         html += '<th class="sd-matrix-th-static">Avg Price</th>';
-        html += '<th class="sd-matrix-th-static">' + (isQty ? targetLabel.replace('Target', 'Target Units') : targetLabel) + '</th>';
-        cols.forEach(function (c) {
-            html += '<th class="sd-matrix-th-period">' + frappe.utils.escape_html(c) + '</th>';
-        });
+        html += '<th class="sd-matrix-th-static">' + (isQty ? 'Target Units' : targetLabel) + '</th>';
+        cols.forEach(function(c) { html += '<th class="sd-matrix-th-period">' + frappe.utils.escape_html(c) + '</th>'; });
         if (showAvg) html += '<th class="sd-matrix-th-avg">' + AVG + '</th>';
-        html += '</tr></thead>';
+        html += '</tr></thead><tbody>';
 
-        // ── Body: Motley rows only (no Fresh Frozen) ──────────────
-        html += '<tbody>';
-        motleyProducts.forEach(function (p) {
-            var rowClass = p.has_target ? '' : 'sd-matrix-row-untargeted';
-            html += '<tr' + (rowClass ? ' class="' + rowClass + '"' : '') + '>';
-            var sourceTag = (p.has_target && p.from_sales_invoice === false)
-                ? ' <span class="sd-source-tag" title="Actuals sourced from another doctype">other source</span>'
-                : '';
-            html += '<td class="sd-matrix-product">'
-                + frappe.utils.escape_html(p.item_group)
-                + (p.has_target ? '' : ' <span class="sd-no-target-tag">no target</span>')
-                + sourceTag + '</td>';
-            var dispUnits = p.target_units ? p.target_units / targetDiv : 0;
-            html += '<td class="sd-matrix-num">' + (dispUnits ? fmtQty(dispUnits) : '—') + '</td>';
-            html += '<td class="sd-matrix-num">' + (p.avg_price ? fmtCurrency(p.avg_price) : '—') + '</td>';
-            if (isQty) {
-                var tgtUnits = p.target_units ? p.target_units / targetDiv : 0;
-                html += '<td class="sd-matrix-num sd-matrix-target-rev">' + (tgtUnits ? fmtQty(tgtUnits) : '—') + '</td>';
-            } else {
-                var tgtRev = p.monthly_target ? p.monthly_target / targetDiv : 0;
-                html += '<td class="sd-matrix-num sd-matrix-target-rev">' + (tgtRev ? fmtCurrency(tgtRev) : '—') + '</td>';
-            }
-            cols.forEach(function (col) {
-                if (isQty) {
-                    var aq  = (p.units && p.units[col]) || 0;
-                    var tqu = p.target_units ? p.target_units / targetDiv : 0;
-                    html += '<td class="sd-matrix-num ' + cellClass(aq, tqu) + '">' + (aq > 0 ? fmtQty(aq) : '—') + '</td>';
-                } else {
-                    var av = p.actuals[col] || 0;
-                    var ct = (p.cell_targets && p.cell_targets[col]) || 0;
-                    html += '<td class="sd-matrix-num ' + cellClass(av, ct) + '">' + (av > 0 ? fmtCurrency(av) : '—') + '</td>';
-                }
+        // ── Company sections ──────────────────────────────────────
+        var grandTotals = {}; cols.forEach(function(c){ grandTotals[c] = 0; });
+        var grandAvg = 0;
+
+        COMPANIES.forEach(function(co) {
+            var coData   = cig[co.name] || {};
+            var coTotals = matrix[co.tot] || {};
+            var coAvg    = matrix[co.avg] || 0;
+            var hasData  = Object.keys(coData).length > 0 || cols.some(function(c){ return (coTotals[c]||0) > 0; });
+            if (co.skipEmpty && !hasData) return;
+
+            cols.forEach(function(c) { grandTotals[c] += coTotals[c] || 0; });
+            grandAvg += coAvg;
+
+            // Company header row
+            html += '<tr style="background:' + co.bg + ';border-top:2px solid ' + co.border + ';">';
+            html += '<td class="sd-matrix-product" style="font-weight:800;color:' + co.color + ';border-right:1px solid #e2e8f0;">'
+                  + frappe.utils.escape_html(co.name) + '</td>';
+            html += '<td class="sd-matrix-num">—</td><td class="sd-matrix-num">—</td><td class="sd-matrix-num">—</td>';
+            cols.forEach(function(c) {
+                var v = coTotals[c] || 0;
+                html += '<td class="sd-matrix-num" style="font-weight:700;color:' + co.color + ';">'
+                      + (v > 0 ? fmtCurrency(v) : '—') + '</td>';
             });
-            if (showAvg) {
-                var avgVal = isQty ? (avgUnits[p.item_group] || 0) : (avgActuals[p.item_group] || 0);
-                html += '<td class="sd-matrix-num sd-matrix-avg">' + (avgVal > 0 ? (isQty ? fmtQty(avgVal) : fmtCurrency(avgVal)) : '—') + '</td>';
-            }
+            if (showAvg) html += '<td class="sd-matrix-num sd-matrix-avg" style="color:' + co.color + ';">'
+                               + (coAvg > 0 ? fmtCurrency(coAvg) : '—') + '</td>';
             html += '</tr>';
-        });
-        html += '</tbody>';
 
-        // ── Footer ────────────────────────────────────────────────
-        html += '<tfoot>';
-
-        // 1. Motley — target + actuals in one row
-        html += '<tr class="sd-matrix-foot-motley">';
-        html += '<td class="sd-matrix-product sd-matrix-foot-label">Motley</td>';
-        html += '<td class="sd-matrix-num">—</td>';
-        html += '<td class="sd-matrix-num">—</td>';
-        if (isQty) {
-            html += '<td class="sd-matrix-num sd-matrix-target-rev">' + (motleyTargetUnits ? fmtQty(motleyTargetUnits) : '—') + '</td>';
-        } else {
-            html += '<td class="sd-matrix-num sd-matrix-target-rev">' + (motleyTargetRev ? fmtCurrency(motleyTargetRev) : '—') + '</td>';
-        }
-        cols.forEach(function (c) {
-            var v = (matrix.motley_totals && matrix.motley_totals[c]) || 0;
-            html += '<td class="sd-matrix-num">' + (v > 0 ? fmtCurrency(v) : '—') + '</td>';
-        });
-        if (showAvg) html += '<td class="sd-matrix-num sd-matrix-avg">' + (matrix.avg_motley > 0 ? fmtCurrency(matrix.avg_motley) : '—') + '</td>';
-        html += '</tr>';
-
-        // 2. Separator
-        html += '<tr class="sd-matrix-separator"><td colspan="' + totalCols + '"></td></tr>';
-
-        // 3. Fresh Frozen Main product row
-        if (ffProduct) {
-            html += '<tr>';
-            html += '<td class="sd-matrix-product">' + frappe.utils.escape_html(FF_KEY) + '</td>';
-            var ffUnits = ffProduct.target_units ? ffProduct.target_units / targetDiv : 0;
-            html += '<td class="sd-matrix-num">' + (ffUnits ? fmtQty(ffUnits) : '—') + '</td>';
-            html += '<td class="sd-matrix-num">—</td>';
-            if (isQty) {
-                html += '<td class="sd-matrix-num sd-matrix-target-rev">' + (ffTargetUnits ? fmtQty(ffTargetUnits) : '—') + '</td>';
-            } else {
-                html += '<td class="sd-matrix-num sd-matrix-target-rev">' + (ffTargetRev ? fmtCurrency(ffTargetRev) : '—') + '</td>';
-            }
-            cols.forEach(function (col) {
-                if (isQty) {
-                    var aq = (ffProduct.units && ffProduct.units[col]) || 0;
-                    html += '<td class="sd-matrix-num">' + (aq > 0 ? fmtQty(aq) : '—') + '</td>';
-                } else {
-                    var av = ffProduct.actuals[col] || 0;
-                    var ct = (ffProduct.cell_targets && ffProduct.cell_targets[col]) || 0;
-                    html += '<td class="sd-matrix-num ' + cellClass(av, ct) + '">' + (av > 0 ? fmtCurrency(av) : '—') + '</td>';
-                }
+            // Item group sub-rows — sorted: targeted first, then by revenue
+            var igs = Object.keys(coData).sort(function(a, b) {
+                var oa = pByIG[a] ? (pByIG[a].has_target ? 0 : 1) : 2;
+                var ob = pByIG[b] ? (pByIG[b].has_target ? 0 : 1) : 2;
+                if (oa !== ob) return oa - ob;
+                var ra = cols.reduce(function(s,c){ return s + (((coData[a]||{})[c]||{}).rev||0); }, 0);
+                var rb = cols.reduce(function(s,c){ return s + (((coData[b]||{})[c]||{}).rev||0); }, 0);
+                return rb - ra;
             });
-            if (showAvg) {
-                var ffAvg = isQty ? (avgUnits[FF_KEY] || 0) : (avgActuals[FF_KEY] || 0);
-                html += '<td class="sd-matrix-num sd-matrix-avg">' + (ffAvg > 0 ? (isQty ? fmtQty(ffAvg) : fmtCurrency(ffAvg)) : '—') + '</td>';
-            }
-            html += '</tr>';
-        }
 
-        // 4. TSBC — target + actuals in one row
-        html += '<tr class="sd-matrix-foot-tsbc">';
-        html += '<td class="sd-matrix-product sd-matrix-foot-label">TSBC</td>';
-        html += '<td class="sd-matrix-num">—</td>';
-        html += '<td class="sd-matrix-num">—</td>';
-        if (isQty) {
-            html += '<td class="sd-matrix-num sd-matrix-target-rev">' + (ffTargetUnits ? fmtQty(ffTargetUnits) : '—') + '</td>';
-        } else {
-            html += '<td class="sd-matrix-num sd-matrix-target-rev">' + (ffTargetRev ? fmtCurrency(ffTargetRev) : '—') + '</td>';
-        }
-        cols.forEach(function (col) {
-            var v  = ffProduct ? (isQty ? ((ffProduct.units && ffProduct.units[col]) || 0) : (ffProduct.actuals[col] || 0)) : ((matrix.tsbc_totals && matrix.tsbc_totals[col]) || 0);
-            var ct = ffProduct ? ((ffProduct.cell_targets && ffProduct.cell_targets[col]) || 0) : 0;
-            html += '<td class="sd-matrix-num ' + cellClass(v, ct) + '">' + (v > 0 ? (isQty ? fmtQty(v) : fmtCurrency(v)) : '—') + '</td>';
+            igs.forEach(function(ig) {
+                var igCols = coData[ig] || {};
+                var p = pByIG[ig];
+                html += '<tr>';
+                html += '<td class="sd-matrix-product" style="padding-left:24px;font-weight:500;color:#475569;">'
+                      + frappe.utils.escape_html(ig)
+                      + (p && !p.has_target ? ' <span class="sd-no-target-tag">no target</span>' : '')
+                      + '</td>';
+                var du = (p && p.target_units) ? p.target_units / targetDiv : 0;
+                html += '<td class="sd-matrix-num">' + (du ? fmtQty(du) : '—') + '</td>';
+                html += '<td class="sd-matrix-num">' + (p && p.avg_price ? fmtCurrency(p.avg_price) : '—') + '</td>';
+                if (isQty) {
+                    html += '<td class="sd-matrix-num sd-matrix-target-rev">' + (du ? fmtQty(du) : '—') + '</td>';
+                } else {
+                    var tr = (p && p.monthly_target) ? p.monthly_target / targetDiv : 0;
+                    html += '<td class="sd-matrix-num sd-matrix-target-rev">' + (tr ? fmtCurrency(tr) : '—') + '</td>';
+                }
+                cols.forEach(function(col) {
+                    var vals = igCols[col] || {qty:0, rev:0};
+                    if (isQty) {
+                        var aq = vals.qty || 0;
+                        var tq = (p && p.target_units) ? p.target_units / targetDiv : 0;
+                        html += '<td class="sd-matrix-num ' + cc(aq, tq) + '">' + (aq > 0 ? fmtQty(aq) : '—') + '</td>';
+                    } else {
+                        var av = vals.rev || 0;
+                        var ct = (p && p.cell_targets) ? (p.cell_targets[col] || 0) : 0;
+                        html += '<td class="sd-matrix-num ' + cc(av, ct) + '">' + (av > 0 ? fmtCurrency(av) : '—') + '</td>';
+                    }
+                });
+                if (showAvg) {
+                    var igAvg = cols.reduce(function(s,c){ return s+((igCols[c]||{}).rev||0); },0) / (cols.length||1);
+                    html += '<td class="sd-matrix-num sd-matrix-avg">' + (igAvg > 0 ? fmtCurrency(igAvg) : '—') + '</td>';
+                }
+                html += '</tr>';
+            });
         });
-        if (showAvg) {
-            var ffAvgTsbc = isQty ? (avgUnits[FF_KEY] || 0) : (avgActuals[FF_KEY] || 0);
-            html += '<td class="sd-matrix-num sd-matrix-avg">' + (ffAvgTsbc > 0 ? (isQty ? fmtQty(ffAvgTsbc) : fmtCurrency(ffAvgTsbc)) : '—') + '</td>';
-        }
-        html += '</tr>';
 
-        // 5. Separator
-        html += '<tr class="sd-matrix-separator"><td colspan="' + totalCols + '"></td></tr>';
-
-        // 6. Master Touch Manufacturing row
-        html += '<tr class="sd-matrix-foot-mtm">';
-        html += '<td class="sd-matrix-product sd-matrix-foot-label">Master Touch Manufacturing</td>';
+        // ── Grand Total ───────────────────────────────────────────
+        html += '<tr class="sd-matrix-foot-grand-total"><td class="sd-matrix-product sd-matrix-foot-label">Total</td>';
         html += '<td class="sd-matrix-num">—</td><td class="sd-matrix-num">—</td><td class="sd-matrix-num">—</td>';
-        cols.forEach(function (c) {
-            var v = (matrix.mtm_totals && matrix.mtm_totals[c]) || 0;
-            html += '<td class="sd-matrix-num">' + (v > 0 ? fmtCurrency(v) : '—') + '</td>';
+        cols.forEach(function(c) {
+            var v = grandTotals[c] || 0;
+            html += '<td class="sd-matrix-num sd-matrix-total-cell">' + (v > 0 ? fmtCurrency(v) : '—') + '</td>';
         });
-        if (showAvg) html += '<td class="sd-matrix-num sd-matrix-avg">' + (matrix.avg_mtm > 0 ? fmtCurrency(matrix.avg_mtm) : '—') + '</td>';
-        html += '</tr>';
-
-        // 7. LA Canna row
-        html += '<tr class="sd-matrix-foot-lacanna">';
-        html += '<td class="sd-matrix-product sd-matrix-foot-label">LA Canna</td>';
-        html += '<td class="sd-matrix-num">—</td><td class="sd-matrix-num">—</td><td class="sd-matrix-num">—</td>';
-        cols.forEach(function (c) {
-            var v = (matrix.la_canna_totals && matrix.la_canna_totals[c]) || 0;
-            html += '<td class="sd-matrix-num">' + (v > 0 ? fmtCurrency(v) : '—') + '</td>';
-        });
-        if (showAvg) html += '<td class="sd-matrix-num sd-matrix-avg">' + (matrix.avg_la_canna > 0 ? fmtCurrency(matrix.avg_la_canna) : '—') + '</td>';
-        html += '</tr>';
-
-        // 8. Separator
-        html += '<tr class="sd-matrix-separator"><td colspan="' + totalCols + '"></td></tr>';
-
-        // 9. Total row
-        html += '<tr class="sd-matrix-foot-grand-total">';
-        html += '<td class="sd-matrix-product sd-matrix-foot-label">Total</td>';
-        html += '<td class="sd-matrix-num">—</td><td class="sd-matrix-num">—</td><td class="sd-matrix-num">—</td>';
-        cols.forEach(function (c) {
-            var motley  = (matrix.motley_totals   && matrix.motley_totals[c])   || 0;
-            var tsbc    = ffProduct ? (ffProduct.actuals[c] || 0) : ((matrix.tsbc_totals && matrix.tsbc_totals[c]) || 0);
-            var mtm     = (matrix.mtm_totals      && matrix.mtm_totals[c])      || 0;
-            var lacanna = (matrix.la_canna_totals && matrix.la_canna_totals[c]) || 0;
-            var total   = motley + tsbc + mtm + lacanna;
-            html += '<td class="sd-matrix-num sd-matrix-total-cell">' + (total > 0 ? fmtCurrency(total) : '—') + '</td>';
-        });
-        if (showAvg) {
-            var avgTotal = (matrix.avg_motley || 0) + (matrix.avg_tsbc || 0) + (matrix.avg_mtm || 0) + (matrix.avg_la_canna || 0);
-            html += '<td class="sd-matrix-num sd-matrix-avg sd-matrix-total-cell">' + (avgTotal > 0 ? fmtCurrency(avgTotal) : '—') + '</td>';
-        }
-        html += '</tr>';
-
-        html += '</tfoot></table>';
+        if (showAvg) html += '<td class="sd-matrix-num sd-matrix-avg sd-matrix-total-cell">'
+                           + (grandAvg > 0 ? fmtCurrency(grandAvg) : '—') + '</td>';
+        html += '</tr></tbody></table>';
         el.innerHTML = html;
     }
 
@@ -335,73 +232,88 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
             return;
         }
 
-        var bal  = ar.balances  || {};
-        var coll = ar.collected || {};
+        var bal  = ar.balances   || {};
+        var coll = ar.collected  || {};
         var pace = ar.pace_by_col || {};
-        var avg  = ar.avg || {};
-        var showAvg = true;   // AR matrix always shows avg (monthly view)
+        var avg  = ar.avg        || {};
 
-        function arCell(v, cls) {
-            return '<td class="sd-matrix-num ' + (cls||'') + '">' + (v > 0 ? fmtCurrency(v) : '—') + '</td>';
+        function arTd(v, cls) {
+            return '<td class="sd-matrix-num' + (cls ? ' ' + cls : '') + '">' + (v > 0 ? fmtCurrency(v) : '—') + '</td>';
         }
 
         var html = '<table class="sd-matrix"><thead><tr>';
         html += '<th class="sd-matrix-th-product">AR Category</th>';
-        html += '<th class="sd-matrix-th-static">Outstanding</th>';
-        html += '<th class="sd-matrix-th-static">Monthly Pace</th>';
-        cols.forEach(function (c) { html += '<th class="sd-matrix-th-period">' + frappe.utils.escape_html(c) + '</th>'; });
-        if (showAvg) html += '<th class="sd-matrix-th-avg">Avg Collected</th>';
+        html += '<th class="sd-matrix-th-static">Outstanding Balance</th>';
+        html += '<th class="sd-matrix-th-static">Monthly Pace Target</th>';
+        cols.forEach(function(c) { html += '<th class="sd-matrix-th-period">' + frappe.utils.escape_html(c) + '</th>'; });
+        html += '<th class="sd-matrix-th-avg">Total Collected</th>';
         html += '</tr></thead><tbody>';
 
-        // ── Total AR (grayed, strikethrough) ──────────────────
-        html += '<tr style="opacity:.55">';
-        html += '<td class="sd-matrix-product" style="color:#94a3b8;font-style:italic;text-decoration:line-through;">Total AR</td>';
+        // ── Total AR (grayed, for reference only) ─────────────────
+        html += '<tr style="opacity:.5">';
+        html += '<td class="sd-matrix-product" style="color:#94a3b8;text-decoration:line-through;">Total AR</td>';
         html += '<td class="sd-matrix-num" style="text-decoration:line-through;">' + fmtCurrency(bal.total||0) + '</td>';
         html += '<td class="sd-matrix-num">—</td>';
-        cols.forEach(function(c) { html += arCell((coll.total||{})[c]||0); });
-        if (showAvg) html += arCell(avg.total||0);
+        cols.forEach(function(c){ html += arTd((coll.total||{})[c]||0); });
+        html += arTd(avg.total||0);
         html += '</tr>';
 
-        // ── Legacy AR (red, pace target) ──────────────────────
+        // ── Legacy AR balance row ─────────────────────────────────
         html += '<tr class="sd-ar-legacy">';
         html += '<td class="sd-matrix-product sd-ar-label-legacy">Legacy AR'
-             + ' <span class="sd-ar-badge-legacy">pre-May 15</span></td>';
+              + ' <span class="sd-ar-badge-legacy">pre-May 15</span></td>';
         html += '<td class="sd-matrix-num" style="color:#dc2626;font-weight:800;">' + fmtCurrency(bal.legacy||0) + '</td>';
         html += '<td class="sd-matrix-num sd-matrix-target-rev">' + fmtCurrency(ar.legacy_monthly_target||400000) + '/mo</td>';
+        cols.forEach(function(c){ html += arTd(0); });  // balance row — no per-month collected
+        html += arTd(0);
+        html += '</tr>';
+
+        // ── Total Legacy AR Collected (monthly collections) ───────
+        html += '<tr style="background:#fff5f5;">';
+        html += '<td class="sd-matrix-product" style="padding-left:20px;color:#dc2626;font-weight:600;">'
+              + 'Total Legacy AR Collected</td>';
+        html += '<td class="sd-matrix-num">—</td>';
+        html += '<td class="sd-matrix-num sd-matrix-target-rev">' + fmtCurrency(ar.legacy_monthly_target||400000) + '/mo</td>';
+        var legacyRunning = 0;
         cols.forEach(function(c) {
-            var v = (coll.legacy||{})[c] || 0;
-            var t = pace[c] || 0;
+            var v   = (coll.legacy||{})[c] || 0;
+            var t   = pace[c] || 0;
             var cls = '';
             if (v > 0 && t > 0) { var r = v/t; cls = r>=1 ? 'sd-cell-green' : r>=0.5 ? 'sd-cell-amber' : 'sd-cell-red'; }
+            legacyRunning += v;
             html += '<td class="sd-matrix-num ' + cls + '">' + (v > 0 ? fmtCurrency(v) : '—') + '</td>';
         });
-        if (showAvg) html += arCell(avg.legacy||0, 'sd-matrix-avg');
+        html += arTd(legacyRunning, '');  // total collected all months
         html += '</tr>';
 
-        // ── Bad Standing (>30 days overdue) ───────────────────
+        // ── Bad Standing (>30 days overdue) ───────────────────────
         html += '<tr class="sd-ar-bad">';
         html += '<td class="sd-matrix-product sd-ar-label-bad">Bad Standing'
-             + ' <span class="sd-ar-badge-bad">&gt;30 days</span></td>';
+              + ' <span class="sd-ar-badge-bad">&gt;30 days</span></td>';
         html += '<td class="sd-matrix-num" style="color:#d97706;font-weight:700;">' + fmtCurrency(bal.bad||0) + '</td>';
         html += '<td class="sd-matrix-num">—</td>';
+        var badTotal = 0;
         cols.forEach(function(c) {
             var v = (coll.bad||{})[c] || 0;
+            badTotal += v;
             html += '<td class="sd-matrix-num' + (v > 0 ? ' sd-cell-green' : '') + '">' + (v > 0 ? fmtCurrency(v) : '—') + '</td>';
         });
-        if (showAvg) html += arCell(avg.bad||0, 'sd-matrix-avg');
+        html += arTd(badTotal);
         html += '</tr>';
 
-        // ── Good Standing (≤30 days) ──────────────────────────
+        // ── Good Standing (≤30 days) ──────────────────────────────
         html += '<tr class="sd-ar-good">';
         html += '<td class="sd-matrix-product sd-ar-label-good">Good Standing'
-             + ' <span class="sd-ar-badge-good">≤30 days</span></td>';
+              + ' <span class="sd-ar-badge-good">≤30 days</span></td>';
         html += '<td class="sd-matrix-num" style="color:#059669;font-weight:700;">' + fmtCurrency(bal.good||0) + '</td>';
         html += '<td class="sd-matrix-num">—</td>';
+        var goodTotal = 0;
         cols.forEach(function(c) {
             var v = (coll.good||{})[c] || 0;
+            goodTotal += v;
             html += '<td class="sd-matrix-num' + (v > 0 ? ' sd-cell-green' : '') + '">' + (v > 0 ? fmtCurrency(v) : '—') + '</td>';
         });
-        if (showAvg) html += arCell(avg.good||0, 'sd-matrix-avg');
+        html += arTd(goodTotal);
         html += '</tr>';
 
         html += '</tbody></table>';
