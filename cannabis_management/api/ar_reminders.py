@@ -30,7 +30,7 @@ TERMS_SCHEDULE = {
     "50% down NET15": [10, 5, 3, 2, 1],
     "NET7":           [5, 3, 2, 1],
 }
-DEFAULT_SCHEDULE = [10, 5, 3, 2, 1]   # invoices with no / unrecognised payment terms
+# Invoices with no template or an unrecognised template are NOT reminded
 
 
 # ── Entry points ───────────────────────────────────────────────────────────────
@@ -103,8 +103,11 @@ def _collect_triggers(today):
     triggers = {}   # {terms_label: [reminder_dict, ...]}
 
     for inv in invoices:
-        terms     = inv.terms or "__none__"
-        schedule  = TERMS_SCHEDULE.get(inv.terms) or DEFAULT_SCHEDULE
+        # Only process invoices with a recognised payment terms template
+        if not inv.terms or inv.terms not in TERMS_SCHEDULE:
+            continue
+        terms    = inv.terms
+        schedule = TERMS_SCHEDULE[terms]
 
         # Determine due dates to evaluate
         due_entries = []
