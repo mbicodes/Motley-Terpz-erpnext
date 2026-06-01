@@ -691,20 +691,18 @@ def get_sales_dashboard_data(period='weekly', territory=None, company=None):
     }
 
 
-LEGACY_AR_CUTOFF    = "2026-05-15"
+LEGACY_AR_CUTOFF    = "2026-06-01"   # pre-June 1 = Legacy AR; June 1 onwards = New AR
 LEGACY_AR_TARGET    = 2_000_000.0
 LEGACY_MONTHLY_PACE = 400_000.0
-BAD_STANDING_DAYS   = 30
 
 
 @frappe.whitelist()
 def get_ar_matrix():
     """
     AR tracking matrix for the sales dashboard.
-    Rows: Total AR | Legacy AR | Bad Standing AR | Good Standing AR
-    Columns: same monthly + weekly period blocks as the revenue matrix.
+    Rows: Total AR | Legacy AR (pre-Jun 1) | New AR (Jun 1+)
+    Columns: monthly period blocks.
     Values: amount collected from each AR category within each period.
-    Also returns current balance snapshots for each row.
     """
     import datetime as dt_mod
     from frappe.utils import getdate, get_first_day, get_last_day, flt as _flt
@@ -728,11 +726,9 @@ def get_ar_matrix():
         """, {"exc": excluded, **(args or {})}, as_dict=True)
         return _flt(rows[0].bal) if rows else 0.0
 
-    total_ar   = _bal("")
-    legacy_ar  = _bal("AND si.posting_date < %(cutoff)s", {"cutoff": LEGACY_AR_CUTOFF})
-    current_ar = _bal("AND si.posting_date >= %(cutoff)s", {"cutoff": LEGACY_AR_CUTOFF})
-    bad_ar     = _bal(f"AND si.due_date < DATE_SUB(CURDATE(), INTERVAL {BAD_STANDING_DAYS} DAY)")
-    good_ar    = _bal(f"AND (si.due_date IS NULL OR si.due_date >= DATE_SUB(CURDATE(), INTERVAL {BAD_STANDING_DAYS} DAY))")
+    total_ar  = _bal("")
+    legacy_ar = _bal("AND si.posting_date < %(cutoff)s",  {"cutoff": LEGACY_AR_CUTOFF})
+    new_ar    = _bal("AND si.posting_date >= %(cutoff)s", {"cutoff": LEGACY_AR_CUTOFF})
 
     # ── Build period columns — monthly only for AR tracking ───────────────────
     monthly_columns = []
@@ -773,15 +769,13 @@ def get_ar_matrix():
 
     # Bucket into period columns
     cutoff_date = getdate(LEGACY_AR_CUTOFF)
-    bad_cutoff  = today - dt_mod.timedelta(days=BAD_STANDING_DAYS)
 
     col_labels = [c["label"] for c in all_columns]
     col_ranges = [(c["label"], getdate(c["from_date"]), getdate(c["to_date"])) for c in all_columns]
 
-    totals   = {l: 0.0 for l in col_labels}
-    legacy   = {l: 0.0 for l in col_labels}
-    bad      = {l: 0.0 for l in col_labels}
-    good     = {l: 0.0 for l in col_labels}
+    totals  = {l: 0.0 for l in col_labels}
+    legacy  = {l: 0.0 for l in col_labels}
+    new_ar_coll = {l: 0.0 for l in col_labels}
 
     for r in pay_rows:
         if not r.posting_date:
@@ -789,20 +783,16 @@ def get_ar_matrix():
         pd  = r.posting_date if isinstance(r.posting_date, dt_mod.date) else getdate(str(r.posting_date))
         amt = _flt(r.allocated_amount)
         inv_date = getdate(str(r.invoice_date)) if r.invoice_date else today
-        due_date = getdate(str(r.invoice_due))  if r.invoice_due  else today
 
         is_legacy = inv_date < cutoff_date
-        is_bad    = due_date < bad_cutoff
 
         for label, fd, td in col_ranges:
             if fd <= pd <= td:
                 totals[label] += amt
                 if is_legacy:
                     legacy[label] += amt
-                if is_bad:
-                    bad[label]  += amt
                 else:
-                    good[label] += amt
+                    new_ar_coll[label] += amt
                 break
 
     # ── Monthly pace target per column (same frac logic as revenue matrix) ────
@@ -821,17 +811,14 @@ def get_ar_matrix():
         "columns": col_labels,
         "column_dates": [[c["from_date"], c["to_date"]] for c in all_columns],
         "balances": {
-            "total":   total_ar,
-            "legacy":  legacy_ar,
-            "current": current_ar,
-            "bad":     bad_ar,
-            "good":    good_ar,
+            "total":  total_ar,
+            "legacy": legacy_ar,
+            "new_ar": new_ar,
         },
         "collected": {
             "total":  totals,
             "legacy": legacy,
-            "bad":    bad,
-            "good":   good,
+            "new_ar": new_ar_coll,
         },
         "pace_by_col":          pace_by_col,
         "legacy_monthly_target": LEGACY_MONTHLY_PACE,
@@ -839,8 +826,7 @@ def get_ar_matrix():
         "avg": {
             "total":  _avg(totals),
             "legacy": _avg(legacy),
-            "bad":    _avg(bad),
-            "good":   _avg(good),
+            "new_ar": _avg(new_ar_coll),
         },
     }
 

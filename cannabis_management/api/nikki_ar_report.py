@@ -17,7 +17,7 @@ from datetime import datetime, timedelta
 RECIPIENTS = ["nikki@motleyterpz.com"]
 CC         = ["matt@motleyterpz.com", "imran@motleyterpz.com"]
 
-LEGACY_CUTOFF      = "2026-05-15"   # invoices before this date = Legacy AR
+LEGACY_CUTOFF      = "2026-06-01"   # invoices before June 1 = Legacy AR; June 1+ = New AR
 LEGACY_AR_TARGET   = 2_000_000.0   # estimated total legacy balance to collect
 LEGACY_MONTHLY_PACE = 400_000.0    # required monthly pace to clear by harvest
 
@@ -248,7 +248,7 @@ def _build_html(rows, label, week_start, legacy_stats=None):
       <div class="kpi-s">{acct_count} account{'s' if acct_count != 1 else ''} · see breakdown below</div>
     </div>
     <div class="kpi">
-      <div class="kpi-l">Legacy AR (pre-May 15)</div>
+      <div class="kpi-l">Legacy AR (pre-Jun 1)</div>
       <div class="kpi-v red">{_fmt(ls.get('legacy_balance', 0))}</div>
       <div class="kpi-s">old debt — must collect before harvest</div>
     </div>
@@ -298,7 +298,7 @@ def _legacy_tracker(ls):
   <div class="card" style="margin-bottom:14px;">
     <div class="card-hdr">
       <div class="card-dot" style="background:#dc2626"></div>
-      <div class="card-title">Legacy AR Collection Tracker — May 15 Fresh Start</div>
+      <div class="card-title">Legacy AR Collection Tracker — Jun 1 Fresh Start</div>
       <div class="card-meta">Target: {_fmt(pace)}/month to clear by harvest</div>
     </div>
     <div style="padding:14px 18px;">
@@ -306,7 +306,7 @@ def _legacy_tracker(ls):
         <div style="flex:1;min-width:140px;">
           <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#64748b;margin-bottom:4px;">Legacy AR Remaining</div>
           <div style="font-size:22px;font-weight:800;color:#dc2626;">{_fmt(balance)}</div>
-          <div style="font-size:11px;color:#94a3b8;">invoices before May 15 · target $0</div>
+          <div style="font-size:11px;color:#94a3b8;">invoices before Jun 1 · target $0</div>
         </div>
         <div style="flex:1;min-width:140px;">
           <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#64748b;margin-bottom:4px;">Collected This Month (Legacy)</div>

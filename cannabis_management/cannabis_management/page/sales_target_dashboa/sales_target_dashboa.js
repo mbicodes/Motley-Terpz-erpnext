@@ -306,18 +306,19 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
         var avg  = ar.avg        || {};
 
         function arTd(v, cls) {
-            return '<td class="sd-matrix-num' + (cls ? ' ' + cls : '') + '">' + (v > 0 ? fmtCurrency(v) : '—') + '</td>';
+            return '<td class="sd-matrix-num' + (cls ? ' ' + cls : '') + '">'
+                 + (v > 0 ? fmtCurrency(v) : '—') + '</td>';
         }
 
         var html = '<table class="sd-matrix"><thead><tr>';
         html += '<th class="sd-matrix-th-product">AR Category</th>';
         html += '<th class="sd-matrix-th-static">Outstanding Balance</th>';
-        html += '<th class="sd-matrix-th-static">Monthly Pace Target</th>';
+        html += '<th class="sd-matrix-th-static">Monthly Pace</th>';
         cols.forEach(function(c) { html += '<th class="sd-matrix-th-period">' + frappe.utils.escape_html(c) + '</th>'; });
         html += '<th class="sd-matrix-th-avg">Total Collected</th>';
         html += '</tr></thead><tbody>';
 
-        // ── Total AR (grayed, for reference only) ─────────────────
+        // ── Total AR (grayed, reference only) ─────────────────────
         html += '<tr style="opacity:.5">';
         html += '<td class="sd-matrix-product" style="color:#94a3b8;text-decoration:line-through;">Total AR</td>';
         html += '<td class="sd-matrix-num" style="text-decoration:line-through;">' + fmtCurrency(bal.total||0) + '</td>';
@@ -329,59 +330,45 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
         // ── Legacy AR balance row ─────────────────────────────────
         html += '<tr class="sd-ar-legacy">';
         html += '<td class="sd-matrix-product sd-ar-label-legacy">Legacy AR'
-              + ' <span class="sd-ar-badge-legacy">pre-May 15</span></td>';
+              + ' <span class="sd-ar-badge-legacy">pre-Jun 1</span></td>';
         html += '<td class="sd-matrix-num" style="color:#dc2626;font-weight:800;">' + fmtCurrency(bal.legacy||0) + '</td>';
         html += '<td class="sd-matrix-num sd-matrix-target-rev">' + fmtCurrency(ar.legacy_monthly_target||400000) + '/mo</td>';
-        cols.forEach(function(c){ html += arTd(0); });  // balance row — no per-month collected
+        cols.forEach(function(c){ html += arTd(0); });
         html += arTd(0);
         html += '</tr>';
 
-        // ── Total Legacy AR Collected (monthly collections) ───────
+        // ── Total Legacy AR Collected (monthly) ───────────────────
         html += '<tr style="background:#fff5f5;">';
         html += '<td class="sd-matrix-product" style="padding-left:20px;color:#dc2626;font-weight:600;">'
               + 'Total Legacy AR Collected</td>';
         html += '<td class="sd-matrix-num">—</td>';
         html += '<td class="sd-matrix-num sd-matrix-target-rev">' + fmtCurrency(ar.legacy_monthly_target||400000) + '/mo</td>';
-        var legacyRunning = 0;
+        var legacyTotal = 0;
         cols.forEach(function(c) {
-            var v   = (coll.legacy||{})[c] || 0;
-            var t   = pace[c] || 0;
+            var v = (coll.legacy||{})[c] || 0;
+            var t = pace[c] || 0;
             var cls = '';
             if (v > 0 && t > 0) { var r = v/t; cls = r>=1 ? 'sd-cell-green' : r>=0.5 ? 'sd-cell-amber' : 'sd-cell-red'; }
-            legacyRunning += v;
+            legacyTotal += v;
             html += '<td class="sd-matrix-num ' + cls + '">' + (v > 0 ? fmtCurrency(v) : '—') + '</td>';
         });
-        html += arTd(legacyRunning, '');  // total collected all months
+        html += arTd(legacyTotal);
         html += '</tr>';
 
-        // ── Bad Standing (>30 days overdue) ───────────────────────
-        html += '<tr class="sd-ar-bad">';
-        html += '<td class="sd-matrix-product sd-ar-label-bad">Bad Standing'
-              + ' <span class="sd-ar-badge-bad">&gt;30 days</span></td>';
-        html += '<td class="sd-matrix-num" style="color:#d97706;font-weight:700;">' + fmtCurrency(bal.bad||0) + '</td>';
-        html += '<td class="sd-matrix-num">—</td>';
-        var badTotal = 0;
-        cols.forEach(function(c) {
-            var v = (coll.bad||{})[c] || 0;
-            badTotal += v;
-            html += '<td class="sd-matrix-num' + (v > 0 ? ' sd-cell-green' : '') + '">' + (v > 0 ? fmtCurrency(v) : '—') + '</td>';
-        });
-        html += arTd(badTotal);
-        html += '</tr>';
-
-        // ── Good Standing (≤30 days) ──────────────────────────────
+        // ── New AR (Jun 1 onwards) ────────────────────────────────
         html += '<tr class="sd-ar-good">';
-        html += '<td class="sd-matrix-product sd-ar-label-good">Good Standing'
-              + ' <span class="sd-ar-badge-good">≤30 days</span></td>';
-        html += '<td class="sd-matrix-num" style="color:#059669;font-weight:700;">' + fmtCurrency(bal.good||0) + '</td>';
+        html += '<td class="sd-matrix-product sd-ar-label-good">New AR'
+              + ' <span class="sd-ar-badge-good">Jun 1+</span></td>';
+        html += '<td class="sd-matrix-num" style="color:#059669;font-weight:700;">' + fmtCurrency(bal.new_ar||0) + '</td>';
         html += '<td class="sd-matrix-num">—</td>';
-        var goodTotal = 0;
+        var newTotal = 0;
         cols.forEach(function(c) {
-            var v = (coll.good||{})[c] || 0;
-            goodTotal += v;
-            html += '<td class="sd-matrix-num' + (v > 0 ? ' sd-cell-green' : '') + '">' + (v > 0 ? fmtCurrency(v) : '—') + '</td>';
+            var v = (coll.new_ar||{})[c] || 0;
+            newTotal += v;
+            html += '<td class="sd-matrix-num' + (v > 0 ? ' sd-cell-green' : '') + '">'
+                  + (v > 0 ? fmtCurrency(v) : '—') + '</td>';
         });
-        html += arTd(goodTotal);
+        html += arTd(newTotal);
         html += '</tr>';
 
         html += '</tbody></table>';
