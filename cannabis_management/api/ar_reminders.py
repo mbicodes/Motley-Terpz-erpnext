@@ -124,9 +124,10 @@ def _collect_triggers(today):
         for entry in due_entries:
             days_until = (entry["due_date"] - today).days
 
-            # Check: either matches reminder schedule, or is 1-7 days overdue
+            # Check: matches reminder schedule OR is past due (any number of days — send every
+            # day until paid; outstanding_amount = 0 is the only exit condition)
             is_reminder_day = (days_until >= 0 and days_until in schedule)
-            is_overdue      = (days_until < 0 and abs(days_until) <= 7)
+            is_overdue      = (days_until < 0)   # past due → daily until paid
 
             if not (is_reminder_day or is_overdue):
                 continue
@@ -262,7 +263,7 @@ def _build_html(triggers, today):
     <div style="flex:1;background:#fff;border-radius:10px;padding:14px 16px;border:1px solid #e2e8f0;">
       <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#64748b;margin-bottom:4px;">Overdue</div>
       <div style="font-size:20px;font-weight:800;color:#dc2626;">{sum(1 for rows in triggers.values() for r in rows if r["days"] < 0)}</div>
-      <div style="font-size:11px;color:#94a3b8;">past due date</div>
+      <div style="font-size:11px;color:#94a3b8;">past due · daily until paid</div>
     </div>
   </div>
 
