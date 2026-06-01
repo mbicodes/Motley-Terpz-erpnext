@@ -124,7 +124,8 @@
   white-space: nowrap;
   text-align: right;
 }
-.sd-dash .sd-matrix tbody .sd-matrix-product {
+.sd-dash .sd-matrix tbody .sd-matrix-product,
+.sd-dash .sd-matrix tfoot .sd-matrix-product:not(.sd-matrix-foot-label) {
   text-align: left;
   font-family: 'DM Sans', sans-serif;
   font-weight: 600;
