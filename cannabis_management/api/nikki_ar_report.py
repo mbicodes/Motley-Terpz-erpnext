@@ -17,6 +17,10 @@ from datetime import datetime, timedelta
 RECIPIENTS = ["nikki@motleyterpz.com"]
 CC         = ["matt@motleyterpz.com", "imran@motleyterpz.com"]
 
+LEGACY_CUTOFF      = "2026-05-15"   # invoices before this date = Legacy AR
+LEGACY_AR_TARGET   = 2_000_000.0   # estimated total legacy balance to collect
+LEGACY_MONTHLY_PACE = 400_000.0    # required monthly pace to clear by harvest
+
 
 # ── Entry points ──────────────────────────────────────────────────────────────
 
@@ -49,9 +53,10 @@ def send_now(week_start=None, week_end=None, recipients=None):
 
 
 def _send(week_start, week_end, recipients, cc=None):
-    rows  = _get_ar_data(week_start, week_end)
-    label = _week_label(week_start, week_end)
-    html  = _build_html(rows, label, week_start)
+    rows         = _get_ar_data(week_start, week_end)
+    legacy_stats = _get_legacy_ar_stats()
+    label        = _week_label(week_start, week_end)
+    html         = _build_html(rows, label, week_start, legacy_stats)
     frappe.sendmail(
         recipients=recipients,
         cc=cc or [],
@@ -64,10 +69,7 @@ def _send(week_start, week_end, recipients, cc=None):
 # ── Data ─────────────────────────────────────────────────────────────────────
 
 def _get_ar_data(week_start, week_end):
-    """
-    One row per customer that has outstanding AR > 0.
-    Pulls tier + COD flag from CRM Lead if linked.
-    """
+    """One row per customer with outstanding AR > 0, plus Legacy/Current split."""
     return frappe.db.sql("""
         SELECT
             si.customer,
@@ -76,6 +78,10 @@ def _get_ar_data(week_start, week_end):
             MAX(cl.custom_company)                    AS company,
             MAX(cl.custom_revenue_size)               AS revenue_size,
             COALESCE(SUM(si.outstanding_amount), 0)   AS outstanding_ar,
+            COALESCE(SUM(CASE WHEN si.posting_date < %(cutoff)s
+                              THEN si.outstanding_amount ELSE 0 END), 0) AS legacy_ar,
+            COALESCE(SUM(CASE WHEN si.posting_date >= %(cutoff)s
+                              THEN si.outstanding_amount ELSE 0 END), 0) AS current_ar,
             MIN(CASE WHEN si.outstanding_amount > 0.01
                      THEN si.due_date ELSE NULL END)  AS oldest_due,
             (SELECT MAX(pe.posting_date)
@@ -99,17 +105,57 @@ def _get_ar_data(week_start, week_end):
           AND COALESCE(c.is_internal_customer, 0) = 0
           AND (c.represents_company IS NULL OR c.represents_company = '')
         GROUP BY si.customer
-        ORDER BY outstanding_ar DESC
-    """, {"ws": week_start, "we": week_end}, as_dict=True)
+        ORDER BY legacy_ar DESC, outstanding_ar DESC
+    """, {"ws": week_start, "we": week_end, "cutoff": LEGACY_CUTOFF}, as_dict=True)
+
+
+def _get_legacy_ar_stats():
+    """Legacy AR balance + collections this month (applied against legacy invoices)."""
+    from frappe.utils import get_first_day
+    today = getdate(nowdate())
+    month_start = str(get_first_day(today))
+
+    bal = frappe.db.sql("""
+        SELECT COALESCE(SUM(outstanding_amount), 0) AS balance
+        FROM `tabSales Invoice`
+        WHERE docstatus = 1 AND outstanding_amount > 0.01
+          AND posting_date < %(cutoff)s
+    """, {"cutoff": LEGACY_CUTOFF}, as_dict=True)
+    legacy_balance = flt(bal[0].balance) if bal else 0.0
+
+    collected = frappe.db.sql("""
+        SELECT COALESCE(SUM(per.allocated_amount), 0) AS collected
+        FROM `tabPayment Entry Reference` per
+        JOIN `tabPayment Entry` pe ON pe.name = per.parent
+        JOIN `tabSales Invoice` si ON si.name = per.reference_name
+        WHERE pe.docstatus = 1
+          AND pe.payment_type = 'Receive'
+          AND pe.posting_date >= %(ms)s
+          AND si.posting_date < %(cutoff)s
+    """, {"ms": month_start, "cutoff": LEGACY_CUTOFF}, as_dict=True)
+    legacy_collected_mtd = flt(collected[0].collected) if collected else 0.0
+
+    pct_of_target  = min((legacy_collected_mtd / LEGACY_MONTHLY_PACE * 100) if LEGACY_MONTHLY_PACE else 0, 999)
+    pct_remaining  = (legacy_balance / LEGACY_AR_TARGET * 100) if LEGACY_AR_TARGET else 0
+
+    return {
+        "legacy_balance":       legacy_balance,
+        "legacy_collected_mtd": legacy_collected_mtd,
+        "monthly_pace_target":  LEGACY_MONTHLY_PACE,
+        "pct_of_pace":          pct_of_target,
+        "pct_remaining":        pct_remaining,
+        "month_start":          month_start,
+    }
 
 
 # ── HTML builder ──────────────────────────────────────────────────────────────
 
-def _build_html(rows, label, week_start):
+def _build_html(rows, label, week_start, legacy_stats=None):
     total_ar    = sum(flt(r.outstanding_ar) for r in rows)
     acct_count  = len(rows)
     cod_count   = sum(1 for r in rows if r.cod_only)
     overdue_cnt = sum(1 for r in rows if r.oldest_due and getdate(r.oldest_due) < getdate(nowdate()))
+    ls          = legacy_stats or {}
 
     has_issues = overdue_cnt > 0 or cod_count > 0
 
@@ -197,8 +243,13 @@ def _build_html(rows, label, week_start):
   <div class="kpi-bar">
     <div class="kpi">
       <div class="kpi-l">Total Outstanding AR</div>
-      <div class="kpi-v red">{_fmt(total_ar)}</div>
-      <div class="kpi-s">{acct_count} account{'s' if acct_count != 1 else ''}</div>
+      <div class="kpi-v" style="color:#94a3b8;text-decoration:line-through;font-size:16px">{_fmt(total_ar)}</div>
+      <div class="kpi-s">{acct_count} account{'s' if acct_count != 1 else ''} · see breakdown below</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-l">Legacy AR (pre-May 15)</div>
+      <div class="kpi-v red">{_fmt(ls.get('legacy_balance', 0))}</div>
+      <div class="kpi-s">old debt — must collect before harvest</div>
     </div>
     <div class="kpi">
       <div class="kpi-l">Overdue Accounts</div>
@@ -211,6 +262,8 @@ def _build_html(rows, label, week_start):
       <div class="kpi-s">need attention</div>
     </div>
   </div>
+
+  {_legacy_tracker(ls)}
 
   <div class="card">
     <div class="card-hdr">
@@ -230,6 +283,51 @@ def _build_html(rows, label, week_start):
 </body></html>"""
 
 
+def _legacy_tracker(ls):
+    """Card showing Legacy AR balance vs monthly collection pace."""
+    if not ls:
+        return ""
+    balance   = flt(ls.get("legacy_balance", 0))
+    collected = flt(ls.get("legacy_collected_mtd", 0))
+    pace      = flt(ls.get("monthly_pace_target", 400_000))
+    pct       = min(flt(ls.get("pct_of_pace", 0)), 100)
+    bar_color = "#059669" if pct >= 100 else "#d97706" if pct >= 50 else "#dc2626"
+
+    return f"""
+  <div class="card" style="margin-bottom:14px;">
+    <div class="card-hdr">
+      <div class="card-dot" style="background:#dc2626"></div>
+      <div class="card-title">Legacy AR Collection Tracker — May 15 Fresh Start</div>
+      <div class="card-meta">Target: {_fmt(pace)}/month to clear by harvest</div>
+    </div>
+    <div style="padding:14px 18px;">
+      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px;">
+        <div style="flex:1;min-width:140px;">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#64748b;margin-bottom:4px;">Legacy AR Remaining</div>
+          <div style="font-size:22px;font-weight:800;color:#dc2626;">{_fmt(balance)}</div>
+          <div style="font-size:11px;color:#94a3b8;">invoices before May 15 · target $0</div>
+        </div>
+        <div style="flex:1;min-width:140px;">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#64748b;margin-bottom:4px;">Collected This Month (Legacy)</div>
+          <div style="font-size:22px;font-weight:800;color:#059669;">{_fmt(collected)}</div>
+          <div style="font-size:11px;color:#94a3b8;">pace target: {_fmt(pace)}/month</div>
+        </div>
+        <div style="flex:1;min-width:140px;">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#64748b;margin-bottom:4px;">Monthly Pace Progress</div>
+          <div style="font-size:22px;font-weight:800;color:{bar_color};">{pct:.0f}%</div>
+          <div style="font-size:11px;color:#94a3b8;">of ${pace/1000:.0f}k/month target</div>
+        </div>
+      </div>
+      <div style="background:#f1f5f9;border-radius:6px;height:8px;overflow:hidden;">
+        <div style="background:{bar_color};height:100%;width:{pct:.1f}%;transition:width .3s;"></div>
+      </div>
+      <div style="font-size:11px;color:#94a3b8;margin-top:6px;">
+        At current pace: requires {_fmt(pace)}/month · current balance needs ~{int(balance/pace) if pace else '?'} months to clear
+      </div>
+    </div>
+  </div>"""
+
+
 def _ar_table(rows):
     if not rows:
         return '<div class="empty">No outstanding AR this week.</div>'
@@ -238,8 +336,10 @@ def _ar_table(rows):
 
     html = """<table><thead><tr>
       <th>Account</th><th>Company</th><th>Tier</th><th>Rev. Size</th>
-      <th class="r">Outstanding AR</th>
-      <th>Oldest Due Date</th>
+      <th class="r">Legacy AR</th>
+      <th class="r">Current AR</th>
+      <th class="r">Total AR</th>
+      <th>Oldest Due</th>
       <th>Last Payment</th>
       <th class="r">New Orders</th>
       <th>COD</th>
@@ -248,6 +348,7 @@ def _ar_table(rows):
     for r in rows:
         is_overdue = r.oldest_due and getdate(r.oldest_due) < today
         is_cod     = int(r.cod_only or 0)
+        has_legacy = flt(r.legacy_ar) > 0
         row_cls    = ' class="hi"' if is_overdue or is_cod else ""
 
         oldest_str = str(r.oldest_due)[:10] if r.oldest_due else "—"
@@ -264,14 +365,19 @@ def _ar_table(rows):
         t_key = tier.lower().replace(" & ", "").replace("/", "").replace(" ", "")
         tier_map = {"aaa": "tier-aaa", "aa": "tier-aa", "a": "tier-a",
                     "friendsfamily": "tier-ff", "wip": "tier-wip", "lead": "tier-lead"}
-        tier_cls = tier_map.get(t_key, "tier-lead")
+        tier_cls  = tier_map.get(t_key, "tier-lead")
         tier_html = f'<span class="tier {tier_cls}">{_esc(tier)}</span>' if tier else "—"
+
+        legacy_fmt  = f'<span style="color:#dc2626;font-weight:700">{_fmt(r.legacy_ar)}</span>' if has_legacy else '<span style="color:#94a3b8">—</span>'
+        current_fmt = _fmt(r.current_ar) if flt(r.current_ar) > 0 else "—"
 
         html += f"""<tr{row_cls}>
           <td style="font-weight:700">{_esc(r.customer)}</td>
           <td class="m">{_esc(r.company or "—")}</td>
           <td>{tier_html}</td>
           <td class="m" style="font-size:11px">{_esc(r.revenue_size or "—")}</td>
+          <td class="r">{legacy_fmt}</td>
+          <td class="r">{current_fmt}</td>
           <td class="r" style="font-weight:700;color:#dc2626">{_fmt(r.outstanding_ar)}</td>
           <td>{oldest_html}</td>
           <td class="m">{last_pay}</td>
@@ -279,10 +385,14 @@ def _ar_table(rows):
           <td>{cod_html}</td>
         </tr>"""
 
-    total = sum(flt(r.outstanding_ar) for r in rows)
+    total_legacy  = sum(flt(r.legacy_ar)  for r in rows)
+    total_current = sum(flt(r.current_ar) for r in rows)
+    total_all     = sum(flt(r.outstanding_ar) for r in rows)
     html += f"""<tr class="sub">
       <td colspan="4">Total</td>
-      <td class="r">{_fmt(total)}</td>
+      <td class="r" style="color:#dc2626">{_fmt(total_legacy)}</td>
+      <td class="r">{_fmt(total_current)}</td>
+      <td class="r">{_fmt(total_all)}</td>
       <td colspan="4"></td>
     </tr></tbody></table>"""
     return html

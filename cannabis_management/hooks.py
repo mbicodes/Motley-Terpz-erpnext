@@ -181,10 +181,10 @@ override_doctype_class = {
 # Hook on document methods and events
 
 doc_events = {
-    # AR Policy: cap check + overdue warning + blocked customer check on submit
+    # AR Policy disabled — before_submit cap check removed
     "Sales Invoice": {
         "before_submit": [
-            "cannabis_management.doc_hooks.sales_invoice.before_submit",
+            # "cannabis_management.doc_hooks.sales_invoice.before_submit",  # AR Policy disabled
             "cannabis_management.overrides.crm_enforcement.check_customer_blocked",
             "cannabis_management.overrides.crm_enforcement.check_cod_customer",
         ],
@@ -206,7 +206,7 @@ doc_events = {
         "on_submit": [
             "cannabis_management.overrides.sales_order_restrictions.on_submit",
             "cannabis_management.overrides.sales_invoice_hooks.check_inventory_and_notify_slack",
-            "cannabis_management.overrides.payment_overdue_alert.on_sales_invoice_submit"
+            # "cannabis_management.overrides.payment_overdue_alert.on_sales_invoice_submit"  # AR Policy disabled
         ],
     },
     "Delivery Note": {
@@ -241,26 +241,25 @@ scheduler_events = {
             "cannabis_management.cannabis_management.utils.irs_8300.send_january_notices",
             # Payment Terms SO: remind creator 14 and 7 days before each payment due date
             "cannabis_management.overrides.payment_schedule_reminder.send_payment_schedule_reminders",
-            # AR Policy: total AR cap check + DSO from GL ledger
-            "cannabis_management.api.ar_monitor.check_ar_cap",
-            "cannabis_management.api.ar_monitor.compute_dso",
+            # AR Policy disabled
+            # "cannabis_management.api.ar_monitor.check_ar_cap",
+            # "cannabis_management.api.ar_monitor.compute_dso",
         ],
         # SO delivery-date reminder: 10 AM Eastern (UTC-4 EDT → 14:00 UTC) — weekdays only
         "0 14 * * 1-5": [
             "cannabis_management.overrides.sales_order_delivery_reminder.send_delivery_date_reminders",
-            "cannabis_management.overrides.payment_overdue_alert.on_sales_invoice_submit",
+            # "cannabis_management.overrides.payment_overdue_alert.on_sales_invoice_submit",  # AR Policy disabled
         ],
         # Friday: payment overdue report at 9 AM PDT (14:00 UTC / 15:00 PST)
         "0 14 * * 5": [
-            "cannabis_management.overrides.payment_overdue_alert.friday_overdue_report",
-            # AR Policy: weekly AR report every Friday 8 AM UTC
-            "cannabis_management.api.ar_monitor.send_weekly_ar_report",
+            # "cannabis_management.overrides.payment_overdue_alert.friday_overdue_report",  # AR Policy disabled
+            # "cannabis_management.api.ar_monitor.send_weekly_ar_report",  # AR Policy disabled
             "cannabis_management.api.weekly_report.send_weekly_report",
         ],
         # Weekly Sales Report: generate Monday 8 AM UTC
         "0 8 * * 1": [
             "cannabis_management.cannabis_management.overrides.weekly_signoff.generate_weekly_signoff",
-            "cannabis_management.api.nikki_ar_report.send_nikki_ar_report",
+            # "cannabis_management.api.nikki_ar_report.send_nikki_ar_report",  # AR Policy disabled
         ],
         # Weekly Sales Report: remind Tuesday 8 AM UTC if unacknowledged
         "0 8 * * 2": [
@@ -273,8 +272,8 @@ scheduler_events = {
         ],
     },
     "monthly": [
-        # AR Policy: CEI calculation from GL ledger
-        "cannabis_management.api.ar_monitor.compute_cei",
+        # AR Policy disabled
+        # "cannabis_management.api.ar_monitor.compute_cei",
     ],
 }
 # scheduler_events = {

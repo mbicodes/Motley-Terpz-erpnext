@@ -956,6 +956,18 @@ def get_sales_matrix(territory=None):
     else:
         rev_rows, cogs_rows, company_rev_rows = [], [], []
 
+    # MTM + LA Canna: all items, no item-group filter (separate companies)
+    mtm_lacanna_rows = frappe.db.sql("""
+        SELECT si.posting_date, si.company,
+               SUM(sii.base_net_amount) AS rev
+        FROM `tabSales Invoice Item` sii
+        JOIN `tabSales Invoice` si ON si.name = sii.parent
+        WHERE si.docstatus = 1 AND si.is_return = 0
+          AND si.posting_date BETWEEN %(s)s AND %(e)s
+          AND si.company IN ('Master Touch Manufacturing', 'LA Canna Distro')
+        GROUP BY si.posting_date, si.company
+    """, {'s': min_date, 'e': max_date}, as_dict=True) if min_date and max_date else []
+
     # Tolling: actuals by specific item_code (toll-processing-fee), not item_group
     toll_rows = frappe.db.sql("""
         SELECT si.posting_date,
@@ -982,17 +994,17 @@ def get_sales_matrix(territory=None):
     _week_subs  = [c for c in monthly_columns if c.get('col_type') == 'weekly']
     _m1 = _build_matrix(_month_only, target_index, rev_rows, cogs_rows,
                         company_rev_rows, monthly_oh, default_margin_pct,
-                        'monthly', child_to_parent, DISPLAY_ORDER)
+                        'monthly', child_to_parent, DISPLAY_ORDER, mtm_lacanna_rows)
     _m2 = _build_matrix(_week_subs, target_index, rev_rows, cogs_rows,
                         company_rev_rows, monthly_oh, default_margin_pct,
-                        'weekly', child_to_parent, DISPLAY_ORDER)
+                        'weekly', child_to_parent, DISPLAY_ORDER, mtm_lacanna_rows)
     monthly = _merge_matrices(_m1, _m2)
     weekly = _build_matrix(weekly_columns, target_index, rev_rows, cogs_rows,
                            company_rev_rows, monthly_oh, default_margin_pct,
-                           'weekly', child_to_parent, DISPLAY_ORDER)
+                           'weekly', child_to_parent, DISPLAY_ORDER, mtm_lacanna_rows)
     daily = _build_matrix(daily_columns, target_index, rev_rows, cogs_rows,
                           company_rev_rows, monthly_oh, default_margin_pct,
-                          'daily', child_to_parent, DISPLAY_ORDER)
+                          'daily', child_to_parent, DISPLAY_ORDER, mtm_lacanna_rows)
 
     return {
         "monthly": monthly, "weekly": weekly, "daily": daily,
@@ -1046,9 +1058,13 @@ def _merge_matrices(a, b):
     def _recompute_avg(merged_dict):
         return sum(merged_dict.values()) / n if n else 0.0
 
-    mot  = _md(a["motley_totals"],       b["motley_totals"])
-    tsbc = _md(a["tsbc_totals"],         b["tsbc_totals"])
-    grnd = _md(a.get("grand_totals", {}), b.get("grand_totals", {}))
+    mot     = _md(a["motley_totals"],        b["motley_totals"])
+    tsbc    = _md(a["tsbc_totals"],          b["tsbc_totals"])
+    mtm     = _md(a.get("mtm_totals", {}),   b.get("mtm_totals", {}))
+    lacanna = _md(a.get("la_canna_totals",{}),b.get("la_canna_totals",{}))
+    all_cols_merged = merged_cols
+    grnd = {c: mot.get(c,0) + tsbc.get(c,0) + mtm.get(c,0) + lacanna.get(c,0)
+            for c in all_cols_merged}
     tsbc_tgt = _md(a.get("tsbc_target_by_col", {}), b.get("tsbc_target_by_col", {}))
 
     return {
@@ -1064,11 +1080,15 @@ def _merge_matrices(a, b):
         "target_rev_by_col":_md(a["target_rev_by_col"], b["target_rev_by_col"]),
         "motley_totals":    mot,
         "tsbc_totals":      tsbc,
+        "mtm_totals":       mtm,
+        "la_canna_totals":  lacanna,
         "other_totals":     _md(a["other_totals"],   b["other_totals"]),
         "grand_totals":     grnd,
         "tsbc_target_by_col": tsbc_tgt,
         "avg_motley":      _recompute_avg(mot),
         "avg_tsbc":        _recompute_avg(tsbc),
+        "avg_mtm":         _recompute_avg(mtm),
+        "avg_la_canna":    _recompute_avg(lacanna),
         "avg_grand":       _recompute_avg(grnd),
         "avg_tsbc_target": _recompute_avg(tsbc_tgt),
         "avg_net":         a.get("avg_net", 0),
@@ -1108,16 +1128,18 @@ def _empty_matrix(columns, target_index=None, display_order=None):
         "oh": dict(empty_cols), "target_net": dict(empty_cols),
         "target_rev_by_col": dict(empty_cols),
         "motley_totals": dict(empty_cols), "tsbc_totals": dict(empty_cols),
+        "mtm_totals": dict(empty_cols), "la_canna_totals": dict(empty_cols),
         "other_totals": dict(empty_cols),
         "grand_totals": dict(empty_cols), "tsbc_target_by_col": dict(empty_cols),
-        "avg_motley": 0, "avg_tsbc": 0, "avg_grand": 0,
-        "avg_tsbc_target": 0, "avg_net": 0, "tsbc_monthly_target": 400000.0,
+        "avg_motley": 0, "avg_tsbc": 0, "avg_mtm": 0, "avg_la_canna": 0,
+        "avg_grand": 0, "avg_tsbc_target": 0, "avg_net": 0,
+        "tsbc_monthly_target": 400000.0,
     }
 
 
 def _build_matrix(columns, target_index, rev_rows, cogs_rows,
                   company_rev_rows, monthly_oh, default_margin_pct, granularity,
-                  child_to_parent=None, display_order=None):
+                  child_to_parent=None, display_order=None, mtm_lacanna_rows=None):
     import datetime as dt_mod
     from frappe.utils import getdate, get_first_day, get_last_day, flt as _flt
 
@@ -1160,9 +1182,11 @@ def _build_matrix(columns, target_index, rev_rows, cogs_rows,
                 cogs[label] += _flt(r.cogs)
                 break
 
-    motley_totals = {col: 0.0 for col in col_labels}
-    tsbc_totals   = {col: 0.0 for col in col_labels}
-    other_totals  = {col: 0.0 for col in col_labels}
+    motley_totals   = {col: 0.0 for col in col_labels}
+    tsbc_totals     = {col: 0.0 for col in col_labels}
+    mtm_totals      = {col: 0.0 for col in col_labels}
+    la_canna_totals = {col: 0.0 for col in col_labels}
+    other_totals    = {col: 0.0 for col in col_labels}
 
     for r in company_rev_rows:
         if not r.posting_date:
@@ -1171,12 +1195,25 @@ def _build_matrix(columns, target_index, rev_rows, cogs_rows,
         company = (r.company or '').strip().lower()
         for label, fd, td, _ct in col_ranges:
             if fd <= pd <= td:
-                if 'motley' in company:
+                if 'motley' in company or 'mtpz' in company:
                     motley_totals[label] += _flt(r.rev)
                 elif 'tsbc' in company:
                     tsbc_totals[label] += _flt(r.rev)
                 else:
                     other_totals[label] += _flt(r.rev)
+                break
+
+    for r in (mtm_lacanna_rows or []):
+        if not r.posting_date:
+            continue
+        pd = r.posting_date if isinstance(r.posting_date, dt_mod.date) else getdate(str(r.posting_date))
+        company = (r.company or '').strip().lower()
+        for label, fd, td, _ct in col_ranges:
+            if fd <= pd <= td:
+                if 'master' in company or 'touch' in company:
+                    mtm_totals[label] += _flt(r.rev)
+                elif 'canna' in company:
+                    la_canna_totals[label] += _flt(r.rev)
                 break
 
     # TSBC frozen-sales target: 2,000 lbs/week @ $50/lb = $100K/week = $400K/month
@@ -1216,7 +1253,8 @@ def _build_matrix(columns, target_index, rev_rows, cogs_rows,
         effective_margin_pct = margin_pct[label] if rev_col > 0 else default_margin_pct
         target_net[label] = (effective_margin_pct / 100.0) * col_target_rev
 
-    grand_totals = {col: motley_totals[col] + tsbc_totals[col] for col in col_labels}
+    grand_totals = {col: motley_totals[col] + tsbc_totals[col] + mtm_totals[col] + la_canna_totals[col]
+                   for col in col_labels}
 
     products = []
     for ig, cols in products_map.items():
@@ -1264,12 +1302,17 @@ def _build_matrix(columns, target_index, rev_rows, cogs_rows,
         "products": products, "totals": totals, "cogs": cogs,
         "margin": margin, "margin_pct": margin_pct,
         "oh": oh, "target_net": target_net, "target_rev_by_col": target_rev_by_col,
-        "motley_totals": motley_totals, "tsbc_totals": tsbc_totals,
-        "other_totals": other_totals,
-        "grand_totals":       grand_totals,
+        "motley_totals":    motley_totals,
+        "tsbc_totals":      tsbc_totals,
+        "mtm_totals":       mtm_totals,
+        "la_canna_totals":  la_canna_totals,
+        "other_totals":     other_totals,
+        "grand_totals":     grand_totals,
         "tsbc_target_by_col": tsbc_target_by_col,
         "avg_motley":     _avg(motley_totals),
         "avg_tsbc":       _avg(tsbc_totals),
+        "avg_mtm":        _avg(mtm_totals),
+        "avg_la_canna":   _avg(la_canna_totals),
         "avg_grand":      _avg(grand_totals),
         "avg_tsbc_target":_avg(tsbc_target_by_col),
         "avg_net":        _avg(target_net),

@@ -586,6 +586,7 @@ def _send_acknowledgment_notification(doc):
 		<p><a href="/app/weekly-sales-report/{doc.name}">View Report</a></p>
 	"""
 	try:
+		return  # email sending disabled
 		frappe.sendmail(recipients=recipients, subject=subject, message=message)
 	except Exception:
 		pass

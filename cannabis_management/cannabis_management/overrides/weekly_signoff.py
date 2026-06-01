@@ -81,6 +81,7 @@ def send_acknowledgment_reminder():
 	"""
 
 	try:
+		return  # email sending disabled
 		frappe.sendmail(
 			recipients=[MATT_EMAIL, IMRAN_EMAIL],
 			subject=subject,
@@ -110,6 +111,7 @@ def _notify_nikki(doc):
 		<p><a href="/app/weekly-sales-order">Open Weekly Dashboard</a></p>
 	"""
 	try:
+		return  # email sending disabled
 		frappe.sendmail(recipients=[NIKKI_EMAIL], subject=subject, message=message)
 	except Exception:
 		pass

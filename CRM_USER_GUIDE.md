@@ -436,7 +436,7 @@ Both **Sales Brand** and **Sales- Frozen Manufactures** share the same column st
 
 Live server still needs migration:
 ```bash
-bench --site erp.alltechvirtual.com migrate
+bench --site erp.motleyterpz.io migrate
 ```
 
 Patches that will apply:

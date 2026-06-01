@@ -337,7 +337,7 @@ send_now()
 | # | Item | Type | Status |
 |---|---|---|---|
 | A | Assign CRM Tolling Access role to Matt | Manual | ⏳ Pending |
-| B | Run `bench migrate` on live server (`erp.alltechvirtual.com`) | Server | ⏳ Pending |
+| B | Run `bench migrate` on live server (`erp.motleyterpz.io`) | Server | ⏳ Pending |
 | C | Link each CRM Lead to its ERPNext Customer | Data entry | ⏳ Pending |
 | D | Import ~1,850 accounts from Google Sheet | Data migration | ⏳ Pending |
 | E | Build Matt's Pipeline Health Dashboard | Development | 🔲 Not started |

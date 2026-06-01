@@ -186,33 +186,46 @@
 .sd-dash .sd-matrix tfoot .sd-matrix-foot-net td { background: #eef2ff; border-top: 1.5px solid var(--sd-violet); font-weight: 700; }
 .sd-dash .sd-matrix tfoot .sd-matrix-foot-net .sd-matrix-foot-label { background: #eef2ff; color: var(--sd-violet); }
 
-/* Target Motley row */
-.sd-dash .sd-matrix tfoot .sd-matrix-foot-target-motley td {
-  background: #f5f3ff; border-top: 2px solid var(--sd-violet);
+/* Motley summary row (target + actuals merged) */
+.sd-dash .sd-matrix tfoot .sd-matrix-foot-motley td {
+  background: #f5f3ff; border-top: 2px solid var(--sd-violet); font-weight: 700;
 }
-.sd-dash .sd-matrix tfoot .sd-matrix-foot-target-motley .sd-matrix-foot-label {
+.sd-dash .sd-matrix tfoot .sd-matrix-foot-motley .sd-matrix-foot-label {
   background: #f5f3ff; color: var(--sd-violet);
 }
 
-/* Motley actuals row */
-.sd-dash .sd-matrix tfoot .sd-matrix-foot-motley td {
-  background: #fafbfc;
-}
-.sd-dash .sd-matrix tfoot .sd-matrix-foot-motley .sd-matrix-foot-label {
-  background: #fafbfc; color: var(--sd-text-secondary);
-}
-
-/* Blank separator between Motley and TSBC sections */
+/* Blank separator rows */
 .sd-dash .sd-matrix tfoot .sd-matrix-separator td {
   height: 12px; background: transparent; border: none; padding: 0;
 }
 
-/* Target TSBC row */
-.sd-dash .sd-matrix tfoot .sd-matrix-foot-target-tsbc td {
-  background: #f0fdf4; border-top: 2px solid var(--sd-emerald);
+/* TSBC summary row (target + actuals merged) */
+.sd-dash .sd-matrix tfoot .sd-matrix-foot-tsbc td {
+  background: #f0fdf4; border-top: 2px solid var(--sd-emerald); font-weight: 700;
 }
-.sd-dash .sd-matrix tfoot .sd-matrix-foot-target-tsbc .sd-matrix-foot-label {
+.sd-dash .sd-matrix tfoot .sd-matrix-foot-tsbc .sd-matrix-foot-label {
   background: #f0fdf4; color: var(--sd-emerald);
+}
+
+/* MTM + LA Canna rows */
+.sd-dash .sd-matrix tfoot .sd-matrix-foot-mtm td,
+.sd-dash .sd-matrix tfoot .sd-matrix-foot-lacanna td {
+  background: #eef2ff; border-top: 1px solid #c7d2fe;
+}
+.sd-dash .sd-matrix tfoot .sd-matrix-foot-mtm .sd-matrix-foot-label,
+.sd-dash .sd-matrix tfoot .sd-matrix-foot-lacanna .sd-matrix-foot-label {
+  color: var(--sd-blue); font-weight: 700;
+}
+
+/* Grand Total row */
+.sd-dash .sd-matrix tfoot .sd-matrix-foot-grand-total td {
+  background: #1e293b; color: #fff; font-weight: 700; border-top: 2px solid #0f172a;
+}
+.sd-dash .sd-matrix tfoot .sd-matrix-foot-grand-total .sd-matrix-foot-label {
+  background: #1e293b; color: #f1f5f9;
+}
+.sd-dash .sd-matrix .sd-matrix-total-cell {
+  font-weight: 800; color: #1e293b;
 }
 
 .sd-dash .sd-matrix tfoot .sd-foot-total {

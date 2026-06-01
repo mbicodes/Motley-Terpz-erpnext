@@ -202,9 +202,9 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
         // ── Footer ────────────────────────────────────────────────
         html += '<tfoot>';
 
-        // 1. Target Motley — shows target sum, blank actuals
-        html += '<tr class="sd-matrix-foot-target-motley">';
-        html += '<td class="sd-matrix-product sd-matrix-foot-label">Target Motley</td>';
+        // 1. Motley — target + actuals in one row
+        html += '<tr class="sd-matrix-foot-motley">';
+        html += '<td class="sd-matrix-product sd-matrix-foot-label">Motley</td>';
         html += '<td class="sd-matrix-num">—</td>';
         html += '<td class="sd-matrix-num">—</td>';
         if (isQty) {
@@ -212,16 +212,6 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
         } else {
             html += '<td class="sd-matrix-num sd-matrix-target-rev">' + (motleyTargetRev ? fmtCurrency(motleyTargetRev) : '—') + '</td>';
         }
-        html += blankCells(cols.length);
-        if (showAvg) html += '<td class="sd-matrix-num sd-matrix-avg">—</td>';
-        html += '</tr>';
-
-        // 2. Motley actuals row — blank target, shows actuals
-        html += '<tr class="sd-matrix-foot-motley">';
-        html += '<td class="sd-matrix-product sd-matrix-foot-label">Motley</td>';
-        html += '<td class="sd-matrix-num">—</td>';
-        html += '<td class="sd-matrix-num">—</td>';
-        html += '<td class="sd-matrix-num">—</td>';
         cols.forEach(function (c) {
             var v = (matrix.motley_totals && matrix.motley_totals[c]) || 0;
             html += '<td class="sd-matrix-num">' + (v > 0 ? fmtCurrency(v) : '—') + '</td>';
@@ -229,10 +219,10 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
         if (showAvg) html += '<td class="sd-matrix-num sd-matrix-avg">' + (matrix.avg_motley > 0 ? fmtCurrency(matrix.avg_motley) : '—') + '</td>';
         html += '</tr>';
 
-        // 3. Blank separator row
+        // 2. Separator
         html += '<tr class="sd-matrix-separator"><td colspan="' + totalCols + '"></td></tr>';
 
-        // 4. Fresh Frozen product row (TSBC section)
+        // 3. Fresh Frozen Main product row
         if (ffProduct) {
             html += '<tr>';
             html += '<td class="sd-matrix-product">' + frappe.utils.escape_html(FF_KEY) + '</td>';
@@ -246,7 +236,7 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
             }
             cols.forEach(function (col) {
                 if (isQty) {
-                    var aq  = (ffProduct.units && ffProduct.units[col]) || 0;
+                    var aq = (ffProduct.units && ffProduct.units[col]) || 0;
                     html += '<td class="sd-matrix-num">' + (aq > 0 ? fmtQty(aq) : '—') + '</td>';
                 } else {
                     var av = ffProduct.actuals[col] || 0;
@@ -261,9 +251,9 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
             html += '</tr>';
         }
 
-        // 5. Target TSBC — shows Fresh Frozen target, blank actuals
-        html += '<tr class="sd-matrix-foot-target-tsbc">';
-        html += '<td class="sd-matrix-product sd-matrix-foot-label">Target TSBC</td>';
+        // 4. TSBC — target + actuals in one row
+        html += '<tr class="sd-matrix-foot-tsbc">';
+        html += '<td class="sd-matrix-product sd-matrix-foot-label">TSBC</td>';
         html += '<td class="sd-matrix-num">—</td>';
         html += '<td class="sd-matrix-num">—</td>';
         if (isQty) {
@@ -271,24 +261,60 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
         } else {
             html += '<td class="sd-matrix-num sd-matrix-target-rev">' + (ffTargetRev ? fmtCurrency(ffTargetRev) : '—') + '</td>';
         }
-        html += blankCells(cols.length);
-        if (showAvg) html += '<td class="sd-matrix-num sd-matrix-avg">—</td>';
-        html += '</tr>';
-
-        // 6. TSBC billing row — mirrors Fresh Frozen Main
-        html += '<tr>';
-        html += '<td class="sd-matrix-product sd-matrix-foot-label">TSBC</td>';
-        html += '<td class="sd-matrix-num">—</td>';
-        html += '<td class="sd-matrix-num">—</td>';
-        html += '<td class="sd-matrix-num">—</td>';
         cols.forEach(function (col) {
-            var v   = ffProduct ? (isQty ? ((ffProduct.units && ffProduct.units[col]) || 0) : (ffProduct.actuals[col] || 0)) : 0;
-            var ct  = ffProduct ? ((ffProduct.cell_targets && ffProduct.cell_targets[col]) || 0) : 0;
+            var v  = ffProduct ? (isQty ? ((ffProduct.units && ffProduct.units[col]) || 0) : (ffProduct.actuals[col] || 0)) : ((matrix.tsbc_totals && matrix.tsbc_totals[col]) || 0);
+            var ct = ffProduct ? ((ffProduct.cell_targets && ffProduct.cell_targets[col]) || 0) : 0;
             html += '<td class="sd-matrix-num ' + cellClass(v, ct) + '">' + (v > 0 ? (isQty ? fmtQty(v) : fmtCurrency(v)) : '—') + '</td>';
         });
         if (showAvg) {
             var ffAvgTsbc = isQty ? (avgUnits[FF_KEY] || 0) : (avgActuals[FF_KEY] || 0);
             html += '<td class="sd-matrix-num sd-matrix-avg">' + (ffAvgTsbc > 0 ? (isQty ? fmtQty(ffAvgTsbc) : fmtCurrency(ffAvgTsbc)) : '—') + '</td>';
+        }
+        html += '</tr>';
+
+        // 5. Separator
+        html += '<tr class="sd-matrix-separator"><td colspan="' + totalCols + '"></td></tr>';
+
+        // 6. Master Touch Manufacturing row
+        html += '<tr class="sd-matrix-foot-mtm">';
+        html += '<td class="sd-matrix-product sd-matrix-foot-label">Master Touch Manufacturing</td>';
+        html += '<td class="sd-matrix-num">—</td><td class="sd-matrix-num">—</td><td class="sd-matrix-num">—</td>';
+        cols.forEach(function (c) {
+            var v = (matrix.mtm_totals && matrix.mtm_totals[c]) || 0;
+            html += '<td class="sd-matrix-num">' + (v > 0 ? fmtCurrency(v) : '—') + '</td>';
+        });
+        if (showAvg) html += '<td class="sd-matrix-num sd-matrix-avg">' + (matrix.avg_mtm > 0 ? fmtCurrency(matrix.avg_mtm) : '—') + '</td>';
+        html += '</tr>';
+
+        // 7. LA Canna row
+        html += '<tr class="sd-matrix-foot-lacanna">';
+        html += '<td class="sd-matrix-product sd-matrix-foot-label">LA Canna</td>';
+        html += '<td class="sd-matrix-num">—</td><td class="sd-matrix-num">—</td><td class="sd-matrix-num">—</td>';
+        cols.forEach(function (c) {
+            var v = (matrix.la_canna_totals && matrix.la_canna_totals[c]) || 0;
+            html += '<td class="sd-matrix-num">' + (v > 0 ? fmtCurrency(v) : '—') + '</td>';
+        });
+        if (showAvg) html += '<td class="sd-matrix-num sd-matrix-avg">' + (matrix.avg_la_canna > 0 ? fmtCurrency(matrix.avg_la_canna) : '—') + '</td>';
+        html += '</tr>';
+
+        // 8. Separator
+        html += '<tr class="sd-matrix-separator"><td colspan="' + totalCols + '"></td></tr>';
+
+        // 9. Total row
+        html += '<tr class="sd-matrix-foot-grand-total">';
+        html += '<td class="sd-matrix-product sd-matrix-foot-label">Total</td>';
+        html += '<td class="sd-matrix-num">—</td><td class="sd-matrix-num">—</td><td class="sd-matrix-num">—</td>';
+        cols.forEach(function (c) {
+            var motley  = (matrix.motley_totals   && matrix.motley_totals[c])   || 0;
+            var tsbc    = ffProduct ? (ffProduct.actuals[c] || 0) : ((matrix.tsbc_totals && matrix.tsbc_totals[c]) || 0);
+            var mtm     = (matrix.mtm_totals      && matrix.mtm_totals[c])      || 0;
+            var lacanna = (matrix.la_canna_totals && matrix.la_canna_totals[c]) || 0;
+            var total   = motley + tsbc + mtm + lacanna;
+            html += '<td class="sd-matrix-num sd-matrix-total-cell">' + (total > 0 ? fmtCurrency(total) : '—') + '</td>';
+        });
+        if (showAvg) {
+            var avgTotal = (matrix.avg_motley || 0) + (matrix.avg_tsbc || 0) + (matrix.avg_mtm || 0) + (matrix.avg_la_canna || 0);
+            html += '<td class="sd-matrix-num sd-matrix-avg sd-matrix-total-cell">' + (avgTotal > 0 ? fmtCurrency(avgTotal) : '—') + '</td>';
         }
         html += '</tr>';
 
@@ -463,20 +489,14 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
             html += '</tr>';
         });
 
-        // ── Target Motley ─────────────────────────────────────────
-        html += '<tr class="tgt-motley">';
-        html += td('Target Motley', 'lbl tgt-motley-lbl');
+
+        // ── Motley (target + actuals merged) ──────────
+        html += '<tr class="motley-total">';
+        html += td('Motley', 'lbl');
         html += td('', 'num'); html += td('', 'num');
         var tmV = isQty ? (motleyTargetUnits ? Math.round(motleyTargetUnits).toLocaleString() : '—')
                         : (motleyTargetRev   ? ('$ ' + motleyTargetRev.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})) : '—');
         html += td(tmV, 'num tgt');
-        html += blank(cols.length + (showAvg ? 1 : 0));
-        html += '</tr>';
-
-        // ── Motley actuals ────────────────────────────────────────
-        html += '<tr class="motley-total">';
-        html += td('Motley', 'lbl');
-        html += td('', 'num'); html += td('', 'num'); html += td('', 'num');
         cols.forEach(function (c) {
             var v = (matrix.motley_totals && matrix.motley_totals[c]) || 0;
             html += td(v > 0 ? fmtNum(v) : '—', 'num');
@@ -484,10 +504,10 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
         if (showAvg) html += td(matrix.avg_motley > 0 ? fmtNum(matrix.avg_motley) : '—', 'num');
         html += '</tr>';
 
-        // ── Separator ─────────────────────────────────────────────
+        // ── Separator ──────────────────────────────
         html += '<tr class="sep"><td colspan="' + totalCols + '"></td></tr>';
 
-        // ── Fresh Frozen row ──────────────────────────────────────
+        // ── Fresh Frozen row ──────────────────────────
         if (ffProduct) {
             html += '<tr class="ff-row">';
             html += td(FF_KEY, 'lbl');
@@ -511,24 +531,15 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
             html += '</tr>';
         }
 
-        // ── Target TSBC ───────────────────────────────────────────
-        html += '<tr class="tgt-tsbc">';
-        html += td('Target TSBC', 'lbl');
-        html += td('', 'num'); html += td('', 'num');
+        // ── TSBC (target + actuals merged) ────────────────────
+        html += '<tr class="tsbc-row">';
+        html += td('TSBC', 'lbl');
+        html += td('—', 'num dim'); html += td('—', 'num dim');
         var ttV = isQty ? (ffTargetUnits ? Math.round(ffTargetUnits).toLocaleString() : '—')
                         : (ffTargetRev   ? ('$ ' + ffTargetRev.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})) : '—');
         html += td(ttV, 'num tgt');
-        html += blank(cols.length + (showAvg ? 1 : 0));
-        html += '</tr>';
-
-        // ── TSBC billing row ──────────────────────────────────────
-        html += '<tr class="tsbc-row">';
-        html += td('TSBC', 'lbl');
-        html += td('—', 'num dim');
-        html += td('—', 'num dim');
-        html += td('—', 'num dim');
         cols.forEach(function (c) {
-            var v   = ffProduct ? (isQty ? ((ffProduct.units && ffProduct.units[c]) || 0) : (ffProduct.actuals[c] || 0)) : 0;
+            var v   = ffProduct ? (isQty ? ((ffProduct.units && ffProduct.units[c]) || 0) : (ffProduct.actuals[c] || 0)) : ((matrix.tsbc_totals && matrix.tsbc_totals[c]) || 0);
             var tgt = ffProduct ? ((ffProduct.cell_targets && ffProduct.cell_targets[c]) || 0) : 0;
             var cls = '';
             if (v > 0 && tgt > 0) { var r = v/tgt; cls = r>=1 ? 'green' : r>=0.7 ? 'amber' : 'red'; }
@@ -537,6 +548,52 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
         if (showAvg) {
             var ffAvgEx = isQty ? (avgUnits[FF_KEY] || 0) : (avgActuals[FF_KEY] || 0);
             html += td(ffAvgEx > 0 ? fmtNum(ffAvgEx) : '—', 'num');
+        }
+        html += '</tr>';
+
+        // ── Separator ──────────────────────────────
+        html += '<tr class="sep"><td colspan="' + totalCols + '"></td></tr>';
+
+        // ── Master Touch Manufacturing ──────────────
+        html += '<tr style="background:#eef2ff;">';
+        html += td('Master Touch Manufacturing', 'lbl');
+        html += td('—', 'num dim'); html += td('—', 'num dim'); html += td('—', 'num dim');
+        cols.forEach(function (c) {
+            var v = (matrix.mtm_totals && matrix.mtm_totals[c]) || 0;
+            html += td(v > 0 ? fmtNum(v) : '—', 'num');
+        });
+        if (showAvg) html += td(matrix.avg_mtm > 0 ? fmtNum(matrix.avg_mtm) : '—', 'num');
+        html += '</tr>';
+
+        // ── LA Canna ────────────────────────────────
+        html += '<tr style="background:#eef2ff;">';
+        html += td('LA Canna', 'lbl');
+        html += td('—', 'num dim'); html += td('—', 'num dim'); html += td('—', 'num dim');
+        cols.forEach(function (c) {
+            var v = (matrix.la_canna_totals && matrix.la_canna_totals[c]) || 0;
+            html += td(v > 0 ? fmtNum(v) : '—', 'num');
+        });
+        if (showAvg) html += td(matrix.avg_la_canna > 0 ? fmtNum(matrix.avg_la_canna) : '—', 'num');
+        html += '</tr>';
+
+        // ── Separator ──────────────────────────────
+        html += '<tr class="sep"><td colspan="' + totalCols + '"></td></tr>';
+
+        // ── Total ───────────────────────────────────
+        html += '<tr style="background:#1e293b;color:#fff;font-weight:700;">';
+        html += '<td class="lbl" style="color:#fff;padding:7px 12px;">Total</td>';
+        html += '<td></td><td></td><td></td>';
+        cols.forEach(function (c) {
+            var motley  = (matrix.motley_totals   && matrix.motley_totals[c])   || 0;
+            var tsbc    = ffProduct ? (ffProduct.actuals[c] || 0) : ((matrix.tsbc_totals && matrix.tsbc_totals[c]) || 0);
+            var mtm     = (matrix.mtm_totals      && matrix.mtm_totals[c])      || 0;
+            var lacanna = (matrix.la_canna_totals && matrix.la_canna_totals[c]) || 0;
+            var total   = motley + tsbc + mtm + lacanna;
+            html += '<td style="text-align:right;font-family:Courier New,monospace;padding:7px 12px;color:#fff;">' + (total > 0 ? fmtNum(total) : '—') + '</td>';
+        });
+        if (showAvg) {
+            var avgT = (matrix.avg_motley||0)+(matrix.avg_tsbc||0)+(matrix.avg_mtm||0)+(matrix.avg_la_canna||0);
+            html += '<td style="text-align:right;font-family:Courier New,monospace;padding:7px 12px;color:#fff;">' + (avgT > 0 ? fmtNum(avgT) : '—') + '</td>';
         }
         html += '</tr>';
 

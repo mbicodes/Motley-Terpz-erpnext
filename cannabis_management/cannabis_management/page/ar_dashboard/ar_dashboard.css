@@ -634,6 +634,61 @@
 	color: var(--ard-text);
 }
 
+/* ── AR Mode Toggle ────────────────────────────────────────── */
+.ard-mode-toggle {
+	display: flex;
+	border: 1.5px solid var(--ard-border);
+	border-radius: var(--ard-radius-sm);
+	overflow: hidden;
+	background: var(--ard-bg);
+}
+.ard-mode-btn {
+	flex: 1;
+	height: 34px;
+	padding: 0 14px;
+	border: none;
+	background: transparent;
+	font-size: 12px;
+	font-weight: 600;
+	font-family: var(--ard-font);
+	color: var(--ard-muted);
+	cursor: pointer;
+	transition: background .15s, color .15s;
+	white-space: nowrap;
+}
+.ard-mode-btn + .ard-mode-btn {
+	border-left: 1.5px solid var(--ard-border);
+}
+.ard-mode-btn.ard-mode-active {
+	background: var(--ard-primary);
+	color: #fff;
+}
+.ard-mode-btn:not(.ard-mode-active):hover {
+	background: #eff6ff;
+	color: var(--ard-primary);
+}
+
+/* ── AR Mode chip (on summary card) ───────────────────────── */
+.ard-mode-chip {
+	display: inline-block;
+	padding: 1px 7px;
+	border-radius: 10px;
+	font-size: 9px;
+	font-weight: 700;
+	letter-spacing: .4px;
+	text-transform: uppercase;
+	vertical-align: middle;
+	margin-left: 6px;
+}
+.ard-mode-chip-legacy {
+	background: #fef3c7;
+	color: #92400e;
+}
+.ard-mode-chip-new {
+	background: #dbeafe;
+	color: #1e40af;
+}
+
 /* ── Responsive ────────────────────────────────────────────── */
 @media (max-width: 900px) {
 	.ard-summary-row   { gap: 10px; }

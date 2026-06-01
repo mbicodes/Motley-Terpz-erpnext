@@ -2,8 +2,11 @@ import frappe
 from frappe.utils import nowdate
 
 
-RECON_EDIT_ROLES = ("Account Manager", "System Manager", "Administrator")
-TMM_GROUP_COMPANIES = ["Motley Terpz", "TSBC Ranch"]
+RECON_EDIT_ROLES     = ("Account Manager", "System Manager", "Administrator")
+TMM_GROUP_COMPANIES  = ["Motley Terpz", "TSBC Ranch"]
+INTERCOMPANY_PARTIES = frozenset(TMM_GROUP_COMPANIES)
+LEGACY_CUTOFF        = "2026-05-15"
+NEW_AR_START         = "2026-05-16"
 
 
 def _can_edit_recon():
@@ -22,6 +25,19 @@ def _build_ranges(range_str):
     return ranges
 
 
+def _compute_totals(rows, ranges):
+    totals = {"invoiced": 0.0, "paid": 0.0, "outstanding": 0.0}
+    for r in ranges:
+        totals[r["key"]] = 0.0
+    for row in rows:
+        totals["invoiced"]    += row["invoiced"]
+        totals["paid"]        += row["paid"]
+        totals["outstanding"] += row["outstanding"]
+        for r in ranges:
+            totals[r["key"]] += row[r["key"]]
+    return totals
+
+
 def _fetch_rows_for_company(company, report_date, customer, ageing_based_on, range_str, ranges):
     from erpnext.accounts.report.accounts_receivable.accounts_receivable import execute as ar_execute
 
@@ -36,10 +52,6 @@ def _fetch_rows_for_company(company, report_date, customer, ageing_based_on, ran
         filters["party"] = [customer]
 
     columns, data, _, _, _, _ = ar_execute(filters)
-
-    totals = {"invoiced": 0.0, "paid": 0.0, "outstanding": 0.0}
-    for r in ranges:
-        totals[r["key"]] = 0.0
 
     rows = []
     for row in (data or []):
@@ -58,19 +70,12 @@ def _fetch_rows_for_company(company, report_date, customer, ageing_based_on, ran
             "outstanding": float(row.get("outstanding") or 0),
             "currency": row.get("currency") or "",
         }
-
         for r in ranges:
-            val = float(row.get(r["key"]) or 0)
-            processed[r["key"]] = val
-            totals[r["key"]] += val
-
-        totals["invoiced"] += processed["invoiced"]
-        totals["paid"] += processed["paid"]
-        totals["outstanding"] += processed["outstanding"]
+            processed[r["key"]] = float(row.get(r["key"]) or 0)
 
         rows.append(processed)
 
-    return rows, totals
+    return rows
 
 
 @frappe.whitelist()
@@ -86,32 +91,45 @@ def init_page():
 
 
 @frappe.whitelist()
-def get_ar_data(company, report_date=None, customer=None, ageing_based_on="Due Date", range_str="30, 60, 90, 120"):
+def get_ar_data(company, report_date=None, customer=None, ageing_based_on="Due Date",
+                range_str="30, 60, 90, 120", ar_mode="legacy"):
     ranges = _build_ranges(range_str)
+
+    # Clamp report_date to the correct window so aging is always computed inside the mode's boundary
+    if ar_mode == "legacy":
+        if not report_date or str(report_date) > LEGACY_CUTOFF:
+            report_date = LEGACY_CUTOFF
+    else:
+        if not report_date or str(report_date) < NEW_AR_START:
+            report_date = nowdate()
 
     if company == "TMM Group":
         all_rows = []
-        combined_totals = {"invoiced": 0.0, "paid": 0.0, "outstanding": 0.0}
-        for r in ranges:
-            combined_totals[r["key"]] = 0.0
-
         for c in TMM_GROUP_COMPANIES:
             try:
-                c_rows, c_totals = _fetch_rows_for_company(
+                c_rows = _fetch_rows_for_company(
                     c, report_date, customer, ageing_based_on, range_str, ranges
                 )
                 all_rows.extend(c_rows)
-                for k in combined_totals:
-                    combined_totals[k] += c_totals.get(k, 0.0)
             except Exception:
                 frappe.log_error(f"AR data fetch failed for {c}", "TMM Group AR Dashboard")
-
         rows = all_rows
-        totals = combined_totals
     else:
-        rows, totals = _fetch_rows_for_company(
+        rows = _fetch_rows_for_company(
             company, report_date, customer, ageing_based_on, range_str, ranges
         )
+
+    # Apply mode date filter and strip intercompany rows in one pass
+    if ar_mode == "legacy":
+        rows = [r for r in rows
+                if str(r.get("posting_date") or "") <= LEGACY_CUTOFF
+                and r.get("party") not in INTERCOMPANY_PARTIES]
+    else:
+        rows = [r for r in rows
+                if str(r.get("posting_date") or "") >= NEW_AR_START
+                and r.get("party") not in INTERCOMPANY_PARTIES]
+
+    totals = _compute_totals(rows, ranges)
 
     # Attach reconciliation status from Customer master
     unique_parties = list({r["party"] for r in rows if r.get("party")})
@@ -134,6 +152,7 @@ def get_ar_data(company, report_date=None, customer=None, ageing_based_on="Due D
         "company": company,
         "report_date": str(report_date or nowdate()),
         "can_edit_recon": _can_edit_recon(),
+        "ar_mode": ar_mode,
     }
 
 

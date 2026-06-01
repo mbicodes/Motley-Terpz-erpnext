@@ -92,6 +92,7 @@ def _do_send(week_start, week_end, recipients):
     if pdf_bytes:
         attachments = [{"fname": f"Weekly_Report_{week_start}.pdf", "fcontent": pdf_bytes}]
 
+    return  # email sending disabled
     frappe.sendmail(
         recipients=recipients,
         subject=f"Weekly Sale Report — {label}",
@@ -969,6 +970,7 @@ def _send_week_closure_email(week_start, week_end):
 </div>
 </body></html>"""
 
+        return  # email sending disabled
         frappe.sendmail(
             recipients=SIGNOFF_TO,
             cc=SIGNOFF_CC,

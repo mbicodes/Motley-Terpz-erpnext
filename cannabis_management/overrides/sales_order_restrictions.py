@@ -1,6 +1,7 @@
 import frappe
 from frappe import _
-from cannabis_management.doc_hooks.sales_invoice import check_ar_policy
+# AR Policy disabled — import removed
+# from cannabis_management.doc_hooks.sales_invoice import check_ar_policy
 
 
 
@@ -22,8 +23,8 @@ def on_update(doc, method=None):
 
 
 def before_submit(doc, method=None):
-    # AR policy — runs for all Sales Orders regardless of payment mode
-    check_ar_policy(doc)
+    # AR policy disabled
+    # check_ar_policy(doc)
 
     if doc.custom_mode_of_payment != "Payment Terms":
         return

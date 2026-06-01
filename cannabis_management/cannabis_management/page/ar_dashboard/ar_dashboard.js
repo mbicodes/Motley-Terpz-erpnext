@@ -1,3 +1,6 @@
+var LEGACY_CUTOFF = "2026-05-15";
+var NEW_AR_START  = "2026-05-16";
+
 frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
     var page = frappe.ui.make_app_page({
         parent: wrapper,
@@ -6,26 +9,32 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
     });
 
     wrapper.page = page;
-    page._ard_result = null;   // last data from backend
-    page._ard_excl_motley = false;  // Remove Motley toggle state
-    page._ard_can_edit = false;  // permission flag from backend
-
-    let today = frappe.datetime.get_today();
+    page._ard_result      = null;
+    page._ard_excl_motley = false;
+    page._ard_can_edit    = false;
+    page._ard_ar_mode     = "legacy"; // "legacy" (≤ May 15 2026) or "new" (≥ May 16 2026)
 
     page.main.html(`
 		<div class="ard-container">
 			<div class="ard-header">
 				<div class="ard-header-left">
 					<h2 class="ard-title">Accounts Receivable</h2>
-					<p class="ard-subtitle">Outstanding invoices with aging analysis</p>
+					<p class="ard-subtitle" id="ard-subtitle">Legacy AR &mdash; invoices up to May 15, 2026</p>
 				</div>
 				<div class="ard-header-right">
 					<span class="ard-as-of-label">As of</span>
-					<span id="ard-report-date-display" class="ard-date-badge">${today}</span>
+					<span id="ard-report-date-display" class="ard-date-badge">${LEGACY_CUTOFF}</span>
 				</div>
 			</div>
 
 			<div class="ard-filter-bar">
+				<div class="ard-filter-group">
+					<label class="ard-label">AR Mode</label>
+					<div class="ard-mode-toggle">
+						<button id="ard-legacy-btn" class="ard-mode-btn ard-mode-active">Legacy AR</button>
+						<button id="ard-new-btn"    class="ard-mode-btn">New AR</button>
+					</div>
+				</div>
 				<div class="ard-filter-group">
 					<label class="ard-label">Company</label>
 					<select id="ard-company" class="ard-select"></select>
@@ -36,7 +45,8 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
 				</div>
 				<div class="ard-filter-group">
 					<label class="ard-label">Report Date</label>
-					<input type="date" id="ard-report-date" class="ard-input" value="${today}" />
+					<input type="date" id="ard-report-date" class="ard-input"
+						value="${LEGACY_CUTOFF}" max="${LEGACY_CUTOFF}" />
 				</div>
 				<div class="ard-filter-group">
 					<label class="ard-label">Ageing Based On</label>
@@ -98,7 +108,7 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
     });
 
     page.main.find('#ard-apply-btn').on('click', function () {
-        page._ard_excl_motley = false;  // reset toggle on fresh load
+        page._ard_excl_motley = false;
         load_ar_data(page);
     });
 
@@ -115,6 +125,15 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
             btn.text('Remove Motley').removeClass('ard-btn-active');
         }
         render_view(page);
+    });
+
+    // AR Mode toggle
+    page.main.find('#ard-legacy-btn').on('click', function () {
+        if (page._ard_ar_mode !== 'legacy') set_ar_mode(page, 'legacy');
+    });
+
+    page.main.find('#ard-new-btn').on('click', function () {
+        if (page._ard_ar_mode !== 'new') set_ar_mode(page, 'new');
     });
 
     // Inline recon dropdown change (event delegation for dynamic rows)
@@ -134,6 +153,48 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
     });
 };
 
+// ─── AR Mode Switch ───────────────────────────────────────────────────────────
+
+function set_ar_mode(page, mode) {
+    page._ard_ar_mode = mode;
+    let $date = page.main.find('#ard-report-date');
+    let today = frappe.datetime.get_today();
+
+    if (mode === 'legacy') {
+        page.main.find('#ard-legacy-btn').addClass('ard-mode-active');
+        page.main.find('#ard-new-btn').removeClass('ard-mode-active');
+        $date.attr('max', LEGACY_CUTOFF).removeAttr('min');
+        // Clamp date down if it's above the cutoff
+        if ($date.val() > LEGACY_CUTOFF) {
+            $date.val(LEGACY_CUTOFF);
+            page.main.find('#ard-report-date-display').text(LEGACY_CUTOFF);
+        }
+        page.main.find('#ard-subtitle').html('Legacy AR &mdash; invoices up to May 15, 2026');
+    } else {
+        page.main.find('#ard-new-btn').addClass('ard-mode-active');
+        page.main.find('#ard-legacy-btn').removeClass('ard-mode-active');
+        $date.attr('min', NEW_AR_START).removeAttr('max');
+        // Clamp date up if it's below the start
+        if ($date.val() < NEW_AR_START) {
+            $date.val(today);
+            page.main.find('#ard-report-date-display').text(today);
+        }
+        page.main.find('#ard-subtitle').html('New AR &mdash; invoices from May 16, 2026 onwards');
+    }
+
+    // Clear results — user must re-apply
+    page._ard_result = null;
+    page._ard_excl_motley = false;
+    page.main.find('#ard-export-btn').hide();
+    page.main.find('#ard-motley-btn').hide();
+    page.main.find('#ard-data-area').html(`
+		<div class="ard-empty-state">
+			<div class="ard-empty-icon">&#9780;</div>
+			<p>Mode changed to <strong>${mode === 'legacy' ? 'Legacy AR' : 'New AR'}</strong>. Click <strong>Apply Filters</strong> to load data.</p>
+		</div>
+	`);
+}
+
 // ─── Visibility helpers ───────────────────────────────────────────────────────
 
 function update_motley_btn_visibility(page) {
@@ -146,7 +207,6 @@ function update_motley_btn_visibility(page) {
 
 function handle_recon_change(page, $select) {
     if (!page._ard_can_edit) {
-        // Defensive — UI should already prevent this, but block just in case
         frappe.show_alert({
             message: __("You do not have permission to change reconciliation status."),
             indicator: 'red'
@@ -159,7 +219,6 @@ function handle_recon_change(page, $select) {
     let new_status = $select.val();
     let old_status = $select.attr('data-current') || "";
 
-    // Update visual immediately
     apply_recon_select_class($select, new_status);
     $select.prop('disabled', true);
 
@@ -172,19 +231,16 @@ function handle_recon_change(page, $select) {
                 frappe.show_alert({ message: __("Reconciliation status updated"), indicator: 'green' }, 3);
                 $select.attr('data-current', new_status);
 
-                // Sync local cached rows for this party
                 if (page._ard_result && page._ard_result.rows) {
                     page._ard_result.rows.forEach(function (row) {
                         if (row.party === party) row.reconciliation_status = new_status;
                     });
                 }
 
-                // Always re-render so cards/aging-bar/table reflect the new status
                 render_view(page);
             }
         },
         error: function () {
-            // Revert on failure
             $select.prop('disabled', false);
             $select.val(old_status);
             apply_recon_select_class($select, old_status);
@@ -203,10 +259,10 @@ function apply_recon_select_class($select, status) {
 // ─── Data Loading ─────────────────────────────────────────────────────────────
 
 function load_ar_data(page) {
-    let company = page.main.find('#ard-company').val();
-    let customer = page.main.find('#ard-customer').val().trim();
-    let date = page.main.find('#ard-report-date').val();
-    let ageing_on = page.main.find('#ard-ageing-on').val();
+    let company    = page.main.find('#ard-company').val();
+    let customer   = page.main.find('#ard-customer').val().trim();
+    let date       = page.main.find('#ard-report-date').val();
+    let ageing_on  = page.main.find('#ard-ageing-on').val();
 
     if (!company) {
         frappe.msgprint("Please select a Company.");
@@ -232,6 +288,7 @@ function load_ar_data(page) {
             customer: customer || null,
             ageing_based_on: ageing_on,
             range_str: "30, 60, 90, 120",
+            ar_mode: page._ard_ar_mode,
         },
         callback: function (r) {
             if (r.message) {
@@ -285,7 +342,6 @@ function compute_view_totals(display_rows, ranges) {
 
 // ─── Rendering ────────────────────────────────────────────────────────────────
 
-// Initial render after data load: builds skeleton, then defers to render_view
 function render_dashboard(page, result) {
     let { rows } = result;
     let area = page.main.find('#ard-data-area');
@@ -309,7 +365,6 @@ function render_dashboard(page, result) {
     render_view(page);
 }
 
-// Re-renders cards + aging bar + table together using current filter state
 function render_view(page) {
     if (!page._ard_result) return;
     let { ranges } = page._ard_result;
@@ -333,10 +388,13 @@ function render_summary_cards(page, ranges, view_totals) {
 		`;
     }).join("");
 
+    let mode_label = page._ard_ar_mode === 'legacy' ? 'Legacy AR' : 'New AR';
+    let mode_cls   = page._ard_ar_mode === 'legacy' ? 'ard-mode-chip-legacy' : 'ard-mode-chip-new';
+
     let html = `
 		<div class="ard-summary-row">
 			<div class="ard-card ard-card-outstanding">
-				<div class="ard-card-label">Total Outstanding</div>
+				<div class="ard-card-label">Total Outstanding <span class="ard-mode-chip ${mode_cls}">${mode_label}</span></div>
 				<div class="ard-card-value">${fmt_cur(view_totals.outstanding)}</div>
 			</div>
 			<div class="ard-card ard-card-invoiced">
@@ -380,7 +438,6 @@ function render_aging_bar(page, ranges, view_totals) {
     page.main.find('#ard-aging-section').html(html);
 }
 
-// Build the recon-status cell (dropdown for editors, badge for read-only)
 function build_recon_cell(page, party, status) {
     if (page._ard_can_edit) {
         let select_cls = "ard-recon-select";
@@ -399,7 +456,6 @@ function build_recon_cell(page, party, status) {
 		`;
     }
 
-    // Read-only badge
     let badge_cls = "ard-recon-readonly";
     let label = "—";
     if (status === "Reconciled") {
@@ -430,7 +486,6 @@ function render_table(page, display_rows, view_totals) {
         return;
     }
 
-    // Group by customer, sorted alphabetically
     let customer_order = [];
     let customer_groups = {};
     display_rows.forEach(function (row) {
@@ -575,7 +630,6 @@ function export_excel(page) {
 
     let display_rows = get_filtered_rows(page);
 
-    // Sort by customer name then posting date
     display_rows = display_rows.slice().sort(function (a, b) {
         let na = (a.customer_name || a.party || "").toLowerCase();
         let nb = (b.customer_name || b.party || "").toLowerCase();
@@ -584,12 +638,10 @@ function export_excel(page) {
         return (a.posting_date || "").localeCompare(b.posting_date || "");
     });
 
-    // Build headers
     let range_labels = ranges.map(function (r) { return r.label + " Days"; });
     let headers = ["Customer", "Party ID", "Reconciliation", "Invoice No.", "Type", "Posting Date", "Due Date",
         "Invoiced", "Paid", "Outstanding"].concat(range_labels).concat(["Status"]);
 
-    // Build data rows
     let csv_rows = [headers];
     display_rows.forEach(function (row) {
         let status = get_row_status(row, ranges);
@@ -608,7 +660,6 @@ function export_excel(page) {
         ].concat(range_vals).concat([status.label]));
     });
 
-    // Encode as CSV
     let csv = csv_rows.map(function (cols) {
         return cols.map(function (v) {
             let s = String(v == null ? "" : v);
@@ -619,10 +670,11 @@ function export_excel(page) {
         }).join(",");
     }).join("\r\n");
 
-    let date_str = page.main.find('#ard-report-date').val() || frappe.datetime.get_today();
-    let filename = "AR_" + company.replace(/\s+/g, "_") + "_" + date_str + ".csv";
+    let date_str  = page.main.find('#ard-report-date').val() || frappe.datetime.get_today();
+    let mode_tag  = page._ard_ar_mode === 'legacy' ? 'Legacy' : 'New';
+    let filename  = "AR_" + mode_tag + "_" + company.replace(/\s+/g, "_") + "_" + date_str + ".csv";
 
-    let blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    let blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
     let url = URL.createObjectURL(blob);
     let a = document.createElement("a");
     a.href = url;
@@ -672,7 +724,6 @@ function esc(val) {
     return $("<div>").text(val).html();
 }
 
-// HTML-attribute-safe escape (handles quotes, unlike esc())
 function esc_attr(val) {
     if (val === null || val === undefined) return "";
     return String(val)

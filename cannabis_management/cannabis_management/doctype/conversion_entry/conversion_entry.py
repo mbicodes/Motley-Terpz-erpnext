@@ -73,37 +73,50 @@ class ConversionEntry(Document):
 					)
 
 	def on_submit(self):
-		try:
-			self._create_repack_stock_entry()
-		except Exception:
-			frappe.log_error(
-				message=frappe.get_traceback(),
-				title="Conversion Entry Stock Entry Creation Failed"
-			)
-			frappe.msgprint(
-				_("Failed to create Stock Entry. Please check Error Log for details."),
-				indicator="red"
-			)
+		self._create_repack_stock_entry()
 
 	def _create_repack_stock_entry(self):
-		"""Create one draft Repack Stock Entry per row in the items table."""
+		"""Create one draft Repack Stock Entry per row in the items table.
+
+		Each row is handled independently so a failure on one row never
+		prevents the remaining rows from being processed.
+		"""
 		created = []
+		failed = []
 
 		for idx, row in enumerate(self.items, 1):
-			se = self._build_se_for_row(row)
-			if se is None:
-				frappe.msgprint(
-					_("Row {0}: No valid items found — Stock Entry skipped.").format(idx),
-					alert=True,
+			try:
+				se = self._build_se_for_row(row)
+				if se is None:
+					frappe.msgprint(
+						_("Row {0}: No valid items found — Stock Entry skipped.").format(idx),
+						alert=True,
+					)
+					continue
+				se.insert(ignore_permissions=True)
+				created.append(f'<a href="/app/stock-entry/{se.name}">{se.name}</a>')
+			except Exception:
+				frappe.log_error(
+					message=frappe.get_traceback(),
+					title=_("Conversion Entry {0}: Row {1} — Stock Entry Failed").format(self.name, idx),
 				)
-				continue
-			se.insert(ignore_permissions=True)
-			created.append(f'<a href="/app/stock-entry/{se.name}">{se.name}</a>')
+				failed.append(idx)
 
 		if created:
 			frappe.msgprint(
-				_("Draft Stock Entries created: {0}").format(", ".join(created)),
-				alert=True,
+				_("{0} draft Stock Entr{1} created: {2}").format(
+					len(created),
+					"ies" if len(created) != 1 else "y",
+					", ".join(created),
+				),
+				indicator="green",
+			)
+		if failed:
+			frappe.msgprint(
+				_("Stock Entry creation failed for row(s): {0}. Check the Error Log for details.").format(
+					", ".join(str(i) for i in failed)
+				),
+				indicator="orange",
 			)
 
 	def _build_se_for_row(self, row):
