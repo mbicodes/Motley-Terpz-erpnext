@@ -1,12 +1,20 @@
 {
  "content": null,
+ "creation": "2026-06-01 10:32:42.244429",
  "docstatus": 0,
  "doctype": "Page",
  "idx": 0,
+ "modified": "2026-06-01 11:02:08.889339",
+ "modified_by": "Administrator",
  "module": "Cannabis Management",
  "name": "inventory-sales-dashboard",
+ "owner": "Administrator",
  "page_name": "inventory-sales-dashboard",
- "roles": [],
+ "roles": [
+  {
+   "role": "Inventory Dashboard"
+  }
+ ],
  "script": null,
  "standard": "Yes",
  "style": null,

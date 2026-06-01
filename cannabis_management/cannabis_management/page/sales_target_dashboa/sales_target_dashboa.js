@@ -80,7 +80,7 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
         if (matrixCache[currentMatrix]) renderMatrix('sd-matrix', matrixCache[currentMatrix]);
     }
 
-    // ── Matrix renderer (company-wise) ─────────────────────────
+    // ── Matrix renderer (company-wise, fixed IG lists) ─────────
     function renderMatrix(containerId, matrix) {
         var el = rootEl.querySelector('#' + containerId);
         if (!el) return;
@@ -93,36 +93,110 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
         var cols    = matrix.columns;
         var showAvg = currentMatrix === 'weekly';
         var AVG     = 'Avg (8 Wks)';
-
         var targetDiv, targetLabel;
         if (currentMatrix === 'monthly')    { targetDiv = 1;  targetLabel = 'Monthly Target'; }
         else if (currentMatrix === 'daily') { targetDiv = 20; targetLabel = 'Daily Target'; }
         else                                { targetDiv = 4;  targetLabel = 'Weekly Target'; }
 
-        // Quick lookup: item_group → product (targets etc.)
         var pByIG = {};
         (matrix.products || []).forEach(function(p) { pByIG[p.item_group] = p; });
-
         var cig = matrix.company_ig_map || {};
 
-        // Company display order + styling
-        var COMPANIES = [
-            {name:'TSBC Ranch',                 tot:'tsbc_totals',     avg:'avg_tsbc',
-             color:'#059669', bg:'#f0fdf4', border:'#059669'},
-            {name:'Motley Terpz',               tot:'motley_totals',   avg:'avg_motley',
-             color:'#7c3aed', bg:'#f5f3ff', border:'#7c3aed'},
-            {name:'MTPZ',                       tot:'motley_totals',   avg:'avg_motley',
-             color:'#7c3aed', bg:'#f5f3ff', border:'#7c3aed', skipEmpty:true},
-            {name:'Master Touch Manufacturing', tot:'mtm_totals',      avg:'avg_mtm',
-             color:'#2563eb', bg:'#eef2ff', border:'#2563eb'},
-            {name:'LA Canna Distro',            tot:'la_canna_totals', avg:'avg_la_canna',
-             color:'#0891b2', bg:'#ecfeff', border:'#0891b2'},
+        // ── Fixed company + IG definitions ──────────────────────────
+        // m: null = catch-all "Others" (everything not in any named row for this company)
+        var CDEFS = [
+          { label:'Motley Terpz', cos:['Motley Terpz','MTPZ'],
+            tot:'motley_totals', avg:'avg_motley',
+            color:'#7c3aed', bg:'#f5f3ff', border:'#7c3aed',
+            igs:[
+              {d:'Packaged Goods', m:['Packaged goods','Packaged Goods']},
+              {d:'Rosin',          m:['Rosins','Rosin','Total Rosin']},
+              {d:'Bubble Cured',   m:['Bubble Cured']},
+              {d:'Static',         m:['Static']},
+              {d:'Pre Rolls',      m:['Pre Rolls','Pre-Rolls','Pre Roll']},
+              {d:'Gummies',        m:['Gummies']},
+              {d:'Others',         m:null},
+            ]},
+          { label:'TSBC Ranch', cos:['TSBC Ranch'],
+            tot:'tsbc_totals', avg:'avg_tsbc',
+            color:'#059669', bg:'#f0fdf4', border:'#059669',
+            igs:[
+              {d:'Fresh Frozen',       m:['Frozen','Fresh Frozen']},
+              {d:'Fresh Frozen - Main',m:['Fresh Frozen Main','Fresh Frozen - Main']},
+              {d:'Fresh Frozen - SHO', m:['Fresh Frozen - SHO','SHO']},
+              {d:'Fresh Frozen - BHO', m:['Fresh Frozen - BHO','BHO']},
+            ]},
+          { label:'Master Touch Manufacturing', cos:['Master Touch Manufacturing'],
+            tot:'mtm_totals', avg:'avg_mtm',
+            color:'#2563eb', bg:'#eef2ff', border:'#2563eb',
+            igs:[
+              {d:'Rosin',        m:['Rosins','Rosin','Total Rosin']},
+              {d:'Bubble Cured', m:['Bubble Cured']},
+              {d:'Static',       m:['Static']},
+              {d:'Pre Rolls',    m:['Pre Rolls','Pre-Rolls','Pre Roll']},
+              {d:'Gummies',      m:['Gummies']},
+              {d:'Others',       m:null},
+            ]},
+          { label:'LA Canna', cos:['LA Canna Distro'],
+            tot:'la_canna_totals', avg:'avg_la_canna',
+            color:'#0891b2', bg:'#ecfeff', border:'#0891b2',
+            igs:[
+              {d:'Packaged Goods', m:['Packaged goods','Packaged Goods']},
+            ]},
         ];
+
+        // Helper: get rev/qty for a set of companies + match list, one column
+        function getVal(coNames, matchSet, col) {
+            var rev = 0, qty = 0;
+            coNames.forEach(function(cn) {
+                var cd = cig[cn] || {};
+                Object.keys(cd).forEach(function(ig) {
+                    var inSet = matchSet === null ? true : matchSet.some(function(m){
+                        return m.toLowerCase() === ig.toLowerCase();
+                    });
+                    if (inSet) {
+                        rev += ((cd[ig][col]||{}).rev)||0;
+                        qty += ((cd[ig][col]||{}).qty)||0;
+                    }
+                });
+            });
+            return {rev:rev, qty:qty};
+        }
+
+        // For "Others" (m:null): exclude everything in the named rows
+        function getOthersVal(coNames, namedSets, col) {
+            var rev = 0, qty = 0;
+            var excluded = {};
+            namedSets.forEach(function(ms) {
+                if (!ms) return;
+                ms.forEach(function(m){ excluded[m.toLowerCase()] = 1; });
+            });
+            coNames.forEach(function(cn) {
+                var cd = cig[cn] || {};
+                Object.keys(cd).forEach(function(ig) {
+                    if (!excluded[ig.toLowerCase()]) {
+                        rev += ((cd[ig][col]||{}).rev)||0;
+                        qty += ((cd[ig][col]||{}).qty)||0;
+                    }
+                });
+            });
+            return {rev:rev, qty:qty};
+        }
+
+        // Target lookup: find first m-match in pByIG that has a target
+        function getTarget(matchList) {
+            if (!matchList) return null;
+            for (var i=0; i<matchList.length; i++) {
+                var p = pByIG[matchList[i]];
+                if (p && p.has_target) return p;
+            }
+            return null;
+        }
 
         function cc(actual, target) {
             if (!target || target <= 0) return '';
             var r = actual / target;
-            return r >= 1 ? 'sd-cell-green' : r >= 0.7 ? 'sd-cell-amber' : actual > 0 ? 'sd-cell-red' : '';
+            return r>=1 ? 'sd-cell-green' : r>=0.7 ? 'sd-cell-amber' : actual > 0 ? 'sd-cell-red' : '';
         }
 
         // ── Header ────────────────────────────────────────────────
@@ -130,32 +204,30 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
         html += '<th class="sd-matrix-th-product">Company / Item Group</th>';
         html += '<th class="sd-matrix-th-static">Target Units</th>';
         html += '<th class="sd-matrix-th-static">Avg Price</th>';
-        html += '<th class="sd-matrix-th-static">' + (isQty ? 'Target Units' : targetLabel) + '</th>';
-        cols.forEach(function(c) { html += '<th class="sd-matrix-th-period">' + frappe.utils.escape_html(c) + '</th>'; });
+        html += '<th class="sd-matrix-th-static">' + (isQty?'Target Units':targetLabel) + '</th>';
+        cols.forEach(function(c){ html += '<th class="sd-matrix-th-period">' + frappe.utils.escape_html(c) + '</th>'; });
         if (showAvg) html += '<th class="sd-matrix-th-avg">' + AVG + '</th>';
         html += '</tr></thead><tbody>';
 
-        // ── Company sections ──────────────────────────────────────
-        var grandTotals = {}; cols.forEach(function(c){ grandTotals[c] = 0; });
+        var grandTotals = {}; cols.forEach(function(c){ grandTotals[c]=0; });
         var grandAvg = 0;
 
-        COMPANIES.forEach(function(co) {
-            var coData   = cig[co.name] || {};
+        CDEFS.forEach(function(co) {
             var coTotals = matrix[co.tot] || {};
             var coAvg    = matrix[co.avg] || 0;
-            var hasData  = Object.keys(coData).length > 0 || cols.some(function(c){ return (coTotals[c]||0) > 0; });
-            if (co.skipEmpty && !hasData) return;
-
-            cols.forEach(function(c) { grandTotals[c] += coTotals[c] || 0; });
+            cols.forEach(function(c){ grandTotals[c] += coTotals[c]||0; });
             grandAvg += coAvg;
 
-            // Company header row
+            // Precompute "named" match sets for Others exclusion
+            var namedSets = co.igs.filter(function(r){return r.m!==null;}).map(function(r){return r.m;});
+
+            // ── Company header row ──────────────────────────────
             html += '<tr style="background:' + co.bg + ';border-top:2px solid ' + co.border + ';">';
             html += '<td class="sd-matrix-product" style="font-weight:800;color:' + co.color + ';border-right:1px solid #e2e8f0;">'
-                  + frappe.utils.escape_html(co.name) + '</td>';
+                  + frappe.utils.escape_html(co.label) + '</td>';
             html += '<td class="sd-matrix-num">—</td><td class="sd-matrix-num">—</td><td class="sd-matrix-num">—</td>';
             cols.forEach(function(c) {
-                var v = coTotals[c] || 0;
+                var v = coTotals[c]||0;
                 html += '<td class="sd-matrix-num" style="font-weight:700;color:' + co.color + ';">'
                       + (v > 0 ? fmtCurrency(v) : '—') + '</td>';
             });
@@ -163,47 +235,42 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
                                + (coAvg > 0 ? fmtCurrency(coAvg) : '—') + '</td>';
             html += '</tr>';
 
-            // Item group sub-rows — sorted: targeted first, then by revenue
-            var igs = Object.keys(coData).sort(function(a, b) {
-                var oa = pByIG[a] ? (pByIG[a].has_target ? 0 : 1) : 2;
-                var ob = pByIG[b] ? (pByIG[b].has_target ? 0 : 1) : 2;
-                if (oa !== ob) return oa - ob;
-                var ra = cols.reduce(function(s,c){ return s + (((coData[a]||{})[c]||{}).rev||0); }, 0);
-                var rb = cols.reduce(function(s,c){ return s + (((coData[b]||{})[c]||{}).rev||0); }, 0);
-                return rb - ra;
-            });
+            // ── Item group sub-rows ─────────────────────────────
+            co.igs.forEach(function(igDef) {
+                var p = getTarget(igDef.m);
+                var tgtRev   = (p && p.monthly_target) ? p.monthly_target / targetDiv : 0;
+                var tgtUnits = (p && p.target_units)   ? p.target_units   / targetDiv : 0;
 
-            igs.forEach(function(ig) {
-                var igCols = coData[ig] || {};
-                var p = pByIG[ig];
                 html += '<tr>';
                 html += '<td class="sd-matrix-product" style="padding-left:24px;font-weight:500;color:#475569;">'
-                      + frappe.utils.escape_html(ig)
-                      + (p && !p.has_target ? ' <span class="sd-no-target-tag">no target</span>' : '')
-                      + '</td>';
-                var du = (p && p.target_units) ? p.target_units / targetDiv : 0;
-                html += '<td class="sd-matrix-num">' + (du ? fmtQty(du) : '—') + '</td>';
+                      + frappe.utils.escape_html(igDef.d) + '</td>';
+                html += '<td class="sd-matrix-num">' + (tgtUnits ? fmtQty(tgtUnits) : '—') + '</td>';
                 html += '<td class="sd-matrix-num">' + (p && p.avg_price ? fmtCurrency(p.avg_price) : '—') + '</td>';
                 if (isQty) {
-                    html += '<td class="sd-matrix-num sd-matrix-target-rev">' + (du ? fmtQty(du) : '—') + '</td>';
+                    html += '<td class="sd-matrix-num sd-matrix-target-rev">' + (tgtUnits ? fmtQty(tgtUnits) : '—') + '</td>';
                 } else {
-                    var tr = (p && p.monthly_target) ? p.monthly_target / targetDiv : 0;
-                    html += '<td class="sd-matrix-num sd-matrix-target-rev">' + (tr ? fmtCurrency(tr) : '—') + '</td>';
+                    html += '<td class="sd-matrix-num sd-matrix-target-rev">' + (tgtRev ? fmtCurrency(tgtRev) : '—') + '</td>';
                 }
                 cols.forEach(function(col) {
-                    var vals = igCols[col] || {qty:0, rev:0};
+                    var vals = igDef.m === null
+                        ? getOthersVal(co.cos, namedSets, col)
+                        : getVal(co.cos, igDef.m, col);
                     if (isQty) {
-                        var aq = vals.qty || 0;
-                        var tq = (p && p.target_units) ? p.target_units / targetDiv : 0;
-                        html += '<td class="sd-matrix-num ' + cc(aq, tq) + '">' + (aq > 0 ? fmtQty(aq) : '—') + '</td>';
+                        html += '<td class="sd-matrix-num ' + cc(vals.qty, tgtUnits) + '">'
+                              + (vals.qty > 0 ? fmtQty(vals.qty) : '—') + '</td>';
                     } else {
-                        var av = vals.rev || 0;
-                        var ct = (p && p.cell_targets) ? (p.cell_targets[col] || 0) : 0;
-                        html += '<td class="sd-matrix-num ' + cc(av, ct) + '">' + (av > 0 ? fmtCurrency(av) : '—') + '</td>';
+                        var ct = (p && p.cell_targets) ? (p.cell_targets[col]||0) : 0;
+                        html += '<td class="sd-matrix-num ' + cc(vals.rev, ct) + '">'
+                              + (vals.rev > 0 ? fmtCurrency(vals.rev) : '—') + '</td>';
                     }
                 });
                 if (showAvg) {
-                    var igAvg = cols.reduce(function(s,c){ return s+((igCols[c]||{}).rev||0); },0) / (cols.length||1);
+                    var igRevs = cols.map(function(c){
+                        return igDef.m === null
+                            ? getOthersVal(co.cos, namedSets, c).rev
+                            : getVal(co.cos, igDef.m, c).rev;
+                    });
+                    var igAvg = igRevs.reduce(function(s,v){return s+v;},0) / (cols.length||1);
                     html += '<td class="sd-matrix-num sd-matrix-avg">' + (igAvg > 0 ? fmtCurrency(igAvg) : '—') + '</td>';
                 }
                 html += '</tr>';
@@ -213,8 +280,8 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
         // ── Grand Total ───────────────────────────────────────────
         html += '<tr class="sd-matrix-foot-grand-total"><td class="sd-matrix-product sd-matrix-foot-label">Total</td>';
         html += '<td class="sd-matrix-num">—</td><td class="sd-matrix-num">—</td><td class="sd-matrix-num">—</td>';
-        cols.forEach(function(c) {
-            var v = grandTotals[c] || 0;
+        cols.forEach(function(c){
+            var v = grandTotals[c]||0;
             html += '<td class="sd-matrix-num sd-matrix-total-cell">' + (v > 0 ? fmtCurrency(v) : '—') + '</td>';
         });
         if (showAvg) html += '<td class="sd-matrix-num sd-matrix-avg sd-matrix-total-cell">'
