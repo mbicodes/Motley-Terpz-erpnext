@@ -734,7 +734,7 @@ def get_ar_matrix():
     bad_ar     = _bal(f"AND si.due_date < DATE_SUB(CURDATE(), INTERVAL {BAD_STANDING_DAYS} DAY)")
     good_ar    = _bal(f"AND (si.due_date IS NULL OR si.due_date >= DATE_SUB(CURDATE(), INTERVAL {BAD_STANDING_DAYS} DAY))")
 
-    # ── Build period columns (same logic as get_sales_matrix) ─────────────────
+    # ── Build period columns — monthly only for AR tracking ───────────────────
     monthly_columns = []
     for m in range(1, today.month + 1):
         mstart = today.replace(month=m, day=1)
@@ -744,11 +744,9 @@ def get_ar_matrix():
             "label": mstart.strftime('%b'),
             "from_date": str(mstart), "to_date": str(mend),
         })
-    for blk in _calendar_blocks_before(today, 4):
-        monthly_columns.append(blk)
-    weekly_columns = _calendar_blocks_before(today, 8)
 
-    all_columns = list({c["label"]: c for c in monthly_columns + weekly_columns}.values())
+    # AR matrix always uses full months only — no weekly sub-blocks
+    all_columns = monthly_columns
 
     min_date = min(c["from_date"] for c in all_columns) if all_columns else str(today)
     max_date = max(c["to_date"]   for c in all_columns) if all_columns else str(today)
@@ -822,8 +820,6 @@ def get_ar_matrix():
     return {
         "columns": col_labels,
         "column_dates": [[c["from_date"], c["to_date"]] for c in all_columns],
-        "monthly_columns": [c["label"] for c in monthly_columns],
-        "weekly_columns":  [c["label"] for c in weekly_columns],
         "balances": {
             "total":   total_ar,
             "legacy":  legacy_ar,

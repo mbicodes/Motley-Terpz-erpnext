@@ -66,8 +66,8 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
             title.textContent = (labels[mtx] || 'Weekly') + ' Revenue Matrix';
         }
         if (matrixCache[mtx]) renderMatrix('sd-matrix', matrixCache[mtx]);
-        if (arMatrixData && matrixCache[mtx]) {
-            renderArMatrix('sd-ar-matrix', arMatrixData, matrixCache[mtx].columns);
+        if (arMatrixData) {
+            renderArMatrix('sd-ar-matrix', arMatrixData, arMatrixData.columns);
         }
     }
 
@@ -339,7 +339,7 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
         var coll = ar.collected || {};
         var pace = ar.pace_by_col || {};
         var avg  = ar.avg || {};
-        var showAvg = currentMatrix === 'weekly';
+        var showAvg = true;   // AR matrix always shows avg (monthly view)
 
         function arCell(v, cls) {
             return '<td class="sd-matrix-num ' + (cls||'') + '">' + (v > 0 ? fmtCurrency(v) : '—') + '</td>';
@@ -742,7 +742,7 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
                 };
                 renderMatrix('sd-matrix', matrixCache[currentMatrix]);
                 if (arMatrixData) {
-                    renderArMatrix('sd-ar-matrix', arMatrixData, matrixCache[currentMatrix].columns);
+                    renderArMatrix('sd-ar-matrix', arMatrixData, arMatrixData.columns);
                 }
             },
             error: function () {
@@ -757,8 +757,7 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
             callback: function (r) {
                 if (!r.message) return;
                 arMatrixData = r.message;
-                var cols = matrixCache[currentMatrix] ? matrixCache[currentMatrix].columns : (r.message.columns || []);
-                renderArMatrix('sd-ar-matrix', arMatrixData, cols);
+                renderArMatrix('sd-ar-matrix', arMatrixData, arMatrixData.columns);
             },
             error: function () {
                 var el = rootEl.querySelector('#sd-ar-matrix');
