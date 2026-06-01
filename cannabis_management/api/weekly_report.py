@@ -92,7 +92,6 @@ def _do_send(week_start, week_end, recipients):
     if pdf_bytes:
         attachments = [{"fname": f"Weekly_Report_{week_start}.pdf", "fcontent": pdf_bytes}]
 
-    return  # email sending disabled
     frappe.sendmail(
         recipients=recipients,
         subject=f"Weekly Sale Report — {label}",
@@ -110,6 +109,7 @@ def _fetch_all_data(week_start, week_end):
         "si_rows":   _get_weekly_sales_invoices(week_start, week_end),
         "dn_rows":   _get_weekly_delivery_notes(week_start, week_end),
         "gathered":  _get_ar_gathered(week_start, week_end),
+        "partial":   _get_ar_partial(week_start, week_end),
         "collected": _get_ar_collected(week_start, week_end),
         "legacy":    _get_ar_legacy_collected(week_start, week_end),
     }
@@ -131,7 +131,6 @@ def _get_weekly_sales_orders(week_start, week_end):
           AND so.docstatus = 1
           AND COALESCE(c.is_internal_customer, 0) = 0
           AND (c.represents_company IS NULL OR c.represents_company = '')
-          AND si.customer NOT IN (SELECT name FROM `tabCompany`)
         GROUP BY so.name, soi.item_group
         ORDER BY so.customer, soi.item_group
     """, (week_start, week_end), as_dict=True)
@@ -152,7 +151,6 @@ def _get_weekly_sales_invoices(week_start, week_end):
           AND si.docstatus = 1
           AND COALESCE(c.is_internal_customer, 0) = 0
           AND (c.represents_company IS NULL OR c.represents_company = '')
-          AND si.customer NOT IN (SELECT name FROM `tabCompany`)
         GROUP BY si.name, sii.item_group
         ORDER BY si.customer, sii.item_group
     """, (week_start, week_end), as_dict=True)
@@ -173,7 +171,6 @@ def _get_weekly_delivery_notes(week_start, week_end):
           AND dn.docstatus = 1
           AND COALESCE(c.is_internal_customer, 0) = 0
           AND (c.represents_company IS NULL OR c.represents_company = '')
-          AND si.customer NOT IN (SELECT name FROM `tabCompany`)
         GROUP BY dn.name, dni.item_group
         ORDER BY dn.customer, dni.item_group
     """, (week_start, week_end), as_dict=True)
@@ -196,7 +193,6 @@ def _get_ar_gathered(week_start, week_end):
           AND si.outstanding_amount >= (si.grand_total - 0.01)
           AND COALESCE(c.is_internal_customer, 0) = 0
           AND (c.represents_company IS NULL OR c.represents_company = '')
-          AND si.customer NOT IN (SELECT name FROM `tabCompany`)
         GROUP BY si.name, sii.item_group
         ORDER BY si.customer, sii.item_group
     """, (week_start, week_end), as_dict=True)
@@ -218,7 +214,28 @@ def _get_ar_collected(week_start, week_end):
           AND si.outstanding_amount <= 0.01
           AND COALESCE(c.is_internal_customer, 0) = 0
           AND (c.represents_company IS NULL OR c.represents_company = '')
-          AND si.customer NOT IN (SELECT name FROM `tabCompany`)
+        GROUP BY si.name, sii.item_group
+        ORDER BY si.customer, sii.item_group
+    """, (week_start, week_end), as_dict=True)
+
+
+def _get_ar_partial(week_start, week_end):
+    return frappe.db.sql("""
+        SELECT
+            si.name, si.customer, si.grand_total,
+            si.outstanding_amount, si.posting_date, si.company,
+            sii.item_group,
+            SUM(sii.qty)    AS qty,
+            SUM(sii.amount) AS amount
+        FROM `tabSales Invoice` si
+        JOIN `tabSales Invoice Item` sii ON sii.parent = si.name
+        LEFT JOIN `tabCustomer` c ON c.name = si.customer
+        WHERE si.posting_date BETWEEN %s AND %s
+          AND si.docstatus = 1
+          AND si.outstanding_amount > 0.01
+          AND si.outstanding_amount < (si.grand_total - 0.01)
+          AND COALESCE(c.is_internal_customer, 0) = 0
+          AND (c.represents_company IS NULL OR c.represents_company = '')
         GROUP BY si.name, sii.item_group
         ORDER BY si.customer, sii.item_group
     """, (week_start, week_end), as_dict=True)
@@ -248,7 +265,6 @@ def _get_ar_legacy_collected(week_start, week_end):
           AND per.reference_doctype = 'Sales Invoice'
           AND COALESCE(c.is_internal_customer, 0) = 0
           AND (c.represents_company IS NULL OR c.represents_company = '')
-          AND si.customer NOT IN (SELECT name FROM `tabCompany`)
         ORDER BY pe.party, pe.posting_date, si.posting_date
     """, (week_start, week_end, week_start), as_dict=True)
 
@@ -260,6 +276,7 @@ def _build_email_body(data, label):
     si_rows   = data["si_rows"]
     dn_rows   = data["dn_rows"]
     gathered  = data["gathered"]
+    partial   = data["partial"]
     collected = data["collected"]
     legacy    = data["legacy"]
 
@@ -271,18 +288,25 @@ def _build_email_body(data, label):
     dn_total  = sum(flt(r.grand_total) for r in {r.name: r for r in dn_rows}.values())
     g_count   = len({r.name for r in gathered})
     g_total   = sum(flt(r.grand_total) for r in {r.name: r for r in gathered}.values())
+    p_count   = len({r.name for r in partial})
+    p_outstanding = sum(flt(r.outstanding_amount) for r in {r.name: r for r in partial}.values())
+    p_total   = sum(flt(r.grand_total) for r in {r.name: r for r in partial}.values())
     c_count   = len({r.name for r in collected})
     c_total   = sum(flt(r.grand_total) for r in {r.name: r for r in collected}.values())
     leg_total = sum(flt(r.collected_amount) for r in legacy)
     leg_count = len({r.payment_name for r in legacy})
 
-    has_problem = g_count > 0
+    has_problem = g_count > 0 or p_count > 0
     sf_color    = "#dc2626" if has_problem else "#059669"
     sf_bg       = "#fee2e2" if has_problem else "#d1fae5"
     sf_status   = "Action Required" if has_problem else "Clean Week"
-    sf_note     = (
-        f"{g_count} invoice{'s' if g_count != 1 else ''} unpaid — "
-        f"<strong>{_fmt(g_total)}</strong> outstanding. Adjustments required."
+    issues = []
+    if g_count > 0:
+        issues.append(f"{g_count} invoice{'s' if g_count != 1 else ''} fully unpaid ({_fmt(g_total)})")
+    if p_count > 0:
+        issues.append(f"{p_count} invoice{'s' if p_count != 1 else ''} partially paid ({_fmt(p_outstanding)} outstanding)")
+    sf_note = (
+        "<strong>" + " &amp; ".join(issues) + "</strong> — Adjustments required."
         if has_problem else
         "All invoices from this week collected. Week is clear for closure."
     )
@@ -396,6 +420,15 @@ def _build_email_body(data, label):
         </div>
       </td>
     </tr>
+    <tr>
+      <td colspan="3" style="padding:5px">
+        <div style="background:#fff;border-radius:12px;border:1px solid {'#f59e0b' if p_count > 0 else '#e2e8f0'};padding:16px 18px;{'border-left:4px solid #f59e0b;' if p_count > 0 else ''}">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#64748b;margin-bottom:8px">AR Partial — Partially Paid This Week</div>
+          <div style="font-size:20px;font-weight:800;line-height:1;color:#d97706">{p_count} invoice{'s' if p_count != 1 else ''}</div>
+          <div style="font-size:11px;color:#94a3b8;margin-top:5px">{_fmt(p_outstanding)} still outstanding &nbsp;&middot;&nbsp; {_fmt(p_total)} invoiced</div>
+        </div>
+      </td>
+    </tr>
   </tbody></table>
   <div class="sf">
     <div class="sf-row">
@@ -491,8 +524,8 @@ tr.igh td { background:#f1f5f9; font-weight:700; color:#374151; font-size:9px; p
 .sf-box.action { border:2px solid #dc2626; background:#fef2f2; }
 .sf-title { font-size:11px; font-weight:700; margin-bottom:6px; }
 .sf-note  { font-size:10px; color:#374151; margin-bottom:8px; }
-.sf-row   { display:flex; gap:20px; flex-wrap:wrap; }
-.sf-cell  { flex:1; min-width:100px; }
+.sf-row   { width:100%; border-collapse:collapse; }
+.sf-cell  { width:33%; padding-right:12px; vertical-align:top; }
 .sf-lbl   { font-size:8px; font-weight:700; text-transform:uppercase;
             letter-spacing:.3px; color:#64748b; margin-bottom:2px; }
 .sf-val   { font-size:13px; font-weight:800; }
@@ -507,6 +540,7 @@ def _build_pdf_html(data, label):
     si_rows   = data["si_rows"]
     dn_rows   = data["dn_rows"]
     gathered  = data["gathered"]
+    partial   = data["partial"]
     collected = data["collected"]
     legacy    = data["legacy"]
 
@@ -525,9 +559,10 @@ def _build_pdf_html(data, label):
 {_pdf_si_section(si_rows)}
 {_pdf_dn_section(dn_rows)}
 {_pdf_gathered_section(gathered)}
+{_pdf_partial_section(partial)}
 {_pdf_collected_section(collected)}
 {_pdf_legacy_section(legacy)}
-{_pdf_signoff(gathered, collected, legacy, label)}
+{_pdf_signoff(gathered, partial, collected, legacy, label)}
 
 <div style="margin-top:14px;padding:12px 16px;border:1px solid #e2e8f0;border-radius:6px;
             background:#f8fafc;font-size:10px;color:#374151;line-height:1.7">
@@ -612,6 +647,24 @@ def _pdf_gathered_section(rows):
     )
 
 
+def _pdf_partial_section(rows):
+    count       = len({r.name for r in rows})
+    outstanding = sum(flt(r.outstanding_amount) for r in {r.name: r for r in rows}.values())
+    total       = sum(flt(r.grand_total) for r in {r.name: r for r in rows}.values())
+    site_url    = frappe.utils.get_url()
+    if not rows:
+        tbl = '<div class="empty">No partially paid invoices this week.</div>'
+        ig  = ""
+    else:
+        tbl = _pdf_invoice_table(rows, mode="partial", doc_slug="sales-invoice", site_url=site_url)
+        ig  = _pdf_ig_summary(rows)
+    return _pdf_section_wrap(
+        "#d97706", "AR Partial — Invoices Partially Paid This Week",
+        f"{count} invoice{'s' if count != 1 else ''} &nbsp;&middot;&nbsp; {_fmt(outstanding)} outstanding of {_fmt(total)}",
+        tbl, ig
+    )
+
+
 def _pdf_collected_section(rows):
     count    = len({r.name for r in rows})
     total    = sum(flt(r.grand_total) for r in {r.name: r for r in rows}.values())
@@ -644,38 +697,45 @@ def _pdf_legacy_section(rows):
     )
 
 
-def _pdf_signoff(gathered, collected, legacy, label):
+def _pdf_signoff(gathered, partial, collected, legacy, label):
     g_count   = len({r.name for r in gathered})
     g_total   = sum(flt(r.grand_total) for r in {r.name: r for r in gathered}.values())
+    p_count   = len({r.name for r in partial})
+    p_outstanding = sum(flt(r.outstanding_amount) for r in {r.name: r for r in partial}.values())
     c_total   = sum(flt(r.grand_total) for r in {r.name: r for r in collected}.values())
     leg_total = sum(flt(r.collected_amount) for r in legacy)
-    has_problem = g_count > 0
+    has_problem = g_count > 0 or p_count > 0
 
     cls    = "action" if has_problem else "clean"
     status = "Action Required" if has_problem else "Clean Week"
     color  = "#dc2626" if has_problem else "#059669"
-    note   = (
-        f"{g_count} invoice{'s' if g_count != 1 else ''} unpaid — {_fmt(g_total)} outstanding."
+    issues = []
+    if g_count > 0:
+        issues.append(f"{g_count} invoice{'s' if g_count != 1 else ''} fully unpaid — {_fmt(g_total)} outstanding")
+    if p_count > 0:
+        issues.append(f"{p_count} invoice{'s' if p_count != 1 else ''} partially paid — {_fmt(p_outstanding)} still owed")
+    note = (
+        ". ".join(issues) + "."
         if has_problem else
         "All invoices from this week have been collected. Week is clear for closure."
     )
     return f"""<div class="sf-box {cls}">
   <div class="sf-title" style="color:{color}">Week Sign-Off — {label} &nbsp; [{status}]</div>
   <div class="sf-note">{note}</div>
-  <div class="sf-row">
-    <div class="sf-cell">
+  <table class="sf-row" cellpadding="0" cellspacing="0" style="margin-top:8px"><tbody><tr>
+    <td class="sf-cell">
       <div class="sf-lbl">Collected This Week</div>
       <div class="sf-val" style="color:#059669">{_fmt(c_total)}</div>
-    </div>
-    <div class="sf-cell">
+    </td>
+    <td class="sf-cell">
       <div class="sf-lbl">Legacy Collected</div>
       <div class="sf-val" style="color:#7c3aed">{_fmt(leg_total)}</div>
-    </div>
-    <div class="sf-cell">
+    </td>
+    <td class="sf-cell">
       <div class="sf-lbl">Outstanding AR</div>
       <div class="sf-val" style="color:#dc2626">{_fmt(g_total)}</div>
-    </div>
-  </div>
+    </td>
+  </tr></tbody></table>
 </div>"""
 
 
@@ -774,6 +834,8 @@ def _pdf_invoice_table(rows, mode="all", doc_slug="sales-invoice", site_url=""):
             status_html = f'<span class="bu">Unpaid {_fmt(outstanding)}</span>'
         elif mode == "paid":
             status_html = '<span class="bp">Collected</span>'
+        elif mode == "partial":
+            status_html = f'<span class="mo">Partial — {_fmt(outstanding)} left</span>'
         else:
             status_html = (
                 f'<span class="bu">Unpaid {_fmt(outstanding)}</span>'
@@ -877,12 +939,49 @@ def _pdf_ig_summary(rows):
 # ── PDF generation ────────────────────────────────────────────────────────────
 
 def _make_pdf(html):
+    """Generate PDF via file→file mode to avoid wkhtmltopdf stdin/stdout crash."""
+    import subprocess
+    import tempfile
+    import os
     try:
-        from frappe.utils.pdf import get_pdf
-        return get_pdf(html)
+        with tempfile.NamedTemporaryFile(suffix=".html", delete=False, mode="w", encoding="utf-8") as fh:
+            fh.write(html)
+            html_path = fh.name
+        pdf_path = html_path.replace(".html", ".pdf")
+        result = subprocess.run(
+            [
+                "wkhtmltopdf",
+                "--disable-javascript",
+                "--disable-local-file-access",
+                "--disable-smart-shrinking",
+                "--quiet",
+                "--encoding", "UTF-8",
+                "--page-size", "A4",
+                "--margin-top", "12mm",
+                "--margin-bottom", "14mm",
+                "--margin-left", "14mm",
+                "--margin-right", "14mm",
+                html_path,
+                pdf_path,
+            ],
+            capture_output=True,
+            timeout=60,
+        )
+        if result.returncode != 0:
+            raise OSError(f"wkhtmltopdf exited {result.returncode}: {result.stderr.decode()}")
+        with open(pdf_path, "rb") as pf:
+            return pf.read()
     except Exception:
         frappe.log_error(frappe.get_traceback(), "[weekly_report] PDF generation failed")
         return None
+    finally:
+        for p in (html_path, pdf_path):
+            try:
+                os.unlink(p)
+            except Exception:
+                pass
+
+
 
 
 # ── Week closure sign-off email ───────────────────────────────────────────────
@@ -891,25 +990,37 @@ def _send_week_closure_email(week_start, week_end):
     try:
         label     = _week_label(week_start, week_end)
         gathered  = _get_ar_gathered(week_start, week_end)
+        partial   = _get_ar_partial(week_start, week_end)
         collected = _get_ar_collected(week_start, week_end)
         legacy    = _get_ar_legacy_collected(week_start, week_end)
 
         g_count   = len({r.name for r in gathered})
         g_total   = sum(flt(r.grand_total) for r in {r.name: r for r in gathered}.values())
+        p_count   = len({r.name for r in partial})
+        p_outstanding = sum(flt(r.outstanding_amount) for r in {r.name: r for r in partial}.values())
         c_total   = sum(flt(r.grand_total) for r in {r.name: r for r in collected}.values())
         leg_total = sum(flt(r.collected_amount) for r in legacy)
-        has_problem = g_count > 0
+        has_problem = g_count > 0 or p_count > 0
 
         if has_problem:
             subject      = f"Weekly Adjustments Required — {label}"
             status_color = "#dc2626"
             status_text  = "Action Required"
             status_bg    = "#fee2e2"
-            body_note    = (
-                f"<p style='color:#dc2626;font-weight:700;margin-bottom:10px'>"
-                f"{g_count} invoice{'s' if g_count != 1 else ''} created this week "
-                f"remain unpaid — {_fmt(g_total)} outstanding.</p>"
-                "<p style='color:#374151'>Please review and reconcile before closing the week.</p>"
+            issues = []
+            if g_count > 0:
+                issues.append(
+                    f"{g_count} invoice{'s' if g_count != 1 else ''} created this week "
+                    f"remain fully unpaid — {_fmt(g_total)} outstanding."
+                )
+            if p_count > 0:
+                issues.append(
+                    f"{p_count} invoice{'s' if p_count != 1 else ''} are partially paid — "
+                    f"{_fmt(p_outstanding)} still owed."
+                )
+            body_note = (
+                "".join(f"<p style='color:#dc2626;font-weight:700;margin-bottom:10px'>{i}</p>" for i in issues)
+                + "<p style='color:#374151'>Please review and reconcile before closing the week.</p>"
             )
         else:
             subject      = f"Week Closed — {label}"
@@ -976,7 +1087,6 @@ def _send_week_closure_email(week_start, week_end):
 </div>
 </body></html>"""
 
-        return  # email sending disabled
         frappe.sendmail(
             recipients=SIGNOFF_TO,
             cc=SIGNOFF_CC,
