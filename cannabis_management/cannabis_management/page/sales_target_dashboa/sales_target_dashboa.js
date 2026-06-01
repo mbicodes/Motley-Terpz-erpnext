@@ -121,10 +121,11 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
             tot:'tsbc_totals', avg:'avg_tsbc',
             color:'#059669', bg:'#f0fdf4', border:'#059669',
             igs:[
-              {d:'Fresh Frozen',       m:['Frozen','Fresh Frozen']},
-              {d:'Fresh Frozen - Main',m:['Fresh Frozen Main','Fresh Frozen - Main']},
-              {d:'Fresh Frozen - SHO', m:['Fresh Frozen - SHO','SHO']},
-              {d:'Fresh Frozen - BHO', m:['Fresh Frozen - BHO','BHO']},
+              // Backend child_to_parent rollup aggregates all children
+              // (Fresh Frozen, Fresh Frozen - SHO, Fresh Frozen - BHO) into Fresh Frozen Main
+              {d:'Fresh Frozen Main', m:['Fresh Frozen Main','Fresh Frozen - Main',
+                                        'Fresh Frozen','Fresh Frozen - SHO','Fresh Frozen - BHO',
+                                        'Frozen']},
             ]},
           { label:'Master Touch Manufacturing', cos:['Master Touch Manufacturing'],
             tot:'mtm_totals', avg:'avg_mtm',
