@@ -232,6 +232,10 @@ doc_events = {
 # ---------------
 scheduler_events = {
     "cron": {
+        # AR due-date reminders: every day at 7 AM UTC (daily, including weekends)
+        "0 7 * * *": [
+            "cannabis_management.api.ar_reminders.send_ar_reminders",
+        ],
         # Daily jobs: Mon–Fri only (midnight Berlin time)
         "0 0 * * 1-5": [
             "cannabis_management.api.crm_sync.sync_crm_ar_data",
