@@ -865,7 +865,7 @@ function getDashboardHTML() {
           <span>AR Tracking Matrix</span>
         </div>
         <div class="sd-matrix-controls">
-          <span style="font-size:11px;color:var(--sd-text-muted);padding:4px 8px;background:#f8fafc;border-radius:6px;">Legacy target: $400k/month · Bad standing: &gt;30 days overdue</span>
+          <span style="font-size:11px;color:var(--sd-text-muted);padding:4px 8px;background:#f8fafc;border-radius:6px;">Legacy target: $400k/month</span>
         </div>
       </div>
       <div class="sd-matrix-card">
