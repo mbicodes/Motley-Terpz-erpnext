@@ -104,6 +104,7 @@ def _get_ar_data(week_start, week_end):
           AND si.outstanding_amount > 0.01
           AND COALESCE(c.is_internal_customer, 0) = 0
           AND (c.represents_company IS NULL OR c.represents_company = '')
+          AND si.customer NOT IN (SELECT name FROM `tabCompany`)
         GROUP BY si.customer
         ORDER BY legacy_ar DESC, outstanding_ar DESC
     """, {"ws": week_start, "we": week_end, "cutoff": LEGACY_CUTOFF}, as_dict=True)

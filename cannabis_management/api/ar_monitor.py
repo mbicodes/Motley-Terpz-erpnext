@@ -488,6 +488,7 @@ def _sec_b_new_ar(week_start, today):
           AND si.posting_date BETWEEN %(ws)s AND %(today)s
           AND COALESCE(c.is_internal_customer, 0) = 0
           AND (c.represents_company IS NULL OR c.represents_company = '')
+          AND si.customer NOT IN (SELECT name FROM `tabCompany`)
         ORDER BY si.posting_date DESC
         """,
         {"ws": week_start, "today": today},
@@ -546,6 +547,7 @@ def _sec_c_cod_credit(week_start, today):
           AND si.posting_date BETWEEN %(ws)s AND %(today)s
           AND COALESCE(c.is_internal_customer, 0) = 0
           AND (c.represents_company IS NULL OR c.represents_company = '')
+          AND si.customer NOT IN (SELECT name FROM `tabCompany`)
         GROUP BY pay_mode
         ORDER BY total DESC
         """,
@@ -607,6 +609,7 @@ def _sec_d_red_list():
           AND si.due_date < DATE_SUB(CURDATE(), INTERVAL 30 DAY)
           AND COALESCE(c.is_internal_customer, 0) = 0
           AND (c.represents_company IS NULL OR c.represents_company = '')
+          AND si.customer NOT IN (SELECT name FROM `tabCompany`)
         GROUP BY si.customer
         ORDER BY overdue_amount DESC
         """,

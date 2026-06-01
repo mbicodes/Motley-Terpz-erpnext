@@ -16,7 +16,25 @@ def _get_date_range(period):
         return None, None
 
 
-INTERNAL_CUSTOMERS = ('Motley Terpz', 'MT', 'MTPZ')
+INTERNAL_CUSTOMERS = ('Motley Terpz', 'MT', 'MTPZ')  # legacy fallback only
+
+
+def _get_excluded_customers():
+    """
+    Returns a tuple of customer names that must never appear in any dashboard:
+      1. Every Company name (exact match — TSBC Ranch, MTM, LA Canna Distro, etc.)
+      2. Every Customer flagged is_internal_customer = 1
+      3. Every Customer linked to a company via represents_company
+    Safe to call per-request — tabCompany is tiny (< 20 rows).
+    """
+    company_names = frappe.db.sql_list("SELECT name FROM `tabCompany`")
+    internal = frappe.db.sql_list("""
+        SELECT name FROM `tabCustomer`
+        WHERE is_internal_customer = 1
+           OR (represents_company IS NOT NULL AND represents_company != '')
+    """)
+    excluded = set(company_names) | set(internal) | set(INTERNAL_CUSTOMERS)
+    return tuple(excluded) if excluded else ('__none__',)
 
 # Tolling actuals come from a specific item, not an item group
 TOLLING_ROW_KEY  = "Tolling"
@@ -102,8 +120,9 @@ def get_sales_by_period(period='monthly'):
 
     from_date, to_date = _get_date_range(period)
 
+    excluded = _get_excluded_customers()
     conditions = 'si.docstatus = 1 AND si.customer NOT IN %(internal_customers)s'
-    args = {'internal_customers': INTERNAL_CUSTOMERS}
+    args = {'internal_customers': excluded}
 
     if from_date:
         conditions += ' AND si.posting_date >= %(from_date)s'
@@ -612,7 +631,7 @@ def get_sales_dashboard_data(period='weekly', territory=None, company=None):
             GROUP BY i.item_group
         """, {
             'from_date': from_date, 'to_date': to_date,
-            'internal_customers': INTERNAL_CUSTOMERS,
+            'internal_customers': _get_excluded_customers(),
             'ig': tuple(all_si_item_groups),
         }, as_dict=True)
 
@@ -836,6 +855,9 @@ def get_sales_matrix(territory=None):
             "target_rev": 0, "from_sales_invoice": True,
         }
 
+    # Build excluded-customer list once for all queries in this request
+    excluded_customers = _get_excluded_customers()
+
     # Tolling actuals come from item_code, not item_group — exclude from group lookup
     si_parent_groups_adj = [g for g in si_parent_groups if g != TOLLING_ROW_KEY]
 
@@ -922,7 +944,7 @@ def get_sales_matrix(territory=None):
                 AND i.item_group IN %(ig)s
             GROUP BY si.posting_date, i.item_group
         """, {'s': min_date, 'e': max_date,
-              'ic': INTERNAL_CUSTOMERS, 'ig': tuple(all_si_item_groups)}, as_dict=True)
+              'ic': excluded_customers, 'ig': tuple(all_si_item_groups)}, as_dict=True)
 
         cogs_rows = frappe.db.sql("""
             SELECT sle.posting_date,
@@ -937,7 +959,7 @@ def get_sales_matrix(territory=None):
               AND i.item_group IN %(ig)s
             GROUP BY sle.posting_date
         """, {'s': min_date, 'e': max_date,
-              'ic': INTERNAL_CUSTOMERS, 'ig': tuple(all_si_item_groups)}, as_dict=True)
+              'ic': excluded_customers, 'ig': tuple(all_si_item_groups)}, as_dict=True)
 
         company_rev_rows = frappe.db.sql("""
             SELECT si.posting_date, si.company,
@@ -951,7 +973,7 @@ def get_sales_matrix(territory=None):
               AND (i.item_group IN %(ig)s OR sii.item_code = %(toll)s)
             GROUP BY si.posting_date, si.company
         """, {'s': min_date, 'e': max_date,
-              'ic': INTERNAL_CUSTOMERS, 'ig': tuple(all_si_item_groups),
+              'ic': excluded_customers, 'ig': tuple(all_si_item_groups),
               'toll': TOLLING_ITEM_CODE}, as_dict=True)
     else:
         rev_rows, cogs_rows, company_rev_rows = [], [], []
@@ -982,7 +1004,7 @@ def get_sales_matrix(territory=None):
           AND sii.item_code = %(toll)s
         GROUP BY si.posting_date
     """, {'s': min_date, 'e': max_date,
-          'ic': INTERNAL_CUSTOMERS,
+          'ic': excluded_customers,
           'toll': TOLLING_ITEM_CODE,
           'toll_key': TOLLING_ROW_KEY}, as_dict=True)
 

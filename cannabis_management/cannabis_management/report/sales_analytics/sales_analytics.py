@@ -11,7 +11,17 @@ from frappe.utils import add_days, add_to_date, flt, getdate
 from erpnext.accounts.utils import get_fiscal_year
 
 
-INTERNAL_CUSTOMERS = ["MT", "MTPZ", "Motley Terpz"]
+def _get_excluded_customers():
+    company_names = frappe.db.sql_list("SELECT name FROM `tabCompany`")
+    internal = frappe.db.sql_list("""
+        SELECT name FROM `tabCustomer`
+        WHERE is_internal_customer = 1
+           OR (represents_company IS NOT NULL AND represents_company != '')
+    """)
+    return list(set(company_names) | set(internal) | {"MT", "MTPZ", "Motley Terpz"})
+
+
+INTERNAL_CUSTOMERS = _get_excluded_customers()  # evaluated at module load; refreshed on each bench reload
 
 
 def execute(filters=None):

@@ -79,6 +79,7 @@ def _get_sales_orders(date):
           AND so.docstatus = 1
           AND COALESCE(c.is_internal_customer, 0) = 0
           AND (c.represents_company IS NULL OR c.represents_company = '')
+          AND si.customer NOT IN (SELECT name FROM `tabCompany`)
         GROUP BY so.name, soi.item_group
         ORDER BY so.customer, soi.item_group
     """, date, as_dict=True)
@@ -102,6 +103,7 @@ def _get_sales_invoices(date):
           AND si.docstatus = 1
           AND COALESCE(c.is_internal_customer, 0) = 0
           AND (c.represents_company IS NULL OR c.represents_company = '')
+          AND si.customer NOT IN (SELECT name FROM `tabCompany`)
         GROUP BY si.name, sii.item_group
         ORDER BY si.customer, sii.item_group
     """, date, as_dict=True)
@@ -125,6 +127,7 @@ def _get_delivery_notes(date):
           AND dn.docstatus = 1
           AND COALESCE(c.is_internal_customer, 0) = 0
           AND (c.represents_company IS NULL OR c.represents_company = '')
+          AND si.customer NOT IN (SELECT name FROM `tabCompany`)
         GROUP BY dn.name, dni.item_group
         ORDER BY dn.customer, dni.item_group
     """, date, as_dict=True)
@@ -148,6 +151,7 @@ def _get_payments(date):
           AND pe.party_type = 'Customer'
           AND COALESCE(c.is_internal_customer, 0) = 0
           AND (c.represents_company IS NULL OR c.represents_company = '')
+          AND si.customer NOT IN (SELECT name FROM `tabCompany`)
         ORDER BY pe.mode_of_payment, pe.party
     """, date, as_dict=True)
     return rows
@@ -171,6 +175,7 @@ def _get_tomorrow_orders(tomorrow):
           AND so.status NOT IN ('Completed', 'Cancelled', 'Closed')
           AND COALESCE(c.is_internal_customer, 0) = 0
           AND (c.represents_company IS NULL OR c.represents_company = '')
+          AND si.customer NOT IN (SELECT name FROM `tabCompany`)
         GROUP BY so.name
         ORDER BY so.customer
     """, tomorrow, as_dict=True)
