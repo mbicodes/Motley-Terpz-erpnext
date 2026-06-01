@@ -184,9 +184,7 @@ doc_events = {
     # AR Policy disabled — before_submit cap check removed
     "Sales Invoice": {
         "before_submit": [
-            # "cannabis_management.doc_hooks.sales_invoice.before_submit",  # AR Policy disabled
-            "cannabis_management.overrides.crm_enforcement.check_customer_blocked",
-            "cannabis_management.overrides.crm_enforcement.check_cod_customer",
+            # AR enforcement disabled — check_customer_blocked and check_cod_customer removed
         ],
     },
     # Lab mapping: auto-create BOMs on Material Request submit
@@ -201,7 +199,7 @@ doc_events = {
         "on_update": "cannabis_management.overrides.sales_order_restrictions.on_update",
         "before_submit": [
             "cannabis_management.overrides.sales_order_restrictions.before_submit",
-            "cannabis_management.overrides.crm_enforcement.check_customer_blocked",
+            # AR enforcement disabled — check_customer_blocked removed
         ],
         "on_submit": [
             "cannabis_management.overrides.sales_order_restrictions.on_submit",
