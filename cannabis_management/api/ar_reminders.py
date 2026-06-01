@@ -1,59 +1,69 @@
 """
 AR Due Date Reminder Emails
-Runs daily — checks all outstanding invoices and sends reminders to
-Osama and Muhammad at specific day-before-due checkpoints.
+Runs daily at 7 AM UTC.
 
-Reminder schedules (days before due date):
-  30-day terms (NET30 / 50% down NET30):  20, 15, 10, 5, 3, 2, 1
-  15-day terms (NET15 / 50% down NET15):  10, 5, 3, 2, 1
-   7-day terms (NET7):                     5, 3, 2, 1
-  Unknown / other:                        10, 5, 3, 2, 1
+Logic:
+  1. For each payment terms template, fetch all outstanding invoices assigned to it.
+  2. Calculate days until due date for each invoice / payment schedule row.
+  3. If today's days-until-due matches the template's reminder schedule → include in email.
+  4. Send one consolidated email to Osama + Muhammad with all triggered reminders.
 
-Emails continue each checkpoint until the invoice is fully paid.
+Reminder schedules (days before due):
+  NET30 / 50% down NET30   →  20, 15, 10, 5, 3, 2, 1
+  NET15 / 50% down NET15   →  10, 5, 3, 2, 1
+  NET7                     →   5, 3, 2, 1
+  (any other / no terms)   →  10, 5, 3, 2, 1
+
+Overdue invoices: if past due by 1–7 days, also included regardless of terms.
 """
 
 import frappe
-from frappe.utils import flt, getdate, nowdate, add_days
+from frappe.utils import flt, getdate, nowdate
 
 RECIPIENTS = ["osama.ahmad@alltechvirtual.com", "mbi@alltechvirtual.com"]
 
-# days-before-due → reminder schedule based on payment terms category
-SCHEDULES = {
-    "net30": [20, 15, 10, 5, 3, 2, 1],
-    "net15": [10, 5, 3, 2, 1],
-    "net7":  [5, 3, 2, 1],
-    "other": [10, 5, 3, 2, 1],
+# ── Exact template name → reminder days before due ────────────────────────────
+TERMS_SCHEDULE = {
+    "NET30":          [20, 15, 10, 5, 3, 2, 1],
+    "50% down NET30": [20, 15, 10, 5, 3, 2, 1],
+    "NET15":          [10, 5, 3, 2, 1],
+    "50% down NET15": [10, 5, 3, 2, 1],
+    "NET7":           [5, 3, 2, 1],
 }
+DEFAULT_SCHEDULE = [10, 5, 3, 2, 1]   # invoices with no / unrecognised payment terms
 
 
-def _classify_terms(template_name, credit_days=None):
-    """Return schedule key based on payment terms template name or credit days."""
-    if template_name:
-        tl = template_name.lower()
-        if "30" in tl:
-            return "net30"
-        if "15" in tl:
-            return "net15"
-        if "7" in tl:
-            return "net7"
-    if credit_days is not None:
-        if credit_days >= 25:
-            return "net30"
-        if credit_days >= 12:
-            return "net15"
-        if credit_days >= 5:
-            return "net7"
-    return "other"
-
+# ── Entry points ───────────────────────────────────────────────────────────────
 
 def send_ar_reminders():
-    """
-    Daily scheduled entry point.
-    Checks all outstanding Sales Invoices and sends reminders on the right days.
-    """
-    today = getdate(nowdate())
+    """Scheduled entry point — called daily at 7 AM UTC."""
+    today    = getdate(nowdate())
+    triggers = _collect_triggers(today)
 
-    # Fetch all outstanding invoices with their payment schedule due dates
+    if not triggers:
+        return "No reminders due today."
+
+    _send_email(triggers, today)
+    count = sum(len(v) for v in triggers.values())
+    return f"Sent reminders: {count} invoice(s) across {len(triggers)} term group(s) to {RECIPIENTS}"
+
+
+@frappe.whitelist()
+def send_now():
+    """Manual trigger from the ERPNext console."""
+    return send_ar_reminders()
+
+
+# ── Core logic ─────────────────────────────────────────────────────────────────
+
+def _collect_triggers(today):
+    """
+    Returns dict keyed by payment_terms_template (or '__none__') →
+    list of reminder dicts for invoices whose days-until-due matches the schedule.
+    """
+    excluded = _excluded_customers()
+
+    # Fetch all outstanding invoices
     invoices = frappe.db.sql("""
         SELECT
             si.name,
@@ -63,112 +73,94 @@ def send_ar_reminders():
             si.outstanding_amount,
             si.due_date,
             si.posting_date,
-            si.payment_terms_template,
-            COALESCE(cl.custom_account_owner, '') AS account_owner
+            COALESCE(si.payment_terms_template, '') AS terms,
+            COALESCE(cl.custom_account_owner, '')   AS account_owner
         FROM `tabSales Invoice` si
         LEFT JOIN `tabCRM Lead` cl ON cl.custom_erp_customer = si.customer
         LEFT JOIN `tabCustomer` c  ON c.name = si.customer
         WHERE si.docstatus = 1
           AND si.outstanding_amount > 0.01
           AND si.due_date IS NOT NULL
-          AND si.customer NOT IN (SELECT name FROM `tabCompany`)
+          AND si.customer NOT IN %(exc)s
           AND COALESCE(c.is_internal_customer, 0) = 0
           AND (c.represents_company IS NULL OR c.represents_company = '')
+          AND si.customer NOT IN (SELECT name FROM `tabCompany`)
         ORDER BY si.due_date ASC
-    """, as_dict=True)
+    """, {"exc": excluded}, as_dict=True)
 
-    # Also pull payment schedule rows (for split-term invoices)
-    schedule_rows = frappe.db.sql("""
-        SELECT ps.parent AS invoice_name, ps.due_date, ps.outstanding AS outstanding_amount,
-               ps.payment_amount
+    # Fetch payment schedule rows for split-term invoices
+    ps_rows = frappe.db.sql("""
+        SELECT ps.parent AS invoice_name, ps.due_date, ps.outstanding
         FROM `tabPayment Schedule` ps
         JOIN `tabSales Invoice` si ON si.name = ps.parent
-        WHERE si.docstatus = 1
-          AND ps.outstanding > 0.01
-          AND ps.due_date IS NOT NULL
-        ORDER BY ps.due_date ASC
+        WHERE si.docstatus = 1 AND ps.outstanding > 0.01 AND ps.due_date IS NOT NULL
     """, as_dict=True)
-
-    # Map invoice name → payment schedule rows
     ps_map = {}
-    for r in schedule_rows:
+    for r in ps_rows:
         ps_map.setdefault(r.invoice_name, []).append(r)
 
-    reminders = []  # collect all due reminders
+    # Build triggers grouped by terms template
+    triggers = {}   # {terms_label: [reminder_dict, ...]}
 
     for inv in invoices:
-        # Determine which due dates to check for this invoice
-        due_dates_to_check = []
+        terms     = inv.terms or "__none__"
+        schedule  = TERMS_SCHEDULE.get(inv.terms) or DEFAULT_SCHEDULE
 
+        # Determine due dates to evaluate
+        due_entries = []
         if inv.name in ps_map:
-            # Use per-installment due dates
             for ps in ps_map[inv.name]:
-                due_dates_to_check.append({
-                    "due_date": getdate(str(ps.due_date)),
-                    "outstanding": flt(ps.outstanding_amount),
-                })
-        else:
-            # Single due date
-            due_dates_to_check.append({
-                "due_date": getdate(str(inv.due_date)),
+                if flt(ps.outstanding) > 0:
+                    due_entries.append({
+                        "due_date":    getdate(str(ps.due_date)),
+                        "outstanding": flt(ps.outstanding),
+                    })
+        if not due_entries:
+            due_entries.append({
+                "due_date":    getdate(str(inv.due_date)),
                 "outstanding": flt(inv.outstanding_amount),
             })
 
-        # Determine reminder schedule from payment terms
-        schedule_key = _classify_terms(inv.payment_terms_template)
-        remind_days  = SCHEDULES[schedule_key]
+        for entry in due_entries:
+            days_until = (entry["due_date"] - today).days
 
-        for due_entry in due_dates_to_check:
-            if due_entry["outstanding"] <= 0:
+            # Check: either matches reminder schedule, or is 1-7 days overdue
+            is_reminder_day = (days_until >= 0 and days_until in schedule)
+            is_overdue      = (days_until < 0 and abs(days_until) <= 7)
+
+            if not (is_reminder_day or is_overdue):
                 continue
-            due_date    = due_entry["due_date"]
-            days_until  = (due_date - today).days
 
-            if days_until < 0:
-                # Already overdue — send daily for 1–7 days past due only
-                days_overdue = abs(days_until)
-                if days_overdue <= 7:
-                    reminders.append({
-                        "invoice":    inv.name,
-                        "customer":   inv.customer_name or inv.customer,
-                        "owner":      inv.account_owner,
-                        "due_date":   due_date,
-                        "outstanding":due_entry["outstanding"],
-                        "grand_total":flt(inv.grand_total),
-                        "days":       days_until,   # negative = overdue
-                        "schedule":   schedule_key,
-                    })
-            elif days_until in remind_days:
-                reminders.append({
-                    "invoice":    inv.name,
-                    "customer":   inv.customer_name or inv.customer,
-                    "owner":      inv.account_owner,
-                    "due_date":   due_date,
-                    "outstanding":due_entry["outstanding"],
-                    "grand_total":flt(inv.grand_total),
-                    "days":       days_until,
-                    "schedule":   schedule_key,
-                })
+            owner = inv.account_owner or ""
+            triggers.setdefault(terms, []).append({
+                "invoice":     inv.name,
+                "customer":    inv.customer_name or inv.customer,
+                "owner":       owner,
+                "terms":       inv.terms or "No Terms",
+                "due_date":    entry["due_date"],
+                "outstanding": entry["outstanding"],
+                "grand_total": flt(inv.grand_total),
+                "days":        days_until,
+            })
 
-    if not reminders:
-        return "No reminders due today."
-
-    _send_reminder_email(reminders, today)
-    return f"Sent {len(reminders)} reminder(s) to {', '.join(RECIPIENTS)}"
+    return triggers
 
 
-@frappe.whitelist()
-def send_now():
-    """Manual trigger from console or button."""
-    return send_ar_reminders()
+def _excluded_customers():
+    company_names = frappe.db.sql_list("SELECT name FROM `tabCompany`")
+    internal = frappe.db.sql_list("""
+        SELECT name FROM `tabCustomer`
+        WHERE is_internal_customer = 1
+           OR (represents_company IS NOT NULL AND represents_company != '')
+    """)
+    excluded = set(company_names) | set(internal)
+    return tuple(excluded) if excluded else ("__none__",)
 
 
-def _send_reminder_email(reminders, today):
-    overdue  = [r for r in reminders if r["days"] < 0]
-    upcoming = [r for r in reminders if r["days"] >= 0]
+# ── Email builder ──────────────────────────────────────────────────────────────
 
-    html = _build_email_html(upcoming, overdue, today)
-
+def _send_email(triggers, today):
+    html = _build_html(triggers, today)
     frappe.sendmail(
         recipients=RECIPIENTS,
         subject=f"AR Due Date Reminders — {today}",
@@ -177,38 +169,60 @@ def _send_reminder_email(reminders, today):
     )
 
 
-def _build_email_html(upcoming, overdue, today):
-    def _fmt(v):
-        return "$ {:,.2f}".format(flt(v))
+def _fmt(v):
+    return "$ {:,.2f}".format(flt(v))
 
-    def _badge(days):
-        if days < 0:
-            return f'<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:8px;font-size:11px;font-weight:700;">OVERDUE {abs(days)}d</span>'
-        if days <= 2:
-            return f'<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:8px;font-size:11px;font-weight:700;">{days} day{"s" if days!=1 else ""} left</span>'
-        if days <= 5:
-            return f'<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:8px;font-size:11px;font-weight:700;">{days} days left</span>'
-        return f'<span style="background:#dbeafe;color:#1e40af;padding:2px 8px;border-radius:8px;font-size:11px;font-weight:700;">{days} days left</span>'
 
-    def _row(r):
-        owner_str = r["owner"] if r["owner"] else "—"
-        owner_name = owner_str.split("@")[0].title() if "@" in owner_str else owner_str
-        return f"""<tr>
-          <td style="padding:8px 12px;font-weight:600;border-bottom:1px solid #f1f5f9;">{r["customer"]}</td>
-          <td style="padding:8px 12px;font-family:monospace;font-size:11px;color:#64748b;border-bottom:1px solid #f1f5f9;">{r["invoice"]}</td>
-          <td style="padding:8px 12px;color:#64748b;font-size:12px;border-bottom:1px solid #f1f5f9;">{owner_name}</td>
-          <td style="padding:8px 12px;text-align:right;font-weight:700;color:#dc2626;border-bottom:1px solid #f1f5f9;">{_fmt(r["outstanding"])}</td>
-          <td style="padding:8px 12px;text-align:center;border-bottom:1px solid #f1f5f9;">{r["due_date"]}</td>
-          <td style="padding:8px 12px;text-align:center;border-bottom:1px solid #f1f5f9;">{_badge(r["days"])}</td>
-        </tr>"""
+def _badge(days):
+    if days < 0:
+        n = abs(days)
+        return (f'<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;'
+                f'border-radius:8px;font-size:11px;font-weight:700;">'
+                f'OVERDUE {n}d</span>')
+    if days <= 2:
+        return (f'<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;'
+                f'border-radius:8px;font-size:11px;font-weight:700;">{days}d left</span>')
+    if days <= 5:
+        return (f'<span style="background:#fef3c7;color:#92400e;padding:2px 8px;'
+                f'border-radius:8px;font-size:11px;font-weight:700;">{days}d left</span>')
+    return (f'<span style="background:#dbeafe;color:#1e40af;padding:2px 8px;'
+            f'border-radius:8px;font-size:11px;font-weight:700;">{days}d left</span>')
 
-    def _table(rows, title, color):
-        if not rows:
-            return ""
-        rows_html = "".join(_row(r) for r in rows)
-        return f"""
-        <div style="margin-bottom:20px;">
-          <h3 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:{color};margin-bottom:8px;">{title} ({len(rows)})</h3>
+
+def _build_html(triggers, today):
+    total_invoices = sum(len(v) for v in triggers.values())
+    total_amount   = sum(r["outstanding"] for rows in triggers.values() for r in rows)
+
+    sections_html = ""
+    for terms_label in sorted(triggers.keys()):
+        rows  = triggers[terms_label]
+        sched = TERMS_SCHEDULE.get(terms_label)
+        sched_str = ", ".join(str(d) for d in sched) + " days" if sched else "10, 5, 3, 2, 1 days"
+        display   = terms_label if terms_label != "__none__" else "No Payment Terms"
+
+        rows_html = ""
+        for r in sorted(rows, key=lambda x: x["due_date"]):
+            owner_label = r["owner"].split("@")[0].title() if "@" in r["owner"] else (r["owner"] or "—")
+            rows_html += f"""<tr>
+              <td style="padding:8px 12px;font-weight:600;border-bottom:1px solid #f1f5f9;">{r["customer"]}</td>
+              <td style="padding:8px 12px;font-size:11px;color:#64748b;font-family:monospace;border-bottom:1px solid #f1f5f9;">{r["invoice"]}</td>
+              <td style="padding:8px 12px;font-size:12px;color:#64748b;border-bottom:1px solid #f1f5f9;">{owner_label}</td>
+              <td style="padding:8px 12px;text-align:right;font-weight:700;color:#dc2626;border-bottom:1px solid #f1f5f9;">{_fmt(r["outstanding"])}</td>
+              <td style="padding:8px 12px;text-align:center;border-bottom:1px solid #f1f5f9;">{r["due_date"]}</td>
+              <td style="padding:8px 12px;text-align:center;border-bottom:1px solid #f1f5f9;">{_badge(r["days"])}</td>
+            </tr>"""
+
+        sections_html += f"""
+        <div style="margin-bottom:22px;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+            <span style="font-size:13px;font-weight:800;color:#1e293b;">{display}</span>
+            <span style="font-size:11px;color:#64748b;background:#f1f5f9;padding:2px 8px;border-radius:6px;">
+              Reminds at: {sched_str}
+            </span>
+            <span style="font-size:11px;color:#7c3aed;font-weight:700;margin-left:auto;">
+              {len(rows)} invoice(s)
+            </span>
+          </div>
           <table style="width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden;border:1px solid #e2e8f0;">
             <thead>
               <tr style="background:#f8fafc;">
@@ -224,14 +238,12 @@ def _build_email_html(upcoming, overdue, today):
           </table>
         </div>"""
 
-    total_outstanding = sum(r["outstanding"] for r in upcoming + overdue)
-
     return f"""<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
 <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f1f5f9;color:#0f172a;margin:0;padding:20px;">
-<div style="max-width:760px;margin:0 auto;">
+<div style="max-width:780px;margin:0 auto;">
 
   <div style="background:linear-gradient(135deg,#1e293b,#0f172a);border-radius:14px;padding:28px 32px;margin-bottom:18px;text-align:center;">
-    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:rgba(255,255,255,.4);margin-bottom:8px;">Motley Terpz & TSBC Ranch</div>
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:rgba(255,255,255,.4);margin-bottom:8px;">Motley Terpz &amp; TSBC Ranch</div>
     <div style="font-size:22px;font-weight:800;color:#fff;margin-bottom:8px;">AR Due Date Reminders</div>
     <div style="display:inline-block;background:rgba(255,255,255,.1);border-radius:20px;padding:5px 16px;color:rgba(255,255,255,.8);font-size:13px;">{today}</div>
   </div>
@@ -239,26 +251,25 @@ def _build_email_html(upcoming, overdue, today):
   <div style="display:flex;gap:12px;margin-bottom:18px;">
     <div style="flex:1;background:#fff;border-radius:10px;padding:14px 16px;border:1px solid #e2e8f0;">
       <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#64748b;margin-bottom:4px;">Total Outstanding</div>
-      <div style="font-size:20px;font-weight:800;color:#dc2626;">{_fmt(total_outstanding)}</div>
-      <div style="font-size:11px;color:#94a3b8;">{len(upcoming + overdue)} invoice(s) requiring attention</div>
+      <div style="font-size:20px;font-weight:800;color:#dc2626;">{_fmt(total_amount)}</div>
+      <div style="font-size:11px;color:#94a3b8;">{total_invoices} invoice(s)</div>
+    </div>
+    <div style="flex:1;background:#fff;border-radius:10px;padding:14px 16px;border:1px solid #e2e8f0;">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#64748b;margin-bottom:4px;">Payment Term Groups</div>
+      <div style="font-size:20px;font-weight:800;color:#7c3aed;">{len(triggers)}</div>
+      <div style="font-size:11px;color:#94a3b8;">distinct term types triggered today</div>
     </div>
     <div style="flex:1;background:#fff;border-radius:10px;padding:14px 16px;border:1px solid #e2e8f0;">
       <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#64748b;margin-bottom:4px;">Overdue</div>
-      <div style="font-size:20px;font-weight:800;color:#dc2626;">{len(overdue)}</div>
+      <div style="font-size:20px;font-weight:800;color:#dc2626;">{sum(1 for rows in triggers.values() for r in rows if r["days"] < 0)}</div>
       <div style="font-size:11px;color:#94a3b8;">past due date</div>
-    </div>
-    <div style="flex:1;background:#fff;border-radius:10px;padding:14px 16px;border:1px solid #e2e8f0;">
-      <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#64748b;margin-bottom:4px;">Due This Week</div>
-      <div style="font-size:20px;font-weight:800;color:#d97706;">{len([r for r in upcoming if r["days"] <= 7])}</div>
-      <div style="font-size:11px;color:#94a3b8;">within 7 days</div>
     </div>
   </div>
 
-  {_table(overdue,  "⚠ Overdue", "#dc2626")}
-  {_table(upcoming, "Upcoming Due Dates", "#2563eb")}
+  {sections_html}
 
-  <div style="text-align:center;color:#94a3b8;font-size:11px;margin-top:12px;">
-    Auto-generated by ERPNext · {today} · Do not reply to this message.
+  <div style="text-align:center;color:#94a3b8;font-size:11px;margin-top:16px;">
+    Auto-generated daily by ERPNext · {today} · Do not reply.
   </div>
 </div>
 </body></html>"""
