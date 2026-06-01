@@ -691,6 +691,164 @@ def get_sales_dashboard_data(period='weekly', territory=None, company=None):
     }
 
 
+LEGACY_AR_CUTOFF    = "2026-05-15"
+LEGACY_AR_TARGET    = 2_000_000.0
+LEGACY_MONTHLY_PACE = 400_000.0
+BAD_STANDING_DAYS   = 30
+
+
+@frappe.whitelist()
+def get_ar_matrix():
+    """
+    AR tracking matrix for the sales dashboard.
+    Rows: Total AR | Legacy AR | Bad Standing AR | Good Standing AR
+    Columns: same monthly + weekly period blocks as the revenue matrix.
+    Values: amount collected from each AR category within each period.
+    Also returns current balance snapshots for each row.
+    """
+    import datetime as dt_mod
+    from frappe.utils import getdate, get_first_day, get_last_day, flt as _flt
+
+    today = getdate(nowdate())
+    excluded = _get_excluded_customers()
+
+    # ── Current AR balance snapshots ──────────────────────────────────────────
+    def _bal(extra_where, args=None):
+        rows = frappe.db.sql(f"""
+            SELECT COALESCE(SUM(si.outstanding_amount), 0) AS bal
+            FROM `tabSales Invoice` si
+            LEFT JOIN `tabCustomer` c ON c.name = si.customer
+            WHERE si.docstatus = 1
+              AND si.outstanding_amount > 0.01
+              AND si.customer NOT IN %(exc)s
+              AND COALESCE(c.is_internal_customer, 0) = 0
+              AND (c.represents_company IS NULL OR c.represents_company = '')
+              AND si.customer NOT IN (SELECT name FROM `tabCompany`)
+              {extra_where}
+        """, {"exc": excluded, **(args or {})}, as_dict=True)
+        return _flt(rows[0].bal) if rows else 0.0
+
+    total_ar   = _bal("")
+    legacy_ar  = _bal("AND si.posting_date < %(cutoff)s", {"cutoff": LEGACY_AR_CUTOFF})
+    current_ar = _bal("AND si.posting_date >= %(cutoff)s", {"cutoff": LEGACY_AR_CUTOFF})
+    bad_ar     = _bal(f"AND si.due_date < DATE_SUB(CURDATE(), INTERVAL {BAD_STANDING_DAYS} DAY)")
+    good_ar    = _bal(f"AND (si.due_date IS NULL OR si.due_date >= DATE_SUB(CURDATE(), INTERVAL {BAD_STANDING_DAYS} DAY))")
+
+    # ── Build period columns (same logic as get_sales_matrix) ─────────────────
+    monthly_columns = []
+    for m in range(1, today.month + 1):
+        mstart = today.replace(month=m, day=1)
+        mend_dt = getdate(str(get_last_day(mstart)))
+        mend = min(mend_dt, today)
+        monthly_columns.append({
+            "label": mstart.strftime('%b'),
+            "from_date": str(mstart), "to_date": str(mend),
+        })
+    for blk in _calendar_blocks_before(today, 4):
+        monthly_columns.append(blk)
+    weekly_columns = _calendar_blocks_before(today, 8)
+
+    all_columns = list({c["label"]: c for c in monthly_columns + weekly_columns}.values())
+
+    min_date = min(c["from_date"] for c in all_columns) if all_columns else str(today)
+    max_date = max(c["to_date"]   for c in all_columns) if all_columns else str(today)
+
+    # ── Collections per period via Payment Entry Reference ────────────────────
+    pay_rows = frappe.db.sql("""
+        SELECT
+            pe.posting_date,
+            per.allocated_amount,
+            si.posting_date   AS invoice_date,
+            si.due_date       AS invoice_due
+        FROM `tabPayment Entry Reference` per
+        JOIN `tabPayment Entry` pe  ON pe.name  = per.parent
+        JOIN `tabSales Invoice` si  ON si.name  = per.reference_name
+        LEFT JOIN `tabCustomer` c   ON c.name   = si.customer
+        WHERE pe.docstatus = 1
+          AND pe.payment_type = 'Receive'
+          AND pe.posting_date BETWEEN %(s)s AND %(e)s
+          AND si.customer NOT IN %(exc)s
+          AND COALESCE(c.is_internal_customer, 0) = 0
+          AND (c.represents_company IS NULL OR c.represents_company = '')
+          AND si.customer NOT IN (SELECT name FROM `tabCompany`)
+    """, {"s": min_date, "e": max_date, "exc": excluded}, as_dict=True)
+
+    # Bucket into period columns
+    cutoff_date = getdate(LEGACY_AR_CUTOFF)
+    bad_cutoff  = today - dt_mod.timedelta(days=BAD_STANDING_DAYS)
+
+    col_labels = [c["label"] for c in all_columns]
+    col_ranges = [(c["label"], getdate(c["from_date"]), getdate(c["to_date"])) for c in all_columns]
+
+    totals   = {l: 0.0 for l in col_labels}
+    legacy   = {l: 0.0 for l in col_labels}
+    bad      = {l: 0.0 for l in col_labels}
+    good     = {l: 0.0 for l in col_labels}
+
+    for r in pay_rows:
+        if not r.posting_date:
+            continue
+        pd  = r.posting_date if isinstance(r.posting_date, dt_mod.date) else getdate(str(r.posting_date))
+        amt = _flt(r.allocated_amount)
+        inv_date = getdate(str(r.invoice_date)) if r.invoice_date else today
+        due_date = getdate(str(r.invoice_due))  if r.invoice_due  else today
+
+        is_legacy = inv_date < cutoff_date
+        is_bad    = due_date < bad_cutoff
+
+        for label, fd, td in col_ranges:
+            if fd <= pd <= td:
+                totals[label] += amt
+                if is_legacy:
+                    legacy[label] += amt
+                if is_bad:
+                    bad[label]  += amt
+                else:
+                    good[label] += amt
+                break
+
+    # ── Monthly pace target per column (same frac logic as revenue matrix) ────
+    pace_by_col = {}
+    for c in all_columns:
+        fd = getdate(c["from_date"]); td = getdate(c["to_date"])
+        col_days = (td - fd).days + 1
+        month_days = (getdate(str(get_last_day(fd))) - getdate(str(get_first_day(fd)))).days + 1
+        frac = col_days / float(month_days)
+        pace_by_col[c["label"]] = LEGACY_MONTHLY_PACE * frac
+
+    n = len(col_labels)
+    def _avg(d): return sum(d.values()) / n if n else 0.0
+
+    return {
+        "columns": col_labels,
+        "column_dates": [[c["from_date"], c["to_date"]] for c in all_columns],
+        "monthly_columns": [c["label"] for c in monthly_columns],
+        "weekly_columns":  [c["label"] for c in weekly_columns],
+        "balances": {
+            "total":   total_ar,
+            "legacy":  legacy_ar,
+            "current": current_ar,
+            "bad":     bad_ar,
+            "good":    good_ar,
+        },
+        "collected": {
+            "total":  totals,
+            "legacy": legacy,
+            "bad":    bad,
+            "good":   good,
+        },
+        "pace_by_col":          pace_by_col,
+        "legacy_monthly_target": LEGACY_MONTHLY_PACE,
+        "legacy_ar_target":      LEGACY_AR_TARGET,
+        "avg": {
+            "total":  _avg(totals),
+            "legacy": _avg(legacy),
+            "bad":    _avg(bad),
+            "good":   _avg(good),
+        },
+    }
+
+
 @frappe.whitelist()
 def get_dashboard_inventory(company=None):
     return frappe.db.sql("""

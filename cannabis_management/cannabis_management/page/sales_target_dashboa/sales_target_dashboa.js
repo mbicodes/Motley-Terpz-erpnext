@@ -13,6 +13,7 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
     var currentMatrix = 'weekly';
     var currentView   = 'value';
     var matrixCache   = {};
+    var arMatrixData  = null;
 
     var hour = new Date().getHours();
     var ge = rootEl.querySelector('.sd-greeting');
@@ -65,6 +66,9 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
             title.textContent = (labels[mtx] || 'Weekly') + ' Revenue Matrix';
         }
         if (matrixCache[mtx]) renderMatrix('sd-matrix', matrixCache[mtx]);
+        if (arMatrixData && matrixCache[mtx]) {
+            renderArMatrix('sd-ar-matrix', arMatrixData, matrixCache[mtx].columns);
+        }
     }
 
     // ── Value / Qty toggle ────────────────────────────────────────
@@ -319,6 +323,88 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
         html += '</tr>';
 
         html += '</tfoot></table>';
+        el.innerHTML = html;
+    }
+
+    // ── AR Matrix renderer ────────────────────────────────────────
+    function renderArMatrix(containerId, ar, cols) {
+        var el = rootEl.querySelector('#' + containerId);
+        if (!el) return;
+        if (!ar || !cols || !cols.length) {
+            el.innerHTML = '<p class="sd-empty">AR data loading…</p>';
+            return;
+        }
+
+        var bal  = ar.balances  || {};
+        var coll = ar.collected || {};
+        var pace = ar.pace_by_col || {};
+        var avg  = ar.avg || {};
+        var showAvg = currentMatrix === 'weekly';
+
+        function arCell(v, cls) {
+            return '<td class="sd-matrix-num ' + (cls||'') + '">' + (v > 0 ? fmtCurrency(v) : '—') + '</td>';
+        }
+
+        var html = '<table class="sd-matrix"><thead><tr>';
+        html += '<th class="sd-matrix-th-product">AR Category</th>';
+        html += '<th class="sd-matrix-th-static">Outstanding</th>';
+        html += '<th class="sd-matrix-th-static">Monthly Pace</th>';
+        cols.forEach(function (c) { html += '<th class="sd-matrix-th-period">' + frappe.utils.escape_html(c) + '</th>'; });
+        if (showAvg) html += '<th class="sd-matrix-th-avg">Avg Collected</th>';
+        html += '</tr></thead><tbody>';
+
+        // ── Total AR (grayed, strikethrough) ──────────────────
+        html += '<tr style="opacity:.55">';
+        html += '<td class="sd-matrix-product" style="color:#94a3b8;font-style:italic;text-decoration:line-through;">Total AR</td>';
+        html += '<td class="sd-matrix-num" style="text-decoration:line-through;">' + fmtCurrency(bal.total||0) + '</td>';
+        html += '<td class="sd-matrix-num">—</td>';
+        cols.forEach(function(c) { html += arCell((coll.total||{})[c]||0); });
+        if (showAvg) html += arCell(avg.total||0);
+        html += '</tr>';
+
+        // ── Legacy AR (red, pace target) ──────────────────────
+        html += '<tr class="sd-ar-legacy">';
+        html += '<td class="sd-matrix-product sd-ar-label-legacy">Legacy AR'
+             + ' <span class="sd-ar-badge-legacy">pre-May 15</span></td>';
+        html += '<td class="sd-matrix-num" style="color:#dc2626;font-weight:800;">' + fmtCurrency(bal.legacy||0) + '</td>';
+        html += '<td class="sd-matrix-num sd-matrix-target-rev">' + fmtCurrency(ar.legacy_monthly_target||400000) + '/mo</td>';
+        cols.forEach(function(c) {
+            var v = (coll.legacy||{})[c] || 0;
+            var t = pace[c] || 0;
+            var cls = '';
+            if (v > 0 && t > 0) { var r = v/t; cls = r>=1 ? 'sd-cell-green' : r>=0.5 ? 'sd-cell-amber' : 'sd-cell-red'; }
+            html += '<td class="sd-matrix-num ' + cls + '">' + (v > 0 ? fmtCurrency(v) : '—') + '</td>';
+        });
+        if (showAvg) html += arCell(avg.legacy||0, 'sd-matrix-avg');
+        html += '</tr>';
+
+        // ── Bad Standing (>30 days overdue) ───────────────────
+        html += '<tr class="sd-ar-bad">';
+        html += '<td class="sd-matrix-product sd-ar-label-bad">Bad Standing'
+             + ' <span class="sd-ar-badge-bad">&gt;30 days</span></td>';
+        html += '<td class="sd-matrix-num" style="color:#d97706;font-weight:700;">' + fmtCurrency(bal.bad||0) + '</td>';
+        html += '<td class="sd-matrix-num">—</td>';
+        cols.forEach(function(c) {
+            var v = (coll.bad||{})[c] || 0;
+            html += '<td class="sd-matrix-num' + (v > 0 ? ' sd-cell-green' : '') + '">' + (v > 0 ? fmtCurrency(v) : '—') + '</td>';
+        });
+        if (showAvg) html += arCell(avg.bad||0, 'sd-matrix-avg');
+        html += '</tr>';
+
+        // ── Good Standing (≤30 days) ──────────────────────────
+        html += '<tr class="sd-ar-good">';
+        html += '<td class="sd-matrix-product sd-ar-label-good">Good Standing'
+             + ' <span class="sd-ar-badge-good">≤30 days</span></td>';
+        html += '<td class="sd-matrix-num" style="color:#059669;font-weight:700;">' + fmtCurrency(bal.good||0) + '</td>';
+        html += '<td class="sd-matrix-num">—</td>';
+        cols.forEach(function(c) {
+            var v = (coll.good||{})[c] || 0;
+            html += '<td class="sd-matrix-num' + (v > 0 ? ' sd-cell-green' : '') + '">' + (v > 0 ? fmtCurrency(v) : '—') + '</td>';
+        });
+        if (showAvg) html += arCell(avg.good||0, 'sd-matrix-avg');
+        html += '</tr>';
+
+        html += '</tbody></table>';
         el.innerHTML = html;
     }
 
@@ -655,10 +741,28 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
                     daily:   r.message.daily,
                 };
                 renderMatrix('sd-matrix', matrixCache[currentMatrix]);
+                if (arMatrixData) {
+                    renderArMatrix('sd-ar-matrix', arMatrixData, matrixCache[currentMatrix].columns);
+                }
             },
             error: function () {
                 var el = rootEl.querySelector('#sd-matrix');
                 if (el) el.innerHTML = '<p class="sd-empty">Error loading data.</p>';
+            }
+        });
+
+        shimmerEl('sd-ar-matrix');
+        frappe.call({
+            method: API + 'get_ar_matrix',
+            callback: function (r) {
+                if (!r.message) return;
+                arMatrixData = r.message;
+                var cols = matrixCache[currentMatrix] ? matrixCache[currentMatrix].columns : (r.message.columns || []);
+                renderArMatrix('sd-ar-matrix', arMatrixData, cols);
+            },
+            error: function () {
+                var el = rootEl.querySelector('#sd-ar-matrix');
+                if (el) el.innerHTML = '<p class="sd-empty">Error loading AR data.</p>';
             }
         });
     }
@@ -787,6 +891,19 @@ function getDashboardHTML() {
       </div>
       <div class="sd-matrix-card">
         <div id="sd-matrix" class="sd-matrix-wrap"><div class="sd-loading"><div class="sd-spinner"></div></div></div>
+      </div>
+
+      <div class="sd-matrix-bar" style="margin-top:28px;">
+        <div class="sd-section-title" style="margin:0">
+          <span class="sd-section-icon"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg></span>
+          <span>AR Tracking Matrix</span>
+        </div>
+        <div class="sd-matrix-controls">
+          <span style="font-size:11px;color:var(--sd-text-muted);padding:4px 8px;background:#f8fafc;border-radius:6px;">Legacy target: $400k/month · Bad standing: &gt;30 days overdue</span>
+        </div>
+      </div>
+      <div class="sd-matrix-card">
+        <div id="sd-ar-matrix" class="sd-matrix-wrap"><div class="sd-loading"><div class="sd-spinner"></div></div></div>
       </div>
 
     </div>
