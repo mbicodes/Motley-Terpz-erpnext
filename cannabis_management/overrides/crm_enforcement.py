@@ -1,7 +1,7 @@
 """
 CRM AR Enforcement
   - check_customer_blocked(): fires on Sales Invoice + Sales Order before_submit.
-    Blocked = customer AR > $50k OR oldest unpaid invoice > 90 days overdue.
+    Blocked = oldest unpaid invoice > 90 days overdue only (AR balance threshold removed).
     Non-admin → hard throw.  Admin → red warning (can proceed).
     Always fires a Slack notification to Matt, Imran, and Nikki.
 
@@ -14,7 +14,7 @@ from frappe import _
 from frappe.utils import flt
 
 
-BLOCKED_AR_THRESHOLD = 50_000.0
+BLOCKED_AR_THRESHOLD = None          # AR balance threshold disabled — no dollar limit
 BLOCKED_AGING_DAYS   = 90
 
 BLOCKED_SLACK_USERS = [
@@ -163,8 +163,7 @@ def _is_customer_blocked(customer):
     aging_days = int(row[0].max_aging or 0)
 
     reasons = []
-    if balance > BLOCKED_AR_THRESHOLD:
-        reasons.append(f"AR balance ${balance:,.2f} exceeds ${BLOCKED_AR_THRESHOLD:,.0f}")
+    # AR balance threshold is disabled — only block on aging
     if aging_days > BLOCKED_AGING_DAYS:
         reasons.append(f"oldest unpaid invoice is {aging_days} days overdue ({BLOCKED_AGING_DAYS}-day limit)")
 

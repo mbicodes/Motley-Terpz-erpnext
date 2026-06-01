@@ -15,7 +15,7 @@ from frappe.utils import flt, nowdate, getdate, now_datetime
 from datetime import timedelta
 
 
-BLOCKED_AR_THRESHOLD  = 50_000.0
+BLOCKED_AR_THRESHOLD  = None  # disabled — no dollar blocking limit
 BLOCKED_AGING_DAYS    = 90
 OVERDUE_AGING_DAYS    = 30
 
@@ -100,7 +100,7 @@ def _compute_ar_data(customer):
     aging_days  = int(ar[0].max_aging) if ar else 0
 
     # ── AR Status ─────────────────────────────────────────────────────────────
-    if ar_balance > BLOCKED_AR_THRESHOLD or aging_days > BLOCKED_AGING_DAYS:
+    if aging_days > BLOCKED_AGING_DAYS:  # AR balance threshold removed
         ar_status = "Blocked"
     elif aging_days > OVERDUE_AGING_DAYS:
         ar_status = "Overdue"
