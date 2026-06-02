@@ -5,8 +5,8 @@ from frappe.utils import nowdate
 RECON_EDIT_ROLES     = ("Account Manager", "System Manager", "Administrator")
 TMM_GROUP_COMPANIES  = ["Motley Terpz", "TSBC Ranch"]
 INTERCOMPANY_PARTIES = frozenset(TMM_GROUP_COMPANIES)
-LEGACY_CUTOFF        = "2026-05-15"
-NEW_AR_START         = "2026-05-16"
+LEGACY_CUTOFF        = "2026-05-31"
+NEW_AR_START         = "2026-06-01"
 
 
 def _can_edit_recon():
@@ -36,6 +36,23 @@ def _compute_totals(rows, ranges):
         for r in ranges:
             totals[r["key"]] += row[r["key"]]
     return totals
+
+
+def _strip_cross_company_rows(rows, company):
+    """Remove Sales Invoice rows whose company field doesn't match the selected company."""
+    si_nos = [r["voucher_no"] for r in rows if r.get("voucher_type") == "Sales Invoice"]
+    if not si_nos:
+        return rows
+
+    valid = set(frappe.db.sql_list(
+        "SELECT name FROM `tabSales Invoice` WHERE name IN %(names)s AND company = %(company)s",
+        {"names": tuple(si_nos), "company": company},
+    ))
+
+    return [
+        r for r in rows
+        if r.get("voucher_type") != "Sales Invoice" or r["voucher_no"] in valid
+    ]
 
 
 def _fetch_rows_for_company(company, report_date, customer, ageing_based_on, range_str, ranges):
@@ -110,6 +127,8 @@ def get_ar_data(company, report_date=None, customer=None, ageing_based_on="Due D
                 c_rows = _fetch_rows_for_company(
                     c, report_date, customer, ageing_based_on, range_str, ranges
                 )
+                # Isolate each sub-company's own invoices before merging
+                c_rows = _strip_cross_company_rows(c_rows, c)
                 all_rows.extend(c_rows)
             except Exception:
                 frappe.log_error(f"AR data fetch failed for {c}", "TMM Group AR Dashboard")
@@ -118,6 +137,8 @@ def get_ar_data(company, report_date=None, customer=None, ageing_based_on="Due D
         rows = _fetch_rows_for_company(
             company, report_date, customer, ageing_based_on, range_str, ranges
         )
+        # Remove any invoices that were created under a different company
+        rows = _strip_cross_company_rows(rows, company)
 
     # Apply mode date filter and strip intercompany rows in one pass
     if ar_mode == "legacy":

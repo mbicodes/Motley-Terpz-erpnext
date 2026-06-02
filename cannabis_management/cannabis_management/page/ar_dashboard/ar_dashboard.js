@@ -1,5 +1,5 @@
-var LEGACY_CUTOFF = "2026-05-15";
-var NEW_AR_START  = "2026-05-16";
+var LEGACY_CUTOFF = "2026-05-31";
+var NEW_AR_START  = "2026-06-01";
 
 frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
     var page = frappe.ui.make_app_page({
@@ -12,14 +12,14 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
     page._ard_result      = null;
     page._ard_excl_motley = false;
     page._ard_can_edit    = false;
-    page._ard_ar_mode     = "legacy"; // "legacy" (≤ May 15 2026) or "new" (≥ May 16 2026)
+    page._ard_ar_mode     = "legacy"; // "legacy" (≤ May 31 2026) or "new" (≥ Jun 1 2026)
 
     page.main.html(`
 		<div class="ard-container">
 			<div class="ard-header">
 				<div class="ard-header-left">
 					<h2 class="ard-title">Accounts Receivable</h2>
-					<p class="ard-subtitle" id="ard-subtitle">Legacy AR &mdash; invoices up to May 15, 2026</p>
+					<p class="ard-subtitle" id="ard-subtitle">Legacy AR &mdash; invoices up to May 31, 2026</p>
 				</div>
 				<div class="ard-header-right">
 					<span class="ard-as-of-label">As of</span>
@@ -169,7 +169,7 @@ function set_ar_mode(page, mode) {
             $date.val(LEGACY_CUTOFF);
             page.main.find('#ard-report-date-display').text(LEGACY_CUTOFF);
         }
-        page.main.find('#ard-subtitle').html('Legacy AR &mdash; invoices up to May 15, 2026');
+        page.main.find('#ard-subtitle').html('Legacy AR &mdash; invoices up to May 31, 2026');
     } else {
         page.main.find('#ard-new-btn').addClass('ard-mode-active');
         page.main.find('#ard-legacy-btn').removeClass('ard-mode-active');
@@ -179,7 +179,7 @@ function set_ar_mode(page, mode) {
             $date.val(today);
             page.main.find('#ard-report-date-display').text(today);
         }
-        page.main.find('#ard-subtitle').html('New AR &mdash; invoices from May 16, 2026 onwards');
+        page.main.find('#ard-subtitle').html('New AR &mdash; invoices from June 1, 2026 onwards');
     }
 
     // Clear results — user must re-apply

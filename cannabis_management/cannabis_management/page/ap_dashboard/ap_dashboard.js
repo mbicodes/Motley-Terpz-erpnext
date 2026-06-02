@@ -26,6 +26,7 @@ frappe.pages["ap-dashboard"].on_page_load = function (wrapper) {
     // ── Initial render ─────────────────────────────────────────────────────
     $root.html(buildShell());
     bindControls();
+    loadCompanies();
     loadData();
 
     // ── Build DOM shell ───────────────────────────────────────────────────
@@ -53,8 +54,6 @@ frappe.pages["ap-dashboard"].on_page_load = function (wrapper) {
                 </div>
                 <div class="apd-seg" id="apd-company-seg">
                     <button class="apd-seg-btn active" data-val="All">All</button>
-                    <button class="apd-seg-btn" data-val="Motley Terpz">Motley</button>
-                    <button class="apd-seg-btn" data-val="TSBC Ranch">TSBC</button>
                 </div>
                 <div class="apd-seg" id="apd-period-seg">
                     <button class="apd-seg-btn active" data-val="30">30d</button>
@@ -277,22 +276,22 @@ frappe.pages["ap-dashboard"].on_page_load = function (wrapper) {
 
     // ── Render KPIs ───────────────────────────────────────────────────────
     function renderKPIs(k) {
+        var company_ap = k.company_ap || {};
+        var company_cards = Object.keys(company_ap).map(function (co) {
+            return '<div class="apd-kpi">' +
+                '<div class="apd-kpi-label">' + escHtml(co) + '</div>' +
+                '<div class="apd-kpi-value">' + fmt$(company_ap[co]) + '</div>' +
+                '<div class="apd-kpi-sub">entity balance</div>' +
+                '</div>';
+        }).join("");
+
         var html = `
         <div class="apd-kpi apd-kpi-total">
             <div class="apd-kpi-label">Total AP Balance</div>
             <div class="apd-kpi-value">${fmt$(k.total_ap)}</div>
             <div class="apd-kpi-sub">${k.open_vendors} open vendors</div>
         </div>
-        <div class="apd-kpi apd-kpi-tsbc">
-            <div class="apd-kpi-label">TSBC Ranch</div>
-            <div class="apd-kpi-value">${fmt$(k.tsbc_ap)}</div>
-            <div class="apd-kpi-sub">entity balance</div>
-        </div>
-        <div class="apd-kpi apd-kpi-motley">
-            <div class="apd-kpi-label">Motley Terpz</div>
-            <div class="apd-kpi-value">${fmt$(k.motley_ap)}</div>
-            <div class="apd-kpi-sub">entity balance</div>
-        </div>
+        ` + company_cards + `
         <div class="apd-kpi apd-kpi-sched">
             <div class="apd-kpi-label">Scheduled (30d)</div>
             <div class="apd-kpi-value">${fmt$(k.scheduled_payments)}</div>
@@ -386,7 +385,7 @@ frappe.pages["ap-dashboard"].on_page_load = function (wrapper) {
                         ${countLabel}
                     </div>
                 </td>
-                <td><span class="apd-entity apd-entity-${v.company === 'Motley Terpz' ? 'motley' : 'tsbc'}">${v.company === "Motley Terpz" ? "Motley" : "TSBC"}</span></td>
+                <td><span class="apd-entity ${entityClass(v.company)}">${entityLabel(v.company)}</span></td>
                 <td class="apd-num">${outstandingCell}</td>
                 <td class="apd-num">${v.paid_this_period > 0 ? fmt$(v.paid_this_period) : '<span class="apd-muted">—</span>'}</td>
                 <td class="apd-num">${liveBalance}</td>
@@ -430,13 +429,12 @@ frappe.pages["ap-dashboard"].on_page_load = function (wrapper) {
         $root.off("click", ".apd-pt-link").on("click", ".apd-pt-link", function (e) {
             e.preventDefault();
             var supplier = $(this).data("supplier");
-            var company = $(this).data("company");
-            showPaymentTermsPopup(supplier, company);
+            showPaymentTermsPopup(supplier);
         });
     }
 
     // ── Payment Terms Popup ───────────────────────────────────────────────
-    function showPaymentTermsPopup(supplier, company) {
+    function showPaymentTermsPopup(supplier) {
         frappe.call({
             method: "frappe.client.get_list",
             args: {
@@ -467,7 +465,7 @@ frappe.pages["ap-dashboard"].on_page_load = function (wrapper) {
                         <td class="apd-num">${fmt$(inv.grand_total)}</td>
                         <td class="apd-num">${fmt$(inv.outstanding_amount)}</td>
                         <td>${ptLink}</td>
-                        <td><span class="apd-entity apd-entity-${inv.company === 'Motley Terpz' ? 'motley' : 'tsbc'}">${inv.company === "Motley Terpz" ? "Motley" : "TSBC"}</span></td>
+                        <td><span class="apd-entity ${entityClass(inv.company)}">${entityLabel(inv.company)}</span></td>
                     </tr>`;
                 }).join("");
 
@@ -494,7 +492,33 @@ frappe.pages["ap-dashboard"].on_page_load = function (wrapper) {
         });
     }
 
+    // ── Load companies dynamically ────────────────────────────────────────
+    function loadCompanies() {
+        frappe.call({
+            method: "cannabis_management.api.ap_dashboard.get_companies",
+            callback: function (r) {
+                var $seg = $root.find("#apd-company-seg");
+                (r.message || []).forEach(function (co) {
+                    $seg.append(
+                        '<button class="apd-seg-btn" data-val="' + escHtml(co) + '">' + escHtml(entityLabel(co)) + '</button>'
+                    );
+                });
+            },
+        });
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────
+    function entityLabel(co) {
+        if (!co) return "—";
+        return co.split(" ")[0];
+    }
+
+    function entityClass(co) {
+        if (co === "Motley Terpz") return "apd-entity-motley";
+        if (co === "TSBC Ranch") return "apd-entity-tsbc";
+        return "apd-entity-other";
+    }
+
     function fmt$(n) {
         if (n == null || isNaN(n)) return "—";
         return "$" + parseFloat(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });

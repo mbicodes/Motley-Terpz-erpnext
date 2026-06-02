@@ -29,6 +29,10 @@ frappe.pages["payable-summary"].on_page_load = function (wrapper) {
 
             <div class="rs-filter-bar">
                 <div class="rs-filter-group">
+                    <label for="rs-company-select">Company</label>
+                    <select id="rs-company-select"></select>
+                </div>
+                <div class="rs-filter-group">
                     <label for="rs-date-input">Report Date</label>
                     <input type="date" id="rs-date-input" value="${today}" />
                 </div>
@@ -60,6 +64,20 @@ frappe.pages["payable-summary"].on_page_load = function (wrapper) {
         </div>
     `);
 
+    // Load companies into dropdown
+    frappe.call({
+        method: "cannabis_management.cannabis_management.page.payable_summary.payable_summary.get_companies",
+        callback: function (r) {
+            let $sel = page.main.find("#rs-company-select");
+            let default_company = frappe.defaults.get_user_default("Company") || "";
+            (r.message || []).forEach(function (co) {
+                let selected = co === default_company ? "selected" : "";
+                $sel.append(`<option value="${frappe.utils.escape_html(co)}" ${selected}>${frappe.utils.escape_html(co)}</option>`);
+            });
+            load_payable_data(page);
+        },
+    });
+
     // Refresh button
     page.set_primary_action(__("Refresh"), function () {
         load_payable_data(page);
@@ -78,16 +96,15 @@ frappe.pages["payable-summary"].on_page_load = function (wrapper) {
     });
 
     // Trigger refresh on select change
-    page.main.find("#rs-based-on-input, #rs-ageing-by-input").on("change", function() {
+    page.main.find("#rs-company-select, #rs-based-on-input, #rs-ageing-by-input").on("change", function() {
         load_payable_data(page);
     });
-
-    load_payable_data(page);
 };
 
 function load_payable_data(page) {
     let table_area = page.main.find("#rs-table-area");
     let cards_area = page.main.find("#rs-summary-cards");
+    let company = page.main.find("#rs-company-select").val();
     let report_date = page.main.find("#rs-date-input").val();
     let ageing_based_on = page.main.find("#rs-based-on-input").val();
     let calculate_ageing_with = page.main.find("#rs-ageing-by-input").val();
@@ -103,6 +120,7 @@ function load_payable_data(page) {
     frappe.call({
         method: "cannabis_management.cannabis_management.page.payable_summary.payable_summary.get_payable_summary",
         args: {
+            company: company,
             report_date: report_date,
             ageing_based_on: ageing_based_on,
             calculate_ageing_with: calculate_ageing_with

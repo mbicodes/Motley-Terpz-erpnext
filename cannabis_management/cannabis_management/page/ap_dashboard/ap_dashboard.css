@@ -321,6 +321,7 @@
 
 .apd-entity-motley { background: #ede9fe; color: var(--apd-violet); }
 .apd-entity-tsbc   { background: #d1fae5; color: var(--apd-emerald); }
+.apd-entity-other  { background: #e0f2fe; color: #0369a1; }
 
 /* ── Status badges ───────────────────────────────────────────────────────── */
 .apd-status-badge {

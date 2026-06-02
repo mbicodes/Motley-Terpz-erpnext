@@ -1,13 +1,18 @@
 """
-CRM Sync — nightly job.
-For every CRM Lead with custom_erp_customer set, pulls live AR data
-from ERPNext and writes it back to the CRM Lead.
+CRM Sync — nightly job (Mon–Fri).
+For every CRM Lead with custom_erp_customer set, pulls live AR/financial data
+from ERPNext and writes it back to the CRM Lead (read-only section).
 
-AR Status thresholds:
-  Blocked  — AR > $50,000  OR  oldest unpaid invoice > 90 days overdue
-  Overdue  — oldest unpaid invoice 31–90 days overdue
-  Watch    — AR > 0, aging < 30 days
-  Clean    — AR = 0
+Fields synced per spec:
+  AR Balance · AR Aging (days) · AR Status · COD Flag
+  Last Invoice Date / Amount · Last Payment Date
+  MTD Revenue · 8-Week Trailing Revenue · Payment Terms · Last Synced
+
+AR Status computation (per FRAPPE CRM field spec):
+  Clean   — AR Balance = $0
+  Watch   — AR > $0, aging 1–30 days
+  Overdue — aging 31–90 days
+  Blocked — aging > 90 days
 """
 
 import frappe

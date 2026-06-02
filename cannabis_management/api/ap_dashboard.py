@@ -3,6 +3,11 @@ from frappe.utils import flt, nowdate, add_days
 
 
 @frappe.whitelist()
+def get_companies():
+    return frappe.get_all("Company", pluck="name", order_by="name")
+
+
+@frappe.whitelist()
 def get_ap_data(company="All", period_days=30):
     """
     Returns KPI summary and per-vendor AP table for the AP Dashboard.
@@ -21,8 +26,18 @@ def get_ap_data(company="All", period_days=30):
         pe_company_filter = "AND pe.company = %s"
         company_params = [company]
 
+    # Build intercompany exclusion dynamically from all company names in DB
+    all_company_names = frappe.get_all("Company", pluck="name")
+    if all_company_names:
+        ic_placeholders = ", ".join(["%s"] * len(all_company_names))
+        ic_filter = f"AND pi.supplier NOT IN ({ic_placeholders})"
+        ic_params = list(all_company_names)
+    else:
+        ic_filter = ""
+        ic_params = []
+
     # ── 1. Outstanding AP per vendor ──────────────────────────────────────────
-    # Exclude intercompany: supplier name matches another entity's company name
+    # Exclude intercompany: supplier name matches another company in the system
     outstanding_rows = frappe.db.sql(
         """
         SELECT
@@ -37,14 +52,12 @@ def get_ap_data(company="All", period_days=30):
                ON ps.parent = pi.name AND ps.outstanding > 0
         WHERE pi.docstatus = 1
           AND pi.outstanding_amount != 0
-          AND pi.supplier NOT IN ('TSBC Ranch', 'Motley Terpz')
+          {ic_filter}
           {pi_company_filter}
         GROUP BY pi.supplier, pi.company
-        ORDER BY
-            CASE pi.company WHEN 'TSBC Ranch' THEN 1 WHEN 'Motley Terpz' THEN 2 ELSE 3 END,
-            outstanding DESC
-        """.format(pi_company_filter=pi_company_filter),
-        company_params,
+        ORDER BY pi.company, outstanding DESC
+        """.format(ic_filter=ic_filter, pi_company_filter=pi_company_filter),
+        ic_params + company_params,
         as_dict=True,
     )
 
@@ -105,24 +118,21 @@ def get_ap_data(company="All", period_days=30):
 
     # ── 4. KPI summary ────────────────────────────────────────────────────────
     total_ap = sum(flt(v["outstanding"]) for v in vendors if flt(v["outstanding"]) > 0)
-    tsbc_ap = sum(
-        flt(v["outstanding"])
-        for v in vendors
-        if v["company"] == "TSBC Ranch" and flt(v["outstanding"]) > 0
-    )
-    motley_ap = sum(
-        flt(v["outstanding"])
-        for v in vendors
-        if v["company"] == "Motley Terpz" and flt(v["outstanding"]) > 0
-    )
     open_vendors = len({v["supplier"] for v in vendors if flt(v["outstanding"]) > 0})
     total_credits = sum(
         flt(v["credit_amount"]) for v in vendors if flt(v["credit_amount"]) > 0
     )
     total_paid = sum(flt(v["paid_this_period"]) for v in vendors)
 
+    # Per-company breakdown — dynamic across all companies
+    company_ap = {}
+    for v in vendors:
+        if flt(v["outstanding"]) > 0:
+            co = v["company"]
+            company_ap[co] = company_ap.get(co, 0.0) + flt(v["outstanding"])
+
     # Scheduled payments: next 30 days from Payment Schedule
-    sched_params = [today, add_days(today, 30)] + company_params
+    sched_params = [today, add_days(today, 30)] + ic_params + company_params
     sched_rows = frappe.db.sql(
         """
         SELECT IFNULL(SUM(ps.outstanding), 0) AS total
@@ -131,9 +141,9 @@ def get_ap_data(company="All", period_days=30):
         WHERE pi.docstatus = 1
           AND ps.outstanding > 0
           AND ps.due_date BETWEEN %s AND %s
-          AND pi.supplier NOT IN ('TSBC Ranch', 'Motley Terpz')
+          {ic_filter}
           {pi_company_filter}
-        """.format(pi_company_filter=pi_company_filter),
+        """.format(ic_filter=ic_filter, pi_company_filter=pi_company_filter),
         sched_params,
         as_dict=True,
     )
@@ -141,8 +151,7 @@ def get_ap_data(company="All", period_days=30):
 
     kpis = {
         "total_ap": total_ap,
-        "tsbc_ap": tsbc_ap,
-        "motley_ap": motley_ap,
+        "company_ap": company_ap,
         "open_vendors": open_vendors,
         "total_credits": total_credits,
         "scheduled_payments": scheduled_payments,

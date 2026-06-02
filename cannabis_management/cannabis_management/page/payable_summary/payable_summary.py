@@ -3,8 +3,13 @@ from frappe.utils import today, getdate
 
 
 @frappe.whitelist()
+def get_companies():
+    return frappe.get_all("Company", pluck="name", order_by="name")
+
+
+@frappe.whitelist()
 def get_payable_summary(
-    report_date=None, ageing_based_on="Due Date", calculate_ageing_with="Report Date"
+    company=None, report_date=None, ageing_based_on="Due Date", calculate_ageing_with="Report Date"
 ):
     """
     Fetch Accounts Payable Summary data (aging buckets) for the given date.
@@ -18,7 +23,8 @@ def get_payable_summary(
     if not report_date:
         report_date = today()
 
-    company = frappe.defaults.get_user_default("Company")
+    if not company:
+        company = frappe.defaults.get_user_default("Company")
     if not company:
         company = frappe.db.get_single_value("Global Defaults", "default_company")
 
