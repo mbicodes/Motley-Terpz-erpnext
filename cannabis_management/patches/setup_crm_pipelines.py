@@ -45,7 +45,7 @@ def execute():
                 "user": "",
                 "kanban_columns": columns_json,
                 "public": 1,
-                "pinned": 1,
+                "pinned": 0,
             })
             frappe.logger().info(f"[setup_crm_pipelines] repaired: {p['label']}")
             continue
@@ -61,7 +61,7 @@ def execute():
         doc.kanban_columns = columns_json
         doc.kanban_fields  = json.dumps([])
         doc.public         = 1
-        doc.pinned         = 1
+        doc.pinned         = 0   # show in Public Views only, not Pinned Views
         doc.insert(ignore_permissions=True)
         frappe.logger().info(f"[setup_crm_pipelines] created: {p['label']}")
 
