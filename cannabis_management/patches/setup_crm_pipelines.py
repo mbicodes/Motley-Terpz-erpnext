@@ -9,7 +9,11 @@ import json
 import frappe
 
 
-KANBAN_COLUMNS = ["Lead", "Contacted", "Sample/QC", "Active", "Inactive", "Lost"]
+# Frappe CRM API expects objects with "name" key, not plain strings
+KANBAN_COLUMNS = [
+    {"name": "Lead"}, {"name": "Contacted"}, {"name": "Sample/QC"},
+    {"name": "Active"}, {"name": "Inactive"}, {"name": "Lost"},
+]
 
 PIPELINES = [
     {"label": "Fresh Frozen",      "icon": "❄️", "filter": "Fresh Frozen"},
