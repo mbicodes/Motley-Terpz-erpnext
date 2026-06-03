@@ -293,17 +293,9 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
 
         // ── Grand Total ───────────────────────────────────────────
         html += '<tr class="sd-matrix-foot-grand-total"><td class="sd-matrix-product sd-matrix-foot-label">Total</td>';
-        if (isQty) {
-            html += '<td class="sd-matrix-num sd-matrix-total-cell">' + (totalTargetUnits > 0 ? fmtQty(totalTargetUnits) : '—') + '</td>';
-        } else {
-            html += '<td class="sd-matrix-num">—</td>';
-        }
+        html += '<td class="sd-matrix-num sd-matrix-total-cell">' + (totalTargetUnits > 0 ? fmtQty(totalTargetUnits) : '—') + '</td>';
         html += '<td class="sd-matrix-num">—</td>';
-        if (isQty) {
-            html += '<td class="sd-matrix-num sd-matrix-total-cell">' + (totalTargetUnits > 0 ? fmtQty(totalTargetUnits) : '—') + '</td>';
-        } else {
-            html += '<td class="sd-matrix-num sd-matrix-total-cell">' + (totalTargetRev > 0 ? fmtCurrency(totalTargetRev) : '—') + '</td>';
-        }
+        html += '<td class="sd-matrix-num sd-matrix-total-cell">' + (totalTargetRev > 0 ? fmtCurrency(totalTargetRev) : '—') + '</td>';
         cols.forEach(function(c){
             var v = grandTotals[c]||0;
             html += '<td class="sd-matrix-num sd-matrix-total-cell">' + (v > 0 ? fmtCurrency(v) : '—') + '</td>';
