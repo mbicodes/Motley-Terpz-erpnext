@@ -222,11 +222,31 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
             // Precompute "named" match sets for Others exclusion
             var namedSets = co.igs.filter(function(r){return r.m!==null;}).map(function(r){return r.m;});
 
+            // Compute company-level target sums (exclude catch-all Others)
+            var coTargetUnits = 0, coTargetRev = 0;
+            co.igs.forEach(function(igDef) {
+                if (!igDef.m) return;
+                var p = getTarget(igDef.m);
+                if (p) {
+                    coTargetUnits += (p.target_units   || 0) / targetDiv;
+                    coTargetRev   += (p.monthly_target || 0) / targetDiv;
+                }
+            });
+
             // ── Company header row ──────────────────────────────
             html += '<tr style="background:' + co.bg + ';border-top:2px solid ' + co.border + ';">';
             html += '<td class="sd-matrix-product" style="font-weight:800;color:' + co.color + ';border-right:1px solid #e2e8f0;">'
                   + frappe.utils.escape_html(co.label) + '</td>';
-            html += '<td class="sd-matrix-num">—</td><td class="sd-matrix-num">—</td><td class="sd-matrix-num">—</td>';
+            html += '<td class="sd-matrix-num" style="font-weight:700;color:' + co.color + ';">'
+                  + (coTargetUnits > 0 ? fmtQty(coTargetUnits) : '—') + '</td>';
+            html += '<td class="sd-matrix-num">—</td>';
+            if (isQty) {
+                html += '<td class="sd-matrix-num" style="font-weight:700;color:' + co.color + ';">'
+                      + (coTargetUnits > 0 ? fmtQty(coTargetUnits) : '—') + '</td>';
+            } else {
+                html += '<td class="sd-matrix-num" style="font-weight:700;color:' + co.color + ';">'
+                      + (coTargetRev > 0 ? fmtCurrency(coTargetRev) : '—') + '</td>';
+            }
             cols.forEach(function(c) {
                 var v = coTotals[c]||0;
                 html += '<td class="sd-matrix-num" style="font-weight:700;color:' + co.color + ';">'
