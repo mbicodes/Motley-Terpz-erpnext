@@ -1,11 +1,11 @@
 {
  "content": null,
- "creation": "2026-05-08 12:00:00.000000",
+ "creation": "2026-05-08 12:00:00",
  "docstatus": 0,
  "doctype": "Page",
  "icon": "fa fa-line-chart",
  "idx": 0,
- "modified": "2026-05-08 12:00:00.000000",
+ "modified": "2026-06-03 12:25:07.019365",
  "modified_by": "Administrator",
  "module": "Cannabis Management",
  "name": "sales-target-dashboa",
@@ -13,13 +13,7 @@
  "page_name": "sales-target-dashboa",
  "roles": [
   {
-   "role": "System Manager"
-  },
-  {
-   "role": "Sales Manager"
-  },
-  {
-   "role": "Sales User"
+   "role": "Sales Target Dashboard"
   }
  ],
  "script": null,

@@ -23,8 +23,8 @@ class ConversionEntry(Document):
 					_("Row {0}: Finished Good 1 and its Qty are required.").format(idx)
 				)
 
-			# 2 to 1 requires RM 2
-			if row.conversion_type in ["2 to 1", "3 to 1", "4 to 1", "5 to 1", "6 to 1", "7 to 1"]:
+			# 2 to 1 / 2 to 2 requires RM 2
+			if row.conversion_type in ["2 to 1", "2 to 2", "3 to 1", "4 to 1", "5 to 1", "6 to 1", "7 to 1"]:
 				if not row.raw_material_2 or flt(row.qty_rm_2) <= 0:
 					frappe.throw(
 						_("Row {0}: Raw Material 2 and its Qty are required for {1} conversion.").format(idx, row.conversion_type)
@@ -65,8 +65,8 @@ class ConversionEntry(Document):
 						_("Row {0}: Raw Material 7 and its Qty are required for {1} conversion.").format(idx, row.conversion_type)
 					)
 
-			# 1 to 2 requires FG 2
-			if row.conversion_type == "1 to 2":
+			# 1 to 2 / 2 to 2 requires FG 2
+			if row.conversion_type in ["1 to 2", "2 to 2"]:
 				if not row.finished_good_2 or flt(row.qty_fg_2) <= 0:
 					frappe.throw(
 						_("Row {0}: Finished Good 2 and its Qty are required for 1 to 2 conversion.").format(idx)
