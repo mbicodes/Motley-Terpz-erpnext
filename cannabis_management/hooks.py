@@ -147,7 +147,7 @@ before_migrate = ["cannabis_management.compat.install_frappe_shims"]
 
 permission_query_conditions = {
     "Customer": "cannabis_management.permissions.customer_query_conditions",
-    "CRM Lead": "cannabis_management.overrides.crm_enforcement.crm_lead_query_conditions",
+    # CRM Lead permission (Tolling access) moved to crm.motley_terpz.permissions
 }
 
 has_permission = {
