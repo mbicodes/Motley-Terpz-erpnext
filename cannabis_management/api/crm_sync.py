@@ -80,6 +80,14 @@ def _sync_lead(lead_name, customer):
         "custom_last_sync":           now_datetime(),
     }, update_modified=False)
 
+    # Auto-freeze customer in ERPNext when AR Status = Blocked (>90 days overdue)
+    # Unfreezing is manual only — never auto-unfreeze
+    if data["ar_status"] == "Blocked" and frappe.db.exists("Customer", customer):
+        currently_frozen = frappe.db.get_value("Customer", customer, "is_frozen")
+        if not currently_frozen:
+            frappe.db.set_value("Customer", customer, "is_frozen", 1, update_modified=False)
+            frappe.logger().info(f"[crm_sync] auto-froze customer {customer} (AR Blocked)")
+
 
 def _is_cod_customer(payment_terms):
     if not payment_terms:

@@ -1,0 +1,129 @@
+{
+ "name": "Cash Balance Ledger",
+ "doctype": "DocType",
+ "module": "Cash Management",
+ "naming_rule": "By fieldname",
+ "autoname": "field:cash_tracker_person",
+ "title_field": "cash_tracker_person",
+ "track_changes": 1,
+ "fields": [
+  {
+   "fieldname": "cash_tracker_person",
+   "fieldtype": "Link",
+   "label": "Person",
+   "options": "Cash Tracker Person",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "as_of_date",
+   "fieldtype": "Date",
+   "label": "As Of Date",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "cash_section",
+   "fieldtype": "Section Break",
+   "label": "Cash Ledger Totals"
+  },
+  {
+   "fieldname": "total_cash_in",
+   "fieldtype": "Currency",
+   "label": "Total Cash In",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "total_cash_out",
+   "fieldtype": "Currency",
+   "label": "Total Cash Out",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "net_cash",
+   "fieldtype": "Currency",
+   "label": "Net Cash",
+   "read_only": 1,
+   "in_list_view": 1,
+   "bold": 1
+  },
+  {
+   "fieldname": "expense_section",
+   "fieldtype": "Section Break",
+   "label": "Expense Ledger Totals"
+  },
+  {
+   "fieldname": "total_expenses",
+   "fieldtype": "Currency",
+   "label": "Total Expenses",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "total_reimbursed",
+   "fieldtype": "Currency",
+   "label": "Total Reimbursed",
+   "read_only": 1
+  },
+  {
+   "fieldname": "net_owed",
+   "fieldtype": "Currency",
+   "label": "Net Owed",
+   "read_only": 1,
+   "bold": 1
+  },
+  {
+   "fieldname": "meta_section",
+   "fieldtype": "Section Break",
+   "label": "Metadata"
+  },
+  {
+   "fieldname": "last_updated",
+   "fieldtype": "Datetime",
+   "label": "Last Updated",
+   "read_only": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "print": 1,
+   "report": 1
+  },
+  {
+   "role": "Finance Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "export": 1,
+   "print": 1,
+   "report": 1
+  },
+  {
+   "role": "Accounts Manager",
+   "read": 1,
+   "export": 1,
+   "report": 1
+  },
+  {
+   "role": "Cash Tracker User",
+   "read": 1,
+   "export": 0,
+   "report": 0
+  }
+ ],
+ "sort_field": "cash_tracker_person",
+ "sort_order": "ASC"
+}

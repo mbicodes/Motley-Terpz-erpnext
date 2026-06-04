@@ -1,0 +1,141 @@
+{
+ "name": "Cash Tracker Person",
+ "doctype": "DocType",
+ "module": "Cash Management",
+ "naming_rule": "By fieldname",
+ "autoname": "field:full_name",
+ "title_field": "full_name",
+ "track_changes": 1,
+ "fields": [
+  {
+   "fieldname": "full_name",
+   "fieldtype": "Data",
+   "label": "Full Name",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "label": "ERPNext User",
+   "options": "User",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "identity_section",
+   "fieldtype": "Section Break",
+   "label": "Identity & HR"
+  },
+  {
+   "fieldname": "employee",
+   "fieldtype": "Link",
+   "label": "Employee",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "default_entity",
+   "fieldtype": "Select",
+   "label": "Default Entity",
+   "options": "\nMotley Terpz\nTSBC Ranch\nMaster Touch Manufacturing\nLA Canna"
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "Active",
+   "default": "1"
+  },
+  {
+   "fieldname": "balances_section",
+   "fieldtype": "Section Break",
+   "label": "Live Balances (auto-updated)"
+  },
+  {
+   "fieldname": "cash_balance",
+   "fieldtype": "Currency",
+   "label": "Cash Balance (Net)",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "total_expenses",
+   "fieldtype": "Currency",
+   "label": "Total Expenses",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "total_reimbursed",
+   "fieldtype": "Currency",
+   "label": "Total Reimbursed",
+   "read_only": 1
+  },
+  {
+   "fieldname": "net_owed",
+   "fieldtype": "Currency",
+   "label": "Net Owed",
+   "read_only": 1,
+   "in_list_view": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "print": 1,
+   "report": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "Finance Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 0,
+   "export": 1,
+   "print": 1,
+   "report": 1,
+   "email": 1
+  },
+  {
+   "role": "Accounts Manager",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "export": 1,
+   "print": 1,
+   "report": 1
+  },
+  {
+   "role": "Cash Tracker User",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "export": 0,
+   "print": 1,
+   "report": 0
+  }
+ ],
+ "search_fields": "full_name,user",
+ "sort_field": "full_name",
+ "sort_order": "ASC"
+}

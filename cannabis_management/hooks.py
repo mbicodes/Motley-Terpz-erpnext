@@ -55,6 +55,10 @@ app_include_css = [
 ]
 # include js in doctype views
 doctype_js = {
+    # Cash Management forms
+    "Cash Ledger Entry": "cash_management/doctype/cash_ledger_entry/cash_ledger_entry.js",
+    "Expense Tracker Entry": "cash_management/doctype/expense_tracker_entry/expense_tracker_entry.js",
+    # Existing
     "Stock Entry": "public/js/stock_entry.js",
     "Purchase Order": "public/js/purchase_order.js",
     "Purchase Receipt": "public/js/purchase_receipt.js",
@@ -148,6 +152,8 @@ before_migrate = ["cannabis_management.compat.install_frappe_shims"]
 permission_query_conditions = {
     "Customer": "cannabis_management.permissions.customer_query_conditions",
     # CRM Lead permission (Tolling access) moved to crm.motley_terpz.permissions
+    "Cash Ledger Entry": "cannabis_management.cash_management.permissions.cash_ledger_entry_query",
+    "Expense Tracker Entry": "cannabis_management.cash_management.permissions.expense_tracker_entry_query",
 }
 
 has_permission = {
@@ -181,6 +187,40 @@ override_doctype_class = {
 # Hook on document methods and events
 
 doc_events = {
+    # -----------------------------------------------------------------------
+    # Cash Management Module
+    # -----------------------------------------------------------------------
+    "Cash Ledger Entry": {
+        "before_save": [
+            "cannabis_management.cash_management.utils.cash_utils.auto_fill_month",
+            "cannabis_management.cash_management.utils.cash_utils.auto_fill_employee",
+        ],
+        "on_submit": [
+            "cannabis_management.cash_management.utils.cash_utils.update_running_balance",
+            "cannabis_management.cash_management.utils.cash_utils.check_form_8300_trigger",
+            "cannabis_management.cash_management.utils.cash_utils.update_cash_balance_ledger",
+            "cannabis_management.cash_management.utils.cash_utils.publish_realtime_balance",
+        ],
+        "on_cancel": [
+            "cannabis_management.cash_management.utils.cash_utils.update_cash_balance_ledger",
+            "cannabis_management.cash_management.utils.cash_utils.publish_realtime_balance",
+        ],
+    },
+    "Expense Tracker Entry": {
+        "before_save": [
+            "cannabis_management.cash_management.utils.cash_utils.auto_fill_month",
+            "cannabis_management.cash_management.utils.cash_utils.auto_fill_employee",
+        ],
+        "on_submit": [
+            "cannabis_management.cash_management.utils.cash_utils.update_expense_balance",
+            "cannabis_management.cash_management.utils.cash_utils.publish_realtime_balance",
+        ],
+        "on_cancel": [
+            "cannabis_management.cash_management.utils.cash_utils.update_expense_balance",
+            "cannabis_management.cash_management.utils.cash_utils.publish_realtime_balance",
+        ],
+    },
+    # -----------------------------------------------------------------------
     # AR Policy disabled — before_submit cap check removed
     "Sales Invoice": {
         "before_submit": [
@@ -241,6 +281,7 @@ scheduler_events = {
             "cannabis_management.api.crm_sync.sync_crm_ar_data",
             "cannabis_management.cannabis_management.utils.irs_8300.check_overdue_filings",
             "cannabis_management.cannabis_management.utils.irs_8300.send_january_notices",
+            "cannabis_management.cash_management.utils.cash_utils.check_overdue_form_8300",
             # Payment Terms SO: remind creator 14 and 7 days before each payment due date
             "cannabis_management.overrides.payment_schedule_reminder.send_payment_schedule_reminders",
             # AR Policy disabled
@@ -382,5 +423,11 @@ fixtures = [
     # Item Group Account Mapping child doctype
     {"dt": "DocType", "filters": [["name", "=", "Warehouse Item Group Account Mapping"]]},
     {"dt": "DocType", "filters": [["name", "=", "Weekly Sales Report"]]},
+    # Cash Management DocTypes
+    {"dt": "DocType", "filters": [["name", "=", "Cash Tracker Person"]]},
+    {"dt": "DocType", "filters": [["name", "=", "Cash Balance Ledger"]]},
+    {"dt": "DocType", "filters": [["name", "=", "Cash Account Mapping"]]},
+    {"dt": "DocType", "filters": [["name", "=", "Cash Ledger Entry"]]},
+    {"dt": "DocType", "filters": [["name", "=", "Expense Tracker Entry"]]},
 ]
 

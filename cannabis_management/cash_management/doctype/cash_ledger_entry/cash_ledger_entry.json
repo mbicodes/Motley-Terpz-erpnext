@@ -1,0 +1,289 @@
+{
+ "name": "Cash Ledger Entry",
+ "doctype": "DocType",
+ "module": "Cash Management",
+ "naming_rule": "Expression",
+ "autoname": "format:CASH-{YYYY}-{#####}",
+ "title_field": "cash_tracker_person",
+ "is_submittable": 1,
+ "track_changes": 1,
+ "fields": [
+  {
+   "fieldname": "main_section",
+   "fieldtype": "Section Break",
+   "label": "Transaction Details"
+  },
+  {
+   "fieldname": "date",
+   "fieldtype": "Date",
+   "label": "Date",
+   "reqd": 1,
+   "default": "Today",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "month",
+   "fieldtype": "Data",
+   "label": "Month",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "cash_tracker_person",
+   "fieldtype": "Link",
+   "label": "Person",
+   "options": "Cash Tracker Person",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "employee",
+   "fieldtype": "Link",
+   "label": "Employee",
+   "options": "Employee",
+   "read_only": 1
+  },
+  {
+   "fieldname": "entity_section",
+   "fieldtype": "Section Break",
+   "label": "Entity & Type"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "entity",
+   "fieldtype": "Select",
+   "label": "Entity",
+   "options": "\nMotley Terpz\nTSBC Ranch\nMaster Touch Manufacturing\nLA Canna",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "transaction_type",
+   "fieldtype": "Select",
+   "label": "Transaction Type",
+   "options": "\nMotley - Hardware\nClient - Hardware\nClient Payment Towards Invoice\nFresh Frozen Procurement\nTolling Partner Payment\nMotley - Packaging\nLab Testing\nPayroll\nLab Consumables\nMarketing\nSeeds/Clones for Farm\nRent\nLab Setup\nLab Supplies\nCollecting OLD AR\nReimbursement\nOther",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "direction",
+   "fieldtype": "Select",
+   "label": "Direction",
+   "options": "\nCash In\nCash Out",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "amount_section",
+   "fieldtype": "Section Break",
+   "label": "Amount & Reference"
+  },
+  {
+   "fieldname": "amount",
+   "fieldtype": "Currency",
+   "label": "Amount ($)",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "invoice_number",
+   "fieldtype": "Data",
+   "label": "Invoice #",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "column_break_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "running_balance",
+   "fieldtype": "Currency",
+   "label": "Running Balance",
+   "read_only": 1
+  },
+  {
+   "fieldname": "notes_section",
+   "fieldtype": "Section Break",
+   "label": "Notes & Receipt"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Text",
+   "label": "Notes / Description"
+  },
+  {
+   "fieldname": "receipt",
+   "fieldtype": "Attach",
+   "label": "Receipt Upload"
+  },
+  {
+   "fieldname": "approval_section",
+   "fieldtype": "Section Break",
+   "label": "Approval"
+  },
+  {
+   "fieldname": "approved_by",
+   "fieldtype": "Link",
+   "label": "Approved By",
+   "options": "User"
+  },
+  {
+   "fieldname": "approval_status",
+   "fieldtype": "Select",
+   "label": "Approval Status",
+   "options": "Pending\nApproved\nRejected",
+   "default": "Pending",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "column_break_4",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "in_erp",
+   "fieldtype": "Select",
+   "label": "In ERP?",
+   "options": "\nYes\nNo\nN/A",
+   "default": "No"
+  },
+  {
+   "fieldname": "compliance_section",
+   "fieldtype": "Section Break",
+   "label": "IRS Compliance"
+  },
+  {
+   "fieldname": "form_8300_required",
+   "fieldtype": "Check",
+   "label": "Form 8300 Required",
+   "read_only": 1
+  },
+  {
+   "fieldname": "form_8300_filed",
+   "fieldtype": "Check",
+   "label": "Form 8300 Filed",
+   "depends_on": "form_8300_required"
+  },
+  {
+   "fieldname": "accounting_section",
+   "fieldtype": "Section Break",
+   "label": "Accounting Links"
+  },
+  {
+   "fieldname": "gl_entry_created",
+   "fieldtype": "Check",
+   "label": "GL / Accounting Entry Created",
+   "read_only": 1
+  },
+  {
+   "fieldname": "journal_entry",
+   "fieldtype": "Link",
+   "label": "Linked Journal Entry",
+   "options": "Journal Entry",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_5",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "payment_entry",
+   "fieldtype": "Link",
+   "label": "Linked Payment Entry",
+   "options": "Payment Entry",
+   "read_only": 1
+  },
+  {
+   "fieldname": "gl_entry",
+   "fieldtype": "Link",
+   "label": "Linked GL Entry",
+   "options": "GL Entry",
+   "read_only": 1
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "options": "Cash Ledger Entry",
+   "read_only": 1,
+   "print_hide": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "submit": 1,
+   "cancel": 1,
+   "amend": 1,
+   "export": 1,
+   "print": 1,
+   "report": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "Finance Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 0,
+   "submit": 1,
+   "cancel": 1,
+   "amend": 1,
+   "export": 1,
+   "print": 1,
+   "report": 1,
+   "email": 1
+  },
+  {
+   "role": "Accounts Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "submit": 1,
+   "cancel": 1,
+   "amend": 1,
+   "export": 1,
+   "print": 1,
+   "report": 1
+  },
+  {
+   "role": "Cash Tracker User",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 0,
+   "submit": 1,
+   "cancel": 0,
+   "export": 0,
+   "print": 1,
+   "report": 0
+  }
+ ],
+ "search_fields": "cash_tracker_person,entity,transaction_type,invoice_number",
+ "sort_field": "date",
+ "sort_order": "DESC"
+}
