@@ -54,6 +54,71 @@ def send_now():
     return send_ar_reminders()
 
 
+@frappe.whitelist()
+def send_test():
+    """
+    Force-send a test reminder email with ALL outstanding invoices that have
+    a payment terms template — ignores the day-schedule check.
+    Useful for previewing the email format.
+    """
+    from frappe.utils import getdate, nowdate
+
+    today    = getdate(nowdate())
+    excluded = _excluded_customers()
+
+    invoices = frappe.db.sql("""
+        SELECT
+            si.name, si.customer, si.customer_name,
+            si.grand_total, si.outstanding_amount,
+            si.due_date, si.posting_date,
+            si.payment_terms_template,
+            COALESCE(cl.custom_account_owner, '') AS account_owner
+        FROM `tabSales Invoice` si
+        LEFT JOIN `tabCRM Lead` cl ON cl.custom_erp_customer = si.customer
+        LEFT JOIN `tabCustomer` c  ON c.name = si.customer
+        WHERE si.docstatus = 1
+          AND si.outstanding_amount > 0.01
+          AND si.due_date IS NOT NULL
+          AND si.payment_terms_template IS NOT NULL
+          AND si.payment_terms_template != ''
+          AND si.customer NOT IN %(exc)s
+          AND COALESCE(c.is_internal_customer, 0) = 0
+          AND (c.represents_company IS NULL OR c.represents_company = '')
+          AND si.customer NOT IN (SELECT name FROM `tabCompany`)
+        ORDER BY si.due_date ASC
+        LIMIT 50
+    """, {"exc": excluded}, as_dict=True)
+
+    if not invoices:
+        return "No invoices with payment terms found to test with."
+
+    triggers = {}
+    for inv in invoices:
+        terms    = inv.payment_terms_template
+        schedule = TERMS_SCHEDULE.get(terms)
+        if not schedule:
+            continue
+        due_date   = getdate(str(inv.due_date))
+        days_until = (due_date - today).days
+        triggers.setdefault(terms, []).append({
+            "invoice":    inv.name,
+            "customer":   inv.customer_name or inv.customer,
+            "owner":      inv.account_owner or "",
+            "terms":      terms,
+            "due_date":   due_date,
+            "outstanding": float(inv.outstanding_amount),
+            "grand_total": float(inv.grand_total),
+            "days":       days_until,
+        })
+
+    if not triggers:
+        return "No invoices match a recognised payment terms schedule (NET7/NET15/NET30/50% variants)."
+
+    _send_email(triggers, today)
+    count = sum(len(v) for v in triggers.values())
+    return f"Test email sent: {count} invoice(s) to {RECIPIENTS}"
+
+
 # ── Core logic ─────────────────────────────────────────────────────────────────
 
 def _collect_triggers(today):
