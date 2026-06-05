@@ -8,7 +8,6 @@
  "field_order": [
   "micron_size",
   "grams_collected",
-  "metrc_tag",
   "quality_grade",
   "collected_by",
   "notes"
@@ -32,15 +31,6 @@
    "in_list_view": 1,
    "columns": 2,
    "idx": 2
-  },
-  {
-   "fieldname": "metrc_tag",
-   "fieldtype": "Data",
-   "label": "METRC Tag",
-   "reqd": 1,
-   "in_list_view": 1,
-   "columns": 2,
-   "idx": 3
   },
   {
    "fieldname": "quality_grade",

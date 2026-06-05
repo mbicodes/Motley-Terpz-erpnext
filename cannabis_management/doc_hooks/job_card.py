@@ -27,7 +27,6 @@ def validate(doc, method=None):
         missing = []
         if not row.get("micron_size"):     missing.append("Micron Size")
         if not row.get("grams_collected"): missing.append("Grams Collected")
-        if not row.get("metrc_tag"):       missing.append("METRC Tag")
         if not row.get("quality_grade"):   missing.append("Quality Grade")
         if not row.get("collected_by"):    missing.append("Collected By")
 

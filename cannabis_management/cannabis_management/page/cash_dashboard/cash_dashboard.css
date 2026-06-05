@@ -1,0 +1,285 @@
+/* ============================================================
+   Cash Command Center — cash_dashboard.css
+   ============================================================ */
+
+:root {
+	--cd-font:    "Inter", "Helvetica Neue", Arial, sans-serif;
+	--cd-bg:      #0d1117;
+	--cd-surface: #161b22;
+	--cd-border:  #30363d;
+	--cd-text:    #e6edf3;
+	--cd-muted:   #8b949e;
+	--cd-radius:  10px;
+	--cd-shadow:  0 2px 8px rgba(0,0,0,.4);
+
+	/* Card accent colours */
+	--cd-green:   #16a34a;
+	--cd-red:     #dc2626;
+	--cd-blue:    #2563eb;
+	--cd-purple:  #7c3aed;
+	--cd-teal:    #0891b2;
+	--cd-orange:  #ea580c;
+	--cd-dark:    #374151;
+}
+
+/* ── Wrapper ───────────────────────────────────────────────── */
+.cd-wrap {
+	font-family: var(--cd-font);
+	background: var(--cd-bg);
+	color: var(--cd-text);
+	min-height: 100vh;
+	padding: 28px 24px 60px;
+}
+
+/* ── Header ────────────────────────────────────────────────── */
+.cd-header {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	flex-wrap: wrap;
+	gap: 16px;
+	margin-bottom: 28px;
+	background: var(--cd-surface);
+	border: 1px solid var(--cd-border);
+	border-radius: var(--cd-radius);
+	padding: 20px 24px;
+}
+
+.cd-title {
+	font-size: 1.7rem;
+	font-weight: 700;
+	color: #fff;
+	margin: 0 0 4px;
+}
+
+.cd-subtitle {
+	font-size: .85rem;
+	color: var(--cd-muted);
+	margin: 0 0 4px;
+}
+
+.cd-live-tag {
+	font-size: .78rem;
+	color: #fbbf24;
+	margin: 0;
+}
+
+/* ── Filter Bar ────────────────────────────────────────────── */
+.cd-filter-bar {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	flex-wrap: wrap;
+}
+
+.cd-label {
+	font-size: .8rem;
+	color: var(--cd-muted);
+	font-weight: 600;
+}
+
+.cd-select {
+	background: #0d1117;
+	border: 1px solid var(--cd-border);
+	color: var(--cd-text);
+	border-radius: 6px;
+	padding: 6px 10px;
+	font-size: .85rem;
+}
+
+.cd-btn-primary {
+	background: var(--cd-blue);
+	color: #fff;
+	border: none;
+	border-radius: 6px;
+	padding: 7px 16px;
+	font-size: .85rem;
+	font-weight: 600;
+	cursor: pointer;
+	transition: background .15s;
+}
+.cd-btn-primary:hover { background: #1d4ed8; }
+
+/* ── Summary Cards ─────────────────────────────────────────── */
+.cd-cards {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+	gap: 14px;
+	margin-bottom: 32px;
+}
+
+.cd-card {
+	background: var(--cd-surface);
+	border: 1px solid var(--cd-border);
+	border-radius: var(--cd-radius);
+	padding: 18px 16px 14px;
+	position: relative;
+	overflow: hidden;
+}
+
+.cd-card::before {
+	content: "";
+	position: absolute;
+	top: 0; left: 0; right: 0;
+	height: 4px;
+	border-radius: var(--cd-radius) var(--cd-radius) 0 0;
+}
+
+.cd-card-green::before  { background: var(--cd-green); }
+.cd-card-red::before    { background: var(--cd-red); }
+.cd-card-blue::before   { background: var(--cd-blue); }
+.cd-card-purple::before { background: var(--cd-purple); }
+.cd-card-teal::before   { background: var(--cd-teal); }
+.cd-card-orange::before { background: var(--cd-orange); }
+.cd-card-dark::before   { background: #6b7280; }
+
+.cd-card-label {
+	font-size: .68rem;
+	font-weight: 700;
+	letter-spacing: .05em;
+	color: var(--cd-muted);
+	text-transform: uppercase;
+	margin-bottom: 8px;
+}
+
+.cd-card-value {
+	font-size: 1.45rem;
+	font-weight: 700;
+	color: #fff;
+	line-height: 1.2;
+	word-break: break-all;
+}
+
+.cd-card-green  .cd-card-value { color: #4ade80; }
+.cd-card-red    .cd-card-value { color: #f87171; }
+.cd-card-blue   .cd-card-value { color: #60a5fa; }
+.cd-card-purple .cd-card-value { color: #a78bfa; }
+.cd-card-teal   .cd-card-value { color: #22d3ee; }
+.cd-card-orange .cd-card-value { color: #fb923c; }
+.cd-card-dark   .cd-card-value { color: #e5e7eb; }
+
+.cd-card-live {
+	font-size: .7rem;
+	color: var(--cd-muted);
+	margin-top: 6px;
+}
+
+/* ── Section Containers ────────────────────────────────────── */
+.cd-section {
+	background: var(--cd-surface);
+	border: 1px solid var(--cd-border);
+	border-radius: var(--cd-radius);
+	margin-bottom: 24px;
+	overflow: hidden;
+}
+
+.cd-section-header {
+	background: #1c2a1c;
+	color: #4ade80;
+	font-size: .8rem;
+	font-weight: 700;
+	letter-spacing: .04em;
+	text-transform: uppercase;
+	padding: 10px 18px;
+	border-bottom: 1px solid var(--cd-border);
+}
+
+.cd-section-header-purple {
+	background: #1e1b2e;
+	color: #a78bfa;
+}
+
+/* ── Tables ────────────────────────────────────────────────── */
+.cd-table-wrap {
+	overflow-x: auto;
+}
+
+.cd-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: .85rem;
+}
+
+.cd-table thead th {
+	background: #1e2530;
+	color: var(--cd-muted);
+	font-weight: 600;
+	font-size: .75rem;
+	text-transform: uppercase;
+	letter-spacing: .04em;
+	padding: 10px 14px;
+	text-align: left;
+	border-bottom: 1px solid var(--cd-border);
+}
+
+.cd-table thead th.cd-num { text-align: right; }
+
+.cd-table tbody tr {
+	border-bottom: 1px solid #21262d;
+	transition: background .1s;
+}
+.cd-table tbody tr:hover { background: #1e2530; }
+
+.cd-table tbody td {
+	padding: 9px 14px;
+	color: var(--cd-text);
+}
+
+.cd-num { text-align: right; font-variant-numeric: tabular-nums; }
+
+.cd-col-in    { color: #4ade80; }
+.cd-col-out   { color: #f87171; }
+.cd-col-net   { color: #60a5fa; font-weight: 600; }
+.cd-col-exp   { color: #a78bfa; }
+.cd-col-reimb { color: #22d3ee; }
+.cd-col-owed  { color: #fb923c; font-weight: 600; }
+
+.cd-pos { color: #4ade80 !important; }
+.cd-neg { color: #f87171 !important; }
+
+.cd-month-cell  { font-weight: 600; color: #60a5fa; }
+.cd-entity-cell { font-weight: 600; }
+
+.cd-total-row {
+	background: #1a2236 !important;
+	border-top: 2px solid var(--cd-border);
+}
+.cd-total-row td { color: #fff; font-weight: 700; padding: 10px 14px; }
+
+.cd-empty {
+	text-align: center;
+	padding: 32px;
+	color: var(--cd-muted);
+	font-style: italic;
+}
+
+/* ── Quick Links ───────────────────────────────────────────── */
+.cd-quick-links {
+	display: flex;
+	gap: 12px;
+	flex-wrap: wrap;
+	margin-top: 8px;
+}
+
+.cd-qlink {
+	display: inline-block;
+	padding: 9px 20px;
+	border-radius: 8px;
+	font-size: .85rem;
+	font-weight: 600;
+	text-decoration: none;
+	transition: opacity .15s;
+}
+.cd-qlink:hover { opacity: .85; text-decoration: none; }
+
+.cd-qlink-green  { background: var(--cd-green);  color: #fff; }
+.cd-qlink-purple { background: var(--cd-purple); color: #fff; }
+.cd-qlink-blue   { background: var(--cd-blue);   color: #fff; }
+.cd-qlink-dark   { background: #374151;           color: #fff; }
+
+/* ── Responsive ────────────────────────────────────────────── */
+@media (max-width: 640px) {
+	.cd-cards { grid-template-columns: repeat(2, 1fr); }
+	.cd-title { font-size: 1.2rem; }
+	.cd-card-value { font-size: 1.1rem; }
+}
