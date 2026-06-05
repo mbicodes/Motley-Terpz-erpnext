@@ -187,6 +187,10 @@ override_doctype_class = {
 # Hook on document methods and events
 
 doc_events = {
+    # ── Workstation Operating Cost validation ────────────────────────────────
+    "Workstation": {
+        "validate": "cannabis_management.cannabis_management.doctype.operating_component.operating_component.validate_workstation",
+    },
     # -----------------------------------------------------------------------
     # Cash Management Module
     # -----------------------------------------------------------------------

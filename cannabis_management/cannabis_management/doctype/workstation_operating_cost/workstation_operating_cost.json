@@ -1,0 +1,51 @@
+{
+ "actions": [],
+ "creation": "2026-06-05 00:00:00",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "operating_component",
+  "operating_cost",
+  "description"
+ ],
+ "fields": [
+  {
+   "fieldname": "operating_component",
+   "fieldtype": "Link",
+   "label": "Operating Component",
+   "options": "Operating Component",
+   "reqd": 1,
+   "in_list_view": 1,
+   "bold": 1,
+   "columns": 4
+  },
+  {
+   "fieldname": "operating_cost",
+   "fieldtype": "Currency",
+   "label": "Operating Cost (per hr)",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 3
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description",
+   "in_list_view": 1,
+   "columns": 5
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-06-05 00:00:00",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Workstation Operating Cost",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
