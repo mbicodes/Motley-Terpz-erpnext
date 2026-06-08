@@ -1,0 +1,41 @@
+{
+ "actions": [],
+ "creation": "2026-06-08 00:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "company",
+  "expense_account"
+ ],
+ "fields": [
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 4
+  },
+  {
+   "fieldname": "expense_account",
+   "fieldtype": "Link",
+   "label": "Expense Account",
+   "options": "Account",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 8
+  }
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-06-08 00:00:00",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Operating Component Account",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

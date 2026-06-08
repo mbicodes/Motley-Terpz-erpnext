@@ -63,43 +63,13 @@ def _client_script_code():
 frappe.ui.form.on('Workstation', {
     refresh(frm) {
         set_operating_component_filter(frm);
-    },
-    company(frm) {
-        set_operating_component_filter(frm);
-    },
-    custom_operating_costs_add(frm, cdt, cdn) {
-        set_operating_component_filter(frm);
-    }
-});
-
-frappe.ui.form.on('Workstation Operating Cost', {
-    operating_component(frm, cdt, cdn) {
-        if (!cdn) return;
-        const row = frappe.get_doc(cdt, cdn);
-        if (!row.operating_component) return;
-        frappe.db.get_value('Operating Component', row.operating_component, 'company', (r) => {
-            if (r && r.company && r.company !== frm.doc.company) {
-                frappe.model.set_value(cdt, cdn, 'operating_component', '');
-                frappe.msgprint({
-                    title: __('Invalid Component'),
-                    message: __('Operating Component <b>{0}</b> belongs to a different company.',
-                                [row.operating_component]),
-                    indicator: 'red'
-                });
-            }
-        });
     }
 });
 
 function set_operating_component_filter(frm) {
     frm.fields_dict['custom_operating_costs'].grid.update_docfield_property(
         'operating_component', 'get_query', () => {
-            return {
-                filters: {
-                    company: frm.doc.company || '',
-                    is_active: 1
-                }
-            };
+            return { filters: { is_active: 1 } };
         }
     );
 }
