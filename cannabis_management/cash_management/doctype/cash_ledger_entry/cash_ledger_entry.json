@@ -273,10 +273,10 @@
   {
    "role": "Cash Tracker User",
    "read": 1,
-   "write": 1,
-   "create": 1,
+   "write": 0,
+   "create": 0,
    "delete": 0,
-   "submit": 1,
+   "submit": 0,
    "cancel": 0,
    "export": 0,
    "print": 1,

@@ -15,7 +15,7 @@ frappe.pages["cash-dashboard"].on_page_load = function (wrapper) {
 			<div class="cd-header">
 				<div>
 					<h1 class="cd-title">💵 Cash Command Center</h1>
-					<p class="cd-subtitle">Motley Terpz · TSBC Ranch · Master Touch Manufacturing · LA Canna</p>
+					<p class="cd-subtitle">Motley Terpz &middot; TSBC Ranch &middot; Master Touch Manufacturing &middot; LA Canna</p>
 					<p class="cd-live-tag">⚡ Live — values update from Cash Ledger &amp; Expense Ledger</p>
 				</div>
 				<div class="cd-filter-bar" id="cd-filter-bar" style="display:none;">
@@ -27,8 +27,22 @@ frappe.pages["cash-dashboard"].on_page_load = function (wrapper) {
 				</div>
 			</div>
 
+			<!-- Hero + Pending row -->
+			<div class="cd-hero-row">
+				<div class="cd-hero-card">
+					<div class="cd-hero-label" id="cd-hero-label">Cash on Hand</div>
+					<div class="cd-hero-value" id="cd-hero-value">—</div>
+					<div class="cd-hero-sub">Total Cash In minus Total Cash Out</div>
+				</div>
+				<div class="cd-pending-card">
+					<div class="cd-pending-label">Transactions Needing Approval</div>
+					<div class="cd-pending-value" id="cd-pending-value">—</div>
+					<div class="cd-pending-sub">Submitted entries with Pending status</div>
+				</div>
+			</div>
+
 			<!-- Summary Cards -->
-			<div class="cd-cards" id="cd-cards">
+			<div class="cd-cards">
 				<div class="cd-card cd-card-green">
 					<div class="cd-card-label">TOTAL CASH IN</div>
 					<div class="cd-card-value" id="cd-total-in">—</div>
@@ -37,11 +51,6 @@ frappe.pages["cash-dashboard"].on_page_load = function (wrapper) {
 				<div class="cd-card cd-card-red">
 					<div class="cd-card-label">TOTAL CASH OUT</div>
 					<div class="cd-card-value" id="cd-total-out">—</div>
-					<div class="cd-card-live">▼ Live</div>
-				</div>
-				<div class="cd-card cd-card-blue">
-					<div class="cd-card-label">CASH IN HAND</div>
-					<div class="cd-card-value" id="cd-cash-hand">—</div>
 					<div class="cd-card-live">▼ Live</div>
 				</div>
 				<div class="cd-card cd-card-purple">
@@ -66,13 +75,40 @@ frappe.pages["cash-dashboard"].on_page_load = function (wrapper) {
 				</div>
 			</div>
 
+			<!-- Transaction List -->
+			<div class="cd-section">
+				<div class="cd-section-header cd-section-header-blue">
+					<span>📋 LIST OF TRANSACTIONS</span>
+					<span class="cd-section-note" id="cd-txn-note"></span>
+				</div>
+				<div class="cd-table-wrap">
+					<table class="cd-table">
+						<thead>
+							<tr>
+								<th>Transaction Date</th>
+								<th class="cd-num cd-col-in">Money In</th>
+								<th class="cd-num cd-col-out">Money Out</th>
+								<th>Business</th>
+								<th>Type</th>
+								<th>Receipt</th>
+								<th>Transaction Notes</th>
+								<th>Status</th>
+							</tr>
+						</thead>
+						<tbody id="cd-txn-body">
+							<tr><td colspan="8" class="cd-empty">Loading...</td></tr>
+						</tbody>
+					</table>
+				</div>
+			</div>
+
 			<!-- Monthly Summary -->
 			<div class="cd-section">
 				<div class="cd-section-header">
-					<span>📅 MONTHLY SUMMARY — auto-updates from both ledgers</span>
+					<span>📅 MONTHLY SUMMARY</span>
 				</div>
 				<div class="cd-table-wrap">
-					<table class="cd-table" id="cd-monthly-table">
+					<table class="cd-table">
 						<thead>
 							<tr>
 								<th>Month</th>
@@ -99,7 +135,7 @@ frappe.pages["cash-dashboard"].on_page_load = function (wrapper) {
 					<span>🏢 ENTITY BREAKDOWN</span>
 				</div>
 				<div class="cd-table-wrap">
-					<table class="cd-table" id="cd-entity-table">
+					<table class="cd-table">
 						<thead>
 							<tr>
 								<th>Entity</th>
@@ -121,7 +157,6 @@ frappe.pages["cash-dashboard"].on_page_load = function (wrapper) {
 
 			<!-- Quick Links -->
 			<div class="cd-quick-links">
-				<a class="cd-qlink cd-qlink-green" href="/app/cash-ledger-entry/new-cash-ledger-entry-1">+ New Cash Entry</a>
 				<a class="cd-qlink cd-qlink-purple" href="/app/expense-tracker-entry/new-expense-tracker-entry-1">+ New Expense</a>
 				<a class="cd-qlink cd-qlink-blue" href="/app/cash-ledger-entry">All Cash Entries</a>
 				<a class="cd-qlink cd-qlink-dark" href="/app/expense-tracker-entry">All Expenses</a>
@@ -157,14 +192,26 @@ frappe.pages["cash-dashboard"].on_page_load = function (wrapper) {
 	function render(data) {
 		var s = data.summary;
 
-		// Cards
+		// Hero card
+		var heroLabel = s.display_name
+			? s.display_name + " — Cash on Hand"
+			: "Total Cash on Hand";
+		page.main.find("#cd-hero-label").text(heroLabel);
+		page.main.find("#cd-hero-value").text(fmt(s.cash_in_hand));
+		page.main.find("#cd-hero-value").toggleClass("cd-hero-negative", s.cash_in_hand < 0);
+
+		// Pending approvals
+		page.main.find("#cd-pending-value").text(
+			(s.pending_approvals || 0).toLocaleString()
+		);
+
+		// Summary cards
 		page.main.find("#cd-total-in").text(fmt(s.total_cash_in));
 		page.main.find("#cd-total-out").text(fmt(s.total_cash_out));
-		page.main.find("#cd-cash-hand").text(fmt(s.cash_in_hand));
 		page.main.find("#cd-expenses").text(fmt(s.total_expenses));
 		page.main.find("#cd-reimbursed").text(fmt(s.reimbursed));
 		page.main.find("#cd-net-owed").text(fmt(s.net_owed));
-		page.main.find("#cd-txn-count").text(s.total_txns.toLocaleString());
+		page.main.find("#cd-txn-count").text((s.total_txns || 0).toLocaleString());
 
 		// Finance person filter
 		if (data.is_finance && data.persons && data.persons.length) {
@@ -177,60 +224,94 @@ frappe.pages["cash-dashboard"].on_page_load = function (wrapper) {
 			page.main.find("#cd-filter-bar").show();
 		}
 
+		// Transaction list
+		var tbody = page.main.find("#cd-txn-body");
+		tbody.empty();
+		page.main.find("#cd-txn-note").text(
+			data.transactions && data.transactions.length
+				? "showing " + data.transactions.length + " most recent"
+				: ""
+		);
+
+		if (!data.transactions || !data.transactions.length) {
+			tbody.html('<tr><td colspan="8" class="cd-empty">No transactions yet.</td></tr>');
+		} else {
+			data.transactions.forEach(function (row) {
+				var statusClass = row.approval_status === "Approved"
+					? "cd-badge-approved"
+					: row.approval_status === "Rejected"
+					? "cd-badge-rejected"
+					: "cd-badge-pending";
+
+				var receiptHtml = row.receipt
+					? '<a href="' + row.receipt + '" target="_blank" class="cd-receipt-link">📎 View</a>'
+					: '<span class="cd-muted">—</span>';
+
+				var entityHtml = row.entity
+					? '<span class="cd-entity-badge">' + row.entity + "</span>"
+					: '<span class="cd-muted">—</span>';
+
+				tbody.append(
+					"<tr>" +
+					"<td class='cd-date-cell'>" + row.date + "</td>" +
+					"<td class='cd-num cd-col-in'>" + (row.money_in > 0 ? fmt(row.money_in) : '<span class="cd-muted">—</span>') + "</td>" +
+					"<td class='cd-num cd-col-out'>" + (row.money_out > 0 ? fmt(row.money_out) : '<span class="cd-muted">—</span>') + "</td>" +
+					"<td>" + entityHtml + "</td>" +
+					"<td class='cd-type-cell'>" + (row.transaction_type || "") + "</td>" +
+					"<td>" + receiptHtml + "</td>" +
+					"<td class='cd-notes-cell'>" + (row.notes || "") + "</td>" +
+					"<td><span class='cd-badge " + statusClass + "'>" + row.approval_status + "</span></td>" +
+					"</tr>"
+				);
+			});
+		}
+
 		// Monthly table
 		var mbody = page.main.find("#cd-monthly-body");
 		var mfoot = page.main.find("#cd-monthly-foot");
-		mbody.empty();
-		mfoot.empty();
+		mbody.empty(); mfoot.empty();
 
 		if (!data.monthly || !data.monthly.length) {
 			mbody.html('<tr><td colspan="8" class="cd-empty">No entries yet.</td></tr>');
 		} else {
-			var totIn=0, totOut=0, totNet=0, totExp=0, totRe=0, totOwed=0, totTxn=0;
+			var tIn=0, tOut=0, tNet=0, tExp=0, tRe=0, tOw=0, tTx=0;
 			data.monthly.forEach(function (row) {
-				var netClass = row.net_cash >= 0 ? "cd-pos" : "cd-neg";
-				var owedClass = row.net_owed >= 0 ? "cd-neg" : "cd-pos";
 				mbody.append(
 					"<tr>" +
 					"<td class='cd-month-cell'>" + row.month + "</td>" +
 					"<td class='cd-num cd-col-in'>" + fmt(row.cash_in) + "</td>" +
 					"<td class='cd-num cd-col-out'>" + fmt(row.cash_out) + "</td>" +
-					"<td class='cd-num cd-col-net " + netClass + "'>" + fmt(row.net_cash) + "</td>" +
+					"<td class='cd-num cd-col-net " + (row.net_cash >= 0 ? "cd-pos" : "cd-neg") + "'>" + fmt(row.net_cash) + "</td>" +
 					"<td class='cd-num cd-col-exp'>" + fmt(row.expenses) + "</td>" +
 					"<td class='cd-num cd-col-reimb'>" + fmt(row.reimbursed) + "</td>" +
-					"<td class='cd-num cd-col-owed " + owedClass + "'>" + fmt(row.net_owed) + "</td>" +
+					"<td class='cd-num cd-col-owed " + (row.net_owed <= 0 ? "cd-pos" : "cd-neg") + "'>" + fmt(row.net_owed) + "</td>" +
 					"<td class='cd-num'>" + row.txn_count + "</td>" +
 					"</tr>"
 				);
-				totIn += row.cash_in; totOut += row.cash_out;
-				totNet += row.net_cash; totExp += row.expenses;
-				totRe += row.reimbursed; totOwed += row.net_owed;
-				totTxn += row.txn_count;
+				tIn+=row.cash_in; tOut+=row.cash_out; tNet+=row.net_cash;
+				tExp+=row.expenses; tRe+=row.reimbursed; tOw+=row.net_owed; tTx+=row.txn_count;
 			});
 			mfoot.html(
-				"<tr class='cd-total-row'>" +
-				"<td><b>TOTAL</b></td>" +
-				"<td class='cd-num'>" + fmt(totIn) + "</td>" +
-				"<td class='cd-num'>" + fmt(totOut) + "</td>" +
-				"<td class='cd-num'>" + fmt(totNet) + "</td>" +
-				"<td class='cd-num'>" + fmt(totExp) + "</td>" +
-				"<td class='cd-num'>" + fmt(totRe) + "</td>" +
-				"<td class='cd-num'>" + fmt(totOwed) + "</td>" +
-				"<td class='cd-num'>" + totTxn + "</td>" +
-				"</tr>"
+				"<tr class='cd-total-row'><td><b>TOTAL</b></td>" +
+				"<td class='cd-num'>" + fmt(tIn) + "</td>" +
+				"<td class='cd-num'>" + fmt(tOut) + "</td>" +
+				"<td class='cd-num'>" + fmt(tNet) + "</td>" +
+				"<td class='cd-num'>" + fmt(tExp) + "</td>" +
+				"<td class='cd-num'>" + fmt(tRe) + "</td>" +
+				"<td class='cd-num'>" + fmt(tOw) + "</td>" +
+				"<td class='cd-num'>" + tTx + "</td></tr>"
 			);
 		}
 
 		// Entity table
 		var ebody = page.main.find("#cd-entity-body");
 		var efoot = page.main.find("#cd-entity-foot");
-		ebody.empty();
-		efoot.empty();
+		ebody.empty(); efoot.empty();
 
 		if (!data.entities || !data.entities.length) {
 			ebody.html('<tr><td colspan="7" class="cd-empty">No entries yet.</td></tr>');
 		} else {
-			var eTotIn=0, eTotOut=0, eTotNet=0, eTotExp=0, eTotRe=0, eTotOwed=0;
+			var eIn=0, eOut=0, eNet=0, eExp=0, eRe=0, eOw=0;
 			data.entities.forEach(function (row) {
 				ebody.append(
 					"<tr>" +
@@ -243,20 +324,17 @@ frappe.pages["cash-dashboard"].on_page_load = function (wrapper) {
 					"<td class='cd-num cd-col-owed'>" + fmt(row.net_owed) + "</td>" +
 					"</tr>"
 				);
-				eTotIn += row.cash_in; eTotOut += row.cash_out;
-				eTotNet += row.net_cash; eTotExp += row.expenses;
-				eTotRe += row.reimbursed; eTotOwed += row.net_owed;
+				eIn+=row.cash_in; eOut+=row.cash_out; eNet+=row.net_cash;
+				eExp+=row.expenses; eRe+=row.reimbursed; eOw+=row.net_owed;
 			});
 			efoot.html(
-				"<tr class='cd-total-row'>" +
-				"<td><b>TOTAL</b></td>" +
-				"<td class='cd-num'>" + fmt(eTotIn) + "</td>" +
-				"<td class='cd-num'>" + fmt(eTotOut) + "</td>" +
-				"<td class='cd-num'>" + fmt(eTotNet) + "</td>" +
-				"<td class='cd-num'>" + fmt(eTotExp) + "</td>" +
-				"<td class='cd-num'>" + fmt(eTotRe) + "</td>" +
-				"<td class='cd-num'>" + fmt(eTotOwed) + "</td>" +
-				"</tr>"
+				"<tr class='cd-total-row'><td><b>TOTAL</b></td>" +
+				"<td class='cd-num'>" + fmt(eIn) + "</td>" +
+				"<td class='cd-num'>" + fmt(eOut) + "</td>" +
+				"<td class='cd-num'>" + fmt(eNet) + "</td>" +
+				"<td class='cd-num'>" + fmt(eExp) + "</td>" +
+				"<td class='cd-num'>" + fmt(eRe) + "</td>" +
+				"<td class='cd-num'>" + fmt(eOw) + "</td></tr>"
 			);
 		}
 	}
@@ -265,8 +343,10 @@ frappe.pages["cash-dashboard"].on_page_load = function (wrapper) {
 		if (val === null || val === undefined) return "$0";
 		var n = parseFloat(val);
 		var neg = n < 0;
-		var abs = Math.abs(n);
-		var str = "$" + abs.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+		var str = "$" + Math.abs(n).toLocaleString("en-US", {
+			minimumFractionDigits: 0,
+			maximumFractionDigits: 0
+		});
 		return neg ? "-" + str : str;
 	}
 };

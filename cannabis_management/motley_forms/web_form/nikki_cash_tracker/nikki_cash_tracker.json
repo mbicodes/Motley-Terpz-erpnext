@@ -1,0 +1,73 @@
+{
+    "allow_comments": 0,
+    "allow_delete": 0,
+    "allow_edit": 0,
+    "allow_incomplete": 0,
+    "allow_multiple": 1,
+    "allow_print": 0,
+    "anonymous": 0,
+    "apply_document_permissions": 1,
+    "button_label": "Submit Entry",
+    "doc_type": "Cash Ledger Entry",
+    "doctype": "Web Form",
+    "introduction_text": "<div class=\"ql-editor read-mode\"><p><strong>Cash Tracker</strong></p><p>Log any cash transaction here. Finance will review and approve your entries.</p><ul><li><strong>Date</strong> — date the cash was received or paid out</li><li><strong>Entity</strong> — which business the transaction belongs to</li><li><strong>Transaction Type</strong> — select the closest category</li><li><strong>Direction</strong> — Cash In if you received money, Cash Out if you paid out</li><li><strong>Amount</strong> — the dollar amount (no negatives)</li><li><strong>Invoice #</strong> — reference number if applicable</li><li><strong>Notes</strong> — any additional details</li><li><strong>Receipt</strong> — attach photo or PDF of receipt/cash form</li></ul></div>",
+    "is_standard": 1,
+    "login_required": 1,
+    "module": "Motley Forms",
+    "name": "nikki-cash-tracker",
+    "published": 1,
+    "route": "nikki-cash-tracker",
+    "show_attachments": 1,
+    "show_list": 1,
+    "title": "Cash Tracker",
+    "web_form_fields": [
+        {
+            "fieldname": "date",
+            "fieldtype": "Date",
+            "label": "Date",
+            "reqd": 1
+        },
+        {
+            "fieldname": "entity",
+            "fieldtype": "Select",
+            "label": "Entity",
+            "options": "\nMotley Terpz\nTSBC Ranch\nMaster Touch Manufacturing\nLA Canna",
+            "reqd": 1
+        },
+        {
+            "fieldname": "transaction_type",
+            "fieldtype": "Select",
+            "label": "Transaction Type",
+            "options": "\nMotley - Hardware\nClient - Hardware\nClient Payment Towards Invoice\nFresh Frozen Procurement\nTolling Partner Payment\nMotley - Packaging\nLab Testing\nPayroll\nLab Consumables\nMarketing\nSeeds/Clones for Farm\nRent\nLab Setup\nLab Supplies\nCollecting OLD AR\nReimbursement\nOther",
+            "reqd": 1
+        },
+        {
+            "fieldname": "direction",
+            "fieldtype": "Select",
+            "label": "Direction",
+            "options": "\nCash In\nCash Out",
+            "reqd": 1
+        },
+        {
+            "fieldname": "amount",
+            "fieldtype": "Currency",
+            "label": "Amount ($)",
+            "reqd": 1
+        },
+        {
+            "fieldname": "invoice_number",
+            "fieldtype": "Data",
+            "label": "Invoice #"
+        },
+        {
+            "fieldname": "notes",
+            "fieldtype": "Text",
+            "label": "Notes / Description"
+        },
+        {
+            "fieldname": "receipt",
+            "fieldtype": "Attach",
+            "label": "Receipt / Attachment"
+        }
+    ]
+}

@@ -6,6 +6,58 @@ class NikkiExpenseEntry(Document):
 
     def after_insert(self):
         self.create_payment_entry()
+        self._create_expense_tracker_entry()
+
+    def _create_expense_tracker_entry(self):
+        """Mirror this submission into the unified Expense Tracker Entry."""
+        try:
+            is_money_in = self.money_in and float(self.money_in) > 0
+            amount = float(self.money_in or 0) if is_money_in else float(self.money_out or 0)
+            if not amount:
+                return
+
+            direction = "Reimbursement" if is_money_in else "Expense"
+
+            # Resolve Cash Tracker Person for the submitting user
+            person = frappe.db.get_value(
+                "Cash Tracker Person", {"user": frappe.session.user}, "name"
+            )
+            if not person:
+                frappe.log_error(
+                    title="Nikki Expense Entry — No Cash Tracker Person",
+                    message=f"No Cash Tracker Person found for user {frappe.session.user}. "
+                            f"Expense Tracker Entry was NOT created for {self.name}."
+                )
+                return
+
+            employee = frappe.db.get_value("Cash Tracker Person", person, "employee")
+
+            # Map Nikki Expense Entry fields → Expense Tracker Entry
+            exp = frappe.new_doc("Expense Tracker Entry")
+            exp.date                = self.transaction_date
+            exp.cash_tracker_person = person
+            exp.employee            = employee or None
+            exp.company             = self.business or "Motley Terpz"
+            exp.entity              = self.business or "Motley Terpz"
+            exp.transaction_type    = "Other"
+            exp.direction           = direction
+            exp.amount              = amount
+            exp.notes               = self.transaction_notes or ""
+            exp.receipt             = self.receipt or None
+            exp.approval_status     = "Pending"
+            # Skip receipt validation on insert — Nikki form handles it separately
+            exp.flags.ignore_validate = True
+            exp.insert(ignore_permissions=True)
+
+            frappe.db.set_value(
+                "Nikki Expense Entry", self.name,
+                "expense_tracker_entry", exp.name
+            )
+        except Exception:
+            frappe.log_error(
+                title=f"Nikki Expense Entry — Expense Tracker Entry failed [{self.name}]",
+                message=frappe.get_traceback()
+            )
 
     def create_payment_entry(self):
         try:
