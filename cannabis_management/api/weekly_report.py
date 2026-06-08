@@ -24,7 +24,16 @@ RECIPIENTS = [
 SIGNOFF_TO = ["muhammad@motleyterpz.com", "bot@motleyterpz.com"]
 SIGNOFF_CC = ["matt@motleyterpz.com", "imran@motleyterpz.com"]
 
-COMPANIES = ["Motley Terpz", "TSBC Ranch"]
+COMPANIES = ["Motley Terpz", "TSBC Ranch", "Master Touch Manufacturing"]
+
+_ENTITY_MAP = {
+    "Motley Terpz":              ("ent-mt",  "Motley"),
+    "TSBC Ranch":                ("ent-ts",  "TSBC"),
+    "Master Touch Manufacturing":("ent-mtm", "MTM"),
+}
+
+def _entity(company):
+    return _ENTITY_MAP.get(company, ("ent-ts", company or "—"))
 
 
 # ── Week helpers ──────────────────────────────────────────────────────────────
@@ -364,7 +373,7 @@ def _build_email_body(data, label):
 <body>
 <div class="wrap">
   <div class="hdr">
-    <div class="hdr-ey">Motley Terpz &amp; TSBC Ranch</div>
+    <div class="hdr-ey">Motley Terpz &bull; TSBC Ranch &bull; Master Touch Manufacturing</div>
     <div class="hdr-tt">Weekly <span>Sale</span> Report</div>
     <div class="hdr-dt">{label}</div>
   </div>
@@ -499,8 +508,9 @@ tr.sub td { background:#f8fafc; font-weight:700; border-top:2px solid #e2e8f0; f
 tr.igh td { background:#f1f5f9; font-weight:700; color:#374151; font-size:9px; padding:4px 7px; }
 
 .ent { padding:1px 5px; border-radius:8px; font-size:7px; font-weight:700; text-transform:uppercase; }
-.ent-mt { background:#ede9fe; color:#6d28d9; }
-.ent-ts { background:#d1fae5; color:#065f46; }
+.ent-mt  { background:#ede9fe; color:#6d28d9; }
+.ent-ts  { background:#d1fae5; color:#065f46; }
+.ent-mtm { background:#fce7f3; color:#9d174d; }
 
 .bu { padding:1px 5px; border-radius:3px; font-size:8px; font-weight:700;
       background:#fee2e2; color:#991b1b; }
@@ -550,7 +560,7 @@ def _build_pdf_html(data, label):
 </head><body>
 
 <div class="pdf-hdr">
-  <div class="pdf-hdr-co">Motley Terpz &amp; TSBC Ranch</div>
+  <div class="pdf-hdr-co">Motley Terpz &bull; TSBC Ranch &bull; Master Touch Manufacturing</div>
   <div class="pdf-hdr-title">Weekly <span>Sale</span> Report</div>
   <div class="pdf-hdr-date">{label} &nbsp;&middot;&nbsp; Generated {datetime.now().strftime("%B %-d, %Y")}</div>
 </div>
@@ -765,8 +775,7 @@ def _pdf_doc_table(rows, date_field=None, doc_slug="", site_url=""):
     </tr></thead><tbody>"""
 
     for doc in docs.values():
-        ent_cls  = "ent-mt" if doc["company"] == "Motley Terpz" else "ent-ts"
-        ent_lbl  = "Motley"  if doc["company"] == "Motley Terpz" else "TSBC"
+        ent_cls, ent_lbl = _entity(doc["company"])
         doc_link = (
             f'<a href="{site_url}/app/{doc_slug}/{doc["name"]}" '
             f'style="color:#2563eb;text-decoration:none;font-size:8px">{_esc(doc["name"])}</a>'
@@ -822,8 +831,7 @@ def _pdf_invoice_table(rows, mode="all", doc_slug="sales-invoice", site_url=""):
     </tr></thead><tbody>"""
 
     for doc in docs.values():
-        ent_cls     = "ent-mt" if doc["company"] == "Motley Terpz" else "ent-ts"
-        ent_lbl     = "Motley"  if doc["company"] == "Motley Terpz" else "TSBC"
+        ent_cls, ent_lbl = _entity(doc["company"])
         outstanding = flt(doc["outstanding_amount"])
         doc_link    = (
             f'<a href="{site_url}/app/{doc_slug}/{doc["name"]}" '
@@ -883,8 +891,7 @@ def _pdf_legacy_table(rows, site_url=""):
     for pay_rows in payments.values():
         for j, r in enumerate(pay_rows):
             first   = j == 0
-            ent_cls = "ent-mt" if r.company == "Motley Terpz" else "ent-ts"
-            ent_lbl = "Motley"  if r.company == "Motley Terpz" else "TSBC"
+            ent_cls, ent_lbl = _entity(r.company)
             mt      = _mode_type(r.mode_of_payment)
             mcls    = f"m{'b' if mt == 'bank' else 'c' if mt == 'cash' else 'o'}"
             inv_link = (

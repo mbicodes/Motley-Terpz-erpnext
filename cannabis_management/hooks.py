@@ -301,6 +301,9 @@ scheduler_events = {
         "0 14 * * 5": [
             # "cannabis_management.overrides.payment_overdue_alert.friday_overdue_report",  # AR Policy disabled
             # "cannabis_management.api.ar_monitor.send_weekly_ar_report",  # AR Policy disabled
+        ],
+        # Weekly Sale Report: Friday 4 PM PDT (23:00 UTC)
+        "0 23 * * 5": [
             "cannabis_management.api.weekly_report.send_weekly_report",
         ],
         # Weekly Sales Report: generate Monday 8 AM UTC
