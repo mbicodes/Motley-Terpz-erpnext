@@ -122,6 +122,12 @@ def execute():
     # No doctype links — custom HTML blocks handle all the UI
     ws.set("links", [])
 
+    # Register each block in the Workspace Custom Block child table
+    # (Frappe won't render blocks that aren't listed here)
+    ws.set("custom_blocks", [])
+    for _, new_name in BLOCK_MAP:
+        ws.append("custom_blocks", {"custom_block_name": new_name})
+
     ws.save(ignore_permissions=True)
     print(f"  OK – Workspace: {ws_name}")
 
