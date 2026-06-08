@@ -100,8 +100,11 @@ def execute():
     else:
         ws = frappe.new_doc("Workspace")
 
-    ws.label   = ws_name
-    ws.title   = ws_name
+    ws.label           = ws_name
+    ws.title           = ws_name
+    ws.icon            = "fal fa-ambulance"
+    ws.indicator_color = "green"
+    ws.public          = 1
 
     # Content: same 7-block layout with MTM block names
     import json
@@ -114,20 +117,8 @@ def execute():
         })
     ws.content = json.dumps(content_blocks)
 
-    # Links (same as Motley Logistics)
+    # No doctype links — custom HTML blocks handle all the UI
     ws.set("links", [])
-    for label, link_type, link_to, ref_dt in [
-        ("Sales Invoice",  "DocType", "Sales Invoice",      None),
-        ("Delivery Note",  "DocType", "Delivery Note",      None),
-        ("Shipment",       "DocType", "Shipment",           None),
-        ("Driver",         "DocType", "Driver",             None),
-        ("Vehicle",        "DocType", "Vehicle",            None),
-        ("Stock Balance",  "Report",  "Stock Balance",      "Stock Ledger Entry"),
-    ]:
-        row = {"type": "Link", "label": label, "link_type": link_type, "link_to": link_to}
-        if ref_dt:
-            row["report_ref_doctype"] = ref_dt
-        ws.append("links", row)
 
     ws.save(ignore_permissions=True)
     print(f"  OK – Workspace: {ws_name}")
