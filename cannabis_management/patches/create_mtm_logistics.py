@@ -107,11 +107,13 @@ def execute():
     ws.public          = 1
 
     # Content: same 7-block layout with MTM block names
-    import json
+    import json, re
     content_blocks = []
     for _, new_name in BLOCK_MAP:
+        safe_id = re.sub(r'[^a-z0-9]', '_', new_name.lower())
+        safe_id = re.sub(r'_+', '_', safe_id).strip('_')
         content_blocks.append({
-            "id":   new_name.lower().replace(" ", "_").replace("-", "_"),
+            "id":   safe_id,
             "type": "custom_block",
             "data": {"custom_block_name": new_name, "col": 12}
         })
