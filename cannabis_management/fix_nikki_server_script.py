@@ -99,6 +99,18 @@ try:
         mon_list = "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split()
         month_val = mon_list[mon_num] + " " + date_s[:4]
 
+        # Cash Tracker Person for the submitting user
+        person = frappe.db.get_value("Cash Tracker Person", {"user": frappe.session.user}, "name")
+
+        # Map entity Select value to Company name ("LA Canna" differs from company "LA Canna Distro")
+        entity_val = doc.entity or ""
+        if entity_val == "LA Canna":
+            company_val = "LA Canna Distro"
+        elif entity_val:
+            company_val = entity_val
+        else:
+            company_val = None
+
         cle = frappe.new_doc("Cash Ledger Entry")
         cle.date = doc.date
         cle.month = month_val
@@ -109,6 +121,8 @@ try:
         cle.invoice_number = doc.invoice_number or None
         cle.receipt = doc.receipt or None
         cle.notes = ("[Web Form] Source: Nikki Cash Ledger Entry " + str(doc.name) + ". " + str(doc.notes or "")).strip()
+        cle.cash_tracker_person = person or None
+        cle.company = company_val
         cle.db_insert()
         frappe.db.set_value("Nikki Cash Ledger Entry", doc.name, "cash_ledger_entry", cle.name)
 except Exception as exc:

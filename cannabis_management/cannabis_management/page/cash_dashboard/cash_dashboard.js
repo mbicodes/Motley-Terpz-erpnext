@@ -15,8 +15,8 @@ frappe.pages["cash-dashboard"].on_page_load = function (wrapper) {
 			<div class="cd-header">
 				<div>
 					<h1 class="cd-title">💵 Cash Command Center</h1>
-					<p class="cd-subtitle">Motley Terpz &middot; TSBC Ranch &middot; Master Touch Manufacturing &middot; LA Canna</p>
-					<p class="cd-live-tag">⚡ Live — values update from Cash Ledger &amp; Expense Ledger</p>
+					<p class="cd-subtitle">Nikki's submitted cash entries — aggregated by entity and month</p>
+					<p class="cd-live-tag">⚡ Live — values update from Nikki Cash Ledger</p>
 				</div>
 				<div class="cd-filter-bar" id="cd-filter-bar" style="display:none;">
 					<label class="cd-label">View Person</label>
@@ -30,14 +30,14 @@ frappe.pages["cash-dashboard"].on_page_load = function (wrapper) {
 			<!-- Hero + Pending row -->
 			<div class="cd-hero-row">
 				<div class="cd-hero-card">
-					<div class="cd-hero-label" id="cd-hero-label">Cash on Hand</div>
+					<div class="cd-hero-label" id="cd-hero-label">Net Cash</div>
 					<div class="cd-hero-value" id="cd-hero-value">—</div>
 					<div class="cd-hero-sub">Total Cash In minus Total Cash Out</div>
 				</div>
 				<div class="cd-pending-card">
-					<div class="cd-pending-label">Transactions Needing Approval</div>
+					<div class="cd-pending-label">Entries Awaiting Review</div>
 					<div class="cd-pending-value" id="cd-pending-value">—</div>
-					<div class="cd-pending-sub">Submitted entries with Pending status</div>
+					<div class="cd-pending-sub">Open entries not yet reviewed</div>
 				</div>
 			</div>
 
@@ -53,50 +53,36 @@ frappe.pages["cash-dashboard"].on_page_load = function (wrapper) {
 					<div class="cd-card-value" id="cd-total-out">—</div>
 					<div class="cd-card-live">▼ Live</div>
 				</div>
-				<div class="cd-card cd-card-purple">
-					<div class="cd-card-label">TOTAL EXPENSES</div>
-					<div class="cd-card-value" id="cd-expenses">—</div>
-					<div class="cd-card-live">▲ Live</div>
-				</div>
-				<div class="cd-card cd-card-teal">
-					<div class="cd-card-label">REIMBURSED</div>
-					<div class="cd-card-value" id="cd-reimbursed">—</div>
-					<div class="cd-card-live">▼ Live</div>
-				</div>
-				<div class="cd-card cd-card-orange">
-					<div class="cd-card-label">NET OWED</div>
-					<div class="cd-card-value" id="cd-net-owed">—</div>
-					<div class="cd-card-live">▲ Live</div>
-				</div>
 				<div class="cd-card cd-card-dark">
-					<div class="cd-card-label">TOTAL TXN COUNT</div>
+					<div class="cd-card-label">TOTAL ENTRIES</div>
 					<div class="cd-card-value" id="cd-txn-count">—</div>
-					<div class="cd-card-live">▼ Live</div>
+					<div class="cd-card-live">— Count</div>
 				</div>
 			</div>
 
 			<!-- Transaction List -->
 			<div class="cd-section">
 				<div class="cd-section-header cd-section-header-blue">
-					<span>📋 LIST OF TRANSACTIONS</span>
+					<span>📋 SUBMITTED ENTRIES</span>
 					<span class="cd-section-note" id="cd-txn-note"></span>
 				</div>
 				<div class="cd-table-wrap">
 					<table class="cd-table">
 						<thead>
 							<tr>
-								<th>Transaction Date</th>
-								<th class="cd-num cd-col-in">Money In</th>
-								<th class="cd-num cd-col-out">Money Out</th>
-								<th>Business</th>
+								<th>Date</th>
+								<th>Entity</th>
+								<th>Direction</th>
+								<th class="cd-num">Amount</th>
 								<th>Type</th>
+								<th>Invoice #</th>
+								<th>Notes</th>
 								<th>Receipt</th>
-								<th>Transaction Notes</th>
 								<th>Status</th>
 							</tr>
 						</thead>
 						<tbody id="cd-txn-body">
-							<tr><td colspan="8" class="cd-empty">Loading...</td></tr>
+							<tr><td colspan="9" class="cd-empty">Loading...</td></tr>
 						</tbody>
 					</table>
 				</div>
@@ -115,14 +101,11 @@ frappe.pages["cash-dashboard"].on_page_load = function (wrapper) {
 								<th class="cd-num cd-col-in">Cash In</th>
 								<th class="cd-num cd-col-out">Cash Out</th>
 								<th class="cd-num cd-col-net">Net Cash</th>
-								<th class="cd-num cd-col-exp">Expenses</th>
-								<th class="cd-num cd-col-reimb">Reimbursed</th>
-								<th class="cd-num cd-col-owed">Net Owed</th>
-								<th class="cd-num"># Txns</th>
+								<th class="cd-num"># Entries</th>
 							</tr>
 						</thead>
 						<tbody id="cd-monthly-body">
-							<tr><td colspan="8" class="cd-empty">Loading...</td></tr>
+							<tr><td colspan="5" class="cd-empty">Loading...</td></tr>
 						</tbody>
 						<tfoot id="cd-monthly-foot"></tfoot>
 					</table>
@@ -142,32 +125,24 @@ frappe.pages["cash-dashboard"].on_page_load = function (wrapper) {
 								<th class="cd-num cd-col-in">Cash In</th>
 								<th class="cd-num cd-col-out">Cash Out</th>
 								<th class="cd-num cd-col-net">Net Cash</th>
-								<th class="cd-num cd-col-exp">Expenses</th>
-								<th class="cd-num cd-col-reimb">Reimbursed</th>
-								<th class="cd-num cd-col-owed">Net Owed</th>
 							</tr>
 						</thead>
 						<tbody id="cd-entity-body">
-							<tr><td colspan="7" class="cd-empty">Loading...</td></tr>
+							<tr><td colspan="4" class="cd-empty">Loading...</td></tr>
 						</tbody>
 						<tfoot id="cd-entity-foot"></tfoot>
 					</table>
 				</div>
 			</div>
 
-			<!-- Quick Links -->
-			<div class="cd-quick-links">
-				<a class="cd-qlink cd-qlink-purple" href="/app/expense-tracker-entry/new-expense-tracker-entry-1">+ New Expense</a>
-				<a class="cd-qlink cd-qlink-blue" href="/app/cash-ledger-entry">All Cash Entries</a>
-				<a class="cd-qlink cd-qlink-dark" href="/app/expense-tracker-entry">All Expenses</a>
-			</div>
-
 		</div>
 	`);
 
-	// Real-time balance update
-	frappe.realtime.on("cash_balance_update", function () {
-		load_data(page._cd_person);
+	// Real-time update when Nikki submits a new entry
+	frappe.realtime.on("list_update", function (data) {
+		if (data && data.doctype === "Nikki Cash Ledger Entry") {
+			load_data(page._cd_person);
+		}
 	});
 
 	load_data(null);
@@ -180,7 +155,7 @@ frappe.pages["cash-dashboard"].on_page_load = function (wrapper) {
 	function load_data(person) {
 		page._cd_person = person;
 		frappe.call({
-			method: "cannabis_management.cannabis_management.page.cash_dashboard.cash_dashboard.get_dashboard_data",
+			method: "cannabis_management.api.nikki_cash_dashboard.get_dashboard_data",
 			args: { person: person || "" },
 			callback: function (r) {
 				if (!r.message) return;
@@ -193,27 +168,20 @@ frappe.pages["cash-dashboard"].on_page_load = function (wrapper) {
 		var s = data.summary;
 
 		// Hero card
-		var heroLabel = s.display_name
-			? s.display_name + " — Cash on Hand"
-			: "Total Cash on Hand";
+		var heroLabel = s.display_name ? s.display_name + " — Net Cash" : "Net Cash";
 		page.main.find("#cd-hero-label").text(heroLabel);
 		page.main.find("#cd-hero-value").text(fmt(s.cash_in_hand));
 		page.main.find("#cd-hero-value").toggleClass("cd-hero-negative", s.cash_in_hand < 0);
 
-		// Pending approvals
-		page.main.find("#cd-pending-value").text(
-			(s.pending_approvals || 0).toLocaleString()
-		);
+		// Pending
+		page.main.find("#cd-pending-value").text((s.pending_approvals || 0).toLocaleString());
 
 		// Summary cards
 		page.main.find("#cd-total-in").text(fmt(s.total_cash_in));
 		page.main.find("#cd-total-out").text(fmt(s.total_cash_out));
-		page.main.find("#cd-expenses").text(fmt(s.total_expenses));
-		page.main.find("#cd-reimbursed").text(fmt(s.reimbursed));
-		page.main.find("#cd-net-owed").text(fmt(s.net_owed));
 		page.main.find("#cd-txn-count").text((s.total_txns || 0).toLocaleString());
 
-		// Finance person filter
+		// Finance filter
 		if (data.is_finance && data.persons && data.persons.length) {
 			var sel = page.main.find("#cd-person-select");
 			sel.find("option:not(:first)").remove();
@@ -234,14 +202,16 @@ frappe.pages["cash-dashboard"].on_page_load = function (wrapper) {
 		);
 
 		if (!data.transactions || !data.transactions.length) {
-			tbody.html('<tr><td colspan="8" class="cd-empty">No transactions yet.</td></tr>');
+			tbody.html('<tr><td colspan="9" class="cd-empty">No entries yet.</td></tr>');
 		} else {
 			data.transactions.forEach(function (row) {
-				var statusClass = row.approval_status === "Approved"
-					? "cd-badge-approved"
-					: row.approval_status === "Rejected"
-					? "cd-badge-rejected"
-					: "cd-badge-pending";
+				var statusMap = {
+					"Open":      "<span class='cd-badge cd-badge-pending'>Open</span>",
+					"Reviewed":  "<span class='cd-badge cd-badge-info'>Reviewed</span>",
+					"Completed": "<span class='cd-badge cd-badge-approved'>Completed</span>"
+				};
+				var statusHtml = statusMap[row.approval_status]
+					|| "<span class='cd-badge cd-badge-pending'>" + (row.approval_status || "Open") + "</span>";
 
 				var receiptHtml = row.receipt
 					? '<a href="' + row.receipt + '" target="_blank" class="cd-receipt-link">📎 View</a>'
@@ -251,16 +221,21 @@ frappe.pages["cash-dashboard"].on_page_load = function (wrapper) {
 					? '<span class="cd-entity-badge">' + row.entity + "</span>"
 					: '<span class="cd-muted">—</span>';
 
+				var isIn = row.direction === "Cash In";
+				var amtColor = isIn ? "cd-col-in" : "cd-col-out";
+				var amtPrefix = isIn ? "▲ " : "▼ ";
+
 				tbody.append(
 					"<tr>" +
 					"<td class='cd-date-cell'>" + row.date + "</td>" +
-					"<td class='cd-num cd-col-in'>" + (row.money_in > 0 ? fmt(row.money_in) : '<span class="cd-muted">—</span>') + "</td>" +
-					"<td class='cd-num cd-col-out'>" + (row.money_out > 0 ? fmt(row.money_out) : '<span class="cd-muted">—</span>') + "</td>" +
 					"<td>" + entityHtml + "</td>" +
+					"<td class='cd-type-cell'>" + (row.direction || "") + "</td>" +
+					"<td class='cd-num " + amtColor + "'>" + amtPrefix + fmt(row.amount) + "</td>" +
 					"<td class='cd-type-cell'>" + (row.transaction_type || "") + "</td>" +
-					"<td>" + receiptHtml + "</td>" +
+					"<td class='cd-type-cell'>" + (row.invoice_number || '<span class="cd-muted">—</span>') + "</td>" +
 					"<td class='cd-notes-cell'>" + (row.notes || "") + "</td>" +
-					"<td><span class='cd-badge " + statusClass + "'>" + row.approval_status + "</span></td>" +
+					"<td>" + receiptHtml + "</td>" +
+					"<td>" + statusHtml + "</td>" +
 					"</tr>"
 				);
 			});
@@ -272,9 +247,9 @@ frappe.pages["cash-dashboard"].on_page_load = function (wrapper) {
 		mbody.empty(); mfoot.empty();
 
 		if (!data.monthly || !data.monthly.length) {
-			mbody.html('<tr><td colspan="8" class="cd-empty">No entries yet.</td></tr>');
+			mbody.html('<tr><td colspan="5" class="cd-empty">No entries yet.</td></tr>');
 		} else {
-			var tIn=0, tOut=0, tNet=0, tExp=0, tRe=0, tOw=0, tTx=0;
+			var tIn = 0, tOut = 0, tNet = 0, tTx = 0;
 			data.monthly.forEach(function (row) {
 				mbody.append(
 					"<tr>" +
@@ -282,23 +257,16 @@ frappe.pages["cash-dashboard"].on_page_load = function (wrapper) {
 					"<td class='cd-num cd-col-in'>" + fmt(row.cash_in) + "</td>" +
 					"<td class='cd-num cd-col-out'>" + fmt(row.cash_out) + "</td>" +
 					"<td class='cd-num cd-col-net " + (row.net_cash >= 0 ? "cd-pos" : "cd-neg") + "'>" + fmt(row.net_cash) + "</td>" +
-					"<td class='cd-num cd-col-exp'>" + fmt(row.expenses) + "</td>" +
-					"<td class='cd-num cd-col-reimb'>" + fmt(row.reimbursed) + "</td>" +
-					"<td class='cd-num cd-col-owed " + (row.net_owed <= 0 ? "cd-pos" : "cd-neg") + "'>" + fmt(row.net_owed) + "</td>" +
 					"<td class='cd-num'>" + row.txn_count + "</td>" +
 					"</tr>"
 				);
-				tIn+=row.cash_in; tOut+=row.cash_out; tNet+=row.net_cash;
-				tExp+=row.expenses; tRe+=row.reimbursed; tOw+=row.net_owed; tTx+=row.txn_count;
+				tIn += row.cash_in; tOut += row.cash_out; tNet += row.net_cash; tTx += row.txn_count;
 			});
 			mfoot.html(
 				"<tr class='cd-total-row'><td><b>TOTAL</b></td>" +
 				"<td class='cd-num'>" + fmt(tIn) + "</td>" +
 				"<td class='cd-num'>" + fmt(tOut) + "</td>" +
 				"<td class='cd-num'>" + fmt(tNet) + "</td>" +
-				"<td class='cd-num'>" + fmt(tExp) + "</td>" +
-				"<td class='cd-num'>" + fmt(tRe) + "</td>" +
-				"<td class='cd-num'>" + fmt(tOw) + "</td>" +
 				"<td class='cd-num'>" + tTx + "</td></tr>"
 			);
 		}
@@ -309,9 +277,9 @@ frappe.pages["cash-dashboard"].on_page_load = function (wrapper) {
 		ebody.empty(); efoot.empty();
 
 		if (!data.entities || !data.entities.length) {
-			ebody.html('<tr><td colspan="7" class="cd-empty">No entries yet.</td></tr>');
+			ebody.html('<tr><td colspan="4" class="cd-empty">No entries yet.</td></tr>');
 		} else {
-			var eIn=0, eOut=0, eNet=0, eExp=0, eRe=0, eOw=0;
+			var eIn = 0, eOut = 0, eNet = 0;
 			data.entities.forEach(function (row) {
 				ebody.append(
 					"<tr>" +
@@ -319,22 +287,15 @@ frappe.pages["cash-dashboard"].on_page_load = function (wrapper) {
 					"<td class='cd-num cd-col-in'>" + fmt(row.cash_in) + "</td>" +
 					"<td class='cd-num cd-col-out'>" + fmt(row.cash_out) + "</td>" +
 					"<td class='cd-num cd-col-net'>" + fmt(row.net_cash) + "</td>" +
-					"<td class='cd-num cd-col-exp'>" + fmt(row.expenses) + "</td>" +
-					"<td class='cd-num cd-col-reimb'>" + fmt(row.reimbursed) + "</td>" +
-					"<td class='cd-num cd-col-owed'>" + fmt(row.net_owed) + "</td>" +
 					"</tr>"
 				);
-				eIn+=row.cash_in; eOut+=row.cash_out; eNet+=row.net_cash;
-				eExp+=row.expenses; eRe+=row.reimbursed; eOw+=row.net_owed;
+				eIn += row.cash_in; eOut += row.cash_out; eNet += row.net_cash;
 			});
 			efoot.html(
 				"<tr class='cd-total-row'><td><b>TOTAL</b></td>" +
 				"<td class='cd-num'>" + fmt(eIn) + "</td>" +
 				"<td class='cd-num'>" + fmt(eOut) + "</td>" +
-				"<td class='cd-num'>" + fmt(eNet) + "</td>" +
-				"<td class='cd-num'>" + fmt(eExp) + "</td>" +
-				"<td class='cd-num'>" + fmt(eRe) + "</td>" +
-				"<td class='cd-num'>" + fmt(eOw) + "</td></tr>"
+				"<td class='cd-num'>" + fmt(eNet) + "</td></tr>"
 			);
 		}
 	}
