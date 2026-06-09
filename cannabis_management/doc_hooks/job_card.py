@@ -1,8 +1,48 @@
 # cannabis_management/hooks/job_card.py
 
 import frappe
+from frappe.utils import flt
 
 MICRON_OPERATIONS = {"Wash", "Press"}
+
+
+def calculate_sub_op_costs(doc, method=None):
+    """
+    For each time_log row, resolve workstation via the row's operation (sub-op)
+    → Operation.workstation, falling back to Job Card.workstation.
+    Write workstation, hourly rate, and cost back onto each row,
+    and total on the Job Card.
+    """
+    op_ws_cache = {}
+    total = 0.0
+
+    for row in (doc.time_logs or []):
+        ws_name = None
+
+        if row.get("operation"):
+            op = row.operation
+            if op not in op_ws_cache:
+                op_ws_cache[op] = frappe.db.get_value("Operation", op, "workstation") or ""
+            ws_name = op_ws_cache[op]
+
+        if not ws_name:
+            ws_name = doc.workstation or ""
+
+        hour_rate = 0.0
+        if ws_name:
+            hour_rate = flt(
+                frappe.db.get_value("Workstation", ws_name, "custom_total_operating_cost") or 0
+            )
+
+        time_hrs = flt(row.get("time_in_mins") or 0) / 60.0
+        cost = time_hrs * hour_rate
+
+        row.custom_workstation = ws_name
+        row.custom_hour_rate = hour_rate
+        row.custom_sub_op_cost = cost
+        total += cost
+
+    doc.custom_sub_op_total_cost = total
 
 
 def validate(doc, method=None):

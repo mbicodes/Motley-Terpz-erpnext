@@ -236,7 +236,10 @@ doc_events = {
         "on_submit": "cannabis_management.doc_hooks.material_request.on_submit",
     },
     "Stock Entry": {
-        "validate": "cannabis_management.cannabis_management.custom.stock_entry.validate",
+        "validate": [
+            "cannabis_management.cannabis_management.custom.stock_entry.validate",
+            "cannabis_management.doc_hooks.stock_entry.set_operating_cost_accounts",
+        ],
     },
     "Sales Order": {
         "validate": "cannabis_management.overrides.sales_order_restrictions.validate",
@@ -264,9 +267,11 @@ doc_events = {
     },
     "Job Card": {
         "validate": [
+            "cannabis_management.doc_hooks.job_card.calculate_sub_op_costs",
             "cannabis_management.doc_hooks.job_card.validate",
         ],
         "on_submit": [
+            "cannabis_management.doc_hooks.job_card.calculate_sub_op_costs",
             "cannabis_management.doc_hooks.job_card.validate",
         ],
     },
