@@ -303,9 +303,9 @@ scheduler_events = {
             # "cannabis_management.api.ar_monitor.send_weekly_ar_report",  # AR Policy disabled
         ],
         # Weekly Sale Report: Friday 4 PM PDT (23:00 UTC)
-        "0 23 * * 5": [
-            "cannabis_management.api.weekly_report.send_weekly_report",
-        ],
+        # "0 23 * * 5": [
+        #     "cannabis_management.api.weekly_report.send_weekly_report",
+        # ],
         # Weekly Sales Report: generate Monday 8 AM UTC
         "0 8 * * 1": [
             "cannabis_management.cannabis_management.overrides.weekly_signoff.generate_weekly_signoff",
@@ -351,10 +351,11 @@ scheduler_events = {
 
 # Overriding Methods
 # ------------------------------
-#
-# override_whitelisted_methods = {
-# 	"frappe.desk.doctype.event.event.get_events": "cannabis_management.event.get_events"
-# }
+override_whitelisted_methods = {
+    # Always set party_type=Employee on Payment Entries created from Cash/Expense doctypes.
+    "cannabis_management.cash_management.utils.cash_utils.create_payment_entry":
+        "cannabis_management.api.cash_payment_override.create_payment_entry",
+}
 #
 # each overriding function accepts a `data` argument;
 # generated from the base implementation of the doctype dashboard,
