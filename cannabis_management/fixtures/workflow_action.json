@@ -1,5 +1,215 @@
 [
  {
+  "completed_by": null,
+  "completed_by_role": null,
+  "docstatus": 0,
+  "doctype": "Workflow Action",
+  "modified": "2026-05-08 11:00:51.007178",
+  "name": "2bu6il4vrq",
+  "permitted_roles": [
+   {
+    "parent": "2bu6il4vrq",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Farmer"
+   }
+  ],
+  "reference_doctype": "Material Request",
+  "reference_name": "MAT-MR-2026-00008",
+  "status": "Open",
+  "user": null,
+  "workflow_state": "draft"
+ },
+ {
+  "completed_by": "Administrator",
+  "completed_by_role": "Manufacturing User",
+  "docstatus": 0,
+  "doctype": "Workflow Action",
+  "modified": "2026-05-12 07:20:36.527983",
+  "name": "gadjon2875",
+  "permitted_roles": [
+   {
+    "parent": "gadjon2875",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Manufacturing User"
+   }
+  ],
+  "reference_doctype": "Stock Entry",
+  "reference_name": "MAT-STE-2026-00314",
+  "status": "Completed",
+  "user": null,
+  "workflow_state": "draft"
+ },
+ {
+  "completed_by": null,
+  "completed_by_role": null,
+  "docstatus": 0,
+  "doctype": "Workflow Action",
+  "modified": "2026-05-12 07:20:41.317683",
+  "name": "gbt8gbth53",
+  "permitted_roles": [
+   {
+    "parent": "gbt8gbth53",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Manufacturing User"
+   }
+  ],
+  "reference_doctype": "Stock Entry",
+  "reference_name": "MAT-STE-2026-00314",
+  "status": "Open",
+  "user": null,
+  "workflow_state": "Pending Approval"
+ },
+ {
+  "completed_by": "Administrator",
+  "completed_by_role": "Manufacturing User",
+  "docstatus": 0,
+  "doctype": "Workflow Action",
+  "modified": "2026-05-12 07:23:51.240189",
+  "name": "i783q66jof",
+  "permitted_roles": [
+   {
+    "parent": "i783q66jof",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Manufacturing User"
+   }
+  ],
+  "reference_doctype": "Stock Entry",
+  "reference_name": "MAT-STE-2026-00315",
+  "status": "Completed",
+  "user": null,
+  "workflow_state": "draft"
+ },
+ {
+  "completed_by": "Administrator",
+  "completed_by_role": "Accounts Manager",
+  "docstatus": 0,
+  "doctype": "Workflow Action",
+  "modified": "2026-05-12 10:01:00.931396",
+  "name": "ea1cqng5o0",
+  "permitted_roles": [
+   {
+    "parent": "ea1cqng5o0",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Accounts Manager"
+   }
+  ],
+  "reference_doctype": "Material Request",
+  "reference_name": "MAT-MR-2026-00015",
+  "status": "Completed",
+  "user": null,
+  "workflow_state": "Send to Finance"
+ },
+ {
+  "completed_by": "Administrator",
+  "completed_by_role": "Accounts Manager",
+  "docstatus": 0,
+  "doctype": "Workflow Action",
+  "modified": "2026-05-12 10:58:11.376857",
+  "name": "fq17jvng49",
+  "permitted_roles": [
+   {
+    "parent": "fq17jvng49",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Accounts Manager"
+   }
+  ],
+  "reference_doctype": "Material Request",
+  "reference_name": "MAT-MR-2026-00016",
+  "status": "Completed",
+  "user": null,
+  "workflow_state": "Send to Finance"
+ },
+ {
+  "completed_by": "Administrator",
+  "completed_by_role": "Purchase Manager",
+  "docstatus": 0,
+  "doctype": "Workflow Action",
+  "modified": "2026-06-04 10:09:17.818769",
+  "name": "1dae814eld",
+  "permitted_roles": [
+   {
+    "parent": "1dae814eld",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Purchase Manager"
+   }
+  ],
+  "reference_doctype": "Material Request",
+  "reference_name": "MAT-MR-2026-00020",
+  "status": "Completed",
+  "user": null,
+  "workflow_state": "Send for Review"
+ },
+ {
+  "completed_by": "Administrator",
+  "completed_by_role": "Accounts Manager",
+  "docstatus": 0,
+  "doctype": "Workflow Action",
+  "modified": "2026-06-04 10:09:19.689039",
+  "name": "1dsgvc43fs",
+  "permitted_roles": [
+   {
+    "parent": "1dsgvc43fs",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Accounts Manager"
+   }
+  ],
+  "reference_doctype": "Material Request",
+  "reference_name": "MAT-MR-2026-00020",
+  "status": "Completed",
+  "user": null,
+  "workflow_state": "Send to Finance"
+ },
+ {
+  "completed_by": "Administrator",
+  "completed_by_role": "Purchase Manager",
+  "docstatus": 0,
+  "doctype": "Workflow Action",
+  "modified": "2026-06-04 10:10:28.488154",
+  "name": "23c7o52eut",
+  "permitted_roles": [
+   {
+    "parent": "23c7o52eut",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Purchase Manager"
+   }
+  ],
+  "reference_doctype": "Material Request",
+  "reference_name": "MAT-MR-2026-00021",
+  "status": "Completed",
+  "user": null,
+  "workflow_state": "Send for Review"
+ },
+ {
+  "completed_by": "Administrator",
+  "completed_by_role": "Accounts Manager",
+  "docstatus": 0,
+  "doctype": "Workflow Action",
+  "modified": "2026-06-04 10:10:30.254322",
+  "name": "23u5mffe00",
+  "permitted_roles": [
+   {
+    "parent": "23u5mffe00",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Accounts Manager"
+   }
+  ],
+  "reference_doctype": "Material Request",
+  "reference_name": "MAT-MR-2026-00021",
+  "status": "Completed",
+  "user": null,
+  "workflow_state": "Send to Finance"
+ },
+ {
   "completed_by": "Administrator",
   "completed_by_role": "Farmer",
   "docstatus": 0,

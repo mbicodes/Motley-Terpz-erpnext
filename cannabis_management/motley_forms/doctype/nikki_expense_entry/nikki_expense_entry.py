@@ -5,7 +5,16 @@ from frappe.model.document import Document
 class NikkiExpenseEntry(Document):
 
     def after_insert(self):
-        self.create_payment_entry()
+        # PE creation is best-effort — a missing party_type or account config should
+        # never block ETE sync. Log the failure; the Server Script still creates/submits
+        # the ETE and updates balances regardless.
+        try:
+            self.create_payment_entry()
+        except Exception:
+            frappe.log_error(
+                title=f"Nikki Expense Entry — PE creation skipped [{self.name}]",
+                message=frappe.get_traceback()
+            )
         self._create_expense_tracker_entry()
 
     def _create_expense_tracker_entry(self):
@@ -48,6 +57,8 @@ class NikkiExpenseEntry(Document):
             # Skip receipt validation on insert — Nikki form handles it separately
             exp.flags.ignore_validate = True
             exp.insert(ignore_permissions=True)
+            # Submit immediately so balance hooks can see it (docstatus=1)
+            frappe.db.set_value("Expense Tracker Entry", exp.name, "docstatus", 1)
 
             frappe.db.set_value(
                 "Nikki Expense Entry", self.name,

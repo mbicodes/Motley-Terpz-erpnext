@@ -24,7 +24,8 @@ def get_nikki_ledger_summary():
     """, as_dict=True)[0]
 
     recent = frappe.db.sql(f"""
-        SELECT name, date, entity, direction, amount, status
+        SELECT name, date, entity, direction, amount, status,
+               transaction_type, invoice_number, notes
         FROM `tabNikki Cash Ledger Entry`
         WHERE 1=1 {user_filter}
         ORDER BY date DESC, creation DESC
@@ -32,8 +33,11 @@ def get_nikki_ledger_summary():
     """, as_dict=True)
 
     for r in recent:
-        r["date"]   = str(r["date"])
-        r["amount"] = float(r["amount"] or 0)
+        r["date"]             = str(r["date"])
+        r["amount"]           = float(r["amount"] or 0)
+        r["transaction_type"] = r.get("transaction_type") or ""
+        r["invoice_number"]   = r.get("invoice_number") or ""
+        r["notes"]            = r.get("notes") or ""
 
     total_in  = float(totals.total_in)
     total_out = float(totals.total_out)
@@ -185,3 +189,260 @@ def _month_sort_key(month_str):
         return int(parts[1]) * 100 + months.get(parts[0], 0)
     except Exception:
         return 0
+
+
+@frappe.whitelist()
+def get_full_dashboard_data(person=None):
+    """
+    Full Financial Command Center data — aggregated from Cash Ledger Entry + Expense Tracker Entry.
+    Finance roles see all or can filter by Cash Tracker Person; others see only their own.
+    """
+    user = frappe.session.user
+    finance_roles = {"Finance Manager", "Accounts Manager", "System Manager", "Administrator"}
+    is_finance = bool(finance_roles.intersection(set(frappe.get_roles(user))))
+
+    if not is_finance:
+        person = frappe.db.get_value("Cash Tracker Person", {"user": user}, "name") or ""
+
+    cle_filter = f"AND cash_tracker_person = {frappe.db.escape(person)}" if person else ""
+    ete_filter = f"AND cash_tracker_person = {frappe.db.escape(person)}" if person else ""
+
+    # ── Summary totals ──────────────────────────────────────────────────────────
+    cle_tot = frappe.db.sql(f"""
+        SELECT
+            COALESCE(SUM(CASE WHEN direction='Cash In'  THEN amount ELSE 0 END), 0) AS total_in,
+            COALESCE(SUM(CASE WHEN direction='Cash Out' THEN amount ELSE 0 END), 0) AS total_out,
+            COUNT(*) AS txn_count
+        FROM `tabCash Ledger Entry`
+        WHERE docstatus = 1 {cle_filter}
+    """, as_dict=True)[0]
+
+    ete_tot = frappe.db.sql(f"""
+        SELECT
+            COALESCE(SUM(CASE WHEN direction='Expense'       THEN amount ELSE 0 END), 0) AS total_expenses,
+            COALESCE(SUM(CASE WHEN direction='Reimbursement' THEN amount ELSE 0 END), 0) AS total_reimbursed
+        FROM `tabExpense Tracker Entry`
+        WHERE docstatus = 1 {ete_filter}
+    """, as_dict=True)[0]
+
+    cash_in    = float(cle_tot.total_in)
+    cash_out   = float(cle_tot.total_out)
+    expenses   = float(ete_tot.total_expenses)
+    reimbursed = float(ete_tot.total_reimbursed)
+
+    summary = {
+        "total_cash_in":  cash_in,
+        "total_cash_out": cash_out,
+        "cash_in_hand":   cash_in - cash_out,
+        "total_expenses": expenses,
+        "reimbursed":     reimbursed,
+        "net_owed":       expenses - reimbursed,
+        "txn_count":      int(cle_tot.txn_count),
+    }
+
+    # ── Monthly breakdown ───────────────────────────────────────────────────────
+    monthly_cle = frappe.db.sql(f"""
+        SELECT
+            DATE_FORMAT(date, '%b %Y') AS month,
+            COALESCE(SUM(CASE WHEN direction='Cash In'  THEN amount ELSE 0 END), 0) AS cash_in,
+            COALESCE(SUM(CASE WHEN direction='Cash Out' THEN amount ELSE 0 END), 0) AS cash_out,
+            COUNT(*) AS txn_count
+        FROM `tabCash Ledger Entry`
+        WHERE docstatus = 1 {cle_filter}
+        GROUP BY DATE_FORMAT(date, '%b %Y')
+    """, as_dict=True)
+
+    monthly_ete = frappe.db.sql(f"""
+        SELECT
+            DATE_FORMAT(date, '%b %Y') AS month,
+            COALESCE(SUM(CASE WHEN direction='Expense'       THEN amount ELSE 0 END), 0) AS expenses,
+            COALESCE(SUM(CASE WHEN direction='Reimbursement' THEN amount ELSE 0 END), 0) AS reimbursed
+        FROM `tabExpense Tracker Entry`
+        WHERE docstatus = 1 {ete_filter}
+        GROUP BY DATE_FORMAT(date, '%b %Y')
+    """, as_dict=True)
+
+    ete_month_map = {r.month: r for r in monthly_ete}
+    all_months = set(r.month for r in monthly_cle) | set(ete_month_map.keys())
+
+    cle_month_map = {r.month: r for r in monthly_cle}
+    monthly = []
+    for m in all_months:
+        cle = cle_month_map.get(m)
+        ete = ete_month_map.get(m)
+        ci  = float(cle.cash_in  if cle else 0)
+        co  = float(cle.cash_out if cle else 0)
+        ep  = float(ete.expenses   if ete else 0)
+        rb  = float(ete.reimbursed if ete else 0)
+        monthly.append({
+            "month":     m,
+            "cash_in":   ci,
+            "cash_out":  co,
+            "net_cash":  ci - co,
+            "expenses":  ep,
+            "reimbursed": rb,
+            "net_owed":  ep - rb,
+            "txn_count": int(cle.txn_count) if cle else 0,
+        })
+    monthly.sort(key=lambda r: _month_sort_key(r["month"]))
+
+    # ── Entity breakdown ────────────────────────────────────────────────────────
+    entity_cle = frappe.db.sql(f"""
+        SELECT
+            COALESCE(entity, 'Unknown') AS entity,
+            COALESCE(SUM(CASE WHEN direction='Cash In'  THEN amount ELSE 0 END), 0) AS cash_in,
+            COALESCE(SUM(CASE WHEN direction='Cash Out' THEN amount ELSE 0 END), 0) AS cash_out
+        FROM `tabCash Ledger Entry`
+        WHERE docstatus = 1 {cle_filter}
+        GROUP BY entity
+    """, as_dict=True)
+
+    entity_ete = frappe.db.sql(f"""
+        SELECT
+            COALESCE(entity, 'Unknown') AS entity,
+            COALESCE(SUM(CASE WHEN direction='Expense'       THEN amount ELSE 0 END), 0) AS expenses,
+            COALESCE(SUM(CASE WHEN direction='Reimbursement' THEN amount ELSE 0 END), 0) AS reimbursed
+        FROM `tabExpense Tracker Entry`
+        WHERE docstatus = 1 {ete_filter}
+        GROUP BY entity
+    """, as_dict=True)
+
+    ete_ent_map = {r.entity: r for r in entity_ete}
+    all_entities = set(r.entity for r in entity_cle) | set(ete_ent_map.keys())
+    cle_ent_map  = {r.entity: r for r in entity_cle}
+
+    entities = []
+    for ent in sorted(all_entities):
+        cle = cle_ent_map.get(ent)
+        ete = ete_ent_map.get(ent)
+        ci  = float(cle.cash_in  if cle else 0)
+        co  = float(cle.cash_out if cle else 0)
+        ep  = float(ete.expenses   if ete else 0)
+        rb  = float(ete.reimbursed if ete else 0)
+        entities.append({
+            "entity":     ent,
+            "cash_in":    ci,
+            "cash_out":   co,
+            "net_cash":   ci - co,
+            "expenses":   ep,
+            "reimbursed": rb,
+            "net_owed":   ep - rb,
+        })
+
+    # ── Recent transactions from Cash Ledger Entry ─────────────────────────────
+    tx_rows = frappe.db.sql(f"""
+        SELECT name, date, entity, direction, amount, transaction_type,
+               invoice_number, notes, running_balance, cash_tracker_person
+        FROM `tabCash Ledger Entry`
+        WHERE docstatus = 1 {cle_filter}
+        ORDER BY date DESC, creation DESC
+        LIMIT 75
+    """, as_dict=True)
+
+    transactions = []
+    for r in tx_rows:
+        transactions.append({
+            "name":             r.name,
+            "date":             str(r.date),
+            "entity":           r.entity or "",
+            "direction":        r.direction or "",
+            "amount":           float(r.amount or 0),
+            "transaction_type": r.transaction_type or "",
+            "invoice_number":   r.invoice_number or "",
+            "notes":            r.notes or "",
+            "running_balance":  float(r.running_balance or 0),
+        })
+
+    # ── Expense Tracker Entries ────────────────────────────────────────────────
+    ete_rows = frappe.db.sql(f"""
+        SELECT name, date, entity, direction, amount, transaction_type,
+               notes, cash_tracker_person, employee
+        FROM `tabExpense Tracker Entry`
+        WHERE docstatus = 1 {ete_filter}
+        ORDER BY date DESC, creation DESC
+        LIMIT 75
+    """, as_dict=True)
+
+    expense_entries = []
+    for r in ete_rows:
+        expense_entries.append({
+            "name":             r.name,
+            "date":             str(r.date),
+            "entity":           r.entity or "",
+            "direction":        r.direction or "",
+            "amount":           float(r.amount or 0),
+            "transaction_type": r.transaction_type or "",
+            "notes":            r.notes or "",
+            "employee":         r.employee or "",
+        })
+
+    # ── Finance person filter list ──────────────────────────────────────────────
+    persons = []
+    if is_finance:
+        persons = frappe.db.sql(
+            "SELECT name, name AS full_name FROM `tabCash Tracker Person` ORDER BY name",
+            as_dict=True
+        )
+
+    return {
+        "summary":         summary,
+        "monthly":         monthly,
+        "entities":        entities,
+        "transactions":    transactions,
+        "expense_entries": expense_entries,
+        "persons":         persons,
+        "is_finance":      is_finance,
+        "current_person":  person or "",
+    }
+
+
+@frappe.whitelist()
+def get_nikki_expense_summary():
+    """
+    Lightweight summary of Expense Tracker Entry data for the workspace widget.
+    Non-Finance users see only their own CTP's entries.
+    """
+    user = frappe.session.user
+    finance_roles = {"Finance Manager", "Accounts Manager", "System Manager", "Administrator"}
+    is_finance = bool(finance_roles.intersection(set(frappe.get_roles(user))))
+
+    if is_finance:
+        ctp_filter = ""
+    else:
+        person = frappe.db.get_value("Cash Tracker Person", {"user": user}, "name") or ""
+        ctp_filter = f"AND cash_tracker_person = {frappe.db.escape(person)}" if person else "AND 1=0"
+
+    totals = frappe.db.sql(f"""
+        SELECT
+            COALESCE(SUM(CASE WHEN direction='Expense'       THEN amount ELSE 0 END), 0) AS total_expenses,
+            COALESCE(SUM(CASE WHEN direction='Reimbursement' THEN amount ELSE 0 END), 0) AS total_reimbursed,
+            COUNT(*) AS entry_count
+        FROM `tabExpense Tracker Entry`
+        WHERE docstatus = 1 {ctp_filter}
+    """, as_dict=True)[0]
+
+    recent = frappe.db.sql(f"""
+        SELECT name, date, direction, amount, transaction_type, notes, entity
+        FROM `tabExpense Tracker Entry`
+        WHERE docstatus = 1 {ctp_filter}
+        ORDER BY date DESC, creation DESC
+        LIMIT 10
+    """, as_dict=True)
+
+    for r in recent:
+        r["date"]             = str(r["date"])
+        r["amount"]           = float(r["amount"] or 0)
+        r["transaction_type"] = r.get("transaction_type") or ""
+        r["notes"]            = r.get("notes") or ""
+        r["entity"]           = r.get("entity") or ""
+
+    expenses   = float(totals.total_expenses)
+    reimbursed = float(totals.total_reimbursed)
+
+    return {
+        "total_expenses":   expenses,
+        "total_reimbursed": reimbursed,
+        "net_owed":         expenses - reimbursed,
+        "count":            int(totals.entry_count),
+        "recent":           recent,
+    }

@@ -1,0 +1,17 @@
+{
+ "content": null,
+ "docstatus": 0,
+ "doctype": "Page",
+ "module": "Cannabis Management",
+ "name": "nikki-command-center",
+ "page_name": "nikki-command-center",
+ "roles": [
+  {"role": "Cash Tracker User"},
+  {"role": "Finance Manager"},
+  {"role": "Accounts Manager"},
+  {"role": "System Manager"}
+ ],
+ "standard": "Yes",
+ "system_page": 0,
+ "title": "Nikki's Financial Command Center"
+}

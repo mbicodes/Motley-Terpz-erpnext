@@ -28,21 +28,20 @@ def _month_str(d):
 EXPENSE_SCRIPT = """
 # Nikki Expense Entry → Expense Tracker Entry (auto-submit)
 # Fires: after_insert on Nikki Expense Entry
-# Sandbox rules (RestrictedPython): no import/from, no underscore-prefixed names,
-# no function definitions (closures break), no frappe.utils.getdate.
-# Balance hooks omitted — Finance reviews and recalculates via ETE if needed.
+# Sandbox rules (RestrictedPython): no import/from, no underscore names, no function defs.
+# frappe.get_attr NOT available in sandbox — balance update is inlined with SQL.
+#
+# ETE uses db_insert() to bypass _validate_receipt_required() in the controller.
 
 try:
-    # Re-load from DB to pick up any value the controller wrote via db_set
     existing_ete = frappe.db.get_value("Nikki Expense Entry", doc.name, "expense_tracker_entry")
 
     if existing_ete:
-        # Controller created it — make sure it is submitted (docstatus=1)
         current_status = frappe.db.get_value("Expense Tracker Entry", existing_ete, "docstatus")
         if current_status == 0:
             frappe.db.set_value("Expense Tracker Entry", existing_ete, "docstatus", 1)
+        bal_person = frappe.db.get_value("Expense Tracker Entry", existing_ete, "cash_tracker_person")
     else:
-        # Controller failed or was skipped — create via db_insert() to bypass before_save
         direction = None
         amount = None
         if doc.money_out and float(doc.money_out) > 0:
@@ -53,9 +52,8 @@ try:
             amount = float(doc.money_in)
 
         if direction and amount:
-            person = frappe.db.get_value("Cash Tracker Person", {"user": frappe.session.user}, "name")
+            bal_person = frappe.db.get_value("Cash Tracker Person", {"user": frappe.session.user}, "name")
 
-            # Inline month: "2026-06-08" -> "Jun 2026" (no import, no function def)
             date_s = str(doc.transaction_date)[:10]
             mon_num = int(date_s[5:7]) - 1
             mon_list = "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split()
@@ -69,40 +67,77 @@ try:
             ete.receipt = doc.receipt or None
             ete.notes = ("[Web Form] Source: Nikki Expense Entry " + str(doc.name) + ". " + str(doc.transaction_notes or "")).strip()
             ete.company = doc.business or None
-            ete.cash_tracker_person = person or None
+            ete.cash_tracker_person = bal_person or None
             ete.transaction_type = "Reimbursement" if direction == "Reimbursement" else "Other"
             ete.entity = doc.business or "Motley Terpz"
 
             ete.db_insert()
             frappe.db.set_value("Expense Tracker Entry", ete.name, "docstatus", 1)
+            frappe.db.set_value("Expense Tracker Entry", ete.name, "month", month_val)
             frappe.db.set_value("Nikki Expense Entry", doc.name, "expense_tracker_entry", ete.name)
         else:
             frappe.log_error(
                 "No money_in or money_out on Nikki Expense Entry " + str(doc.name),
                 "Nikki Expense to ETE: no amount"
             )
+            bal_person = None
+
+    # --- Inline balance update (frappe.get_attr not available in sandbox) ---
+    if bal_person:
+        ci = frappe.db.sql("SELECT COALESCE(SUM(amount),0) FROM `tabCash Ledger Entry` WHERE cash_tracker_person=%s AND direction='Cash In' AND docstatus=1", bal_person)[0][0]
+        co = frappe.db.sql("SELECT COALESCE(SUM(amount),0) FROM `tabCash Ledger Entry` WHERE cash_tracker_person=%s AND direction='Cash Out' AND docstatus=1", bal_person)[0][0]
+        ep = frappe.db.sql("SELECT COALESCE(SUM(amount),0) FROM `tabExpense Tracker Entry` WHERE cash_tracker_person=%s AND direction='Expense' AND docstatus=1", bal_person)[0][0]
+        rb = frappe.db.sql("SELECT COALESCE(SUM(amount),0) FROM `tabExpense Tracker Entry` WHERE cash_tracker_person=%s AND direction='Reimbursement' AND docstatus=1", bal_person)[0][0]
+        net_cash = float(ci) - float(co)
+        net_owed = float(ep) - float(rb)
+        frappe.db.set_value("Cash Tracker Person", bal_person, {"cash_balance": net_cash, "total_expenses": float(ep), "total_reimbursed": float(rb), "net_owed": net_owed})
+        ledger = frappe.db.get_value("Cash Balance Ledger", {"cash_tracker_person": bal_person})
+        if ledger:
+            frappe.db.set_value("Cash Balance Ledger", ledger, {"total_cash_in": float(ci), "total_cash_out": float(co), "net_cash": net_cash, "total_expenses": float(ep), "total_reimbursed": float(rb), "net_owed": net_owed})
+        else:
+            new_ledger = frappe.new_doc("Cash Balance Ledger")
+            new_ledger.cash_tracker_person = bal_person
+            new_ledger.total_cash_in = float(ci)
+            new_ledger.total_cash_out = float(co)
+            new_ledger.net_cash = net_cash
+            new_ledger.total_expenses = float(ep)
+            new_ledger.total_reimbursed = float(rb)
+            new_ledger.net_owed = net_owed
+            new_ledger.insert(ignore_permissions=True)
 except Exception as exc:
     frappe.log_error(str(exc), "Nikki Expense to ETE: unexpected error")
 """
 
 CASH_LEDGER_SCRIPT = """
-# Nikki Cash Ledger Entry → Cash Ledger Entry (Finance-only draft)
+# Nikki Cash Ledger Entry → Cash Ledger Entry (Finance-side, fully synced)
 # Fires: after_insert on Nikki Cash Ledger Entry
-# Sandbox rules (RestrictedPython): no import/from, no function definitions (closures break).
+# Sandbox rules (RestrictedPython): no import/from, no function defs, no underscore names.
+# frappe.get_attr NOT available in sandbox — hooks are inlined with SQL + set_value.
+#
+# Special case — transaction_type = "Reimbursement" (direction = "Cash Out"):
+#   Creates a CLE Cash Out (reduces company cash) AND an ETE Reimbursement
+#   (reduces what the company owes the person), so both balances update together.
 
 try:
     existing = frappe.db.get_value("Nikki Cash Ledger Entry", doc.name, "cash_ledger_entry")
     if not existing:
-        # Inline month: "2026-06-08" -> "Jun 2026" (no import, no function def)
         date_s = str(doc.date)[:10]
         mon_num = int(date_s[5:7]) - 1
         mon_list = "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split()
         month_val = mon_list[mon_num] + " " + date_s[:4]
 
-        # Cash Tracker Person for the submitting user
         person = frappe.db.get_value("Cash Tracker Person", {"user": frappe.session.user}, "name")
 
-        # Map entity Select value to Company name ("LA Canna" differs from company "LA Canna Distro")
+        # Guard: every submission must be linked to a Cash Tracker Person.
+        # Without it the CLE mandatory field "Person" would fail with a confusing error.
+        if not person:
+            frappe.throw(
+                "No Cash Tracker Person is set up for your account ({u}). "
+                "Please ask your administrator to create one before submitting entries.".format(
+                    u=frappe.session.user
+                )
+            )
+
         entity_val = doc.entity or ""
         if entity_val == "LA Canna":
             company_val = "LA Canna Distro"
@@ -121,10 +156,70 @@ try:
         cle.invoice_number = doc.invoice_number or None
         cle.receipt = doc.receipt or None
         cle.notes = ("[Web Form] Source: Nikki Cash Ledger Entry " + str(doc.name) + ". " + str(doc.notes or "")).strip()
-        cle.cash_tracker_person = person or None
+        cle.cash_tracker_person = person
         cle.company = company_val
-        cle.db_insert()
+
+        # insert() runs before_save so auto_fill_employee populates doc.employee
+        cle.insert(ignore_permissions=True)
+        frappe.db.set_value("Cash Ledger Entry", cle.name, "docstatus", 1)
         frappe.db.set_value("Nikki Cash Ledger Entry", doc.name, "cash_ledger_entry", cle.name)
+
+        # --- Running balance ---
+        prev_res = frappe.db.sql(
+            "SELECT running_balance FROM `tabCash Ledger Entry` WHERE cash_tracker_person = %s AND docstatus = 1 AND name != %s ORDER BY date DESC, creation DESC LIMIT 1",
+            (person, cle.name)
+        )
+        prev_bal = float(prev_res[0][0] or 0) if prev_res else 0.0
+        if doc.direction == "Cash In":
+            run_bal = prev_bal + float(doc.amount)
+        else:
+            run_bal = prev_bal - float(doc.amount)
+        frappe.db.set_value("Cash Ledger Entry", cle.name, "running_balance", run_bal)
+
+        # --- IRS Form 8300 flag ---
+        if doc.direction == "Cash In" and float(doc.amount) >= 10000:
+            frappe.db.set_value("Cash Ledger Entry", cle.name, "form_8300_required", 1)
+
+        # --- Reimbursement: also create ETE so net_owed decreases ---
+        # When Nikki takes back money she spent on company expenses, the company's
+        # cash goes down (handled by the CLE Cash Out above) AND the company owes
+        # her less (handled by this ETE Reimbursement).
+        if doc.transaction_type == "Reimbursement":
+            ete = frappe.new_doc("Expense Tracker Entry")
+            ete.date = doc.date
+            ete.month = month_val
+            ete.direction = "Reimbursement"
+            ete.amount = doc.amount
+            ete.cash_tracker_person = person
+            ete.company = company_val
+            ete.entity = doc.entity or "Motley Terpz"
+            ete.transaction_type = "Reimbursement"
+            ete.notes = ("[Cash Reimbursement] Source: Nikki Cash Ledger Entry " + str(doc.name) + ". " + str(doc.notes or "")).strip()
+            ete.db_insert()
+            frappe.db.set_value("Expense Tracker Entry", ete.name, "docstatus", 1)
+
+        # --- Cash Balance Ledger + Cash Tracker Person totals ---
+        # Runs after any ETE created above so the reimbursement is already counted.
+        ci = frappe.db.sql("SELECT COALESCE(SUM(amount),0) FROM `tabCash Ledger Entry` WHERE cash_tracker_person=%s AND direction='Cash In' AND docstatus=1", person)[0][0]
+        co = frappe.db.sql("SELECT COALESCE(SUM(amount),0) FROM `tabCash Ledger Entry` WHERE cash_tracker_person=%s AND direction='Cash Out' AND docstatus=1", person)[0][0]
+        ep = frappe.db.sql("SELECT COALESCE(SUM(amount),0) FROM `tabExpense Tracker Entry` WHERE cash_tracker_person=%s AND direction='Expense' AND docstatus=1", person)[0][0]
+        rb = frappe.db.sql("SELECT COALESCE(SUM(amount),0) FROM `tabExpense Tracker Entry` WHERE cash_tracker_person=%s AND direction='Reimbursement' AND docstatus=1", person)[0][0]
+        net_cash = float(ci) - float(co)
+        net_owed = float(ep) - float(rb)
+        frappe.db.set_value("Cash Tracker Person", person, {"cash_balance": net_cash, "total_expenses": float(ep), "total_reimbursed": float(rb), "net_owed": net_owed})
+        ledger = frappe.db.get_value("Cash Balance Ledger", {"cash_tracker_person": person})
+        if ledger:
+            frappe.db.set_value("Cash Balance Ledger", ledger, {"total_cash_in": float(ci), "total_cash_out": float(co), "net_cash": net_cash, "total_expenses": float(ep), "total_reimbursed": float(rb), "net_owed": net_owed})
+        else:
+            new_ledger = frappe.new_doc("Cash Balance Ledger")
+            new_ledger.cash_tracker_person = person
+            new_ledger.total_cash_in = float(ci)
+            new_ledger.total_cash_out = float(co)
+            new_ledger.net_cash = net_cash
+            new_ledger.total_expenses = float(ep)
+            new_ledger.total_reimbursed = float(rb)
+            new_ledger.net_owed = net_owed
+            new_ledger.insert(ignore_permissions=True)
 except Exception as exc:
     frappe.log_error(str(exc), "Nikki Cash to CLE: unexpected error")
 """
