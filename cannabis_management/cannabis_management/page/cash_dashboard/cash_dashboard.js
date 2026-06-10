@@ -43,7 +43,7 @@ frappe.pages["cash-dashboard"].on_page_load = function (wrapper) {
 			<!-- Submitted Cash Entries -->
 			<div class="fcc-section">
 				<div class="fcc-section-hdr" style="--hdr-accent:#1565c0;">
-					<span>&#128196; Submitted Entries</span>
+					<span>&#128196; Cash Entries</span>
 					<div style="display:flex;align-items:center;gap:12px;">
 						<span class="fcc-section-note" id="fcc-txn-note"></span>
 						<button class="fcc-export-section-btn" id="fcc-export-cash">&#8595; CSV</button>
