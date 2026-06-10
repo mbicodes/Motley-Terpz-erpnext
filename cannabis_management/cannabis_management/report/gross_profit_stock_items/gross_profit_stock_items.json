@@ -6,7 +6,7 @@
  "docstatus": 0,
  "doctype": "Report",
  "filters": [],
- "is_standard": "No",
+ "is_standard": "Yes",
  "module": "Cannabis Management",
  "name": "Gross Profit Stock Items",
  "ref_doctype": "Sales Invoice",
