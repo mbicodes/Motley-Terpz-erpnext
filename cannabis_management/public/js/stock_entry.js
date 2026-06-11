@@ -11,6 +11,7 @@ frappe.ui.form.on("Stock Entry", {
 
         if (frm.is_new() && frm.doc.stock_entry_type === "Manufacture" && frm.doc.work_order) {
             setTimeout(() => pin_rm_qty_from_wo(frm), 120);
+            _fix_operating_cost_from_wo(frm);
         }
     },
 
@@ -130,6 +131,23 @@ function pin_rm_qty_from_wo(frm) {
                 Promise.all(promises).then(() => frm.refresh_field("items"));
             }
         },
+    });
+}
+
+function _fix_operating_cost_from_wo(frm) {
+    frappe.db.get_value("Work Order", frm.doc.work_order, ["total_operating_cost", "qty"], r => {
+        if (!r || !flt(r.total_operating_cost) || !flt(r.qty)) return;
+
+        let fg_qty = flt(frm.doc.fg_completed_qty) || flt(r.qty);
+        let amount = (flt(r.total_operating_cost) / flt(r.qty)) * fg_qty;
+
+        let row = (frm.doc.additional_costs || []).find(
+            c => c.description === "Operating Cost as per Work Order / BOM"
+        );
+        if (row) {
+            frappe.model.set_value(row.doctype, row.name, "amount", amount);
+        }
+        frm.refresh_field("additional_costs");
     });
 }
 
