@@ -146,22 +146,21 @@ function _fix_operating_cost_from_wo(frm) {
         callback: function (r) {
             if (!r.message || !r.message.length) return;
 
-            // Remove the old single operating cost row
-            let to_remove = (frm.doc.additional_costs || []).filter(
-                c => c.description === "Operating Cost as per Work Order / BOM"
+            // Drop the ERPNext default single operating-cost row
+            frm.doc.additional_costs = (frm.doc.additional_costs || []).filter(
+                c => c.description !== "Operating Cost as per Work Order / BOM"
             );
-            to_remove.forEach(row => frm.get_field("additional_costs").grid.grid_rows_by_docname[row.name]?.remove());
 
             // Add per-account rows
             r.message.forEach(item => {
-                let new_row = frm.add_child("additional_costs", {
+                frm.add_child("additional_costs", {
                     expense_account: item.expense_account,
                     description: item.description,
                     amount: item.amount,
                 });
             });
 
-            // Update total
+            // Recalculate total from all rows
             let total = (frm.doc.additional_costs || []).reduce((s, c) => s + flt(c.amount), 0);
             frm.set_value("total_additional_costs", total);
             frm.refresh_field("additional_costs");
