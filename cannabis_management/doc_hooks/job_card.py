@@ -74,6 +74,17 @@ def calculate_sub_op_costs(doc, method=None):
         total += cost
 
     doc.custom_sub_op_total_cost = total
+    frappe.db.set_value("Job Card", doc.name, "custom_sub_op_total_cost", total, update_modified=False)
+
+    # On submit: roll up all submitted Job Cards for this Work Order → actual_operating_cost
+    if doc.docstatus == 1 and doc.get("work_order"):
+        wo_total = frappe.db.sql("""
+            SELECT COALESCE(SUM(custom_sub_op_total_cost), 0)
+            FROM `tabJob Card`
+            WHERE work_order = %s AND docstatus = 1
+        """, doc.work_order)[0][0]
+        frappe.db.set_value("Work Order", doc.work_order, "actual_operating_cost",
+                            flt(wo_total), update_modified=False)
 
 
 def validate(doc, method=None):
