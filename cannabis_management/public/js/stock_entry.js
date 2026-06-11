@@ -135,22 +135,37 @@ function pin_rm_qty_from_wo(frm) {
 }
 
 function _fix_operating_cost_from_wo(frm) {
-    frappe.db.get_value("Work Order", frm.doc.work_order, ["total_operating_cost", "qty"], r => {
-        if (!r || !flt(r.total_operating_cost) || !flt(r.qty)) return;
+    frappe.call({
+        method: "cannabis_management.doc_hooks.stock_entry.get_wo_cost_breakdown",
+        args: {
+            work_order: frm.doc.work_order,
+            company: frm.doc.company,
+            fg_completed_qty: frm.doc.fg_completed_qty,
+            wo_qty: null,
+        },
+        callback: function (r) {
+            if (!r.message || !r.message.length) return;
 
-        let fg_qty = flt(frm.doc.fg_completed_qty) || flt(r.qty);
-        let amount = (flt(r.total_operating_cost) / flt(r.qty)) * fg_qty;
+            // Remove the old single operating cost row
+            let to_remove = (frm.doc.additional_costs || []).filter(
+                c => c.description === "Operating Cost as per Work Order / BOM"
+            );
+            to_remove.forEach(row => frm.get_field("additional_costs").grid.grid_rows_by_docname[row.name]?.remove());
 
-        let row = (frm.doc.additional_costs || []).find(
-            c => c.description === "Operating Cost as per Work Order / BOM"
-        );
-        if (row) {
-            frappe.model.set_value(row.doctype, row.name, "amount", amount).then(() => {
-                let total = (frm.doc.additional_costs || []).reduce((s, r) => s + flt(r.amount), 0);
-                frm.set_value("total_additional_costs", total);
-                frm.refresh_field("additional_costs");
+            // Add per-account rows
+            r.message.forEach(item => {
+                let new_row = frm.add_child("additional_costs", {
+                    expense_account: item.expense_account,
+                    description: item.description,
+                    amount: item.amount,
+                });
             });
-        }
+
+            // Update total
+            let total = (frm.doc.additional_costs || []).reduce((s, c) => s + flt(c.amount), 0);
+            frm.set_value("total_additional_costs", total);
+            frm.refresh_field("additional_costs");
+        },
     });
 }
 
