@@ -1,18 +1,36 @@
 // Job Card — auto-populate workstation, rate, and sub-op cost on time log rows
 
 frappe.ui.form.on('Job Card', {
-    // When the Job Card's own workstation changes, backfill any rows that have no workstation yet
+
+    refresh: function (frm) {
+        _load_all_rates(frm);
+    },
+
     workstation: function (frm) {
+        // Backfill rows that have no workstation yet
         (frm.doc.time_logs || []).forEach(row => {
             if (!row.custom_workstation) {
                 _set_row_workstation(frm, row.doctype, row.name, frm.doc.workstation);
             }
         });
     },
+
+    before_save: function (frm) {
+        // Recalculate all costs before saving
+        let total = 0;
+        (frm.doc.time_logs || []).forEach(row => {
+            let cost = (flt(row.custom_hour_rate) / 60) * flt(row.time_in_mins);
+            row.custom_sub_op_cost = cost;
+            total += cost;
+        });
+        frm.doc.custom_sub_op_total_cost = total;
+        frm.refresh_field('time_logs');
+        frm.refresh_field('custom_sub_op_total_cost');
+    },
 });
 
 frappe.ui.form.on('Job Card Time Log', {
-    // When a row's operation changes, resolve its workstation from Operation → fallback to Job Card
+
     operation: function (frm, cdt, cdn) {
         let row = frappe.get_doc(cdt, cdn);
         if (row.operation) {
@@ -22,11 +40,6 @@ frappe.ui.form.on('Job Card Time Log', {
         } else {
             _set_row_workstation(frm, cdt, cdn, frm.doc.workstation || '');
         }
-    },
-
-    // When time is entered, recalculate cost
-    time_in_mins: function (frm, cdt, cdn) {
-        _recalc_cost(frm, cdt, cdn);
     },
 
     custom_workstation: function (frm, cdt, cdn) {
@@ -42,10 +55,44 @@ frappe.ui.form.on('Job Card Time Log', {
         }
     },
 
+    time_in_mins: function (frm, cdt, cdn) {
+        _recalc_cost(frm, cdt, cdn);
+    },
+
     custom_hour_rate: function (frm, cdt, cdn) {
         _recalc_cost(frm, cdt, cdn);
     },
 });
+
+// On form load: batch-fetch rates for all rows that already have a workstation
+function _load_all_rates(frm) {
+    let rows_needing_rate = (frm.doc.time_logs || []).filter(r => r.custom_workstation);
+    if (!rows_needing_rate.length) return;
+
+    let unique_ws = [...new Set(rows_needing_rate.map(r => r.custom_workstation))];
+
+    frappe.db.get_list('Workstation', {
+        filters: [['name', 'in', unique_ws]],
+        fields: ['name', 'custom_total_operating_cost'],
+        limit: unique_ws.length,
+    }).then(ws_list => {
+        let rate_map = {};
+        ws_list.forEach(w => { rate_map[w.name] = flt(w.custom_total_operating_cost); });
+
+        let total = 0;
+        (frm.doc.time_logs || []).forEach(row => {
+            if (!row.custom_workstation) return;
+            let rate = rate_map[row.custom_workstation] || 0;
+            let cost = (rate / 60) * flt(row.time_in_mins);
+            row.custom_hour_rate = rate;
+            row.custom_sub_op_cost = cost;
+            total += cost;
+        });
+        frm.doc.custom_sub_op_total_cost = total;
+        frm.refresh_field('time_logs');
+        frm.refresh_field('custom_sub_op_total_cost');
+    });
+}
 
 function _set_row_workstation(frm, cdt, cdn, ws) {
     frappe.model.set_value(cdt, cdn, 'custom_workstation', ws || '');
@@ -62,11 +109,9 @@ function _set_row_workstation(frm, cdt, cdn, ws) {
 
 function _recalc_cost(frm, cdt, cdn) {
     let row = frappe.get_doc(cdt, cdn);
-    let hrs = flt(row.time_in_mins) / 60.0;
-    let cost = hrs * flt(row.custom_hour_rate);
+    let cost = (flt(row.custom_hour_rate) / 60) * flt(row.time_in_mins);
     frappe.model.set_value(cdt, cdn, 'custom_sub_op_cost', cost);
 
-    // Update the Job Card total
     let total = (frm.doc.time_logs || []).reduce((s, r) => s + flt(r.custom_sub_op_cost), 0);
     frm.set_value('custom_sub_op_total_cost', total);
 }
