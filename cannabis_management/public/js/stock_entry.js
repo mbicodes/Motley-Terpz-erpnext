@@ -145,9 +145,12 @@ function _fix_operating_cost_from_wo(frm) {
             c => c.description === "Operating Cost as per Work Order / BOM"
         );
         if (row) {
-            frappe.model.set_value(row.doctype, row.name, "amount", amount);
+            frappe.model.set_value(row.doctype, row.name, "amount", amount).then(() => {
+                let total = (frm.doc.additional_costs || []).reduce((s, r) => s + flt(r.amount), 0);
+                frm.set_value("total_additional_costs", total);
+                frm.refresh_field("additional_costs");
+            });
         }
-        frm.refresh_field("additional_costs");
     });
 }
 
