@@ -83,8 +83,10 @@ def calculate_sub_op_costs(doc, method=None):
             FROM `tabJob Card`
             WHERE work_order = %s AND docstatus = 1
         """, doc.work_order)[0][0]
-        frappe.db.set_value("Work Order", doc.work_order, "actual_operating_cost",
-                            flt(wo_total), update_modified=False)
+        frappe.db.set_value("Work Order", doc.work_order, {
+            "actual_operating_cost": flt(wo_total),
+            "total_operating_cost":  flt(wo_total),
+        }, update_modified=False)
 
 
 def validate(doc, method=None):
