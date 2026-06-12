@@ -107,25 +107,25 @@ class ConversionEntry(Document):
 				row.set(group_field, grp or "")
 
 	def _validate_item_groups(self):
-		"""If any FG item belongs to a Vape/Rosin group, all RMs must be Hardware Inventory."""
+		"""If any FG item belongs to a Vape/Rosin/Packaged group, at least one RM must be Hardware Inventory."""
 		for idx, row in enumerate(self.items, 1):
 			fg_groups = [row.get(gf) for _, gf in _FG_FIELDS if row.get(gf)]
 			if not any(g in VAPE_ITEM_GROUPS for g in fg_groups):
 				continue
 
-			for item_field, group_field in _RM_FIELDS:
-				item = row.get(item_field)
-				if not item:
-					continue
-				rm_group = row.get(group_field) or ""
-				if rm_group != "Hardware Inventory":
-					frappe.throw(
-						_(
-							"Row {0}: Finished Good belongs to a Vape / Rosin item group. "
-							"Raw Material <b>{1}</b> must belong to <b>Hardware Inventory</b> "
-							"(current group: <b>{2}</b>)."
-						).format(idx, item, rm_group or "None")
-					)
+			has_hardware = any(
+				row.get(gf) == "Hardware Inventory"
+				for item_f, gf in _RM_FIELDS
+				if row.get(item_f)
+			)
+
+			if not has_hardware:
+				frappe.throw(
+					_(
+						"Row {0}: Finished Good belongs to a Vape / Rosin / Packaged Goods item group. "
+						"At least one Raw Material must belong to <b>Hardware Inventory</b>."
+					).format(idx)
+				)
 
 	def on_submit(self):
 		self._create_repack_stock_entry()
