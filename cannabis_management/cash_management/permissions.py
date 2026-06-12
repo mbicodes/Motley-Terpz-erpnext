@@ -1,5 +1,7 @@
 import frappe
 
+FINANCE_ROLES = {"Finance Manager", "Accounts Manager", "System Manager", "Administrator"}
+
 
 def _get_person_for_user(user=None):
     """Return the Cash Tracker Person name linked to this ERPNext user, or None."""
@@ -9,25 +11,75 @@ def _get_person_for_user(user=None):
 
 def _is_finance_or_above(user=None):
     user = user or frappe.session.user
-    elevated = {"Finance Manager", "Accounts Manager", "System Manager", "Administrator"}
-    return bool(elevated.intersection(set(frappe.get_roles(user))))
+    return bool(FINANCE_ROLES.intersection(set(frappe.get_roles(user))))
 
+
+# ── List-view filtering ────────────────────────────────────────────────────────
 
 def cash_ledger_entry_query(user):
-    """Cash Tracker Users see only their own entries; Finance sees all."""
+    """Cash Tracker Users see only their own entries in list views; Finance sees all."""
     if _is_finance_or_above(user):
         return ""
     person = _get_person_for_user(user)
     if not person:
-        return "1=0"  # user has no Cash Tracker Person — see nothing
+        return "1=0"
     return f"`tabCash Ledger Entry`.`cash_tracker_person` = {frappe.db.escape(person)}"
 
 
 def expense_tracker_entry_query(user):
-    """Cash Tracker Users see only their own expense entries; Finance sees all."""
+    """Cash Tracker Users see only their own expense entries in list views; Finance sees all."""
     if _is_finance_or_above(user):
         return ""
     person = _get_person_for_user(user)
     if not person:
         return "1=0"
     return f"`tabExpense Tracker Entry`.`cash_tracker_person` = {frappe.db.escape(person)}"
+
+
+# ── Document-level permission checks ──────────────────────────────────────────
+
+def cash_ledger_entry_has_permission(doc, ptype="read", user=None):
+    """
+    Document-level gate for Cash Ledger Entry.
+    - Finance roles: full access.
+    - Everyone else: read only their own; cancel always denied.
+    doc is None when Frappe checks list-level access — allow if user has a CTP.
+    """
+    user = user or frappe.session.user
+    if _is_finance_or_above(user):
+        return True
+
+    if ptype == "cancel":
+        return False
+
+    # None or string = list/create level check (no specific document)
+    if doc is None or isinstance(doc, str):
+        return bool(_get_person_for_user(user))
+
+    person = _get_person_for_user(user)
+    if not person:
+        return False
+    return doc.get("cash_tracker_person") == person
+
+
+def expense_tracker_entry_has_permission(doc, ptype="read", user=None):
+    """
+    Document-level gate for Expense Tracker Entry.
+    - Finance roles: full access.
+    - Everyone else: read/write/submit only their own; cancel always denied.
+    doc is None when Frappe checks list-level access — allow if user has a CTP.
+    """
+    user = user or frappe.session.user
+    if _is_finance_or_above(user):
+        return True
+
+    if ptype == "cancel":
+        return False
+
+    if doc is None or isinstance(doc, str):
+        return bool(_get_person_for_user(user))
+
+    person = _get_person_for_user(user)
+    if not person:
+        return False
+    return doc.get("cash_tracker_person") == person
