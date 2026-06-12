@@ -9,6 +9,7 @@ VAPE_ITEM_GROUPS = {
 	"1g Jarred Rosin",
 	"1g O2 Vapes",
 	"1G Vapes (Packaged)",
+	"Packaged goods",
 }
 
 _RM_FIELDS = [
