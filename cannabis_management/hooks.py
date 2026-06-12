@@ -242,11 +242,11 @@ doc_events = {
         ],
     },
     "Sales Order": {
+        "before_validate": "cannabis_management.doc_hooks.sales_invoice.before_validate",
         "validate": "cannabis_management.overrides.sales_order_restrictions.validate",
         "on_update": "cannabis_management.overrides.sales_order_restrictions.on_update",
         "before_submit": [
             "cannabis_management.overrides.sales_order_restrictions.before_submit",
-            # AR enforcement disabled — check_customer_blocked removed
         ],
         "on_submit": [
             "cannabis_management.overrides.sales_order_restrictions.on_submit",
