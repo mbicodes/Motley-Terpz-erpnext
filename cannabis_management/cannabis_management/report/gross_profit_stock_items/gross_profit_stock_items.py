@@ -949,9 +949,9 @@ class GrossProfitGenerator:
 				`tabSales Invoice`.docstatus=1
 				and `tabSales Invoice`.is_opening!='Yes'
 				and item.is_stock_item = 1
-				and item.item_group not like '%Copacking%'
-				and item.item_name not like '%Copacking%'
-				and item.item_code not like '%Copacking%'
+				and item.item_group not like '%%Copacking%%'
+				and item.item_name not like '%%Copacking%%'
+				and item.item_code not like '%%Copacking%%'
 				{conditions} {match_cond}
 			order by
 				`tabSales Invoice`.posting_date desc, `tabSales Invoice`.posting_time desc""".format(
