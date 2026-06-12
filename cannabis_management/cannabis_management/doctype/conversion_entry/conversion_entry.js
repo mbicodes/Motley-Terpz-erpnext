@@ -75,8 +75,29 @@ frappe.ui.form.on('Conversion Entry', {
 frappe.ui.form.on("Conversion Entry Item", {
     conversion_type: function (frm, cdt, cdn) {
         clear_hidden_fields_for_row(frm, cdt, cdn);
-    }
+    },
+    raw_material_1: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'raw_material_1', 'rm_1_item_group'); },
+    raw_material_2: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'raw_material_2', 'rm_2_item_group'); },
+    raw_material_3: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'raw_material_3', 'rm_3_item_group'); },
+    raw_material_4: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'raw_material_4', 'rm_4_item_group'); },
+    raw_material_5: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'raw_material_5', 'rm_5_item_group'); },
+    raw_material_6: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'raw_material_6', 'rm_6_item_group'); },
+    raw_material_7: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'raw_material_7', 'rm_7_item_group'); },
+    finished_good_1: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'finished_good_1', 'fg_1_item_group'); },
+    finished_good_2: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'finished_good_2', 'fg_2_item_group'); },
 });
+
+function _sync_item_group(cdt, cdn, item_field, group_field) {
+    let row = frappe.get_doc(cdt, cdn);
+    let item = row[item_field];
+    if (!item) {
+        frappe.model.set_value(cdt, cdn, group_field, '');
+        return;
+    }
+    frappe.db.get_value('Item', item, 'item_group', function (val) {
+        frappe.model.set_value(cdt, cdn, group_field, (val && val.item_group) || '');
+    });
+}
 
 function clear_hidden_fields_for_row(frm, cdt, cdn) {
     let row = frappe.get_doc(cdt, cdn);

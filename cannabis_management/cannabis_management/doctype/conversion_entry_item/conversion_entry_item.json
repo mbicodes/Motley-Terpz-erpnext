@@ -27,7 +27,16 @@
         "finished_good_1",
         "qty_fg_1",
         "finished_good_2",
-        "qty_fg_2"
+        "qty_fg_2",
+        "rm_1_item_group",
+        "rm_2_item_group",
+        "rm_3_item_group",
+        "rm_4_item_group",
+        "rm_5_item_group",
+        "rm_6_item_group",
+        "rm_7_item_group",
+        "fg_1_item_group",
+        "fg_2_item_group"
     ],
     "fields": [
         {
@@ -198,6 +207,69 @@
             "in_list_view": 1,
             "label": "Qty (FG 2)",
             "depends_on": "eval:in_list([\"1 to 2\", \"2 to 2\"], doc.conversion_type)"
+        },
+        {
+            "fieldname": "rm_1_item_group",
+            "fieldtype": "Data",
+            "hidden": 1,
+            "label": "RM 1 Item Group",
+            "read_only": 1
+        },
+        {
+            "fieldname": "rm_2_item_group",
+            "fieldtype": "Data",
+            "hidden": 1,
+            "label": "RM 2 Item Group",
+            "read_only": 1
+        },
+        {
+            "fieldname": "rm_3_item_group",
+            "fieldtype": "Data",
+            "hidden": 1,
+            "label": "RM 3 Item Group",
+            "read_only": 1
+        },
+        {
+            "fieldname": "rm_4_item_group",
+            "fieldtype": "Data",
+            "hidden": 1,
+            "label": "RM 4 Item Group",
+            "read_only": 1
+        },
+        {
+            "fieldname": "rm_5_item_group",
+            "fieldtype": "Data",
+            "hidden": 1,
+            "label": "RM 5 Item Group",
+            "read_only": 1
+        },
+        {
+            "fieldname": "rm_6_item_group",
+            "fieldtype": "Data",
+            "hidden": 1,
+            "label": "RM 6 Item Group",
+            "read_only": 1
+        },
+        {
+            "fieldname": "rm_7_item_group",
+            "fieldtype": "Data",
+            "hidden": 1,
+            "label": "RM 7 Item Group",
+            "read_only": 1
+        },
+        {
+            "fieldname": "fg_1_item_group",
+            "fieldtype": "Data",
+            "hidden": 1,
+            "label": "FG 1 Item Group",
+            "read_only": 1
+        },
+        {
+            "fieldname": "fg_2_item_group",
+            "fieldtype": "Data",
+            "hidden": 1,
+            "label": "FG 2 Item Group",
+            "read_only": 1
         }
     ],
     "index_web_pages_for_search": 1,

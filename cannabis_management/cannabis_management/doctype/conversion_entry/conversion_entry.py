@@ -3,10 +3,35 @@ from frappe import _
 from frappe.model.document import Document
 from frappe.utils import flt
 
+VAPE_ITEM_GROUPS = {
+	"0.5g O2 Vape",
+	"0.5G Vapes (Packaged)",
+	"1g Jarred Rosin",
+	"1g O2 Vapes",
+	"1G Vapes (Packaged)",
+}
+
+_RM_FIELDS = [
+	("raw_material_1", "rm_1_item_group"),
+	("raw_material_2", "rm_2_item_group"),
+	("raw_material_3", "rm_3_item_group"),
+	("raw_material_4", "rm_4_item_group"),
+	("raw_material_5", "rm_5_item_group"),
+	("raw_material_6", "rm_6_item_group"),
+	("raw_material_7", "rm_7_item_group"),
+]
+
+_FG_FIELDS = [
+	("finished_good_1", "fg_1_item_group"),
+	("finished_good_2", "fg_2_item_group"),
+]
+
 
 class ConversionEntry(Document):
 	def validate(self):
+		self._populate_item_groups()
 		self._validate_items()
+		self._validate_item_groups()
 
 	def _validate_items(self):
 		"""Ensure required fields are filled based on conversion type."""
@@ -70,6 +95,35 @@ class ConversionEntry(Document):
 				if not row.finished_good_2 or flt(row.qty_fg_2) <= 0:
 					frappe.throw(
 						_("Row {0}: Finished Good 2 and its Qty are required for 1 to 2 conversion.").format(idx)
+					)
+
+	def _populate_item_groups(self):
+		"""Fetch and store item_group for every item field in each row."""
+		for row in self.items:
+			for item_field, group_field in _RM_FIELDS + _FG_FIELDS:
+				item = row.get(item_field)
+				grp = frappe.db.get_value("Item", item, "item_group") if item else ""
+				row.set(group_field, grp or "")
+
+	def _validate_item_groups(self):
+		"""If any FG item belongs to a Vape/Rosin group, all RMs must be Hardware Inventory."""
+		for idx, row in enumerate(self.items, 1):
+			fg_groups = [row.get(gf) for _, gf in _FG_FIELDS if row.get(gf)]
+			if not any(g in VAPE_ITEM_GROUPS for g in fg_groups):
+				continue
+
+			for item_field, group_field in _RM_FIELDS:
+				item = row.get(item_field)
+				if not item:
+					continue
+				rm_group = row.get(group_field) or ""
+				if rm_group != "Hardware Inventory":
+					frappe.throw(
+						_(
+							"Row {0}: Finished Good belongs to a Vape / Rosin item group. "
+							"Raw Material <b>{1}</b> must belong to <b>Hardware Inventory</b> "
+							"(current group: <b>{2}</b>)."
+						).format(idx, item, rm_group or "None")
 					)
 
 	def on_submit(self):
