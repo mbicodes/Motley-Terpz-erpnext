@@ -1,15 +1,28 @@
 // /home/frappeuser/frappe-bench/apps/cannabis_management/cannabis_management/cannabis_management/doctype/conversion_entry/conversion_entry.js
 frappe.ui.form.on('Conversion Entry', {
     refresh: function (frm) {
-        // Ensure the CSS is (re)‑injected whenever the form is refreshed
         make_child_table_scrollable(frm);
+        _set_warehouse_filters(frm);
+    },
+    company: function (frm) {
+        _set_warehouse_filters(frm);
+        // Clear any already-selected warehouses that no longer belong to the new company
+        (frm.doc.items || []).forEach(function (row) {
+            frappe.model.set_value(row.doctype, row.name, 'source_warehouse', '');
+            frappe.model.set_value(row.doctype, row.name, 'target_warehouse', '');
+        });
     }
-
-    // // In case the child table is added dynamically (e.g. via a custom button)
-    // items_add: function (frm) {
-    //     make_child_table_scrollable(frm);
-    // }
 });
+
+function _set_warehouse_filters(frm) {
+    var company = frm.doc.company;
+    frm.set_query('source_warehouse', 'items', function () {
+        return { filters: { company: company } };
+    });
+    frm.set_query('target_warehouse', 'items', function () {
+        return { filters: { company: company } };
+    });
+}
 
 /**
  * Injects CSS that makes the "Items" child table horizontally scrollable
