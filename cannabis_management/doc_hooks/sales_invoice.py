@@ -28,6 +28,11 @@ AR_ALERT_RECIPIENTS = [
 
 # ── Hook entry points ─────────────────────────────────────────────────────────
 
+def before_validate(doc, method=None):
+    # Skip ERPNext's is_frozen check — we manage AR status via custom_ar_status
+    frappe.flags.ignore_party_validation = True
+
+
 def before_submit(doc, method=None):
     check_ar_policy(doc)
 

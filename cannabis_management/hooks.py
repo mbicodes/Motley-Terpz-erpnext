@@ -228,9 +228,8 @@ doc_events = {
     # -----------------------------------------------------------------------
     # AR Policy disabled — before_submit cap check removed
     "Sales Invoice": {
-        "before_submit": [
-            # AR enforcement disabled — check_customer_blocked and check_cod_customer removed
-        ],
+        "before_validate": "cannabis_management.doc_hooks.sales_invoice.before_validate",
+        "before_submit": "cannabis_management.doc_hooks.sales_invoice.before_submit",
     },
     # Lab mapping: auto-create BOMs on Material Request submit
     "Material Request": {
