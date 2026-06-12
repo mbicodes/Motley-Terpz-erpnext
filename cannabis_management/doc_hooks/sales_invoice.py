@@ -38,16 +38,7 @@ def check_ar_policy(doc):
     _warn_customer_overdue(doc)
 
 
-def _is_admin():
-    roles = frappe.get_roles()
-    return (
-        frappe.session.user == "Administrator"
-        or "System Manager" in roles
-        or "Administrator" in roles
-    )
-
-
-# ── Hard block: total AR cap ──────────────────────────────────────────────────
+# ── AR cap check (warning only — never blocks submission) ─────────────────────
 
 def _check_total_ar_cap(doc):
     """
@@ -60,20 +51,17 @@ def _check_total_ar_cap(doc):
 
     if projected >= AR_CAP_HARD:
         msg = _(
-            "AR Hard Cap Exceeded — total outstanding AR would reach <b>${0}</b>.<br><br>"
+            "AR Cap Notice — total outstanding AR will reach <b>${0}</b>.<br><br>"
             "Current AR (ledger): <b>${1}</b> &nbsp;·&nbsp; "
             "This invoice: <b>${2}</b><br>"
             "Policy cap: <b>$400,000</b>. "
-            "Collect outstanding balances before adding new credit."
+            "Please accelerate collections on outstanding balances."
         ).format(
             "{:,.2f}".format(projected),
             "{:,.2f}".format(total_ar),
             "{:,.2f}".format(flt(doc.grand_total)),
         )
-        if _is_admin():
-            frappe.msgprint(msg, title=_("AR Policy: Hard Cap (Admin Override)"), indicator="red")
-        else:
-            frappe.throw(msg, title=_("AR Policy: Hard Block"))
+        frappe.msgprint(msg, title=_("AR Policy: Cap Exceeded"), indicator="red")
 
     elif projected >= AR_CAP_WARN:
         # Show in-app warning to the user saving the invoice
@@ -153,8 +141,8 @@ def _send_ar_warning_email(current_ar, projected_ar, doc):
     </div>
     <p style="color:#94a3b8;font-size:12px;margin:0 0 18px">{cap_pct:.1f}% of $400,000 hard cap</p>
     <p style="color:#334155;font-size:13px;margin:0">
-      <b>Action required:</b> Review outstanding AR and accelerate collections
-      before the $400,000 hard cap is reached. New invoices will be blocked at $400k.
+      <b>Action required:</b> Review outstanding AR and accelerate collections.
+      Invoices above $400,000 still submit but a warning is shown to the user.
     </p>
     <p style="color:#94a3b8;font-size:11px;margin:14px 0 0">
       Invoice: {doc.name or "New"} &nbsp;·&nbsp; {today}
