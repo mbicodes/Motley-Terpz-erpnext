@@ -10,6 +10,10 @@ Checks:
 """
 
 import frappe
+import http.client
+import json
+import ssl
+from urllib.parse import urlparse
 from frappe import _
 from frappe.utils import flt, nowdate
 
@@ -35,6 +39,7 @@ def before_validate(doc, method=None):
 
 def before_submit(doc, method=None):
     check_ar_policy(doc)
+    _check_cod_customer(doc)
 
 
 def check_ar_policy(doc):
@@ -233,3 +238,83 @@ def _warn_customer_overdue(doc):
         title=_("AR Policy: Customer Overdue"),
         indicator="orange",
     )
+
+
+# ── COD Enforcement ───────────────────────────────────────────────────────────
+
+def _check_cod_customer(doc):
+    """
+    If the customer is marked COD Only in CRM Lead (custom_cod_only = 1
+    or custom_cod_flag = 1), fire a Slack alert so the team can verify
+    cash was collected before the invoice posts.
+    """
+    if not doc.customer:
+        return
+
+    lead = frappe.db.get_value(
+        "CRM Lead",
+        {"custom_erp_customer": doc.customer},
+        ["custom_cod_only", "custom_cod_flag", "lead_name"],
+        as_dict=True,
+    )
+
+    if not lead:
+        return
+
+    is_cod = int(lead.get("custom_cod_only") or 0) or int(lead.get("custom_cod_flag") or 0)
+    if not is_cod:
+        return
+
+    submitted_by = frappe.session.user
+    amount_str   = "${:,.2f}".format(flt(doc.grand_total))
+
+    blocks = [
+        {
+            "type": "header",
+            "text": {"type": "plain_text", "text": "⚠️ COD Customer Invoiced", "emoji": True},
+        },
+        {
+            "type": "section",
+            "fields": [
+                {"type": "mrkdwn", "text": f"*Customer:*\n{doc.customer}"},
+                {"type": "mrkdwn", "text": f"*Invoice:*\n{doc.name or 'New'}"},
+                {"type": "mrkdwn", "text": f"*Amount:*\n{amount_str}"},
+                {"type": "mrkdwn", "text": f"*Submitted by:*\n{submitted_by}"},
+            ],
+        },
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": ":dollar: *This customer is marked COD Only in CRM. Confirm cash was collected before this invoice posts.*",
+            },
+        },
+    ]
+
+    fallback = (
+        f"COD ALERT: {doc.customer} invoiced {amount_str} by {submitted_by}. "
+        "Confirm cash collected."
+    )
+
+    _post_slack(blocks, fallback)
+
+
+def _post_slack(blocks, fallback_text):
+    webhook_url = frappe.conf.get("slack_webhook_url")
+    if not webhook_url:
+        frappe.log_error("slack_webhook_url not set — COD alert not sent", "COD Enforcement")
+        return
+
+    payload = json.dumps({"text": fallback_text, "blocks": blocks}).encode("utf-8")
+    try:
+        parsed  = urlparse(webhook_url)
+        context = ssl.create_default_context()
+        conn    = http.client.HTTPSConnection(parsed.hostname, context=context, timeout=10)
+        conn.request("POST", parsed.path, body=payload, headers={"Content-Type": "application/json"})
+        resp      = conn.getresponse()
+        resp_body = resp.read().decode()
+        conn.close()
+        if resp.status != 200:
+            frappe.log_error(f"Slack {resp.status}: {resp_body}", "COD Enforcement")
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), "COD Enforcement - Slack Exception")
