@@ -97,14 +97,13 @@ def _create_boms_from_mr(doc):
             workstation_type = routing_op.workstation_type or ""
             workstation = getattr(routing_op, "workstation", "") or ""
 
-            # Skip if a BOM already exists for this exact FG item + MR
-            if frappe.db.exists("BOM", {
-                "item": fg_item,
-                "custom_material_request": doc.name,
-                "docstatus": ["!=", 2],
-            }):
+            # Reuse any existing active BOM for this FG + RM combination
+            existing_bom = _find_existing_bom(fg_item, input_item)
+            if existing_bom:
                 frappe.msgprint(
-                    _("BOM for {0} already exists — skipping.").format(fg_item),
+                    _("BOM <b>{0}</b> already exists for {1} ← {2} — reusing.").format(
+                        existing_bom, fg_item, input_item
+                    ),
                     alert=True,
                 )
                 input_item = fg_item
@@ -119,6 +118,7 @@ def _create_boms_from_mr(doc):
             bom.company = doc.company
             bom.with_operations = 1
             bom.custom_material_request = doc.name
+            bom.project = ""   # prevent ERPNext from auto-fetching project from linked docs
 
             bom.append("items", {
                 "item_code": input_item,
@@ -148,3 +148,20 @@ def _create_boms_from_mr(doc):
 
             input_item = fg_item
             input_uom = fg_uom
+
+
+def _find_existing_bom(fg_item, rm_item):
+    """Return the name of an existing active BOM for fg_item that uses rm_item
+    as its sole raw material input, or None if no such BOM exists."""
+    result = frappe.db.sql("""
+        SELECT b.name
+        FROM `tabBOM` b
+        INNER JOIN `tabBOM Item` bi ON bi.parent = b.name
+        WHERE b.item       = %s
+          AND bi.item_code = %s
+          AND b.docstatus  = 1
+          AND b.is_active  = 1
+        ORDER BY b.modified DESC
+        LIMIT 1
+    """, (fg_item, rm_item))
+    return result[0][0] if result else None
