@@ -238,6 +238,7 @@ doc_events = {
     "Stock Entry": {
         "validate": [
             "cannabis_management.cannabis_management.custom.stock_entry.validate",
+            "cannabis_management.doc_hooks.stock_entry.populate_micron_finished_goods",
             "cannabis_management.doc_hooks.stock_entry.set_operating_cost_accounts",
         ],
     },

@@ -4,6 +4,75 @@ from frappe.utils import flt
 STANDARD_OP_COST_DESC = "Operating Cost as per Work Order / BOM"
 
 
+def populate_micron_finished_goods(doc, method=None):
+    """
+    For a Manufacture Stock Entry from a Work Order:
+    if any linked Job Card has micron_collection_detail rows with an `item` set,
+    replace the standard BOM-derived finished good with those items.
+    Cost is split proportionally (per gram) from total raw material value.
+    """
+    if doc.purpose != "Manufacture" or not doc.work_order:
+        return
+
+    job_cards = frappe.get_all(
+        "Job Card",
+        filters={"work_order": doc.work_order},
+        fields=["name"],
+    )
+
+    micron_items = []
+    for jc in job_cards:
+        jc_doc = frappe.get_doc("Job Card", jc.name)
+        for row in (jc_doc.custom_micron_collection_detail or []):
+            if row.item and flt(row.grams_collected) > 0:
+                micron_items.append({
+                    "item_code": row.item,
+                    "qty": flt(row.grams_collected),
+                })
+
+    if not micron_items:
+        return  # no micron data — use standard BOM finished good
+
+    # Get target warehouse from existing FG item, fallback to WO fg_warehouse
+    t_warehouse = None
+    for se_item in doc.items:
+        if getattr(se_item, "is_finished_item", 0) and se_item.t_warehouse:
+            t_warehouse = se_item.t_warehouse
+            break
+    if not t_warehouse:
+        t_warehouse = frappe.db.get_value("Work Order", doc.work_order, "fg_warehouse") or ""
+
+    # Sum raw material value (source-only items)
+    total_rm_value = sum(
+        flt(i.basic_amount)
+        for i in doc.items
+        if i.s_warehouse and not i.t_warehouse and not getattr(i, "is_finished_item", 0)
+    )
+
+    total_grams = sum(r["qty"] for r in micron_items)
+    rate_per_gram = (total_rm_value / total_grams) if total_grams else 0.0
+
+    # Remove standard finished good rows
+    doc.items = [i for i in doc.items if not getattr(i, "is_finished_item", 0)]
+
+    # Add one row per micron item
+    for row in micron_items:
+        stock_uom = frappe.db.get_value("Item", row["item_code"], "stock_uom") or "Gram"
+        doc.append("items", {
+            "item_code": row["item_code"],
+            "qty": row["qty"],
+            "uom": "Gram",
+            "stock_uom": stock_uom,
+            "conversion_factor": 1.0,
+            "t_warehouse": t_warehouse,
+            "is_finished_item": 1,
+            "basic_rate": rate_per_gram,
+            "basic_amount": rate_per_gram * row["qty"],
+        })
+
+    doc.fg_completed_qty = total_grams
+
+
 def _build_cost_map(work_order_name, company):
     """
     Walk all submitted Job Cards for a Work Order.
