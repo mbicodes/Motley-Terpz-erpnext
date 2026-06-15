@@ -60,16 +60,6 @@ frappe.ui.form.on("Material Request", {
 // ─── RM Item table ───
 frappe.ui.form.on("Material Request Item", {
     qty(frm, cdt, cdn) {
-        let row = locals[cdt][cdn];
-        frappe.model.set_value(cdt, cdn, 'custom_qty_grams', (row.qty || 0) * 453.592);
-        calculate_finished_qty(frm);
-    },
-    custom_qty_grams(frm, cdt, cdn) {
-        let row = locals[cdt][cdn];
-        let lbs = (row.custom_qty_grams || 0) / 453.592;
-        if (Math.abs(lbs - (row.qty || 0)) > 0.001) {
-            frappe.model.set_value(cdt, cdn, 'qty', lbs);
-        }
         calculate_finished_qty(frm);
     }
 });

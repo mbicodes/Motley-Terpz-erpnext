@@ -300,9 +300,6 @@ def create_purchase_request(qty, uom, schedule_date, why_need=None, type_val=Non
     doc.transaction_date      = frappe.utils.today()
     doc.schedule_date         = schedule_date
     doc.company               = 'Motley Terpz'
-    doc.custom_quantity       = frappe.utils.flt(qty)
-    doc.custom_why_need       = why_need or ''
-    doc.custom_select_skxu    = type_val or ''
     doc.flags.ignore_mandatory = True
     doc.insert(ignore_permissions=False)
     frappe.db.commit()
