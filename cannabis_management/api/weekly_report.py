@@ -251,7 +251,7 @@ def _get_ar_partial(week_start, week_end):
 
 
 def _get_ar_legacy_collected(week_start, week_end):
-    return frappe.db.sql("""
+    pe_rows = frappe.db.sql("""
         SELECT
             pe.name          AS payment_name,
             pe.party         AS customer,
@@ -276,6 +276,34 @@ def _get_ar_legacy_collected(week_start, week_end):
           AND (c.represents_company IS NULL OR c.represents_company = '')
         ORDER BY pe.party, pe.posting_date, si.posting_date
     """, (week_start, week_end, week_start), as_dict=True)
+
+    je_rows = frappe.db.sql("""
+        SELECT
+            je.name          AS payment_name,
+            jea.party        AS customer,
+            je.posting_date  AS payment_date,
+            je.voucher_type  AS mode_of_payment,
+            je.company,
+            si.name          AS invoice,
+            si.posting_date  AS invoice_date,
+            si.grand_total   AS invoice_total,
+            jea.credit       AS collected_amount
+        FROM `tabJournal Entry` je
+        JOIN `tabJournal Entry Account` jea ON jea.parent = je.name
+        JOIN `tabSales Invoice` si ON si.name = jea.reference_name
+        LEFT JOIN `tabCustomer` c ON c.name = jea.party
+        WHERE je.docstatus = 1
+          AND je.posting_date BETWEEN %s AND %s
+          AND si.posting_date < %s
+          AND jea.reference_type = 'Sales Invoice'
+          AND jea.party_type = 'Customer'
+          AND jea.credit > 0
+          AND COALESCE(c.is_internal_customer, 0) = 0
+          AND (c.represents_company IS NULL OR c.represents_company = '')
+        ORDER BY jea.party, je.posting_date, si.posting_date
+    """, (week_start, week_end, week_start), as_dict=True)
+
+    return pe_rows + je_rows
 
 
 # ── Email body (summary only) ─────────────────────────────────────────────────
