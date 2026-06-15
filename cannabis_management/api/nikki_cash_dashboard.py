@@ -6,13 +6,10 @@ from frappe import _
 def get_nikki_ledger_summary():
     """
     Lightweight summary of Nikki Cash Ledger Entry data for the workspace widget.
-    Finance roles see all entries; non-Finance sees only their own.
+    Always scoped to the logged-in user — no Finance bypass.
     """
     user = frappe.session.user
-    finance_roles = {"Finance Manager", "Accounts Manager", "System Manager", "Administrator"}
-    is_finance = bool(finance_roles.intersection(set(frappe.get_roles(user))))
-
-    user_filter = "" if is_finance else f"AND submitted_by_user = {frappe.db.escape(user)}"
+    user_filter = f"AND submitted_by_user = {frappe.db.escape(user)}"
 
     totals = frappe.db.sql(f"""
         SELECT
@@ -399,42 +396,47 @@ def get_full_dashboard_data(person=None):
 @frappe.whitelist()
 def get_nikki_expense_summary():
     """
-    Lightweight summary of Expense Tracker Entry data for the workspace widget.
-    Non-Finance users see only their own CTP's entries.
+    Lightweight summary of Nikki Expense Entry data for the workspace widget.
+    Always scoped to the logged-in user — no Finance bypass.
+    Fields: money_out = expense, money_in = reimbursement.
     """
     user = frappe.session.user
-    finance_roles = {"Finance Manager", "Accounts Manager", "System Manager", "Administrator"}
-    is_finance = bool(finance_roles.intersection(set(frappe.get_roles(user))))
-
-    if is_finance:
-        ctp_filter = ""
-    else:
-        person = frappe.db.get_value("Cash Tracker Person", {"user": user}, "name") or ""
-        ctp_filter = f"AND cash_tracker_person = {frappe.db.escape(person)}" if person else "AND 1=0"
+    user_filter = f"AND owner = {frappe.db.escape(user)}"
 
     totals = frappe.db.sql(f"""
         SELECT
-            COALESCE(SUM(CASE WHEN direction='Expense'       THEN amount ELSE 0 END), 0) AS total_expenses,
-            COALESCE(SUM(CASE WHEN direction='Reimbursement' THEN amount ELSE 0 END), 0) AS total_reimbursed,
-            COUNT(*) AS entry_count
-        FROM `tabExpense Tracker Entry`
-        WHERE docstatus = 1 {ctp_filter}
+            COALESCE(SUM(money_out), 0) AS total_expenses,
+            COALESCE(SUM(money_in),  0) AS total_reimbursed,
+            COUNT(*)                    AS entry_count
+        FROM `tabNikki Expense Entry`
+        WHERE docstatus != 2 {user_filter}
     """, as_dict=True)[0]
 
     recent = frappe.db.sql(f"""
-        SELECT name, date, direction, amount, transaction_type, notes, entity
-        FROM `tabExpense Tracker Entry`
-        WHERE docstatus = 1 {ctp_filter}
-        ORDER BY date DESC, creation DESC
+        SELECT name, transaction_date AS date, business AS entity,
+               expense_type AS transaction_type, transaction_notes AS notes,
+               money_out, money_in
+        FROM `tabNikki Expense Entry`
+        WHERE docstatus != 2 {user_filter}
+        ORDER BY transaction_date DESC, creation DESC
         LIMIT 10
     """, as_dict=True)
 
     for r in recent:
-        r["date"]             = str(r["date"])
-        r["amount"]           = float(r["amount"] or 0)
+        r["date"]             = str(r["date"] or "")
+        r["entity"]           = r.get("entity") or ""
         r["transaction_type"] = r.get("transaction_type") or ""
         r["notes"]            = r.get("notes") or ""
-        r["entity"]           = r.get("entity") or ""
+        money_out = float(r.get("money_out") or 0)
+        money_in  = float(r.get("money_in")  or 0)
+        if money_out > 0:
+            r["direction"] = "Expense"
+            r["amount"]    = money_out
+        else:
+            r["direction"] = "Reimbursement"
+            r["amount"]    = money_in
+        del r["money_out"]
+        del r["money_in"]
 
     expenses   = float(totals.total_expenses)
     reimbursed = float(totals.total_reimbursed)
