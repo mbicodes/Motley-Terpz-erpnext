@@ -66,6 +66,7 @@ def sync_now(lead_name=None):
 
 def _sync_lead(lead_name, customer):
     data = _compute_ar_data(customer)
+    dormancy_days, dormancy_status = _compute_dormancy(data["last_invoice_date"])
     frappe.db.set_value("CRM Lead", lead_name, {
         "custom_ar_balance":          data["ar_balance"],
         "custom_ar_aging_days":       data["aging_days"],
@@ -77,8 +78,30 @@ def _sync_lead(lead_name, customer):
         "custom_trailing_8w_revenue": data["trailing_8w"],
         "custom_payment_terms":       data["payment_terms"],
         "custom_cod_flag":            1 if _is_cod_customer(data["payment_terms"]) else 0,
+        "custom_dormancy_days":       dormancy_days,
+        "custom_dormancy_status":     dormancy_status,
         "custom_last_sync":           now_datetime(),
     }, update_modified=False)
+
+
+def _compute_dormancy(last_invoice_date):
+    """Return (days_since_last_order, traffic_light_status).
+
+    Only applies when a customer has at least one invoice.
+    Green  < 30 days · Yellow 30–45 days · Red 45+ days
+    """
+    if not last_invoice_date:
+        return None, ""
+
+    from frappe.utils import date_diff, nowdate
+    days = date_diff(nowdate(), last_invoice_date)
+
+    if days < 30:
+        return days, "Green"
+    elif days <= 45:
+        return days, "Yellow"
+    else:
+        return days, "Red"
 
 
 
