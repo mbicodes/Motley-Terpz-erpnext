@@ -1558,3 +1558,45 @@ def create_dashboard_item_groups():
         created.append(name)
     frappe.db.commit()
     return {"created": created, "skipped": skipped}
+
+@frappe.whitelist()
+def get_jamie_expense_summary():
+    """Returns expense summary for the currently logged-in user (Jamie).
+    Filters strictly by owner = session user — no Finance bypass."""
+    user = frappe.session.user
+    user_filter = "AND owner = {escaped_user}".format(escaped_user=frappe.db.escape(user))
+
+    summary = frappe.db.sql("""
+        SELECT
+            COALESCE(SUM(CASE WHEN money_out > 0 THEN money_out ELSE 0 END), 0) AS total_expenses,
+            COALESCE(SUM(CASE WHEN money_in > 0 THEN money_in ELSE 0 END), 0)  AS total_reimbursed,
+            COUNT(*) AS count
+        FROM `tabJamie Expense Entry`
+        WHERE docstatus = 1 {user_filter}
+    """.format(user_filter=user_filter), as_dict=True)
+
+    row = summary[0] if summary else {}
+    total_expenses   = float(row.get("total_expenses")   or 0)
+    total_reimbursed = float(row.get("total_reimbursed") or 0)
+    net_owed = total_expenses - total_reimbursed
+
+    recent = frappe.db.sql("""
+        SELECT
+            transaction_date AS date,
+            CASE WHEN money_out > 0 THEN 'Expense' ELSE 'Reimbursement' END AS direction,
+            CASE WHEN money_out > 0 THEN money_out ELSE money_in END AS amount,
+            expense_type AS transaction_type,
+            transaction_notes AS notes
+        FROM `tabJamie Expense Entry`
+        WHERE docstatus = 1 {user_filter}
+        ORDER BY transaction_date DESC
+        LIMIT 20
+    """.format(user_filter=user_filter), as_dict=True)
+
+    return {
+        "total_expenses":   total_expenses,
+        "total_reimbursed": total_reimbursed,
+        "net_owed":         net_owed,
+        "count":            int(row.get("count") or 0),
+        "recent":           recent,
+    }
