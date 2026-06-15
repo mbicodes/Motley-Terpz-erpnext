@@ -16,6 +16,13 @@
         "partners",
         "sales_order",
         "amended_from",
+        "section_break_timing",
+        "workstation",
+        "timer_status",
+        "column_break_timing",
+        "total_time_in_minutes",
+        "section_break_timelogs",
+        "time_logs",
         "section_break_items",
         "items"
     ],
@@ -82,6 +89,46 @@
             "print_hide": 1,
             "read_only": 1,
             "search_index": 1
+        },
+        {
+            "fieldname": "section_break_timing",
+            "fieldtype": "Section Break",
+            "label": "Job Timing"
+        },
+        {
+            "fieldname": "workstation",
+            "fieldtype": "Link",
+            "label": "Workstation",
+            "options": "Workstation"
+        },
+        {
+            "fieldname": "timer_status",
+            "fieldtype": "Data",
+            "label": "Timer Status",
+            "hidden": 1,
+            "no_copy": 1
+        },
+        {
+            "fieldname": "column_break_timing",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "total_time_in_minutes",
+            "fieldtype": "Float",
+            "label": "Total Time (Minutes)",
+            "read_only": 1,
+            "no_copy": 1
+        },
+        {
+            "fieldname": "section_break_timelogs",
+            "fieldtype": "Section Break"
+        },
+        {
+            "fieldname": "time_logs",
+            "fieldtype": "Table",
+            "label": "Time Logs",
+            "options": "Conversion Entry Time Log",
+            "no_copy": 1
         },
         {
             "fieldname": "section_break_items",

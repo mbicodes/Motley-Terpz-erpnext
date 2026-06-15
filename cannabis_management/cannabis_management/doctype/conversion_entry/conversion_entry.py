@@ -33,65 +33,68 @@ class ConversionEntry(Document):
 		self._populate_item_groups()
 		self._validate_items()
 		self._validate_item_groups()
+		self._calculate_total_time()
+
+	def before_submit(self):
+		if self.timer_status == "Running":
+			frappe.throw(
+				_("The job timer is still running. Please pause or complete it before submitting.")
+			)
+
+	def _calculate_total_time(self):
+		self.total_time_in_minutes = sum(
+			flt(r.time_in_mins) for r in (self.time_logs or []) if r.time_in_mins
+		)
 
 	def _validate_items(self):
 		"""Ensure required fields are filled based on conversion type."""
 		for idx, row in enumerate(self.items, 1):
-			# Raw Material 1 + Qty is always required
 			if not row.raw_material_1 or flt(row.qty_rm_1) <= 0:
 				frappe.throw(
 					_("Row {0}: Raw Material 1 and its Qty are required.").format(idx)
 				)
 
-			# Finished Good 1 + Qty is always required
 			if not row.finished_good_1 or flt(row.qty_fg_1) <= 0:
 				frappe.throw(
 					_("Row {0}: Finished Good 1 and its Qty are required.").format(idx)
 				)
 
-			# 2 to 1 / 2 to 2 requires RM 2
 			if row.conversion_type in ["2 to 1", "2 to 2", "3 to 1", "4 to 1", "5 to 1", "6 to 1", "7 to 1"]:
 				if not row.raw_material_2 or flt(row.qty_rm_2) <= 0:
 					frappe.throw(
 						_("Row {0}: Raw Material 2 and its Qty are required for {1} conversion.").format(idx, row.conversion_type)
 					)
 
-			# 3 to 1 requires RM 3
 			if row.conversion_type in ["3 to 1", "4 to 1", "5 to 1", "6 to 1", "7 to 1"]:
 				if not row.raw_material_3 or flt(row.qty_rm_3) <= 0:
 					frappe.throw(
 						_("Row {0}: Raw Material 3 and its Qty are required for {1} conversion.").format(idx, row.conversion_type)
 					)
 
-			# 4 to 1 requires RM 4
 			if row.conversion_type in ["4 to 1", "5 to 1", "6 to 1", "7 to 1"]:
 				if not row.raw_material_4 or flt(row.qty_rm_4) <= 0:
 					frappe.throw(
 						_("Row {0}: Raw Material 4 and its Qty are required for {1} conversion.").format(idx, row.conversion_type)
 					)
 
-			# 5 to 1 requires RM 5
 			if row.conversion_type in ["5 to 1", "6 to 1", "7 to 1"]:
 				if not row.raw_material_5 or flt(row.qty_rm_5) <= 0:
 					frappe.throw(
 						_("Row {0}: Raw Material 5 and its Qty are required for {1} conversion.").format(idx, row.conversion_type)
 					)
 
-			# 6 to 1 requires RM 6
 			if row.conversion_type in ["6 to 1", "7 to 1"]:
 				if not row.raw_material_6 or flt(row.qty_rm_6) <= 0:
 					frappe.throw(
 						_("Row {0}: Raw Material 6 and its Qty are required for {1} conversion.").format(idx, row.conversion_type)
 					)
 
-			# 7 to 1 requires RM 7
 			if row.conversion_type == "7 to 1":
 				if not row.raw_material_7 or flt(row.qty_rm_7) <= 0:
 					frappe.throw(
 						_("Row {0}: Raw Material 7 and its Qty are required for {1} conversion.").format(idx, row.conversion_type)
 					)
 
-			# 1 to 2 / 2 to 2 requires FG 2
 			if row.conversion_type in ["1 to 2", "2 to 2"]:
 				if not row.finished_good_2 or flt(row.qty_fg_2) <= 0:
 					frappe.throw(
@@ -131,17 +134,15 @@ class ConversionEntry(Document):
 		self._create_repack_stock_entry()
 
 	def _create_repack_stock_entry(self):
-		"""Create one draft Repack Stock Entry per row in the items table.
-
-		Each row is handled independently so a failure on one row never
-		prevents the remaining rows from being processed.
-		"""
-		created = []
-		failed = []
+		"""Create one draft Repack Stock Entry per row in the items table."""
+		cost_map = _ce_cost_map(self)
+		n_rows   = len(self.items) or 1
+		created  = []
+		failed   = []
 
 		for idx, row in enumerate(self.items, 1):
 			try:
-				se = self._build_se_for_row(row)
+				se = self._build_se_for_row(row, cost_map, n_rows)
 				if se is None:
 					frappe.msgprint(
 						_("Row {0}: No valid items found — Stock Entry skipped.").format(idx),
@@ -174,13 +175,13 @@ class ConversionEntry(Document):
 				indicator="orange",
 			)
 
-	def _build_se_for_row(self, row):
+	def _build_se_for_row(self, row, cost_map=None, n_ses=1):
 		"""Build (but do not insert) a Repack Stock Entry for a single items row."""
 		se = frappe.new_doc("Stock Entry")
 		se.stock_entry_type = "Repack"
 		se.company = self.company or "Motley Terpz"
 		if self.posting_date:
-			se.posting_date = self.posting_date
+			se.posting_date     = self.posting_date
 			se.set_posting_time = 1
 		se.custom_conversion_entry_reference = self.name
 		if self.sales_order:
@@ -222,4 +223,61 @@ class ConversionEntry(Document):
 				})
 				has_items = True
 
+		# Add operating costs derived from workstation + time logged
+		if cost_map:
+			share = n_ses if n_ses > 1 else 1
+			for expense_account, info in cost_map.items():
+				if info["amount"] > 0:
+					se.append("additional_costs", {
+						"expense_account": expense_account,
+						"description":     info["label"],
+						"amount":          info["amount"] / share,
+					})
+
 		return se if has_items else None
+
+
+def _ce_cost_map(ce_doc):
+	"""
+	Calculate operating costs for a Conversion Entry based on its workstation
+	and total logged time.  Mirrors _build_cost_map() in stock_entry.py but
+	uses the CE's single workstation and total_time_in_minutes instead of
+	walking individual Job Card time-log rows.
+
+	Returns: { expense_account: {"amount": float, "label": str} }
+	"""
+	if not ce_doc.workstation or not flt(ce_doc.total_time_in_minutes):
+		return {}
+
+	total_hours = flt(ce_doc.total_time_in_minutes) / 60.0
+	company     = ce_doc.company or "Motley Terpz"
+	cost_map    = {}
+
+	components = frappe.get_all(
+		"Workstation Operating Cost",
+		filters={"parent": ce_doc.workstation, "parenttype": "Workstation"},
+		fields=["operating_component", "operating_cost"],
+	)
+
+	for comp in components:
+		if not comp.operating_component or not flt(comp.operating_cost):
+			continue
+
+		expense_account = frappe.db.get_value(
+			"Operating Component Account",
+			{
+				"parent":     comp.operating_component,
+				"parenttype": "Operating Component",
+				"company":    company,
+			},
+			"expense_account",
+		)
+		if not expense_account:
+			continue
+
+		amount = total_hours * flt(comp.operating_cost)
+		if expense_account not in cost_map:
+			cost_map[expense_account] = {"amount": 0.0, "label": comp.operating_component}
+		cost_map[expense_account]["amount"] += amount
+
+	return cost_map
