@@ -40,7 +40,8 @@
    "precision": "",
    "read_only": 0,
    "reqd": 1,
-   "show_in_filter": 0
+   "show_in_filter": 0,
+   "options": "\nPersonal\nMotley"
   },
   {
    "allow_read_on_all_link_options": 0,
@@ -66,7 +67,8 @@
    "precision": "",
    "read_only": 0,
    "reqd": 0,
-   "show_in_filter": 0
+   "show_in_filter": 0,
+   "options": "\nCustomer\nSupplier"
   },
   {
    "allow_read_on_all_link_options": 0,
