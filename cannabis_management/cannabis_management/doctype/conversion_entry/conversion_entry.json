@@ -18,9 +18,10 @@
         "amended_from",
         "section_break_timing",
         "workstation",
-        "timer_status",
-        "column_break_timing",
         "total_time_in_minutes",
+        "timer_status",
+        "started_time",
+        "current_time",
         "section_break_timelogs",
         "time_logs",
         "section_break_items",
@@ -102,22 +103,35 @@
             "options": "Workstation"
         },
         {
-            "fieldname": "timer_status",
-            "fieldtype": "Data",
-            "label": "Timer Status",
-            "hidden": 1,
-            "no_copy": 1
-        },
-        {
-            "fieldname": "column_break_timing",
-            "fieldtype": "Column Break"
-        },
-        {
             "fieldname": "total_time_in_minutes",
             "fieldtype": "Float",
             "label": "Total Time (Minutes)",
             "read_only": 1,
             "no_copy": 1
+        },
+        {
+            "fieldname": "timer_status",
+            "fieldtype": "Select",
+            "label": "Timer Status",
+            "options": "\nWork In Progress\nOn Hold",
+            "hidden": 1,
+            "no_copy": 1
+        },
+        {
+            "fieldname": "started_time",
+            "fieldtype": "Datetime",
+            "label": "Started Time",
+            "hidden": 1,
+            "no_copy": 1,
+            "read_only": 1
+        },
+        {
+            "fieldname": "current_time",
+            "fieldtype": "Int",
+            "label": "Current Time",
+            "hidden": 1,
+            "no_copy": 1,
+            "read_only": 1
         },
         {
             "fieldname": "section_break_timelogs",
@@ -153,7 +167,7 @@
             "link_fieldname": "custom_conversion_entry_reference"
         }
     ],
-    "modified": "2026-04-03 15:30:00.000000",
+    "modified": "2026-06-16 00:00:00.000000",
     "modified_by": "Administrator",
     "module": "Cannabis Management",
     "name": "Conversion Entry",

@@ -1,7 +1,10 @@
+import json
+
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import flt
+from frappe.utils import flt, get_datetime
+from frappe.utils.data import time_diff_in_seconds
 
 VAPE_ITEM_GROUPS = {
 	"0.5g O2 Vape",
@@ -36,7 +39,7 @@ class ConversionEntry(Document):
 		self._calculate_total_time()
 
 	def before_submit(self):
-		if self.timer_status == "Running":
+		if self.timer_status == "Work In Progress":
 			frappe.throw(
 				_("The job timer is still running. Please pause or complete it before submitting.")
 			)
@@ -46,63 +49,93 @@ class ConversionEntry(Document):
 			flt(r.time_in_mins) for r in (self.time_logs or []) if r.time_in_mins
 		)
 
+	# ── Timer ──────────────────────────────────────────────────────────────────
+
+	def add_time_log(self, args):
+		last_row = self.time_logs[-1] if self.time_logs else None
+
+		# Close any open row (Pause / Complete)
+		if last_row and args.get("complete_time"):
+			for row in self.time_logs:
+				if not row.to_time:
+					row.to_time = get_datetime(args.get("complete_time"))
+					if row.from_time:
+						row.time_in_mins = flt(
+							time_diff_in_seconds(row.to_time, row.from_time) / 60.0, 2
+						)
+
+		# Open a new row (Start / Resume)
+		if args.get("start_time"):
+			self.append("time_logs", {
+				"from_time": get_datetime(args.get("start_time")),
+				"employee":  args.get("employee") or "",
+			})
+
+		# Update status / timer tracking fields
+		status = args.get("status")
+		if status in ("Work In Progress", "Resume Job"):
+			self.timer_status = "Work In Progress"
+			self.started_time = get_datetime(args.get("start_time"))
+			if status == "Work In Progress":
+				self.current_time = 0
+		elif status == "On Hold":
+			self.timer_status = "On Hold"
+			self.started_time = None
+			if last_row:
+				self.current_time = int(flt(time_diff_in_seconds(
+					get_datetime(args.get("complete_time")), last_row.from_time
+				)))
+		elif status == "Complete":
+			self.timer_status = ""
+			self.started_time = None
+			self.current_time = int(sum(
+				flt(time_diff_in_seconds(r.to_time, r.from_time))
+				for r in self.time_logs
+				if r.from_time and r.to_time
+			))
+
+		self._calculate_total_time()
+		self.save()
+
+	# ── Validation ─────────────────────────────────────────────────────────────
+
 	def _validate_items(self):
-		"""Ensure required fields are filled based on conversion type."""
 		for idx, row in enumerate(self.items, 1):
 			if not row.raw_material_1 or flt(row.qty_rm_1) <= 0:
-				frappe.throw(
-					_("Row {0}: Raw Material 1 and its Qty are required.").format(idx)
-				)
+				frappe.throw(_("Row {0}: Raw Material 1 and its Qty are required.").format(idx))
 
 			if not row.finished_good_1 or flt(row.qty_fg_1) <= 0:
-				frappe.throw(
-					_("Row {0}: Finished Good 1 and its Qty are required.").format(idx)
-				)
+				frappe.throw(_("Row {0}: Finished Good 1 and its Qty are required.").format(idx))
 
 			if row.conversion_type in ["2 to 1", "2 to 2", "3 to 1", "4 to 1", "5 to 1", "6 to 1", "7 to 1"]:
 				if not row.raw_material_2 or flt(row.qty_rm_2) <= 0:
-					frappe.throw(
-						_("Row {0}: Raw Material 2 and its Qty are required for {1} conversion.").format(idx, row.conversion_type)
-					)
+					frappe.throw(_("Row {0}: Raw Material 2 and its Qty are required for {1} conversion.").format(idx, row.conversion_type))
 
 			if row.conversion_type in ["3 to 1", "4 to 1", "5 to 1", "6 to 1", "7 to 1"]:
 				if not row.raw_material_3 or flt(row.qty_rm_3) <= 0:
-					frappe.throw(
-						_("Row {0}: Raw Material 3 and its Qty are required for {1} conversion.").format(idx, row.conversion_type)
-					)
+					frappe.throw(_("Row {0}: Raw Material 3 and its Qty are required for {1} conversion.").format(idx, row.conversion_type))
 
 			if row.conversion_type in ["4 to 1", "5 to 1", "6 to 1", "7 to 1"]:
 				if not row.raw_material_4 or flt(row.qty_rm_4) <= 0:
-					frappe.throw(
-						_("Row {0}: Raw Material 4 and its Qty are required for {1} conversion.").format(idx, row.conversion_type)
-					)
+					frappe.throw(_("Row {0}: Raw Material 4 and its Qty are required for {1} conversion.").format(idx, row.conversion_type))
 
 			if row.conversion_type in ["5 to 1", "6 to 1", "7 to 1"]:
 				if not row.raw_material_5 or flt(row.qty_rm_5) <= 0:
-					frappe.throw(
-						_("Row {0}: Raw Material 5 and its Qty are required for {1} conversion.").format(idx, row.conversion_type)
-					)
+					frappe.throw(_("Row {0}: Raw Material 5 and its Qty are required for {1} conversion.").format(idx, row.conversion_type))
 
 			if row.conversion_type in ["6 to 1", "7 to 1"]:
 				if not row.raw_material_6 or flt(row.qty_rm_6) <= 0:
-					frappe.throw(
-						_("Row {0}: Raw Material 6 and its Qty are required for {1} conversion.").format(idx, row.conversion_type)
-					)
+					frappe.throw(_("Row {0}: Raw Material 6 and its Qty are required for {1} conversion.").format(idx, row.conversion_type))
 
 			if row.conversion_type == "7 to 1":
 				if not row.raw_material_7 or flt(row.qty_rm_7) <= 0:
-					frappe.throw(
-						_("Row {0}: Raw Material 7 and its Qty are required for {1} conversion.").format(idx, row.conversion_type)
-					)
+					frappe.throw(_("Row {0}: Raw Material 7 and its Qty are required for {1} conversion.").format(idx, row.conversion_type))
 
 			if row.conversion_type in ["1 to 2", "2 to 2"]:
 				if not row.finished_good_2 or flt(row.qty_fg_2) <= 0:
-					frappe.throw(
-						_("Row {0}: Finished Good 2 and its Qty are required for 1 to 2 conversion.").format(idx)
-					)
+					frappe.throw(_("Row {0}: Finished Good 2 and its Qty are required for 1 to 2 conversion.").format(idx))
 
 	def _populate_item_groups(self):
-		"""Fetch and store item_group for every item field in each row."""
 		for row in self.items:
 			for item_field, group_field in _RM_FIELDS + _FG_FIELDS:
 				item = row.get(item_field)
@@ -110,7 +143,6 @@ class ConversionEntry(Document):
 				row.set(group_field, grp or "")
 
 	def _validate_item_groups(self):
-		"""If any FG item belongs to a Vape/Rosin/Packaged group, at least one RM must be Hardware Inventory."""
 		for idx, row in enumerate(self.items, 1):
 			fg_groups = [row.get(gf) for _, gf in _FG_FIELDS if row.get(gf)]
 			if not any(g in VAPE_ITEM_GROUPS for g in fg_groups):
@@ -121,7 +153,6 @@ class ConversionEntry(Document):
 				for item_f, gf in _RM_FIELDS
 				if row.get(item_f)
 			)
-
 			if not has_hardware:
 				frappe.throw(
 					_(
@@ -130,11 +161,12 @@ class ConversionEntry(Document):
 					).format(idx)
 				)
 
+	# ── Submit ─────────────────────────────────────────────────────────────────
+
 	def on_submit(self):
 		self._create_repack_stock_entry()
 
 	def _create_repack_stock_entry(self):
-		"""Create one draft Repack Stock Entry per row in the items table."""
 		cost_map = _ce_cost_map(self)
 		n_rows   = len(self.items) or 1
 		created  = []
@@ -144,10 +176,7 @@ class ConversionEntry(Document):
 			try:
 				se = self._build_se_for_row(row, cost_map, n_rows)
 				if se is None:
-					frappe.msgprint(
-						_("Row {0}: No valid items found — Stock Entry skipped.").format(idx),
-						alert=True,
-					)
+					frappe.msgprint(_("Row {0}: No valid items found — Stock Entry skipped.").format(idx), alert=True)
 					continue
 				se.insert(ignore_permissions=True)
 				created.append(f'<a href="/app/stock-entry/{se.name}">{se.name}</a>')
@@ -161,22 +190,19 @@ class ConversionEntry(Document):
 		if created:
 			frappe.msgprint(
 				_("{0} draft Stock Entr{1} created: {2}").format(
-					len(created),
-					"ies" if len(created) != 1 else "y",
-					", ".join(created),
+					len(created), "ies" if len(created) != 1 else "y", ", ".join(created)
 				),
 				indicator="green",
 			)
 		if failed:
 			frappe.msgprint(
-				_("Stock Entry creation failed for row(s): {0}. Check the Error Log for details.").format(
+				_("Stock Entry creation failed for row(s): {0}. Check the Error Log.").format(
 					", ".join(str(i) for i in failed)
 				),
 				indicator="orange",
 			)
 
 	def _build_se_for_row(self, row, cost_map=None, n_ses=1):
-		"""Build (but do not insert) a Repack Stock Entry for a single items row."""
 		se = frappe.new_doc("Stock Entry")
 		se.stock_entry_type = "Repack"
 		se.company = self.company or "Motley Terpz"
@@ -189,63 +215,54 @@ class ConversionEntry(Document):
 
 		has_items = False
 
-		rm_pairs = [
-			(row.raw_material_1, row.qty_rm_1),
-			(row.raw_material_2, row.qty_rm_2),
-			(row.raw_material_3, row.qty_rm_3),
-			(row.raw_material_4, row.qty_rm_4),
-			(row.raw_material_5, row.qty_rm_5),
-			(row.raw_material_6, row.qty_rm_6),
+		for item_code, qty in [
+			(row.raw_material_1, row.qty_rm_1), (row.raw_material_2, row.qty_rm_2),
+			(row.raw_material_3, row.qty_rm_3), (row.raw_material_4, row.qty_rm_4),
+			(row.raw_material_5, row.qty_rm_5), (row.raw_material_6, row.qty_rm_6),
 			(row.raw_material_7, row.qty_rm_7),
-		]
-		for item_code, qty in rm_pairs:
+		]:
 			if item_code and flt(qty) > 0:
 				se.append("items", {
-					"item_code": item_code,
-					"qty": flt(qty),
+					"item_code": item_code, "qty": flt(qty),
 					"s_warehouse": row.source_warehouse,
-					"is_finished_item": 0,
-					"allow_zero_valuation_rate": 1,
+					"is_finished_item": 0, "allow_zero_valuation_rate": 1,
 				})
 				has_items = True
 
-		fg_pairs = [
-			(row.finished_good_1, row.qty_fg_1),
-			(row.finished_good_2, row.qty_fg_2),
-		]
-		for item_code, qty in fg_pairs:
+		for item_code, qty in [(row.finished_good_1, row.qty_fg_1), (row.finished_good_2, row.qty_fg_2)]:
 			if item_code and flt(qty) > 0:
 				se.append("items", {
-					"item_code": item_code,
-					"qty": flt(qty),
-					"t_warehouse": row.target_warehouse,
-					"is_finished_item": 1,
+					"item_code": item_code, "qty": flt(qty),
+					"t_warehouse": row.target_warehouse, "is_finished_item": 1,
 				})
 				has_items = True
 
-		# Add operating costs derived from workstation + time logged
 		if cost_map:
-			share = n_ses if n_ses > 1 else 1
 			for expense_account, info in cost_map.items():
 				if info["amount"] > 0:
 					se.append("additional_costs", {
 						"expense_account": expense_account,
 						"description":     info["label"],
-						"amount":          info["amount"] / share,
+						"amount":          info["amount"] / n_ses,
 					})
 
 		return se if has_items else None
 
 
-def _ce_cost_map(ce_doc):
-	"""
-	Calculate operating costs for a Conversion Entry based on its workstation
-	and total logged time.  Mirrors _build_cost_map() in stock_entry.py but
-	uses the CE's single workstation and total_time_in_minutes instead of
-	walking individual Job Card time-log rows.
+# ── Whitelisted API ────────────────────────────────────────────────────────────
 
-	Returns: { expense_account: {"amount": float, "label": str} }
-	"""
+@frappe.whitelist()
+def make_ce_time_log(args):
+	if isinstance(args, str):
+		args = json.loads(args)
+	args = frappe._dict(args)
+	doc = frappe.get_doc("Conversion Entry", args.conversion_entry)
+	doc.add_time_log(args)
+
+
+# ── Operating cost map ─────────────────────────────────────────────────────────
+
+def _ce_cost_map(ce_doc):
 	if not ce_doc.workstation or not flt(ce_doc.total_time_in_minutes):
 		return {}
 
@@ -265,11 +282,7 @@ def _ce_cost_map(ce_doc):
 
 		expense_account = frappe.db.get_value(
 			"Operating Component Account",
-			{
-				"parent":     comp.operating_component,
-				"parenttype": "Operating Component",
-				"company":    company,
-			},
+			{"parent": comp.operating_component, "parenttype": "Operating Component", "company": company},
 			"expense_account",
 		)
 		if not expense_account:
