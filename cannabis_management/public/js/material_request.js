@@ -14,6 +14,10 @@ frappe.ui.form.on("Material Request", {
     },
 
     setup(frm) {
+        frm.set_query('custom_project', () => ({
+            filters: { company: frm.doc.company }
+        }));
+
         frm.set_query('custom_rm_item', () => ({
             filters: { custom_is_parent: 1 }
         }));
