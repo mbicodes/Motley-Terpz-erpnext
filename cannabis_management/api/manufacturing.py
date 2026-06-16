@@ -48,7 +48,12 @@ def create_work_orders_from_mr(material_request):
             "target_warehouse": row.get("target_warehouse"),
         }
 
+    default_fg_warehouse = frappe.db.get_single_value(
+        "Manufacturing Settings", "default_fg_warehouse"
+    ) or ""
+
     created = []
+    bom_index = 0
 
     for bom in boms:
         if bom.name in existing_wo_boms:
@@ -71,10 +76,15 @@ def create_work_orders_from_mr(material_request):
         wo.use_multi_level_bom = 0
         wo.skip_transfer = 0
 
-        # Warehouses from FG grid
-        wo.source_warehouse = fg_info.get("source_warehouse") or ""
+        # First BOM: source = MR.set_warehouse; subsequent BOMs: source = default FG warehouse
+        if bom_index == 0:
+            wo.source_warehouse = fg_info.get("source_warehouse") or mr.set_warehouse or ""
+        else:
+            wo.source_warehouse = fg_info.get("source_warehouse") or default_fg_warehouse
         wo.wip_warehouse = fg_info.get("wip_warehouse") or ""
         wo.fg_warehouse = fg_info.get("target_warehouse") or ""
+
+        bom_index += 1
 
         # Populate operations + required items from BOM
         bom_doc = frappe.get_doc("BOM", bom.name)
