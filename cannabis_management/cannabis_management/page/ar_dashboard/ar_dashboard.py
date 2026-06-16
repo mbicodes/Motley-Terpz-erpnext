@@ -2,11 +2,17 @@ import frappe
 from frappe.utils import nowdate
 
 
-RECON_EDIT_ROLES     = ("Account Manager", "System Manager", "Administrator")
-TMM_GROUP_COMPANIES  = ["Motley Terpz", "TSBC Ranch"]
-INTERCOMPANY_PARTIES = frozenset(TMM_GROUP_COMPANIES)
-LEGACY_CUTOFF        = "2026-05-31"
-NEW_AR_START         = "2026-06-01"
+RECON_EDIT_ROLES    = ("Account Manager", "System Manager", "Administrator")
+TMM_GROUP_COMPANIES = ["Motley Terpz", "TSBC Ranch"]
+LEGACY_CUTOFF       = "2026-05-31"
+NEW_AR_START        = "2026-06-01"
+
+
+def _internal_customer_names():
+    """Return the set of customer names marked as internal (is_internal_customer=1)."""
+    return set(frappe.db.sql_list(
+        "SELECT name FROM `tabCustomer` WHERE is_internal_customer = 1"
+    ))
 
 
 def _can_edit_recon():
@@ -141,14 +147,15 @@ def get_ar_data(company, report_date=None, customer=None, ageing_based_on="Due D
         rows = _strip_cross_company_rows(rows, company)
 
     # Apply mode date filter and strip intercompany rows in one pass
+    internal = _internal_customer_names()
     if ar_mode == "legacy":
         rows = [r for r in rows
                 if str(r.get("posting_date") or "") <= LEGACY_CUTOFF
-                and r.get("party") not in INTERCOMPANY_PARTIES]
+                and r.get("party") not in internal]
     else:
         rows = [r for r in rows
                 if str(r.get("posting_date") or "") >= NEW_AR_START
-                and r.get("party") not in INTERCOMPANY_PARTIES]
+                and r.get("party") not in internal]
 
     totals = _compute_totals(rows, ranges)
 
