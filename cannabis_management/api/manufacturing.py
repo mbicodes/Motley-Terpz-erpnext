@@ -52,6 +52,12 @@ def create_work_orders_from_mr(material_request):
         "Manufacturing Settings", "default_fg_warehouse"
     ) or ""
 
+    # Number of ops in the routing cycle — used to detect when each RM chain restarts
+    n_ops = 1
+    if mr.custom_routing:
+        routing_doc = frappe.get_doc("Routing", mr.custom_routing)
+        n_ops = len(routing_doc.operations) or 1
+
     created = []
     bom_index = 0
 
@@ -76,8 +82,9 @@ def create_work_orders_from_mr(material_request):
         wo.use_multi_level_bom = 0
         wo.skip_transfer = 0
 
-        # First BOM: source = MR.set_warehouse; subsequent BOMs: source = default FG warehouse
-        if bom_index == 0:
+        # Op 1 of each RM cycle → raw materials from MR.set_warehouse
+        # Op 2..N of each cycle → intermediate FG from default_fg_warehouse
+        if bom_index % n_ops == 0:
             wo.source_warehouse = fg_info.get("source_warehouse") or mr.set_warehouse or ""
         else:
             wo.source_warehouse = fg_info.get("source_warehouse") or default_fg_warehouse
