@@ -263,34 +263,31 @@ def make_ce_time_log(args):
 # ── Operating cost map ─────────────────────────────────────────────────────────
 
 def _ce_cost_map(ce_doc):
+	"""
+	amount = workstation.custom_total_operating_cost / 60 * total_time_in_minutes
+	Account = company.expenses_included_in_valuation
+	"""
 	if not ce_doc.workstation or not flt(ce_doc.total_time_in_minutes):
 		return {}
 
-	total_hours = flt(ce_doc.total_time_in_minutes) / 60.0
-	company     = ce_doc.company or "Motley Terpz"
-	cost_map    = {}
+	hourly_rate = flt(frappe.db.get_value(
+		"Workstation", ce_doc.workstation, "custom_total_operating_cost"
+	))
+	if not hourly_rate:
+		return {}
 
-	components = frappe.get_all(
-		"Workstation Operating Cost",
-		filters={"parent": ce_doc.workstation, "parenttype": "Workstation"},
-		fields=["operating_component", "operating_cost"],
+	amount  = hourly_rate / 60.0 * flt(ce_doc.total_time_in_minutes)
+	company = ce_doc.company or "Motley Terpz"
+
+	expense_account = frappe.db.get_value(
+		"Company", company, "expenses_included_in_valuation"
 	)
+	if not expense_account:
+		return {}
 
-	for comp in components:
-		if not comp.operating_component or not flt(comp.operating_cost):
-			continue
-
-		expense_account = frappe.db.get_value(
-			"Operating Component Account",
-			{"parent": comp.operating_component, "parenttype": "Operating Component", "company": company},
-			"expense_account",
-		)
-		if not expense_account:
-			continue
-
-		amount = total_hours * flt(comp.operating_cost)
-		if expense_account not in cost_map:
-			cost_map[expense_account] = {"amount": 0.0, "label": comp.operating_component}
-		cost_map[expense_account]["amount"] += amount
-
-	return cost_map
+	return {
+		expense_account: {
+			"amount": amount,
+			"label":  f"Operating Cost ({ce_doc.workstation})",
+		}
+	}
