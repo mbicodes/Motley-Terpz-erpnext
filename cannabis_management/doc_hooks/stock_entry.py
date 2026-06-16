@@ -159,8 +159,10 @@ def set_operating_cost_accounts(doc, method=None):
             if info["amount"] > 0:
                 doc.append("additional_costs", {
                     "expense_account": expense_account,
-                    "description": f"{info['label']}",
+                    "description": info["label"],
                     "amount": info["amount"],
+                    "base_amount": info["amount"],
+                    "exchange_rate": 1.0,
                 })
     else:
         # Fallback: lump sum on default account
@@ -181,6 +183,8 @@ def set_operating_cost_accounts(doc, method=None):
                 "expense_account": expense_account,
                 "description": STANDARD_OP_COST_DESC,
                 "amount": amount,
+                "base_amount": amount,
+                "exchange_rate": 1.0,
             })
 
 
