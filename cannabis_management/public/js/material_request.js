@@ -1,4 +1,14 @@
 frappe.ui.form.on("Material Request", {
+    work_order(frm) {
+        if (frm.doc.work_order && !frm.doc.set_warehouse) {
+            frappe.db.get_value('Work Order', frm.doc.work_order, 'source_warehouse', (r) => {
+                if (r && r.source_warehouse) {
+                    frm.set_value('set_warehouse', r.source_warehouse);
+                }
+            });
+        }
+    },
+
     setup(frm) {
         frm.set_query('custom_rm_item', () => ({
             filters: { custom_is_parent: 1 }

@@ -233,6 +233,7 @@ doc_events = {
     },
     # Lab mapping: auto-create BOMs on Material Request submit
     "Material Request": {
+        "validate": "cannabis_management.doc_hooks.material_request.validate",
         "on_submit": "cannabis_management.doc_hooks.material_request.on_submit",
     },
     "Stock Entry": {

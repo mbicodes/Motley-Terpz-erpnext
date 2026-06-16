@@ -5,6 +5,13 @@ from frappe.utils import flt
 LBS_TO_GRAM = 453.592
 
 
+def validate(doc, method=None):
+    if doc.work_order and not doc.set_warehouse:
+        src = frappe.db.get_value("Work Order", doc.work_order, "source_warehouse")
+        if src:
+            doc.set_warehouse = src
+
+
 def on_submit(doc, method=None):
     if not doc.custom_finished_goods or not doc.items:
         return
