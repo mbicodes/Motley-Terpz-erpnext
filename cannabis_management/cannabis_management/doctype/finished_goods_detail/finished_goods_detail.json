@@ -10,7 +10,10 @@
   "operation",
   "expected_yield_",
   "finished_qty_grams",
-  "finished_qty_pounds"
+  "finished_qty_pounds",
+  "source_warehouse",
+  "wip_warehouse",
+  "target_warehouse"
  ],
  "fields": [
   {
@@ -47,6 +50,24 @@
    "fieldtype": "Float",
    "in_list_view": 1,
    "label": "Finished Qty (Pounds)"
+  },
+  {
+   "fieldname": "source_warehouse",
+   "fieldtype": "Link",
+   "label": "Source Warehouse",
+   "options": "Warehouse"
+  },
+  {
+   "fieldname": "wip_warehouse",
+   "fieldtype": "Link",
+   "label": "WIP Warehouse",
+   "options": "Warehouse"
+  },
+  {
+   "fieldname": "target_warehouse",
+   "fieldtype": "Link",
+   "label": "Target Warehouse",
+   "options": "Warehouse"
   }
  ],
  "grid_page_length": 50,
