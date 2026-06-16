@@ -129,6 +129,7 @@ def create_work_orders_from_mr(material_request):
 
         wo.flags.ignore_permissions = True
         wo.insert()
+        wo.submit()
 
         created.append(wo.name)
 
