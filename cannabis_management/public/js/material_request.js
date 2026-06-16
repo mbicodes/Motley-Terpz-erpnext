@@ -2,8 +2,12 @@ frappe.ui.form.on("Material Request", {
     work_order(frm) {
         if (frm.doc.work_order && !frm.doc.set_warehouse) {
             frappe.db.get_value('Work Order', frm.doc.work_order, 'source_warehouse', (r) => {
-                if (r && r.source_warehouse) {
-                    frm.set_value('set_warehouse', r.source_warehouse);
+                let src = r && r.source_warehouse;
+                if (src) {
+                    frm.set_value('set_warehouse', src);
+                } else {
+                    frappe.db.get_single_value('Manufacturing Settings', 'default_fg_warehouse')
+                        .then(val => { if (val) frm.set_value('set_warehouse', val); });
                 }
             });
         }

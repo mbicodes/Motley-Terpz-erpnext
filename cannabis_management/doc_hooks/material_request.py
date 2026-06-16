@@ -8,6 +8,8 @@ LBS_TO_GRAM = 453.592
 def validate(doc, method=None):
     if doc.work_order and not doc.set_warehouse:
         src = frappe.db.get_value("Work Order", doc.work_order, "source_warehouse")
+        if not src:
+            src = frappe.db.get_single_value("Manufacturing Settings", "default_fg_warehouse")
         if src:
             doc.set_warehouse = src
 
