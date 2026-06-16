@@ -61,6 +61,7 @@ def populate_micron_finished_goods(doc, method=None):
         doc.append("items", {
             "item_code": row["item_code"],
             "qty": row["qty"],
+            "transfer_qty": row["qty"],
             "uom": "Gram",
             "stock_uom": stock_uom,
             "conversion_factor": 1.0,
