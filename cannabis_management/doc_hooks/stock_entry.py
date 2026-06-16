@@ -150,11 +150,9 @@ def set_operating_cost_accounts(doc, method=None):
 
     cost_map = _build_cost_map(doc.work_order, doc.company)
 
-    # Remove the standard single operating cost row regardless
-    doc.additional_costs = [
-        r for r in (doc.additional_costs or [])
-        if r.description != STANDARD_OP_COST_DESC
-    ]
+    # Clear all additional costs — we fully own this field for Manufacture SEs.
+    # Clearing prevents duplicate rows when validate fires more than once.
+    doc.additional_costs = []
 
     if cost_map:
         for expense_account, info in cost_map.items():

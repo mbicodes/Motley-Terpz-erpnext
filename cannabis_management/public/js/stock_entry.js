@@ -146,10 +146,8 @@ function _fix_operating_cost_from_wo(frm) {
         callback: function (r) {
             if (!r.message || !r.message.length) return;
 
-            // Drop the ERPNext default single operating-cost row
-            frm.doc.additional_costs = (frm.doc.additional_costs || []).filter(
-                c => c.description !== "Operating Cost as per Work Order / BOM"
-            );
+            // Clear all additional costs — server validate owns this field
+            frm.doc.additional_costs = [];
 
             // Add per-account rows
             r.message.forEach(item => {
