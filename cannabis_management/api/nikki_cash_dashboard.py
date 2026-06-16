@@ -2,13 +2,32 @@ import frappe
 from frappe import _
 
 
+NIKKI_USER = "nikki@motleyterpz.com"
+# Role that grants visibility into Nikki's cash-ledger / expense data.
+# Grant this role to any user who should see her entries — no code change needed.
+NIKKI_ROLE = "Nikki Ledger"
+
+
+def _nikki_scope_user():
+    """
+    Resolve whose entries the workspace widgets should show.
+    - Anyone holding the "Nikki Ledger" role sees all of Nikki's entries.
+      (Administrator implicitly holds every role, so admins are covered.)
+    - Any other user is scoped to themselves (typically shows nothing).
+    """
+    if NIKKI_ROLE in frappe.get_roles(frappe.session.user):
+        return NIKKI_USER
+    return frappe.session.user
+
+
 @frappe.whitelist()
 def get_nikki_ledger_summary():
     """
     Lightweight summary of Nikki Cash Ledger Entry data for the workspace widget.
-    Always scoped to the logged-in user — no Finance bypass.
+    Scoped to Nikki: she sees her own; Administrator and finance/accounts managers
+    see Nikki's entries; any other user sees only their own.
     """
-    user = frappe.session.user
+    user = _nikki_scope_user()
     user_filter = f"AND submitted_by_user = {frappe.db.escape(user)}"
 
     totals = frappe.db.sql(f"""
@@ -397,10 +416,11 @@ def get_full_dashboard_data(person=None):
 def get_nikki_expense_summary():
     """
     Lightweight summary of Nikki Expense Entry data for the workspace widget.
-    Always scoped to the logged-in user — no Finance bypass.
+    Scoped to Nikki: she sees her own; Administrator and finance/accounts managers
+    see Nikki's entries; any other user sees only their own.
     Fields: money_out = expense, money_in = reimbursement.
     """
-    user = frappe.session.user
+    user = _nikki_scope_user()
     user_filter = f"AND owner = {frappe.db.escape(user)}"
 
     totals = frappe.db.sql(f"""
