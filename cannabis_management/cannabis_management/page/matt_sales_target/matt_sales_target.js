@@ -937,6 +937,19 @@ function getMattDashboardHTML() {
 
       <div class="sd-matrix-bar" style="margin-top:28px;">
         <div class="sd-section-title" style="margin:0">
+          <span class="sd-section-icon"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></span>
+          <span>Bank Incoming</span>
+        </div>
+        <div class="sd-matrix-controls">
+          <span style="font-size:11px;color:var(--sd-text-muted);padding:4px 8px;background:#f8fafc;border-radius:6px;">YTD monthly bank &amp; cash receipts</span>
+        </div>
+      </div>
+      <div class="sd-matrix-card">
+        <div id="sd-bank-matrix" class="sd-matrix-wrap"><div class="sd-loading"><div class="sd-spinner"></div></div></div>
+      </div>
+
+      <div class="sd-matrix-bar" style="margin-top:28px;">
+        <div class="sd-section-title" style="margin:0">
           <span class="sd-section-icon"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg></span>
           <span>AR Tracking Matrix</span>
         </div>
@@ -946,19 +959,6 @@ function getMattDashboardHTML() {
       </div>
       <div class="sd-matrix-card">
         <div id="sd-ar-matrix" class="sd-matrix-wrap"><div class="sd-loading"><div class="sd-spinner"></div></div></div>
-      </div>
-
-      <div class="sd-matrix-bar" style="margin-top:28px;">
-        <div class="sd-section-title" style="margin:0">
-          <span class="sd-section-icon"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></span>
-          <span>Bank Incoming</span>
-        </div>
-        <div class="sd-matrix-controls">
-          <span style="font-size:11px;color:var(--sd-text-muted);padding:4px 8px;background:#f8fafc;border-radius:6px;">YTD monthly bank receipts</span>
-        </div>
-      </div>
-      <div class="sd-matrix-card">
-        <div id="sd-bank-matrix" class="sd-matrix-wrap"><div class="sd-loading"><div class="sd-spinner"></div></div></div>
       </div>
 
     </div>
