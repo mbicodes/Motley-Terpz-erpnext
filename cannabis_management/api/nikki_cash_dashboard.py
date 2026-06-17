@@ -8,16 +8,24 @@ NIKKI_USER = "nikki@motleyterpz.com"
 NIKKI_ROLE = "Nikki Ledger"
 
 
-def _nikki_scope_user():
+def _nikki_can_see_all():
     """
-    Resolve whose entries the workspace widgets should show.
-    - Anyone holding the "Nikki Ledger" role sees all of Nikki's entries.
-      (Administrator implicitly holds every role, so admins are covered.)
-    - Any other user is scoped to themselves (typically shows nothing).
+    The Nikki Cash Ledger / Expense doctypes are single-tenant — every row in them
+    is Nikki's data regardless of which user account keyed it in (on the live site
+    the entries were created by a data-entry/dev account, not by Nikki herself).
+    Visibility:
+    - Nikki herself always sees her own doctype's entries.
+    - Anyone holding the "Nikki Ledger" role sees them (Administrator implicitly
+      holds every role). Grant that role to give a new person access — no code change.
+    - Any other user sees nothing.
     """
-    if NIKKI_ROLE in frappe.get_roles(frappe.session.user):
-        return NIKKI_USER
-    return frappe.session.user
+    u = frappe.session.user
+    return u == NIKKI_USER or NIKKI_ROLE in frappe.get_roles(u)
+
+
+def _nikki_visibility_filter():
+    """WHERE-clause fragment: empty string shows all entries; else shows none."""
+    return "" if _nikki_can_see_all() else "AND 1=0"
 
 
 @frappe.whitelist()
@@ -27,8 +35,7 @@ def get_nikki_ledger_summary():
     Scoped to Nikki: she sees her own; Administrator and finance/accounts managers
     see Nikki's entries; any other user sees only their own.
     """
-    user = _nikki_scope_user()
-    user_filter = f"AND submitted_by_user = {frappe.db.escape(user)}"
+    user_filter = _nikki_visibility_filter()
 
     totals = frappe.db.sql(f"""
         SELECT
@@ -36,16 +43,16 @@ def get_nikki_ledger_summary():
             COALESCE(SUM(CASE WHEN direction='Cash Out' THEN amount ELSE 0 END), 0) AS total_out,
             COUNT(*) AS txn_count
         FROM `tabNikki Cash Ledger Entry`
-        WHERE 1=1 {user_filter}
+        WHERE docstatus = 1 {user_filter}
     """, as_dict=True)[0]
 
     recent = frappe.db.sql(f"""
         SELECT name, date, entity, direction, amount, status,
                transaction_type, invoice_number, notes
         FROM `tabNikki Cash Ledger Entry`
-        WHERE 1=1 {user_filter}
+        WHERE docstatus = 1 {user_filter}
         ORDER BY date DESC, creation DESC
-        LIMIT 10
+        LIMIT 1000
     """, as_dict=True)
 
     for r in recent:
@@ -420,8 +427,7 @@ def get_nikki_expense_summary():
     see Nikki's entries; any other user sees only their own.
     Fields: money_out = expense, money_in = reimbursement.
     """
-    user = _nikki_scope_user()
-    user_filter = f"AND owner = {frappe.db.escape(user)}"
+    user_filter = _nikki_visibility_filter()
 
     totals = frappe.db.sql(f"""
         SELECT
@@ -429,7 +435,7 @@ def get_nikki_expense_summary():
             COALESCE(SUM(money_in),  0) AS total_reimbursed,
             COUNT(*)                    AS entry_count
         FROM `tabNikki Expense Entry`
-        WHERE docstatus != 2 {user_filter}
+        WHERE docstatus = 1 {user_filter}
     """, as_dict=True)[0]
 
     recent = frappe.db.sql(f"""
@@ -437,9 +443,9 @@ def get_nikki_expense_summary():
                expense_type AS transaction_type, transaction_notes AS notes,
                money_out, money_in
         FROM `tabNikki Expense Entry`
-        WHERE docstatus != 2 {user_filter}
+        WHERE docstatus = 1 {user_filter}
         ORDER BY transaction_date DESC, creation DESC
-        LIMIT 10
+        LIMIT 1000
     """, as_dict=True)
 
     for r in recent:

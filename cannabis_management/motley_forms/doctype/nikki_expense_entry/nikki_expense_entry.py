@@ -15,7 +15,11 @@ class NikkiExpenseEntry(Document):
                 title=f"Nikki Expense Entry — PE creation skipped [{self.name}]",
                 message=frappe.get_traceback()
             )
-        self._create_expense_tracker_entry()
+        # Expense Tracker Entry sync is handled by the "Nikki Expense → Expense Tracker
+        # Entry" Server Script (resolves the Cash Tracker Person as Nikki regardless of
+        # who keys in the entry). Calling _create_expense_tracker_entry() here too would
+        # only fail for non-Nikki sessions and spam the error log, so it is intentionally
+        # not invoked. The method is kept for reference / manual use.
 
     def _create_expense_tracker_entry(self):
         """Mirror this submission into the unified Expense Tracker Entry."""
