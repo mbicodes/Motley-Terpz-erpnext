@@ -1,0 +1,24 @@
+{
+ "content": null,
+ "creation": "2026-06-17 12:00:00",
+ "docstatus": 0,
+ "doctype": "Page",
+ "icon": "fa fa-line-chart",
+ "idx": 0,
+ "modified": "2026-06-17 12:00:00",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "matt-sales-target",
+ "owner": "Administrator",
+ "page_name": "matt-sales-target",
+ "roles": [
+  {
+   "role": "Sales Target Dashboard"
+  }
+ ],
+ "script": null,
+ "standard": "Yes",
+ "style": null,
+ "system_page": 0,
+ "title": "Sales Target - Matt"
+}
