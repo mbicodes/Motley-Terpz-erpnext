@@ -85,6 +85,8 @@ def populate_micron_finished_goods(doc, method=None):
             "is_finished_item": 1,
             "basic_rate": rate_per_gram,
             "basic_amount": rate_per_gram * row["qty"],
+            "valuation_rate": rate_per_gram,
+            "amount": rate_per_gram * row["qty"],
             "expense_account": expense_account,
             "cost_center": cost_center,
         })
