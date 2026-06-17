@@ -705,7 +705,7 @@ frappe.pages['matt-sales-target'].on_page_load = function (wrapper) {
         });
 
         frappe.call({
-            method: API + 'get_sales_matrix',
+            method: API + 'get_matt_sales_matrix',
             args: { territory: territory || null },
             callback: function (r) {
                 if (!r.message) return;

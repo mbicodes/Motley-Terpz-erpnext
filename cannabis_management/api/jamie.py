@@ -1597,3 +1597,49 @@ def get_jamie_expense_summary():
         "count":            int(row.get("count") or 0),
         "recent":           recent,
     }
+
+
+@frappe.whitelist()
+def get_matt_sales_matrix(territory=None):
+    """
+    Like get_sales_matrix but collapses all non-TSBC companies
+    (MTM, LA Canna, etc.) into the 'Motley Terpz' bucket in the
+    company_ig_map.  Used by the Matt sales target dashboard so that
+    item-group totals reflect ALL companies without a company breakdown.
+    """
+    result = get_sales_matrix(territory=territory)
+
+    MERGE_INTO_MOTLEY = {'Master Touch Manufacturing', 'LA Canna Distro'}
+
+    def _collapse(matrix):
+        cig = matrix.get('company_ig_map', {})
+        motley = cig.setdefault('Motley Terpz', {})
+
+        for co in list(cig.keys()):
+            if co in MERGE_INTO_MOTLEY:
+                for ig, col_data in cig.pop(co).items():
+                    ig_entry = motley.setdefault(ig, {})
+                    for col, vals in col_data.items():
+                        bucket = ig_entry.setdefault(col, {'qty': 0.0, 'rev': 0.0})
+                        bucket['qty'] += vals.get('qty', 0.0)
+                        bucket['rev'] += vals.get('rev', 0.0)
+
+        # Roll MTM + LA Canna totals into motley_totals
+        motley_tot = matrix.get('motley_totals', {})
+        cols = matrix.get('columns', [])
+        for src_key in ('mtm_totals', 'la_canna_totals'):
+            for col, v in matrix.get(src_key, {}).items():
+                motley_tot[col] = motley_tot.get(col, 0.0) + v
+            matrix[src_key] = {c: 0.0 for c in cols}
+
+        matrix['motley_totals'] = motley_tot
+        n = len(cols)
+        matrix['avg_motley']   = sum(motley_tot.values()) / n if n else 0.0
+        matrix['avg_mtm']      = 0.0
+        matrix['avg_la_canna'] = 0.0
+        return matrix
+
+    result['monthly'] = _collapse(result['monthly'])
+    result['weekly']  = _collapse(result['weekly'])
+    result['daily']   = _collapse(result['daily'])
+    return result
