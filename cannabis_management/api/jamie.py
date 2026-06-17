@@ -483,6 +483,76 @@ def get_bank_payments_received(from_date, to_date, payment_type='Bank'):
     """, {'from_date': from_date, 'to_date': to_date, 'account_type': payment_type}, as_dict=True)
 
 
+@frappe.whitelist()
+def get_matt_bank_matrix():
+    """
+    Monthly bank-incoming totals (YTD) for Matt's Sales Dashboard.
+    Queries GL Entry debit on Bank-type accounts matched to a Customer party,
+    aggregated into monthly columns.
+    """
+    import datetime as dt_mod
+    from frappe.utils import getdate, get_first_day, get_last_day, flt as _flt
+
+    today = getdate(nowdate())
+
+    monthly_columns = []
+    for m in range(1, today.month + 1):
+        mstart = today.replace(month=m, day=1)
+        mend_dt = getdate(str(get_last_day(mstart)))
+        mend = min(mend_dt, today)
+        monthly_columns.append({
+            "label": mstart.strftime('%b'),
+            "from_date": str(mstart),
+            "to_date": str(mend),
+        })
+
+    if not monthly_columns:
+        return {"columns": [], "column_dates": [], "totals": {}, "grand_total": 0.0}
+
+    min_date = monthly_columns[0]["from_date"]
+    max_date = monthly_columns[-1]["to_date"]
+
+    rows = frappe.db.sql("""
+        SELECT bank_gle.posting_date,
+               bank_gle.debit AS amount,
+               COALESCE(cust.customer_name, cust_gle.party) AS customer_name
+        FROM `tabGL Entry` bank_gle
+        INNER JOIN `tabAccount` acc
+            ON acc.name = bank_gle.account AND acc.account_type = 'Bank'
+        INNER JOIN `tabGL Entry` cust_gle
+            ON cust_gle.voucher_no  = bank_gle.voucher_no
+           AND cust_gle.party_type  = 'Customer'
+           AND cust_gle.party       != ''
+           AND cust_gle.is_cancelled = 0
+        LEFT JOIN `tabCustomer` cust ON cust.name = cust_gle.party
+        WHERE bank_gle.posting_date BETWEEN %(s)s AND %(e)s
+          AND bank_gle.debit       > 0
+          AND bank_gle.is_cancelled = 0
+    """, {"s": min_date, "e": max_date}, as_dict=True)
+
+    col_labels  = [c["label"] for c in monthly_columns]
+    col_ranges  = [(c["label"], getdate(c["from_date"]), getdate(c["to_date"]))
+                   for c in monthly_columns]
+    totals = {l: 0.0 for l in col_labels}
+
+    for r in rows:
+        if not r.posting_date:
+            continue
+        pd  = r.posting_date if isinstance(r.posting_date, dt_mod.date) else getdate(str(r.posting_date))
+        amt = _flt(r.amount)
+        for label, fd, td in col_ranges:
+            if fd <= pd <= td:
+                totals[label] += amt
+                break
+
+    return {
+        "columns":      col_labels,
+        "column_dates": [[c["from_date"], c["to_date"]] for c in monthly_columns],
+        "totals":       totals,
+        "grand_total":  sum(totals.values()),
+    }
+
+
 # ─────────────────────────────────────────────────────────
 # Sales Dashboard
 # ─────────────────────────────────────────────────────────

@@ -14,6 +14,7 @@ frappe.pages['matt-sales-target'].on_page_load = function (wrapper) {
     var currentView   = 'value';
     var matrixCache   = {};
     var arMatrixData  = null;
+    var bankMatrixData = null;
 
     // Legacy AR is only shown from June 1 2026 onwards
     var LEGACY_AR_START = '2026-06-01';
@@ -403,6 +404,40 @@ frappe.pages['matt-sales-target'].on_page_load = function (wrapper) {
         el.innerHTML = html;
     }
 
+    // ── Bank Incoming Matrix renderer ─────────────────────────────
+    function renderBankMatrix(containerId, data) {
+        var el = rootEl.querySelector('#' + containerId);
+        if (!el) return;
+        if (!data || !data.columns || !data.columns.length) {
+            el.innerHTML = '<p class="sd-empty">No bank data available.</p>';
+            return;
+        }
+
+        var cols    = data.columns;
+        var totals  = data.totals || {};
+        var grandTotal = data.grand_total || 0;
+
+        var html = '<table class="sd-matrix"><thead><tr>';
+        html += '<th class="sd-matrix-th-product">Category</th>';
+        cols.forEach(function(c) { html += '<th class="sd-matrix-th-period">' + frappe.utils.escape_html(c) + '</th>'; });
+        html += '<th class="sd-matrix-th-avg">YTD Total</th>';
+        html += '</tr></thead><tbody>';
+
+        html += '<tr>';
+        html += '<td class="sd-matrix-product" style="font-weight:700;color:#0891b2;">Bank Incoming</td>';
+        cols.forEach(function(c) {
+            var v = totals[c] || 0;
+            html += '<td class="sd-matrix-num' + (v > 0 ? ' sd-cell-green' : '') + '">'
+                  + (v > 0 ? fmtCurrency(v) : '—') + '</td>';
+        });
+        html += '<td class="sd-matrix-num sd-matrix-avg" style="color:#0891b2;font-weight:700;">'
+              + (grandTotal > 0 ? fmtCurrency(grandTotal) : '—') + '</td>';
+        html += '</tr>';
+
+        html += '</tbody></table>';
+        el.innerHTML = html;
+    }
+
     // ── Excel export ──────────────────────────────────────────────
     function downloadCSV() {
         var matrix = matrixCache[currentMatrix];
@@ -736,6 +771,20 @@ frappe.pages['matt-sales-target'].on_page_load = function (wrapper) {
                 if (el) el.innerHTML = '<p class="sd-empty">Error loading AR data.</p>';
             }
         });
+
+        shimmerEl('sd-bank-matrix');
+        frappe.call({
+            method: API + 'get_matt_bank_matrix',
+            callback: function (r) {
+                if (!r.message) return;
+                bankMatrixData = r.message;
+                renderBankMatrix('sd-bank-matrix', bankMatrixData);
+            },
+            error: function () {
+                var el = rootEl.querySelector('#sd-bank-matrix');
+                if (el) el.innerHTML = '<p class="sd-empty">Error loading bank data.</p>';
+            }
+        });
     }
 
     function loadTerritories() {
@@ -875,6 +924,19 @@ function getMattDashboardHTML() {
       </div>
       <div class="sd-matrix-card">
         <div id="sd-ar-matrix" class="sd-matrix-wrap"><div class="sd-loading"><div class="sd-spinner"></div></div></div>
+      </div>
+
+      <div class="sd-matrix-bar" style="margin-top:28px;">
+        <div class="sd-section-title" style="margin:0">
+          <span class="sd-section-icon"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></span>
+          <span>Bank Incoming</span>
+        </div>
+        <div class="sd-matrix-controls">
+          <span style="font-size:11px;color:var(--sd-text-muted);padding:4px 8px;background:#f8fafc;border-radius:6px;">YTD monthly bank receipts</span>
+        </div>
+      </div>
+      <div class="sd-matrix-card">
+        <div id="sd-bank-matrix" class="sd-matrix-wrap"><div class="sd-loading"><div class="sd-spinner"></div></div></div>
       </div>
 
     </div>
