@@ -33,14 +33,24 @@ def populate_micron_finished_goods(doc, method=None):
     if not micron_items:
         return  # no micron data — use standard BOM finished good
 
-    # Get target warehouse from existing FG item, fallback to WO fg_warehouse
+    # Get target warehouse and expense_account from existing FG item
     t_warehouse = None
+    expense_account = None
     for se_item in doc.items:
-        if getattr(se_item, "is_finished_item", 0) and se_item.t_warehouse:
-            t_warehouse = se_item.t_warehouse
-            break
+        if getattr(se_item, "is_finished_item", 0):
+            if se_item.t_warehouse and not t_warehouse:
+                t_warehouse = se_item.t_warehouse
+            if se_item.expense_account and not expense_account:
+                expense_account = se_item.expense_account
     if not t_warehouse:
         t_warehouse = frappe.db.get_value("Work Order", doc.work_order, "fg_warehouse") or ""
+    if not expense_account:
+        co = frappe.db.get_value(
+            "Company", doc.company,
+            ["expenses_included_in_valuation", "stock_adjustment_account"],
+            as_dict=1,
+        ) or {}
+        expense_account = co.get("expenses_included_in_valuation") or co.get("stock_adjustment_account") or ""
 
     # Sum raw material value (source-only items)
     total_rm_value = sum(
@@ -69,6 +79,7 @@ def populate_micron_finished_goods(doc, method=None):
             "is_finished_item": 1,
             "basic_rate": rate_per_gram,
             "basic_amount": rate_per_gram * row["qty"],
+            "expense_account": expense_account,
         })
 
     doc.fg_completed_qty = total_grams
