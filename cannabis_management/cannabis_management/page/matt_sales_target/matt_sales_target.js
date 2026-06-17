@@ -342,18 +342,26 @@ frappe.pages['matt-sales-target'].on_page_load = function (wrapper) {
         html += arTd(avg.total||0);
         html += '</tr>';
 
+        // Per-column visibility: columns whose from_date >= 2026-06-01 show legacy data; earlier = N/A
+        var colDates = ar.column_dates || [];
+        function colIsVisible(idx) {
+            var d = colDates[idx];
+            return d && d[0] >= LEGACY_AR_START;
+        }
+
         // ── Legacy AR balance row ─────────────────────────────────
         html += '<tr class="sd-ar-legacy">';
         html += '<td class="sd-matrix-product sd-ar-label-legacy">Legacy AR'
               + ' <span class="sd-ar-badge-legacy">pre-Jun 1</span></td>';
+        // Outstanding balance: show only if at least one visible column exists
         if (showLegacyAR) {
             html += '<td class="sd-matrix-num" style="color:#dc2626;font-weight:800;">' + fmtCurrency(bal.legacy||0) + '</td>';
         } else {
             html += '<td class="sd-matrix-num" style="color:#94a3b8;font-style:italic;">N/A</td>';
         }
         html += '<td class="sd-matrix-num sd-matrix-target-rev">' + fmtCurrency(ar.legacy_monthly_target||400000) + '/mo</td>';
-        cols.forEach(function(c){ html += showLegacyAR ? arTd(0) : naTd(); });
-        html += showLegacyAR ? arTd(0) : naTd();
+        cols.forEach(function(c, idx){ html += colIsVisible(idx) ? arTd(0) : naTd(); });
+        html += naTd();
         html += '</tr>';
 
         // ── Total Legacy AR Collected (monthly) ───────────────────
@@ -362,21 +370,17 @@ frappe.pages['matt-sales-target'].on_page_load = function (wrapper) {
               + 'Total Legacy AR Collected</td>';
         html += '<td class="sd-matrix-num">—</td>';
         html += '<td class="sd-matrix-num sd-matrix-target-rev">' + fmtCurrency(ar.legacy_monthly_target||400000) + '/mo</td>';
-        if (showLegacyAR) {
-            var legacyTotal = 0;
-            cols.forEach(function(c) {
-                var v = (coll.legacy||{})[c] || 0;
-                var t = pace[c] || 0;
-                var cls = '';
-                if (v > 0 && t > 0) { var r = v/t; cls = r>=1 ? 'sd-cell-green' : r>=0.5 ? 'sd-cell-amber' : 'sd-cell-red'; }
-                legacyTotal += v;
-                html += '<td class="sd-matrix-num ' + cls + '">' + (v > 0 ? fmtCurrency(v) : '—') + '</td>';
-            });
-            html += arTd(legacyTotal);
-        } else {
-            cols.forEach(function(){ html += naTd(); });
-            html += naTd();
-        }
+        var legacyTotal = 0;
+        cols.forEach(function(c, idx) {
+            if (!colIsVisible(idx)) { html += naTd(); return; }
+            var v = (coll.legacy||{})[c] || 0;
+            var t = pace[c] || 0;
+            var cls = '';
+            if (v > 0 && t > 0) { var r = v/t; cls = r>=1 ? 'sd-cell-green' : r>=0.5 ? 'sd-cell-amber' : 'sd-cell-red'; }
+            legacyTotal += v;
+            html += '<td class="sd-matrix-num ' + cls + '">' + (v > 0 ? fmtCurrency(v) : '—') + '</td>';
+        });
+        html += arTd(legacyTotal);
         html += '</tr>';
 
         // ── New AR (Jun 1 onwards) ────────────────────────────────
@@ -396,12 +400,6 @@ frappe.pages['matt-sales-target'].on_page_load = function (wrapper) {
         html += '</tr>';
 
         html += '</tbody></table>';
-
-        if (!showLegacyAR) {
-            html += '<p style="font-size:11px;color:#94a3b8;padding:6px 12px;margin:0;">'
-                  + 'Legacy AR tracking begins June 1, 2026.</p>';
-        }
-
         el.innerHTML = html;
     }
 
