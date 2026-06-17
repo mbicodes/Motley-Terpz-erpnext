@@ -404,7 +404,7 @@ frappe.pages['matt-sales-target'].on_page_load = function (wrapper) {
         el.innerHTML = html;
     }
 
-    // ── Bank Incoming Matrix renderer ─────────────────────────────
+    // ── Bank / Cash Incoming Matrix renderer ──────────────────────
     function renderBankMatrix(containerId, data) {
         var el = rootEl.querySelector('#' + containerId);
         if (!el) return;
@@ -413,9 +413,27 @@ frappe.pages['matt-sales-target'].on_page_load = function (wrapper) {
             return;
         }
 
-        var cols    = data.columns;
-        var totals  = data.totals || {};
-        var grandTotal = data.grand_total || 0;
+        var cols       = data.columns;
+        var bankTot    = data.bank_totals  || {};
+        var cashTot    = data.cash_totals  || {};
+        var combined   = data.totals       || {};
+        var bankGrand  = data.bank_grand   || 0;
+        var cashGrand  = data.cash_grand   || 0;
+        var grandTotal = data.grand_total  || 0;
+
+        function row(label, color, totalsObj, grand) {
+            var html = '<tr>';
+            html += '<td class="sd-matrix-product" style="font-weight:700;color:' + color + ';">' + label + '</td>';
+            cols.forEach(function(c) {
+                var v = totalsObj[c] || 0;
+                html += '<td class="sd-matrix-num' + (v > 0 ? ' sd-cell-green' : '') + '">'
+                      + (v > 0 ? fmtCurrency(v) : '—') + '</td>';
+            });
+            html += '<td class="sd-matrix-num sd-matrix-avg" style="color:' + color + ';font-weight:700;">'
+                  + (grand > 0 ? fmtCurrency(grand) : '—') + '</td>';
+            html += '</tr>';
+            return html;
+        }
 
         var html = '<table class="sd-matrix"><thead><tr>';
         html += '<th class="sd-matrix-th-product">Category</th>';
@@ -423,14 +441,18 @@ frappe.pages['matt-sales-target'].on_page_load = function (wrapper) {
         html += '<th class="sd-matrix-th-avg">YTD Total</th>';
         html += '</tr></thead><tbody>';
 
-        html += '<tr>';
-        html += '<td class="sd-matrix-product" style="font-weight:700;color:#0891b2;">Bank Incoming</td>';
+        html += row('Bank Incoming', '#0891b2', bankTot, bankGrand);
+        html += row('Cash Incoming', '#059669', cashTot, cashGrand);
+
+        // Combined total row
+        html += '<tr class="sd-matrix-foot-grand-total">';
+        html += '<td class="sd-matrix-product sd-matrix-foot-label">Total Incoming</td>';
         cols.forEach(function(c) {
-            var v = totals[c] || 0;
-            html += '<td class="sd-matrix-num' + (v > 0 ? ' sd-cell-green' : '') + '">'
+            var v = combined[c] || 0;
+            html += '<td class="sd-matrix-num sd-matrix-total-cell">'
                   + (v > 0 ? fmtCurrency(v) : '—') + '</td>';
         });
-        html += '<td class="sd-matrix-num sd-matrix-avg" style="color:#0891b2;font-weight:700;">'
+        html += '<td class="sd-matrix-num sd-matrix-avg sd-matrix-total-cell">'
               + (grandTotal > 0 ? fmtCurrency(grandTotal) : '—') + '</td>';
         html += '</tr>';
 

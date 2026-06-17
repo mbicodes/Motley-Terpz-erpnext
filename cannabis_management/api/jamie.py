@@ -512,44 +512,55 @@ def get_matt_bank_matrix():
     min_date = monthly_columns[0]["from_date"]
     max_date = monthly_columns[-1]["to_date"]
 
-    rows = frappe.db.sql("""
-        SELECT bank_gle.posting_date,
-               bank_gle.debit AS amount,
-               COALESCE(cust.customer_name, cust_gle.party) AS customer_name
-        FROM `tabGL Entry` bank_gle
-        INNER JOIN `tabAccount` acc
-            ON acc.name = bank_gle.account AND acc.account_type = 'Bank'
-        INNER JOIN `tabGL Entry` cust_gle
-            ON cust_gle.voucher_no  = bank_gle.voucher_no
-           AND cust_gle.party_type  = 'Customer'
-           AND cust_gle.party       != ''
-           AND cust_gle.is_cancelled = 0
-        LEFT JOIN `tabCustomer` cust ON cust.name = cust_gle.party
-        WHERE bank_gle.posting_date BETWEEN %(s)s AND %(e)s
-          AND bank_gle.debit       > 0
-          AND bank_gle.is_cancelled = 0
-    """, {"s": min_date, "e": max_date}, as_dict=True)
+    def _fetch(account_type):
+        return frappe.db.sql("""
+            SELECT bank_gle.posting_date,
+                   bank_gle.debit AS amount
+            FROM `tabGL Entry` bank_gle
+            INNER JOIN `tabAccount` acc
+                ON acc.name = bank_gle.account AND acc.account_type = %(at)s
+            INNER JOIN `tabGL Entry` cust_gle
+                ON cust_gle.voucher_no  = bank_gle.voucher_no
+               AND cust_gle.party_type  = 'Customer'
+               AND cust_gle.party       != ''
+               AND cust_gle.is_cancelled = 0
+            WHERE bank_gle.posting_date BETWEEN %(s)s AND %(e)s
+              AND bank_gle.debit       > 0
+              AND bank_gle.is_cancelled = 0
+        """, {"s": min_date, "e": max_date, "at": account_type}, as_dict=True)
 
-    col_labels  = [c["label"] for c in monthly_columns]
-    col_ranges  = [(c["label"], getdate(c["from_date"]), getdate(c["to_date"]))
-                   for c in monthly_columns]
-    totals = {l: 0.0 for l in col_labels}
+    col_labels = [c["label"] for c in monthly_columns]
+    col_ranges = [(c["label"], getdate(c["from_date"]), getdate(c["to_date"]))
+                  for c in monthly_columns]
 
-    for r in rows:
-        if not r.posting_date:
-            continue
-        pd  = r.posting_date if isinstance(r.posting_date, dt_mod.date) else getdate(str(r.posting_date))
-        amt = _flt(r.amount)
-        for label, fd, td in col_ranges:
-            if fd <= pd <= td:
-                totals[label] += amt
-                break
+    bank_totals = {l: 0.0 for l in col_labels}
+    cash_totals = {l: 0.0 for l in col_labels}
+
+    def _bucket(rows, totals_dict):
+        for r in rows:
+            if not r.posting_date:
+                continue
+            pd  = r.posting_date if isinstance(r.posting_date, dt_mod.date) else getdate(str(r.posting_date))
+            amt = _flt(r.amount)
+            for label, fd, td in col_ranges:
+                if fd <= pd <= td:
+                    totals_dict[label] += amt
+                    break
+
+    _bucket(_fetch('Bank'), bank_totals)
+    _bucket(_fetch('Cash'), cash_totals)
+
+    combined = {l: bank_totals[l] + cash_totals[l] for l in col_labels}
 
     return {
         "columns":      col_labels,
         "column_dates": [[c["from_date"], c["to_date"]] for c in monthly_columns],
-        "totals":       totals,
-        "grand_total":  sum(totals.values()),
+        "bank_totals":  bank_totals,
+        "cash_totals":  cash_totals,
+        "totals":       combined,
+        "bank_grand":   sum(bank_totals.values()),
+        "cash_grand":   sum(cash_totals.values()),
+        "grand_total":  sum(combined.values()),
     }
 
 
