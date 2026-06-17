@@ -128,16 +128,6 @@ frappe.pages['matt-sales-target'].on_page_load = function (wrapper) {
                                         'Fresh Frozen','Fresh Frozen - SHO','Fresh Frozen - BHO',
                                         'Frozen']},
             ]},
-          { label:'Master Touch Manufacturing', cos:['Master Touch Manufacturing'],
-            tot:'mtm_totals', avg:'avg_mtm',
-            color:'#2563eb', bg:'#eef2ff', border:'#2563eb',
-            igs:[]},
-          { label:'LA Canna', cos:['LA Canna Distro'],
-            tot:'la_canna_totals', avg:'avg_la_canna',
-            color:'#0891b2', bg:'#ecfeff', border:'#0891b2',
-            igs:[
-              {d:'Packaged Goods', m:['Packaged goods','Packaged Goods']},
-            ]},
         ];
 
         function getVal(coNames, matchSet, col) {
