@@ -76,6 +76,7 @@ def create_work_orders_from_mr(material_request):
         wo.production_item = bom.item
         wo.bom_no = bom.name
         wo.qty = qty
+        wo.custom_expected_yield_qty = qty
         wo.company = mr.company
         wo.project = mr.custom_project
         wo.material_request = mr.name
