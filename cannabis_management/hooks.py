@@ -286,6 +286,8 @@ scheduler_events = {
         # AR due-date reminders: every day at 7 AM UTC (daily, including weekends)
         "0 7 * * *": [
             "cannabis_management.api.ar_reminders.send_ar_reminders",
+            # Daily unreconciled-customer count snapshot (day-over-day AR tracking)
+            "cannabis_management.api.sales_daily_sync.snapshot_unreconciled",
         ],
         # Daily jobs: Mon–Fri only (midnight Berlin time)
         "0 0 * * 1-5": [
@@ -444,5 +446,12 @@ fixtures = [
     {"dt": "DocType", "filters": [["name", "=", "Cash Account Mapping"]]},
     {"dt": "DocType", "filters": [["name", "=", "Cash Ledger Entry"]]},
     {"dt": "DocType", "filters": [["name", "=", "Expense Tracker Entry"]]},
+    # ── Sales Daily Sync dashboard objects (travel via git) ──
+    # Role that grants visibility into Nikki's cash/expense widgets
+    {"dt": "Role", "filters": [["name", "=", "Nikki Ledger"]]},
+    # Day-over-day unreconciled-AR snapshot storage
+    {"dt": "DocType", "filters": [["name", "=", "AR Recon Snapshot"]]},
+    # The combined Sales Target + Inventory + COD/AR/Unreconciled dashboard block
+    {"dt": "Custom HTML Block", "filters": [["name", "=", "Sales Target and Inventory Dashboard"]]},
 ]
 
