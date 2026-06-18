@@ -40,9 +40,24 @@ def create_work_orders_from_mr(material_request):
             )
 
     if not boms:
+        # Auto-create BOMs using the same logic as MR on_submit
+        from cannabis_management.doc_hooks.material_request import _create_boms_from_mr
+        _create_boms_from_mr(mr)
+
+        boms = frappe.get_all(
+            "BOM",
+            filters={
+                "custom_material_request": mr.name,
+                "docstatus": 1,
+                "is_active": 1,
+            },
+            fields=["name", "item", "quantity", "uom"],
+            order_by="creation asc",
+        )
+
+    if not boms:
         frappe.throw(
-            _("No active BOMs found linked to this Material Request. "
-              "Submit the MR first to auto-create BOMs.")
+            _("No active BOMs could be created or found for this Material Request.")
         )
 
     # BOMs that already have a Work Order — skip those, create only missing ones
