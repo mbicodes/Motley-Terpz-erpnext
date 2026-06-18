@@ -45,9 +45,16 @@ class ConversionEntry(Document):
 			)
 
 	def _calculate_total_time(self):
-		self.total_time_in_minutes = sum(
-			flt(r.time_in_mins) for r in (self.time_logs or []) if r.time_in_mins
-		)
+		total = 0.0
+		for r in (self.time_logs or []):
+			mins = flt(r.time_in_mins)
+			if not mins and r.from_time and r.to_time:
+				diff = time_diff_in_seconds(r.to_time, r.from_time) / 60.0
+				if diff > 0:
+					r.time_in_mins = flt(diff, 4)
+					mins = r.time_in_mins
+			total += mins
+		self.total_time_in_minutes = total
 
 	# ── Timer ──────────────────────────────────────────────────────────────────
 

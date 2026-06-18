@@ -154,6 +154,17 @@ frappe.ui.form.on('Conversion Entry', {
 });
 
 
+// ── Conversion Entry Time Log child events ────────────────────────────────────
+
+frappe.ui.form.on('Conversion Entry Time Log', {
+	from_time: function (frm, cdt, cdn) {
+		_calc_ce_time_mins(frm, cdt, cdn);
+	},
+	to_time: function (frm, cdt, cdn) {
+		_calc_ce_time_mins(frm, cdt, cdn);
+	},
+});
+
 // ── Conversion Entry Item child events ────────────────────────────────────────
 
 frappe.ui.form.on('Conversion Entry Item', {
@@ -173,6 +184,20 @@ frappe.ui.form.on('Conversion Entry Item', {
 
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+function _calc_ce_time_mins(frm, cdt, cdn) {
+	let row = frappe.get_doc(cdt, cdn);
+	if (!row.from_time || !row.to_time) return;
+	let mins = moment(row.to_time).diff(moment(row.from_time), 'minutes', true);
+	if (mins > 0) {
+		frappe.model.set_value(cdt, cdn, 'time_in_mins', flt(mins, 4));
+		// Recompute total
+		let total = (frm.doc.time_logs || []).reduce(function (s, r) {
+			return s + flt(r.time_in_mins);
+		}, 0);
+		frm.set_value('total_time_in_minutes', flt(total, 4));
+	}
+}
 
 function get_seconds_diff(d1, d2) {
 	return moment(d1).diff(d2, 'seconds');
