@@ -24,6 +24,21 @@ def create_work_orders_from_mr(material_request):
         order_by="creation asc",
     )
 
+    # Fallback: find BOMs by FG item from custom_finished_goods
+    if not boms:
+        fg_items = [row.item for row in mr.custom_finished_goods if row.item]
+        if fg_items:
+            boms = frappe.get_all(
+                "BOM",
+                filters={
+                    "item": ["in", fg_items],
+                    "docstatus": 1,
+                    "is_active": 1,
+                },
+                fields=["name", "item", "quantity", "uom"],
+                order_by="creation asc",
+            )
+
     if not boms:
         frappe.throw(
             _("No active BOMs found linked to this Material Request. "
