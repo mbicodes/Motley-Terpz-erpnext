@@ -19,6 +19,7 @@ def calculate_sub_op_costs(doc, method=None):
     op_ws_cache = {}
     ws_rate_cache = {}
     total = 0.0
+    total_completed_qty = 0.0
 
     # Pre-resolve the Job Card's own operation workstation as ultimate fallback
     jc_op_ws = ""
@@ -72,9 +73,14 @@ def calculate_sub_op_costs(doc, method=None):
             }, update_modified=False)
 
         total += cost
+        total_completed_qty += flt(row.get("completed_qty") or 0)
 
     doc.custom_sub_op_total_cost = total
-    frappe.db.set_value("Job Card", doc.name, "custom_sub_op_total_cost", total, update_modified=False)
+    doc.total_completed_qty = total_completed_qty
+    frappe.db.set_value("Job Card", doc.name, {
+        "custom_sub_op_total_cost": total,
+        "total_completed_qty": total_completed_qty,
+    }, update_modified=False)
 
     # On submit: roll up all submitted Job Cards for this Work Order → actual_operating_cost
     if doc.docstatus == 1 and doc.get("work_order"):
