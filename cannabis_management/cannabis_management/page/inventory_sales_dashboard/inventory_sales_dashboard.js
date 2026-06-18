@@ -674,7 +674,11 @@ frappe.pages['inventory-sales-dashboard'].on_page_load = function (wrapper) {
     };
 
     const LOW = 5;
-    const GROUP_WH = { 'Fresh Frozen': 'Hemet TSBC - TSBC' };
+    const GROUP_WH = {
+        'Fresh Frozen':  'Hemet TSBC - TSBC',
+        'Primes':        'Master Touch Manufacturing Toll - MTM',
+        '0.5g O2 Vape':  'Conversion - MTM',
+    };
 
     // ── helpers ──
     function esc(s) {
@@ -817,7 +821,8 @@ frappe.pages['inventory-sales-dashboard'].on_page_load = function (wrapper) {
 
     // ── filters ──
     function resetFilters() {
-        S.filters = { search:'', warehouse:'__ALL__', onlyAvailable:false, lowStockOnly:false, hasSales:false };
+        const defaultWh = GROUP_WH[S.group] || '__ALL__';
+        S.filters = { search:'', warehouse: defaultWh, onlyAvailable:false, lowStockOnly:false, hasSales:false };
         document.getElementById('isd-search').value = '';
         document.getElementById('isd-only-available').checked = false;
         document.getElementById('isd-low-stock-only').checked = false;
