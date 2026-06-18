@@ -222,6 +222,8 @@ class ConversionEntry(Document):
 
 		has_items = False
 
+		# ── Source (outgoing) items ───────────────────────────────────────────
+		total_source_value = 0.0
 		for item_code, qty in [
 			(row.raw_material_1, row.qty_rm_1), (row.raw_material_2, row.qty_rm_2),
 			(row.raw_material_3, row.qty_rm_3), (row.raw_material_4, row.qty_rm_4),
@@ -229,6 +231,10 @@ class ConversionEntry(Document):
 			(row.raw_material_7, row.qty_rm_7),
 		]:
 			if item_code and flt(qty) > 0:
+				val_rate = flt(frappe.db.get_value(
+					"Bin", {"item_code": item_code, "warehouse": row.source_warehouse}, "valuation_rate"
+				) or 0)
+				total_source_value += val_rate * flt(qty)
 				se.append("items", {
 					"item_code": item_code, "qty": flt(qty),
 					"s_warehouse": row.source_warehouse,
@@ -236,11 +242,20 @@ class ConversionEntry(Document):
 				})
 				has_items = True
 
-		for item_code, qty in [(row.finished_good_1, row.qty_fg_1), (row.finished_good_2, row.qty_fg_2)]:
+		# ── Finished (incoming) items — distribute source value by qty ratio ──
+		fg_pairs = [(row.finished_good_1, row.qty_fg_1), (row.finished_good_2, row.qty_fg_2)]
+		total_fg_qty = sum(flt(qty) for _, qty in fg_pairs if qty and flt(qty) > 0)
+
+		for item_code, qty in fg_pairs:
 			if item_code and flt(qty) > 0:
+				qty = flt(qty)
+				proportion   = qty / total_fg_qty if total_fg_qty else 0
+				basic_amount = total_source_value * proportion
+				basic_rate   = basic_amount / qty if qty else 0
 				se.append("items", {
-					"item_code": item_code, "qty": flt(qty),
+					"item_code": item_code, "qty": qty,
 					"t_warehouse": row.target_warehouse, "is_finished_item": 1,
+					"basic_rate": basic_rate, "basic_amount": basic_amount,
 				})
 				has_items = True
 
