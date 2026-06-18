@@ -70,7 +70,9 @@ doctype_js = {
     "Item Group": "public/js/item_group_custom.js",
     "Job Card": "public/js/job_card.js",
 }
-
+doctype_list_js = {
+    "Sales Invoice": "public/js/sales_invoice_list.js",
+}
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
@@ -272,12 +274,14 @@ doc_events = {
             "cannabis_management.doc_hooks.job_card.calculate_sub_op_costs",
             "cannabis_management.doc_hooks.job_card.validate",
         ],
-        "before_submit": [
-            "cannabis_management.doc_hooks.job_card.bypass_qty_to_manufacture_check",
-        ],
         "on_submit": [
             "cannabis_management.doc_hooks.job_card.calculate_sub_op_costs",
             "cannabis_management.doc_hooks.job_card.validate",
+        ],
+    },
+    "Conversion Entry": {
+        "on_submit": [
+            "cannabis_management.overrides.conversion_entry_hooks.notify_conversion_entry_slack",
         ],
     },
 }

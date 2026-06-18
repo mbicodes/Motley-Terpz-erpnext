@@ -273,6 +273,70 @@ class ConversionEntry(Document):
 
 # ── Whitelisted API ────────────────────────────────────────────────────────────
 
+CONVERSION_TARGET_WAREHOUSE  = "Conversion - MTM"
+CONVERSION_COMPANY           = "Master Touch Manufacturing"
+CONVERSION_DEFAULT_WAREHOUSE = "Master Touch Manufacturing Toll - MTM"
+
+
+@frappe.whitelist()
+def make_conversion_entry(source_name):
+	"""Build a draft Conversion Entry from a Sales Order.
+
+	For the "Master Touch Manufacturing" company, each SO line's shortage
+	(ordered qty − qty available in the SO's Set Warehouse, or
+	"Master Touch Manufacturing Toll - MTM" if none is set) becomes a Conversion
+	Entry row: the SO item is set as Finished Good 1 with the missing qty, and
+	the target warehouse is fixed to "Conversion - MTM". Lines that have enough
+	stock are skipped. For any other company a blank Conversion Entry is returned
+	(header only — no finished-good rows). The returned doc is unsaved — opened
+	directly in the form for the user to fill in the rest before saving.
+	"""
+	so = frappe.get_doc("Sales Order", source_name)
+
+	ce = frappe.new_doc("Conversion Entry")
+	ce.company       = so.company
+	ce.customer      = so.customer
+	ce.sales_order   = so.name
+	ce.posting_date  = frappe.utils.nowdate()
+
+	# Pre-fill shortage rows for MTM only; other companies get a blank entry.
+	if so.company != CONVERSION_COMPANY:
+		return ce.as_dict()
+
+	warehouse = so.set_warehouse or CONVERSION_DEFAULT_WAREHOUSE
+
+	for so_item in so.items:
+		required  = flt(so_item.stock_qty) or flt(so_item.qty)
+
+		available = flt(frappe.db.get_value(
+			"Bin",
+			{"item_code": so_item.item_code, "warehouse": warehouse},
+			"actual_qty",
+		) or 0)
+
+		shortage = required - available
+		if shortage <= 0:
+			continue
+
+		ce.append("items", {
+			"target_warehouse": CONVERSION_TARGET_WAREHOUSE,
+			"source_warehouse": warehouse,
+			"finished_good_1":  so_item.item_code,
+			"qty_fg_1":         shortage,
+		})
+
+	if not ce.items:
+		frappe.msgprint(
+			_("All Sales Order items have sufficient stock in {0} — no Conversion Entry needed.").format(
+				frappe.bold(warehouse)
+			),
+			indicator="green",
+		)
+
+	return ce.as_dict()
+
+
+
 @frappe.whitelist()
 def make_ce_time_log(args):
 	if isinstance(args, str):

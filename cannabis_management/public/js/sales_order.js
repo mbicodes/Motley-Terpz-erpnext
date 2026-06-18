@@ -2,15 +2,17 @@ frappe.ui.form.on('Sales Order', {
 	refresh(frm) {
 		apply_payment_terms_restrictions(frm);
 
-		// Add "Conversion Entry" to the Create dropdown (submitted SO only)
+		// Add "Conversion Entry" to the Create dropdown (submitted SO only).
+		// For the Master Touch Manufacturing company it pre-fills one row per
+		// short item (ordered qty − available in the SO's Set Warehouse, or the
+		// MTM Toll warehouse) as Finished Good with target = Conversion - MTM.
+		// For any other company it just opens a blank Conversion Entry.
 		if (frm.doc.docstatus === 1) {
 			frm.add_custom_button(__('Conversion Entry'), function () {
-				frappe.route_options = {
-					sales_order: frm.doc.name,
-					customer: frm.doc.customer,
-					company: frm.doc.company
-				};
-				frappe.new_doc('Conversion Entry');
+				frappe.model.open_mapped_doc({
+					method: 'cannabis_management.cannabis_management.doctype.conversion_entry.conversion_entry.make_conversion_entry',
+					frm: frm
+				});
 			}, __('Create'));
 		}
 	},

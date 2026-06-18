@@ -8,6 +8,7 @@ def check_inventory_and_notify_slack(doc, method):
     TARGET_COMPANY = "Master Touch Manufacturing"
     TARGET_WAREHOUSE = "Master Touch Manufacturing Toll - MTM"
     SLACK_CHANNEL = "#conversions-motley"
+    SLACK_MENTION_MEMBER_ID = "U0AJ7HW183G"
 
     frappe.log_error(
         "Slack hook triggered for Sales Order: {0}, Company: {1}".format(doc.name, doc.company),
@@ -94,11 +95,12 @@ def check_inventory_and_notify_slack(doc, method):
     ]
 
     if need_lines:
+        mention = "<@{0}> ".format(SLACK_MENTION_MEMBER_ID) if SLACK_MENTION_MEMBER_ID else ""
         blocks.append({
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": ":warning: *Needs conversion*\n" + "\n".join(need_lines)
+                "text": "{0}:warning: *Needs conversion*\n".format(mention) + "\n".join(need_lines)
             }
         })
 
