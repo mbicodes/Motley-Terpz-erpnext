@@ -5,8 +5,8 @@ import ssl
 
 
 def check_inventory_and_notify_slack(doc, method):
-    TARGET_COMPANY = "Motley Terpz"
-    TARGET_WAREHOUSE = "Nature's Lab - MT"
+    TARGET_COMPANY = "Master Touch Manufacturing"
+    TARGET_WAREHOUSE = "Master Touch Manufacturing Toll - MTM"
     SLACK_CHANNEL = "#conversions-motley"
 
     frappe.log_error(
