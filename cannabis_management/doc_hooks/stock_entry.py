@@ -23,6 +23,15 @@ def populate_micron_finished_goods(doc, method=None):
     micron_items = []
     for jc in job_cards:
         jc_doc = frappe.get_doc("Job Card", jc.name)
+
+        # Only use micron flow when the linked Operation has the flag enabled
+        use_micron = bool(frappe.db.get_value(
+            "Operation", jc_doc.operation, "custom_stock_entry_based_on_micron"
+        )) if jc_doc.operation else False
+
+        if not use_micron:
+            continue
+
         for row in (jc_doc.custom_micron_collection_detail or []):
             if row.item and flt(row.grams_collected) > 0:
                 micron_items.append({
@@ -31,7 +40,7 @@ def populate_micron_finished_goods(doc, method=None):
                 })
 
     if not micron_items:
-        return  # no micron data — use standard BOM finished good
+        return  # micron flow not enabled or no micron rows — use standard BOM finished good
 
     # Get target warehouse, expense_account, and cost_center from existing FG item
     t_warehouse = None
