@@ -272,6 +272,9 @@ doc_events = {
             "cannabis_management.doc_hooks.job_card.calculate_sub_op_costs",
             "cannabis_management.doc_hooks.job_card.validate",
         ],
+        "before_submit": [
+            "cannabis_management.doc_hooks.job_card.bypass_qty_to_manufacture_check",
+        ],
         "on_submit": [
             "cannabis_management.doc_hooks.job_card.calculate_sub_op_costs",
             "cannabis_management.doc_hooks.job_card.validate",
@@ -434,7 +437,7 @@ fixtures = [
     "Client Script",
     "Server Script",
     "Property Setter",
-    "Workflow",
+    # "Workflow",
     "Workflow State",
     "Workflow Action",
     # Item Group Account Mapping child doctype
@@ -446,7 +449,7 @@ fixtures = [
     {"dt": "DocType", "filters": [["name", "=", "Cash Account Mapping"]]},
     {"dt": "DocType", "filters": [["name", "=", "Cash Ledger Entry"]]},
     {"dt": "DocType", "filters": [["name", "=", "Expense Tracker Entry"]]},
-    # ── Sales Daily Sync dashboard objects (travel via git) ──
+    # ── Sales Daily Sync dashboard objects (travel via git) ──ench
     # Role that grants visibility into Nikki's cash/expense widgets
     {"dt": "Role", "filters": [["name", "=", "Nikki Ledger"]]},
     # Day-over-day unreconciled-AR snapshot storage
