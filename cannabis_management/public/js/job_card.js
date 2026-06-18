@@ -31,6 +31,14 @@ frappe.ui.form.on('Job Card', {
 
 frappe.ui.form.on('Job Card Time Log', {
 
+    from_time: function (frm, cdt, cdn) {
+        _calc_time_from_range(frm, cdt, cdn);
+    },
+
+    to_time: function (frm, cdt, cdn) {
+        _calc_time_from_range(frm, cdt, cdn);
+    },
+
     operation: function (frm, cdt, cdn) {
         let row = frappe.get_doc(cdt, cdn);
         if (row.operation) {
@@ -104,6 +112,15 @@ function _set_row_workstation(frm, cdt, cdn, ws) {
     } else {
         frappe.model.set_value(cdt, cdn, 'custom_hour_rate', 0);
         _recalc_cost(frm, cdt, cdn);
+    }
+}
+
+function _calc_time_from_range(frm, cdt, cdn) {
+    let row = frappe.get_doc(cdt, cdn);
+    if (!row.from_time || !row.to_time) return;
+    let mins = moment(row.to_time).diff(moment(row.from_time), 'minutes', true);
+    if (mins > 0) {
+        frappe.model.set_value(cdt, cdn, 'time_in_mins', flt(mins, 4));
     }
 }
 
