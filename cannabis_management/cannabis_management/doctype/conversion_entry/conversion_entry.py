@@ -264,30 +264,62 @@ def make_ce_time_log(args):
 
 def _ce_cost_map(ce_doc):
 	"""
-	amount = workstation.custom_total_operating_cost / 60 * total_time_in_minutes
-	Account = company.expenses_included_in_valuation
+	Break operating cost into per-component rows, each using the expense_account
+	configured on the Operating Component for this company.
+	Falls back to a single row on company.expenses_included_in_valuation if no
+	component-account mappings exist.
 	"""
 	if not ce_doc.workstation or not flt(ce_doc.total_time_in_minutes):
 		return {}
 
-	hourly_rate = flt(frappe.db.get_value(
-		"Workstation", ce_doc.workstation, "custom_total_operating_cost"
-	))
-	if not hourly_rate:
-		return {}
+	company      = ce_doc.company or "Motley Terpz"
+	time_mins    = flt(ce_doc.total_time_in_minutes)
+	cost_map     = {}
 
-	amount  = hourly_rate / 60.0 * flt(ce_doc.total_time_in_minutes)
-	company = ce_doc.company or "Motley Terpz"
-
-	expense_account = frappe.db.get_value(
-		"Company", company, "expenses_included_in_valuation"
+	components = frappe.get_all(
+		"Workstation Operating Cost",
+		filters={"parent": ce_doc.workstation, "parenttype": "Workstation"},
+		fields=["operating_component", "operating_cost"],
 	)
-	if not expense_account:
-		return {}
 
-	return {
-		expense_account: {
-			"amount": amount,
+	for comp in components:
+		if not comp.operating_component or not flt(comp.operating_cost):
+			continue
+
+		expense_account = frappe.db.get_value(
+			"Operating Component Account",
+			{"parent": comp.operating_component, "parenttype": "Operating Component", "company": company},
+			"expense_account",
+		)
+		if not expense_account:
+			continue
+
+		amount = flt(comp.operating_cost) / 60.0 * time_mins
+		if expense_account in cost_map:
+			cost_map[expense_account]["amount"] += amount
+		else:
+			cost_map[expense_account] = {
+				"amount": amount,
+				"label":  f"{comp.operating_component} ({ce_doc.workstation})",
+			}
+
+	if not cost_map:
+		# Fallback: lump sum on company default account
+		hourly_rate = flt(frappe.db.get_value(
+			"Workstation", ce_doc.workstation, "custom_total_operating_cost"
+		))
+		if not hourly_rate:
+			return {}
+
+		expense_account = frappe.db.get_value(
+			"Company", company, "expenses_included_in_valuation"
+		)
+		if not expense_account:
+			return {}
+
+		cost_map[expense_account] = {
+			"amount": hourly_rate / 60.0 * time_mins,
 			"label":  f"Operating Cost ({ce_doc.workstation})",
 		}
-	}
+
+	return cost_map
