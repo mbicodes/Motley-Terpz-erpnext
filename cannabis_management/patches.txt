@@ -11,3 +11,4 @@ cannabis_management.patches.remove_production_batch_group
 cannabis_management.patches.setup_workstation_operating_cost
 cannabis_management.patches.setup_job_card_sub_op_costs
 cannabis_management.patches.update_item_group_uoms
+cannabis_management.patches.sync_inventory_web_page_js
