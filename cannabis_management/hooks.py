@@ -72,6 +72,7 @@ doctype_js = {
 }
 doctype_list_js = {
     "Sales Invoice": "public/js/sales_invoice_list.js",
+    "Sales Order": "public/js/sales_order_list.js",
 }
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
@@ -259,9 +260,18 @@ doc_events = {
         ],
     },
     "Delivery Note": {
-        "on_update": "cannabis_management.overrides.delivery_note_hooks.update_sales_invoice_delivery_status",
-        "on_submit": "cannabis_management.overrides.delivery_note_hooks.update_sales_invoice_delivery_status",
-        "on_cancel": "cannabis_management.overrides.delivery_note_hooks.update_sales_invoice_delivery_status"
+        "on_update": [
+            "cannabis_management.overrides.delivery_note_hooks.update_sales_invoice_delivery_status",
+            "cannabis_management.overrides.delivery_note_hooks.update_sales_order_delivery_status",
+        ],
+        "on_submit": [
+            "cannabis_management.overrides.delivery_note_hooks.update_sales_invoice_delivery_status",
+            "cannabis_management.overrides.delivery_note_hooks.update_sales_order_delivery_status",
+        ],
+        "on_cancel": [
+            "cannabis_management.overrides.delivery_note_hooks.update_sales_invoice_delivery_status",
+            "cannabis_management.overrides.delivery_note_hooks.update_sales_order_delivery_status",
+        ],
     },
     "Timesheet": {
         "after_insert": "cannabis_management.overrides.timesheet_hooks.auto_submit_timesheet",
@@ -441,7 +451,7 @@ fixtures = [
     "Client Script",
     "Server Script",
     "Property Setter",
-    # "Workflow",
+    "Workflow",
     "Workflow State",
     "Workflow Action",
     # Item Group Account Mapping child doctype

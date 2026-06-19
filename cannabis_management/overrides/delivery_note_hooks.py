@@ -68,6 +68,68 @@ def _sales_invoice_has_delivery_note(si_name):
     return False
 
 
+def update_sales_order_delivery_status(doc, method):
+    """
+    Updates the 'custom_delivery_note_created' checkbox on the Sales Order(s) this
+    Delivery Note is raised against (DN Item.against_sales_order). Recompute from
+    scratch so cancellations clear the flag too.
+    """
+    sales_orders = {
+        item.against_sales_order for item in doc.items if item.against_sales_order
+    }
+    for so_name in sales_orders:
+        _recompute_so_delivery_note_created(so_name)
+
+
+def _recompute_so_delivery_note_created(so_name):
+    """Set custom_delivery_note_created based on whether any submitted Delivery
+    Note is raised against the Sales Order."""
+    has_dn = _sales_order_has_delivery_note(so_name)
+    frappe.db.set_value(
+        "Sales Order", so_name, "custom_delivery_note_created", 1 if has_dn else 0
+    )
+
+
+def _sales_order_has_delivery_note(so_name):
+    # A submitted Delivery Note Item points at this Sales Order.
+    return bool(
+        frappe.db.exists(
+            "Delivery Note Item",
+            {"against_sales_order": so_name, "docstatus": 1},
+        )
+    )
+
+
+def backfill_sales_order_delivery_note_created():
+    """One-off correction for existing Sales Orders: recompute the
+    custom_delivery_note_created checkbox for every submitted Sales Order.
+
+    Run with:
+        bench --site <site> execute \
+          cannabis_management.overrides.delivery_note_hooks.backfill_sales_order_delivery_note_created
+    """
+    so_names = frappe.get_all("Sales Order", filters={"docstatus": 1}, pluck="name")
+
+    updated = 0
+    for so_name in so_names:
+        desired = 1 if _sales_order_has_delivery_note(so_name) else 0
+        current = frappe.db.get_value(
+            "Sales Order", so_name, "custom_delivery_note_created"
+        )
+        if (current or 0) != desired:
+            frappe.db.set_value(
+                "Sales Order", so_name, "custom_delivery_note_created", desired
+            )
+            updated += 1
+
+    frappe.db.commit()
+    msg = "Backfill complete: scanned {0} submitted Sales Orders, updated {1}.".format(
+        len(so_names), updated
+    )
+    print(msg)
+    return msg
+
+
 def backfill_delivery_note_created():
     """One-off correction for previously created Sales Invoices: recompute the
     custom_delivery_note_created checkbox for every submitted Sales Invoice.

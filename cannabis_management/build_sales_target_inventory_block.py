@@ -26,6 +26,42 @@ ST_CSS = f"{BASE}/sales_target_dashboa/sales_target_dashboa.css"
 
 BLOCK_NAME = "Sales Target and Inventory Dashboard"
 
+# Route of the standalone Inventory Sales Dashboard page.
+INVENTORY_ROUTE = "/app/inventory-sales-dashboard"
+
+# Button shown where the embedded Inventory dashboard used to be. Clicking it
+# opens the full Inventory Sales Dashboard page instead of rendering it inline.
+INVENTORY_BUTTON_HTML = f"""
+<!-- ===== INVENTORY DASHBOARD LINK ===== -->
+<div class="invlink-wrap">
+  <a class="invlink-btn" href="{INVENTORY_ROUTE}">
+    <span class="invlink-icon">📦</span>
+    <span class="invlink-text">
+      <span class="invlink-title">Open Inventory Dashboard</span>
+      <span class="invlink-sub">View the full Inventory Sales Dashboard</span>
+    </span>
+    <span class="invlink-arrow">&rarr;</span>
+  </a>
+</div>
+"""
+
+INVENTORY_BUTTON_CSS = """
+/* ===== INVENTORY DASHBOARD LINK CSS ===== */
+.invlink-wrap { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; max-width:1280px; margin:0 auto; padding:8px 24px; }
+.invlink-btn {
+  display:flex; align-items:center; gap:16px; text-decoration:none;
+  background:linear-gradient(135deg,#1E3A8A 0%,#2563EB 60%,#3B82F6 100%);
+  border-radius:12px; padding:18px 22px; box-shadow:0 1px 3px rgba(0,0,0,.08);
+  transition:transform .12s ease, box-shadow .12s ease;
+}
+.invlink-btn:hover { transform:translateY(-1px); box-shadow:0 6px 18px rgba(37,99,235,.28); }
+.invlink-icon { width:44px; height:44px; flex-shrink:0; background:rgba(255,255,255,.18); border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:22px; }
+.invlink-text { display:flex; flex-direction:column; gap:3px; flex:1; }
+.invlink-title { font-size:17px; font-weight:700; color:#fff; }
+.invlink-sub { font-size:12.5px; color:rgba(255,255,255,.82); }
+.invlink-arrow { font-size:22px; color:#fff; font-weight:700; flex-shrink:0; }
+"""
+
 
 def _read(path):
     with open(path) as f:
@@ -41,19 +77,8 @@ def _scope_inventory_js(js):
 
 
 def build():
-    # ── Inventory page: split CSS / HTML / JS out of page.main.html(`...`) ──
-    inv = _read(INV_JS)
-    _, _, after = inv.partition("page.main.html(`")
-    tpl, _, inv_js_after = after.partition("`);")
-    _, _, after_style = tpl.partition("<style>")
-    inv_css, _, inv_html = after_style.partition("</style>")
-
-    inv_js_body = inv_js_after.rstrip()
-    if inv_js_body.endswith("};"):            # drop the on_page_load closer
-        inv_js_body = inv_js_body[:-2].rstrip()
-    inv_js_body = _scope_inventory_js(inv_js_body)
-
-    inv_iife = "(function() {\n" + inv_js_body + "\n})();"
+    # The Inventory Sales Dashboard is no longer embedded inline; it lives on its
+    # own page and is reached via a button (see INVENTORY_BUTTON_* above).
 
     # ── Sales-target page: extract HTML from getDashboardHTML(), body from on_page_load ──
     st = _read(ST_JS)
@@ -82,23 +107,21 @@ def build():
     st_iife = "(function() {\n" + body.strip() + "\n})();"
 
     # ── Assemble the three fields ──
+    # Inventory dashboard replaced by a button linking to its standalone page.
     html_field = (
         "<!-- ===== SALES TARGET DASHBOARD ===== -->\n"
         + st_html.strip()
-        + "\n\n<!-- ===== INVENTORY SALES DASHBOARD ===== -->\n"
-        + inv_html.strip()
+        + "\n\n"
+        + INVENTORY_BUTTON_HTML.strip()
     )
     style_field = (
-        "/* ===== INVENTORY SALES DASHBOARD CSS ===== */\n"
-        + inv_css.strip()
+        INVENTORY_BUTTON_CSS.strip()
         + "\n\n/* ===== SALES TARGET DASHBOARD CSS ===== */\n"
         + st_css.strip()
     )
     script_field = (
         "/* ===== SALES TARGET DASHBOARD ===== */\n"
         + st_iife
-        + "\n\n/* ===== INVENTORY SALES DASHBOARD ===== */\n"
-        + inv_iife
     )
     return html_field, script_field, style_field
 
