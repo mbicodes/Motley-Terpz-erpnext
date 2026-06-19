@@ -24,6 +24,14 @@ class CMStockEntry(StockEntry):
                 self.total_outgoing_value += flt(d.amount)
         self.value_difference = self.total_incoming_value - self.total_outgoing_value
 
+    def validate_fg_completed_qty(self):
+        # ERPNext compares self.fg_completed_qty against flt(total, precision) but doesn't
+        # round fg_completed_qty itself, causing false failures when floating-point arithmetic
+        # leaves a tiny residue (e.g. 85.04849999... vs 85.0485).
+        precision = frappe.get_precision("Stock Entry Detail", "qty")
+        self.fg_completed_qty = flt(self.fg_completed_qty, precision)
+        super().validate_fg_completed_qty()
+
     def validate_finished_goods(self):
         # If no work order, or all FG items match the WO production item, use standard validation
         if not self.work_order:
