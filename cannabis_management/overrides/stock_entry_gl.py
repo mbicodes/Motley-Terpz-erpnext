@@ -25,12 +25,28 @@ class CMStockEntry(StockEntry):
         self.value_difference = self.total_incoming_value - self.total_outgoing_value
 
     def validate_fg_completed_qty(self):
-        # ERPNext compares self.fg_completed_qty against flt(total, precision) but doesn't
-        # round fg_completed_qty itself, causing false failures when floating-point arithmetic
-        # leaves a tiny residue (e.g. 85.04849999... vs 85.0485).
+        # ERPNext's version iterates by item_code, so when multiple finished item codes
+        # are present (e.g. PR-0037 + SP-0010), process_loss_qty gets set on the first
+        # item and incorrectly double-counted on the second. Replace with a single-pass
+        # check that sums ALL finished items and handles float rounding.
+        if self.purpose != "Manufacture" or not self.work_order:
+            return super().validate_fg_completed_qty()
+
         precision = frappe.get_precision("Stock Entry Detail", "qty")
         self.fg_completed_qty = flt(self.fg_completed_qty, precision)
-        super().validate_fg_completed_qty()
+
+        total_fg = flt(
+            sum(flt(d.qty) for d in self.get("items") if d.is_finished_item),
+            precision,
+        )
+        total = flt(total_fg + flt(self.process_loss_qty), precision)
+
+        if self.fg_completed_qty and total and self.fg_completed_qty != total:
+            frappe.throw(
+                _(
+                    "Total finished goods quantity {0} and For Quantity {1} cannot be different"
+                ).format(frappe.bold(total_fg), frappe.bold(self.fg_completed_qty))
+            )
 
     def validate_finished_goods(self):
         # If no work order, or all FG items match the WO production item, use standard validation
