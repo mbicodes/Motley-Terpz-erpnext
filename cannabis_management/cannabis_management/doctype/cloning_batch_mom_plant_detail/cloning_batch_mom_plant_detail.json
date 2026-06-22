@@ -1,0 +1,70 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-06-22 14:25:55.620065",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "mom_plant",
+  "strain",
+  "greenhouse",
+  "cuttings_taken",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "mom_plant",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Mom Plant",
+   "link_filters": "[[\"Item\",\"item_group\",\"=\",\"Mom Plants\"],[\"Item\",\"disabled\",\"=\",0]]",
+   "options": "Item",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "mom_plant.item_name",
+   "fieldname": "strain",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Strain",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "mom_plant.custom_greenhouse",
+   "fieldname": "greenhouse",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Greenhouse",
+   "read_only": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "cuttings_taken",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Cuttings Taken",
+   "reqd": 1
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "in_list_view": 1,
+   "label": "Notes"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-06-22 14:33:06.078244",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Cloning Batch Mom Plant Detail",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

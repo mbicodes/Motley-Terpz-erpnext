@@ -1,0 +1,235 @@
+{
+    "actions": [],
+    "allow_rename": 1,
+    "autoname": "CB-.YYYY.-.####",
+    "creation": "2026-06-22 00:00:00.000000",
+    "doctype": "DocType",
+    "engine": "InnoDB",
+    "field_order": [
+        "section_break_1",
+        "batchproject",
+        "session_date",
+        "performed_by",
+        "season",
+        "source_warehouse",
+        "target_warehouse",
+        "column_break_1",
+        "total_mom_plants",
+        "total_material_quantity",
+        "total_material_cost",
+        "total_clone_quantity",
+        "total_quantity",
+        "section_break_mom",
+        "mom_plant_details",
+        "section_break_material",
+        "material_details",
+        "section_break_clone",
+        "clone_details",
+        "labour_hours",
+        "labour_rate",
+        "total_labor_cost",
+        "total_session_material_cost",
+        "total_clones_produced",
+        "total_session_cost",
+        "cost_per_clone",
+        "stock_entry",
+        "notes"
+    ],
+    "fields": [
+        {
+            "fieldname": "section_break_1",
+            "fieldtype": "Section Break"
+        },
+        {
+            "fieldname": "batchproject",
+            "fieldtype": "Link",
+            "label": "Batch/Project",
+            "options": "Project"
+        },
+        {
+            "fieldname": "session_date",
+            "fieldtype": "Date",
+            "label": "Session Date",
+            "default": "Today",
+            "reqd": 1
+        },
+        {
+            "fieldname": "performed_by",
+            "fieldtype": "Link",
+            "label": "Performed By",
+            "options": "Employee",
+            "reqd": 1
+        },
+        {
+            "fieldname": "season",
+            "fieldtype": "Data",
+            "label": "Season",
+            "read_only": 1,
+            "reqd": 1
+        },
+        {
+            "fieldname": "source_warehouse",
+            "fieldtype": "Link",
+            "label": "Source Warehouse",
+            "options": "Warehouse",
+            "reqd": 1
+        },
+        {
+            "fieldname": "target_warehouse",
+            "fieldtype": "Link",
+            "label": "Target Warehouse",
+            "options": "Warehouse",
+            "reqd": 1
+        },
+        {
+            "fieldname": "column_break_1",
+            "fieldtype": "Column Break"
+        },
+        {
+            "fieldname": "total_mom_plants",
+            "fieldtype": "Int",
+            "label": "Total Mom Plants",
+            "read_only": 1
+        },
+        {
+            "fieldname": "total_material_quantity",
+            "fieldtype": "Float",
+            "label": "Total Material Quantity",
+            "read_only": 1
+        },
+        {
+            "fieldname": "total_material_cost",
+            "fieldtype": "Currency",
+            "label": "Total Material Cost",
+            "read_only": 1
+        },
+        {
+            "fieldname": "total_clone_quantity",
+            "fieldtype": "Float",
+            "label": "Total Clone Quantity",
+            "read_only": 1
+        },
+        {
+            "fieldname": "total_quantity",
+            "fieldtype": "Float",
+            "label": "Total Quantity",
+            "read_only": 1
+        },
+        {
+            "fieldname": "section_break_mom",
+            "fieldtype": "Section Break",
+            "label": "Mom Plant Details"
+        },
+        {
+            "fieldname": "mom_plant_details",
+            "fieldtype": "Table",
+            "label": "Mom Plant Details",
+            "options": "Cloning Batch Mom Plant Detail"
+        },
+        {
+            "fieldname": "section_break_material",
+            "fieldtype": "Section Break",
+            "label": "Material Details"
+        },
+        {
+            "fieldname": "material_details",
+            "fieldtype": "Table",
+            "label": "Material Details",
+            "options": "Cloning Batch Material Detail"
+        },
+        {
+            "fieldname": "section_break_clone",
+            "fieldtype": "Section Break",
+            "label": "Clone Details"
+        },
+        {
+            "fieldname": "clone_details",
+            "fieldtype": "Table",
+            "label": "Clone Details",
+            "options": "Cloning Batch Clone Detail"
+        },
+        {
+            "fieldname": "labour_hours",
+            "fieldtype": "Float",
+            "label": "Labor Hours",
+            "reqd": 1
+        },
+        {
+            "fieldname": "labour_rate",
+            "fieldtype": "Currency",
+            "label": "Labor Rate",
+            "reqd": 1
+        },
+        {
+            "fieldname": "total_labor_cost",
+            "fieldtype": "Currency",
+            "label": "Total Labor Cost",
+            "read_only": 1
+        },
+        {
+            "fieldname": "total_session_material_cost",
+            "fieldtype": "Currency",
+            "label": "Total Materials Cost",
+            "read_only": 1
+        },
+        {
+            "fieldname": "total_clones_produced",
+            "fieldtype": "Int",
+            "label": "Total Clones Produced",
+            "read_only": 1
+        },
+        {
+            "fieldname": "total_session_cost",
+            "fieldtype": "Currency",
+            "label": "Total Session Cost",
+            "read_only": 1
+        },
+        {
+            "fieldname": "cost_per_clone",
+            "fieldtype": "Currency",
+            "label": "Cost Per Clone",
+            "read_only": 1
+        },
+        {
+            "fieldname": "stock_entry",
+            "fieldtype": "Link",
+            "label": "Stock Entry",
+            "options": "Stock Entry",
+            "read_only": 1
+        },
+        {
+            "fieldname": "notes",
+            "fieldtype": "Small Text",
+            "label": "Notes"
+        }
+    ],
+    "grid_page_length": 50,
+    "index_web_pages_for_search": 1,
+    "is_submittable": 1,
+    "modified": "2026-06-22 00:00:00.000000",
+    "modified_by": "Administrator",
+    "module": "Cannabis Management",
+    "name": "Cloning Batch",
+    "naming_rule": "Expression",
+    "owner": "Administrator",
+    "permissions": [
+        {
+            "role": "System Manager",
+            "read": 1,
+            "write": 1,
+            "create": 1,
+            "delete": 1,
+            "submit": 1,
+            "email": 1,
+            "export": 1,
+            "print": 1,
+            "report": 1,
+            "share": 1
+        }
+    ],
+    "row_format": "Dynamic",
+    "rows_threshold_for_grid_search": 20,
+    "sort_field": "modified",
+    "sort_order": "DESC",
+    "states": []
+}
