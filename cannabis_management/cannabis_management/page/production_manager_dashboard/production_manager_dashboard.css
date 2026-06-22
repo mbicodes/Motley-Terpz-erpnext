@@ -1,0 +1,243 @@
+/* ── Production Manager Dashboard — pm- namespace ─────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+
+.pm-dash {
+  font-family: 'DM Sans', system-ui, sans-serif;
+  background: #f0f2f5;
+  min-height: 100vh;
+  padding-bottom: 40px;
+}
+
+/* ── Header ─────────────────────────────────────────────────────────────── */
+.pm-header {
+  background: linear-gradient(135deg, #0c2340 0%, #1a3a5f 100%);
+  padding: 22px 28px 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 0;
+}
+.pm-brand-over  { font-size: 11px; font-weight: 600; letter-spacing: .12em; color: #7dd3fc; text-transform: uppercase; margin-bottom: 4px; }
+.pm-brand-name  { font-size: 22px; font-weight: 700; color: #ffffff; letter-spacing: -.02em; line-height: 1.1; }
+.pm-brand-sub   { font-size: 12px; color: #94a3b8; margin-top: 4px; }
+.pm-hdr-right   { text-align: right; }
+.pm-hdr-period  { font-size: 11px; color: #7dd3fc; font-family: 'DM Mono', monospace; margin-bottom: 6px; }
+.pm-live-badge  { font-size: 11px; font-weight: 600; color: #34d399; letter-spacing: .06em; }
+
+/* ── Filter bar ─────────────────────────────────────────────────────────── */
+.pm-fbar {
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 12px 28px;
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.pm-fg    { display: flex; flex-direction: column; gap: 3px; }
+.pm-flbl  { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: #94a3b8; }
+.pm-fsel, .pm-finp {
+  border: 1px solid #e2e8f0; border-radius: 6px;
+  padding: 6px 10px; font-size: 13px; font-family: 'DM Sans', sans-serif;
+  color: #1e293b; background: #f8fafc; height: 34px;
+}
+.pm-fsel:focus, .pm-finp:focus { outline: none; border-color: #2563eb; }
+.pm-fspacer   { flex: 1; }
+.pm-lrefresh  { font-size: 11px; color: #94a3b8; font-family: 'DM Mono', monospace; align-self: center; }
+.pm-ebtn {
+  border: none; border-radius: 6px; padding: 0 16px; height: 34px;
+  font-size: 13px; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif;
+  transition: opacity .15s;
+}
+.pm-ebtn:hover { opacity: .85; }
+.pm-ebtn.pri   { background: #2563eb; color: #fff; }
+
+/* ── KPI Grid ───────────────────────────────────────────────────────────── */
+.pm-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  padding: 20px 28px 0;
+}
+.pm-kc {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px 18px 14px;
+  position: relative;
+  overflow: hidden;
+  transition: transform .15s, box-shadow .15s;
+}
+.pm-kc:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,.08); }
+.pm-kc-accent {
+  position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: var(--kc, #2563eb);
+}
+.pm-kc-top  { display: flex; align-items: center; gap: 7px; margin-bottom: 10px; }
+.pm-kico    { font-size: 16px; }
+.pm-klbl    { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: #94a3b8; }
+.pm-kval    { font-size: 28px; font-weight: 700; font-family: 'DM Mono', monospace; color: var(--kc, #1e293b); line-height: 1; margin-bottom: 6px; min-height: 34px; }
+.pm-ksub    { font-size: 11px; color: #94a3b8; }
+.pm-kc.overdue .pm-kval { color: #e11d48; }
+.pm-kc.overdue { background: #fff1f2; border-color: #fecdd3; }
+
+/* ── Panels ─────────────────────────────────────────────────────────────── */
+.pm-row2, .pm-row3 {
+  display: grid;
+  gap: 14px;
+  padding: 14px 28px 0;
+}
+.pm-row2 { grid-template-columns: 1fr 1fr; }
+.pm-row3 { grid-template-columns: 1fr 1fr; }
+.pm-panel {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 18px 20px;
+}
+.pm-ptitle { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: #64748b; margin-bottom: 2px; }
+.pm-psub   { font-size: 11px; color: #94a3b8; margin-bottom: 14px; }
+
+/* ── Operations horizontal bar chart ────────────────────────────────────── */
+.pm-ops-canvas { width: 100%; height: 200px; display: block; }
+
+/* ── Workstation cards ───────────────────────────────────────────────────── */
+.pm-ws-grid { display: flex; flex-direction: column; gap: 8px; }
+.pm-wsc {
+  display: grid; grid-template-columns: 1fr auto auto auto;
+  align-items: center; gap: 10px;
+  padding: 8px 10px; border-radius: 8px; background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+.pm-wsname  { font-size: 12px; font-weight: 600; color: #1e293b; }
+.pm-wsbadge {
+  font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 20px;
+  letter-spacing: .04em;
+}
+.pm-wsbadge.active { background: #d1fae5; color: #065f46; }
+.pm-wsbadge.idle   { background: #f1f5f9; color: #94a3b8; }
+.pm-wsstat  { font-size: 11px; color: #64748b; font-family: 'DM Mono', monospace; }
+
+/* ── Micron ladder ───────────────────────────────────────────────────────── */
+.pm-mrow  { display: grid; grid-template-columns: 44px 1fr 64px 40px; align-items: center; gap: 8px; margin-bottom: 7px; }
+.pm-mlbl  { font-size: 11px; font-weight: 700; font-family: 'DM Mono', monospace; }
+.pm-mtrack{ height: 8px; background: #f1f5f9; border-radius: 4px; overflow: hidden; }
+.pm-mfill { height: 100%; border-radius: 4px; transition: width .5s ease; }
+.pm-mg    { font-size: 11px; font-weight: 600; font-family: 'DM Mono', monospace; text-align: right; }
+.pm-mpct  { font-size: 10px; color: #94a3b8; text-align: right; }
+.pm-fmbracket {
+  font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em;
+  color: #059669; border-top: 1px dashed #d1fae5; padding-top: 6px; margin: 6px 0 4px;
+}
+.pm-mtotal {
+  display: flex; justify-content: space-between; align-items: center;
+  border-top: 1px solid #e2e8f0; padding-top: 8px; margin-top: 8px;
+}
+.pm-mtlbl { font-size: 11px; color: #94a3b8; }
+.pm-mtval { font-size: 14px; font-weight: 700; font-family: 'DM Mono', monospace; color: #1e293b; }
+.pm-mtsub { font-size: 10px; color: #059669; text-align: right; }
+
+/* ── Employee table ──────────────────────────────────────────────────────── */
+.pm-emptbl { width: 100%; border-collapse: collapse; font-size: 12px; }
+.pm-emptbl th { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: #94a3b8; padding: 0 8px 8px; text-align: left; }
+.pm-emptbl td { padding: 7px 8px; border-top: 1px solid #f1f5f9; color: #1e293b; }
+.pm-emptbl tr:hover td { background: #f8fafc; }
+.pm-hrbar { height: 6px; background: #f1f5f9; border-radius: 3px; overflow: hidden; margin-top: 3px; min-width: 60px; }
+.pm-hrfill { height: 100%; background: #2563eb; border-radius: 3px; }
+
+/* ── Full-width sections ─────────────────────────────────────────────────── */
+.pm-fullsec {
+  margin: 14px 28px 0;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.pm-sec-hdr {
+  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  color: #fff; font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .1em;
+  padding: 10px 18px; display: flex; justify-content: space-between; align-items: center;
+}
+.pm-sec-hint { font-size: 10px; font-weight: 400; color: #94a3b8; letter-spacing: 0; text-transform: none; }
+.pm-tscroll  { overflow-x: auto; }
+
+/* ── Tables ─────────────────────────────────────────────────────────────── */
+.pm-tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
+.pm-tbl th {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em;
+  color: #94a3b8; padding: 10px 14px; text-align: left;
+  border-bottom: 1px solid #e2e8f0; white-space: nowrap; background: #fafafa;
+}
+.pm-tbl td { padding: 9px 14px; border-bottom: 1px solid #f1f5f9; color: #1e293b; vertical-align: middle; }
+.pm-tbl tbody tr:hover td { background: #f8fafc; }
+.pm-tbl a { color: #2563eb; text-decoration: none; font-weight: 500; }
+.pm-tbl a:hover { text-decoration: underline; }
+.pm-qnum { font-family: 'DM Mono', monospace; font-size: 12px; text-align: right; }
+
+/* Status pills */
+.pm-pill {
+  display: inline-block; font-size: 10px; font-weight: 700;
+  padding: 2px 8px; border-radius: 20px; letter-spacing: .04em; white-space: nowrap;
+}
+.pm-pill.cp  { background: #d1fae5; color: #065f46; }
+.pm-pill.ip  { background: #fef3c7; color: #92400e; }
+.pm-pill.ns  { background: #f1f5f9; color: #475569; }
+.pm-pill.wip { background: #fef3c7; color: #92400e; }
+.pm-pill.op  { background: #dbeafe; color: #1e40af; }
+.pm-pill.low { background: #fee2e2; color: #991b1b; }
+
+/* Overdue badge */
+.pm-overdue-tag {
+  display: inline-block; font-size: 9px; font-weight: 800;
+  padding: 1px 6px; border-radius: 3px;
+  background: #fee2e2; color: #991b1b; letter-spacing: .06em;
+  text-transform: uppercase; margin-left: 6px; vertical-align: middle;
+}
+
+/* Progress bar in table */
+.pm-pbar  { display: flex; align-items: center; gap: 6px; }
+.pm-ptr   { flex: 1; height: 6px; background: #f1f5f9; border-radius: 3px; overflow: hidden; min-width: 50px; }
+.pm-pfi   { height: 100%; background: #2563eb; border-radius: 3px; }
+.pm-pfi.mid { background: #d97706; }
+.pm-pfi.low { background: #e11d48; }
+.pm-ppct  { font-size: 10px; font-family: 'DM Mono', monospace; color: #64748b; white-space: nowrap; }
+
+/* ── LBS Washed section ──────────────────────────────────────────────────── */
+.pm-lbs-wrap {
+  margin: 14px 28px 0;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 18px 20px;
+}
+.pm-lbs-kpis {
+  display: flex; gap: 28px; margin-bottom: 14px; flex-wrap: wrap;
+}
+.pm-lbs-chip { display: flex; flex-direction: column; gap: 2px; }
+.pm-lbs-chip-lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: #94a3b8; }
+.pm-lbs-chip-val { font-size: 22px; font-weight: 700; font-family: 'DM Mono', monospace; color: #0c2340; line-height: 1; }
+.pm-lbs-chip-sub { font-size: 10px; color: #94a3b8; }
+.pm-lbs-canvas   { width: 100%; height: 160px; display: block; }
+
+/* ── Logistics section ───────────────────────────────────────────────────── */
+.pm-log-kpis {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px; padding: 14px 18px 10px;
+}
+.pm-log-kcard {
+  background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;
+  padding: 12px 14px; border-left: 3px solid var(--lkc, #2563eb);
+}
+.pm-log-klbl  { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: #94a3b8; margin-bottom: 4px; }
+.pm-log-knum  { font-size: 22px; font-weight: 700; font-family: 'DM Mono', monospace; color: var(--lkc, #2563eb); line-height: 1; }
+.pm-log-kval  { font-size: 11px; color: #64748b; margin-top: 2px; }
+
+/* ── Loading ─────────────────────────────────────────────────────────────── */
+.pm-loader {
+  display: inline-block; width: 22px; height: 22px; border-radius: 50%;
+  border: 3px solid #e2e8f0; border-top-color: #2563eb;
+  animation: pmSpin .7s linear infinite; vertical-align: middle;
+}
+@keyframes pmSpin { to { transform: rotate(360deg); } }
+.pm-empty { text-align: center; color: #94a3b8; font-size: 12px; padding: 24px; }

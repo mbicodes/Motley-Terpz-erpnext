@@ -154,14 +154,16 @@ before_migrate = ["cannabis_management.compat.install_frappe_shims"]
 # Permissions evaluated in scripted ways
 
 permission_query_conditions = {
-    "Customer": "cannabis_management.permissions.customer_query_conditions",
+    "Customer":      "cannabis_management.permissions.customer_query_conditions",
+    "Sales Invoice": "cannabis_management.permissions.sales_invoice_query_conditions",
     # CRM Lead permission (Tolling access) moved to crm.motley_terpz.permissions
-    "Cash Ledger Entry": "cannabis_management.cash_management.permissions.cash_ledger_entry_query",
-    "Expense Tracker Entry": "cannabis_management.cash_management.permissions.expense_tracker_entry_query",
+    "Cash Ledger Entry":      "cannabis_management.cash_management.permissions.cash_ledger_entry_query",
+    "Expense Tracker Entry":  "cannabis_management.cash_management.permissions.expense_tracker_entry_query",
 }
 
 has_permission = {
-    "Customer": "cannabis_management.permissions.customer_has_permission"
+    "Customer":      "cannabis_management.permissions.customer_has_permission",
+    "Sales Invoice": "cannabis_management.permissions.sales_invoice_has_permission",
 }
 
 

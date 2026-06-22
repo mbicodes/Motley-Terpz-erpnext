@@ -43,9 +43,15 @@ def send_ar_reminders():
     if not triggers:
         return "No reminders due today."
 
-    _send_email(triggers, today)
+    # Always send full picture to default recipients (management oversight)
+    _send_email(triggers, today, RECIPIENTS)
+
+    # Additionally send each Sales Person only their assigned invoices
+    sp_count = _send_sp_emails(triggers, today)
+
     count = sum(len(v) for v in triggers.values())
-    return f"Sent reminders: {count} invoice(s) across {len(triggers)} term group(s) to {RECIPIENTS}"
+    return (f"Sent reminders: {count} invoice(s) across {len(triggers)} term group(s) "
+            f"to {RECIPIENTS}; {sp_count} personalised SP email(s) sent")
 
 
 @frappe.whitelist()
@@ -61,8 +67,6 @@ def send_test():
     a payment terms template — ignores the day-schedule check.
     Useful for previewing the email format.
     """
-    from frappe.utils import getdate, nowdate
-
     today    = getdate(nowdate())
     excluded = _excluded_customers()
 
@@ -92,31 +96,68 @@ def send_test():
     if not invoices:
         return "No invoices with payment terms found to test with."
 
+    # Build payment schedule map — same as _collect_triggers — so split-term
+    # invoices show the correct per-installment due date, not the last-row date
+    # that ERPNext writes to si.due_date.
+    invoice_names = tuple(inv.name for inv in invoices) or ("__none__",)
+    ps_rows = frappe.db.sql("""
+        SELECT ps.parent AS invoice_name, ps.due_date, ps.outstanding
+        FROM `tabPayment Schedule` ps
+        WHERE ps.parenttype = 'Sales Invoice'
+          AND ps.parent IN %(names)s
+          AND ps.outstanding > 0.01
+          AND ps.due_date IS NOT NULL
+    """, {"names": invoice_names}, as_dict=True)
+    ps_map = {}
+    for r in ps_rows:
+        ps_map.setdefault(r.invoice_name, []).append(r)
+
     triggers = {}
     for inv in invoices:
         terms    = inv.payment_terms_template
         schedule = TERMS_SCHEDULE.get(terms)
         if not schedule:
             continue
-        due_date   = getdate(str(inv.due_date))
-        days_until = (due_date - today).days
-        triggers.setdefault(terms, []).append({
-            "invoice":    inv.name,
-            "customer":   inv.customer_name or inv.customer,
-            "owner":      inv.account_owner or "",
-            "terms":      terms,
-            "due_date":   due_date,
-            "outstanding": float(inv.outstanding_amount),
-            "grand_total": float(inv.grand_total),
-            "days":       days_until,
-        })
+
+        # Use per-installment dates when available; fall back to invoice due_date
+        due_entries = []
+        if inv.name in ps_map:
+            for ps in ps_map[inv.name]:
+                if flt(ps.outstanding) > 0:
+                    due_entries.append({
+                        "due_date":    getdate(str(ps.due_date)),
+                        "outstanding": flt(ps.outstanding),
+                    })
+        if not due_entries:
+            due_entries.append({
+                "due_date":    getdate(str(inv.due_date)),
+                "outstanding": flt(inv.outstanding_amount),
+            })
+
+        for entry in due_entries:
+            days_until = (entry["due_date"] - today).days
+            triggers.setdefault(terms, []).append({
+                "invoice":     inv.name,
+                "customer":    inv.customer_name or inv.customer,
+                "owner":       inv.account_owner or "",
+                "terms":       terms,
+                "due_date":    entry["due_date"],
+                "outstanding": entry["outstanding"],
+                "grand_total": float(inv.grand_total),
+                "days":        days_until,
+            })
 
     if not triggers:
         return "No invoices match a recognised payment terms schedule (NET7/NET15/NET30/50% variants)."
 
-    _send_email(triggers, today)
+    # Default recipients always get full picture
+    _send_email(triggers, today, RECIPIENTS)
+
+    # Per-SP personalised emails (only their assigned invoices)
+    sp_count = _send_sp_emails(triggers, today)
+
     count = sum(len(v) for v in triggers.values())
-    return f"Test email sent: {count} invoice(s) to {RECIPIENTS}"
+    return f"Test email sent: {count} invoice(s) to {RECIPIENTS}; {sp_count} SP email(s) sent"
 
 
 # ── Core logic ─────────────────────────────────────────────────────────────────
@@ -158,7 +199,10 @@ def _collect_triggers(today):
         SELECT ps.parent AS invoice_name, ps.due_date, ps.outstanding
         FROM `tabPayment Schedule` ps
         JOIN `tabSales Invoice` si ON si.name = ps.parent
-        WHERE si.docstatus = 1 AND ps.outstanding > 0.01 AND ps.due_date IS NOT NULL
+        WHERE ps.parenttype = 'Sales Invoice'
+          AND si.docstatus = 1
+          AND ps.outstanding > 0.01
+          AND ps.due_date IS NOT NULL
     """, as_dict=True)
     ps_map = {}
     for r in ps_rows:
@@ -228,10 +272,45 @@ def _excluded_customers():
 
 # ── Email builder ──────────────────────────────────────────────────────────────
 
-def _send_email(triggers, today):
+def _get_sp_email_set():
+    """Return set of lowercase emails registered on the Sales Person list."""
+    rows = frappe.db.sql("""
+        SELECT custom_email FROM `tabSales Person`
+        WHERE custom_email IS NOT NULL AND custom_email != ''
+    """, as_list=True)
+    return {r[0].strip().lower() for r in rows}
+
+
+def _send_sp_emails(triggers, today):
+    """
+    For each Sales Person whose email appears as an invoice owner in triggers,
+    send them a personalised email containing only their assigned invoices.
+    Returns count of SP emails sent.
+    """
+    sp_set = _get_sp_email_set()
+    if not sp_set:
+        return 0
+
+    # Group rows by SP email
+    sp_buckets = {}   # {sp_email: {terms: [row, ...]}}
+    for terms, rows in triggers.items():
+        for row in rows:
+            owner = (row.get("owner") or "").strip().lower()
+            if owner and owner in sp_set:
+                sp_buckets.setdefault(owner, {}).setdefault(terms, []).append(row)
+
+    for sp_email, sp_triggers in sp_buckets.items():
+        _send_email(sp_triggers, today, [sp_email])
+
+    return len(sp_buckets)
+
+
+def _send_email(triggers, today, recipients=None):
+    if recipients is None:
+        recipients = RECIPIENTS
     html = _build_html(triggers, today)
     frappe.sendmail(
-        recipients=RECIPIENTS,
+        recipients=recipients,
         subject=f"AR Due Date Reminders — {today}",
         message=html,
         delayed=False,
