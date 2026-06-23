@@ -61,34 +61,73 @@ def _strip_cross_company_rows(rows, company):
     ]
 
 
-def _apply_si_outstanding(rows):
+def _apply_si_outstanding(rows, ranges, report_date):
     """
-    Replace the GL-derived outstanding value with si.outstanding_amount for every
-    Sales Invoice row, then drop rows that are fully paid.
+    Replace the GL-derived outstanding AND aging bucket values with figures
+    derived from si.outstanding_amount / si.due_date for every Sales Invoice row,
+    then drop rows that are fully paid.
 
-    The ERPNext AR report reads outstanding from GL Entry (debit - credit), which
-    can diverge from si.outstanding_amount when payments are applied but the GL
-    isn't fully cleared. si.outstanding_amount is the authoritative figure.
+    The ERPNext AR report reads from GL Entry, which diverges from
+    si.outstanding_amount when payments are applied without full GL clearance.
+    si.outstanding_amount is the authoritative paid/unpaid signal.
     """
     si_nos = [r["voucher_no"] for r in rows if r.get("voucher_type") == "Sales Invoice"]
     if not si_nos:
         return rows
 
     si_data = frappe.db.sql(
-        "SELECT name, outstanding_amount FROM `tabSales Invoice` WHERE name IN %(names)s",
+        "SELECT name, outstanding_amount, due_date FROM `tabSales Invoice` WHERE name IN %(names)s",
         {"names": tuple(si_nos)},
         as_dict=True,
     )
-    si_map = {r.name: float(r.outstanding_amount or 0) for r in si_data}
+    si_map = {r.name: r for r in si_data}
+
+    from frappe.utils import date_diff, getdate
+    as_of = getdate(report_date or nowdate())
+
+    # Build aging thresholds from ranges: range1 covers 0..limits[0], range2 limits[0]..limits[1], …
+    # _build_ranges("30,60,90,120") → [0-30, 30-60, 60-90, 90-120, 120+]
+    # We derive limits by parsing each label.
+    range_keys = [r["key"] for r in ranges]
+
+    def _bucket_key(days_overdue):
+        """Return the range key for a given days-overdue value (0 = current/not yet due)."""
+        prev = 0
+        for i, rng in enumerate(ranges):
+            label = rng["label"]
+            if "+" in label:
+                return rng["key"]   # last bucket catches everything remaining
+            try:
+                _, upper = label.split("-")
+                upper = int(upper)
+            except Exception:
+                return rng["key"]
+            if days_overdue <= upper:
+                return rng["key"]
+            prev = upper
+        return range_keys[-1]
 
     result = []
     for r in rows:
         if r.get("voucher_type") == "Sales Invoice":
-            actual = si_map.get(r["voucher_no"], r["outstanding"])
+            si = si_map.get(r["voucher_no"])
+            if not si:
+                result.append(r)
+                continue
+            actual = float(si.outstanding_amount or 0)
             if actual <= 0.01:
-                continue          # fully paid — exclude from dashboard
+                continue    # fully paid — exclude
+
             r = dict(r)
             r["outstanding"] = actual
+
+            # Recalculate aging bucket: zero all ranges, then put actual in correct bucket
+            due = getdate(str(si.due_date)) if si.due_date else as_of
+            days_overdue = max(date_diff(as_of, due), 0)
+            for key in range_keys:
+                r[key] = 0.0
+            r[_bucket_key(days_overdue)] = actual
+
         result.append(r)
     return result
 
@@ -166,7 +205,7 @@ def get_ar_data(company, report_date=None, customer=None, ageing_based_on="Due D
                     c, report_date, customer, ageing_based_on, range_str, ranges
                 )
                 c_rows = _strip_cross_company_rows(c_rows, c)
-                c_rows = _apply_si_outstanding(c_rows)
+                c_rows = _apply_si_outstanding(c_rows, ranges, report_date)
                 all_rows.extend(c_rows)
             except Exception:
                 frappe.log_error(f"AR data fetch failed for {c}", "TMM Group AR Dashboard")
@@ -176,7 +215,7 @@ def get_ar_data(company, report_date=None, customer=None, ageing_based_on="Due D
             company, report_date, customer, ageing_based_on, range_str, ranges
         )
         rows = _strip_cross_company_rows(rows, company)
-        rows = _apply_si_outstanding(rows)
+        rows = _apply_si_outstanding(rows, ranges, report_date)
 
     # Apply mode date filter and strip intercompany rows in one pass
     internal = _internal_customer_names()
