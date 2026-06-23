@@ -926,8 +926,6 @@ def get_dashboard_inventory(company=None):
 
 HEMET_WAREHOUSES = [
     'Hemet TSBC - TSBC',
-    'Hemet - TSBC',
-    'DON Prico - TSBC',
 ]
 
 

@@ -491,7 +491,7 @@ HEMET_STORAGE_WIDGET_JS = """
 // ── Hemet Storage Gauge ─────────────────────────────────────────────────
 (function() {
   var HEMET_API = "cannabis_management.api.jamie.get_hemet_storage_lbs";
-  var CAPACITY_LBS = 40000; // Update with Hemet's confirmed max capacity in lbs.
+  var CAPACITY_LBS = 51000; // Hemet TSBC - TSBC confirmed max capacity in lbs.
 
   function renderHemetGauge(currentLbs) {
     currentLbs = parseFloat(currentLbs || 0);
