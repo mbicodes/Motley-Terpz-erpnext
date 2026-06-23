@@ -924,6 +924,34 @@ def get_dashboard_inventory(company=None):
     """, as_dict=True)
 
 
+HEMET_WAREHOUSES = [
+    'Hemet - MT',
+    'Hemet TSBC - TSBC',
+    'Don Perico - MT',
+    'DON Prico - TSBC',
+]
+
+
+@frappe.whitelist()
+def get_hemet_storage_lbs():
+    """Returns current pounds physically at Hemet across approved warehouses."""
+    row = frappe.db.sql("""
+        SELECT
+            ROUND(SUM(
+                CASE
+                    WHEN i.stock_uom = 'LBS' THEN b.actual_qty
+                    WHEN i.stock_uom = 'Gram' THEN b.actual_qty / 453.592
+                    ELSE 0
+                END
+            ), 1) AS hemet_total_lbs
+        FROM `tabBin` b
+        JOIN `tabItem` i ON i.name = b.item_code
+        WHERE b.warehouse IN (%s)
+    """ % ','.join(['%s'] * len(HEMET_WAREHOUSES)), tuple(HEMET_WAREHOUSES), as_dict=True)
+
+    return row[0].get('hemet_total_lbs', 0) if row else 0
+
+
 def _calendar_blocks_before(date, count):
     """
     Return `count` most-recent fixed-7-day calendar blocks ending at or before `date`.

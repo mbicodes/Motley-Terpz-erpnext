@@ -459,30 +459,131 @@ EXPENSE_WIDGET_JS = """
 })();
 """
 
+HEMET_STORAGE_WIDGET_HTML = """
+<!-- ── Hemet Storage Gauge ───────────────────────────────────────────────── -->
+<div class="nck-widget" id="hemetStorageWidget" style="margin-top:32px">
+  <div class="nck-bar">
+    <div class="nck-bar-left">
+      <svg class="nck-icon" viewBox="0 0 24 24"><path d="M4 7h16v10H4zM20 10h2v4h-2zM6 10v4"/></svg>
+      <span class="nck-heading">Hemet Distro Storage</span>
+      <span class="nck-live-dot" title="Live storage gauge"></span>
+    </div>
+    <div class="nck-bar-right">
+      <a href="/app/query-report/Stock Balance" class="nck-btn-all">Stock Balance</a>
+    </div>
+  </div>
+  <div class="hemet-gauge-wrap">
+    <div id="hemet-gauge" style="font-family:Arial,sans-serif;max-width:420px;margin:0 auto;">
+      <div style="font-weight:700;color:#401090;font-size:15px;margin-bottom:8px;">Hemet Distro — Storage Capacity</div>
+      <svg viewBox="0 0 420 150" width="100%">
+        <rect x="10" y="30" width="370" height="90" rx="10" fill="#fff" stroke="#401090" stroke-width="4"/>
+        <rect x="382" y="60" width="16" height="30" rx="4" fill="#401090"/>
+        <rect id="hemet-fill" x="14" y="34" width="0" height="82" rx="7" fill="#C060E0"/>
+        <text id="hemet-pct" x="195" y="82" text-anchor="middle" font-size="34" font-weight="800" fill="#1c1c22">0%</text>
+      </svg>
+      <div id="hemet-lbl" style="text-align:center;color:#6b6b76;font-size:13px;margin-top:4px;">— lbs of — lbs</div>
+    </div>
+  </div>
+</div>
+"""
+
+HEMET_STORAGE_WIDGET_JS = """
+// ── Hemet Storage Gauge ─────────────────────────────────────────────────
+(function() {
+  var HEMET_API = "cannabis_management.api.jamie.get_hemet_storage_lbs";
+  var CAPACITY_LBS = 40000; // Update with Hemet's confirmed max capacity in lbs.
+
+  function renderHemetGauge(currentLbs) {
+    currentLbs = parseFloat(currentLbs || 0);
+    var pct = Math.min(100, Math.round(currentLbs / CAPACITY_LBS * 100));
+    var w = Math.max(0, Math.min(362, 362 * currentLbs / CAPACITY_LBS));
+    var fill = document.getElementById("hemet-fill");
+    if (!fill) return;
+    fill.setAttribute("width", w);
+    fill.setAttribute("fill", pct >= 90 ? "#b91c1c" : (pct >= 70 ? "#b45309" : "#15803d"));
+    document.getElementById("hemet-pct").textContent = pct + "%";
+    document.getElementById("hemet-lbl").textContent =
+      Math.round(currentLbs).toLocaleString() + " lbs of " +
+      CAPACITY_LBS.toLocaleString() + " lbs";
+  }
+
+  function loadHemetGauge() {
+    if (window.frappe && frappe.call) {
+      frappe.call({ method: HEMET_API, callback: function(r) {
+        renderHemetGauge((r && r.message) || 0);
+      }});
+    } else {
+      renderHemetGauge(0);
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", loadHemetGauge);
+  } else {
+    loadHemetGauge();
+  }
+})();
+"""
+
+HEMET_STORAGE_WIDGET_CSS = """
+.hemet-gauge-wrap { padding: 18px 20px; }
+.hemet-gauge-wrap svg { background: #f8fafc; border-radius: 14px; }
+"""
+
 
 def _update_jamie_workspace():
     block = frappe.get_doc("Custom HTML Block", "Jamie")
+    html = block.html or ""
+    injection_marker = "<div id=\"jd-pipeline-container\"></div>"
+    fallback_marker = "<!-- TOLLING PARTNER STOCK -->"
+    widget_html = ""
 
-    # 1. Append expense widget HTML (only once)
-    if "jke-expenses" in (block.html or ""):
-        print("  Expense widget HTML already present in Jamie block — skipping")
+    if "hemetStorageWidget" in html:
+        print("  Hemet storage widget HTML already present in Jamie block — skipping")
     else:
-        block.html = (block.html or "") + EXPENSE_WIDGET_HTML
-        print("  Added expense widget HTML to Jamie block")
+        if "jke-expenses" in html:
+            widget_html += HEMET_STORAGE_WIDGET_HTML
+            print("  Will insert Hemet storage widget HTML into Jamie block")
+        else:
+            widget_html += HEMET_STORAGE_WIDGET_HTML + EXPENSE_WIDGET_HTML
+            print("  Will insert Jamie expense and Hemet storage widget HTML")
 
-    # 2. Append expense widget JS (only once)
+    if "HEMET_API" in (block.script or "") or "get_hemet_storage_lbs" in (block.script or ""):
+        print("  Hemet storage gauge JS already present in Jamie block — skipping")
+    else:
+        block.script = (block.script or "") + HEMET_STORAGE_WIDGET_JS
+        print("  Added Hemet storage gauge JS to Jamie block")
+
     if "JKE_API" in (block.script or ""):
         print("  Expense widget JS already present in Jamie block — skipping")
     else:
         block.script = (block.script or "") + EXPENSE_WIDGET_JS
         print("  Added expense widget JS to Jamie block")
 
-    # 3. Append NCK CSS to style (only once)
     if "nck-widget" in (block.style or ""):
         print("  NCK CSS already present in Jamie style — skipping")
     else:
         block.style = (block.style or "") + NCK_CSS
         print("  Added NCK CSS to Jamie style")
+
+    if ".hemet-gauge-wrap" in (block.style or ""):
+        print("  Hemet storage gauge CSS already present in Jamie style — skipping")
+    else:
+        block.style = (block.style or "") + HEMET_STORAGE_WIDGET_CSS
+        print("  Added Hemet storage gauge CSS to Jamie style")
+
+    if widget_html:
+        if injection_marker in html:
+            block.html = html.replace(injection_marker, widget_html + injection_marker, 1)
+            print("  Inserted widget HTML under Quick Links in Jamie block")
+        elif fallback_marker in html:
+            block.html = html.replace(fallback_marker, widget_html + fallback_marker, 1)
+            print("  Inserted widget HTML before Tolling Partner Stock section")
+        else:
+            block.html = html + widget_html
+            print("  Appended widget HTML to Jamie block (marker not found)")
+    else:
+        print("  No widget HTML insertion needed")
 
     block.save(ignore_permissions=True)
     frappe.db.commit()
@@ -540,7 +641,9 @@ def get_jamie_expense_summary():
 
 
 def _add_api_function():
-    api_path = "/home/frappeuser/frappe-bench/apps/cannabis_management/cannabis_management/api/jamie.py"
+    import os
+    app_path = frappe.get_app_path("cannabis_management")
+    api_path = os.path.join(app_path, "cannabis_management", "api", "jamie.py")
     with open(api_path, "r") as f:
         content = f.read()
 
