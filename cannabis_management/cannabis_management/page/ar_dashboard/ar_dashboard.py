@@ -61,6 +61,28 @@ def _strip_cross_company_rows(rows, company):
     ]
 
 
+def _strip_paid_si_rows(rows):
+    """
+    Remove Sales Invoice rows where si.outstanding_amount = 0.
+    The ERPNext AR report reads from GL Entry, which can diverge from
+    si.outstanding_amount when payments are applied but GL isn't fully cleared.
+    si.outstanding_amount is the authoritative paid/unpaid signal.
+    """
+    si_nos = [r["voucher_no"] for r in rows if r.get("voucher_type") == "Sales Invoice"]
+    if not si_nos:
+        return rows
+
+    paid = set(frappe.db.sql_list(
+        "SELECT name FROM `tabSales Invoice` WHERE name IN %(names)s AND outstanding_amount <= 0.01",
+        {"names": tuple(si_nos)},
+    ))
+
+    return [
+        r for r in rows
+        if r.get("voucher_type") != "Sales Invoice" or r["voucher_no"] not in paid
+    ]
+
+
 def _fetch_rows_for_company(company, report_date, customer, ageing_based_on, range_str, ranges):
     from erpnext.accounts.report.accounts_receivable.accounts_receivable import execute as ar_execute
 
@@ -133,8 +155,8 @@ def get_ar_data(company, report_date=None, customer=None, ageing_based_on="Due D
                 c_rows = _fetch_rows_for_company(
                     c, report_date, customer, ageing_based_on, range_str, ranges
                 )
-                # Isolate each sub-company's own invoices before merging
                 c_rows = _strip_cross_company_rows(c_rows, c)
+                c_rows = _strip_paid_si_rows(c_rows)
                 all_rows.extend(c_rows)
             except Exception:
                 frappe.log_error(f"AR data fetch failed for {c}", "TMM Group AR Dashboard")
@@ -143,8 +165,8 @@ def get_ar_data(company, report_date=None, customer=None, ageing_based_on="Due D
         rows = _fetch_rows_for_company(
             company, report_date, customer, ageing_based_on, range_str, ranges
         )
-        # Remove any invoices that were created under a different company
         rows = _strip_cross_company_rows(rows, company)
+        rows = _strip_paid_si_rows(rows)
 
     # Apply mode date filter and strip intercompany rows in one pass
     internal = _internal_customer_names()

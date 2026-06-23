@@ -389,6 +389,111 @@
 .ard-card-range.bar-60      .ard-card-value { color: var(--ard-60); }
 .ard-card-range.bar-90      .ard-card-value { color: var(--ard-90); }
 
+/* ── 4-Week Projection (upcoming due) ──────────────────────── */
+.ard-proj-wrap {
+	margin-bottom: 20px;
+	padding: 16px 18px;
+	background: var(--ard-surface);
+	border: 1px solid var(--ard-border);
+	border-radius: var(--ard-radius);
+	box-shadow: var(--ard-shadow);
+}
+.ard-proj-header {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 10px;
+	margin-bottom: 14px;
+}
+.ard-proj-title {
+	font-size: 14px;
+	font-weight: 700;
+	color: var(--ard-text);
+	letter-spacing: -.2px;
+}
+.ard-proj-total {
+	font-size: 13px;
+	color: var(--ard-muted);
+}
+.ard-proj-total strong {
+	color: var(--ard-text);
+}
+.ard-proj-row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 14px;
+}
+.ard-proj-card {
+	flex: 1 1 150px;
+	border-radius: var(--ard-radius-sm);
+	padding: 14px 16px;
+	border: 1px solid var(--ard-border);
+	border-left-width: 5px;
+}
+.ard-proj-week {
+	font-size: 13px;
+	font-weight: 700;
+	color: var(--ard-text);
+}
+.ard-proj-sub {
+	font-size: 11px;
+	color: var(--ard-muted);
+	margin-bottom: 10px;
+}
+.ard-proj-value {
+	font-size: 20px;
+	font-weight: 700;
+	letter-spacing: -.5px;
+}
+.ard-proj-count {
+	font-size: 11px;
+	color: var(--ard-muted);
+	margin-top: 4px;
+}
+
+/* Urgency colours: red = act now (≤7 days) … green = time left (22–30 days) */
+.ard-proj-red    { border-left-color: var(--ard-90);      background: var(--ard-90-bg); }
+.ard-proj-orange { border-left-color: var(--ard-60);      background: var(--ard-60-bg); }
+.ard-proj-yellow { border-left-color: var(--ard-30);      background: var(--ard-30-bg); }
+.ard-proj-green  { border-left-color: var(--ard-current); background: var(--ard-current-bg); }
+
+.ard-proj-red    .ard-proj-value { color: var(--ard-90); }
+.ard-proj-orange .ard-proj-value { color: var(--ard-60); }
+.ard-proj-yellow .ard-proj-value { color: var(--ard-30); }
+.ard-proj-green  .ard-proj-value { color: var(--ard-current); }
+
+/* Dim a bucket with nothing coming due */
+.ard-proj-card.ard-proj-empty {
+	background: var(--ard-surface);
+	opacity: .55;
+}
+.ard-proj-card.ard-proj-empty .ard-proj-value { color: var(--ard-muted); }
+
+/* ── New AR: extra "AR on terms" columns (shown only in New AR mode) ── */
+/* Term-bucket accent colours (text) */
+.ard-good-green  { color: var(--ard-current); }
+.ard-good-yellow { color: var(--ard-30); }
+.ard-good-red    { color: var(--ard-90); }
+
+/* Total columns */
+.ard-na-total .ard-card-value,
+.ard-na-total { font-weight: 700; }
+.ard-na-good  { color: var(--ard-current); }
+.ard-na-bad   { color: var(--ard-90); }
+
+/* Column-header tints (mirror the spreadsheet layout) */
+.ard-table th.ard-na-good     { background: var(--ard-current-bg); }
+.ard-table th.ard-na-bad      { background: var(--ard-90-bg); }
+.ard-table th.ard-good-green  { background: var(--ard-current-bg); }
+.ard-table th.ard-good-yellow { background: var(--ard-30-bg); }
+.ard-table th.ard-good-red    { background: var(--ard-90-bg); }
+
+/* Cell background tints for the term-bucket amount cells */
+.ard-range-cell.ard-good-green  { background: var(--ard-current-bg); }
+.ard-range-cell.ard-good-yellow { background: var(--ard-30-bg); }
+.ard-range-cell.ard-good-red    { background: var(--ard-90-bg); }
+
 /* ── Aging Distribution Bar ────────────────────────────────── */
 .ard-aging-bar-wrap {
 	background: var(--ard-surface);

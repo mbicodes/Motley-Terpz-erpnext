@@ -159,11 +159,11 @@ def send_ar_reminders():
     _send_email(triggers, today, RECIPIENTS)
 
     # Additionally send each Sales Person only their assigned invoices
-    # sp_count = _send_sp_emails(triggers, today)
+    sp_count = _send_sp_emails(triggers, today)
 
     count = sum(len(v) for v in triggers.values())
     return (f"Sent reminders: {count} invoice(s) across {len(triggers)} term group(s) "
-            f"to {RECIPIENTS}")
+            f"to {RECIPIENTS}; {sp_count} personalised SP email(s) sent")
 
 
 @frappe.whitelist()
@@ -220,10 +220,10 @@ def send_test():
     _send_email(triggers, today, RECIPIENTS)
 
     # Per-SP personalised emails (only their assigned invoices)
-    # sp_count = _send_sp_emails(triggers, today)
+    sp_count = _send_sp_emails(triggers, today)
 
     count = sum(len(v) for v in triggers.values())
-    return f"Test email sent: {count} invoice(s) to {RECIPIENTS}"
+    return f"Test email sent: {count} invoice(s) to {RECIPIENTS}; {sp_count} SP email(s) sent"
 
 
 # ── Core logic ─────────────────────────────────────────────────────────────────
@@ -363,11 +363,9 @@ def _build_html(triggers, today):
 
         rows_html = ""
         for r in sorted(rows, key=lambda x: x["due_date"]):
-            owner_label = r["owner"].split("@")[0].title() if "@" in r["owner"] else (r["owner"] or "—")
             rows_html += f"""<tr>
               <td style="padding:8px 12px;font-weight:600;border-bottom:1px solid #f1f5f9;">{r["customer"]}</td>
               <td style="padding:8px 12px;font-size:11px;color:#64748b;font-family:monospace;border-bottom:1px solid #f1f5f9;">{r["invoice"]}</td>
-              <td style="padding:8px 12px;font-size:12px;color:#64748b;border-bottom:1px solid #f1f5f9;">{owner_label}</td>
               <td style="padding:8px 12px;text-align:right;font-weight:700;color:#dc2626;border-bottom:1px solid #f1f5f9;">{_fmt(r["outstanding"])}</td>
               <td style="padding:8px 12px;text-align:center;border-bottom:1px solid #f1f5f9;">{r["due_date"]}</td>
               <td style="padding:8px 12px;text-align:center;border-bottom:1px solid #f1f5f9;">{_badge(r["days"])}</td>
@@ -389,7 +387,6 @@ def _build_html(triggers, today):
               <tr style="background:#f8fafc;">
                 <th style="padding:8px 12px;text-align:left;font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;">Customer</th>
                 <th style="padding:8px 12px;text-align:left;font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;">Invoice</th>
-                <th style="padding:8px 12px;text-align:left;font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;">Rep</th>
                 <th style="padding:8px 12px;text-align:right;font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;">Outstanding</th>
                 <th style="padding:8px 12px;text-align:center;font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;">Due Date</th>
                 <th style="padding:8px 12px;text-align:center;font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;">Status</th>

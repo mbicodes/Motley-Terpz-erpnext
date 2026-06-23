@@ -163,7 +163,11 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
         let $btn = $(this);
         let party = $btn.data('party');
         let isExpanded = $btn.hasClass('ard-expanded');
-        page.main.find('.ard-invoice-row').filter(function () {
+        // Scope to this table so a customer appearing in both the Good and Bad
+        // AR tables toggles only within the clicked one.
+        let $scope = $btn.closest('.ard-table-wrap');
+        if (!$scope.length) $scope = page.main;
+        $scope.find('.ard-invoice-row').filter(function () {
             return $(this).data('party') === party;
         })[isExpanded ? 'hide' : 'show']();
         $btn.toggleClass('ard-expanded').html(isExpanded ? '&#9654;' : '&#9660;');
@@ -387,6 +391,7 @@ function render_dashboard(page, result) {
 
     area.html(`
 		<div id="ard-summary-section"></div>
+		<div id="ard-projection-section"></div>
 		<div id="ard-aging-section"></div>
 		<div id="ard-table-section"></div>
 	`);
@@ -399,11 +404,82 @@ function render_view(page) {
     let { ranges } = page._ard_result;
 
     let display_rows = get_filtered_rows(page);
-    let view_totals = compute_view_totals(display_rows, ranges);
 
+    let view_totals = compute_view_totals(display_rows, ranges);
     render_summary_cards(page, ranges, view_totals);
+    page.main.find('#ard-projection-section').html(
+        build_projection_html(display_rows, page._ard_result.report_date)
+    );
     render_aging_bar(page, ranges, view_totals);
     render_table(page, display_rows, view_totals);
+}
+
+// ─── 4-Week Projection (forward-looking, by due date) ──────────────────────────
+// Buckets outstanding invoices by how many days until they fall due, relative to
+// the report ("as of") date. Closest = red (act now), furthest = green (time left).
+var PROJ_BUCKETS = [
+    { key: "w1", label: "Week 1", sub: "Due in 1–7 days",   min: 0,  max: 7,  cls: "ard-proj-red" },
+    { key: "w2", label: "Week 2", sub: "Due in 8–14 days",  min: 8,  max: 14, cls: "ard-proj-orange" },
+    { key: "w3", label: "Week 3", sub: "Due in 15–21 days", min: 15, max: 21, cls: "ard-proj-yellow" },
+    { key: "w4", label: "Week 4", sub: "Due in 22–30 days", min: 22, max: 30, cls: "ard-proj-green" },
+];
+
+function days_until_due(due_date, anchor_date) {
+    if (!due_date || !anchor_date) return null;
+    let due = new Date(due_date);
+    let anchor = new Date(anchor_date);
+    if (isNaN(due) || isNaN(anchor)) return null;
+    // Normalise to midnight so partial days don't skew the bucket.
+    due.setHours(0, 0, 0, 0);
+    anchor.setHours(0, 0, 0, 0);
+    return Math.round((due - anchor) / 86400000);
+}
+
+function compute_projection(display_rows, anchor_date) {
+    let totals = { w1: 0, w2: 0, w3: 0, w4: 0 };
+    let counts = { w1: 0, w2: 0, w3: 0, w4: 0 };
+    display_rows.forEach(function (row) {
+        if (!(row.outstanding > 0)) return;
+        let d = days_until_due(row.due_date, anchor_date);
+        if (d === null || d < 0 || d > 30) return; // overdue or beyond the 30-day horizon
+        for (let i = 0; i < PROJ_BUCKETS.length; i++) {
+            let b = PROJ_BUCKETS[i];
+            if (d >= b.min && d <= b.max) {
+                totals[b.key] += row.outstanding;
+                counts[b.key] += 1;
+                break;
+            }
+        }
+    });
+    return { totals: totals, counts: counts };
+}
+
+function build_projection_html(display_rows, anchor_date) {
+    let proj = compute_projection(display_rows, anchor_date);
+    let grand = proj.totals.w1 + proj.totals.w2 + proj.totals.w3 + proj.totals.w4;
+
+    let cards = PROJ_BUCKETS.map(function (b) {
+        let amt = proj.totals[b.key];
+        let empty_cls = amt > 0 ? "" : " ard-proj-empty";
+        return `
+			<div class="ard-proj-card ${b.cls}${empty_cls}">
+				<div class="ard-proj-week">${b.label}</div>
+				<div class="ard-proj-sub">${b.sub}</div>
+				<div class="ard-proj-value">${fmt_cur(amt)}</div>
+				<div class="ard-proj-count">${proj.counts[b.key]} invoice(s)</div>
+			</div>
+		`;
+    }).join("");
+
+    return `
+		<div class="ard-proj-wrap">
+			<div class="ard-proj-header">
+				<span class="ard-proj-title">4-Week Projection &mdash; upcoming due</span>
+				<span class="ard-proj-total">Due in next 30 days: <strong>${fmt_cur(grand)}</strong></span>
+			</div>
+			<div class="ard-proj-row">${cards}</div>
+		</div>
+	`;
 }
 
 function build_summary_html(page, ranges, view_totals) {
@@ -507,6 +583,63 @@ function build_recon_cell(page, party, status, readonly) {
     return `<span class="${badge_cls}" title="Read-only — Account Manager role required to edit">${label}</span>`;
 }
 
+// Resolve the active "as of" date for New-AR term bucketing.
+function get_report_date(page) {
+    if (page._ard_all_mode && page._ard_all_result) return page._ard_all_result.report_date;
+    if (page._ard_result) return page._ard_result.report_date;
+    return page.main.find('#ard-report-date').val();
+}
+
+// Sum the New-AR term columns for a set of rows (used for group + grand totals).
+function na_sum(rows, anchor) {
+    let s = { total: 0, good: 0, bad: 0, g1: 0, g2: 0, g3: 0 };
+    rows.forEach(function (row) {
+        let amt = row.outstanding || 0;
+        if (amt <= 0) return;
+        let info = classify_new_ar(row, anchor);
+        s.total += amt;
+        if (info.section === "good") { s.good += amt; s[info.bkey] += amt; }
+        else { s.bad += amt; }
+    });
+    return s;
+}
+
+function na_header_cells() {
+    return `
+						<th class="ard-th-num ard-na-total">Total New AR</th>
+						<th class="ard-th-num ard-na-good">Total AR on terms<br><small>(Good standing)</small></th>
+						<th class="ard-th-num ard-na-bad">Total AR on terms<br><small>(Bad standing)</small></th>
+						<th class="ard-th-num ard-good-green">0-10<br><small>Days</small></th>
+						<th class="ard-th-num ard-good-yellow">10-20<br><small>Days</small></th>
+						<th class="ard-th-num ard-good-red">20-30<br><small>Days</small></th>`;
+}
+
+function na_total_cells(s) {
+    return `
+					<td class="ard-num ard-total-cell ard-na-total">${fmt_cur(s.total)}</td>
+					<td class="ard-num ard-total-cell ard-na-good">${s.good > 0 ? fmt_cur(s.good) : "—"}</td>
+					<td class="ard-num ard-total-cell ard-na-bad">${s.bad > 0 ? fmt_cur(s.bad) : "—"}</td>
+					<td class="ard-num ard-total-cell ard-good-green">${s.g1 > 0 ? fmt_cur(s.g1) : "—"}</td>
+					<td class="ard-num ard-total-cell ard-good-yellow">${s.g2 > 0 ? fmt_cur(s.g2) : "—"}</td>
+					<td class="ard-num ard-total-cell ard-good-red">${s.g3 > 0 ? fmt_cur(s.g3) : "—"}</td>`;
+}
+
+function na_invoice_cells(row, anchor) {
+    let amt = row.outstanding || 0;
+    let info = classify_new_ar(row, anchor);
+    let good = info.section === "good";
+    let g1 = good && info.bkey === "g1" ? amt : 0;
+    let g2 = good && info.bkey === "g2" ? amt : 0;
+    let g3 = good && info.bkey === "g3" ? amt : 0;
+    return `
+						<td class="ard-num ard-na-total">${fmt_cur(amt)}</td>
+						<td class="ard-num ard-na-good">${good ? fmt_cur(amt) : "—"}</td>
+						<td class="ard-num ard-na-bad">${!good ? fmt_cur(amt) : "—"}</td>
+						<td class="ard-range-cell ${g1 > 0 ? "ard-good-green" : "ard-range-zero"}">${g1 > 0 ? fmt_cur(g1) : "—"}</td>
+						<td class="ard-range-cell ${g2 > 0 ? "ard-good-yellow" : "ard-range-zero"}">${g2 > 0 ? fmt_cur(g2) : "—"}</td>
+						<td class="ard-range-cell ${g3 > 0 ? "ard-good-red" : "ard-range-zero"}">${g3 > 0 ? fmt_cur(g3) : "—"}</td>`;
+}
+
 function build_table_html(page, ranges, company, display_rows, view_totals, readonly, show_company) {
     if (display_rows.length === 0) {
         return (`
@@ -516,6 +649,10 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
 			</div>
 		`);
     }
+
+    let new_ar = page._ard_ar_mode === 'new';
+    let na_anchor = new_ar ? get_report_date(page) : null;
+    let na_grand = new_ar ? na_sum(display_rows, na_anchor) : null;
 
     let customer_order = [];
     let customer_groups = {};
@@ -555,6 +692,7 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
 						<th class="ard-th-num">Invoiced</th>
 						<th class="ard-th-num">Paid</th>
 						<th class="ard-th-num">Outstanding</th>
+						${new_ar ? na_header_cells() : ``}
 						${range_headers}
 						<th class="ard-th-status">Status</th>
 					</tr>
@@ -595,6 +733,7 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
 				<td class="ard-num ard-total-cell">${fmt_cur(sub.invoiced)}</td>
 				<td class="ard-num ard-total-cell">${fmt_cur(sub.paid)}</td>
 				<td class="ard-num ard-total-cell ard-outstanding">${fmt_cur(sub.outstanding)}</td>
+				${new_ar ? na_total_cells(na_sum(group.rows, na_anchor)) : ``}
 				${sub_range_cells}
 				<td></td>
 			</tr>
@@ -622,6 +761,7 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
 					<td class="ard-num">${fmt_cur(row.invoiced)}</td>
 					<td class="ard-num">${fmt_cur(row.paid)}</td>
 					<td class="ard-num ard-outstanding">${fmt_cur(row.outstanding)}</td>
+					${new_ar ? na_invoice_cells(row, na_anchor) : ``}
 					${range_cells}
 					<td style="text-align:center;"><span class="ard-badge ${status.cls}">${status.label}</span></td>
 				</tr>
@@ -644,6 +784,7 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
 						<td class="ard-num ard-total-cell">${fmt_cur(view_totals.invoiced)}</td>
 						<td class="ard-num ard-total-cell">${fmt_cur(view_totals.paid)}</td>
 						<td class="ard-num ard-total-cell ard-outstanding">${fmt_cur(view_totals.outstanding)}</td>
+						${new_ar ? na_total_cells(na_grand) : ``}
 						${range_total_cells}
 						<td></td>
 					</tr>
@@ -780,9 +921,37 @@ function render_all_entities(page) {
     // result); the final true enables the Entity column.
     area.html(`
         <div id="ard-summary-section">${build_summary_html(page, ranges, view_totals)}</div>
+        <div id="ard-projection-section">${build_projection_html(display_rows, result.report_date)}</div>
         <div id="ard-aging-section">${build_aging_html(page, ranges, view_totals)}</div>
         <div id="ard-table-section">${build_table_html(page, ranges, "All Entities", display_rows, view_totals, true, true)}</div>
     `);
+}
+
+// ─── New AR term classification (drives the extra "AR on terms" columns) ────────
+// Only used when AR Mode = "New". An invoice is "on terms" (good standing) while
+// the report date is on/before its due date, bucketed by age since posting
+// (0-10 green, 10-20 yellow, 20-30 red). Once the due date passes it is "overdue"
+// (bad standing) — that amount stays in the existing overdue (range) columns.
+
+function diff_days(later, earlier) {
+    if (!later || !earlier) return null;
+    let l = new Date(later), e = new Date(earlier);
+    if (isNaN(l) || isNaN(e)) return null;
+    l.setHours(0, 0, 0, 0);
+    e.setHours(0, 0, 0, 0);
+    return Math.round((l - e) / 86400000);
+}
+
+function classify_new_ar(row, report_date) {
+    let overdue = diff_days(report_date, row.due_date); // report - due (positive = past due)
+    if (overdue !== null && overdue > 0) {
+        let bkey = overdue <= 30 ? "b1" : overdue <= 60 ? "b2" : overdue <= 90 ? "b3" : overdue <= 120 ? "b4" : "b5";
+        return { section: "bad", bkey: bkey, days: overdue };
+    }
+    let age = diff_days(report_date, row.posting_date); // report - posting (days on terms)
+    if (age === null || age < 0) age = 0;
+    let bkey = age <= 10 ? "g1" : age <= 20 ? "g2" : "g3";
+    return { section: "good", bkey: bkey, days: age };
 }
 
 // ─── Excel Export ─────────────────────────────────────────────────────────────
