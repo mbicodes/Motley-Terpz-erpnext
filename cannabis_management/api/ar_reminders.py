@@ -33,6 +33,118 @@ TERMS_SCHEDULE = {
 # Invoices with no template or an unrecognised template are NOT reminded
 
 
+# ── Invoice query (shared) ─────────────────────────────────────────────────────
+
+_INVOICE_SELECT = """
+    SELECT
+        si.name,
+        si.customer,
+        si.customer_name,
+        si.grand_total,
+        si.outstanding_amount,
+        si.due_date,
+        si.posting_date,
+        {terms_col}                                 AS terms,
+        COALESCE(cl.custom_account_owner, '')       AS account_owner
+    FROM `tabSales Invoice` si
+    LEFT JOIN (
+        SELECT
+            custom_erp_customer,
+            MAX(CASE WHEN custom_account_owner IS NOT NULL AND custom_account_owner != ''
+                     THEN custom_account_owner END) AS custom_account_owner
+        FROM `tabCRM Lead`
+        WHERE custom_erp_customer IS NOT NULL AND custom_erp_customer != ''
+        GROUP BY custom_erp_customer
+    ) cl ON cl.custom_erp_customer = si.customer
+    LEFT JOIN `tabCustomer` c ON c.name = si.customer
+    WHERE si.docstatus = 1
+      AND si.outstanding_amount > 0.01
+      AND si.due_date IS NOT NULL
+      {extra_where}
+      AND si.customer NOT IN %(exc)s
+      AND COALESCE(c.is_internal_customer, 0) = 0
+      AND (c.represents_company IS NULL OR c.represents_company = '')
+      AND si.customer NOT IN (SELECT name FROM `tabCompany`)
+    ORDER BY si.due_date ASC
+"""
+
+
+def _fetch_invoices(excluded, require_terms=False, limit=None):
+    terms_col = "COALESCE(si.payment_terms_template, '')"
+    extra_where = ""
+    if require_terms:
+        extra_where = (
+            "AND si.payment_terms_template IS NOT NULL "
+            "AND si.payment_terms_template != ''"
+        )
+    sql = _INVOICE_SELECT.format(terms_col=terms_col, extra_where=extra_where)
+    if limit:
+        sql += f" LIMIT {int(limit)}"
+    return frappe.db.sql(sql, {"exc": excluded}, as_dict=True)
+
+
+# ── Payment schedule helper ────────────────────────────────────────────────────
+
+def _build_ps_map(invoices):
+    """
+    Return {invoice_name: [{due_date, outstanding}, ...]} using FIFO allocation
+    against si.outstanding_amount so that already-paid installments are excluded.
+
+    ERPNext does not reliably update tabPayment Schedule.outstanding when payments
+    are applied, so we recalculate: sort installments by due_date ASC, subtract
+    the total amount paid (grand_total - outstanding_amount) from earliest first.
+    """
+    if not invoices:
+        return {}
+
+    inv_by_name = {inv.name: inv for inv in invoices}
+    names = tuple(inv_by_name.keys()) or ("__none__",)
+
+    ps_rows = frappe.db.sql("""
+        SELECT ps.parent AS invoice_name, ps.due_date, ps.payment_amount
+        FROM `tabPayment Schedule` ps
+        WHERE ps.parenttype = 'Sales Invoice'
+          AND ps.parent IN %(names)s
+          AND ps.due_date IS NOT NULL
+          AND ps.payment_amount > 0
+        ORDER BY ps.parent, ps.due_date ASC
+    """, {"names": names}, as_dict=True)
+
+    # Group by invoice
+    raw = {}
+    for r in ps_rows:
+        raw.setdefault(r.invoice_name, []).append(r)
+
+    result = {}
+    for inv_name, rows in raw.items():
+        inv = inv_by_name.get(inv_name)
+        if not inv:
+            continue
+        paid = max(flt(inv.grand_total) - flt(inv.outstanding_amount), 0)
+
+        entries = []
+        for row in sorted(rows, key=lambda r: getdate(str(r.due_date))):
+            amt = flt(row.payment_amount)
+            if paid >= amt:
+                paid -= amt          # installment fully paid — skip
+            elif paid > 0:
+                entries.append({     # partially paid installment
+                    "due_date":    getdate(str(row.due_date)),
+                    "outstanding": amt - paid,
+                })
+                paid = 0
+            else:
+                entries.append({     # unpaid installment
+                    "due_date":    getdate(str(row.due_date)),
+                    "outstanding": amt,
+                })
+
+        if entries:
+            result[inv_name] = entries
+
+    return result
+
+
 # ── Entry points ───────────────────────────────────────────────────────────────
 
 def send_ar_reminders():
@@ -47,11 +159,11 @@ def send_ar_reminders():
     _send_email(triggers, today, RECIPIENTS)
 
     # Additionally send each Sales Person only their assigned invoices
-    sp_count = _send_sp_emails(triggers, today)
+    # sp_count = _send_sp_emails(triggers, today)
 
     count = sum(len(v) for v in triggers.values())
     return (f"Sent reminders: {count} invoice(s) across {len(triggers)} term group(s) "
-            f"to {RECIPIENTS}; {sp_count} personalised SP email(s) sent")
+            f"to {RECIPIENTS}")
 
 
 @frappe.whitelist()
@@ -69,70 +181,24 @@ def send_test():
     """
     today    = getdate(nowdate())
     excluded = _excluded_customers()
-
-    invoices = frappe.db.sql("""
-        SELECT
-            si.name, si.customer, si.customer_name,
-            si.grand_total, si.outstanding_amount,
-            si.due_date, si.posting_date,
-            si.payment_terms_template,
-            COALESCE(cl.custom_account_owner, '') AS account_owner
-        FROM `tabSales Invoice` si
-        LEFT JOIN `tabCRM Lead` cl ON cl.custom_erp_customer = si.customer
-        LEFT JOIN `tabCustomer` c  ON c.name = si.customer
-        WHERE si.docstatus = 1
-          AND si.outstanding_amount > 0.01
-          AND si.due_date IS NOT NULL
-          AND si.payment_terms_template IS NOT NULL
-          AND si.payment_terms_template != ''
-          AND si.customer NOT IN %(exc)s
-          AND COALESCE(c.is_internal_customer, 0) = 0
-          AND (c.represents_company IS NULL OR c.represents_company = '')
-          AND si.customer NOT IN (SELECT name FROM `tabCompany`)
-        ORDER BY si.due_date ASC
-        LIMIT 50
-    """, {"exc": excluded}, as_dict=True)
+    invoices = _fetch_invoices(excluded, require_terms=True, limit=50)
 
     if not invoices:
         return "No invoices with payment terms found to test with."
 
-    # Build payment schedule map — same as _collect_triggers — so split-term
-    # invoices show the correct per-installment due date, not the last-row date
-    # that ERPNext writes to si.due_date.
-    invoice_names = tuple(inv.name for inv in invoices) or ("__none__",)
-    ps_rows = frappe.db.sql("""
-        SELECT ps.parent AS invoice_name, ps.due_date, ps.outstanding
-        FROM `tabPayment Schedule` ps
-        WHERE ps.parenttype = 'Sales Invoice'
-          AND ps.parent IN %(names)s
-          AND ps.outstanding > 0.01
-          AND ps.due_date IS NOT NULL
-    """, {"names": invoice_names}, as_dict=True)
-    ps_map = {}
-    for r in ps_rows:
-        ps_map.setdefault(r.invoice_name, []).append(r)
+    ps_map = _build_ps_map(invoices)
 
     triggers = {}
     for inv in invoices:
-        terms    = inv.payment_terms_template
+        terms    = inv.terms
         schedule = TERMS_SCHEDULE.get(terms)
         if not schedule:
             continue
 
-        # Use per-installment dates when available; fall back to invoice due_date
-        due_entries = []
-        if inv.name in ps_map:
-            for ps in ps_map[inv.name]:
-                if flt(ps.outstanding) > 0:
-                    due_entries.append({
-                        "due_date":    getdate(str(ps.due_date)),
-                        "outstanding": flt(ps.outstanding),
-                    })
-        if not due_entries:
-            due_entries.append({
-                "due_date":    getdate(str(inv.due_date)),
-                "outstanding": flt(inv.outstanding_amount),
-            })
+        due_entries = ps_map.get(inv.name) or [{
+            "due_date":    getdate(str(inv.due_date)),
+            "outstanding": flt(inv.outstanding_amount),
+        }]
 
         for entry in due_entries:
             days_until = (entry["due_date"] - today).days
@@ -154,102 +220,50 @@ def send_test():
     _send_email(triggers, today, RECIPIENTS)
 
     # Per-SP personalised emails (only their assigned invoices)
-    sp_count = _send_sp_emails(triggers, today)
+    # sp_count = _send_sp_emails(triggers, today)
 
     count = sum(len(v) for v in triggers.values())
-    return f"Test email sent: {count} invoice(s) to {RECIPIENTS}; {sp_count} SP email(s) sent"
+    return f"Test email sent: {count} invoice(s) to {RECIPIENTS}"
 
 
 # ── Core logic ─────────────────────────────────────────────────────────────────
 
 def _collect_triggers(today):
     """
-    Returns dict keyed by payment_terms_template (or '__none__') →
+    Returns dict keyed by payment_terms_template →
     list of reminder dicts for invoices whose days-until-due matches the schedule.
     """
     excluded = _excluded_customers()
+    invoices = _fetch_invoices(excluded)
+    ps_map   = _build_ps_map(invoices)
 
-    # Fetch all outstanding invoices
-    invoices = frappe.db.sql("""
-        SELECT
-            si.name,
-            si.customer,
-            si.customer_name,
-            si.grand_total,
-            si.outstanding_amount,
-            si.due_date,
-            si.posting_date,
-            COALESCE(si.payment_terms_template, '') AS terms,
-            COALESCE(cl.custom_account_owner, '')   AS account_owner
-        FROM `tabSales Invoice` si
-        LEFT JOIN `tabCRM Lead` cl ON cl.custom_erp_customer = si.customer
-        LEFT JOIN `tabCustomer` c  ON c.name = si.customer
-        WHERE si.docstatus = 1
-          AND si.outstanding_amount > 0.01
-          AND si.due_date IS NOT NULL
-          AND si.customer NOT IN %(exc)s
-          AND COALESCE(c.is_internal_customer, 0) = 0
-          AND (c.represents_company IS NULL OR c.represents_company = '')
-          AND si.customer NOT IN (SELECT name FROM `tabCompany`)
-        ORDER BY si.due_date ASC
-    """, {"exc": excluded}, as_dict=True)
-
-    # Fetch payment schedule rows for split-term invoices
-    ps_rows = frappe.db.sql("""
-        SELECT ps.parent AS invoice_name, ps.due_date, ps.outstanding
-        FROM `tabPayment Schedule` ps
-        JOIN `tabSales Invoice` si ON si.name = ps.parent
-        WHERE ps.parenttype = 'Sales Invoice'
-          AND si.docstatus = 1
-          AND ps.outstanding > 0.01
-          AND ps.due_date IS NOT NULL
-    """, as_dict=True)
-    ps_map = {}
-    for r in ps_rows:
-        ps_map.setdefault(r.invoice_name, []).append(r)
-
-    # Build triggers grouped by terms template
-    triggers = {}   # {terms_label: [reminder_dict, ...]}
+    triggers = {}
 
     for inv in invoices:
-        # Only process invoices with a recognised payment terms template
-        if not inv.terms or inv.terms not in TERMS_SCHEDULE:
+        terms = inv.terms
+        if not terms or terms not in TERMS_SCHEDULE:
             continue
-        terms    = inv.terms
         schedule = TERMS_SCHEDULE[terms]
 
-        # Determine due dates to evaluate
-        due_entries = []
-        if inv.name in ps_map:
-            for ps in ps_map[inv.name]:
-                if flt(ps.outstanding) > 0:
-                    due_entries.append({
-                        "due_date":    getdate(str(ps.due_date)),
-                        "outstanding": flt(ps.outstanding),
-                    })
-        if not due_entries:
-            due_entries.append({
-                "due_date":    getdate(str(inv.due_date)),
-                "outstanding": flt(inv.outstanding_amount),
-            })
+        due_entries = ps_map.get(inv.name) or [{
+            "due_date":    getdate(str(inv.due_date)),
+            "outstanding": flt(inv.outstanding_amount),
+        }]
 
         for entry in due_entries:
             days_until = (entry["due_date"] - today).days
 
-            # Check: matches reminder schedule OR is past due (any number of days — send every
-            # day until paid; outstanding_amount = 0 is the only exit condition)
             is_reminder_day = (days_until >= 0 and days_until in schedule)
-            is_overdue      = (days_until < 0)   # past due → daily until paid
+            is_overdue      = (days_until < 0)
 
             if not (is_reminder_day or is_overdue):
                 continue
 
-            owner = inv.account_owner or ""
             triggers.setdefault(terms, []).append({
                 "invoice":     inv.name,
                 "customer":    inv.customer_name or inv.customer,
-                "owner":       owner,
-                "terms":       inv.terms or "No Terms",
+                "owner":       inv.account_owner or "",
+                "terms":       terms,
                 "due_date":    entry["due_date"],
                 "outstanding": entry["outstanding"],
                 "grand_total": flt(inv.grand_total),
@@ -291,8 +305,7 @@ def _send_sp_emails(triggers, today):
     if not sp_set:
         return 0
 
-    # Group rows by SP email
-    sp_buckets = {}   # {sp_email: {terms: [row, ...]}}
+    sp_buckets = {}
     for terms, rows in triggers.items():
         for row in rows:
             owner = (row.get("owner") or "").strip().lower()

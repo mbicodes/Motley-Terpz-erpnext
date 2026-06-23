@@ -1,5 +1,6 @@
 var LEGACY_CUTOFF = "2026-05-31";
 var NEW_AR_START  = "2026-06-01";
+var ALL_ENTITIES  = "__ALL__"; // Company-filter value that triggers the consolidated cross-entity view
 
 frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
     var page = frappe.ui.make_app_page({
@@ -13,6 +14,8 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
     page._ard_excl_motley = false;
     page._ard_can_edit    = false;
     page._ard_ar_mode     = "legacy"; // "legacy" (≤ May 31 2026) or "new" (≥ Jun 1 2026)
+    page._ard_all_mode    = false;    // true while showing the consolidated all-entities view
+    page._ard_all_result  = null;     // merged result ({rows tagged with .company}) for re-render
 
     page.main.html(`
 		<div class="ard-container">
@@ -64,16 +67,15 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
 					</select>
 				</div>
 				<div class="ard-filter-actions">
-					<button id="ard-apply-btn"        class="ard-btn-primary">Apply Filters</button>
 					<button id="ard-export-btn"       class="ard-btn-secondary" style="display:none;">&#8595; Export Excel</button>
 					<button id="ard-motley-btn"       class="ard-btn-danger"    style="display:none;">Remove Motley</button>
 				</div>
 			</div>
 
 			<div id="ard-data-area">
-				<div class="ard-empty-state">
-					<div class="ard-empty-icon">&#9780;</div>
-					<p>Select a company and click <strong>Apply Filters</strong> to load data.</p>
+				<div class="ard-loading">
+					<div class="ard-spinner"></div>
+					<p>Loading receivables&hellip;</p>
 				</div>
 			</div>
 		</div>
@@ -86,30 +88,45 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
             if (!r.message) return;
             let sel = page.main.find('#ard-company');
             let default_company = frappe.defaults.get_user_default("Company") || "";
+            // "All" runs the consolidated cross-entity view (one row per client).
+            sel.append(`<option value="${ALL_ENTITIES}">All Entities</option>`);
             r.message.companies.forEach(function (c) {
                 sel.append(`<option value="${c}" ${c === default_company ? 'selected' : ''}>${c}</option>`);
             });
+            // Default to a real company (not the "All Entities" sentinel) when the
+            // user's default company didn't match any option.
+            if (sel.val() === ALL_ENTITIES && r.message.companies.length) {
+                sel.val(r.message.companies[0]);
+            }
             page._ard_can_edit = !!r.message.can_edit_recon;
             update_motley_btn_visibility(page);
+            // Auto-load now that the filters are ready (no Apply button).
+            apply_filters(page);
         }
     });
 
     page.main.find('#ard-report-date').on('change', function () {
         page.main.find('#ard-report-date-display').text($(this).val());
+        apply_filters(page);
     });
 
+    page.main.find('#ard-ageing-on').on('change', function () {
+        apply_filters(page);
+    });
+
+    page.main.find('#ard-customer').on('change', function () {
+        apply_filters(page);
+    });
+
+    // Status is a client-side filter on already-loaded rows — no reload needed.
     page.main.find('#ard-recon-filter').on('change', function () {
-        render_view(page);
+        if (page._ard_all_mode) render_all_entities(page);
+        else render_view(page);
     });
 
-    // Show/hide Remove Motley button whenever company changes
     page.main.find('#ard-company').on('change', function () {
         update_motley_btn_visibility(page);
-    });
-
-    page.main.find('#ard-apply-btn').on('click', function () {
-        page._ard_excl_motley = false;
-        load_ar_data(page);
+        apply_filters(page);
     });
 
     page.main.find('#ard-export-btn').on('click', function () {
@@ -182,17 +199,11 @@ function set_ar_mode(page, mode) {
         page.main.find('#ard-subtitle').html('New AR &mdash; invoices from June 1, 2026 onwards');
     }
 
-    // Clear results — user must re-apply
+    // Mode changed — reload immediately with the current filters.
     page._ard_result = null;
+    page._ard_all_result = null;
     page._ard_excl_motley = false;
-    page.main.find('#ard-export-btn').hide();
-    page.main.find('#ard-motley-btn').hide();
-    page.main.find('#ard-data-area').html(`
-		<div class="ard-empty-state">
-			<div class="ard-empty-icon">&#9780;</div>
-			<p>Mode changed to <strong>${mode === 'legacy' ? 'Legacy AR' : 'New AR'}</strong>. Click <strong>Apply Filters</strong> to load data.</p>
-		</div>
-	`);
+    apply_filters(page);
 }
 
 // ─── Visibility helpers ───────────────────────────────────────────────────────
@@ -258,6 +269,20 @@ function apply_recon_select_class($select, status) {
 
 // ─── Data Loading ─────────────────────────────────────────────────────────────
 
+// Central refresh: routes to the consolidated view when "All Entities" is
+// selected, otherwise loads the single selected company. Called on every
+// filter change (no Apply button).
+function apply_filters(page) {
+    page._ard_excl_motley = false;
+    if (page.main.find('#ard-company').val() === ALL_ENTITIES) {
+        load_all_entities(page);
+    } else {
+        page._ard_all_mode = false;
+        page._ard_all_result = null;
+        load_ar_data(page);
+    }
+}
+
 function load_ar_data(page) {
     let company    = page.main.find('#ard-company').val();
     let customer   = page.main.find('#ard-customer').val().trim();
@@ -307,12 +332,16 @@ function load_ar_data(page) {
 // ─── Filtering helper ─────────────────────────────────────────────────────────
 
 function get_filtered_rows(page) {
-    if (!page._ard_result || !page._ard_result.rows) return [];
+    return filter_rows(page, page._ard_result, page._ard_excl_motley);
+}
 
-    let rows = page._ard_result.rows;
-    let display_rows = rows.filter(function (r) { return r.outstanding > 0; });
+// Shared row-filtering logic, usable for either a single result or one entity in All-Entities mode.
+function filter_rows(page, result, excl_motley) {
+    if (!result || !result.rows) return [];
 
-    if (page._ard_excl_motley) {
+    let display_rows = result.rows.filter(function (r) { return r.outstanding > 0; });
+
+    if (excl_motley) {
         display_rows = display_rows.filter(function (r) {
             return (r.customer_name || r.party || "").toLowerCase().indexOf("motley") === -1;
         });
@@ -377,7 +406,7 @@ function render_view(page) {
     render_table(page, display_rows, view_totals);
 }
 
-function render_summary_cards(page, ranges, view_totals) {
+function build_summary_html(page, ranges, view_totals) {
     let range_totals_html = ranges.map(function (r, idx) {
         let cls = range_status_class(idx);
         return `
@@ -409,10 +438,14 @@ function render_summary_cards(page, ranges, view_totals) {
 		</div>
 	`;
 
-    page.main.find('#ard-summary-section').html(html);
+    return html;
 }
 
-function render_aging_bar(page, ranges, view_totals) {
+function render_summary_cards(page, ranges, view_totals) {
+    page.main.find('#ard-summary-section').html(build_summary_html(page, ranges, view_totals));
+}
+
+function build_aging_html(page, ranges, view_totals) {
     let total_out = view_totals.outstanding || 1;
     let bar_segments = ranges.map(function (r, idx) {
         let pct = ((view_totals[r.key] / total_out) * 100).toFixed(1);
@@ -435,11 +468,15 @@ function render_aging_bar(page, ranges, view_totals) {
 		</div>
 	`;
 
-    page.main.find('#ard-aging-section').html(html);
+    return html;
 }
 
-function build_recon_cell(page, party, status) {
-    if (page._ard_can_edit) {
+function render_aging_bar(page, ranges, view_totals) {
+    page.main.find('#ard-aging-section').html(build_aging_html(page, ranges, view_totals));
+}
+
+function build_recon_cell(page, party, status, readonly) {
+    if (page._ard_can_edit && !readonly) {
         let select_cls = "ard-recon-select";
         if (status === "Reconciled") select_cls += " ard-recon-reconciled";
         else if (status === "Unreconciled") select_cls += " ard-recon-unreconciled";
@@ -470,20 +507,14 @@ function build_recon_cell(page, party, status) {
     return `<span class="${badge_cls}" title="Read-only — Account Manager role required to edit">${label}</span>`;
 }
 
-function render_table(page, display_rows, view_totals) {
-    if (!page._ard_result) return;
-    let { ranges, company } = page._ard_result;
-
-    let section = page.main.find('#ard-table-section');
-
+function build_table_html(page, ranges, company, display_rows, view_totals, readonly, show_company) {
     if (display_rows.length === 0) {
-        section.html(`
+        return (`
 			<div class="ard-empty-state">
 				<div class="ard-empty-icon">&#10003;</div>
 				<p>No outstanding receivables found for this selection.</p>
 			</div>
 		`);
-        return;
     }
 
     let customer_order = [];
@@ -516,6 +547,7 @@ function render_table(page, display_rows, view_totals) {
 					<tr>
 						<th class="ard-th-sticky">Customer</th>
 						<th class="ard-th-recon">Status</th>
+						${show_company ? `<th class="ard-th-entity">Entity</th>` : ``}
 						<th>Invoice No.</th>
 						<th>Type</th>
 						<th>Posting Date</th>
@@ -550,7 +582,7 @@ function render_table(page, display_rows, view_totals) {
             return `<td class="${cls} ard-total-cell">${val > 0 ? fmt_cur(val) : "—"}</td>`;
         }).join("");
 
-        let recon_cell = build_recon_cell(page, group.party, group.recon_status);
+        let recon_cell = build_recon_cell(page, group.party, group.recon_status, readonly);
 
         html += `
 			<tr class="ard-customer-group-row" data-party="${esc_attr(party)}">
@@ -559,7 +591,7 @@ function render_table(page, display_rows, view_totals) {
 					${group.name !== group.party ? `<div class="ard-customer-group-id">${esc(group.party)}</div>` : ""}
 				</td>
 				<td class="ard-td-recon">${recon_cell}</td>
-				<td colspan="4" style="color:var(--ard-muted);font-size:12px;">${group.rows.length} invoice(s)</td>
+				<td colspan="${show_company ? 5 : 4}" style="color:var(--ard-muted);font-size:12px;">${group.rows.length} invoice(s)</td>
 				<td class="ard-num ard-total-cell">${fmt_cur(sub.invoiced)}</td>
 				<td class="ard-num ard-total-cell">${fmt_cur(sub.paid)}</td>
 				<td class="ard-num ard-total-cell ard-outstanding">${fmt_cur(sub.outstanding)}</td>
@@ -582,6 +614,7 @@ function render_table(page, display_rows, view_totals) {
 						<a href="/app/sales-invoice/${esc(row.voucher_no)}" target="_blank" class="ard-link">${esc(row.voucher_no)}</a>
 					</td>
 					<td></td>
+					${show_company ? `<td class="ard-entity-cell">${esc(row.company || "")}</td>` : ``}
 					<td></td>
 					<td class="ard-type">${esc(row.voucher_type)}</td>
 					<td class="ard-date">${fmt_date(row.posting_date)}</td>
@@ -607,7 +640,7 @@ function render_table(page, display_rows, view_totals) {
 					<tr class="ard-totals-row">
 						<td class="ard-td-sticky ard-total-cell">${esc(company)}</td>
 						<td class="ard-total-cell"></td>
-						<td class="ard-total-cell" colspan="4">${total_invoices} invoice(s) &bull; ${customer_order.length} customer(s)</td>
+						<td class="ard-total-cell" colspan="${show_company ? 5 : 4}">${total_invoices} invoice(s) &bull; ${customer_order.length} customer(s)</td>
 						<td class="ard-num ard-total-cell">${fmt_cur(view_totals.invoiced)}</td>
 						<td class="ard-num ard-total-cell">${fmt_cur(view_totals.paid)}</td>
 						<td class="ard-num ard-total-cell ard-outstanding">${fmt_cur(view_totals.outstanding)}</td>
@@ -619,7 +652,137 @@ function render_table(page, display_rows, view_totals) {
 		</div>
 	`;
 
-    section.html(html);
+    return html;
+}
+
+function render_table(page, display_rows, view_totals) {
+    if (!page._ard_result) return;
+    let { ranges, company } = page._ard_result;
+    page.main.find('#ard-table-section').html(
+        build_table_html(page, ranges, company, display_rows, view_totals, false)
+    );
+}
+
+// ─── All Entities (consolidated across every company, grouped by client) ───
+
+function load_all_entities(page) {
+    // Collect every real company from the dropdown. Skip the "All" sentinel and
+    // "TMM Group" (a roll-up of Motley Terpz + TSBC Ranch) to avoid double-counting.
+    let companies = [];
+    page.main.find('#ard-company option').each(function () {
+        let v = $(this).val();
+        if (v && v !== ALL_ENTITIES && v !== 'TMM Group') companies.push(v);
+    });
+
+    if (!companies.length) {
+        frappe.msgprint("No companies available.");
+        return;
+    }
+
+    page._ard_all_mode = true;
+    page._ard_all_result = null;
+    page._ard_excl_motley = false;
+    page.main.find('#ard-export-btn').hide();
+    page.main.find('#ard-motley-btn').hide();
+
+    let customer  = page.main.find('#ard-customer').val().trim();
+    let date      = page.main.find('#ard-report-date').val();
+    let ageing_on = page.main.find('#ard-ageing-on').val();
+
+    let area = page.main.find('#ard-data-area');
+    area.html(`
+        <div class="ard-loading" id="ard-all-loading">
+            <div class="ard-spinner"></div>
+            <p>Loading entity 0 of ${companies.length}&hellip;</p>
+        </div>
+    `);
+
+    let idx = 0;
+    let merged_rows = [];
+    let ranges = null;
+
+    function finish() {
+        page._ard_all_result = {
+            rows: merged_rows,
+            ranges: ranges || [],
+            company: "All Entities",
+            report_date: date,
+            ar_mode: page._ard_ar_mode,
+            can_edit_recon: false,
+        };
+        render_all_entities(page);
+    }
+
+    function fetch_next() {
+        if (idx >= companies.length) {
+            finish();
+            return;
+        }
+
+        let company = companies[idx];
+        page.main.find('#ard-all-loading p')
+            .text("Loading entity " + (idx + 1) + " of " + companies.length + " \u2014 " + company + "\u2026");
+
+        frappe.call({
+            method: "cannabis_management.cannabis_management.page.ar_dashboard.ar_dashboard.get_ar_data",
+            args: {
+                company: company,
+                report_date: date,
+                customer: customer || null,
+                ageing_based_on: ageing_on,
+                range_str: "30, 60, 90, 120",
+                ar_mode: page._ard_ar_mode,
+            },
+            callback: function (r) {
+                if (r.message) {
+                    if (!ranges) ranges = r.message.ranges;
+                    (r.message.rows || []).forEach(function (row) {
+                        row.company = company; // tag each invoice with its source entity
+                        merged_rows.push(row);
+                    });
+                }
+                idx++;
+                fetch_next();
+            },
+            error: function () {
+                idx++;
+                fetch_next();
+            }
+        });
+    }
+
+    fetch_next();
+}
+
+// Render the consolidated view: one group per client, with that client's
+// invoices from every entity (TSBC, Motley, Master Touch, LA Canna ...) merged
+// together. The Entity column shows which company each invoice belongs to.
+function render_all_entities(page) {
+    let result = page._ard_all_result;
+    let area = page.main.find('#ard-data-area');
+    if (!result) return;
+
+    let ranges = result.ranges;
+    let display_rows = filter_rows(page, result, false);
+    let view_totals = compute_view_totals(display_rows, ranges);
+
+    if (!display_rows.length) {
+        area.html(`
+            <div class="ard-empty-state">
+                <div class="ard-empty-icon">&#10003;</div>
+                <p>No outstanding receivables found across any entity.</p>
+            </div>
+        `);
+        return;
+    }
+
+    // Recon cells are read-only here (inline editing targets the single-company
+    // result); the final true enables the Entity column.
+    area.html(`
+        <div id="ard-summary-section">${build_summary_html(page, ranges, view_totals)}</div>
+        <div id="ard-aging-section">${build_aging_html(page, ranges, view_totals)}</div>
+        <div id="ard-table-section">${build_table_html(page, ranges, "All Entities", display_rows, view_totals, true, true)}</div>
+    `);
 }
 
 // ─── Excel Export ─────────────────────────────────────────────────────────────

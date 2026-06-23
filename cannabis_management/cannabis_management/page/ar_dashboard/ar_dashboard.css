@@ -289,6 +289,17 @@
 	color: #fff;
 }
 
+/* ── All Entities (consolidated — Entity column) ───────────── */
+.ard-th-entity {
+	white-space: nowrap;
+}
+.ard-entity-cell {
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--ard-primary-dk);
+	white-space: nowrap;
+}
+
 /* ── Loading ───────────────────────────────────────────────── */
 .ard-loading {
 	text-align: center;
