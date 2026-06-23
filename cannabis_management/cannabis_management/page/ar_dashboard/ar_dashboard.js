@@ -212,10 +212,8 @@ function set_ar_mode(page, mode) {
         page.main.find('#ard-legacy-btn').removeClass('ard-mode-active');
         page.main.find('#ard-new-btn').removeClass('ard-mode-active');
         $date.removeAttr('min').removeAttr('max');
-        if (!$date.val() || $date.val() < LEGACY_CUTOFF) {
-            $date.val(today);
-            page.main.find('#ard-report-date-display').text(today);
-        }
+        $date.val(today);
+        page.main.find('#ard-report-date-display').text(today);
         page.main.find('#ard-subtitle').html('All AR &mdash; Legacy + New combined');
     }
 
