@@ -494,17 +494,18 @@ HEMET_STORAGE_WIDGET_JS = """
   var CAPACITY_LBS = 51000; // Hemet TSBC - TSBC confirmed max capacity in lbs.
 
   function renderHemetGauge(currentLbs) {
+    var scope = (typeof root_element !== "undefined" && root_element) ? root_element : document;
     currentLbs = parseFloat(currentLbs || 0);
     var pct = Math.min(100, Math.round(currentLbs / CAPACITY_LBS * 100));
     var w = Math.max(0, Math.min(362, 362 * currentLbs / CAPACITY_LBS));
-    var fill = document.getElementById("hemet-fill");
+    var fill = scope.querySelector("#hemet-fill");
     if (!fill) return;
     fill.setAttribute("width", w);
     fill.setAttribute("fill", pct >= 90 ? "#b91c1c" : (pct >= 70 ? "#b45309" : "#15803d"));
-    document.getElementById("hemet-pct").textContent = pct + "%";
-    document.getElementById("hemet-lbl").textContent =
-      Math.round(currentLbs).toLocaleString() + " lbs of " +
-      CAPACITY_LBS.toLocaleString() + " lbs";
+    var pctEl = scope.querySelector("#hemet-pct");
+    var lblEl = scope.querySelector("#hemet-lbl");
+    if (pctEl) pctEl.textContent = pct + "%";
+    if (lblEl) lblEl.textContent = Math.round(currentLbs).toLocaleString() + " lbs of " + CAPACITY_LBS.toLocaleString() + " lbs";
   }
 
   function loadHemetGauge() {
@@ -518,9 +519,9 @@ HEMET_STORAGE_WIDGET_JS = """
   }
 
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", loadHemetGauge);
+    document.addEventListener("DOMContentLoaded", function() { setTimeout(loadHemetGauge, 300); });
   } else {
-    loadHemetGauge();
+    setTimeout(loadHemetGauge, 300);
   }
 })();
 """
