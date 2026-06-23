@@ -13,7 +13,7 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
     page._ard_result      = null;
     page._ard_excl_motley = false;
     page._ard_can_edit    = false;
-    page._ard_ar_mode     = "legacy"; // "legacy" (≤ May 31 2026) or "new" (≥ Jun 1 2026)
+    page._ard_ar_mode     = "legacy"; // "legacy" (≤ May 31 2026) | "new" (≥ Jun 1 2026) | "all" (combined)
     page._ard_all_mode    = false;    // true while showing the consolidated all-entities view
     page._ard_all_result  = null;     // merged result ({rows tagged with .company}) for re-render
 
@@ -36,6 +36,7 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
 					<div class="ard-mode-toggle">
 						<button id="ard-legacy-btn" class="ard-mode-btn ard-mode-active">Legacy AR</button>
 						<button id="ard-new-btn"    class="ard-mode-btn">New AR</button>
+						<button id="ard-all-btn"    class="ard-mode-btn">Legacy + New</button>
 					</div>
 				</div>
 				<div class="ard-filter-group">
@@ -153,6 +154,10 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
         if (page._ard_ar_mode !== 'new') set_ar_mode(page, 'new');
     });
 
+    page.main.find('#ard-all-btn').on('click', function () {
+        if (page._ard_ar_mode !== 'all') set_ar_mode(page, 'all');
+    });
+
     // Inline recon dropdown change (event delegation for dynamic rows)
     page.main.on('change', '.ard-recon-select', function () {
         handle_recon_change(page, $(this));
@@ -184,23 +189,34 @@ function set_ar_mode(page, mode) {
     if (mode === 'legacy') {
         page.main.find('#ard-legacy-btn').addClass('ard-mode-active');
         page.main.find('#ard-new-btn').removeClass('ard-mode-active');
+        page.main.find('#ard-all-btn').removeClass('ard-mode-active');
         $date.attr('max', LEGACY_CUTOFF).removeAttr('min');
-        // Clamp date down if it's above the cutoff
         if ($date.val() > LEGACY_CUTOFF) {
             $date.val(LEGACY_CUTOFF);
             page.main.find('#ard-report-date-display').text(LEGACY_CUTOFF);
         }
         page.main.find('#ard-subtitle').html('Legacy AR &mdash; invoices up to May 31, 2026');
-    } else {
+    } else if (mode === 'new') {
         page.main.find('#ard-new-btn').addClass('ard-mode-active');
         page.main.find('#ard-legacy-btn').removeClass('ard-mode-active');
+        page.main.find('#ard-all-btn').removeClass('ard-mode-active');
         $date.attr('min', NEW_AR_START).removeAttr('max');
-        // Clamp date up if it's below the start
         if ($date.val() < NEW_AR_START) {
             $date.val(today);
             page.main.find('#ard-report-date-display').text(today);
         }
         page.main.find('#ard-subtitle').html('New AR &mdash; invoices from June 1, 2026 onwards');
+    } else {
+        // 'all' — Legacy + New combined, no date clamping
+        page.main.find('#ard-all-btn').addClass('ard-mode-active');
+        page.main.find('#ard-legacy-btn').removeClass('ard-mode-active');
+        page.main.find('#ard-new-btn').removeClass('ard-mode-active');
+        $date.removeAttr('min').removeAttr('max');
+        if (!$date.val() || $date.val() < LEGACY_CUTOFF) {
+            $date.val(today);
+            page.main.find('#ard-report-date-display').text(today);
+        }
+        page.main.find('#ard-subtitle').html('All AR &mdash; Legacy + New combined');
     }
 
     // Mode changed — reload immediately with the current filters.
@@ -493,8 +509,8 @@ function build_summary_html(page, ranges, view_totals) {
 		`;
     }).join("");
 
-    let mode_label = page._ard_ar_mode === 'legacy' ? 'Legacy AR' : 'New AR';
-    let mode_cls   = page._ard_ar_mode === 'legacy' ? 'ard-mode-chip-legacy' : 'ard-mode-chip-new';
+    let mode_label = page._ard_ar_mode === 'legacy' ? 'Legacy AR' : (page._ard_ar_mode === 'new' ? 'New AR' : 'Legacy + New');
+    let mode_cls   = page._ard_ar_mode === 'legacy' ? 'ard-mode-chip-legacy' : (page._ard_ar_mode === 'new' ? 'ard-mode-chip-new' : 'ard-mode-chip-all');
 
     let html = `
 		<div class="ard-summary-row">
@@ -1003,7 +1019,7 @@ function export_excel(page) {
     }).join("\r\n");
 
     let date_str  = page.main.find('#ard-report-date').val() || frappe.datetime.get_today();
-    let mode_tag  = page._ard_ar_mode === 'legacy' ? 'Legacy' : 'New';
+    let mode_tag  = page._ard_ar_mode === 'legacy' ? 'Legacy' : (page._ard_ar_mode === 'new' ? 'New' : 'All');
     let filename  = "AR_" + mode_tag + "_" + company.replace(/\s+/g, "_") + "_" + date_str + ".csv";
 
     let blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });

@@ -193,6 +193,9 @@ def get_ar_data(company, report_date=None, customer=None, ageing_based_on="Due D
     if ar_mode == "legacy":
         if not report_date or str(report_date) > LEGACY_CUTOFF:
             report_date = LEGACY_CUTOFF
+    elif ar_mode == "all":
+        if not report_date:
+            report_date = nowdate()
     else:
         if not report_date or str(report_date) < NEW_AR_START:
             report_date = nowdate()
@@ -223,6 +226,9 @@ def get_ar_data(company, report_date=None, customer=None, ageing_based_on="Due D
         rows = [r for r in rows
                 if str(r.get("posting_date") or "") <= LEGACY_CUTOFF
                 and r.get("party") not in internal]
+    elif ar_mode == "all":
+        rows = [r for r in rows
+                if r.get("party") not in internal]
     else:
         rows = [r for r in rows
                 if str(r.get("posting_date") or "") >= NEW_AR_START
