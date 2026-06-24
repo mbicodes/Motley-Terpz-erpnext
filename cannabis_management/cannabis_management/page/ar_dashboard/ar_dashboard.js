@@ -13,7 +13,7 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
     page._ard_result      = null;
     page._ard_excl_motley = false;
     page._ard_can_edit    = false;
-    page._ard_ar_mode     = "legacy"; // "legacy" (≤ May 31 2026) | "new" (≥ Jun 1 2026) | "all" (combined)
+    page._ard_ar_mode     = "all"; // default mode on open: "all" (Legacy + New combined)
     page._ard_all_mode    = false;    // true while showing the consolidated all-entities view
     page._ard_all_result  = null;     // merged result ({rows tagged with .company}) for re-render
 
@@ -68,6 +68,8 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
 					</select>
 				</div>
 				<div class="ard-filter-actions">
+					<button id="ard-copy-all-btn"     class="ard-btn-secondary" style="display:none;">&#128203; Copy All</button>
+					<button id="ard-pdf-btn"          class="ard-btn-secondary" style="display:none;">&#128196; Export PDF</button>
 					<button id="ard-export-btn"       class="ard-btn-secondary" style="display:none;">&#8595; Export Excel</button>
 					<button id="ard-motley-btn"       class="ard-btn-danger"    style="display:none;">Remove Motley</button>
 				</div>
@@ -82,6 +84,17 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
 		</div>
 	`);
 
+    // ── Default the page to Legacy + New mode (UI only; data loads after companies) ──
+    (function () {
+        let today = frappe.datetime.get_today();
+        page.main.find('#ard-all-btn').addClass('ard-mode-active');
+        page.main.find('#ard-legacy-btn').removeClass('ard-mode-active');
+        page.main.find('#ard-new-btn').removeClass('ard-mode-active');
+        page.main.find('#ard-report-date').removeAttr('min').removeAttr('max').val(today);
+        page.main.find('#ard-report-date-display').text(today);
+        page.main.find('#ard-subtitle').html('All AR &mdash; Legacy + New combined');
+    })();
+
     // ── Load companies ────────────────────────────────────────────────────────
     frappe.call({
         method: "cannabis_management.cannabis_management.page.ar_dashboard.ar_dashboard.init_page",
@@ -94,11 +107,8 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
             r.message.companies.forEach(function (c) {
                 sel.append(`<option value="${c}" ${c === default_company ? 'selected' : ''}>${c}</option>`);
             });
-            // Default to a real company (not the "All Entities" sentinel) when the
-            // user's default company didn't match any option.
-            if (sel.val() === ALL_ENTITIES && r.message.companies.length) {
-                sel.val(r.message.companies[0]);
-            }
+            // Default selection on open: All Entities (consolidated view).
+            sel.val(ALL_ENTITIES);
             page._ard_can_edit = !!r.message.can_edit_recon;
             update_motley_btn_visibility(page);
             // Auto-load now that the filters are ready (no Apply button).
@@ -132,6 +142,20 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
 
     page.main.find('#ard-export-btn').on('click', function () {
         export_excel(page);
+    });
+
+    page.main.find('#ard-copy-all-btn').on('click', function () {
+        copy_all(page);
+    });
+
+    page.main.find('#ard-pdf-btn').on('click', function () {
+        export_pdf(page);
+    });
+
+    // Per-customer copy (event delegation for dynamic rows)
+    page.main.on('click', '.ard-copy-btn', function (e) {
+        e.stopPropagation();
+        copy_customer(page, $(this).data('party'));
     });
 
     page.main.find('#ard-motley-btn').on('click', function () {
@@ -320,7 +344,7 @@ function load_ar_data(page) {
 		</div>
 	`);
 
-    page.main.find('#ard-export-btn').hide();
+    show_export_buttons(page, false);
     page.main.find('#ard-motley-btn').hide();
 
     frappe.call({
@@ -338,7 +362,6 @@ function load_ar_data(page) {
                 page._ard_result = r.message;
                 page._ard_can_edit = !!r.message.can_edit_recon;
                 render_dashboard(page, r.message);
-                page.main.find('#ard-export-btn').show();
                 update_motley_btn_visibility(page);
             } else {
                 area.html(`<div class="ard-empty-state"><p>No data returned.</p></div>`);
@@ -426,6 +449,8 @@ function render_view(page) {
     );
     render_aging_bar(page, ranges, view_totals);
     render_table(page, display_rows, view_totals);
+    add_excel_grid(page);
+    show_export_buttons(page, display_rows.length > 0);
 }
 
 // ─── 4-Week Projection (forward-looking, by due date) ──────────────────────────
@@ -606,21 +631,23 @@ function get_report_date(page) {
 
 // Sum the New-AR term columns for a set of rows (used for group + grand totals).
 function na_sum(rows, anchor) {
-    let s = { total: 0, good: 0, bad: 0, g1: 0, g2: 0, g3: 0 };
+    let s = { total: 0, new_ar: 0, legacy_ar: 0, good: 0, bad: 0, g1: 0, g2: 0, g3: 0 };
     rows.forEach(function (row) {
         let amt = row.outstanding || 0;
         if (amt <= 0) return;
-        let info = classify_new_ar(row, anchor);
+        let info = classify_ar_row(row, anchor);
         s.total += amt;
+        if ((row.posting_date || "") >= NEW_AR_START) s.new_ar += amt; else s.legacy_ar += amt;
         if (info.section === "good") { s.good += amt; s[info.bkey] += amt; }
         else { s.bad += amt; }
     });
     return s;
 }
 
-function na_header_cells() {
+function na_header_cells(split) {
     return `
-						<th class="ard-th-num ard-na-total">Total New AR</th>
+						${split ? `<th class="ard-th-num ard-na-legacy">Legacy AR</th><th class="ard-th-num ard-na-new">New AR</th>` : ``}
+						<th class="ard-th-num ard-na-total">Total AR</th>
 						<th class="ard-th-num ard-na-good">Total AR on terms<br><small>(Good standing)</small></th>
 						<th class="ard-th-num ard-na-bad">Total AR on terms<br><small>(Bad standing)</small></th>
 						<th class="ard-th-num ard-good-green">0-10<br><small>Days</small></th>
@@ -628,8 +655,9 @@ function na_header_cells() {
 						<th class="ard-th-num ard-good-red">20-30<br><small>Days</small></th>`;
 }
 
-function na_total_cells(s) {
+function na_total_cells(s, split) {
     return `
+					${split ? `<td class="ard-num ard-total-cell ard-na-legacy">${s.legacy_ar > 0 ? fmt_cur(s.legacy_ar) : "—"}</td><td class="ard-num ard-total-cell ard-na-new">${s.new_ar > 0 ? fmt_cur(s.new_ar) : "—"}</td>` : ``}
 					<td class="ard-num ard-total-cell ard-na-total">${fmt_cur(s.total)}</td>
 					<td class="ard-num ard-total-cell ard-na-good">${s.good > 0 ? fmt_cur(s.good) : "—"}</td>
 					<td class="ard-num ard-total-cell ard-na-bad">${s.bad > 0 ? fmt_cur(s.bad) : "—"}</td>
@@ -638,20 +666,22 @@ function na_total_cells(s) {
 					<td class="ard-num ard-total-cell ard-good-red">${s.g3 > 0 ? fmt_cur(s.g3) : "—"}</td>`;
 }
 
-function na_invoice_cells(row, anchor) {
+function na_invoice_cells(row, anchor, split) {
     let amt = row.outstanding || 0;
-    let info = classify_new_ar(row, anchor);
+    let is_new = (row.posting_date || "") >= NEW_AR_START;
+    let info = classify_ar_row(row, anchor);
     let good = info.section === "good";
     let g1 = good && info.bkey === "g1" ? amt : 0;
     let g2 = good && info.bkey === "g2" ? amt : 0;
     let g3 = good && info.bkey === "g3" ? amt : 0;
     return `
+						${split ? `<td class="ard-num ard-na-legacy">${!is_new ? fmt_cur(amt) : "—"}</td><td class="ard-num ard-na-new">${is_new ? fmt_cur(amt) : "—"}</td>` : ``}
 						<td class="ard-num ard-na-total">${fmt_cur(amt)}</td>
 						<td class="ard-num ard-na-good">${good ? fmt_cur(amt) : "—"}</td>
 						<td class="ard-num ard-na-bad">${!good ? fmt_cur(amt) : "—"}</td>
-						<td class="ard-range-cell ${g1 > 0 ? "ard-good-green" : "ard-range-zero"}">${g1 > 0 ? fmt_cur(g1) : "—"}</td>
-						<td class="ard-range-cell ${g2 > 0 ? "ard-good-yellow" : "ard-range-zero"}">${g2 > 0 ? fmt_cur(g2) : "—"}</td>
-						<td class="ard-range-cell ${g3 > 0 ? "ard-good-red" : "ard-range-zero"}">${g3 > 0 ? fmt_cur(g3) : "—"}</td>`;
+						<td class="ard-range-cell ard-good-green">${g1 > 0 ? fmt_cur(g1) : "—"}</td>
+						<td class="ard-range-cell ard-good-yellow">${g2 > 0 ? fmt_cur(g2) : "—"}</td>
+						<td class="ard-range-cell ard-good-red">${g3 > 0 ? fmt_cur(g3) : "—"}</td>`;
 }
 
 function build_table_html(page, ranges, company, display_rows, view_totals, readonly, show_company) {
@@ -664,9 +694,10 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
 		`);
     }
 
-    let new_ar = page._ard_ar_mode === 'new';
-    let na_anchor = new_ar ? get_report_date(page) : null;
-    let na_grand = new_ar ? na_sum(display_rows, na_anchor) : null;
+    let show_terms = page._ard_ar_mode === 'new' || page._ard_ar_mode === 'all';
+    let split_ln = page._ard_ar_mode === 'all'; // Legacy+New: split Total AR into New vs Legacy
+    let na_anchor = show_terms ? get_report_date(page) : null;
+    let na_grand = show_terms ? na_sum(display_rows, na_anchor) : null;
 
     let customer_order = [];
     let customer_groups = {};
@@ -692,7 +723,7 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
     }).join("");
 
     let html = `
-		<div class="ard-table-wrap">
+		<div class="ard-table-wrap ard-newar-table">
 			<table class="ard-table">
 				<thead>
 					<tr>
@@ -706,7 +737,7 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
 						<th class="ard-th-num">Invoiced</th>
 						<th class="ard-th-num">Paid</th>
 						<th class="ard-th-num">Outstanding</th>
-						${new_ar ? na_header_cells() : ``}
+						${show_terms ? na_header_cells(split_ln) : ``}
 						${range_headers}
 						<th class="ard-th-status">Status</th>
 					</tr>
@@ -739,7 +770,7 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
         html += `
 			<tr class="ard-customer-group-row" data-party="${esc_attr(party)}">
 				<td class="ard-td-sticky">
-					<button class="ard-expand-btn" data-party="${esc_attr(party)}" title="Expand invoices">&#9654;</button><span class="ard-customer-group-name">${esc(group.name)}</span>
+					<button class="ard-expand-btn" data-party="${esc_attr(party)}" title="Expand invoices">&#9654;</button><span class="ard-customer-group-name">${esc(group.name)}</span><button class="ard-copy-btn" data-party="${esc_attr(party)}" title="Copy this customer's summary">&#128203;</button>
 					${group.name !== group.party ? `<div class="ard-customer-group-id">${esc(group.party)}</div>` : ""}
 				</td>
 				<td class="ard-td-recon">${recon_cell}</td>
@@ -747,7 +778,7 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
 				<td class="ard-num ard-total-cell">${fmt_cur(sub.invoiced)}</td>
 				<td class="ard-num ard-total-cell">${fmt_cur(sub.paid)}</td>
 				<td class="ard-num ard-total-cell ard-outstanding">${fmt_cur(sub.outstanding)}</td>
-				${new_ar ? na_total_cells(na_sum(group.rows, na_anchor)) : ``}
+				${show_terms ? na_total_cells(na_sum(group.rows, na_anchor), split_ln) : ``}
 				${sub_range_cells}
 				<td></td>
 			</tr>
@@ -775,7 +806,7 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
 					<td class="ard-num">${fmt_cur(row.invoiced)}</td>
 					<td class="ard-num">${fmt_cur(row.paid)}</td>
 					<td class="ard-num ard-outstanding">${fmt_cur(row.outstanding)}</td>
-					${new_ar ? na_invoice_cells(row, na_anchor) : ``}
+					${show_terms ? na_invoice_cells(row, na_anchor, split_ln) : ``}
 					${range_cells}
 					<td style="text-align:center;"><span class="ard-badge ${status.cls}">${status.label}</span></td>
 				</tr>
@@ -798,7 +829,7 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
 						<td class="ard-num ard-total-cell">${fmt_cur(view_totals.invoiced)}</td>
 						<td class="ard-num ard-total-cell">${fmt_cur(view_totals.paid)}</td>
 						<td class="ard-num ard-total-cell ard-outstanding">${fmt_cur(view_totals.outstanding)}</td>
-						${new_ar ? na_total_cells(na_grand) : ``}
+						${show_terms ? na_total_cells(na_grand, split_ln) : ``}
 						${range_total_cells}
 						<td></td>
 					</tr>
@@ -816,6 +847,50 @@ function render_table(page, display_rows, view_totals) {
     page.main.find('#ard-table-section').html(
         build_table_html(page, ranges, company, display_rows, view_totals, false)
     );
+}
+
+// ─── Excel-style grid (column letters A,B,C… + row numbers 1,2,3…) ──────────────
+
+function col_letter(n) {
+    // 0 -> A, 25 -> Z, 26 -> AA, …
+    let s = "";
+    n = n + 1;
+    while (n > 0) {
+        let rem = (n - 1) % 26;
+        s = String.fromCharCode(65 + rem) + s;
+        n = Math.floor((n - 1) / 26);
+    }
+    return s;
+}
+
+// Decorate every rendered table with a spreadsheet grid: a top strip of column
+// letters and a sticky left column of row numbers. Column count is read from the
+// DOM so it works for every mode/column combination.
+function add_excel_grid(page) {
+    page.main.find('#ard-data-area .ard-table').each(function () {
+        let $table = $(this);
+        if ($table.hasClass('ard-has-grid')) return;
+
+        let $headRow = $table.find('thead tr').first();
+        let ncols = $headRow.children().length;
+        if (!ncols) return;
+
+        // Top strip: corner + one letter per column.
+        let strip = '<th class="ard-grid-corner"></th>';
+        for (let i = 0; i < ncols; i++) {
+            strip += '<th class="ard-grid-col">' + col_letter(i) + '</th>';
+        }
+        $table.find('thead').prepend('<tr class="ard-grid-colrow">' + strip + '</tr>');
+
+        // Row numbers: header label row = 1, then every body/footer row.
+        $headRow.prepend('<th class="ard-grid-rownum">1</th>');
+        let n = 2;
+        $table.find('tbody tr, tfoot tr').each(function () {
+            $(this).prepend('<td class="ard-grid-rownum">' + (n++) + '</td>');
+        });
+
+        $table.addClass('ard-has-grid');
+    });
 }
 
 // ─── All Entities (consolidated across every company, grouped by client) ───
@@ -837,7 +912,7 @@ function load_all_entities(page) {
     page._ard_all_mode = true;
     page._ard_all_result = null;
     page._ard_excl_motley = false;
-    page.main.find('#ard-export-btn').hide();
+    show_export_buttons(page, false);
     page.main.find('#ard-motley-btn').hide();
 
     let customer  = page.main.find('#ard-customer').val().trim();
@@ -928,6 +1003,7 @@ function render_all_entities(page) {
                 <p>No outstanding receivables found across any entity.</p>
             </div>
         `);
+        show_export_buttons(page, false);
         return;
     }
 
@@ -939,6 +1015,8 @@ function render_all_entities(page) {
         <div id="ard-aging-section">${build_aging_html(page, ranges, view_totals)}</div>
         <div id="ard-table-section">${build_table_html(page, ranges, "All Entities", display_rows, view_totals, true, true)}</div>
     `);
+    add_excel_grid(page);
+    show_export_buttons(page, true);
 }
 
 // ─── New AR term classification (drives the extra "AR on terms" columns) ────────
@@ -956,7 +1034,7 @@ function diff_days(later, earlier) {
     return Math.round((l - e) / 86400000);
 }
 
-function classify_new_ar(row, report_date) {
+function classify_ar_row(row, report_date) {
     let overdue = diff_days(report_date, row.due_date); // report - due (positive = past due)
     if (overdue !== null && overdue > 0) {
         let bkey = overdue <= 30 ? "b1" : overdue <= 60 ? "b2" : overdue <= 90 ? "b3" : overdue <= 120 ? "b4" : "b5";
@@ -968,13 +1046,187 @@ function classify_new_ar(row, report_date) {
     return { section: "good", bkey: bkey, days: age };
 }
 
+// ─── Copy to clipboard (formatted client summary) ──────────────────────────────
+
+var AR_COPY_HEADER = "📊 AR AGING REPORT — FULL CLIENT BREAKDOWN";
+var AR_COPY_SEP    = "━━━━━━━━━━━━━━━━━━━━━━";
+
+// The result + filtered rows currently on screen, whether single-company or the
+// consolidated All-Entities view.
+function current_result(page) {
+    return (page._ard_all_mode && page._ard_all_result) ? page._ard_all_result : page._ard_result;
+}
+function current_display_rows(page) {
+    let res = current_result(page);
+    if (!res) return [];
+    return filter_rows(page, res, page._ard_excl_motley);
+}
+
+function keycap(n) {
+    let caps = ["0️⃣", "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"];
+    return (n >= 0 && n <= 10) ? caps[n] : (n + ".");
+}
+
+// Whole-dollar money for the copy text (e.g. "$18,900", or "—" when empty).
+function fmt_money_short(v) {
+    if (!v || Math.round(v) === 0) return "—";
+    return "$" + Math.round(v).toLocaleString("en-US");
+}
+
+function aggregate_party(rows, ranges) {
+    let a = { name: "", count: rows.length, invoiced: 0, paid: 0, outstanding: 0, legacy: 0, recent: 0, recon: "" };
+    ranges.forEach(function (r) { a[r.key] = 0; });
+    rows.forEach(function (row) {
+        a.name = row.customer_name || row.party || a.name;
+        a.invoiced += row.invoiced || 0;
+        a.paid += row.paid || 0;
+        a.outstanding += row.outstanding || 0;
+        if ((row.posting_date || "") >= NEW_AR_START) a.recent += row.outstanding || 0;
+        else a.legacy += row.outstanding || 0;
+        ranges.forEach(function (r) { a[r.key] += row[r.key] || 0; });
+        if (row.reconciliation_status) a.recon = row.reconciliation_status;
+    });
+    return a;
+}
+
+function build_customer_block(idx, a, ranges) {
+    let recon = a.recon === "Reconciled" ? " ✅ Reconciled"
+        : (a.recon === "Unreconciled" ? " ⚠️ Unreconciled" : "");
+    let parts = [];
+    ranges.forEach(function (r) {
+        if ((a[r.key] || 0) > 0) parts.push(`${r.label} Days: ${fmt_money_short(a[r.key])}`);
+    });
+    let aging = parts.length ? `⏳ ${parts.join(" | ")}` : "⏳ Current / on terms";
+    return [
+        `${keycap(idx)} ${a.name} (${a.count} inv)${recon}`,
+        `💵 Invoiced: ${fmt_money_short(a.invoiced)} | Paid: ${fmt_money_short(a.paid)}`,
+        `📌 Outstanding: ${fmt_money_short(a.outstanding)}`,
+        `🗂️ Legacy AR: ${fmt_money_short(a.legacy)} | New AR: ${fmt_money_short(a.recent)}`,
+        aging,
+    ].join("\n");
+}
+
+function copy_to_clipboard(text, msg) {
+    function ok() { frappe.show_alert({ message: __(msg || "Copied to clipboard"), indicator: "green" }, 3); }
+    function fallback() {
+        let ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand("copy"); ok(); }
+        catch (e) { frappe.msgprint("Copy failed — please copy manually."); }
+        document.body.removeChild(ta);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(ok).catch(fallback);
+    } else {
+        fallback();
+    }
+}
+
+function copy_customer(page, party) {
+    let res = current_result(page);
+    if (!res) return;
+    let rows = current_display_rows(page).filter(function (r) { return r.party === party; });
+    if (!rows.length) return;
+    let a = aggregate_party(rows, res.ranges);
+    let text = AR_COPY_HEADER + "\n" + AR_COPY_SEP + "\n\n" +
+        build_customer_block(1, a, res.ranges) + "\n\n" + AR_COPY_SEP;
+    copy_to_clipboard(text, "Copied " + a.name);
+}
+
+function copy_all(page) {
+    let res = current_result(page);
+    if (!res) return;
+    let rows = current_display_rows(page);
+    if (!rows.length) {
+        frappe.show_alert({ message: __("No rows to copy"), indicator: "orange" }, 3);
+        return;
+    }
+    let groups = {}, order = [];
+    rows.forEach(function (r) {
+        if (!groups[r.party]) { groups[r.party] = []; order.push(r.party); }
+        groups[r.party].push(r);
+    });
+    let aggs = order.map(function (p) { return aggregate_party(groups[p], res.ranges); });
+    aggs.sort(function (x, y) { return (x.name || "").localeCompare(y.name || ""); });
+    let blocks = aggs.map(function (a, i) { return build_customer_block(i + 1, a, res.ranges); });
+    let text = AR_COPY_HEADER + "\n" + AR_COPY_SEP + "\n\n" +
+        blocks.join("\n\n" + AR_COPY_SEP + "\n\n") + "\n\n" + AR_COPY_SEP;
+    copy_to_clipboard(text, aggs.length + " customer(s) copied to clipboard");
+}
+
+// ─── PDF Export (prints the on-screen dashboard view) ───────────────────────────
+
+function export_pdf(page) {
+    let container = page.main.find('.ard-container').get(0);
+    if (!container) return;
+
+    let head = "";
+    document.querySelectorAll('link[rel="stylesheet"]').forEach(function (l) {
+        if (l.href) head += `<link rel="stylesheet" href="${l.href}">`;
+    });
+    document.querySelectorAll('style').forEach(function (st) { head += st.outerHTML; });
+
+    let w = window.open("", "_blank");
+    if (!w) {
+        frappe.msgprint("Please allow pop-ups for this site to export PDF.");
+        return;
+    }
+
+    // Print CSS: landscape, compact cells, all invoices expanded, and the sticky
+    // columns turned static so the wide table lays out fully (no clipping).
+    let print_css =
+        'body{padding:0;background:#fff;}' +
+        '#ard-pdf-page{padding:14px;}' +
+        '.ard-filter-bar,.ard-copy-btn,.ard-expand-btn,.ard-btn-secondary,.ard-btn-danger{display:none!important;}' +
+        '.ard-invoice-row{display:table-row!important;}' +
+        '.ard-table-wrap{overflow:visible!important;}' +
+        '.ard-table{width:auto!important;}' +
+        '.ard-table th,.ard-table td{font-size:8px!important;padding:2px 4px!important;white-space:nowrap;}' +
+        // neutralise sticky positioning so nothing overlaps when laid out flat
+        '.ard-th-sticky,.ard-td-sticky,.ard-grid-rownum,.ard-grid-corner,.ard-table thead th{position:static!important;left:auto!important;top:auto!important;box-shadow:none!important;}' +
+        '@page{size:landscape;margin:8mm;}';
+
+    // After load (stylesheets applied), shrink the whole report to fit the page
+    // width so every column is visible, then open the print dialog.
+    let fit_script =
+        'window.onload=function(){' +
+        '  try{' +
+        '    var c=document.getElementById("ard-pdf-page");' +
+        '    var w0=c?c.scrollWidth:0;' +
+        '    var target=980;' +              // ~printable width (px) for landscape Letter/A4
+        '    if(w0>target){c.style.zoom=(target/w0);}' +
+        '  }catch(e){}' +
+        '  setTimeout(function(){window.print();},300);' +
+        '};';
+
+    w.document.write(
+        '<!doctype html><html><head><meta charset="utf-8"><title>AR Aging Report</title>' + head +
+        '<style>' + print_css + '</style>' +
+        '<scr' + 'ipt>' + fit_script + '</scr' + 'ipt>' +
+        '</head><body><div id="ard-pdf-page">' + container.outerHTML + '</div></body></html>'
+    );
+    w.document.close();
+    w.focus();
+}
+
+// Show/hide the Copy All / PDF / Excel buttons based on whether data is on screen.
+function show_export_buttons(page, has_rows) {
+    let $btns = page.main.find('#ard-copy-all-btn, #ard-pdf-btn, #ard-export-btn');
+    if (has_rows) $btns.show(); else $btns.hide();
+}
+
 // ─── Excel Export ─────────────────────────────────────────────────────────────
 
 function export_excel(page) {
-    if (!page._ard_result) return;
-    let { ranges, company } = page._ard_result;
+    let res = current_result(page);
+    if (!res) return;
+    let { ranges, company } = res;
 
-    let display_rows = get_filtered_rows(page);
+    let display_rows = current_display_rows(page);
 
     display_rows = display_rows.slice().sort(function (a, b) {
         let na = (a.customer_name || a.party || "").toLowerCase();

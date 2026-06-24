@@ -478,21 +478,46 @@
 
 /* Total columns */
 .ard-na-total .ard-card-value,
-.ard-na-total { font-weight: 700; }
-.ard-na-good  { color: var(--ard-current); }
-.ard-na-bad   { color: var(--ard-90); }
+.ard-na-total  { font-weight: 700; }
+.ard-na-new    { color: var(--ard-primary-dk); font-weight: 600; }
+.ard-na-legacy { color: var(--ard-muted); font-weight: 600; }
+.ard-na-good   { color: var(--ard-current); }
+.ard-na-bad    { color: var(--ard-90); }
 
 /* Column-header tints (mirror the spreadsheet layout) */
+.ard-table th.ard-na-new      { background: #eff6ff; }
+.ard-table th.ard-na-legacy   { background: #f3f4f6; }
 .ard-table th.ard-na-good     { background: var(--ard-current-bg); }
 .ard-table th.ard-na-bad      { background: var(--ard-90-bg); }
 .ard-table th.ard-good-green  { background: var(--ard-current-bg); }
 .ard-table th.ard-good-yellow { background: var(--ard-30-bg); }
 .ard-table th.ard-good-red    { background: var(--ard-90-bg); }
 
-/* Cell background tints for the term-bucket amount cells */
-.ard-range-cell.ard-good-green  { background: var(--ard-current-bg); }
-.ard-range-cell.ard-good-yellow { background: var(--ard-30-bg); }
-.ard-range-cell.ard-good-red    { background: var(--ard-90-bg); }
+/* Fill the whole 0-10 / 10-20 / 20-30 columns with their colour — header,
+   customer-group totals, invoice rows and the grand-total footer alike. */
+.ard-table td.ard-good-green,
+.ard-table th.ard-good-green  { background-color: var(--ard-current-bg) !important; }
+.ard-table td.ard-good-yellow,
+.ard-table th.ard-good-yellow { background-color: var(--ard-30-bg) !important; }
+.ard-table td.ard-good-red,
+.ard-table th.ard-good-red    { background-color: var(--ard-90-bg) !important; }
+
+/* In New AR mode the overdue aging columns (0-30 … 120+) are all shown red. */
+.ard-newar-table th.ard-th-range {
+	color: var(--ard-90);
+	background: var(--ard-90-bg);
+}
+.ard-newar-table .ard-range-cell.bar-current,
+.ard-newar-table .ard-range-cell.bar-30,
+.ard-newar-table .ard-range-cell.bar-60,
+.ard-newar-table .ard-range-cell.bar-90 {
+	color: var(--ard-90);
+	background: var(--ard-90-bg);
+	font-weight: 600;
+}
+.ard-newar-table .ard-range-cell.ard-range-zero {
+	background: var(--ard-90-bg);
+}
 
 /* ── Aging Distribution Bar ────────────────────────────────── */
 .ard-aging-bar-wrap {
@@ -632,6 +657,57 @@
 	z-index: 3;
 }
 
+/* ── Excel-style grid: column letters (A,B,C…) + row numbers (1,2,3…) ── */
+.ard-grid-col,
+.ard-grid-corner {
+	background-color: #e2e8f0 !important;
+	color: var(--ard-muted);
+	text-align: center !important;
+	font-weight: 700;
+	font-size: 10px;
+	padding: 2px 0 !important;
+	line-height: 18px;
+	height: 22px;
+}
+/* letter strip pinned to the very top on vertical scroll */
+.ard-has-grid thead .ard-grid-colrow th {
+	top: 0;
+	z-index: 6;
+}
+/* the real header labels sit just below the 22px letter strip */
+.ard-has-grid thead tr:not(.ard-grid-colrow) th {
+	top: 22px;
+}
+/* row-number column: sticky to the far left */
+.ard-grid-rownum {
+	position: sticky;
+	left: 0;
+	width: 38px;
+	min-width: 38px;
+	max-width: 38px;
+	text-align: center;
+	font-size: 10px;
+	font-weight: 600;
+	color: var(--ard-muted);
+	background-color: #f1f5f9;
+	z-index: 3;
+	box-shadow: 3px 0 6px -2px rgba(0,0,0,.10);
+}
+.ard-table thead .ard-grid-rownum {
+	background-color: #e2e8f0;
+	z-index: 7;
+}
+.ard-has-grid thead .ard-grid-colrow th.ard-grid-corner {
+	position: sticky;
+	left: 0;
+	z-index: 8;
+}
+/* shift the existing sticky Customer column to the right of the row-number column */
+.ard-has-grid .ard-th-sticky,
+.ard-has-grid .ard-td-sticky {
+	left: 38px;
+}
+
 /* Body rows */
 .ard-table tbody tr {
 	border-bottom: 1px solid var(--ard-border);
@@ -669,6 +745,22 @@
 }
 .ard-expand-btn:hover      { color: var(--ard-primary); }
 .ard-expand-btn.ard-expanded { color: var(--ard-text); }
+
+/* Per-customer "copy summary" button */
+.ard-copy-btn {
+	background: none;
+	border: none;
+	cursor: pointer;
+	font-size: 13px;
+	line-height: 1;
+	padding: 0 4px;
+	margin-left: 6px;
+	opacity: .55;
+	vertical-align: middle;
+	transition: opacity .1s, transform .1s;
+}
+.ard-copy-btn:hover   { opacity: 1; }
+.ard-copy-btn:active  { transform: scale(.9); }
 
 .ard-customer-group-name {
 	font-weight: 700;

@@ -1,0 +1,309 @@
+/* ── MBI Dashboard — inherits sd-dash token system ─────────────────────── */
+.mbi-dash {
+  --sd-border: #e2e8f0; --sd-border-hover: #cbd5e1;
+  --sd-text-primary: #1e293b; --sd-text-secondary: #64748b; --sd-text-muted: #94a3b8;
+  --sd-emerald: #059669; --sd-emerald-dim: rgba(5,150,105,0.08);
+  --sd-blue: #2563eb;    --sd-blue-dim: rgba(37,99,235,0.08);
+  --sd-rose: #e11d48;    --sd-rose-dim: rgba(225,29,72,0.08);
+  --sd-amber: #d97706;   --sd-amber-dim: rgba(217,119,6,0.08);
+  --sd-violet: #7c3aed;  --sd-violet-dim: rgba(124,58,237,0.08);
+  --sd-cyan: #0891b2;    --sd-cyan-dim: rgba(8,145,178,0.08);
+  --sd-teal: #0d9488;    --sd-teal-dim: rgba(13,148,136,0.08);
+  --sd-orange: #ea580c;
+  --sd-radius: 12px; --sd-radius-sm: 8px;
+  font-family: 'DM Sans', sans-serif;
+  max-width: 1400px; margin: 0 auto; padding: 28px 20px 56px; position: relative;
+  color: var(--sd-text-primary);
+}
+
+/* ── Page header ────────────────────────────────────────────────────────── */
+.mbi-header {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 12px; margin-bottom: 24px;
+}
+.mbi-title-wrap { display: flex; align-items: center; gap: 10px; }
+.mbi-title {
+  font-size: 22px; font-weight: 800; color: var(--sd-text-primary);
+  letter-spacing: -0.5px; margin: 0;
+}
+.mbi-subtitle { font-size: 12px; color: var(--sd-text-muted); margin: 2px 0 0; }
+.mbi-live-dot {
+  width: 8px; height: 8px; border-radius: 50%; background: #10b981;
+  box-shadow: 0 0 0 0 rgba(16,185,129,0.4);
+  animation: mbiPulse 2s ease-in-out infinite;
+}
+@keyframes mbiPulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(16,185,129,0.4); }
+  50%      { box-shadow: 0 0 0 6px rgba(16,185,129,0); }
+}
+
+/* ── Company toggle ─────────────────────────────────────────────────────── */
+.mbi-co-toggle {
+  display: flex; gap: 4px; background: #fff;
+  border: 1px solid var(--sd-border); border-radius: 8px; padding: 3px;
+}
+.mbi-co-btn {
+  padding: 5px 14px; border: none; border-radius: 6px; background: transparent;
+  font-size: 11px; font-weight: 600; font-family: 'DM Sans', sans-serif;
+  color: var(--sd-text-secondary); cursor: pointer; transition: all 0.16s;
+}
+.mbi-co-btn:hover:not(.active) { background: #f1f5f9; }
+.mbi-co-btn.active { background: #1e293b; color: #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.15); }
+.mbi-co-btn.tsbc.active  { background: var(--sd-emerald); }
+.mbi-co-btn.mtm.active   { background: var(--sd-violet); }
+.mbi-co-btn.both.active  { background: #1e293b; }
+
+/* ── Section wrapper ────────────────────────────────────────────────────── */
+.mbi-section {
+  background: #fff; border: 1px solid var(--sd-border);
+  border-radius: var(--sd-radius); overflow: hidden; margin-bottom: 16px;
+}
+.mbi-section-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px; background: #f8fafc;
+  border-bottom: 1px solid var(--sd-border); cursor: pointer; user-select: none;
+}
+.mbi-section-header:hover { background: #f1f5f9; }
+.mbi-section-title {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; font-weight: 700; color: var(--sd-text-primary);
+  text-transform: uppercase; letter-spacing: 0.07em;
+}
+.mbi-section-icon {
+  width: 16px; height: 16px; stroke: currentColor; fill: none;
+  stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0;
+}
+.mbi-section-badge {
+  font-size: 11px; font-weight: 700; padding: 2px 9px;
+  border-radius: 20px; background: #f1f5f9; color: var(--sd-text-secondary);
+}
+.mbi-section-badge.red   { background: var(--sd-rose-dim); color: var(--sd-rose); }
+.mbi-section-badge.green { background: var(--sd-emerald-dim); color: var(--sd-emerald); }
+.mbi-section-badge.amber { background: var(--sd-amber-dim); color: var(--sd-amber); }
+.mbi-chevron {
+  width: 14px; height: 14px; stroke: var(--sd-text-muted); fill: none;
+  stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round;
+  transition: transform 0.18s;
+}
+.mbi-section.collapsed .mbi-chevron { transform: rotate(-90deg); }
+.mbi-section-body { padding: 0; }
+.mbi-section.collapsed .mbi-section-body { display: none; }
+
+/* ── KPI row ────────────────────────────────────────────────────────────── */
+.mbi-kpi-row {
+  display: grid; grid-template-columns: repeat(7, 1fr);
+  gap: 0; border-bottom: 1px solid var(--sd-border);
+}
+.mbi-kpi {
+  padding: 16px 16px 14px; border-right: 1px solid var(--sd-border);
+  position: relative; overflow: hidden;
+}
+.mbi-kpi:last-child { border-right: none; }
+.mbi-kpi-bar {
+  position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: var(--mbi-kpi-color, #e2e8f0);
+}
+.mbi-kpi-label {
+  font-size: 9.5px; font-weight: 700; color: var(--sd-text-muted);
+  text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px;
+}
+.mbi-kpi-value {
+  font-size: 20px; font-weight: 800; color: var(--mbi-kpi-color, var(--sd-text-primary));
+  font-family: 'DM Mono', monospace; line-height: 1.1;
+}
+.mbi-kpi-sub { font-size: 10px; color: var(--sd-text-muted); margin-top: 3px; }
+
+/* ── Logistics Circuit ──────────────────────────────────────────────────── */
+.mbi-circuit { padding: 20px 18px; }
+.mbi-circuit-track {
+  display: flex; align-items: stretch; gap: 0;
+  background: #f8fafc; border: 1px solid var(--sd-border);
+  border-radius: 10px; overflow: hidden;
+}
+.mbi-stage {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; padding: 14px 8px;
+  border-right: 1px solid var(--sd-border); position: relative;
+  transition: background 0.15s;
+}
+.mbi-stage:last-child { border-right: none; }
+.mbi-stage:hover { background: #fff; }
+.mbi-stage-bar {
+  position: absolute; top: 0; left: 0; right: 0; height: 4px;
+  background: var(--stage-color);
+}
+.mbi-stage-num {
+  font-size: 28px; font-weight: 800; color: var(--stage-color);
+  font-family: 'DM Mono', monospace; line-height: 1;
+}
+.mbi-stage-label {
+  font-size: 9.5px; font-weight: 600; color: var(--sd-text-muted);
+  text-transform: uppercase; letter-spacing: 0.06em; margin-top: 5px;
+  text-align: center;
+}
+.mbi-stage-arrow {
+  position: absolute; right: -1px; top: 50%; transform: translateY(-50%);
+  width: 0; height: 0;
+  border-top: 8px solid transparent; border-bottom: 8px solid transparent;
+  border-left: 8px solid var(--sd-border); z-index: 1;
+}
+.mbi-stage:last-child .mbi-stage-arrow { display: none; }
+
+/* ── Tab panel ──────────────────────────────────────────────────────────── */
+.mbi-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--sd-border); }
+.mbi-tab {
+  padding: 10px 18px; font-size: 12px; font-weight: 600;
+  color: var(--sd-text-muted); cursor: pointer; border-bottom: 2px solid transparent;
+  transition: all 0.15s; white-space: nowrap;
+}
+.mbi-tab:hover { color: var(--sd-text-primary); background: #f8fafc; }
+.mbi-tab.active {
+  color: var(--sd-blue); border-bottom-color: var(--sd-blue);
+  background: var(--sd-blue-dim);
+}
+.mbi-tab-badge {
+  display: inline-block; margin-left: 6px; padding: 1px 7px;
+  background: #f1f5f9; border-radius: 10px;
+  font-size: 10px; font-weight: 700; color: var(--sd-text-muted);
+}
+.mbi-tab.active .mbi-tab-badge { background: var(--sd-blue-dim); color: var(--sd-blue); }
+.mbi-tab-panel { display: none; }
+.mbi-tab-panel.active { display: block; }
+
+/* ── Data tables ────────────────────────────────────────────────────────── */
+.mbi-tbl-wrap { overflow-x: auto; max-width: 100%; }
+.mbi-tbl {
+  width: 100%; border-collapse: collapse;
+  font-size: 12px; font-family: 'DM Mono', monospace; min-width: 700px;
+}
+.mbi-tbl thead th {
+  background: #f8fafc; border-bottom: 1.5px solid var(--sd-border);
+  padding: 9px 12px; font-size: 10.5px; font-weight: 700;
+  color: var(--sd-text-muted); text-transform: uppercase; letter-spacing: 0.07em;
+  white-space: nowrap; text-align: left;
+}
+.mbi-tbl thead th.r { text-align: right; }
+.mbi-tbl tbody tr { border-bottom: 1px solid #f8fafc; transition: background 0.1s; }
+.mbi-tbl tbody tr:last-child { border-bottom: none; }
+.mbi-tbl tbody tr:hover { background: #f8fafc; }
+.mbi-tbl td { padding: 9px 12px; color: var(--sd-text-primary); vertical-align: middle; }
+.mbi-tbl td.r { text-align: right; }
+.mbi-tbl td.muted { color: var(--sd-text-muted); }
+.mbi-tbl tfoot td {
+  padding: 9px 12px; font-weight: 700; background: #f1f5f9;
+  border-top: 1.5px solid var(--sd-border); text-align: right;
+}
+.mbi-tbl tfoot td:first-child { text-align: left; }
+
+/* ── Status badges ──────────────────────────────────────────────────────── */
+.mbi-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 10px;
+  font-size: 10px; font-weight: 700; font-family: 'DM Sans', sans-serif;
+  white-space: nowrap;
+}
+.mbi-badge-green  { background: var(--sd-emerald-dim); color: var(--sd-emerald); }
+.mbi-badge-amber  { background: var(--sd-amber-dim); color: var(--sd-amber); }
+.mbi-badge-red    { background: var(--sd-rose-dim); color: var(--sd-rose); }
+.mbi-badge-blue   { background: var(--sd-blue-dim); color: var(--sd-blue); }
+.mbi-badge-violet { background: var(--sd-violet-dim); color: var(--sd-violet); }
+.mbi-badge-muted  { background: #f1f5f9; color: var(--sd-text-muted); }
+
+/* ── Gap lists ──────────────────────────────────────────────────────────── */
+.mbi-gap-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--sd-border); }
+.mbi-gap-col { background: #fff; }
+.mbi-gap-col-header {
+  padding: 12px 14px; border-bottom: 1px solid var(--sd-border);
+  font-size: 11px; font-weight: 700; color: var(--sd-text-primary);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.mbi-gap-col-body { max-height: 320px; overflow-y: auto; }
+
+/* ── Conversion flow ────────────────────────────────────────────────────── */
+.mbi-conv-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 0; }
+.mbi-conv-step {
+  padding: 16px 14px; border-right: 1px solid var(--sd-border);
+  text-align: center;
+}
+.mbi-conv-step:last-child { border-right: none; }
+.mbi-conv-pct {
+  font-size: 32px; font-weight: 800; font-family: 'DM Mono', monospace;
+  line-height: 1; color: var(--conv-color, var(--sd-text-primary));
+}
+.mbi-conv-label { font-size: 11px; font-weight: 600; color: var(--sd-text-muted); margin-top: 6px; }
+.mbi-conv-counts { font-size: 10px; color: var(--sd-text-muted); margin-top: 3px; }
+.mbi-conv-bar-wrap {
+  height: 4px; background: #e2e8f0; border-radius: 2px; margin: 8px 12px 0;
+}
+.mbi-conv-bar { height: 100%; border-radius: 2px; background: var(--conv-color); transition: width 0.6s ease; }
+
+/* ── Item group totals ──────────────────────────────────────────────────── */
+.mbi-ig-tbl thead th:not(:first-child) { text-align: right; }
+.mbi-ig-tbl td:not(:first-child) { text-align: right; }
+
+/* ── Cash / Bank payments ───────────────────────────────────────────────── */
+.mbi-pay-kpi-row { display: grid; grid-template-columns: repeat(4,1fr); border-bottom: 1px solid var(--sd-border); }
+.mbi-pay-kpi { padding: 14px 16px; border-right: 1px solid var(--sd-border); }
+.mbi-pay-kpi:last-child { border-right: none; }
+.mbi-pay-label { font-size: 10px; font-weight: 700; color: var(--sd-text-muted); text-transform: uppercase; letter-spacing: 0.07em; }
+.mbi-pay-value { font-size: 20px; font-weight: 800; font-family: 'DM Mono', monospace; margin-top: 4px; }
+
+/* ── AR/AP panels ───────────────────────────────────────────────────────── */
+.mbi-arap-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+.mbi-arap-panel { border-right: 1px solid var(--sd-border); }
+.mbi-arap-panel:last-child { border-right: none; }
+.mbi-arap-header {
+  padding: 12px 14px; border-bottom: 1px solid var(--sd-border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.mbi-arap-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; }
+.mbi-arap-total { font-size: 14px; font-weight: 800; font-family: 'DM Mono', monospace; }
+.mbi-arap-body { max-height: 320px; overflow-y: auto; }
+
+/* ── Loading / empty ────────────────────────────────────────────────────── */
+.mbi-loading {
+  display: flex; align-items: center; justify-content: center; padding: 36px;
+  color: var(--sd-text-muted); font-size: 13px; gap: 10px;
+}
+.mbi-spinner {
+  width: 20px; height: 20px; border-radius: 50%;
+  border: 2px solid #e2e8f0; border-top-color: var(--sd-blue);
+  animation: mbiSpin 0.7s linear infinite; flex-shrink: 0;
+}
+@keyframes mbiSpin { to { transform: rotate(360deg); } }
+.mbi-empty { padding: 28px; text-align: center; color: var(--sd-text-muted); font-size: 13px; }
+
+/* ── Link cells ─────────────────────────────────────────────────────────── */
+.mbi-link {
+  color: var(--sd-blue); text-decoration: none; font-weight: 600;
+  border-bottom: 1px dashed rgba(37,99,235,0.3); transition: color 0.1s;
+}
+.mbi-link:hover { color: #1d4ed8; border-bottom-color: #1d4ed8; }
+
+/* ── Overdue / shortage flags ───────────────────────────────────────────── */
+.mbi-overdue { color: var(--sd-rose); font-weight: 700; }
+.mbi-shortage-row { background: #fff5f5 !important; }
+
+/* ── Export btn ─────────────────────────────────────────────────────────── */
+.mbi-export-btn {
+  display: flex; align-items: center; gap: 5px;
+  padding: 5px 12px; border: 1px solid var(--sd-border); border-radius: 8px;
+  background: #fff; color: var(--sd-text-secondary);
+  font-size: 11px; font-weight: 600; font-family: 'DM Sans', sans-serif;
+  cursor: pointer; transition: all 0.15s;
+}
+.mbi-export-btn:hover { background: #f1f5f9; color: var(--sd-emerald); border-color: var(--sd-emerald); }
+
+/* ── Responsive ─────────────────────────────────────────────────────────── */
+@media (max-width: 1100px) {
+  .mbi-kpi-row { grid-template-columns: repeat(4,1fr); }
+  .mbi-conv-grid { grid-template-columns: repeat(2,1fr); }
+}
+@media (max-width: 768px) {
+  .mbi-kpi-row { grid-template-columns: repeat(2,1fr); }
+  .mbi-gap-row { grid-template-columns: 1fr; }
+  .mbi-arap-row { grid-template-columns: 1fr; }
+  .mbi-circuit-track { flex-direction: column; }
+  .mbi-stage { flex-direction: row; justify-content: flex-start; gap: 12px; }
+  .mbi-stage-arrow { display: none; }
+  .mbi-pay-kpi-row { grid-template-columns: repeat(2,1fr); }
+}
