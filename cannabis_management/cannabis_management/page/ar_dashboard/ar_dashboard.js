@@ -644,20 +644,22 @@ function na_sum(rows, anchor) {
     return s;
 }
 
-function na_header_cells(split) {
+function na_header_cells(split, show_legacy_col) {
     return `
 						${split ? `<th class="ard-th-num ard-na-legacy">Legacy AR</th><th class="ard-th-num ard-na-new">New AR</th>` : ``}
+						${show_legacy_col ? `<th class="ard-th-num ard-na-legacy" style="background:#fef3c7;color:#92400e;">Legacy AR</th>` : ``}
 						<th class="ard-th-num ard-na-total">Total AR</th>
-						<th class="ard-th-num ard-na-good">Total AR on terms<br><small>(Good standing)</small></th>
-						<th class="ard-th-num ard-na-bad">Total AR on terms<br><small>(Bad standing)</small></th>
+						<th class="ard-th-num ard-na-good">Total New AR on terms<br><small>(Good standing)</small></th>
+						<th class="ard-th-num ard-na-bad">Total New AR on terms<br><small>(Bad standing)</small></th>
 						<th class="ard-th-num ard-good-green">0-10<br><small>Days</small></th>
 						<th class="ard-th-num ard-good-yellow">10-20<br><small>Days</small></th>
 						<th class="ard-th-num ard-good-red">20-30<br><small>Days</small></th>`;
 }
 
-function na_total_cells(s, split) {
+function na_total_cells(s, split, show_legacy_col, legacy_amt) {
     return `
 					${split ? `<td class="ard-num ard-total-cell ard-na-legacy">${s.legacy_ar > 0 ? fmt_cur(s.legacy_ar) : "—"}</td><td class="ard-num ard-total-cell ard-na-new">${s.new_ar > 0 ? fmt_cur(s.new_ar) : "—"}</td>` : ``}
+					${show_legacy_col ? `<td class="ard-num ard-total-cell" style="background:#fef3c7;color:#92400e;font-weight:700;">${legacy_amt > 0 ? fmt_cur(legacy_amt) : "—"}</td>` : ``}
 					<td class="ard-num ard-total-cell ard-na-total">${fmt_cur(s.total)}</td>
 					<td class="ard-num ard-total-cell ard-na-good">${s.good > 0 ? fmt_cur(s.good) : "—"}</td>
 					<td class="ard-num ard-total-cell ard-na-bad">${s.bad > 0 ? fmt_cur(s.bad) : "—"}</td>
@@ -666,7 +668,7 @@ function na_total_cells(s, split) {
 					<td class="ard-num ard-total-cell ard-good-red">${s.g3 > 0 ? fmt_cur(s.g3) : "—"}</td>`;
 }
 
-function na_invoice_cells(row, anchor, split) {
+function na_invoice_cells(row, anchor, split, show_legacy_col) {
     let amt = row.outstanding || 0;
     let is_new = (row.posting_date || "") >= NEW_AR_START;
     let info = classify_ar_row(row, anchor);
@@ -676,6 +678,7 @@ function na_invoice_cells(row, anchor, split) {
     let g3 = good && info.bkey === "g3" ? amt : 0;
     return `
 						${split ? `<td class="ard-num ard-na-legacy">${!is_new ? fmt_cur(amt) : "—"}</td><td class="ard-num ard-na-new">${is_new ? fmt_cur(amt) : "—"}</td>` : ``}
+						${show_legacy_col ? `<td class="ard-num" style="background:#fef3c7;">—</td>` : ``}
 						<td class="ard-num ard-na-total">${fmt_cur(amt)}</td>
 						<td class="ard-num ard-na-good">${good ? fmt_cur(amt) : "—"}</td>
 						<td class="ard-num ard-na-bad">${!good ? fmt_cur(amt) : "—"}</td>
@@ -696,6 +699,8 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
 
     let show_terms = page._ard_ar_mode === 'new' || page._ard_ar_mode === 'all';
     let split_ln = page._ard_ar_mode === 'all'; // Legacy+New: split Total AR into New vs Legacy
+    let show_legacy_col = page._ard_ar_mode === 'new'; // New AR: extra column showing legacy outstanding
+    let legacy_map = (show_legacy_col && page._ard_result && page._ard_result.legacy_by_customer) ? page._ard_result.legacy_by_customer : {};
     let na_anchor = show_terms ? get_report_date(page) : null;
     let na_grand = show_terms ? na_sum(display_rows, na_anchor) : null;
 
@@ -737,7 +742,7 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
 						<th class="ard-th-num">Invoiced</th>
 						<th class="ard-th-num">Paid</th>
 						<th class="ard-th-num">Outstanding</th>
-						${show_terms ? na_header_cells(split_ln) : ``}
+						${show_terms ? na_header_cells(split_ln, show_legacy_col) : ``}
 						${range_headers}
 						<th class="ard-th-status">Status</th>
 					</tr>
@@ -778,7 +783,7 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
 				<td class="ard-num ard-total-cell">${fmt_cur(sub.invoiced)}</td>
 				<td class="ard-num ard-total-cell">${fmt_cur(sub.paid)}</td>
 				<td class="ard-num ard-total-cell ard-outstanding">${fmt_cur(sub.outstanding)}</td>
-				${show_terms ? na_total_cells(na_sum(group.rows, na_anchor), split_ln) : ``}
+				${show_terms ? na_total_cells(na_sum(group.rows, na_anchor), split_ln, show_legacy_col, legacy_map[party] || 0) : ``}
 				${sub_range_cells}
 				<td></td>
 			</tr>
@@ -806,7 +811,7 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
 					<td class="ard-num">${fmt_cur(row.invoiced)}</td>
 					<td class="ard-num">${fmt_cur(row.paid)}</td>
 					<td class="ard-num ard-outstanding">${fmt_cur(row.outstanding)}</td>
-					${show_terms ? na_invoice_cells(row, na_anchor, split_ln) : ``}
+					${show_terms ? na_invoice_cells(row, na_anchor, split_ln, show_legacy_col) : ``}
 					${range_cells}
 					<td style="text-align:center;"><span class="ard-badge ${status.cls}">${status.label}</span></td>
 				</tr>
@@ -829,7 +834,7 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
 						<td class="ard-num ard-total-cell">${fmt_cur(view_totals.invoiced)}</td>
 						<td class="ard-num ard-total-cell">${fmt_cur(view_totals.paid)}</td>
 						<td class="ard-num ard-total-cell ard-outstanding">${fmt_cur(view_totals.outstanding)}</td>
-						${show_terms ? na_total_cells(na_grand, split_ln) : ``}
+						${show_terms ? na_total_cells(na_grand, split_ln, show_legacy_col, Object.values(legacy_map).reduce(function(a,b){return a+b;},0)) : ``}
 						${range_total_cells}
 						<td></td>
 					</tr>
@@ -1176,31 +1181,53 @@ function export_pdf(page) {
         return;
     }
 
-    // Print CSS: landscape, compact cells, all invoices expanded, and the sticky
-    // columns turned static so the wide table lays out fully (no clipping).
+    // Print CSS: landscape, compact cells, all invoices expanded, sticky columns
+    // turned static so the wide table lays out at its full natural width.
     let print_css =
-        'body{padding:0;background:#fff;}' +
-        '#ard-pdf-page{padding:14px;}' +
-        '.ard-filter-bar,.ard-copy-btn,.ard-expand-btn,.ard-btn-secondary,.ard-btn-danger{display:none!important;}' +
+        'body{padding:0;margin:0;background:#fff;}' +
+        // Kill centering/max-width so content starts at the left edge of the page
+        '.ard-container{max-width:none!important;margin:0!important;padding:4px 6px!important;}' +
+        '#ard-pdf-page{padding:0;}' +
+        // Hide interactive UI
+        '.ard-filter-bar,.ard-copy-btn,.ard-expand-btn,.ard-btn-secondary,.ard-btn-danger,' +
+        '.ard-header-right,.ard-btn-group{display:none!important;}' +
         '.ard-invoice-row{display:table-row!important;}' +
-        '.ard-table-wrap{overflow:visible!important;}' +
+        // Summary cards and header: compact
+        '.ard-header{padding:4px 0!important;margin-bottom:4px!important;}' +
+        '.ard-summary-row{gap:4px!important;margin-bottom:4px!important;}' +
+        '.ard-card{padding:5px 8px!important;min-width:0!important;}' +
+        '.ard-card-label{font-size:7px!important;}' +
+        '.ard-card-value{font-size:11px!important;}' +
+        '.ard-projection-wrap,.ard-aging-dist-wrap{margin-bottom:4px!important;padding:6px 8px!important;}' +
+        // Remove all scroll/height constraints so scrollWidth is accurate
+        '.ard-table-wrap{overflow:visible!important;max-height:none!important;height:auto!important;' +
+          'border:none!important;box-shadow:none!important;border-radius:0!important;}' +
         '.ard-table{width:auto!important;}' +
-        '.ard-table th,.ard-table td{font-size:8px!important;padding:2px 4px!important;white-space:nowrap;}' +
-        // neutralise sticky positioning so nothing overlaps when laid out flat
-        '.ard-th-sticky,.ard-td-sticky,.ard-grid-rownum,.ard-grid-corner,.ard-table thead th{position:static!important;left:auto!important;top:auto!important;box-shadow:none!important;}' +
-        '@page{size:landscape;margin:8mm;}';
+        // Tight cells
+        '.ard-table th,.ard-table td{font-size:7px!important;padding:1px 3px!important;white-space:nowrap;}' +
+        // Neutralise sticky positioning so nothing overlaps when laid flat
+        '.ard-th-sticky,.ard-td-sticky,.ard-grid-rownum,.ard-grid-corner,' +
+        '.ard-table thead th{position:static!important;left:auto!important;top:auto!important;box-shadow:none!important;}' +
+        '@page{size:landscape;margin:5mm;}';
 
-    // After load (stylesheets applied), shrink the whole report to fit the page
-    // width so every column is visible, then open the print dialog.
+    // Measure the widest .ard-table directly (not the outer wrapper — the wrapper
+    // may only report viewport width before zoom is applied), then zoom the body
+    // to fit within the printable landscape width.
     let fit_script =
         'window.onload=function(){' +
         '  try{' +
-        '    var c=document.getElementById("ard-pdf-page");' +
-        '    var w0=c?c.scrollWidth:0;' +
-        '    var target=980;' +              // ~printable width (px) for landscape Letter/A4
-        '    if(w0>target){c.style.zoom=(target/w0);}' +
+        '    document.querySelectorAll(".ard-table-wrap").forEach(function(el){' +
+        '      el.style.overflow="visible";el.style.maxHeight="none";el.style.height="auto";' +
+        '    });' +
+        '    var maxW=0;' +
+        '    document.querySelectorAll(".ard-table").forEach(function(t){' +
+        '      if(t.scrollWidth>maxW)maxW=t.scrollWidth;' +
+        '    });' +
+        '    if(!maxW){var fb=document.getElementById("ard-pdf-page");maxW=fb?fb.scrollWidth:0;}' +
+        '    var pageW=1080;' + // A4 landscape (297mm − 12mm margins) ≈ 1080px at 96 dpi
+        '    if(maxW>pageW){document.body.style.zoom=(pageW/maxW);}' +
         '  }catch(e){}' +
-        '  setTimeout(function(){window.print();},300);' +
+        '  setTimeout(function(){window.print();},400);' +
         '};';
 
     w.document.write(

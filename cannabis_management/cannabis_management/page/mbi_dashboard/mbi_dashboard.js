@@ -59,7 +59,7 @@ ${mbi_section('logistics','logistics-body','Logistics Circuit',
 
 ${mbi_section('docs','docs-body','Sales Documents',
   `<svg class="mbi-section-icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`,
-  '', false)}
+  '', true)}
 
 ${mbi_section('gaps','gaps-body','Gap Lists',
   `<svg class="mbi-section-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>`,
@@ -158,7 +158,7 @@ function wire_tabs(root) {
 function get_companies_arg(state) {
 	if (state.companies === 'tsbc') return ['TSBC Ranch'];
 	if (state.companies === 'mtm')  return ['Master Touch Manufacturing'];
-	return ['TSBC Ranch', 'Master Touch Manufacturing'];
+	return ['TSBC Ranch', 'Master Touch Manufacturing', 'Motley Terpz'];
 }
 
 function load_all(root, state) {
@@ -251,7 +251,7 @@ function load_kpis(root, co) {
 /* ─── 2. Logistics circuit ──────────────────────────────────────────────── */
 var STAGE_COLORS = ['#94a3b8','#2563eb','#d97706','#7c3aed','#0891b2','#059669','#1e293b'];
 var STAGES = ['Need to Schedule','Scheduled','Preparing','Prepared','Staged','Closed Out'];
-var CO_COLORS = {'TSBC Ranch': '#059669', 'Master Touch Manufacturing': '#7c3aed'};
+var CO_COLORS = {'TSBC Ranch': '#059669', 'Master Touch Manufacturing': '#7c3aed', 'Motley Terpz': '#d97706'};
 
 function load_logistics(root, co) {
 	var body = root.querySelector('#logistics-body');
@@ -680,35 +680,43 @@ function load_hardware(root, co) {
 	var body = root.querySelector('#hardware-body');
 	body.innerHTML = '<div class="mbi-loading"><div class="mbi-spinner"></div>Loading…</div>';
 	api('get_hardware_counts', {companies: JSON.stringify(co)}, function(d) {
-		if (!d) { body.innerHTML = '<div class="mbi-empty">No data</div>'; return; }
-		var html = '<div class="mbi-tbl-wrap"><table class="mbi-tbl">' +
-			'<thead><tr>' +
-		'<th>Type</th>' +
-		'<th class="r">SO Qty</th>' +
-		'<th class="r">DN Qty</th>' +
-		'<th class="r">DN Conv%</th>' +
-		'<th class="r">SI Qty</th>' +
-		'<th class="r">SI Conv%</th>' +
-		'<th class="r">SO Value</th>' +
-		'</tr></thead><tbody>';
-		if (Array.isArray(d)) {
-			d.forEach(function(r) {
-				var dn_pct = parseFloat(r.dn_conv_pct || 0);
-				var si_pct = parseFloat(r.si_conv_pct || 0);
-				var dn_color = dn_pct >= 90 ? 'var(--sd-emerald)' : (dn_pct >= 50 ? 'var(--sd-amber)' : 'var(--sd-rose)');
-				var si_color = si_pct >= 90 ? 'var(--sd-emerald)' : (si_pct >= 50 ? 'var(--sd-amber)' : 'var(--sd-rose)');
-				html += '<tr>' +
-					'<td>' + frappe.utils.escape_html(r.hardware_type || '—') + '</td>' +
-					'<td class="r">' + fmt_num(r.so_qty) + '</td>' +
-					'<td class="r">' + fmt_num(r.dn_qty) + '</td>' +
-					'<td class="r" style="color:' + (r.so_qty > 0 ? dn_color : 'inherit') + '"><strong>' + (r.so_qty > 0 ? dn_pct + '%' : '—') + '</strong></td>' +
-					'<td class="r">' + fmt_num(r.si_qty) + '</td>' +
-					'<td class="r" style="color:' + (r.so_qty > 0 ? si_color : 'inherit') + '"><strong>' + (r.so_qty > 0 ? si_pct + '%' : '—') + '</strong></td>' +
-					'<td class="r">' + fmt_currency(r.so_amount) + '</td>' +
-				'</tr>';
-			});
-		}
-		html += '</tbody></table></div>';
+		if (!d || !d.length) { body.innerHTML = '<div class="mbi-empty">No data</div>'; return; }
+
+		var max_in = Math.max.apply(null, d.map(function(r){ return r.in_qty || 0; })) || 1;
+
+		var html = '<div style="padding:0;">' +
+			'<div style="display:grid;grid-template-columns:180px 1fr 100px 100px;align-items:center;' +
+			'background:#f8fafc;border-bottom:1.5px solid #e2e8f0;padding:8px 18px;' +
+			'font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.07em;">' +
+			'<div>Item Group</div><div style="padding-left:8px;">Total In</div>' +
+			'<div style="text-align:right;">In Qty</div>' +
+			'<div style="text-align:right;">On Hand</div>' +
+		'</div>';
+
+		d.forEach(function(r) {
+			var in_qty  = parseFloat(r.in_qty   || 0);
+			var on_hand = parseFloat(r.total_qty || 0);
+			var bar_pct = in_qty > 0 ? Math.min(100, in_qty / max_in * 100) : 0;
+
+			html += '<div style="display:grid;grid-template-columns:180px 1fr 100px 100px;align-items:center;' +
+				'padding:10px 18px;border-bottom:1px solid #f8fafc;">' +
+				'<div style="font-size:12px;font-weight:600;color:#1e293b;">' +
+					frappe.utils.escape_html(r.item_group) + '</div>' +
+				'<div style="padding-left:8px;">' +
+					'<div style="height:10px;background:#f1f5f9;border-radius:5px;overflow:hidden;">' +
+						'<div style="width:' + bar_pct.toFixed(1) + '%;height:100%;background:#3b82f6;border-radius:5px;transition:width 0.5s;"></div>' +
+					'</div>' +
+				'</div>' +
+				'<div style="text-align:right;font-family:\'DM Mono\',monospace;font-size:12px;font-weight:700;' +
+					'color:' + (in_qty > 0 ? '#1e293b' : '#cbd5e1') + ';">' +
+					(in_qty > 0 ? fmt_num(in_qty) : '—') + '</div>' +
+				'<div style="text-align:right;font-family:\'DM Mono\',monospace;font-size:12px;font-weight:600;' +
+					'color:' + (on_hand > 0 ? '#059669' : '#94a3b8') + ';">' +
+					(on_hand > 0 ? fmt_num(on_hand) : '—') + '</div>' +
+			'</div>';
+		});
+
+		html += '</div>';
 		body.innerHTML = html;
 	});
 }
@@ -718,38 +726,119 @@ function load_tolling(root) {
 	var body = root.querySelector('#tolling-body');
 	body.innerHTML = '<div class="mbi-loading"><div class="mbi-spinner"></div>Loading…</div>';
 	api('get_tolling_check', {}, function(d) {
-		if (!d) { body.innerHTML = '<div class="mbi-empty">No data</div>'; return; }
-		var rows = Array.isArray(d) ? d : (d.rows || []);
-		var shortages = rows.filter(function(r) { return r.shortage; }).length;
+		if (!d || !d.length) { body.innerHTML = '<div class="mbi-empty">No open Sales Orders found</div>'; return; }
+
+		var shortage_sos = d.filter(function(so){ return so.has_shortage; });
+		var ready_sos    = d.filter(function(so){ return so.all_covered; });
+
 		var badge = root.querySelector('#mbi-tolling-badge');
 		if (badge) {
-			badge.textContent = shortages + ' shortages';
-			badge.className = 'mbi-section-badge ' + (shortages > 0 ? 'red' : 'green');
+			badge.textContent = shortage_sos.length + ' shortage' + (shortage_sos.length !== 1 ? 's' : '');
+			badge.className = 'mbi-section-badge ' + (shortage_sos.length > 0 ? 'red' : 'green');
 		}
 
-		if (!rows.length) { body.innerHTML = '<div class="mbi-empty">No tolling SOs found</div>'; return; }
+		function days_ago(date_str) {
+			var d = new Date(date_str), now = new Date();
+			return Math.floor((now - d) / 86400000);
+		}
 
-		var html = '<div class="mbi-tbl-wrap"><table class="mbi-tbl">' +
-			'<thead><tr>' +
-			'<th>SO #</th><th>Date</th><th>Customer</th>' +
-			'<th>Item</th><th class="r">SO Qty</th>' +
-			'<th class="r">Bin Qty</th><th>Status</th><th>Shortage</th>' +
-			'</tr></thead><tbody>';
-		rows.forEach(function(r) {
-			var row_class = r.shortage ? ' class="mbi-shortage-row"' : '';
-			html += '<tr' + row_class + '>' +
-				'<td>' + mbi_link('Sales Order', r.so_name) + '</td>' +
-				'<td class="muted">' + (r.transaction_date || '') + '</td>' +
-				'<td>' + frappe.utils.escape_html(r.customer_name || '') + '</td>' +
-				'<td class="muted">' + frappe.utils.escape_html(r.item_code || '') + '</td>' +
-				'<td class="r">' + fmt_num(r.ordered_qty) + '</td>' +
-				'<td class="r">' + fmt_num(r.available_qty) + '</td>' +
-				'<td>' + status_badge(r.status) + '</td>' +
-				'<td>' + (r.shortage ? '<span class="mbi-badge mbi-badge-red">Shortage</span>' : '<span class="mbi-badge mbi-badge-green">OK</span>') + '</td>' +
-			'</tr>';
+		function stock_bar(stock, pending) {
+			var pct = pending > 0 ? Math.min(100, stock / pending * 100) : 100;
+			var color = pct >= 100 ? '#059669' : (pct >= 50 ? '#d97706' : '#e11d48');
+			return '<div style="display:flex;align-items:center;gap:6px;">' +
+				'<div style="flex:1;min-width:60px;height:7px;background:#f1f5f9;border-radius:4px;overflow:hidden;">' +
+					'<div style="width:' + pct.toFixed(0) + '%;height:100%;background:' + color + ';border-radius:4px;"></div>' +
+				'</div>' +
+				'<span style="font-size:10px;font-weight:700;color:' + color + ';min-width:34px;text-align:right;">' + pct.toFixed(0) + '%</span>' +
+			'</div>';
+		}
+
+		var html = '';
+
+		// Summary strip
+		html += '<div style="display:flex;gap:12px;padding:12px 18px;background:#f8fafc;border-bottom:1.5px solid #e2e8f0;">' +
+			'<div style="display:flex;align-items:center;gap:8px;padding:8px 16px;border-radius:8px;background:#fee2e2;border:1px solid #fca5a5;">' +
+				'<span style="font-size:20px;font-weight:800;color:#e11d48;">' + shortage_sos.length + '</span>' +
+				'<span style="font-size:11px;font-weight:600;color:#991b1b;text-transform:uppercase;letter-spacing:0.05em;">Stock Shortages</span>' +
+			'</div>' +
+			'<div style="display:flex;align-items:center;gap:8px;padding:8px 16px;border-radius:8px;background:#dcfce7;border:1px solid #86efac;">' +
+				'<span style="font-size:20px;font-weight:800;color:#059669;">' + ready_sos.length + '</span>' +
+				'<span style="font-size:11px;font-weight:600;color:#166534;text-transform:uppercase;letter-spacing:0.05em;">Ready to Ship</span>' +
+			'</div>' +
+			'<div style="display:flex;align-items:center;gap:8px;padding:8px 16px;border-radius:8px;background:#f1f5f9;border:1px solid #e2e8f0;">' +
+				'<span style="font-size:20px;font-weight:800;color:#475569;">' + d.length + '</span>' +
+				'<span style="font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;">Total Open SOs</span>' +
+			'</div>' +
+		'</div>';
+
+		// SO list — shortages first (already sorted by backend)
+		d.forEach(function(so, idx) {
+			var age = days_ago(so.transaction_date);
+			var age_color = age > 14 ? '#e11d48' : (age > 7 ? '#d97706' : '#64748b');
+			var so_border = so.has_shortage ? '#e11d48' : '#059669';
+			var so_bg     = so.has_shortage ? '#fff5f5' : '#f0fdf4';
+			var co_color  = CO_COLORS[so.company] || '#2563eb';
+			var items_id  = 'tolling-items-' + idx;
+
+			html += '<div style="border-left:3px solid ' + so_border + ';background:' + so_bg + ';margin:8px 18px;border-radius:0 8px 8px 0;overflow:hidden;">' +
+				// SO header — clickable, collapsed by default
+				'<div class="tolling-so-hdr" data-items="' + items_id + '" ' +
+					'style="display:flex;align-items:center;gap:12px;padding:10px 14px;cursor:pointer;user-select:none;">' +
+					'<svg class="tolling-chevron" viewBox="0 0 24 24" style="width:14px;height:14px;flex-shrink:0;transition:transform 0.2s;color:#94a3b8;">' +
+						'<polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" stroke-width="2"/></svg>' +
+					'<a href="/app/sales-order/' + encodeURIComponent(so.so_name) + '" target="_blank" ' +
+						'onclick="event.stopPropagation();" ' +
+						'style="font-size:12px;font-weight:700;color:#2563eb;text-decoration:none;">' +
+						frappe.utils.escape_html(so.so_name) + '</a>' +
+					'<span style="font-size:12px;font-weight:600;color:#1e293b;flex:1;">' + frappe.utils.escape_html(so.customer_name) + '</span>' +
+					'<span style="font-size:10px;font-weight:600;color:' + co_color + ';background:' + co_color + '1a;padding:2px 8px;border-radius:4px;">' +
+						frappe.utils.escape_html(so.company) + '</span>' +
+					'<span style="font-size:11px;color:' + age_color + ';font-weight:700;">' + age + 'd ago</span>' +
+					'<span style="font-size:10px;color:#94a3b8;">' + so.transaction_date + '</span>' +
+					(so.has_shortage
+						? '<span style="font-size:10px;font-weight:700;color:#e11d48;background:#fee2e2;padding:2px 8px;border-radius:4px;">' + so.shortage_count + ' SHORT</span>'
+						: '<span style="font-size:10px;font-weight:700;color:#059669;background:#dcfce7;padding:2px 8px;border-radius:4px;">READY</span>') +
+					'<span style="font-size:10px;color:#94a3b8;margin-left:2px;">' + so.items.length + ' item' + (so.items.length !== 1 ? 's' : '') + '</span>' +
+				'</div>' +
+				// Items — hidden by default
+				'<div id="' + items_id + '" style="display:none;padding:0 0 4px 0;">' +
+				'<div style="display:grid;grid-template-columns:2fr 80px 80px 80px 130px;gap:0;' +
+					'padding:5px 14px;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.06em;border-top:1px solid rgba(0,0,0,0.06);">' +
+					'<div>Item</div><div style="text-align:right;">Pending</div>' +
+					'<div style="text-align:right;">In Stock</div>' +
+					'<div style="text-align:right;">Shortage</div>' +
+					'<div style="padding-left:8px;">Coverage</div>' +
+				'</div>';
+
+			so.items.forEach(function(item) {
+				var item_color = item.covered ? '#059669' : '#e11d48';
+				var short_val  = item.shortage > 0 ? ('-' + fmt_num(item.shortage)) : '—';
+				html += '<div style="display:grid;grid-template-columns:2fr 80px 80px 80px 130px;gap:0;' +
+					'padding:6px 14px;border-top:1px solid rgba(0,0,0,0.04);align-items:center;">' +
+					'<div style="font-size:11px;color:#334155;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' +
+						frappe.utils.escape_html(item.item_name) + '">' + frappe.utils.escape_html(item.item_name) + '</div>' +
+					'<div style="text-align:right;font-family:\'DM Mono\',monospace;font-size:11px;color:#475569;">' + fmt_num(item.pending_qty) + '</div>' +
+					'<div style="text-align:right;font-family:\'DM Mono\',monospace;font-size:11px;color:' + item_color + ';font-weight:600;">' + fmt_num(item.stock_qty) + '</div>' +
+					'<div style="text-align:right;font-family:\'DM Mono\',monospace;font-size:11px;color:' + (item.shortage > 0 ? '#e11d48' : '#94a3b8') + ';font-weight:700;">' + short_val + '</div>' +
+					'<div style="padding-left:8px;">' + stock_bar(item.stock_qty, item.pending_qty) + '</div>' +
+				'</div>';
+			});
+
+			html += '</div></div>';
 		});
-		html += '</tbody></table></div>';
+
 		body.innerHTML = html;
+
+		// Wire collapse toggles
+		body.querySelectorAll('.tolling-so-hdr').forEach(function(hdr) {
+			hdr.addEventListener('click', function() {
+				var items = body.querySelector('#' + hdr.dataset.items);
+				var chevron = hdr.querySelector('.tolling-chevron');
+				var open = items.style.display !== 'none';
+				items.style.display = open ? 'none' : 'block';
+				if (chevron) chevron.style.transform = open ? '' : 'rotate(180deg)';
+			});
+		});
 	});
 }
 

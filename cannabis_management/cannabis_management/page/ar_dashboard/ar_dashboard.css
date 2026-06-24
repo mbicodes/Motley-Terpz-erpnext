@@ -471,10 +471,10 @@
 .ard-proj-card.ard-proj-empty .ard-proj-value { color: var(--ard-muted); }
 
 /* ── New AR: extra "AR on terms" columns (shown only in New AR mode) ── */
-/* Term-bucket accent colours (text) */
-.ard-good-green  { color: var(--ard-current); }
-.ard-good-yellow { color: var(--ard-30); }
-.ard-good-red    { color: var(--ard-90); }
+/* On-terms buckets: traffic-light green → yellow → orange (NOT red, to stay distinct from overdue reds) */
+.ard-good-green  { color: #16a34a; }   /* 0-10  — green  */
+.ard-good-yellow { color: #ca8a04; }   /* 10-20 — amber  */
+.ard-good-red    { color: #ea580c; }   /* 20-30 — orange (NOT red, avoids clash with overdue rose/red) */
 
 /* Total columns */
 .ard-na-total .ard-card-value,
@@ -484,39 +484,43 @@
 .ard-na-good   { color: var(--ard-current); }
 .ard-na-bad    { color: var(--ard-90); }
 
-/* Column-header tints (mirror the spreadsheet layout) */
+/* Column-header tints */
 .ard-table th.ard-na-new      { background: #eff6ff; }
 .ard-table th.ard-na-legacy   { background: #f3f4f6; }
 .ard-table th.ard-na-good     { background: var(--ard-current-bg); }
 .ard-table th.ard-na-bad      { background: var(--ard-90-bg); }
-.ard-table th.ard-good-green  { background: var(--ard-current-bg); }
-.ard-table th.ard-good-yellow { background: var(--ard-30-bg); }
-.ard-table th.ard-good-red    { background: var(--ard-90-bg); }
+.ard-table th.ard-good-green  { background: #f0fdf4; }   /* green  */
+.ard-table th.ard-good-yellow { background: #fefce8; }   /* yellow */
+.ard-table th.ard-good-red    { background: #fff7ed; }   /* orange */
 
-/* Fill the whole 0-10 / 10-20 / 20-30 columns with their colour — header,
-   customer-group totals, invoice rows and the grand-total footer alike. */
+/* Fill whole on-terms columns consistently */
 .ard-table td.ard-good-green,
-.ard-table th.ard-good-green  { background-color: var(--ard-current-bg) !important; }
+.ard-table th.ard-good-green  { background-color: #f0fdf4 !important; }
 .ard-table td.ard-good-yellow,
-.ard-table th.ard-good-yellow { background-color: var(--ard-30-bg) !important; }
+.ard-table th.ard-good-yellow { background-color: #fefce8 !important; }
 .ard-table td.ard-good-red,
-.ard-table th.ard-good-red    { background-color: var(--ard-90-bg) !important; }
+.ard-table th.ard-good-red    { background-color: #fff7ed !important; }
 
-/* In New AR mode the overdue aging columns (0-30 … 120+) are all shown red. */
-.ard-newar-table th.ard-th-range {
-	color: var(--ard-90);
-	background: var(--ard-90-bg);
+/* In New AR mode the overdue aging columns use escalating red shades (lightest → darkest) */
+.ard-newar-table th.ard-th-range.bar-current { color: #be123c; background: #fff1f2; }
+.ard-newar-table th.ard-th-range.bar-30      { color: #b91c1c; background: #fee2e2; }
+.ard-newar-table th.ard-th-range.bar-60      { color: #991b1b; background: #fecaca; }
+.ard-newar-table th.ard-th-range.bar-90      { color: #7f1d1d; background: #fca5a5; }
+
+.ard-newar-table .ard-range-cell.bar-current {
+	color: #be123c; background: #fff1f2; font-weight: 600;
 }
-.ard-newar-table .ard-range-cell.bar-current,
-.ard-newar-table .ard-range-cell.bar-30,
-.ard-newar-table .ard-range-cell.bar-60,
+.ard-newar-table .ard-range-cell.bar-30 {
+	color: #b91c1c; background: #fee2e2; font-weight: 600;
+}
+.ard-newar-table .ard-range-cell.bar-60 {
+	color: #991b1b; background: #fecaca; font-weight: 600;
+}
 .ard-newar-table .ard-range-cell.bar-90 {
-	color: var(--ard-90);
-	background: var(--ard-90-bg);
-	font-weight: 600;
+	color: #7f1d1d; background: #fca5a5; font-weight: 600;
 }
 .ard-newar-table .ard-range-cell.ard-range-zero {
-	background: var(--ard-90-bg);
+	background: #fff1f2;
 }
 
 /* ── Aging Distribution Bar ────────────────────────────────── */

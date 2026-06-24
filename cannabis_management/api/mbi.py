@@ -1,17 +1,25 @@
 import frappe
 from frappe.utils import nowdate
 
-MBI_COMPANIES = ('TSBC Ranch', 'Master Touch Manufacturing')
+MBI_COMPANIES = ('TSBC Ranch', 'Master Touch Manufacturing', 'Motley Terpz')
 
+# 'Fresh Frozen - BHO' is merged into 'Fresh Frozen' at query time
 MBI_ITEM_GROUPS = (
-    'Fresh Frozen', 'Primes', 'Subprimes', 'Full Spec', 'Food Grade',
-    'VRR', 'LLR', 'Distillate', 'BHO', 'Vapes', 'Gummies', 'Jars',
+    'Fresh Frozen', 'Fresh Frozen - SHO',
+    'Primes', 'Subprimes', 'Full Spec', 'Food Grade', 'VRR',
+    'LIQUID LIVE RESIN', 'DISTALLATE', 'BHO', 'Rosin', 'Gummies',
+    '0.5g O2 Vape', '1g O2 Vapes',
+    '1g Jarred Rosin', '3g Jarred Rosin',
 )
 
-# Conversion view: same groups minus Fresh Frozen, plus Jars
+# Groups that are aliased/merged before aggregation
+_IG_ALIAS = {'Fresh Frozen - BHO': 'Fresh Frozen'}
+
 MBI_CONV_GROUPS = (
-    'Vapes', 'Primes', 'Subprimes', 'Full Spec', 'Food Grade',
-    'VRR', 'LLR', 'Distillate', 'BHO', 'Gummies', 'Jars',
+    'Primes', 'Subprimes', 'Full Spec', 'Food Grade', 'VRR',
+    'LIQUID LIVE RESIN', 'DISTALLATE', 'BHO', 'Rosin', 'Gummies',
+    '0.5g O2 Vape', '1g O2 Vapes',
+    '1g Jarred Rosin', '3g Jarred Rosin',
 )
 
 _col_cache = {}
@@ -413,7 +421,8 @@ def get_conversion_overview(companies=None):
 @frappe.whitelist()
 def get_item_group_totals(companies=None):
     cos = _cos(companies)
-    ig  = MBI_ITEM_GROUPS
+    # query includes aliased groups too so their data gets merged
+    ig_query = MBI_ITEM_GROUPS + tuple(_IG_ALIAS.keys())
 
     so_rows = frappe.db.sql("""
         SELECT COALESCE(i.item_group,'Other') AS item_group,
@@ -424,7 +433,7 @@ def get_item_group_totals(companies=None):
         WHERE so.company IN %(cos)s AND so.docstatus=1 AND so.status!='Cancelled'
           AND i.item_group IN %(ig)s
         GROUP BY i.item_group
-    """, {"cos": cos, "ig": ig}, as_dict=True)
+    """, {"cos": cos, "ig": ig_query}, as_dict=True)
 
     si_rows = frappe.db.sql("""
         SELECT COALESCE(i.item_group,'Other') AS item_group,
@@ -433,9 +442,10 @@ def get_item_group_totals(companies=None):
         JOIN `tabSales Invoice` si ON si.name=sii.parent
         LEFT JOIN `tabItem` i ON i.name=sii.item_code
         WHERE si.company IN %(cos)s AND si.docstatus=1
+          AND (COALESCE(si.inter_company_invoice_reference, '') = '')
           AND i.item_group IN %(ig)s
         GROUP BY i.item_group
-    """, {"cos": cos, "ig": ig}, as_dict=True)
+    """, {"cos": cos, "ig": ig_query}, as_dict=True)
 
     dn_rows = frappe.db.sql("""
         SELECT COALESCE(i.item_group,'Other') AS item_group,
@@ -446,28 +456,22 @@ def get_item_group_totals(companies=None):
         WHERE dn.company IN %(cos)s AND dn.docstatus=1
           AND i.item_group IN %(ig)s
         GROUP BY i.item_group
-    """, {"cos": cos, "ig": ig}, as_dict=True)
+    """, {"cos": cos, "ig": ig_query}, as_dict=True)
 
     empty = {"so_qty": 0, "so_value": 0, "dn_qty": 0, "dn_value": 0, "si_qty": 0, "si_value": 0}
-    merged = {g: dict(item_group=g, **empty) for g in ig}
+    merged = {g: dict(item_group=g, **empty) for g in MBI_ITEM_GROUPS}
 
-    for r in so_rows:
-        g = r.item_group
+    def _add(row, key_qty, key_val):
+        g = _IG_ALIAS.get(row.item_group, row.item_group)
         if g in merged:
-            merged[g]["so_qty"]   += float(r.qty or 0)
-            merged[g]["so_value"] += float(r.amount or 0)
-    for r in si_rows:
-        g = r.item_group
-        if g in merged:
-            merged[g]["si_qty"]   += float(r.qty or 0)
-            merged[g]["si_value"] += float(r.amount or 0)
-    for r in dn_rows:
-        g = r.item_group
-        if g in merged:
-            merged[g]["dn_qty"]   += float(r.qty or 0)
-            merged[g]["dn_value"] += float(r.amount or 0)
+            merged[g][key_qty] += float(row.qty or 0)
+            merged[g][key_val] += float(row.amount or 0)
 
-    return [merged[g] for g in ig]
+    for r in so_rows: _add(r, "so_qty", "so_value")
+    for r in si_rows: _add(r, "si_qty", "si_value")
+    for r in dn_rows: _add(r, "dn_qty", "dn_value")
+
+    return [merged[g] for g in MBI_ITEM_GROUPS]
 
 
 # ── Item Group Conversion ─────────────────────────────────────────────────────
@@ -530,82 +534,116 @@ def get_item_group_conversion(companies=None):
 def get_hardware_counts(companies=None):
     cos = _cos(companies)
 
-    HW = [
-        {"label": "Vapes (All)",   "pat": "%vap%"},
-        {"label": "1g Vapes",      "pat": "%1g%vap%"},
-        {"label": "0.5g Vapes",    "pat": "%0.5g%vap%"},
-        {"label": "0.3g Vapes",    "pat": "%0.3g%vap%"},
-        {"label": "1g Jars",       "pat": "%1g Jar%"},
-        {"label": "3.5g Jars",     "pat": "%3.5g Jar%"},
-        {"label": "7g Jars",       "pat": "%7g Jar%"},
+    stock_rows = frappe.db.sql("""
+        SELECT
+            ig.name                          AS item_group,
+            COALESCE(SUM(b.actual_qty), 0)   AS total_qty
+        FROM `tabItem Group` ig
+        LEFT JOIN tabItem i   ON i.item_group = ig.name
+        LEFT JOIN tabBin  b   ON b.item_code  = i.name
+        LEFT JOIN tabWarehouse w ON w.name    = b.warehouse AND w.company IN %(cos)s
+        WHERE ig.parent_item_group = 'Packaged goods'
+        GROUP BY ig.name
+        ORDER BY ig.name
+    """, {"cos": cos}, as_dict=True)
+
+    in_rows = frappe.db.sql("""
+        SELECT
+            ig.name                                   AS item_group,
+            COALESCE(SUM(sle.actual_qty), 0)          AS in_qty
+        FROM `tabItem Group` ig
+        LEFT JOIN tabItem i   ON i.item_group = ig.name
+        LEFT JOIN `tabStock Ledger Entry` sle
+            ON sle.item_code = i.name
+            AND sle.actual_qty > 0
+            AND sle.is_cancelled = 0
+        LEFT JOIN tabWarehouse w ON w.name = sle.warehouse AND w.company IN %(cos)s
+        WHERE ig.parent_item_group = 'Packaged goods'
+        GROUP BY ig.name
+    """, {"cos": cos}, as_dict=True)
+
+    in_map = {r.item_group: float(r.in_qty or 0) for r in in_rows}
+
+    return [
+        {
+            "item_group": r.item_group,
+            "total_qty":  float(r.total_qty or 0),
+            "in_qty":     in_map.get(r.item_group, 0),
+        }
+        for r in stock_rows
     ]
-
-    results = []
-    for hw in HW:
-        so_r = frappe.db.sql("""
-            SELECT COALESCE(SUM(soi.qty),0) AS qty, COALESCE(SUM(soi.amount),0) AS amount
-            FROM `tabSales Order Item` soi
-            JOIN `tabSales Order` so ON so.name=soi.parent
-            WHERE so.company IN %(cos)s AND so.docstatus=1 AND so.status!='Cancelled'
-              AND (soi.item_name LIKE %(pat)s OR soi.item_code LIKE %(pat)s OR soi.item_group LIKE %(pat)s)
-        """, {"cos": cos, "pat": hw["pat"]}, as_dict=True)[0]
-
-        dn_r = frappe.db.sql("""
-            SELECT COALESCE(SUM(dni.qty),0) AS qty
-            FROM `tabDelivery Note Item` dni
-            JOIN `tabDelivery Note` dn ON dn.name=dni.parent
-            WHERE dn.company IN %(cos)s AND dn.docstatus=1
-              AND (dni.item_name LIKE %(pat)s OR dni.item_code LIKE %(pat)s OR dni.item_group LIKE %(pat)s)
-        """, {"cos": cos, "pat": hw["pat"]}, as_dict=True)[0]
-
-        si_r = frappe.db.sql("""
-            SELECT COALESCE(SUM(sii.qty),0) AS qty
-            FROM `tabSales Invoice Item` sii
-            JOIN `tabSales Invoice` si ON si.name=sii.parent
-            WHERE si.company IN %(cos)s AND si.docstatus=1
-              AND (sii.item_name LIKE %(pat)s OR sii.item_code LIKE %(pat)s OR sii.item_group LIKE %(pat)s)
-        """, {"cos": cos, "pat": hw["pat"]}, as_dict=True)[0]
-
-        so_qty = float(so_r.qty or 0)
-        dn_qty = float(dn_r.qty or 0)
-        si_qty = float(si_r.qty or 0)
-
-        results.append({
-            "hardware_type": hw["label"],
-            "so_qty":        so_qty,
-            "dn_qty":        dn_qty,
-            "si_qty":        si_qty,
-            "so_amount":     float(so_r.amount or 0),
-            "dn_conv_pct":   round(dn_qty / so_qty * 100, 1) if so_qty else 0,
-            "si_conv_pct":   round(si_qty / so_qty * 100, 1) if so_qty else 0,
-        })
-
-    return results
 
 
 # ── Tolling Check (MTM) ───────────────────────────────────────────────────────
 
 @frappe.whitelist()
 def get_tolling_check():
-    return frappe.db.sql("""
+    cos = MBI_COMPANIES
+    rows = frappe.db.sql("""
         SELECT
-            so.name AS so_name, so.customer_name, so.transaction_date,
-            so.grand_total, so.status,
-            soi.item_code, soi.item_name,
-            soi.qty AS ordered_qty, soi.uom,
-            COALESCE(b.actual_qty, 0) AS available_qty,
-            CASE WHEN COALESCE(b.actual_qty, 0) < soi.qty THEN 1 ELSE 0 END AS shortage
+            so.name              AS so_name,
+            so.customer_name,
+            so.transaction_date,
+            so.status,
+            so.company,
+            soi.item_code,
+            soi.item_name,
+            soi.uom,
+            soi.qty                                    AS ordered_qty,
+            COALESCE(soi.delivered_qty, 0)             AS delivered_qty,
+            (soi.qty - COALESCE(soi.delivered_qty, 0)) AS pending_qty,
+            COALESCE(b.actual_qty, 0)                  AS stock_qty
         FROM `tabSales Order` so
         JOIN `tabSales Order Item` soi ON soi.parent = so.name
-        LEFT JOIN `tabBin` b
-            ON b.item_code = soi.item_code
-           AND b.warehouse LIKE '%%MTM%%'
-        WHERE so.company = 'Master Touch Manufacturing'
+        LEFT JOIN tabBin b ON b.item_code = soi.item_code AND b.warehouse = soi.warehouse
+        WHERE so.company IN %(cos)s
           AND so.docstatus = 1
-          AND so.status IN ('To Deliver and Bill','To Deliver','To Bill')
+          AND so.status IN ('To Deliver and Bill', 'To Deliver')
         ORDER BY so.transaction_date ASC
-        LIMIT 200
-    """, as_dict=True)
+    """, {"cos": cos}, as_dict=True)
+
+    so_map = {}
+    for r in rows:
+        key = r.so_name
+        if key not in so_map:
+            so_map[key] = {
+                "so_name":         r.so_name,
+                "customer_name":   r.customer_name,
+                "transaction_date": str(r.transaction_date),
+                "status":          r.status,
+                "company":         r.company,
+                "items":           [],
+            }
+        pending = float(r.pending_qty or 0)
+        if pending <= 0:
+            continue
+        stock   = float(r.stock_qty or 0)
+        short   = round(max(0.0, pending - stock), 4)
+        so_map[key]["items"].append({
+            "item_code":    r.item_code,
+            "item_name":    r.item_name,
+            "uom":          r.uom,
+            "ordered_qty":  float(r.ordered_qty or 0),
+            "delivered_qty":float(r.delivered_qty or 0),
+            "pending_qty":  pending,
+            "stock_qty":    stock,
+            "shortage":     short,
+            "covered":      stock >= pending,
+        })
+
+    result = []
+    for so in so_map.values():
+        items = so["items"]
+        if not items:
+            continue
+        so["has_shortage"] = any(not i["covered"] for i in items)
+        so["all_covered"]  = all(i["covered"] for i in items)
+        so["shortage_count"] = sum(1 for i in items if not i["covered"])
+        result.append(so)
+
+    # SOs with shortages first, then date asc
+    result.sort(key=lambda x: (not x["has_shortage"], x["transaction_date"]))
+    return result
 
 
 # ── AR / AP Summary ───────────────────────────────────────────────────────────

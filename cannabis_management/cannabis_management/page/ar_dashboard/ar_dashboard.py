@@ -250,6 +250,26 @@ def get_ar_data(company, report_date=None, customer=None, ageing_based_on="Due D
     for r in rows:
         r["reconciliation_status"] = recon_map.get(r["party"], "")
 
+    # When in New AR mode, also surface legacy outstanding totals per customer
+    legacy_by_customer = {}
+    if ar_mode == "new":
+        companies_to_query = TMM_GROUP_COMPANIES if company == "TMM Group" else [company]
+        for co in companies_to_query:
+            leg_rows = frappe.db.sql("""
+                SELECT si.customer AS party, SUM(si.outstanding_amount) AS outstanding
+                FROM `tabSales Invoice` si
+                WHERE si.company = %(co)s
+                  AND si.docstatus = 1
+                  AND si.outstanding_amount > 0
+                  AND si.posting_date <= %(cutoff)s
+                  AND (%(customer)s IS NULL OR si.customer = %(customer)s)
+                GROUP BY si.customer
+            """, {"co": co, "cutoff": LEGACY_CUTOFF, "customer": customer or None},
+            as_dict=True)
+            for r in leg_rows:
+                p = r.party
+                legacy_by_customer[p] = legacy_by_customer.get(p, 0) + float(r.outstanding or 0)
+
     return {
         "rows": rows,
         "ranges": ranges,
@@ -258,6 +278,7 @@ def get_ar_data(company, report_date=None, customer=None, ageing_based_on="Due D
         "report_date": str(report_date or nowdate()),
         "can_edit_recon": _can_edit_recon(),
         "ar_mode": ar_mode,
+        "legacy_by_customer": legacy_by_customer,
     }
 
 

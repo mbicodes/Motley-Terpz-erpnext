@@ -348,6 +348,10 @@ scheduler_events = {
         "0 1 * * 1-5": [
             "cannabis_management.api.daily_report.send_daily_report",
         ],
+        # DN Gap Report: daily at midnight UTC = 5 PM PDT (California) — every day including weekends
+        "0 0 * * *": [
+            "cannabis_management.api.dn_gap_report.send_dn_gap_report",
+        ],
     },
     "monthly": [
         # AR Policy disabled
