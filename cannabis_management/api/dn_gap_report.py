@@ -1,6 +1,6 @@
 """
 DN Gap Report
-Scheduled: every day at 5 PM Pacific (00:00 UTC / PDT, 01:00 UTC / PST).
+Scheduled: every day at 8 AM Pacific (15:00 UTC / PDT, 16:00 UTC / PST).
 Lists all Sales Orders and Sales Invoices that have no corresponding Delivery Note.
 Sent to: Nikki, Matt, Muhammad, Imran, bot@motleyterpz.com
 """
@@ -88,6 +88,7 @@ def _get_open_sos():
         WHERE so.docstatus = 1
           AND so.status IN ('To Deliver and Bill', 'To Deliver')
           AND so.company IN %(cos)s
+          AND so.customer NOT IN (SELECT name FROM `tabCustomer` WHERE is_internal_customer = 1)
         ORDER BY so.transaction_date ASC
     """, {"cos": COMPANIES}, as_dict=True)
 
@@ -106,6 +107,7 @@ def _get_sis_without_dn():
         FROM `tabSales Invoice` si
         WHERE si.docstatus = 1
           AND si.company IN %(cos)s
+          AND si.customer NOT IN (SELECT name FROM `tabCustomer` WHERE is_internal_customer = 1)
           AND (COALESCE(si.inter_company_invoice_reference, '') = '')
           AND NOT EXISTS (
               SELECT 1 FROM `tabDelivery Note Item` dni
@@ -282,7 +284,7 @@ def _build_email(today, so_rows, si_rows):
 
       <p style="margin-top:32px;font-size:11px;color:#94a3b8;border-top:1px solid #e2e8f0;
                 padding-top:12px;">
-        Sent daily at 5 PM Pacific •
+        Sent daily at 8 AM Pacific •
         <a href="https://erp.alltechvirtual.com" style="color:#2563eb;">erp.alltechvirtual.com</a>
       </p>
     </div>"""

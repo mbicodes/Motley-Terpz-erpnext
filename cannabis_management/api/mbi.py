@@ -53,17 +53,22 @@ def _intercompany_filter():
     return "(COALESCE(inter_company_invoice_reference, '') = '')"
 
 
+# Subquery used in every query to exclude internal customers
+_NOT_INTERNAL = "(SELECT name FROM `tabCustomer` WHERE is_internal_customer = 1)"
+
+
 # ── KPI Summary ───────────────────────────────────────────────────────────────
 
 @frappe.whitelist()
 def get_summary_kpis(companies=None):
     cos = _cos(companies)
 
-    open_so = frappe.db.sql("""
+    open_so = frappe.db.sql(f"""
         SELECT COUNT(*) AS cnt, COALESCE(SUM(grand_total), 0) AS total
         FROM `tabSales Order`
         WHERE company IN %(cos)s AND docstatus = 1
           AND status IN ('To Deliver and Bill', 'To Deliver', 'To Bill')
+          AND customer NOT IN {_NOT_INTERNAL}
     """, {"cos": cos}, as_dict=True)[0]
 
     draft_si = frappe.db.sql("""
@@ -71,11 +76,12 @@ def get_summary_kpis(companies=None):
         WHERE company IN %(cos)s AND docstatus = 0
     """, {"cos": cos}, as_dict=True)[0].cnt
 
-    ar = frappe.db.sql("""
+    ar = frappe.db.sql(f"""
         SELECT COALESCE(SUM(outstanding_amount), 0) AS bal
         FROM `tabSales Invoice`
         WHERE company IN %(cos)s AND docstatus = 1 AND outstanding_amount > 0.01
           AND (COALESCE(inter_company_invoice_reference, '') = '')
+          AND customer NOT IN {_NOT_INTERNAL}
     """, {"cos": cos}, as_dict=True)[0].bal
 
     ap = frappe.db.sql("""
@@ -85,10 +91,11 @@ def get_summary_kpis(companies=None):
           AND (COALESCE(inter_company_invoice_reference, '') = '')
     """, {"cos": cos}, as_dict=True)[0].bal
 
-    so_no_dn = frappe.db.sql("""
+    so_no_dn = frappe.db.sql(f"""
         SELECT COUNT(*) FROM `tabSales Order` so
         WHERE so.company IN %(cos)s AND so.docstatus = 1
           AND so.status NOT IN ('Cancelled','Closed','Completed')
+          AND so.customer NOT IN {_NOT_INTERNAL}
           AND so.name NOT IN (
               SELECT DISTINCT dni.against_sales_order
               FROM `tabDelivery Note Item` dni
@@ -97,10 +104,11 @@ def get_summary_kpis(companies=None):
           )
     """, {"cos": cos})[0][0]
 
-    so_no_si = frappe.db.sql("""
+    so_no_si = frappe.db.sql(f"""
         SELECT COUNT(*) FROM `tabSales Order` so
         WHERE so.company IN %(cos)s AND so.docstatus = 1
           AND so.status NOT IN ('Cancelled','Closed','Completed')
+          AND so.customer NOT IN {_NOT_INTERNAL}
           AND so.name NOT IN (
               SELECT DISTINCT sii.sales_order
               FROM `tabSales Invoice Item` sii
@@ -109,10 +117,11 @@ def get_summary_kpis(companies=None):
           )
     """, {"cos": cos})[0][0]
 
-    so_no_both = frappe.db.sql("""
+    so_no_both = frappe.db.sql(f"""
         SELECT COUNT(*) FROM `tabSales Order` so
         WHERE so.company IN %(cos)s AND so.docstatus = 1
           AND so.status NOT IN ('Cancelled','Closed','Completed')
+          AND so.customer NOT IN {_NOT_INTERNAL}
           AND so.name NOT IN (
               SELECT DISTINCT dni.against_sales_order
               FROM `tabDelivery Note Item` dni
@@ -204,6 +213,7 @@ def get_sales_orders(companies=None, limit=100):
         FROM `tabSales Order` so
         WHERE so.company IN %(cos)s AND so.docstatus = 1
           AND so.status NOT IN ('Cancelled')
+          AND so.customer NOT IN {_NOT_INTERNAL}
         ORDER BY so.transaction_date DESC
         LIMIT %(limit)s
     """, {"cos": cos, "limit": limit}, as_dict=True)
@@ -228,6 +238,7 @@ def get_sales_invoices(companies=None, limit=100):
         FROM `tabSales Invoice` si
         WHERE si.company IN %(cos)s AND si.docstatus = 1
           AND (COALESCE(si.inter_company_invoice_reference, '') = '')
+          AND si.customer NOT IN {_NOT_INTERNAL}
         ORDER BY si.posting_date DESC
         LIMIT %(limit)s
     """, {"cos": cos, "limit": limit}, as_dict=True)
@@ -237,12 +248,13 @@ def get_sales_invoices(companies=None, limit=100):
 def get_delivery_notes(companies=None, limit=100):
     cos = _cos(companies)
     limit = min(int(limit or 100), 500)
-    return frappe.db.sql("""
+    return frappe.db.sql(f"""
         SELECT dn.name, dn.customer_name, dn.company,
                dn.posting_date, dn.lr_no,
                dn.grand_total, dn.total_qty, dn.status
         FROM `tabDelivery Note` dn
         WHERE dn.company IN %(cos)s AND dn.docstatus = 1
+          AND dn.customer NOT IN {_NOT_INTERNAL}
         ORDER BY dn.posting_date DESC
         LIMIT %(limit)s
     """, {"cos": cos, "limit": limit}, as_dict=True)
@@ -266,6 +278,7 @@ def get_gap_lists(companies=None):
         FROM `tabSales Order` so
         WHERE so.company IN %(cos)s AND so.docstatus = 1
           AND so.status NOT IN ('Cancelled','Closed','Completed')
+          AND so.customer NOT IN {_NOT_INTERNAL}
     """
 
     no_dn = frappe.db.sql(base + """
@@ -335,6 +348,7 @@ def get_invoices_with_payments(companies=None, limit=100):
         WHERE si.company IN %(cos)s AND si.docstatus = 1
           AND si.outstanding_amount > 0.01
           AND (COALESCE(si.inter_company_invoice_reference, '') = '')
+          AND si.customer NOT IN (SELECT name FROM `tabCustomer` WHERE is_internal_customer = 1)
         GROUP BY si.name
         ORDER BY si.due_date ASC
         LIMIT %(limit)s
@@ -357,6 +371,7 @@ def get_cash_bank_payments(companies=None):
         FROM `tabSales Invoice` si
         WHERE si.company IN %(cos)s AND si.docstatus = 1
           AND (COALESCE(si.inter_company_invoice_reference, '') = '')
+          AND si.customer NOT IN (SELECT name FROM `tabCustomer` WHERE is_internal_customer = 1)
         GROUP BY si.company
         ORDER BY si.company
     """, {"cos": cos}, as_dict=True)
@@ -599,6 +614,7 @@ def get_tolling_check():
         WHERE so.company IN %(cos)s
           AND so.docstatus = 1
           AND so.status IN ('To Deliver and Bill', 'To Deliver')
+          AND so.customer NOT IN (SELECT name FROM `tabCustomer` WHERE is_internal_customer = 1)
         ORDER BY so.transaction_date ASC
     """, {"cos": cos}, as_dict=True)
 
@@ -663,6 +679,7 @@ def get_ar_ap_summary(companies=None):
         FROM `tabSales Invoice` si
         WHERE si.company IN %(cos)s AND si.docstatus=1 AND si.outstanding_amount>0.01
           AND (COALESCE(si.inter_company_invoice_reference, '') = '')
+          AND si.customer NOT IN (SELECT name FROM `tabCustomer` WHERE is_internal_customer = 1)
         GROUP BY si.customer, si.customer_name, si.company
         ORDER BY outstanding DESC LIMIT 50
     """, {"cos": cos}, as_dict=True)

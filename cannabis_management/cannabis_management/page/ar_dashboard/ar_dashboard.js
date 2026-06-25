@@ -652,7 +652,7 @@ function na_sum(rows, anchor) {
 function na_header_cells(split, show_legacy_col) {
     return `
 						${split ? `<th class="ard-th-num ard-na-legacy">Legacy AR</th><th class="ard-th-num ard-na-new">New AR</th>` : ``}
-						${show_legacy_col ? `<th class="ard-th-num ard-na-legacy" style="background:#fef3c7;color:#92400e;">Legacy AR</th>` : ``}
+						${show_legacy_col ? `<th class="ard-th-num ard-na-legacy" style="background:#fef3c7;color:#92400e;">Legacy AR</th><th class="ard-th-num ard-na-new">New AR</th>` : ``}
 						<th class="ard-th-num ard-na-total">Total AR</th>
 						<th class="ard-th-num ard-na-good">Total New AR on Good standing</th>
 						<th class="ard-th-num ard-na-bad">Total New AR on Bad standing</th>
@@ -664,8 +664,8 @@ function na_header_cells(split, show_legacy_col) {
 function na_total_cells(s, split, show_legacy_col, legacy_amt) {
     return `
 					${split ? `<td class="ard-num ard-total-cell ard-na-legacy">${s.legacy_ar > 0 ? fmt_cur(s.legacy_ar) : "—"}</td><td class="ard-num ard-total-cell ard-na-new">${s.new_ar > 0 ? fmt_cur(s.new_ar) : "—"}</td>` : ``}
-					${show_legacy_col ? `<td class="ard-num ard-total-cell" style="background:#fef3c7;color:#92400e;font-weight:700;">${legacy_amt > 0 ? fmt_cur(legacy_amt) : "—"}</td>` : ``}
-					<td class="ard-num ard-total-cell ard-na-total">${fmt_cur(s.total)}</td>
+					${show_legacy_col ? `<td class="ard-num ard-total-cell" style="background:#fef3c7;color:#92400e;font-weight:700;">${legacy_amt > 0 ? fmt_cur(legacy_amt) : "—"}</td><td class="ard-num ard-total-cell ard-na-new">${s.total > 0 ? fmt_cur(s.total) : "—"}</td>` : ``}
+					<td class="ard-num ard-total-cell ard-na-total">${fmt_cur(show_legacy_col ? (legacy_amt + s.total) : s.total)}</td>
 					<td class="ard-num ard-total-cell ard-na-good">${s.good > 0 ? fmt_cur(s.good) : "—"}</td>
 					<td class="ard-num ard-total-cell ard-na-bad">${s.bad > 0 ? fmt_cur(s.bad) : "—"}</td>
 					<td class="ard-num ard-total-cell ard-good-green">${s.g1 > 0 ? fmt_cur(s.g1) : "—"}</td>
@@ -684,8 +684,8 @@ function na_invoice_cells(row, anchor, split, show_legacy_col) {
     let g3 = good && info.bkey === "g3" ? amt : 0;
     return `
 						${split ? `<td class="ard-num ard-na-legacy">${!is_new ? fmt_cur(amt) : "—"}</td><td class="ard-num ard-na-new">${is_new ? fmt_cur(amt) : "—"}</td>` : ``}
-						${show_legacy_col ? `<td class="ard-num" style="background:#fef3c7;">${legacy ? fmt_cur(amt) : "—"}</td>` : ``}
-						<td class="ard-num ard-na-total">${legacy ? "—" : fmt_cur(amt)}</td>
+						${show_legacy_col ? `<td class="ard-num" style="background:#fef3c7;">${legacy ? fmt_cur(amt) : "—"}</td><td class="ard-num ard-na-new">${legacy ? "—" : fmt_cur(amt)}</td>` : ``}
+						<td class="ard-num ard-na-total">${fmt_cur(amt)}</td>
 						<td class="ard-num ard-na-good">${(!legacy && good) ? fmt_cur(amt) : "—"}</td>
 						<td class="ard-num ard-na-bad">${(!legacy && !good) ? fmt_cur(amt) : "—"}</td>
 						<td class="ard-range-cell ard-good-green">${g1 > 0 ? fmt_cur(g1) : "—"}</td>
