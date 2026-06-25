@@ -476,8 +476,10 @@ fixtures = [
     # Day-over-day unreconciled-AR snapshot storage
     {"dt": "DocType", "filters": [["name", "=", "AR Recon Snapshot"]]},
     # The combined Sales Target + Inventory + COD/AR/Unreconciled dashboard block
-    {"dt": "Custom HTML Block", "filters": [["name", "=", "Sales Target and Inventory Dashboard"]]},
-    # Daily Sync dashboard blocks
-    {"dt": "Custom HTML Block", "filters": [["name", "in", ["Sales Daily Sync Dashboard Block", "Lab Daily Sync Dashboard Block"]]]},
+    {"dt": "Custom HTML Block", "filters": [["name", "in", [
+        "Sales Daily Sync Dashboard Block",
+        "Lab Daily Sync Dashboard Block",
+        "Sales Target and Inventory Dashboard"  # ye bhi hai aapke paas
+    ]]]},
 ]
 
