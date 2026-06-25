@@ -230,9 +230,39 @@ def get_ar_data(company, report_date=None, customer=None, ageing_based_on="Due D
         rows = [r for r in rows
                 if r.get("party") not in internal]
     else:
-        rows = [r for r in rows
-                if str(r.get("posting_date") or "") >= NEW_AR_START
-                and r.get("party") not in internal]
+        # New AR: keep new invoices as-is, AND keep legacy invoices so legacy
+        # customers appear in the New AR view too — but flag them and zero their
+        # aging buckets so the legacy amount never enters the aging/term breakdown.
+        kept = []
+        for r in rows:
+            if r.get("party") in internal:
+                continue
+            posting = str(r.get("posting_date") or "")
+            if posting >= NEW_AR_START:
+                kept.append(r)
+            elif posting <= LEGACY_CUTOFF:
+                lr = dict(r)
+                lr["is_legacy"] = 1
+                for rng in ranges:
+                    lr[rng["key"]] = 0.0
+                kept.append(lr)
+        rows = kept
+
+    # In modes that show the on-terms (0-10 / 10-20 / 20-30) breakdown, an invoice
+    # that is NOT yet past its due date belongs only in those term columns — clear
+    # its overdue aging buckets so the same amount never also appears in the red
+    # 0-30/30-60/... columns. Once the due date passes, the amount drops out of the
+    # term columns and shows in the overdue buckets. (Legacy mode keeps standard
+    # ERPNext aging, where the first bucket includes current + 0-30 overdue.)
+    if ar_mode in ("new", "all"):
+        from frappe.utils import getdate
+        as_of = getdate(report_date)
+        for r in rows:
+            due = r.get("due_date")
+            not_overdue = (not due) or getdate(str(due)) >= as_of
+            if not_overdue:
+                for rng in ranges:
+                    r[rng["key"]] = 0.0
 
     totals = _compute_totals(rows, ranges)
 
@@ -250,26 +280,6 @@ def get_ar_data(company, report_date=None, customer=None, ageing_based_on="Due D
     for r in rows:
         r["reconciliation_status"] = recon_map.get(r["party"], "")
 
-    # When in New AR mode, also surface legacy outstanding totals per customer
-    legacy_by_customer = {}
-    if ar_mode == "new":
-        companies_to_query = TMM_GROUP_COMPANIES if company == "TMM Group" else [company]
-        for co in companies_to_query:
-            leg_rows = frappe.db.sql("""
-                SELECT si.customer AS party, SUM(si.outstanding_amount) AS outstanding
-                FROM `tabSales Invoice` si
-                WHERE si.company = %(co)s
-                  AND si.docstatus = 1
-                  AND si.outstanding_amount > 0
-                  AND si.posting_date <= %(cutoff)s
-                  AND (%(customer)s IS NULL OR si.customer = %(customer)s)
-                GROUP BY si.customer
-            """, {"co": co, "cutoff": LEGACY_CUTOFF, "customer": customer or None},
-            as_dict=True)
-            for r in leg_rows:
-                p = r.party
-                legacy_by_customer[p] = legacy_by_customer.get(p, 0) + float(r.outstanding or 0)
-
     return {
         "rows": rows,
         "ranges": ranges,
@@ -278,7 +288,6 @@ def get_ar_data(company, report_date=None, customer=None, ageing_based_on="Due D
         "report_date": str(report_date or nowdate()),
         "can_edit_recon": _can_edit_recon(),
         "ar_mode": ar_mode,
-        "legacy_by_customer": legacy_by_customer,
     }
 
 

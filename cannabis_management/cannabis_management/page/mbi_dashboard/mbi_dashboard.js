@@ -637,7 +637,7 @@ function load_ig_conversion(root, co) {
 					'<div style="width:' + pct + '%;height:100%;background:' + bar_color + ';border-radius:5px;transition:width 0.6s;"></div>' +
 				'</div>' +
 				'<div style="min-width:55px;text-align:right;font-family:\'DM Mono\',monospace;font-size:11px;font-weight:700;color:#334155;">' +
-					fmt_num(qty) + ' lbs</div>' +
+					fmt_num(qty) + ' g</div>' +
 				'<div style="min-width:38px;text-align:right;font-size:11px;font-weight:700;color:#64748b;">' +
 					pct.toFixed(1) + '%</div>' +
 			'</div>';
@@ -652,7 +652,7 @@ function load_ig_conversion(root, co) {
 				'border-bottom:2px solid ' + accent + ';padding-bottom:8px;margin-bottom:10px;">' +
 					'<span style="font-size:11px;font-weight:700;color:' + accent + ';text-transform:uppercase;letter-spacing:0.08em;">' + title + '</span>' +
 					'<span style="font-family:\'DM Mono\',monospace;font-size:13px;font-weight:700;color:#1e293b;">' +
-						fmt_num(total) + ' lbs total</span>' +
+						fmt_num(total) + ' g total</span>' +
 				'</div>' +
 				inner +
 			'</div>';

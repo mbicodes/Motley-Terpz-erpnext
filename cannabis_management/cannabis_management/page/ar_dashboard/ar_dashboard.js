@@ -442,13 +442,17 @@ function render_view(page) {
 
     let display_rows = get_filtered_rows(page);
 
-    let view_totals = compute_view_totals(display_rows, ranges);
-    render_summary_cards(page, ranges, view_totals);
+    // Headline metrics (cards, aging bar, projection) stay New-AR-only; the table
+    // also lists legacy customers, so its footer totals include legacy.
+    let new_rows = display_rows.filter(function (r) { return !r.is_legacy; });
+    let summary_totals = compute_view_totals(new_rows, ranges);
+    let table_totals = compute_view_totals(display_rows, ranges);
+    render_summary_cards(page, ranges, summary_totals);
     page.main.find('#ard-projection-section').html(
-        build_projection_html(display_rows, page._ard_result.report_date)
+        build_projection_html(new_rows, page._ard_result.report_date)
     );
-    render_aging_bar(page, ranges, view_totals);
-    render_table(page, display_rows, view_totals);
+    render_aging_bar(page, ranges, summary_totals);
+    render_table(page, display_rows, table_totals);
     add_excel_grid(page);
     show_export_buttons(page, display_rows.length > 0);
 }
@@ -635,6 +639,7 @@ function na_sum(rows, anchor) {
     rows.forEach(function (row) {
         let amt = row.outstanding || 0;
         if (amt <= 0) return;
+        if (row.is_legacy) return; // legacy AR is excluded from the term/aging breakdown
         let info = classify_ar_row(row, anchor);
         s.total += amt;
         if ((row.posting_date || "") >= NEW_AR_START) s.new_ar += amt; else s.legacy_ar += amt;
@@ -649,8 +654,8 @@ function na_header_cells(split, show_legacy_col) {
 						${split ? `<th class="ard-th-num ard-na-legacy">Legacy AR</th><th class="ard-th-num ard-na-new">New AR</th>` : ``}
 						${show_legacy_col ? `<th class="ard-th-num ard-na-legacy" style="background:#fef3c7;color:#92400e;">Legacy AR</th>` : ``}
 						<th class="ard-th-num ard-na-total">Total AR</th>
-						<th class="ard-th-num ard-na-good">Total New AR on terms<br><small>(Good standing)</small></th>
-						<th class="ard-th-num ard-na-bad">Total New AR on terms<br><small>(Bad standing)</small></th>
+						<th class="ard-th-num ard-na-good">Total New AR on Good standing</th>
+						<th class="ard-th-num ard-na-bad">Total New AR on Bad standing</th>
 						<th class="ard-th-num ard-good-green">0-10<br><small>Days</small></th>
 						<th class="ard-th-num ard-good-yellow">10-20<br><small>Days</small></th>
 						<th class="ard-th-num ard-good-red">20-30<br><small>Days</small></th>`;
@@ -671,17 +676,18 @@ function na_total_cells(s, split, show_legacy_col, legacy_amt) {
 function na_invoice_cells(row, anchor, split, show_legacy_col) {
     let amt = row.outstanding || 0;
     let is_new = (row.posting_date || "") >= NEW_AR_START;
+    let legacy = !!row.is_legacy;
     let info = classify_ar_row(row, anchor);
-    let good = info.section === "good";
+    let good = !legacy && info.section === "good";
     let g1 = good && info.bkey === "g1" ? amt : 0;
     let g2 = good && info.bkey === "g2" ? amt : 0;
     let g3 = good && info.bkey === "g3" ? amt : 0;
     return `
 						${split ? `<td class="ard-num ard-na-legacy">${!is_new ? fmt_cur(amt) : "—"}</td><td class="ard-num ard-na-new">${is_new ? fmt_cur(amt) : "—"}</td>` : ``}
-						${show_legacy_col ? `<td class="ard-num" style="background:#fef3c7;">—</td>` : ``}
-						<td class="ard-num ard-na-total">${fmt_cur(amt)}</td>
-						<td class="ard-num ard-na-good">${good ? fmt_cur(amt) : "—"}</td>
-						<td class="ard-num ard-na-bad">${!good ? fmt_cur(amt) : "—"}</td>
+						${show_legacy_col ? `<td class="ard-num" style="background:#fef3c7;">${legacy ? fmt_cur(amt) : "—"}</td>` : ``}
+						<td class="ard-num ard-na-total">${legacy ? "—" : fmt_cur(amt)}</td>
+						<td class="ard-num ard-na-good">${(!legacy && good) ? fmt_cur(amt) : "—"}</td>
+						<td class="ard-num ard-na-bad">${(!legacy && !good) ? fmt_cur(amt) : "—"}</td>
 						<td class="ard-range-cell ard-good-green">${g1 > 0 ? fmt_cur(g1) : "—"}</td>
 						<td class="ard-range-cell ard-good-yellow">${g2 > 0 ? fmt_cur(g2) : "—"}</td>
 						<td class="ard-range-cell ard-good-red">${g3 > 0 ? fmt_cur(g3) : "—"}</td>`;
@@ -700,7 +706,7 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
     let show_terms = page._ard_ar_mode === 'new' || page._ard_ar_mode === 'all';
     let split_ln = page._ard_ar_mode === 'all'; // Legacy+New: split Total AR into New vs Legacy
     let show_legacy_col = page._ard_ar_mode === 'new'; // New AR: extra column showing legacy outstanding
-    let legacy_map = (show_legacy_col && page._ard_result && page._ard_result.legacy_by_customer) ? page._ard_result.legacy_by_customer : {};
+    // Legacy outstanding is read straight off the flagged legacy rows (is_legacy).
     let na_anchor = show_terms ? get_report_date(page) : null;
     let na_grand = show_terms ? na_sum(display_rows, na_anchor) : null;
 
@@ -756,11 +762,13 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
         total_invoices += group.rows.length;
 
         let sub = { invoiced: 0, paid: 0, outstanding: 0 };
+        let group_legacy = 0; // sum of this customer's legacy outstanding
         ranges.forEach(function (r) { sub[r.key] = 0; });
         group.rows.forEach(function (row) {
             sub.invoiced += row.invoiced || 0;
             sub.paid += row.paid || 0;
             sub.outstanding += row.outstanding || 0;
+            if (row.is_legacy) group_legacy += row.outstanding || 0;
             ranges.forEach(function (r) { sub[r.key] += row[r.key] || 0; });
         });
 
@@ -783,7 +791,7 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
 				<td class="ard-num ard-total-cell">${fmt_cur(sub.invoiced)}</td>
 				<td class="ard-num ard-total-cell">${fmt_cur(sub.paid)}</td>
 				<td class="ard-num ard-total-cell ard-outstanding">${fmt_cur(sub.outstanding)}</td>
-				${show_terms ? na_total_cells(na_sum(group.rows, na_anchor), split_ln, show_legacy_col, legacy_map[party] || 0) : ``}
+				${show_terms ? na_total_cells(na_sum(group.rows, na_anchor), split_ln, show_legacy_col, group_legacy) : ``}
 				${sub_range_cells}
 				<td></td>
 			</tr>
@@ -834,7 +842,7 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
 						<td class="ard-num ard-total-cell">${fmt_cur(view_totals.invoiced)}</td>
 						<td class="ard-num ard-total-cell">${fmt_cur(view_totals.paid)}</td>
 						<td class="ard-num ard-total-cell ard-outstanding">${fmt_cur(view_totals.outstanding)}</td>
-						${show_terms ? na_total_cells(na_grand, split_ln, show_legacy_col, Object.values(legacy_map).reduce(function(a,b){return a+b;},0)) : ``}
+						${show_terms ? na_total_cells(na_grand, split_ln, show_legacy_col, display_rows.reduce(function(a,r){return a + (r.is_legacy ? (r.outstanding||0) : 0);}, 0)) : ``}
 						${range_total_cells}
 						<td></td>
 					</tr>
@@ -999,7 +1007,6 @@ function render_all_entities(page) {
 
     let ranges = result.ranges;
     let display_rows = filter_rows(page, result, false);
-    let view_totals = compute_view_totals(display_rows, ranges);
 
     if (!display_rows.length) {
         area.html(`
@@ -1012,13 +1019,18 @@ function render_all_entities(page) {
         return;
     }
 
+    // Headline metrics stay New-AR-only; the table footer includes legacy.
+    let new_rows = display_rows.filter(function (r) { return !r.is_legacy; });
+    let summary_totals = compute_view_totals(new_rows, ranges);
+    let table_totals = compute_view_totals(display_rows, ranges);
+
     // Recon cells are read-only here (inline editing targets the single-company
     // result); the final true enables the Entity column.
     area.html(`
-        <div id="ard-summary-section">${build_summary_html(page, ranges, view_totals)}</div>
-        <div id="ard-projection-section">${build_projection_html(display_rows, result.report_date)}</div>
-        <div id="ard-aging-section">${build_aging_html(page, ranges, view_totals)}</div>
-        <div id="ard-table-section">${build_table_html(page, ranges, "All Entities", display_rows, view_totals, true, true)}</div>
+        <div id="ard-summary-section">${build_summary_html(page, ranges, summary_totals)}</div>
+        <div id="ard-projection-section">${build_projection_html(new_rows, result.report_date)}</div>
+        <div id="ard-aging-section">${build_aging_html(page, ranges, summary_totals)}</div>
+        <div id="ard-table-section">${build_table_html(page, ranges, "All Entities", display_rows, table_totals, true, true)}</div>
     `);
     add_excel_grid(page);
     show_export_buttons(page, true);
