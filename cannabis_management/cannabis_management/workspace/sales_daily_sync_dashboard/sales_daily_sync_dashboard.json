@@ -1,8 +1,13 @@
 {
  "charts": [],
- "content": "[{\"id\": \"sdsHead001\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Sales Daily Sync Dashboard</b></span>\", \"col\": 12}}, {\"id\": \"sdsBlock01\", \"type\": \"custom_block\", \"data\": {\"custom_block_name\": \"Sales Daily Sync Dashboard Block\", \"col\": 12}}]",
+ "content": "[{\"id\":\"sdsBlock01\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Sales Daily Sync Dashboard Block\",\"col\":12}}]",
  "creation": "2026-06-25 07:57:02.248560",
- "custom_blocks": [],
+ "custom_blocks": [
+  {
+   "custom_block_name": "Sales Daily Sync Dashboard Block",
+   "label": "Sales Daily Sync Dashboard Block"
+  }
+ ],
  "docstatus": 0,
  "doctype": "Workspace",
  "for_user": "",
@@ -12,7 +17,7 @@
  "is_hidden": 0,
  "label": "Sales Daily Sync Dashboard",
  "links": [],
- "modified": "2026-06-25 12:20:54.740276",
+ "modified": "2026-06-26 10:21:35.544916",
  "modified_by": "Administrator",
  "module": "Cannabis Management",
  "name": "Sales Daily Sync Dashboard",

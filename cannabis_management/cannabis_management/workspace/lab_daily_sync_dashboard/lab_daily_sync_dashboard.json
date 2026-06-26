@@ -1,8 +1,13 @@
 {
  "charts": [],
- "content": "[{\"id\": \"labHead001\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Lab Daily Sync Dashboard</b></span>\", \"col\": 12}}, {\"id\": \"labBlock01\", \"type\": \"custom_block\", \"data\": {\"custom_block_name\": \"Lab Daily Sync Dashboard Block\", \"col\": 12}}]",
+ "content": "[{\"id\":\"labBlock01\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Lab Daily Sync Dashboard Block\",\"col\":12}}]",
  "creation": "2026-06-25 07:57:33.043459",
- "custom_blocks": [],
+ "custom_blocks": [
+  {
+   "custom_block_name": "Lab Daily Sync Dashboard Block",
+   "label": "Lab Daily Sync Dashboard Block"
+  }
+ ],
  "docstatus": 0,
  "doctype": "Workspace",
  "for_user": "",
@@ -12,7 +17,7 @@
  "is_hidden": 0,
  "label": "Lab Daily Sync Dashboard",
  "links": [],
- "modified": "2026-06-25 12:20:55.605005",
+ "modified": "2026-06-26 10:21:49.654061",
  "modified_by": "Administrator",
  "module": "Cannabis Management",
  "name": "Lab Daily Sync Dashboard",

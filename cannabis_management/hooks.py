@@ -46,7 +46,8 @@ csrf_exempt = [
 # page_js = {"page" : "public/js/file.js"}
 app_include_js = [
     "/assets/cannabis_management/js/stock_balance_custom.js",
-    "/assets/cannabis_management/js/payment_calendar.js"
+    "/assets/cannabis_management/js/payment_calendar.js",
+    "/assets/cannabis_management/js/sidebar_nav.js"
 ]
 
 
@@ -348,9 +349,12 @@ scheduler_events = {
         "0 1 * * 1-5": [
             "cannabis_management.api.daily_report.send_daily_report",
         ],
-        # Daily 8 AM PDT (15:00 UTC) reports — DN Gap + AR Report
-        "0 15 * * *": [
+        # DN Gap Report: 5 AM PDT (12:00 UTC / 3 AM Adak HDT) — daily
+        "0 3 * * *": [
             "cannabis_management.api.dn_gap_report.send_dn_gap_report",
+        ],
+        # AR Summary Report: midnight UTC (3 PM Adak HDT = 5 PM PDT) — daily
+        "0 15 * * *": [
             "cannabis_management.api.ar_report.send_ar_report",
         ],
     },
