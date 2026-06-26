@@ -66,6 +66,27 @@ def execute():
     return send_now()
 
 
+def bench_exec():
+    """
+    bench --site erp.alltechvirtual.com execute cannabis_management.api.ar_report.bench_exec
+    Prints row counts and sends the report email.
+    """
+    new_rows = _get_new_ar()
+    old_rows = _get_old_ar()
+    print(f"New AR rows : {len(new_rows)}")
+    print(f"Old AR rows : {len(old_rows)}")
+    today = nowdate()
+    html = _build_email(today, new_rows, old_rows)
+    date_label = datetime.strptime(today, "%Y-%m-%d").strftime("%A, %B %-d, %Y")
+    frappe.sendmail(
+        recipients=RECIPIENTS,
+        subject=f"[TEST] AR Report — {date_label}",
+        message=html,
+        delayed=False,
+    )
+    print("Email queued.")
+
+
 @frappe.whitelist()
 def send_now():
     """Manual trigger from desk or console."""

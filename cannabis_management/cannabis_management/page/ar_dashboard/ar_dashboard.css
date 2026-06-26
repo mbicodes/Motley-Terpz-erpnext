@@ -841,6 +841,8 @@
 	font-weight: 700;
 }
 .ard-totals-row .ard-td-sticky { background-color: #f1f5f9; }
+/* Totals row mirrored at the top of the table (above the column headings) */
+.ard-top-totals { border-top: none; border-bottom: 2px solid var(--ard-border); }
 .ard-total-cell {
 	font-size: 13px;
 	color: var(--ard-text);

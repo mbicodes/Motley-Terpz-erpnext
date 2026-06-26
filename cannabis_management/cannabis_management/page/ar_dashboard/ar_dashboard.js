@@ -737,7 +737,8 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
 		<div class="ard-table-wrap ard-newar-table">
 			<table class="ard-table">
 				<thead>
-					<tr>
+					<!--TOP_TOTALS-->
+					<tr class="ard-head-row">
 						<th class="ard-th-sticky">Customer</th>
 						<th class="ard-th-recon">Status</th>
 						${show_company ? `<th class="ard-th-entity">Entity</th>` : ``}
@@ -832,24 +833,29 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
         return `<td class="${cls} ard-total-cell">${fmt_cur(view_totals[r.key])}</td>`;
     }).join("");
 
-    html += `
-				</tbody>
-				<tfoot>
-					<tr class="ard-totals-row">
+    let grand_legacy = display_rows.reduce(function (a, r) { return a + (r.is_legacy ? (r.outstanding || 0) : 0); }, 0);
+    let totals_cells = `
 						<td class="ard-td-sticky ard-total-cell">${esc(company)}</td>
 						<td class="ard-total-cell"></td>
 						<td class="ard-total-cell" colspan="${show_company ? 5 : 4}">${total_invoices} invoice(s) &bull; ${customer_order.length} customer(s)</td>
 						<td class="ard-num ard-total-cell">${fmt_cur(view_totals.invoiced)}</td>
 						<td class="ard-num ard-total-cell">${fmt_cur(view_totals.paid)}</td>
 						<td class="ard-num ard-total-cell ard-outstanding">${fmt_cur(view_totals.outstanding)}</td>
-						${show_terms ? na_total_cells(na_grand, split_ln, show_legacy_col, display_rows.reduce(function(a,r){return a + (r.is_legacy ? (r.outstanding||0) : 0);}, 0)) : ``}
+						${show_terms ? na_total_cells(na_grand, split_ln, show_legacy_col, grand_legacy) : ``}
 						${range_total_cells}
-						<td></td>
-					</tr>
+						<td></td>`;
+
+    html += `
+				</tbody>
+				<tfoot>
+					<tr class="ard-totals-row">${totals_cells}</tr>
 				</tfoot>
 			</table>
 		</div>
 	`;
+
+    // Mirror the totals row at the very top, just above the column headings.
+    html = html.replace("<!--TOP_TOTALS-->", `<tr class="ard-totals-row ard-top-totals">${totals_cells}</tr>`);
 
     return html;
 }
@@ -884,7 +890,9 @@ function add_excel_grid(page) {
         let $table = $(this);
         if ($table.hasClass('ard-has-grid')) return;
 
-        let $headRow = $table.find('thead tr').first();
+        // Measure columns from the heading row (the top totals row uses colspans).
+        let $headRow = $table.find('thead tr.ard-head-row').first();
+        if (!$headRow.length) $headRow = $table.find('thead tr').first();
         let ncols = $headRow.children().length;
         if (!ncols) return;
 
@@ -895,11 +903,14 @@ function add_excel_grid(page) {
         }
         $table.find('thead').prepend('<tr class="ard-grid-colrow">' + strip + '</tr>');
 
-        // Row numbers: header label row = 1, then every body/footer row.
-        $headRow.prepend('<th class="ard-grid-rownum">1</th>');
-        let n = 2;
-        $table.find('tbody tr, tfoot tr').each(function () {
-            $(this).prepend('<td class="ard-grid-rownum">' + (n++) + '</td>');
+        // Number every row in order (skip the letter strip). thead rows get <th>,
+        // body/footer rows get <td>.
+        let n = 1;
+        $table.find('thead tr, tbody tr, tfoot tr').each(function () {
+            let $tr = $(this);
+            if ($tr.hasClass('ard-grid-colrow')) return;
+            let tag = $tr.closest('thead').length ? 'th' : 'td';
+            $tr.prepend('<' + tag + ' class="ard-grid-rownum">' + (n++) + '</' + tag + '>');
         });
 
         $table.addClass('ard-has-grid');
