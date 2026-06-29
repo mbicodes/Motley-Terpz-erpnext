@@ -6,8 +6,8 @@ from frappe.utils import flt, getdate, nowdate
 
 SALES_TARGET_DOCTYPE = "Sales Target"
 RECON_SNAPSHOT_DOCTYPE = "AR Recon Snapshot"
-ALL_COMPANIES = "All Companies"
-TMM_GROUP_COMPANIES = ["Motley Terpz", "TSBC Ranch"]
+ALL_COMPANIES = "Master Touch Manufacturing"
+TMM_GROUP_COMPANIES = ["Master Touch Manufacturing"]
 LEGACY_AR_CUTOFF = "2026-06-01"
 
 
