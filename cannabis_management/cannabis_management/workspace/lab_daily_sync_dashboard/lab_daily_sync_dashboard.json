@@ -17,7 +17,7 @@
  "is_hidden": 0,
  "label": "Lab Daily Sync Dashboard",
  "links": [],
- "modified": "2026-06-26 10:21:49.654061",
+ "modified": "2026-06-29 08:57:37.064601",
  "modified_by": "Administrator",
  "module": "Cannabis Management",
  "name": "Lab Daily Sync Dashboard",
@@ -26,7 +26,11 @@
  "parent_page": "",
  "public": 1,
  "quick_lists": [],
- "roles": [],
+ "roles": [
+  {
+   "role": "Workspace:Lab Daily Sync Dashboard"
+  }
+ ],
  "sequence_id": 55.0,
  "shortcuts": [],
  "title": "Lab Daily Sync Dashboard"
