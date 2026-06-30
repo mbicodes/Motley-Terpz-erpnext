@@ -1,0 +1,44 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-06-29 11:25:29.066610",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "expense_head"
+ ],
+ "fields": [
+  {
+   "fieldname": "expense_head",
+   "fieldtype": "Table",
+   "label": "Expense Head",
+   "options": "Expense Head Items"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-06-29 11:37:30.067180",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Expense Head Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

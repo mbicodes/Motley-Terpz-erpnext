@@ -1,0 +1,48 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-06-29 11:26:15.810594",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "sales_order_type",
+  "column_break_ocpa",
+  "expense_account"
+ ],
+ "fields": [
+  {
+   "fieldname": "sales_order_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Sales Order Type",
+   "options": "\nSales\nSamples\nEvents\nTesting\nInfluencers\nConsignment\nTolling"
+  },
+  {
+   "fieldname": "column_break_ocpa",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "expense_account",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Expense Account",
+   "options": "Account"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-06-30 05:31:25.957735",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Expense Head Items",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

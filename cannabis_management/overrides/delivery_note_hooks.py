@@ -160,3 +160,35 @@ def backfill_delivery_note_created():
     )
     print(msg)
     return msg
+
+
+def set_expense_head(doc, method):
+
+    if not doc.items:
+        return
+
+    sales_order = doc.items[0].against_sales_order
+
+    if not sales_order:
+        return
+
+    sales_order_type = frappe.db.get_value(
+        "Sales Order",
+        sales_order,
+        "custom_sales_order_type"
+    )
+
+    settings = frappe.get_single("Expense Head Settings")
+
+    expense_account = None
+
+    for row in settings.expense_head:
+        if row.sales_order_type == sales_order_type:
+            expense_account = row.expense_account
+            break
+
+    if not expense_account:
+        return
+
+    for item in doc.items:
+        item.expense_account = expense_account

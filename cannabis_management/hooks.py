@@ -275,6 +275,7 @@ doc_events = {
             "cannabis_management.overrides.delivery_note_hooks.update_sales_invoice_delivery_status",
             "cannabis_management.overrides.delivery_note_hooks.update_sales_order_delivery_status",
         ],
+        "validate": "cannabis_management.overrides.delivery_note_hooks.set_expense_head",
     },
     "Timesheet": {
         "after_insert": "cannabis_management.overrides.timesheet_hooks.auto_submit_timesheet",
