@@ -1,0 +1,13 @@
+{
+ "creation": "2026-07-01 12:40:53.530712",
+ "docstatus": 0,
+ "doctype": "Dashboard Chart Source",
+ "idx": 0,
+ "modified": "2026-07-01 12:43:08.049659",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Revenue By Company Monthly",
+ "owner": "Administrator",
+ "source_name": "Revenue By Company Monthly",
+ "timeseries": 0
+}
