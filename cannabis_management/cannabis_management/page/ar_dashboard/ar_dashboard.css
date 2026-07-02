@@ -916,3 +916,142 @@
 	.ard-filter-action { margin-left: 0; width: 100%; }
 	.ard-btn-primary   { width: 100%; }
 }
+
+/* ── Extended reconciliation status colours ────────────────── */
+.ard-recon-trouble {
+	background: #fef3c7;
+	color: #92400e;
+	border-color: #d97706;
+}
+.ard-recon-dispute {
+	background: #ede9fe;
+	color: #5b21b6;
+	border-color: #7c3aed;
+}
+.ard-recon-adjustment {
+	background: #dbeafe;
+	color: #1e40af;
+	border-color: #3b82f6;
+}
+.ard-recon-select.ard-recon-trouble,
+.ard-recon-readonly.ard-recon-trouble {
+	background: #fef3c7;
+	color: #92400e;
+	border-color: #d97706;
+}
+.ard-recon-select.ard-recon-dispute,
+.ard-recon-readonly.ard-recon-dispute {
+	background: #ede9fe;
+	color: #5b21b6;
+	border-color: #7c3aed;
+}
+.ard-recon-select.ard-recon-adjustment,
+.ard-recon-readonly.ard-recon-adjustment {
+	background: #dbeafe;
+	color: #1e40af;
+	border-color: #3b82f6;
+}
+
+/* ── Export dropdown ──────────────────────────────────────────── */
+.ard-export-wrap {
+	position: relative;
+	display: inline-block;
+}
+.ard-export-menu {
+	position: absolute;
+	right: 0;
+	top: calc(100% + 4px);
+	background: var(--ard-surface);
+	border: 1px solid var(--ard-border);
+	border-radius: var(--ard-radius-sm);
+	box-shadow: var(--ard-shadow-md);
+	z-index: 200;
+	min-width: 160px;
+	overflow: hidden;
+}
+.ard-export-menu button {
+	display: block;
+	width: 100%;
+	padding: 8px 14px;
+	text-align: left;
+	background: none;
+	border: none;
+	font-size: 12px;
+	color: var(--ard-text);
+	cursor: pointer;
+	white-space: nowrap;
+}
+.ard-export-menu button:hover {
+	background: var(--ard-bg);
+}
+
+/* ── POC column ───────────────────────────────────────────────── */
+.ard-th-poc {
+	min-width: 80px;
+	text-align: center;
+}
+.ard-td-poc {
+	font-size: 11px;
+	font-weight: 600;
+	color: var(--ard-text);
+	text-align: center;
+	padding: 4px 6px !important;
+}
+.ard-poc-select {
+	font-size: 11px;
+	font-weight: 600;
+	padding: 2px 4px;
+	border-radius: 4px;
+	border: 1px solid var(--ard-border);
+	background: var(--ard-surface);
+	color: var(--ard-text);
+	cursor: pointer;
+	max-width: 90px;
+}
+.ard-poc-readonly {
+	font-size: 11px;
+	font-weight: 600;
+	color: var(--ard-muted);
+}
+
+/* ── New AR Available button ──────────────────────────────────── */
+.ard-th-new-ar {
+	min-width: 80px;
+	text-align: center;
+}
+.ard-td-new-ar {
+	text-align: center;
+	padding: 4px 6px !important;
+}
+.ard-new-ar-btn {
+	padding: 3px 9px;
+	border-radius: 12px;
+	font-size: 10px;
+	font-weight: 700;
+	letter-spacing: .3px;
+	border: 1px solid var(--ard-border);
+	background: #f3f4f6;
+	color: var(--ard-muted);
+	cursor: pointer;
+	transition: background .15s, color .15s, border-color .15s;
+	white-space: nowrap;
+	display: inline-block;
+}
+.ard-new-ar-btn:not(span):hover {
+	background: var(--ard-border);
+}
+.ard-new-ar-btn.ard-new-ar-active {
+	background: var(--ard-current-lt);
+	color: var(--ard-current);
+	border-color: var(--ard-current);
+}
+
+/* ── Detail column hide/show ─────────────────────────────────────────── */
+/* When ard-detail-hidden is on the data area, hide all D-K columns      */
+/* (ard-detail-col cells) and their matching letter strip cells.          */
+.ard-detail-hidden .ard-detail-col,
+.ard-detail-hidden .ard-detail-letter { display: none; }
+
+/* Invoice count in sticky cell: hidden by default, shown when compact   */
+.ard-invoice-count-compact { display: none; }
+.ard-detail-hidden .ard-invoice-count-compact { display: block; }

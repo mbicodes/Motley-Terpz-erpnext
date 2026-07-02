@@ -16,6 +16,7 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
     page._ard_ar_mode     = "all"; // default mode on open: "all" (Legacy + New combined)
     page._ard_all_mode    = false;    // true while showing the consolidated all-entities view
     page._ard_all_result  = null;     // merged result ({rows tagged with .company}) for re-render
+    page._ard_cols_hidden = false;
 
     page.main.html(`
 		<div class="ard-container">
@@ -63,15 +64,25 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
 					<label class="ard-label">Status</label>
 					<select id="ard-recon-filter" class="ard-select">
 						<option value="">All</option>
-						<option value="Reconciled">Reconciled</option>
+						<option value="Reconciled collecting money">Reconciled collecting money</option>
+						<option value="Reconciled trouble collecting money">Reconciled trouble collecting money</option>
 						<option value="Unreconciled">Unreconciled</option>
+						<option value="Dispute">Dispute</option>
+						<option value="Adjustment">Adjustment</option>
 					</select>
 				</div>
 				<div class="ard-filter-actions">
-					<button id="ard-copy-all-btn"     class="ard-btn-secondary" style="display:none;">&#128203; Copy All</button>
-					<button id="ard-pdf-btn"          class="ard-btn-secondary" style="display:none;">&#128196; Export PDF</button>
-					<button id="ard-export-btn"       class="ard-btn-secondary" style="display:none;">&#8595; Export Excel</button>
-					<button id="ard-motley-btn"       class="ard-btn-danger"    style="display:none;">Remove Motley</button>
+					<button id="ard-hide-cols-btn" class="ard-btn-secondary" style="display:none;">&#9679; Hide Columns D&ndash;K</button>
+					<div class="ard-export-wrap" id="ard-export-wrap" style="display:none;">
+						<button id="ard-export-dd-btn" class="ard-btn-secondary">+ Export &#9660;</button>
+						<div class="ard-export-menu" id="ard-export-menu" style="display:none;">
+							<button id="ard-copy-all-btn">&#128203; Copy All</button>
+							<button id="ard-pdf-btn">&#128196; Export PDF</button>
+							<button id="ard-export-btn">&#8595; Export Excel (This View)</button>
+							<button id="ard-export-all-btn">&#8595; Export Excel (Whole Dashboard)</button>
+						</div>
+					</div>
+					<button id="ard-motley-btn" class="ard-btn-danger" style="display:none;">Remove Motley</button>
 				</div>
 			</div>
 
@@ -141,7 +152,11 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
     });
 
     page.main.find('#ard-export-btn').on('click', function () {
-        export_excel(page);
+        export_excel(page, false);
+    });
+
+    page.main.find('#ard-export-all-btn').on('click', function () {
+        export_excel(page, true);
     });
 
     page.main.find('#ard-copy-all-btn').on('click', function () {
@@ -185,6 +200,47 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
     // Inline recon dropdown change (event delegation for dynamic rows)
     page.main.on('change', '.ard-recon-select', function () {
         handle_recon_change(page, $(this));
+    });
+
+    // Inline POC dropdown change
+    page.main.on('change', '.ard-poc-select', function () {
+        handle_poc_change(page, $(this));
+    });
+
+    // Hide / show detail columns (D–K toggle) — pure CSS, no re-render
+    page.main.find('#ard-hide-cols-btn').on('click', function () {
+        page._ard_cols_hidden = !page._ard_cols_hidden;
+        let $btn = page.main.find('#ard-hide-cols-btn');
+        if (page._ard_cols_hidden) {
+            $btn.html('Show Columns D&ndash;K').removeClass('ard-btn-active');
+            page.main.find('#ard-data-area').addClass('ard-detail-hidden');
+        } else {
+            $btn.html('&#9679; Hide Columns D&ndash;K').addClass('ard-btn-active');
+            page.main.find('#ard-data-area').removeClass('ard-detail-hidden');
+        }
+    });
+
+    // Export dropdown toggle
+    page.main.on('click', '#ard-export-dd-btn', function (e) {
+        e.stopPropagation();
+        page.main.find('#ard-export-menu').toggle();
+    });
+
+    // Close export dropdown when clicking outside it
+    page.main.on('click', function (e) {
+        if (!$(e.target).closest('#ard-export-wrap').length) {
+            page.main.find('#ard-export-menu').hide();
+        }
+    });
+
+    // Close dropdown after any export action
+    page.main.on('click', '#ard-copy-all-btn, #ard-pdf-btn, #ard-export-btn, #ard-export-all-btn', function () {
+        page.main.find('#ard-export-menu').hide();
+    });
+
+    // New AR Available toggle
+    page.main.on('click', '.ard-new-ar-btn', function () {
+        handle_new_ar_click(page, $(this));
     });
 
     // Expand / collapse invoice rows per customer
@@ -284,13 +340,16 @@ function handle_recon_change(page, $select) {
                 frappe.show_alert({ message: __("Reconciliation status updated"), indicator: 'green' }, 3);
                 $select.attr('data-current', new_status);
 
-                if (page._ard_result && page._ard_result.rows) {
-                    page._ard_result.rows.forEach(function (row) {
+                let update_rows = function (rows) {
+                    (rows || []).forEach(function (row) {
                         if (row.party === party) row.reconciliation_status = new_status;
                     });
-                }
+                };
+                if (page._ard_result)     update_rows(page._ard_result.rows);
+                if (page._ard_all_result) update_rows(page._ard_all_result.rows);
 
-                render_view(page);
+                if (page._ard_all_mode) render_all_entities(page);
+                else render_view(page);
             }
         },
         error: function () {
@@ -302,11 +361,95 @@ function handle_recon_change(page, $select) {
     });
 }
 
+function recon_cls_for(status) {
+    if (status === 'Reconciled collecting money') return 'ard-recon-reconciled';
+    if (status === 'Reconciled trouble collecting money') return 'ard-recon-trouble';
+    if (status === 'Unreconciled') return 'ard-recon-unreconciled';
+    if (status === 'Dispute') return 'ard-recon-dispute';
+    if (status === 'Adjustment') return 'ard-recon-adjustment';
+    return 'ard-recon-empty';
+}
+
 function apply_recon_select_class($select, status) {
-    $select.removeClass('ard-recon-reconciled ard-recon-unreconciled ard-recon-empty');
-    if (status === 'Reconciled') $select.addClass('ard-recon-reconciled');
-    else if (status === 'Unreconciled') $select.addClass('ard-recon-unreconciled');
-    else $select.addClass('ard-recon-empty');
+    $select.removeClass('ard-recon-reconciled ard-recon-trouble ard-recon-unreconciled ard-recon-dispute ard-recon-adjustment ard-recon-empty');
+    $select.addClass(recon_cls_for(status));
+}
+
+// ─── New AR Available Toggle ──────────────────────────────────────────────────
+
+function handle_new_ar_click(page, $btn) {
+    if (!page._ard_can_edit) {
+        frappe.show_alert({ message: __("Account Manager role required to change New AR status."), indicator: 'red' }, 5);
+        return;
+    }
+
+    let party   = $btn.data('party');
+    let new_val = $btn.hasClass('ard-new-ar-active') ? 0 : 1;
+
+    $btn.prop('disabled', true);
+
+    frappe.call({
+        method: "cannabis_management.cannabis_management.page.ar_dashboard.ar_dashboard.update_new_ar_available",
+        args: { party: party, value: new_val },
+        callback: function (r) {
+            $btn.prop('disabled', false);
+            if (r.message) {
+                if (new_val) {
+                    $btn.addClass('ard-new-ar-active').html('&#10003; New AR');
+                } else {
+                    $btn.removeClass('ard-new-ar-active').text('New AR');
+                }
+                let update = function (rows) {
+                    (rows || []).forEach(function (row) {
+                        if (row.party === party) row.new_ar_available = !!new_val;
+                    });
+                };
+                if (page._ard_result)     update(page._ard_result.rows);
+                if (page._ard_all_result) update(page._ard_all_result.rows);
+                frappe.show_alert({ message: __("New AR status updated"), indicator: 'green' }, 3);
+            }
+        },
+        error: function () {
+            $btn.prop('disabled', false);
+            frappe.show_alert({ message: __("Failed to update New AR status"), indicator: 'red' }, 5);
+        }
+    });
+}
+
+// ─── POC Update ───────────────────────────────────────────────────────────────
+
+function handle_poc_change(page, $select) {
+    if (!page._ard_can_edit) {
+        $select.val($select.attr('data-current') || "");
+        return;
+    }
+    let party   = $select.attr('data-party');
+    let new_val = $select.val();
+    let old_val = $select.attr('data-current') || "";
+    $select.prop('disabled', true);
+    frappe.call({
+        method: "cannabis_management.cannabis_management.page.ar_dashboard.ar_dashboard.update_poc",
+        args: { party: party, value: new_val },
+        callback: function (r) {
+            $select.prop('disabled', false);
+            if (r.message) {
+                frappe.show_alert({ message: __("POC updated"), indicator: 'green' }, 3);
+                $select.attr('data-current', new_val);
+                let update = function (rows) {
+                    (rows || []).forEach(function (row) {
+                        if (row.party === party) row.poc = new_val;
+                    });
+                };
+                if (page._ard_result)     update(page._ard_result.rows);
+                if (page._ard_all_result) update(page._ard_all_result.rows);
+            }
+        },
+        error: function () {
+            $select.prop('disabled', false);
+            $select.val(old_val);
+            frappe.show_alert({ message: __("Failed to update POC"), indicator: 'red' }, 5);
+        }
+    });
 }
 
 // ─── Data Loading ─────────────────────────────────────────────────────────────
@@ -454,6 +597,7 @@ function render_view(page) {
     render_aging_bar(page, ranges, summary_totals);
     render_table(page, display_rows, table_totals);
     add_excel_grid(page);
+    page.main.find('#ard-data-area').toggleClass('ard-detail-hidden', !!page._ard_cols_hidden);
     show_export_buttons(page, display_rows.length > 0);
 }
 
@@ -594,36 +738,49 @@ function render_aging_bar(page, ranges, view_totals) {
     page.main.find('#ard-aging-section').html(build_aging_html(page, ranges, view_totals));
 }
 
-function build_recon_cell(page, party, status, readonly) {
-    if (page._ard_can_edit && !readonly) {
-        let select_cls = "ard-recon-select";
-        if (status === "Reconciled") select_cls += " ard-recon-reconciled";
-        else if (status === "Unreconciled") select_cls += " ard-recon-unreconciled";
-        else select_cls += " ard-recon-empty";
+var RECON_OPTIONS = [
+    { value: "",                                    label: "—" },
+    { value: "Reconciled collecting money",         label: "Reconciled collecting money" },
+    { value: "Reconciled trouble collecting money", label: "Reconciled trouble collecting money" },
+    { value: "Unreconciled",                        label: "Unreconciled" },
+    { value: "Dispute",                             label: "Dispute" },
+    { value: "Adjustment",                          label: "Adjustment" },
+];
 
+function build_recon_cell(page, party, status, readonly) {
+    if (page._ard_can_edit) {
+        let select_cls = "ard-recon-select " + recon_cls_for(status);
+        let opts = RECON_OPTIONS.map(function (o) {
+            return `<option value="${esc_attr(o.value)}" ${status === o.value ? "selected" : ""}>${esc(o.label)}</option>`;
+        }).join("");
         return `
 			<select class="${select_cls}"
 				data-party="${esc_attr(party)}"
 				data-current="${esc_attr(status)}">
-				<option value=""             ${status === "" ? "selected" : ""}>—</option>
-				<option value="Reconciled"   ${status === "Reconciled" ? "selected" : ""}>Reconciled</option>
-				<option value="Unreconciled" ${status === "Unreconciled" ? "selected" : ""}>Unreconciled</option>
+				${opts}
 			</select>
 		`;
     }
 
-    let badge_cls = "ard-recon-readonly";
-    let label = "—";
-    if (status === "Reconciled") {
-        badge_cls += " ard-recon-reconciled";
-        label = "Reconciled";
-    } else if (status === "Unreconciled") {
-        badge_cls += " ard-recon-unreconciled";
-        label = "Unreconciled";
-    } else {
-        badge_cls += " ard-recon-empty";
+    let badge_cls = "ard-recon-readonly " + recon_cls_for(status);
+    let label = status || "—";
+    return `<span class="${badge_cls}" title="Read-only — Account Manager role required to edit">${esc(label)}</span>`;
+}
+
+var POC_OPTIONS = [
+    { value: "",        label: "—" },
+    { value: "Company", label: "Company" },
+    { value: "Nikki",   label: "Nikki" },
+];
+
+function build_poc_cell(page, party, poc, readonly) {
+    if (page._ard_can_edit) {
+        let opts = POC_OPTIONS.map(function (o) {
+            return `<option value="${esc_attr(o.value)}" ${poc === o.value ? "selected" : ""}>${esc(o.label)}</option>`;
+        }).join("");
+        return `<select class="ard-poc-select" data-party="${esc_attr(party)}" data-current="${esc_attr(poc)}">${opts}</select>`;
     }
-    return `<span class="${badge_cls}" title="Read-only — Account Manager role required to edit">${label}</span>`;
+    return `<span class="ard-poc-readonly">${esc(poc || "—")}</span>`;
 }
 
 // Resolve the active "as of" date for New-AR term bucketing.
@@ -719,6 +876,8 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
                 name: row.customer_name || row.party,
                 party: row.party,
                 recon_status: row.reconciliation_status || "",
+                poc: row.poc || "",
+                new_ar_available: !!row.new_ar_available,
                 rows: []
             };
             customer_order.push(key);
@@ -740,18 +899,13 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
 					<!--TOP_TOTALS-->
 					<tr class="ard-head-row">
 						<th class="ard-th-sticky">Customer</th>
-						<th class="ard-th-recon">Status</th>
-						${show_company ? `<th class="ard-th-entity">Entity</th>` : ``}
-						<th>Invoice No.</th>
-						<th>Type</th>
-						<th>Posting Date</th>
-						<th>Due Date</th>
-						<th class="ard-th-num">Invoiced</th>
-						<th class="ard-th-num">Paid</th>
-						<th class="ard-th-num">Outstanding</th>
+						<th class="ard-th-recon">Recon Status</th>
+						<th class="ard-th-poc">POC</th>
+						${show_company ? '<th class="ard-th-entity ard-detail-col">Entity</th>' : ''}<th class="ard-detail-col">Invoice No.</th><th class="ard-detail-col">Type</th><th class="ard-detail-col">Posting Date</th><th class="ard-detail-col">Due Date</th><th class="ard-th-num ard-detail-col">Invoiced</th><th class="ard-th-num ard-detail-col">Paid</th><th class="ard-th-num ard-detail-col">Outstanding</th>
 						${show_terms ? na_header_cells(split_ln, show_legacy_col) : ``}
 						${range_headers}
 						<th class="ard-th-status">Status</th>
+						<th class="ard-th-new-ar">New AR</th>
 					</tr>
 				</thead>
 				<tbody>
@@ -780,21 +934,27 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
         }).join("");
 
         let recon_cell = build_recon_cell(page, group.party, group.recon_status, readonly);
+        let poc_cell   = build_poc_cell(page, group.party, group.poc, readonly);
+
+        let new_ar_active = group.new_ar_available;
+        let new_ar_cell = page._ard_can_edit
+            ? `<button class="ard-new-ar-btn${new_ar_active ? ' ard-new-ar-active' : ''}" data-party="${esc_attr(party)}">${new_ar_active ? '&#10003; New AR' : 'New AR'}</button>`
+            : `<span class="ard-new-ar-btn${new_ar_active ? ' ard-new-ar-active' : ''}">${new_ar_active ? '&#10003; New AR' : 'New AR'}</span>`;
 
         html += `
 			<tr class="ard-customer-group-row" data-party="${esc_attr(party)}">
 				<td class="ard-td-sticky">
 					<button class="ard-expand-btn" data-party="${esc_attr(party)}" title="Expand invoices">&#9654;</button><span class="ard-customer-group-name">${esc(group.name)}</span><button class="ard-copy-btn" data-party="${esc_attr(party)}" title="Copy this customer's summary">&#128203;</button>
 					${group.name !== group.party ? `<div class="ard-customer-group-id">${esc(group.party)}</div>` : ""}
+					<div class="ard-invoice-count-compact" style="color:var(--ard-muted);font-size:11px;margin-top:2px;">${group.rows.length} invoice(s)</div>
 				</td>
 				<td class="ard-td-recon">${recon_cell}</td>
-				<td colspan="${show_company ? 5 : 4}" style="color:var(--ard-muted);font-size:12px;">${group.rows.length} invoice(s)</td>
-				<td class="ard-num ard-total-cell">${fmt_cur(sub.invoiced)}</td>
-				<td class="ard-num ard-total-cell">${fmt_cur(sub.paid)}</td>
-				<td class="ard-num ard-total-cell ard-outstanding">${fmt_cur(sub.outstanding)}</td>
+				<td class="ard-td-poc">${poc_cell}</td>
+				<td colspan="${show_company ? 5 : 4}" class="ard-detail-col" style="color:var(--ard-muted);font-size:12px;">${group.rows.length} invoice(s)</td><td class="ard-num ard-total-cell ard-detail-col">${fmt_cur(sub.invoiced)}</td><td class="ard-num ard-total-cell ard-detail-col">${fmt_cur(sub.paid)}</td><td class="ard-num ard-total-cell ard-outstanding ard-detail-col">${fmt_cur(sub.outstanding)}</td>
 				${show_terms ? na_total_cells(na_sum(group.rows, na_anchor), split_ln, show_legacy_col, group_legacy) : ``}
 				${sub_range_cells}
 				<td></td>
+				<td class="ard-td-new-ar">${new_ar_cell}</td>
 			</tr>
 		`;
 
@@ -812,17 +972,12 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
 						<a href="/app/sales-invoice/${esc(row.voucher_no)}" target="_blank" class="ard-link">${esc(row.voucher_no)}</a>
 					</td>
 					<td></td>
-					${show_company ? `<td class="ard-entity-cell">${esc(row.company || "")}</td>` : ``}
 					<td></td>
-					<td class="ard-type">${esc(row.voucher_type)}</td>
-					<td class="ard-date">${fmt_date(row.posting_date)}</td>
-					<td class="ard-date">${fmt_date(row.due_date)}</td>
-					<td class="ard-num">${fmt_cur(row.invoiced)}</td>
-					<td class="ard-num">${fmt_cur(row.paid)}</td>
-					<td class="ard-num ard-outstanding">${fmt_cur(row.outstanding)}</td>
+					${show_company ? `<td class="ard-entity-cell ard-detail-col">${esc(row.company || "")}</td>` : ``}<td class="ard-detail-col"></td><td class="ard-type ard-detail-col">${esc(row.voucher_type)}</td><td class="ard-date ard-detail-col">${fmt_date(row.posting_date)}</td><td class="ard-date ard-detail-col">${fmt_date(row.due_date)}</td><td class="ard-num ard-detail-col">${fmt_cur(row.invoiced)}</td><td class="ard-num ard-detail-col">${fmt_cur(row.paid)}</td><td class="ard-num ard-outstanding ard-detail-col">${fmt_cur(row.outstanding)}</td>
 					${show_terms ? na_invoice_cells(row, na_anchor, split_ln, show_legacy_col) : ``}
 					${range_cells}
 					<td style="text-align:center;"><span class="ard-badge ${status.cls}">${status.label}</span></td>
+					<td></td>
 				</tr>
 			`;
         });
@@ -835,14 +990,13 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
 
     let grand_legacy = display_rows.reduce(function (a, r) { return a + (r.is_legacy ? (r.outstanding || 0) : 0); }, 0);
     let totals_cells = `
-						<td class="ard-td-sticky ard-total-cell">${esc(company)}</td>
+						<td class="ard-td-sticky ard-total-cell">${esc(company)}<div class="ard-invoice-count-compact" style="color:var(--ard-muted);font-size:11px;margin-top:2px;">${total_invoices} inv &bull; ${customer_order.length} cust</div></td>
 						<td class="ard-total-cell"></td>
-						<td class="ard-total-cell" colspan="${show_company ? 5 : 4}">${total_invoices} invoice(s) &bull; ${customer_order.length} customer(s)</td>
-						<td class="ard-num ard-total-cell">${fmt_cur(view_totals.invoiced)}</td>
-						<td class="ard-num ard-total-cell">${fmt_cur(view_totals.paid)}</td>
-						<td class="ard-num ard-total-cell ard-outstanding">${fmt_cur(view_totals.outstanding)}</td>
+						<td class="ard-total-cell"></td>
+						<td class="ard-total-cell ard-detail-col" colspan="${show_company ? 5 : 4}">${total_invoices} invoice(s) &bull; ${customer_order.length} customer(s)</td><td class="ard-num ard-total-cell ard-detail-col">${fmt_cur(view_totals.invoiced)}</td><td class="ard-num ard-total-cell ard-detail-col">${fmt_cur(view_totals.paid)}</td><td class="ard-num ard-total-cell ard-outstanding ard-detail-col">${fmt_cur(view_totals.outstanding)}</td>
 						${show_terms ? na_total_cells(na_grand, split_ln, show_legacy_col, grand_legacy) : ``}
 						${range_total_cells}
+						<td></td>
 						<td></td>`;
 
     html += `
@@ -897,10 +1051,13 @@ function add_excel_grid(page) {
         if (!ncols) return;
 
         // Top strip: corner + one letter per column.
+        // Mark letter cells for detail columns so they hide/show together.
+        let $ths = $headRow.children();
         let strip = '<th class="ard-grid-corner"></th>';
-        for (let i = 0; i < ncols; i++) {
-            strip += '<th class="ard-grid-col">' + col_letter(i) + '</th>';
-        }
+        $ths.each(function (i) {
+            let extra = $(this).hasClass('ard-detail-col') ? ' ard-detail-letter' : '';
+            strip += '<th class="ard-grid-col' + extra + '">' + col_letter(i) + '</th>';
+        });
         $table.find('thead').prepend('<tr class="ard-grid-colrow">' + strip + '</tr>');
 
         // Number every row in order (skip the letter strip). thead rows get <th>,
@@ -1044,6 +1201,7 @@ function render_all_entities(page) {
         <div id="ard-table-section">${build_table_html(page, ranges, "All Entities", display_rows, table_totals, true, true)}</div>
     `);
     add_excel_grid(page);
+    page.main.find('#ard-data-area').toggleClass('ard-detail-hidden', !!page._ard_cols_hidden);
     show_export_buttons(page, true);
 }
 
@@ -1263,74 +1421,100 @@ function export_pdf(page) {
     w.focus();
 }
 
-// Show/hide the Copy All / PDF / Excel buttons based on whether data is on screen.
+// Show/hide the export wrap and hide-cols button based on whether data is on screen.
 function show_export_buttons(page, has_rows) {
-    let $btns = page.main.find('#ard-copy-all-btn, #ard-pdf-btn, #ard-export-btn');
-    if (has_rows) $btns.show(); else $btns.hide();
+    page.main.find('#ard-export-wrap, #ard-hide-cols-btn').toggle(!!has_rows);
+    if (!has_rows) page.main.find('#ard-export-menu').hide();
 }
 
 // ─── Excel Export ─────────────────────────────────────────────────────────────
+// Format: Customer | Reconciliation Status | Legacy AR Outstanding | New AR Outstanding | Total
+// One summary row per customer. Backend generates a real .xlsx via openpyxl.
 
-function export_excel(page) {
-    let res = current_result(page);
-    if (!res) return;
-    let { ranges, company } = res;
+function export_excel(page, use_all) {
+    let res, display_rows, company;
 
-    let display_rows = current_display_rows(page);
+    if (use_all) {
+        if (!page._ard_all_result) {
+            frappe.show_alert({ message: __("Load the All Entities view first to export the whole dashboard"), indicator: "orange" }, 5);
+            return;
+        }
+        res = page._ard_all_result;
+        company = "All_Entities";
+        display_rows = filter_rows(page, res, page._ard_excl_motley);
+    } else {
+        res = current_result(page);
+        if (!res) return;
+        company = res.company;
+        display_rows = current_display_rows(page);
+    }
 
-    display_rows = display_rows.slice().sort(function (a, b) {
-        let na = (a.customer_name || a.party || "").toLowerCase();
-        let nb = (b.customer_name || b.party || "").toLowerCase();
-        if (na < nb) return -1;
-        if (na > nb) return 1;
-        return (a.posting_date || "").localeCompare(b.posting_date || "");
-    });
+    if (!display_rows.length) {
+        frappe.show_alert({ message: __("No rows to export"), indicator: "orange" }, 3);
+        return;
+    }
 
-    let range_labels = ranges.map(function (r) { return r.label + " Days"; });
-    let headers = ["Customer", "Party ID", "Reconciliation", "Invoice No.", "Type", "Posting Date", "Due Date",
-        "Invoiced", "Paid", "Outstanding"].concat(range_labels).concat(["Status"]);
-
-    let csv_rows = [headers];
+    // Group by customer — one summary row per party
+    let groups = {}, order = [];
     display_rows.forEach(function (row) {
-        let status = get_row_status(row, ranges);
-        let range_vals = ranges.map(function (r) { return row[r.key] || 0; });
-        csv_rows.push([
-            row.customer_name || row.party,
-            row.party,
-            row.reconciliation_status || "",
-            row.voucher_no,
-            row.voucher_type,
-            row.posting_date || "",
-            row.due_date || "",
-            row.invoiced || 0,
-            row.paid || 0,
-            row.outstanding || 0,
-        ].concat(range_vals).concat([status.label]));
+        let key = row.party;
+        if (!groups[key]) {
+            groups[key] = {
+                name: row.customer_name || row.party,
+                recon_status: row.reconciliation_status || "",
+                poc: row.poc || "",
+                legacy_ar: 0,
+                new_ar: 0,
+            };
+            order.push(key);
+        }
+        let g = groups[key];
+        if (row.is_legacy || (row.posting_date || "") < NEW_AR_START) {
+            g.legacy_ar += row.outstanding || 0;
+        } else {
+            g.new_ar += row.outstanding || 0;
+        }
     });
 
-    let csv = csv_rows.map(function (cols) {
-        return cols.map(function (v) {
-            let s = String(v == null ? "" : v);
-            if (s.indexOf(",") !== -1 || s.indexOf('"') !== -1 || s.indexOf("\n") !== -1) {
-                s = '"' + s.replace(/"/g, '""') + '"';
-            }
-            return s;
-        }).join(",");
-    }).join("\r\n");
+    order.sort(function (a, b) {
+        return (groups[a].name || "").toLowerCase().localeCompare((groups[b].name || "").toLowerCase());
+    });
 
-    let date_str  = page.main.find('#ard-report-date').val() || frappe.datetime.get_today();
-    let mode_tag  = page._ard_ar_mode === 'legacy' ? 'Legacy' : (page._ard_ar_mode === 'new' ? 'New' : 'All');
-    let filename  = "AR_" + mode_tag + "_" + company.replace(/\s+/g, "_") + "_" + date_str + ".csv";
+    let xrows = [["Customer", "Reconciliation Status", "POC", "Legacy AR Outstanding", "New AR Outstanding", "Total"]];
+    let total_legacy = 0, total_new = 0;
 
-    let blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
-    let url = URL.createObjectURL(blob);
-    let a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    order.forEach(function (party) {
+        let g = groups[party];
+        total_legacy += g.legacy_ar;
+        total_new    += g.new_ar;
+        xrows.push([g.name, g.recon_status, g.poc, g.legacy_ar || 0, g.new_ar || 0, (g.legacy_ar + g.new_ar)]);
+    });
+    xrows.push(["Total", "", "", total_legacy, total_new, total_legacy + total_new]);
+
+    let date_str = page.main.find('#ard-report-date').val() || frappe.datetime.get_today();
+    let mode_tag = page._ard_ar_mode === 'legacy' ? 'Legacy' : (page._ard_ar_mode === 'new' ? 'New' : 'All');
+    let filename = "AR_Summary_" + mode_tag + "_" + company.replace(/\s+/g, "_") + "_" + date_str + ".xlsx";
+
+    frappe.call({
+        method: "cannabis_management.cannabis_management.page.ar_dashboard.ar_dashboard.export_ar_excel_data",
+        args: { rows_json: JSON.stringify(xrows), filename: filename },
+        callback: function (r) {
+            if (!r.message) return;
+            let bytes = atob(r.message.data);
+            let ab = new ArrayBuffer(bytes.length);
+            let ia = new Uint8Array(ab);
+            for (let i = 0; i < bytes.length; i++) ia[i] = bytes.charCodeAt(i);
+            let blob = new Blob([ab], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+            let url = URL.createObjectURL(blob);
+            let a = document.createElement("a");
+            a.href = url;
+            a.download = r.message.filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+    });
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

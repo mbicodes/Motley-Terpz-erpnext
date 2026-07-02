@@ -1,0 +1,390 @@
+<title>Motley Terpz CRM — Testing Guide</title>
+<style>
+  :root{
+    --paper:#F4F6F3; --card:#FFFFFF; --ink:#17211C; --muted:#64726B;
+    --line:#E3E8E3; --line-soft:#EEF2EE;
+    --accent:#1F6B4A; --accent-soft:#E7F1EB; --accent-ink:#134A33;
+    --pass:#2E7D50; --pass-bg:#E6F2EA;
+    --wait:#B9770E; --wait-bg:#FBF0DC;
+    --stop:#C0392B; --stop-bg:#FBE7E4;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;}
+  .wrap{
+    background:var(--paper); color:var(--ink); font-family:var(--sans);
+    font-size:16px; line-height:1.62; -webkit-font-smoothing:antialiased;
+    padding:40px 20px 80px;
+  }
+  .doc{max-width:840px; margin:0 auto; display:flex; flex-direction:column; gap:34px;}
+
+  /* Header */
+  .head{display:flex; flex-direction:column; gap:14px; border-bottom:2px solid var(--ink); padding-bottom:26px;}
+  .eyebrow{font-size:12px; font-weight:700; letter-spacing:.16em; text-transform:uppercase; color:var(--accent);}
+  h1{font-size:34px; line-height:1.08; margin:0; font-weight:800; letter-spacing:-.02em; text-wrap:balance;}
+  .lede{font-size:17px; color:var(--muted); max-width:62ch; margin:0;}
+  .meta{display:flex; flex-wrap:wrap; gap:8px 22px; font-size:13px; color:var(--muted); margin-top:4px;}
+  .meta b{color:var(--ink); font-weight:600;}
+
+  /* Section */
+  .section{display:flex; flex-direction:column; gap:18px;}
+  .section > h2{
+    font-size:13px; font-weight:800; letter-spacing:.12em; text-transform:uppercase;
+    color:var(--accent-ink); margin:0; display:flex; align-items:baseline; gap:12px;
+  }
+  .section > h2 .n{font-family:var(--mono); color:var(--accent); font-size:12px;}
+  .section > .intro{margin:-6px 0 2px; color:var(--muted); font-size:15px; max-width:64ch;}
+
+  /* Callout / before-you-start */
+  .callout{
+    background:var(--accent-soft); border:1px solid #CFE3D6; border-radius:12px;
+    padding:22px 24px; display:flex; flex-direction:column; gap:14px;
+  }
+  .callout h3{margin:0; font-size:16px; font-weight:750;}
+  .callout ol{margin:0; padding-left:20px; display:flex; flex-direction:column; gap:6px;}
+  .callout p{margin:0;}
+
+  /* Tables */
+  .tablewrap{overflow-x:auto; border:1px solid var(--line); border-radius:12px; background:var(--card);}
+  table{border-collapse:collapse; width:100%; font-size:14px; min-width:520px;}
+  th,td{text-align:left; padding:11px 15px; border-bottom:1px solid var(--line-soft); vertical-align:top;}
+  th{font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); font-weight:700; background:#FAFBFA;}
+  tr:last-child td{border-bottom:none;}
+  td.mono,.mono{font-family:var(--mono); font-size:13px;}
+  .accountcell{white-space:nowrap;}
+
+  /* Test cards */
+  .cards{display:flex; flex-direction:column; gap:16px;}
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:14px;
+    padding:22px 24px; display:flex; flex-direction:column; gap:14px;
+    box-shadow:0 1px 2px rgba(23,33,28,.04);
+  }
+  .card-top{display:flex; flex-wrap:wrap; align-items:center; gap:10px 12px; justify-content:space-between;}
+  .card h3{margin:0; font-size:18px; font-weight:750; letter-spacing:-.01em; text-wrap:balance;}
+  .pill{
+    font-size:12px; font-weight:700; padding:4px 11px; border-radius:999px; white-space:nowrap;
+    background:#EEF2EE; color:var(--muted); border:1px solid var(--line);
+  }
+  .pill.acct{background:#EDF1FA; color:#2B4B86; border-color:#D8E1F3; font-family:var(--mono); font-weight:600; font-size:12px;}
+  .block{display:flex; flex-direction:column; gap:6px;}
+  .label{font-size:11px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:var(--muted);}
+  .card p{margin:0;}
+  .steps{margin:0; padding-left:20px; display:flex; flex-direction:column; gap:5px;}
+  .steps li::marker{color:var(--accent); font-weight:700;}
+  .expect{
+    border-left:3px solid var(--pass); background:var(--pass-bg);
+    border-radius:0 8px 8px 0; padding:12px 15px; display:flex; flex-direction:column; gap:5px;
+  }
+  .expect .label{color:var(--pass);}
+  .status{
+    display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:700;
+    padding:3px 10px; border-radius:999px;
+  }
+  .s-pass{background:var(--pass-bg); color:var(--pass);}
+  .s-wait{background:var(--wait-bg); color:var(--wait);}
+  .s-stop{background:var(--stop-bg); color:var(--stop);}
+
+  code{font-family:var(--mono); font-size:.88em; background:#EEF2EE; padding:1px 6px; border-radius:5px;}
+  a{color:var(--accent-ink); text-decoration:underline; text-underline-offset:2px;}
+
+  .foot{border-top:1px solid var(--line); padding-top:22px; color:var(--muted); font-size:14px; display:flex; flex-direction:column; gap:10px;}
+  .foot h3{margin:0; color:var(--ink); font-size:15px; font-weight:750;}
+
+  @media (max-width:560px){
+    h1{font-size:27px;}
+    .wrap{padding:28px 14px 60px;}
+    .card,.callout{padding:18px;}
+  }
+</style>
+
+<div class="wrap">
+<div class="doc">
+
+  <header class="head">
+    <div class="eyebrow">Motley Terpz &amp; TSBC Ranch · CRM</div>
+    <h1>Testing Guide — Sales Privacy, Quote Approvals &amp; Orders</h1>
+    <p class="lede">A plain-English walkthrough for checking that the new CRM features work. No technical knowledge needed — just log in, follow the steps, and confirm you see what's described. Each test takes about a minute.</p>
+    <div class="meta">
+      <span><b>Where:</b> your CRM at <span class="mono">erp.alltechvirtual.com</span></span>
+      <span><b>Who this is for:</b> Operations / implementation tester</span>
+      <span><b>Sample data:</b> already created for you</span>
+    </div>
+  </header>
+
+  <!-- BEFORE YOU START -->
+  <section class="section">
+    <h2><span class="n">00</span> Before you start</h2>
+
+    <div class="callout">
+      <h3>How to "become" another staff member (no password needed)</h3>
+      <p>Most tests ask you to check what a specific person sees. You can switch into their account safely:</p>
+      <ol>
+        <li>Log in as an administrator, then open <span class="mono">erp.alltechvirtual.com/app/user</span></li>
+        <li>Click the person's name in the list.</li>
+        <li>Top-right <b>&#8943; menu → "Login As"</b>.</li>
+        <li>Do the test. When finished, log out and log back in as yourself.</li>
+      </ol>
+      <p style="color:var(--accent-ink)"><b>Tip:</b> if a button or page looks missing, refresh with <b>Shift + reload</b> once. If it's still missing, let your developer know before continuing.</p>
+    </div>
+
+    <div class="block">
+      <span class="label">The test accounts you'll use</span>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Role</th><th>Account</th><th>Should be able to…</th></tr></thead>
+        <tbody>
+          <tr><td>Owner (sees everything)</td><td class="mono accountcell">matt@motleyterpz.com</td><td>See every rep's leads, deals and dashboards</td></tr>
+          <tr><td>Sales rep</td><td class="mono accountcell">sean@motleyterpz.com</td><td>See only his own customers &amp; deals</td></tr>
+          <tr><td>Sales Manager</td><td class="mono accountcell">douglas@motleyterpz.com</td><td>Approve quotes up to 20% off</td></tr>
+          <tr><td>Finance</td><td class="mono accountcell">muhammad.huzaifa@alltechvirtual.com</td><td>See all money/AR; approve any discount</td></tr>
+          <tr><td>Operations (warehouse)</td><td class="mono accountcell">qa_ops_probe@example.com</td><td>See fulfillment only — <b>no money or pricing</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="block">
+      <span class="label">Sample records created for testing</span>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Record</th><th>Customer</th><th>Discount</th><th>State</th><th>Shows</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">SAL-QTN-2026-00015</td><td>Lab</td><td>5%</td><td><span class="status s-pass">Approved</span></td><td>Auto-approval &amp; became an order</td></tr>
+          <tr><td class="mono">SAL-QTN-2026-00016</td><td>Lab</td><td>15%</td><td><span class="status s-pass">Approved</span></td><td>Approved by a Sales Manager</td></tr>
+          <tr><td class="mono">SAL-QTN-2026-00017</td><td>Lab</td><td>25%</td><td><span class="status s-wait">Waiting</span></td><td>Needs Finance approval</td></tr>
+          <tr><td class="mono">SAL-QTN-2026-00018</td><td>AB Customer</td><td>3%</td><td><span class="status s-wait">Waiting</span></td><td>Overdue-customer rule (goes to Finance)</td></tr>
+          <tr><td class="mono">SAL-QTN-2026-00019</td><td>Lab</td><td>25%</td><td><span class="status s-stop">Rejected</span></td><td>Rejected with a reason</td></tr>
+          <tr><td class="mono">SAL-ORD-2026-00199</td><td>Lab</td><td>—</td><td><span class="status s-pass">Order</span></td><td>The order made from quote …00015</td></tr>
+          <tr><td class="mono">CRM-DEAL-2026-00007</td><td>—</td><td>—</td><td>Deal</td><td>Has the rejection note on its timeline</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- PART 1 -->
+  <section class="section">
+    <h2><span class="n">01</span> Who can see what</h2>
+    <p class="intro">These checks confirm that each person only sees the information they're supposed to — reps can't see each other's customers, warehouse staff can't see money, and Finance can see all the numbers.</p>
+
+    <div class="cards">
+
+      <div class="card">
+        <div class="card-top">
+          <h3>A sales rep sees only their own customers &amp; deals</h3>
+          <span class="pill acct">sean@motleyterpz.com</span>
+        </div>
+        <div class="block"><span class="label">What it does</span><p>Sales reps cannot see each other's pipeline — not in lists, boards, search or reports.</p></div>
+        <div class="block"><span class="label">How to test</span>
+          <ol class="steps">
+            <li>Login As <span class="mono">sean@motleyterpz.com</span>.</li>
+            <li>Open the CRM and click <b>Leads</b>, then <b>Deals</b>.</li>
+          </ol>
+        </div>
+        <div class="expect"><span class="label">What you should see</span><p>Only Sean's own records. Other reps' leads and deals are nowhere to be found.</p></div>
+      </div>
+
+      <div class="card">
+        <div class="card-top">
+          <h3>The owner sees everything</h3>
+          <span class="pill acct">matt@motleyterpz.com</span>
+        </div>
+        <div class="block"><span class="label">What it does</span><p>Only the owner (Matt) and the system administrator can see across all reps.</p></div>
+        <div class="block"><span class="label">How to test</span>
+          <ol class="steps">
+            <li>Login As <span class="mono">matt@motleyterpz.com</span>.</li>
+            <li>Open <b>Leads</b> and <b>Deals</b>.</li>
+          </ol>
+        </div>
+        <div class="expect"><span class="label">What you should see</span><p>Every rep's leads and deals — the full company pipeline.</p></div>
+      </div>
+
+      <div class="card">
+        <div class="card-top">
+          <h3>Finance sees all the money — but not other reps' deals</h3>
+          <span class="pill acct">muhammad.huzaifa@…</span>
+        </div>
+        <div class="block"><span class="label">What it does</span><p>Finance needs the full financial picture, but doesn't need everyone's sales pipeline.</p></div>
+        <div class="block"><span class="label">How to test</span>
+          <ol class="steps">
+            <li>Login As <span class="mono">muhammad.huzaifa@alltechvirtual.com</span>.</li>
+            <li>Open the money dashboards under <b>Sales Intelligence</b> — Command Center, Cash Projection, AR Aging.</li>
+            <li>Then open <b>Deals</b>.</li>
+          </ol>
+        </div>
+        <div class="expect"><span class="label">What you should see</span><p>The money dashboards show <b>company-wide</b> numbers (all customers). The Deals list shows only his own (likely empty) — he can't browse other reps' deals.</p></div>
+      </div>
+
+      <div class="card">
+        <div class="card-top">
+          <h3>Operations cannot see money or pricing</h3>
+          <span class="pill acct">qa_ops_probe@example.com</span>
+        </div>
+        <div class="block"><span class="label">What it does</span><p>Warehouse / fulfillment staff can work on deliveries but must not see balances, revenue or pricing.</p></div>
+        <div class="block"><span class="label">How to test</span>
+          <ol class="steps">
+            <li>Login As <span class="mono">qa_ops_probe@example.com</span>.</li>
+            <li>Open the <b>Command Center</b> and other money dashboards.</li>
+            <li>Try opening a customer's financial page.</li>
+          </ol>
+        </div>
+        <div class="expect"><span class="label">What you should see</span><p>All money/AR figures show as <b>zero or blank</b>, and the customer financial page says <b>"Not permitted."</b> Delivery-related information is still visible.</p></div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- PART 2 -->
+  <section class="section">
+    <h2><span class="n">02</span> Quotes, approvals &amp; orders</h2>
+    <p class="intro">These checks confirm that discounts route to the right approver, quotes can be approved or rejected in one click, and an approved quote becomes an order.</p>
+
+    <div class="cards">
+
+      <div class="card">
+        <div class="card-top">
+          <h3>Discounts decide who must approve a quote</h3>
+          <span class="pill">View only</span>
+        </div>
+        <div class="block"><span class="label">What it does</span><p>Small discounts go through automatically; bigger ones need sign-off. Under 10% is automatic, 10–20% needs a Sales Manager, 20% or more needs Finance.</p></div>
+        <div class="block"><span class="label">How to test</span>
+          <ol class="steps">
+            <li>Open each sample quote and scroll to the <b>"Quote Approval"</b> section:</li>
+            <li><span class="mono">SAL-QTN-2026-00015</span> (5%), <span class="mono">…00016</span> (15%), <span class="mono">…00017</span> (25%).</li>
+          </ol>
+        </div>
+        <div class="expect"><span class="label">What you should see</span>
+          <p>00015 → <span class="status s-pass">Approved automatically</span> · 00016 → needed <b>Sales Manager</b> · 00017 → needs <b>Finance</b>. The "Effective Discount %" matches the discount.</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-top">
+          <h3>Overdue customers always go to Finance</h3>
+          <span class="pill">View only</span>
+        </div>
+        <div class="block"><span class="label">What it does</span><p>If a customer has any unpaid, past-due invoice, their quotes go to Finance no matter how small the discount.</p></div>
+        <div class="block"><span class="label">How to test</span>
+          <ol class="steps"><li>Open <span class="mono">SAL-QTN-2026-00018</span> — AB Customer, only 3% off.</li></ol>
+        </div>
+        <div class="expect"><span class="label">What you should see</span><p>Still <b>"Waiting for Finance"</b> — because this customer is past due — even though 3% would normally be automatic.</p></div>
+      </div>
+
+      <div class="card">
+        <div class="card-top">
+          <h3>Approve or reject a quote</h3>
+          <span class="pill acct">Finance / Sales Manager</span>
+        </div>
+        <div class="block"><span class="label">What it does</span><p>The right approver can approve or reject in one click, from the quote itself or from the Approvals list.</p></div>
+        <div class="block"><span class="label">How to test</span>
+          <ol class="steps">
+            <li>Login As Finance (<span class="mono">muhammad.huzaifa@…</span>).</li>
+            <li>Open <span class="mono">SAL-QTN-2026-00017</span> → click <b>Approve Quotation</b> or <b>Reject Quotation</b> at the top.</li>
+            <li>If you reject, you must type a <b>reason</b>.</li>
+          </ol>
+        </div>
+        <div class="expect"><span class="label">What you should see</span><p>The status updates immediately, and the rep who made the quote gets notified. A rejected quote won't submit until fixed.</p></div>
+      </div>
+
+      <div class="card">
+        <div class="card-top">
+          <h3>A Sales Manager cannot approve the biggest discounts</h3>
+          <span class="pill acct">douglas@motleyterpz.com</span>
+        </div>
+        <div class="block"><span class="label">What it does</span><p>Sales Managers can clear up to 20%. Anything higher (or overdue-customer quotes) is Finance-only.</p></div>
+        <div class="block"><span class="label">How to test</span>
+          <ol class="steps">
+            <li>Login As <span class="mono">douglas@motleyterpz.com</span>.</li>
+            <li>Open <span class="mono">SAL-QTN-2026-00017</span> (25%, Finance-level).</li>
+          </ol>
+        </div>
+        <div class="expect"><span class="label">What you should see</span><p><b>No Approve button</b> for Douglas on this quote — only Finance can approve it.</p></div>
+      </div>
+
+      <div class="card">
+        <div class="card-top">
+          <h3>The Approvals page (now right under "Deals")</h3>
+          <span class="pill acct">Finance / any approver</span>
+        </div>
+        <div class="block"><span class="label">What it does</span><p>A single list of every quote waiting for you, with Approve / Reject built in.</p></div>
+        <div class="block"><span class="label">How to test</span>
+          <ol class="steps">
+            <li>Login As Finance → in the left menu click <b>Approvals</b> (directly under <b>Deals</b>).</li>
+            <li>Approve or reject a quote from the list (rejecting asks for a reason).</li>
+            <li>Then Login As a rep (<span class="mono">sean@…</span>) and open the same Approvals page.</li>
+          </ol>
+        </div>
+        <div class="expect"><span class="label">What you should see</span><p>Finance sees the waiting quotes. The rep sees <b>"All caught up"</b> (reps don't approve anything).</p></div>
+      </div>
+
+      <div class="card">
+        <div class="card-top">
+          <h3>The rejection reason is recorded on the deal</h3>
+          <span class="pill">View only</span>
+        </div>
+        <div class="block"><span class="label">What it does</span><p>When a quote is rejected, the reason is saved on the linked deal so everyone can see why.</p></div>
+        <div class="block"><span class="label">How to test</span>
+          <ol class="steps"><li>Open deal <span class="mono">CRM-DEAL-2026-00007</span> and look at its <b>Activity / timeline</b>.</li></ol>
+        </div>
+        <div class="expect"><span class="label">What you should see</span><p>A note saying quote <span class="mono">…00019</span> was rejected, with the reason (<i>"margin too thin"</i>).</p></div>
+      </div>
+
+      <div class="card">
+        <div class="card-top">
+          <h3>Turn an approved quote into an order — one click</h3>
+          <span class="pill">Any staff</span>
+        </div>
+        <div class="block"><span class="label">What it does</span><p>An approved quote becomes a Sales Order without re-typing anything; the quote, order and deal stay linked.</p></div>
+        <div class="block"><span class="label">How to test</span>
+          <ol class="steps">
+            <li>Open approved quote <span class="mono">SAL-QTN-2026-00015</span> → click <b>Create Sales Order</b>.</li>
+            <li>Or open the finished order <span class="mono">SAL-ORD-2026-00199</span> to see the result.</li>
+          </ol>
+        </div>
+        <div class="expect"><span class="label">What you should see</span><p>An order for the same customer, with each line linked back to the quote, and the deal reference carried across.</p></div>
+      </div>
+
+      <div class="card">
+        <div class="card-top">
+          <h3>See live stock while building a quote</h3>
+          <span class="pill">Any staff</span>
+        </div>
+        <div class="block"><span class="label">What it does</span><p>Reps see how much of each product is actually available, so they don't quote something that isn't in stock.</p></div>
+        <div class="block"><span class="label">How to test</span>
+          <ol class="steps">
+            <li>Start a <b>new quotation</b>.</li>
+            <li>Choose a <b>Price List</b>, then add an item.</li>
+            <li>Click <b>Check Stock Availability</b> at the top.</li>
+          </ol>
+        </div>
+        <div class="expect"><span class="label">What you should see</span><p>The item list is limited to products in that price list, an <b>"Avail. Qty"</b> column shows current stock, and the button shows stock per warehouse.</p></div>
+      </div>
+
+      <div class="card">
+        <div class="card-top">
+          <h3>Daily reminders for overdue invoices</h3>
+          <span class="pill">Automatic · no blocking</span>
+        </div>
+        <div class="block"><span class="label">What it does</span><p>Every morning, the rep responsible for a customer gets an email listing that customer's unpaid, past-due invoices — repeated daily until it's paid. Nothing is blocked; it's a nudge, not a lock.</p></div>
+        <div class="block"><span class="label">How to test</span>
+          <ol class="steps">
+            <li>This runs automatically each morning — confirm reps start receiving the daily email.</li>
+            <li>To see the current list on demand, ask your developer to run the built-in "preview."</li>
+          </ol>
+        </div>
+        <div class="expect"><span class="label">What you should see</span><p>Each rep receives one email listing their overdue customers, invoice amounts and due dates. The reminder stops on its own once an invoice is paid.</p></div>
+      </div>
+
+    </div>
+  </section>
+
+  <footer class="foot">
+    <h3>If something doesn't match</h3>
+    <p>Note three things and send them over: (1) which test, (2) which account you were logged in as, (3) what you expected vs. what you actually saw. A screenshot helps.</p>
+    <p style="color:#8A948E">Sample data above lives on the test system and can be ignored in day-to-day use.</p>
+  </footer>
+
+</div>
+</div>

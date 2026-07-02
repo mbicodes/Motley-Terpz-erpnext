@@ -1,0 +1,34 @@
+{
+ "charts": [],
+ "content": "[{\"type\":\"header\",\"data\":{\"text\":\"Distribution Hub\"}}]",
+ "creation": "2026-07-02 10:30:59.271312",
+ "custom_blocks": [
+  {
+   "custom_block_name": "Distribution Hub",
+   "label": "Distribution Hub"
+  }
+ ],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "calendar",
+ "idx": 0,
+ "indicator_color": "green",
+ "is_hidden": 0,
+ "label": "Distribution Hub",
+ "links": [],
+ "modified": "2026-07-02 10:34:18.995745",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Distribution Hub",
+ "number_cards": [],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [],
+ "sequence_id": 56.0,
+ "shortcuts": [],
+ "title": "Distribution Hub"
+}

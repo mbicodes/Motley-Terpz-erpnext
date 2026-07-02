@@ -70,6 +70,7 @@ doctype_js = {
     "Material Request": "public/js/material_request.js",
     "Item Group": "public/js/item_group_custom.js",
     "Job Card": "public/js/job_card.js",
+    "Quotation": "public/js/quotation.js",
 }
 doctype_list_js = {
     "Sales Invoice": "public/js/sales_invoice_list.js",
@@ -237,6 +238,12 @@ doc_events = {
         "before_validate": "cannabis_management.doc_hooks.sales_invoice.before_validate",
         "before_submit": "cannabis_management.doc_hooks.sales_invoice.before_submit",
     },
+    # Quotation approval — discount-threshold routing (Sales Manager / Finance)
+    "Quotation": {
+        "validate":      "cannabis_management.overrides.quotation_approval.validate",
+        "on_update":     "cannabis_management.overrides.quotation_approval.on_update",
+        "before_submit": "cannabis_management.overrides.quotation_approval.before_submit",
+    },
     # Lab mapping: auto-create BOMs on Material Request submit
     "Material Request": {
         "validate": "cannabis_management.doc_hooks.material_request.validate",
@@ -307,6 +314,8 @@ scheduler_events = {
         # AR due-date reminders: every day at 7 AM UTC (daily, including weekends)
         "0 7 * * *": [
             "cannabis_management.api.ar_reminders.send_ar_reminders",
+            # Daily overdue-invoice reminder to the owning rep (no blocking)
+            "cannabis_management.api.overdue_owner_reminder.send_overdue_owner_reminders",
             # Daily unreconciled-customer count snapshot (day-over-day AR tracking)
             "cannabis_management.api.sales_daily_sync.snapshot_unreconciled",
         ],

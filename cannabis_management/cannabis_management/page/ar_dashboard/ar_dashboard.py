@@ -7,6 +7,15 @@ TMM_GROUP_COMPANIES = ["Motley Terpz", "TSBC Ranch"]
 LEGACY_CUTOFF       = "2026-05-31"
 NEW_AR_START        = "2026-06-01"
 
+ALLOWED_RECON_STATUSES = (
+    "",
+    "Reconciled collecting money",
+    "Reconciled trouble collecting money",
+    "Unreconciled",
+    "Dispute",
+    "Adjustment",
+)
+
 
 def _internal_customer_names():
     """Return the set of customer names marked as internal (is_internal_customer=1)."""
@@ -151,6 +160,8 @@ def _fetch_rows_for_company(company, report_date, customer, ageing_based_on, ran
     for row in (data or []):
         if not row or not row.get("voucher_no"):
             continue
+        if row.get("voucher_type") != "Sales Invoice":
+            continue
 
         processed = {
             "party": row.get("party") or "",
@@ -266,19 +277,43 @@ def get_ar_data(company, report_date=None, customer=None, ageing_based_on="Due D
 
     totals = _compute_totals(rows, ranges)
 
-    # Attach reconciliation status from Customer master
+    # Attach reconciliation status, POC, and new_ar_available from Customer master
     unique_parties = list({r["party"] for r in rows if r.get("party")})
-    recon_map = {}
+    cust_info = {}
     if unique_parties:
-        cust_rows = frappe.get_all(
-            "Customer",
-            filters={"name": ["in", unique_parties]},
-            fields=["name", "custom_reconciliation_status"],
-        )
-        recon_map = {c["name"]: (c.get("custom_reconciliation_status") or "") for c in cust_rows}
+        fetch_fields = ["name", "custom_reconciliation_status"]
+        # custom_poc and custom_new_ar_available are added via setup_ar_custom_fields;
+        # fetch them silently if they exist.
+        try:
+            cust_rows = frappe.get_all(
+                "Customer",
+                filters={"name": ["in", unique_parties]},
+                fields=fetch_fields + ["custom_poc", "custom_new_ar_available"],
+            )
+            for c in cust_rows:
+                cust_info[c["name"]] = {
+                    "recon": c.get("custom_reconciliation_status") or "",
+                    "poc": c.get("custom_poc") or "",
+                    "new_ar_available": bool(c.get("custom_new_ar_available")),
+                }
+        except Exception:
+            cust_rows = frappe.get_all(
+                "Customer",
+                filters={"name": ["in", unique_parties]},
+                fields=fetch_fields,
+            )
+            for c in cust_rows:
+                cust_info[c["name"]] = {
+                    "recon": c.get("custom_reconciliation_status") or "",
+                    "poc": "",
+                    "new_ar_available": False,
+                }
 
     for r in rows:
-        r["reconciliation_status"] = recon_map.get(r["party"], "")
+        info = cust_info.get(r["party"], {"recon": "", "poc": "", "new_ar_available": False})
+        r["reconciliation_status"] = info["recon"]
+        r["poc"]                   = info["poc"]
+        r["new_ar_available"]      = info["new_ar_available"]
 
     return {
         "rows": rows,
@@ -303,7 +338,7 @@ def update_recon_status(party, status):
             frappe.PermissionError,
         )
 
-    if status not in ("", "Reconciled", "Unreconciled"):
+    if status not in ALLOWED_RECON_STATUSES:
         frappe.throw("Invalid reconciliation status")
 
     if not frappe.db.exists("Customer", party):
@@ -312,3 +347,204 @@ def update_recon_status(party, status):
     frappe.db.set_value("Customer", party, "custom_reconciliation_status", status)
 
     return {"party": party, "status": status}
+
+
+@frappe.whitelist()
+def update_poc(party, value):
+    """Update the custom_poc field on the Customer master."""
+    if not _can_edit_recon():
+        frappe.throw(
+            "You do not have permission to change POC.",
+            frappe.PermissionError,
+        )
+    if value not in ("", "Company", "Nikki"):
+        frappe.throw("Invalid POC value")
+    if not frappe.db.exists("Customer", party):
+        frappe.throw(f"Customer {party} not found")
+    frappe.db.set_value("Customer", party, "custom_poc", value)
+    return {"party": party, "value": value}
+
+
+@frappe.whitelist()
+def update_new_ar_available(party, value):
+    """Toggle the custom_new_ar_available flag on the Customer master."""
+    if not _can_edit_recon():
+        frappe.throw(
+            "You do not have permission to change New AR status.",
+            frappe.PermissionError,
+        )
+    if not frappe.db.exists("Customer", party):
+        frappe.throw(f"Customer {party} not found")
+
+    frappe.db.set_value("Customer", party, "custom_new_ar_available", int(value))
+    return {"party": party, "value": int(value)}
+
+
+@frappe.whitelist()
+def export_ar_excel_data(rows_json, filename):
+    """Generate a multi-sheet .xlsx: one 'All' sheet + one sheet per recon status that has data."""
+    import json
+    import base64
+    from io import BytesIO
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+
+    all_rows = json.loads(rows_json)
+    if not all_rows:
+        frappe.throw("No data to export")
+
+    # rows_json = [header, ...data..., Total-row]
+    header    = all_rows[0]
+    data_rows = [r for r in all_rows[1:] if r[0] != "Total"]
+
+    # Sheet definitions: (recon_status_value, sheet_name, tab_color_hex)
+    SHEETS = [
+        ("",                                    "No Status",               "9CA3AF"),  # grey
+        ("Reconciled collecting money",         "Reconciled (Collecting)", "16A34A"),  # green
+        ("Reconciled trouble collecting money", "Reconciled (Trouble)",    "D97706"),  # amber
+        ("Unreconciled",                        "Unreconciled",            "DC2626"),  # red
+        ("Dispute",                             "Dispute",                 "7C3AED"),  # purple
+        ("Adjustment",                          "Adjustment",              "3B82F6"),  # blue
+    ]
+
+    # Shared styles
+    thin         = Side(style="thin", color="D1D5DB")
+    border       = Border(top=thin, bottom=thin, left=thin, right=thin)
+    header_font  = Font(bold=True, color="FFFFFF", size=11)
+    header_fill  = PatternFill("solid", fgColor="1D4ED8")
+    header_align = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    total_font   = Font(bold=True, size=10)
+    total_fill   = PatternFill("solid", fgColor="DBEAFE")
+
+    def write_sheet(ws, sheet_data, tab_color=None):
+        if tab_color:
+            ws.sheet_properties.tabColor = tab_color
+
+        # Header row
+        ws.append(header)
+        for cell in ws[1]:
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = header_align
+            cell.border = border
+
+        # Data rows + running totals
+        total_legacy = total_new = total_all = 0.0
+        for r_idx, row in enumerate(sheet_data, 2):
+            ws.append(row)
+            total_legacy += float(row[3] or 0)
+            total_new    += float(row[4] or 0)
+            total_all    += float(row[5] or 0)
+            for c_idx, cell in enumerate(ws[r_idx], 1):
+                cell.border = border
+                cell.alignment = Alignment(horizontal="right" if c_idx >= 4 else "left")
+                if c_idx >= 4:
+                    cell.number_format = '"$"#,##0.00'
+
+        # Totals row
+        t_idx = len(sheet_data) + 2
+        ws.append(["Total", "", "", total_legacy, total_new, total_all])
+        for c_idx, cell in enumerate(ws[t_idx], 1):
+            cell.font = total_font
+            cell.fill = total_fill
+            cell.border = border
+            cell.alignment = Alignment(horizontal="right" if c_idx >= 4 else "center")
+            if c_idx >= 4:
+                cell.number_format = '"$"#,##0.00'
+
+        # Auto-width columns
+        for col in ws.columns:
+            letter = col[0].column_letter
+            width  = max((len(str(cell.value or "")) for cell in col), default=0)
+            ws.column_dimensions[letter].width = max(width + 3, 14)
+
+        ws.freeze_panes = "A2"
+
+    wb = openpyxl.Workbook()
+
+    # First sheet: All records
+    ws_all = wb.active
+    ws_all.title = "All"
+    ws_all.sheet_properties.tabColor = "1D4ED8"
+    write_sheet(ws_all, data_rows)
+
+    # One sheet per recon status (only if it has data)
+    for status_val, sheet_name, tab_color in SHEETS:
+        subset = [r for r in data_rows if str(r[1] or "") == status_val]
+        if not subset:
+            continue
+        ws = wb.create_sheet(sheet_name)
+        write_sheet(ws, subset, tab_color)
+
+    buf = BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return {
+        "data": base64.b64encode(buf.read()).decode("utf-8"),
+        "filename": filename,
+    }
+
+
+@frappe.whitelist()
+def setup_ar_custom_fields():
+    """Create / update custom fields required by the AR dashboard.
+    Call once after deploying: bench --site <site> call
+    cannabis_management.cannabis_management.page.ar_dashboard.ar_dashboard.setup_ar_custom_fields
+    """
+    if not _can_edit_recon():
+        frappe.throw("Administrator access required.", frappe.PermissionError)
+
+    recon_options = "\n".join([""] + list(ALLOWED_RECON_STATUSES[1:]))
+
+    # Update existing reconciliation status field options
+    existing = frappe.db.get_value(
+        "Custom Field",
+        {"dt": "Customer", "fieldname": "custom_reconciliation_status"},
+        "name",
+    )
+    if existing:
+        frappe.db.set_value("Custom Field", existing, "options", recon_options)
+        frappe.db.set_value("Custom Field", existing, "fieldtype", "Select")
+    else:
+        frappe.get_doc({
+            "doctype": "Custom Field",
+            "dt": "Customer",
+            "fieldname": "custom_reconciliation_status",
+            "label": "Reconciliation Status",
+            "fieldtype": "Select",
+            "options": recon_options,
+            "insert_after": "customer_name",
+        }).insert(ignore_permissions=True)
+
+    # POC field
+    if not frappe.db.exists("Custom Field", {"dt": "Customer", "fieldname": "custom_poc"}):
+        frappe.get_doc({
+            "doctype": "Custom Field",
+            "dt": "Customer",
+            "fieldname": "custom_poc",
+            "label": "POC",
+            "fieldtype": "Select",
+            "options": "\nCompany\nNikki",
+            "insert_after": "custom_reconciliation_status",
+        }).insert(ignore_permissions=True)
+    else:
+        poc_cf = frappe.db.get_value(
+            "Custom Field", {"dt": "Customer", "fieldname": "custom_poc"}, "name"
+        )
+        if poc_cf:
+            frappe.db.set_value("Custom Field", poc_cf, "options", "\nCompany\nNikki")
+
+    # New AR Available flag
+    if not frappe.db.exists("Custom Field", {"dt": "Customer", "fieldname": "custom_new_ar_available"}):
+        frappe.get_doc({
+            "doctype": "Custom Field",
+            "dt": "Customer",
+            "fieldname": "custom_new_ar_available",
+            "label": "New AR Available",
+            "fieldtype": "Check",
+            "default": "0",
+            "insert_after": "custom_poc",
+        }).insert(ignore_permissions=True)
+
+    frappe.db.commit()
+    return {"status": "ok", "message": "AR custom fields created/updated successfully."}
