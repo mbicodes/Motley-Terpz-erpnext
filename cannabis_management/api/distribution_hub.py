@@ -1,57 +1,82 @@
 # =================== DISTRIBUTION HUB - BACKEND API ===================
-# Yeh file apne custom Frappe app ke andar rakhein, misal ke taur par:
-#   your_app/your_app/distribution_hub/api.py
-# Aur JS file (distribution_hub.js) ke top par APP_MODULE = "your_app.distribution_hub" set karein.
+# Backs the "Distribution Hub" Custom HTML Block (fixtures/custom_html_block.json)
+# shown on the "Distribution Hub" workspace.
 #
-# IMPORTANT / ASSUMPTIONS (apne actual DocType/Field names se match karke adjust karein):
-#   - "Sales Order"    -> pipeline ke orders (custom field "distro_stage" Select field
-#                          jisme values: Pending in Sales Pipeline, Need to Schedule,
-#                          Scheduled, Preparing, Prepared, Staged, Closed Out)
-#   - "Delivery Note"  -> manifests (custom field "metrc_transport_tag")
-#   - "Warehouse"      -> storage gauge + bin utilization (custom field "confirmed_capacity_lbs")
-#   - "Bin"             -> actual stock qty per warehouse (Frappe stock doctype)
-#   - "Company"         -> company selector (Motley / TSBC filter)
-#
-# Agar in fields ke naam alag hain to sirf neeche "FIELD MAP" section update kar dein —
-# baaki query logic same rahega.
+# Field map below matches the REAL custom fields on this site (checked against
+# fixtures/custom_field.json + live data), not a generic template:
+#   - Sales Order.custom_logistic_status -> pipeline stage
+#     (options: Need to Schedule, Scheduled, Order Preparing, Order Prepared,
+#      Order Staged, Order Closed Out; unset/blank shown as "Not Set")
+#   - Sales Order.custom_pickup_or_dropoff -> Pickup/Dropoff column
+#   - Sales Order.custom_notes_for_logistics -> free-text logistics notes column
+#   - Delivery Note.custom_manifest (Attach) -> manifest file, if uploaded
+#   - Delivery Note.custom_shipment (Data)   -> shipment/tracking reference
+#   - Delivery Note.total_net_weight         -> weight column
+#   - Warehouse capacity: no capacity field exists on Warehouse. The only
+#     confirmed capacity in the business is Hemet TSBC - TSBC at 54,000 lbs
+#     (see setup_jamie_expense.py HEMET_STORAGE_WIDGET_JS / api/jamie.py
+#     get_hemet_storage_lbs) -- reused here instead of inventing a field.
 
 import frappe
-from frappe import _
 from frappe.utils import flt
 
+from cannabis_management.api.jamie import get_hemet_storage_lbs
 
-# ---------------------------------------------------------------------------
-# FIELD MAP -- apne DocType/field names yahan match karein
-# ---------------------------------------------------------------------------
-SALES_ORDER_STAGE_FIELD = "distro_stage"          # Select field on Sales Order
-SALES_ORDER_LOGISTICS_FIELD = "logistics_status"  # Small Text / Select field
-DN_METRC_FIELD = "metrc_transport_tag"             # Data field on Delivery Note
-WAREHOUSE_CAPACITY_FIELD = "confirmed_capacity_lbs"  # Float field on Warehouse
-
-DISTRO_WAREHOUSES = ["Hemet Distro", "Hemet-MT", "Don Perico", "Motley HQ Distro"]
+SALES_ORDER_STAGE_FIELD = "custom_logistic_status"
+NOT_SET_LABEL = "Not Set"
 
 PIPELINE_STAGES = [
-    "Pending in Sales Pipeline",
+    NOT_SET_LABEL,
     "Need to Schedule",
     "Scheduled",
-    "Preparing",
-    "Prepared",
-    "Staged",
-    "Closed Out",
+    "Order Preparing",
+    "Order Prepared",
+    "Order Staged",
+    "Order Closed Out",
 ]
+
+# Warehouses actually used for distribution/storage of finished goods.
+DISTRO_WAREHOUSES = ["Hemet TSBC - TSBC", "Hemet - TSBC", "Hemet - MT", "Don Perico - MT"]
+
+# Only Hemet TSBC - TSBC has a business-confirmed max capacity today.
+WAREHOUSE_CAPACITY_LBS = {
+    "Hemet TSBC - TSBC": 54000,
+}
+
+
+def _warehouse_lbs(warehouse):
+    row = frappe.db.sql(
+        """
+        SELECT ROUND(SUM(
+            CASE
+                WHEN i.stock_uom = 'LBS' THEN b.actual_qty
+                WHEN i.stock_uom = 'Gram' THEN b.actual_qty / 453.592
+                ELSE 0
+            END
+        ), 1) AS lbs
+        FROM `tabBin` b
+        JOIN `tabItem` i ON i.name = b.item_code
+        WHERE b.warehouse = %s
+        """,
+        (warehouse,),
+        as_dict=True,
+    )
+    return flt(row[0].lbs) if row else 0
 
 
 # ---------------------------------------------------------------------------
-# Meta (used only to populate the company filter dropdown in the pipeline section)
+# Meta: companies that actually have orders moving through the pipeline
 # ---------------------------------------------------------------------------
 @frappe.whitelist()
 def get_meta():
-    companies = frappe.get_all(
-        "Company",
-        filters={"name": ["in", ["Motley Logistics", "TSBC Logistics"]]},
-        pluck="name",
-    ) or ["Motley Logistics", "TSBC Logistics"]
-
+    companies = frappe.db.sql(
+        """
+        SELECT DISTINCT company FROM `tabSales Order`
+        WHERE company IS NOT NULL AND company != ''
+        ORDER BY company
+        """,
+        pluck=True,
+    )
     return {"companies": companies}
 
 
@@ -60,19 +85,21 @@ def get_meta():
 # ---------------------------------------------------------------------------
 @frappe.whitelist()
 def get_pipeline(company=None):
-    filters = {}
-    if company:
-        filters["company"] = company
-
     stages = []
     for stage in PIPELINE_STAGES:
-        stage_filters = dict(filters)
-        stage_filters[SALES_ORDER_STAGE_FIELD] = stage
+        stage_filters = {"docstatus": ["<", 2]}
+        if company:
+            stage_filters["company"] = company
+        if stage == NOT_SET_LABEL:
+            stage_filters[SALES_ORDER_STAGE_FIELD] = ["in", ["", None]]
+        else:
+            stage_filters[SALES_ORDER_STAGE_FIELD] = stage
         count = frappe.db.count("Sales Order", filters=stage_filters)
         stages.append({"label": stage, "count": count})
 
-    order_filters = dict(filters)
-    order_filters[SALES_ORDER_STAGE_FIELD] = ["is", "set"]
+    order_filters = {"docstatus": ["<", 2]}
+    if company:
+        order_filters["company"] = company
 
     rows = frappe.get_all(
         "Sales Order",
@@ -81,20 +108,22 @@ def get_pipeline(company=None):
             "name",
             "customer",
             "customer_address as bill_to",
+            "custom_pickup_or_dropoff as pickup_dropoff",
             "delivery_date as requested",
             f"{SALES_ORDER_STAGE_FIELD} as stage",
-            f"{SALES_ORDER_LOGISTICS_FIELD} as logistics_status",
-            "set_warehouse as pickup_dropoff",
+            "custom_notes_for_logistics as notes",
         ],
         order_by="delivery_date asc",
         limit_page_length=50,
     )
+    for row in rows:
+        row.stage = row.stage or NOT_SET_LABEL
 
     return {"stages": stages, "orders": rows}
 
 
 # ---------------------------------------------------------------------------
-# Manifests (Delivery Note + METRC tag)
+# Manifests (Delivery Note + shipment reference)
 # ---------------------------------------------------------------------------
 @frappe.whitelist()
 def get_manifests(company=None):
@@ -105,7 +134,8 @@ def get_manifests(company=None):
     dns = frappe.get_all(
         "Delivery Note",
         filters=filters,
-        fields=["name", "customer", "total_qty", "net_weight", DN_METRC_FIELD, "status"],
+        fields=["name", "customer", "total_qty", "total_net_weight",
+                 "custom_manifest", "custom_shipment", "status"],
         order_by="modified desc",
         limit_page_length=50,
     )
@@ -113,88 +143,70 @@ def get_manifests(company=None):
     result = []
     for dn in dns:
         result.append({
-            "manifest_no": f"MFT-{dn.name[-4:]}",
+            "manifest_no": dn.custom_manifest.rsplit("/", 1)[-1] if dn.custom_manifest else "--",
             "dn_ref": dn.name,
             "customer": dn.customer,
             "items_count": int(dn.total_qty or 0),
-            "weight": f"{flt(dn.net_weight, 2)} kg" if dn.net_weight else "--",
-            "metrc_tag": dn.get(DN_METRC_FIELD),
+            "weight": f"{flt(dn.total_net_weight, 2)} kg" if dn.total_net_weight else "--",
+            "shipment_ref": dn.custom_shipment or "--",
             "status": dn.status,
         })
     return result
 
 
 # ---------------------------------------------------------------------------
-# Storage gauge: Hemet Distro utilization % vs confirmed capacity
+# Storage gauge: Hemet TSBC utilization % vs its confirmed 54,000 lb capacity
 # ---------------------------------------------------------------------------
 @frappe.whitelist()
-def get_storage_gauge(warehouse="Hemet Distro"):
-    capacity = frappe.db.get_value("Warehouse", warehouse, WAREHOUSE_CAPACITY_FIELD) or 0
-
-    total_qty = frappe.db.sql(
-        """
-        SELECT COALESCE(SUM(actual_qty), 0)
-        FROM `tabBin`
-        WHERE warehouse = %s
-        """,
-        (warehouse,),
-    )[0][0]
-
-    percent = round((flt(total_qty) / flt(capacity)) * 100, 1) if capacity else 0
-    return {"warehouse": warehouse, "percent": min(percent, 100), "current_qty": total_qty, "capacity": capacity}
+def get_storage_gauge():
+    warehouse = "Hemet TSBC - TSBC"
+    capacity = WAREHOUSE_CAPACITY_LBS[warehouse]
+    current_lbs = flt(get_hemet_storage_lbs())
+    percent = round((current_lbs / capacity) * 100, 1) if capacity else 0
+    return {
+        "warehouse": warehouse,
+        "percent": min(percent, 100),
+        "current_qty": current_lbs,
+        "capacity": capacity,
+    }
 
 
 # ---------------------------------------------------------------------------
-# Bin utilization across all distro warehouses
+# Bin utilization across distro warehouses (lbs; % only where capacity is known)
 # ---------------------------------------------------------------------------
 @frappe.whitelist()
 def get_bin_utilization():
     result = []
     for wh in DISTRO_WAREHOUSES:
-        capacity = frappe.db.get_value("Warehouse", wh, WAREHOUSE_CAPACITY_FIELD) or 0
-        total_qty = frappe.db.sql(
-            """
-            SELECT COALESCE(SUM(actual_qty), 0)
-            FROM `tabBin`
-            WHERE warehouse = %s
-            """,
-            (wh,),
-        )[0][0]
-        percent = round((flt(total_qty) / flt(capacity)) * 100, 1) if capacity else 0
+        lbs = _warehouse_lbs(wh)
+        capacity = WAREHOUSE_CAPACITY_LBS.get(wh)
+        percent = round((lbs / capacity) * 100, 1) if capacity else None
         result.append({
             "warehouse": wh,
-            "capacity_label": f"~{int(total_qty):,} lbs" if total_qty else "No stock",
-            "percent": min(percent, 100),
+            "capacity_label": f"~{int(lbs):,} lbs" if lbs else "No stock",
+            "percent": min(percent, 100) if percent is not None else None,
         })
     return result
 
 
 # ---------------------------------------------------------------------------
-# Shortcuts grid (static config — link these to real Frappe routes)
+# Shortcuts grid — every route here is checked to exist on this site
 # ---------------------------------------------------------------------------
 @frappe.whitelist()
 def get_shortcuts():
     return [
-        {"icon": "L", "label": "Delivery Note", "sub": "New / List", "kind": "dt",
+        {"icon": "D", "label": "Delivery Note", "sub": "New / List", "kind": "dt",
          "route": ["List", "Delivery Note"]},
-        {"icon": "L", "label": "Pick List", "sub": "New / List", "kind": "dt",
+        {"icon": "P", "label": "Pick List", "sub": "New / List", "kind": "dt",
          "route": ["List", "Pick List"]},
-        {"icon": "L", "label": "Sales Order (Distro)", "sub": "List", "kind": "dt",
+        {"icon": "S", "label": "Sales Order", "sub": "List", "kind": "dt",
          "route": ["List", "Sales Order"]},
         {"icon": "R", "label": "Sean Stock Balance", "sub": "Custom Report", "kind": "rpt",
-         "is_new": True, "route": ["query-report", "Sean Stock Balance"]},
+         "route": ["query-report", "Sean Stock Balance"]},
         {"icon": "R", "label": "Stock Balance Logistic", "sub": "Custom Report", "kind": "rpt",
-         "is_new": True, "route": ["query-report", "Stock Balance Logistic"]},
-        {"icon": "D", "label": "Storage Gauge", "sub": "Dashboard", "kind": "dash",
-         "route": ["dashboard-view", "Storage Gauge"]},
-        {"icon": "P", "label": "METRC Transport", "sub": "Custom Page", "kind": "pg",
-         "route": ["metrc-transport"]},
-        {"icon": "P", "label": "Bin Reorg Console", "sub": "Custom Page", "kind": "pg",
-         "route": ["bin-reorg-console"]},
+         "route": ["query-report", "Stock Balance Logistic"]},
         {"icon": "F", "label": "Sean Expense Tracker", "sub": "Custom Form", "kind": "form",
          "route": ["List", "Sean Expense Tracker"]},
-        {"icon": "R", "label": "Delivery Note Register", "sub": "Report", "kind": "rpt",
-         "route": ["query-report", "Delivery Note Register"]},
-        {"icon": "R", "label": "OTIF / Return Rate", "sub": "Query Report", "kind": "rpt",
-         "route": ["query-report", "OTIF / Return Rate"]},
+        {"icon": "W", "label": "Warehouse", "sub": "List", "kind": "dt",
+         "route": ["List", "Warehouse"]},
     ]

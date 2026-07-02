@@ -493,7 +493,8 @@ fixtures = [
     {"dt": "Custom HTML Block", "filters": [["name", "in", [
         "Sales Daily Sync Dashboard Block",
         "Lab Daily Sync Dashboard Block",
-        "Sales Target and Inventory Dashboard"  # ye bhi hai aapke paas
+        "Sales Target and Inventory Dashboard",  # ye bhi hai aapke paas
+        "Distribution Hub",
     ]]]},
 ]
 
