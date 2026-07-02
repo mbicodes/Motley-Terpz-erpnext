@@ -192,21 +192,36 @@ def get_bin_utilization():
 # ---------------------------------------------------------------------------
 # Shortcuts grid — every route here is checked to exist on this site
 # ---------------------------------------------------------------------------
+SHORTCUT_CANDIDATES = [
+    # DocTypes actually used in the distribution/logistics flow
+    {"icon": "D", "label": "Delivery Note", "sub": "New / List", "kind": "dt",
+     "dt": "Delivery Note", "route": ["List", "Delivery Note"]},
+    {"icon": "T", "label": "Delivery Trip", "sub": "New / List", "kind": "dt",
+     "dt": "Delivery Trip", "route": ["List", "Delivery Trip"]},
+    {"icon": "P", "label": "Pick List", "sub": "New / List", "kind": "dt",
+     "dt": "Pick List", "route": ["List", "Pick List"]},
+    {"icon": "K", "label": "Packing Slip", "sub": "New / List", "kind": "dt",
+     "dt": "Packing Slip", "route": ["List", "Packing Slip"]},
+    {"icon": "S", "label": "Sales Order", "sub": "List", "kind": "dt",
+     "dt": "Sales Order", "route": ["List", "Sales Order"]},
+    {"icon": "W", "label": "Warehouse", "sub": "List", "kind": "dt",
+     "dt": "Warehouse", "route": ["List", "Warehouse"]},
+    # Reports actually built for logistics/stock visibility
+    {"icon": "R", "label": "Stock Balance Logistic", "sub": "Report", "kind": "rpt",
+     "report": "Stock Balance Logistic", "route": ["query-report", "Stock Balance Logistic"]},
+    {"icon": "R", "label": "Warehouse Wise Stock Balance", "sub": "Report", "kind": "rpt",
+     "report": "Warehouse Wise Stock Balance", "route": ["query-report", "Warehouse Wise Stock Balance"]},
+]
+
+
 @frappe.whitelist()
 def get_shortcuts():
-    return [
-        {"icon": "D", "label": "Delivery Note", "sub": "New / List", "kind": "dt",
-         "route": ["List", "Delivery Note"]},
-        {"icon": "P", "label": "Pick List", "sub": "New / List", "kind": "dt",
-         "route": ["List", "Pick List"]},
-        {"icon": "S", "label": "Sales Order", "sub": "List", "kind": "dt",
-         "route": ["List", "Sales Order"]},
-        {"icon": "R", "label": "Sean Stock Balance", "sub": "Custom Report", "kind": "rpt",
-         "route": ["query-report", "Sean Stock Balance"]},
-        {"icon": "R", "label": "Stock Balance Logistic", "sub": "Custom Report", "kind": "rpt",
-         "route": ["query-report", "Stock Balance Logistic"]},
-        {"icon": "F", "label": "Sean Expense Tracker", "sub": "Custom Form", "kind": "form",
-         "route": ["List", "Sean Expense Tracker"]},
-        {"icon": "W", "label": "Warehouse", "sub": "List", "kind": "dt",
-         "route": ["List", "Warehouse"]},
-    ]
+    """Only return shortcuts whose target DocType/Report actually exists on this site."""
+    result = []
+    for s in SHORTCUT_CANDIDATES:
+        if s.get("dt") and not frappe.db.exists("DocType", s["dt"]):
+            continue
+        if s.get("report") and not frappe.db.exists("Report", s["report"]):
+            continue
+        result.append({k: v for k, v in s.items() if k not in ("dt", "report")})
+    return result

@@ -953,36 +953,42 @@
 }
 
 /* ── Export dropdown ──────────────────────────────────────────── */
-.ard-export-wrap {
+.ard-export-dd {
 	position: relative;
 	display: inline-block;
 }
 .ard-export-menu {
 	position: absolute;
 	right: 0;
-	top: calc(100% + 4px);
-	background: var(--ard-surface);
-	border: 1px solid var(--ard-border);
+	top: calc(100% + 6px);
+	background: #ffffff;
+	border: 1px solid #e2e8f0;
 	border-radius: var(--ard-radius-sm);
-	box-shadow: var(--ard-shadow-md);
-	z-index: 200;
-	min-width: 160px;
-	overflow: hidden;
+	box-shadow: 0 10px 28px rgba(15, 23, 42, .16);
+	z-index: 1200;
+	min-width: 200px;
+	padding: 5px;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
 }
-.ard-export-menu button {
-	display: block;
-	width: 100%;
-	padding: 8px 14px;
-	text-align: left;
-	background: none;
+.ard-export-item {
+	background: transparent;
 	border: none;
-	font-size: 12px;
-	color: var(--ard-text);
+	border-radius: var(--ard-radius-sm);
+	padding: 9px 12px;
+	font-size: 13px;
+	font-weight: 600;
+	font-family: var(--ard-font);
+	color: var(--ard-primary);
+	text-align: left;
 	cursor: pointer;
 	white-space: nowrap;
+	transition: background .15s;
+	width: 100%;
 }
-.ard-export-menu button:hover {
-	background: var(--ard-bg);
+.ard-export-item:hover {
+	background: #eff6ff;
 }
 
 /* ── POC column ───────────────────────────────────────────────── */

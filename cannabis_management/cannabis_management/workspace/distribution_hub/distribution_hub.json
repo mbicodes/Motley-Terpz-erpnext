@@ -1,6 +1,6 @@
 {
  "charts": [],
- "content": "[{\"type\":\"header\",\"data\":{\"text\":\"Distribution Hub\"}}]",
+ "content": "[{\"id\":\"distHubHeader\",\"type\":\"header\",\"data\":{\"text\":\"Distribution Hub\"}},{\"id\":\"distHubBlock01\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Distribution Hub\",\"col\":12}}]",
  "creation": "2026-07-02 10:30:59.271312",
  "custom_blocks": [
   {

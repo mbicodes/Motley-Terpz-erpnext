@@ -12,11 +12,13 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
     wrapper.page = page;
     page._ard_result      = null;
     page._ard_excl_motley = false;
+    page._ard_new_ar_only = false;
     page._ard_can_edit    = false;
     page._ard_ar_mode     = "all"; // default mode on open: "all" (Legacy + New combined)
     page._ard_all_mode    = false;    // true while showing the consolidated all-entities view
     page._ard_all_result  = null;     // merged result ({rows tagged with .company}) for re-render
     page._ard_cols_hidden = false;
+    page._ard_new_ar_only = false;
 
     page.main.html(`
 		<div class="ard-container">
@@ -72,14 +74,15 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
 					</select>
 				</div>
 				<div class="ard-filter-actions">
+					<button id="ard-new-ar-only-btn" class="ard-btn-secondary" style="display:none;">New AR &gt; 0</button>
 					<button id="ard-hide-cols-btn" class="ard-btn-secondary" style="display:none;">&#9679; Hide Columns D&ndash;K</button>
-					<div class="ard-export-wrap" id="ard-export-wrap" style="display:none;">
-						<button id="ard-export-dd-btn" class="ard-btn-secondary">+ Export &#9660;</button>
+					<div class="ard-export-dd" id="ard-export-dd" style="display:none;">
+						<button id="ard-export-toggle" class="ard-btn-secondary">&#8595; Export &#9662;</button>
 						<div class="ard-export-menu" id="ard-export-menu" style="display:none;">
-							<button id="ard-copy-all-btn">&#128203; Copy All</button>
-							<button id="ard-pdf-btn">&#128196; Export PDF</button>
-							<button id="ard-export-btn">&#8595; Export Excel (This View)</button>
-							<button id="ard-export-all-btn">&#8595; Export Excel (Whole Dashboard)</button>
+							<button id="ard-copy-all-btn" class="ard-export-item">&#128203; Copy All</button>
+							<button id="ard-pdf-btn"      class="ard-export-item">&#128196; Export PDF</button>
+							<button id="ard-export-btn"   class="ard-export-item">&#8595; Export Excel (This View)</button>
+							<button id="ard-export-all-btn" class="ard-export-item">&#8595; Export Excel (Whole Dashboard)</button>
 						</div>
 					</div>
 					<button id="ard-motley-btn" class="ard-btn-danger" style="display:none;">Remove Motley</button>
@@ -207,34 +210,35 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
         handle_poc_change(page, $(this));
     });
 
+    // Filter: show only customers with New AR > 1
+    page.main.find('#ard-new-ar-only-btn').on('click', function () {
+        page._ard_new_ar_only = !page._ard_new_ar_only;
+        let $btn = page.main.find('#ard-new-ar-only-btn');
+        if (page._ard_new_ar_only) {
+            $btn.text('✓ New AR > 0').addClass('ard-btn-active');
+        } else {
+            $btn.text('New AR > 0').removeClass('ard-btn-active');
+        }
+        if (page._ard_all_mode) render_all_entities(page);
+        else render_view(page);
+    });
+
     // Hide / show detail columns (D–K toggle) — pure CSS, no re-render
     page.main.find('#ard-hide-cols-btn').on('click', function () {
         page._ard_cols_hidden = !page._ard_cols_hidden;
-        let $btn = page.main.find('#ard-hide-cols-btn');
-        if (page._ard_cols_hidden) {
-            $btn.html('Show Columns D&ndash;K').removeClass('ard-btn-active');
-            page.main.find('#ard-data-area').addClass('ard-detail-hidden');
-        } else {
-            $btn.html('&#9679; Hide Columns D&ndash;K').addClass('ard-btn-active');
-            page.main.find('#ard-data-area').removeClass('ard-detail-hidden');
-        }
+        update_hide_cols_btn(page);
+        apply_col_visibility(page);
     });
 
     // Export dropdown toggle
-    page.main.on('click', '#ard-export-dd-btn', function (e) {
+    page.main.find('#ard-export-toggle').on('click', function (e) {
         e.stopPropagation();
         page.main.find('#ard-export-menu').toggle();
     });
-
-    // Close export dropdown when clicking outside it
-    page.main.on('click', function (e) {
-        if (!$(e.target).closest('#ard-export-wrap').length) {
-            page.main.find('#ard-export-menu').hide();
-        }
+    page.main.find('#ard-export-menu').on('click', 'button', function () {
+        page.main.find('#ard-export-menu').hide();
     });
-
-    // Close dropdown after any export action
-    page.main.on('click', '#ard-copy-all-btn, #ard-pdf-btn, #ard-export-btn, #ard-export-all-btn', function () {
+    $(document).on('click.ard-export-dd', function () {
         page.main.find('#ard-export-menu').hide();
     });
 
@@ -301,6 +305,7 @@ function set_ar_mode(page, mode) {
     page._ard_result = null;
     page._ard_all_result = null;
     page._ard_excl_motley = false;
+    page._ard_new_ar_only = false;
     apply_filters(page);
 }
 
@@ -459,6 +464,7 @@ function handle_poc_change(page, $select) {
 // filter change (no Apply button).
 function apply_filters(page) {
     page._ard_excl_motley = false;
+    page._ard_new_ar_only = false;
     if (page.main.find('#ard-company').val() === ALL_ENTITIES) {
         load_all_entities(page);
     } else {
@@ -538,6 +544,19 @@ function filter_rows(page, result, excl_motley) {
         });
     }
 
+    if (page._ard_new_ar_only) {
+        let party_new_ar = {};
+        display_rows.forEach(function (r) {
+            if (!party_new_ar[r.party]) party_new_ar[r.party] = 0;
+            if (!r.is_legacy && (r.posting_date || "") >= NEW_AR_START) {
+                party_new_ar[r.party] += r.outstanding || 0;
+            }
+        });
+        display_rows = display_rows.filter(function (r) {
+            return (party_new_ar[r.party] || 0) > 1;
+        });
+    }
+
     return display_rows;
 }
 
@@ -597,7 +616,7 @@ function render_view(page) {
     render_aging_bar(page, ranges, summary_totals);
     render_table(page, display_rows, table_totals);
     add_excel_grid(page);
-    page.main.find('#ard-data-area').toggleClass('ard-detail-hidden', !!page._ard_cols_hidden);
+    apply_col_visibility(page);
     show_export_buttons(page, display_rows.length > 0);
 }
 
@@ -1093,6 +1112,7 @@ function load_all_entities(page) {
     page._ard_all_mode = true;
     page._ard_all_result = null;
     page._ard_excl_motley = false;
+    page._ard_new_ar_only = false;
     show_export_buttons(page, false);
     page.main.find('#ard-motley-btn').hide();
 
@@ -1201,7 +1221,7 @@ function render_all_entities(page) {
         <div id="ard-table-section">${build_table_html(page, ranges, "All Entities", display_rows, table_totals, true, true)}</div>
     `);
     add_excel_grid(page);
-    page.main.find('#ard-data-area').toggleClass('ard-detail-hidden', !!page._ard_cols_hidden);
+    apply_col_visibility(page);
     show_export_buttons(page, true);
 }
 
@@ -1423,8 +1443,21 @@ function export_pdf(page) {
 
 // Show/hide the export wrap and hide-cols button based on whether data is on screen.
 function show_export_buttons(page, has_rows) {
-    page.main.find('#ard-export-wrap, #ard-hide-cols-btn').toggle(!!has_rows);
+    page.main.find('#ard-export-dd, #ard-hide-cols-btn, #ard-new-ar-only-btn').toggle(!!has_rows);
     if (!has_rows) page.main.find('#ard-export-menu').hide();
+}
+
+function update_hide_cols_btn(page) {
+    let $btn = page.main.find('#ard-hide-cols-btn');
+    if (page._ard_cols_hidden) {
+        $btn.html('Show Columns D&ndash;K').removeClass('ard-btn-active');
+    } else {
+        $btn.html('&#9679; Hide Columns D&ndash;K').addClass('ard-btn-active');
+    }
+}
+
+function apply_col_visibility(page) {
+    page.main.find('#ard-data-area').toggleClass('ard-detail-hidden', !!page._ard_cols_hidden);
 }
 
 // ─── Excel Export ─────────────────────────────────────────────────────────────
@@ -1454,42 +1487,151 @@ function export_excel(page, use_all) {
         return;
     }
 
-    // Group by customer — one summary row per party
-    let groups = {}, order = [];
+    let ranges = res.ranges || [];
+    let cols_hidden  = !!page._ard_cols_hidden;
+    let show_terms   = page._ard_ar_mode === 'new' || page._ard_ar_mode === 'all';
+    let split_ln     = page._ard_ar_mode === 'all';
+    let show_legacy_col = page._ard_ar_mode === 'new';
+    let show_company = !!use_all;
+    let na_anchor    = show_terms ? get_report_date(page) : null;
+
+    // ── header row ──────────────────────────────────────────────────────────────
+    let header = ["Customer", "Recon Status", "POC"];
+    if (!cols_hidden) {
+        if (show_company) header.push("Entity");
+        header.push("Invoice No.", "Type", "Posting Date", "Due Date", "Invoiced", "Paid", "Outstanding");
+    }
+    if (show_terms) {
+        if (split_ln)        { header.push("Legacy AR", "New AR"); }
+        if (show_legacy_col) { header.push("Legacy AR", "New AR"); }
+        header.push("Total AR", "Good AR", "Bad AR", "0-10 Days", "10-20 Days", "20-30 Days");
+    }
+    ranges.forEach(function (r) { header.push(r.label + " Days"); });
+    if (!cols_hidden) header.push("Status");
+    header.push("New AR");
+
+    // ── group rows by customer ───────────────────────────────────────────────────
+    let customer_order = [], customer_groups = {};
     display_rows.forEach(function (row) {
         let key = row.party;
-        if (!groups[key]) {
-            groups[key] = {
-                name: row.customer_name || row.party,
+        if (!customer_groups[key]) {
+            customer_groups[key] = {
+                name: row.customer_name || row.party, party: row.party,
                 recon_status: row.reconciliation_status || "",
                 poc: row.poc || "",
-                legacy_ar: 0,
-                new_ar: 0,
+                new_ar_available: !!row.new_ar_available,
+                rows: []
             };
-            order.push(key);
+            customer_order.push(key);
         }
-        let g = groups[key];
-        if (row.is_legacy || (row.posting_date || "") < NEW_AR_START) {
-            g.legacy_ar += row.outstanding || 0;
+        customer_groups[key].rows.push(row);
+    });
+    customer_order.sort(function (a, b) {
+        return (customer_groups[a].name || "").toLowerCase().localeCompare((customer_groups[b].name || "").toLowerCase());
+    });
+
+    // ── build data rows ──────────────────────────────────────────────────────────
+    let xrows = [header];
+    let grand = { invoiced: 0, paid: 0, outstanding: 0 };
+    ranges.forEach(function (r) { grand[r.key] = 0; });
+    let grand_legacy = 0;
+    let grand_na = show_terms ? { legacy_ar: 0, new_ar: 0, total: 0, good: 0, bad: 0, g1: 0, g2: 0, g3: 0 } : null;
+
+    customer_order.forEach(function (party) {
+        let group = customer_groups[party];
+        let sub = { invoiced: 0, paid: 0, outstanding: 0 };
+        let group_legacy = 0;
+        ranges.forEach(function (r) { sub[r.key] = 0; });
+        let group_na = show_terms ? { legacy_ar: 0, new_ar: 0, total: 0, good: 0, bad: 0, g1: 0, g2: 0, g3: 0 } : null;
+
+        group.rows.forEach(function (row) {
+            sub.invoiced    += row.invoiced    || 0;
+            sub.paid        += row.paid        || 0;
+            sub.outstanding += row.outstanding || 0;
+            if (row.is_legacy) group_legacy += row.outstanding || 0;
+            ranges.forEach(function (r) { sub[r.key] += row[r.key] || 0; });
+            if (show_terms && na_anchor && !row.is_legacy) {
+                let info = classify_ar_row(row, na_anchor);
+                let amt  = row.outstanding || 0;
+                if (amt <= 0) return;
+                let is_new = (row.posting_date || "") >= NEW_AR_START;
+                group_na.total     += amt;
+                group_na.legacy_ar += !is_new ? amt : 0;
+                group_na.new_ar    += is_new  ? amt : 0;
+                let good = info.section === "good";
+                group_na.good += good  ? amt : 0;
+                group_na.bad  += !good ? amt : 0;
+                group_na.g1   += (good && info.bkey === "g1") ? amt : 0;
+                group_na.g2   += (good && info.bkey === "g2") ? amt : 0;
+                group_na.g3   += (good && info.bkey === "g3") ? amt : 0;
+            }
+        });
+
+        // accumulate grand totals
+        grand.invoiced    += sub.invoiced;
+        grand.paid        += sub.paid;
+        grand.outstanding += sub.outstanding;
+        grand_legacy      += group_legacy;
+        ranges.forEach(function (r) { grand[r.key] += sub[r.key]; });
+        if (grand_na && group_na) {
+            ['legacy_ar','new_ar','total','good','bad','g1','g2','g3'].forEach(function (k) { grand_na[k] += group_na[k]; });
+        }
+
+        if (!cols_hidden) {
+            // one row per invoice (detail view)
+            group.rows.forEach(function (row) {
+                let status = get_row_status(row, ranges);
+                let r = [group.name, group.recon_status, group.poc];
+                if (show_company) r.push(row.company || "");
+                r.push(row.voucher_no || "", row.voucher_type || "", row.posting_date || "", row.due_date || "");
+                r.push(row.invoiced || 0, row.paid || 0, row.outstanding || 0);
+                if (show_terms && na_anchor && !row.is_legacy) {
+                    let info = classify_ar_row(row, na_anchor);
+                    let amt  = row.outstanding || 0;
+                    let is_new = (row.posting_date || "") >= NEW_AR_START;
+                    if (split_ln)        { r.push(!is_new ? amt : 0, is_new ? amt : 0); }
+                    if (show_legacy_col) { r.push(row.is_legacy ? amt : 0, row.is_legacy ? 0 : amt); }
+                    let good = info.section === "good";
+                    r.push(amt, good ? amt : 0, !good ? amt : 0);
+                    r.push(good && info.bkey === "g1" ? amt : 0, good && info.bkey === "g2" ? amt : 0, good && info.bkey === "g3" ? amt : 0);
+                } else if (show_terms) {
+                    let blanks = (split_ln ? 2 : 0) + (show_legacy_col ? 2 : 0) + 6;
+                    for (let i = 0; i < blanks; i++) r.push("");
+                }
+                ranges.forEach(function (rng) { r.push(row[rng.key] || 0); });
+                r.push(status.label);
+                r.push(group.new_ar_available ? "Yes" : "");
+                xrows.push(r);
+            });
         } else {
-            g.new_ar += row.outstanding || 0;
+            // one row per customer (compact / D-K hidden)
+            let r = [group.name, group.recon_status, group.poc];
+            if (show_terms && group_na) {
+                if (split_ln)        { r.push(group_na.legacy_ar, group_na.new_ar); }
+                if (show_legacy_col) { r.push(group_legacy, group_na.total); }
+                r.push(group_na.total, group_na.good, group_na.bad, group_na.g1, group_na.g2, group_na.g3);
+            }
+            ranges.forEach(function (rng) { r.push(sub[rng.key] || 0); });
+            r.push(group.new_ar_available ? "Yes" : "");
+            xrows.push(r);
         }
     });
 
-    order.sort(function (a, b) {
-        return (groups[a].name || "").toLowerCase().localeCompare((groups[b].name || "").toLowerCase());
-    });
-
-    let xrows = [["Customer", "Reconciliation Status", "POC", "Legacy AR Outstanding", "New AR Outstanding", "Total"]];
-    let total_legacy = 0, total_new = 0;
-
-    order.forEach(function (party) {
-        let g = groups[party];
-        total_legacy += g.legacy_ar;
-        total_new    += g.new_ar;
-        xrows.push([g.name, g.recon_status, g.poc, g.legacy_ar || 0, g.new_ar || 0, (g.legacy_ar + g.new_ar)]);
-    });
-    xrows.push(["Total", "", "", total_legacy, total_new, total_legacy + total_new]);
+    // ── totals row ───────────────────────────────────────────────────────────────
+    let totals = ["TOTAL", "", ""];
+    if (!cols_hidden) {
+        if (show_company) totals.push("");
+        totals.push("", "", "", "", grand.invoiced, grand.paid, grand.outstanding);
+    }
+    if (grand_na) {
+        if (split_ln)        { totals.push(grand_na.legacy_ar, grand_na.new_ar); }
+        if (show_legacy_col) { totals.push(grand_legacy, grand_na.total); }
+        totals.push(grand_na.total, grand_na.good, grand_na.bad, grand_na.g1, grand_na.g2, grand_na.g3);
+    }
+    ranges.forEach(function (r) { totals.push(grand[r.key]); });
+    if (!cols_hidden) totals.push("");
+    totals.push("");
+    xrows.push(totals);
 
     let date_str = page.main.find('#ard-report-date').val() || frappe.datetime.get_today();
     let mode_tag = page._ard_ar_mode === 'legacy' ? 'Legacy' : (page._ard_ar_mode === 'new' ? 'New' : 'All');
