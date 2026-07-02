@@ -393,9 +393,9 @@ def export_ar_excel_data(rows_json, filename):
     if not all_rows:
         frappe.throw("No data to export")
 
-    # rows_json = [header, ...data..., Total-row]
+    # rows_json = [header, ...data..., TOTAL row]
     header    = all_rows[0]
-    data_rows = [r for r in all_rows[1:] if r[0] != "Total"]
+    data_rows = all_rows[1:]   # keep the TOTAL row — JS already built it correctly
 
     # Sheet definitions: (recon_status_value, sheet_name, tab_color_hex)
     SHEETS = [
@@ -428,29 +428,21 @@ def export_ar_excel_data(rows_json, filename):
             cell.alignment = header_align
             cell.border = border
 
-        # Data rows + running totals
-        total_legacy = total_new = total_all = 0.0
+        # Data rows — last row is the TOTAL row already built by JS
         for r_idx, row in enumerate(sheet_data, 2):
+            is_total = str(row[0] or "").upper() == "TOTAL"
             ws.append(row)
-            total_legacy += float(row[3] or 0)
-            total_new    += float(row[4] or 0)
-            total_all    += float(row[5] or 0)
             for c_idx, cell in enumerate(ws[r_idx], 1):
                 cell.border = border
-                cell.alignment = Alignment(horizontal="right" if c_idx >= 4 else "left")
-                if c_idx >= 4:
+                is_num = isinstance(cell.value, (int, float))
+                if is_total:
+                    cell.font = total_font
+                    cell.fill = total_fill
+                    cell.alignment = Alignment(horizontal="right" if is_num else "center")
+                else:
+                    cell.alignment = Alignment(horizontal="right" if is_num else "left")
+                if is_num:
                     cell.number_format = '"$"#,##0.00'
-
-        # Totals row
-        t_idx = len(sheet_data) + 2
-        ws.append(["Total", "", "", total_legacy, total_new, total_all])
-        for c_idx, cell in enumerate(ws[t_idx], 1):
-            cell.font = total_font
-            cell.fill = total_fill
-            cell.border = border
-            cell.alignment = Alignment(horizontal="right" if c_idx >= 4 else "center")
-            if c_idx >= 4:
-                cell.number_format = '"$"#,##0.00'
 
         # Auto-width columns
         for col in ws.columns:
@@ -469,12 +461,23 @@ def export_ar_excel_data(rows_json, filename):
     write_sheet(ws_all, data_rows)
 
     # One sheet per recon status (only if it has data)
+    # Exclude the TOTAL row from per-status sheets; add a fresh TOTAL row at the end
+    non_total = [r for r in data_rows if str(r[0] or "").upper() != "TOTAL"]
     for status_val, sheet_name, tab_color in SHEETS:
-        subset = [r for r in data_rows if str(r[1] or "") == status_val]
+        subset = [r for r in non_total if str(r[1] or "") == status_val]
         if not subset:
             continue
+        # Build a totals row for this subset: sum all numeric columns
+        totals_row = []
+        for c_idx in range(len(header)):
+            if c_idx == 0:
+                totals_row.append("TOTAL")
+            else:
+                col_vals = [r[c_idx] for r in subset if c_idx < len(r)]
+                nums = [v for v in col_vals if isinstance(v, (int, float))]
+                totals_row.append(sum(nums) if nums else "")
         ws = wb.create_sheet(sheet_name)
-        write_sheet(ws, subset, tab_color)
+        write_sheet(ws, subset + [totals_row], tab_color)
 
     buf = BytesIO()
     wb.save(buf)
