@@ -281,7 +281,7 @@ def get_ar_data(company, report_date=None, customer=None, ageing_based_on="Due D
     unique_parties = list({r["party"] for r in rows if r.get("party")})
     cust_info = {}
     if unique_parties:
-        fetch_fields = ["name", "custom_reconciliation_status"]
+        fetch_fields = ["name", "custom_reconciliation_status", "custom_notebox"]
         # custom_poc and custom_new_ar_available are added via setup_ar_custom_fields;
         # fetch them silently if they exist.
         try:
@@ -295,6 +295,7 @@ def get_ar_data(company, report_date=None, customer=None, ageing_based_on="Due D
                     "recon": c.get("custom_reconciliation_status") or "",
                     "poc": c.get("custom_poc") or "",
                     "new_ar_available": bool(c.get("custom_new_ar_available")),
+                    "notebox": c.get("custom_notebox") or "",
                 }
         except Exception:
             cust_rows = frappe.get_all(
@@ -307,13 +308,15 @@ def get_ar_data(company, report_date=None, customer=None, ageing_based_on="Due D
                     "recon": c.get("custom_reconciliation_status") or "",
                     "poc": "",
                     "new_ar_available": False,
+                    "notebox": c.get("custom_notebox") or "",
                 }
 
     for r in rows:
-        info = cust_info.get(r["party"], {"recon": "", "poc": "", "new_ar_available": False})
+        info = cust_info.get(r["party"], {"recon": "", "poc": "", "new_ar_available": False, "notebox": ""})
         r["reconciliation_status"] = info["recon"]
         r["poc"]                   = info["poc"]
         r["new_ar_available"]      = info["new_ar_available"]
+        r["notebox"]               = info.get("notebox", "")
 
     return {
         "rows": rows,

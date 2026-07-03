@@ -897,6 +897,7 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
                 recon_status: row.reconciliation_status || "",
                 poc: row.poc || "",
                 new_ar_available: !!row.new_ar_available,
+                notebox: row.notebox || "",
                 rows: []
             };
             customer_order.push(key);
@@ -925,6 +926,7 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
 						${range_headers}
 						<th class="ard-th-status">Status</th>
 						<th class="ard-th-new-ar">New AR</th>
+						<th class="ard-th-notebox">Notebox</th>
 					</tr>
 				</thead>
 				<tbody>
@@ -974,6 +976,7 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
 				${sub_range_cells}
 				<td></td>
 				<td class="ard-td-new-ar">${new_ar_cell}</td>
+				<td class="ard-td-notebox" title="${esc_attr(group.notebox || "")}">${esc(group.notebox || "")}</td>
 			</tr>
 		`;
 
@@ -997,6 +1000,7 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
 					${range_cells}
 					<td style="text-align:center;"><span class="ard-badge ${status.cls}">${status.label}</span></td>
 					<td></td>
+					<td></td>
 				</tr>
 			`;
         });
@@ -1016,7 +1020,8 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
 						${show_terms ? na_total_cells(na_grand, split_ln, show_legacy_col, grand_legacy) : ``}
 						${range_total_cells}
 						<td></td>
-						<td></td>`;
+						<td></td>
+						<td class="ard-total-cell"></td>`;
 
     html += `
 				</tbody>
@@ -1496,19 +1501,18 @@ function export_excel(page, use_all) {
     let na_anchor    = show_terms ? get_report_date(page) : null;
 
     // ── header row ──────────────────────────────────────────────────────────────
-    let header = ["Customer", "Recon Status", "POC"];
-    if (!cols_hidden) {
-        if (show_company) header.push("Entity");
-        header.push("Invoice No.", "Type", "Posting Date", "Due Date", "Invoiced", "Paid", "Outstanding");
-    }
+    // Excel export is always a per-customer summary (one row per customer),
+    // regardless of the on-screen "Hide Columns D–K" toggle. Per-invoice-only
+    // columns (Invoice No., Type, dates, Status, Entity) are omitted.
+    let header = ["Customer", "Recon Status", "POC", "Invoiced", "Paid", "Outstanding"];
     if (show_terms) {
         if (split_ln)        { header.push("Legacy AR", "New AR"); }
         if (show_legacy_col) { header.push("Legacy AR", "New AR"); }
         header.push("Total AR", "Good AR", "Bad AR", "0-10 Days", "10-20 Days", "20-30 Days");
     }
     ranges.forEach(function (r) { header.push(r.label + " Days"); });
-    if (!cols_hidden) header.push("Status");
     header.push("New AR");
+    header.push("Notebox");
 
     // ── group rows by customer ───────────────────────────────────────────────────
     let customer_order = [], customer_groups = {};
@@ -1520,6 +1524,7 @@ function export_excel(page, use_all) {
                 recon_status: row.reconciliation_status || "",
                 poc: row.poc || "",
                 new_ar_available: !!row.new_ar_available,
+                notebox: row.notebox || "",
                 rows: []
             };
             customer_order.push(key);
@@ -1577,60 +1582,29 @@ function export_excel(page, use_all) {
             ['legacy_ar','new_ar','total','good','bad','g1','g2','g3'].forEach(function (k) { grand_na[k] += group_na[k]; });
         }
 
-        if (!cols_hidden) {
-            // one row per invoice (detail view)
-            group.rows.forEach(function (row) {
-                let status = get_row_status(row, ranges);
-                let r = [group.name, group.recon_status, group.poc];
-                if (show_company) r.push(row.company || "");
-                r.push(row.voucher_no || "", row.voucher_type || "", row.posting_date || "", row.due_date || "");
-                r.push(row.invoiced || 0, row.paid || 0, row.outstanding || 0);
-                if (show_terms && na_anchor && !row.is_legacy) {
-                    let info = classify_ar_row(row, na_anchor);
-                    let amt  = row.outstanding || 0;
-                    let is_new = (row.posting_date || "") >= NEW_AR_START;
-                    if (split_ln)        { r.push(!is_new ? amt : 0, is_new ? amt : 0); }
-                    if (show_legacy_col) { r.push(row.is_legacy ? amt : 0, row.is_legacy ? 0 : amt); }
-                    let good = info.section === "good";
-                    r.push(amt, good ? amt : 0, !good ? amt : 0);
-                    r.push(good && info.bkey === "g1" ? amt : 0, good && info.bkey === "g2" ? amt : 0, good && info.bkey === "g3" ? amt : 0);
-                } else if (show_terms) {
-                    let blanks = (split_ln ? 2 : 0) + (show_legacy_col ? 2 : 0) + 6;
-                    for (let i = 0; i < blanks; i++) r.push("");
-                }
-                ranges.forEach(function (rng) { r.push(row[rng.key] || 0); });
-                r.push(status.label);
-                r.push(group.new_ar_available ? "Yes" : "");
-                xrows.push(r);
-            });
-        } else {
-            // one row per customer (compact / D-K hidden)
-            let r = [group.name, group.recon_status, group.poc];
-            if (show_terms && group_na) {
-                if (split_ln)        { r.push(group_na.legacy_ar, group_na.new_ar); }
-                if (show_legacy_col) { r.push(group_legacy, group_na.total); }
-                r.push(group_na.total, group_na.good, group_na.bad, group_na.g1, group_na.g2, group_na.g3);
-            }
-            ranges.forEach(function (rng) { r.push(sub[rng.key] || 0); });
-            r.push(group.new_ar_available ? "Yes" : "");
-            xrows.push(r);
+        // one row per customer (always — collapsed summary)
+        let r = [group.name, group.recon_status, group.poc, sub.invoiced, sub.paid, sub.outstanding];
+        if (show_terms && group_na) {
+            if (split_ln)        { r.push(group_na.legacy_ar, group_na.new_ar); }
+            if (show_legacy_col) { r.push(group_legacy, group_na.total); }
+            r.push(group_na.total, group_na.good, group_na.bad, group_na.g1, group_na.g2, group_na.g3);
         }
+        ranges.forEach(function (rng) { r.push(sub[rng.key] || 0); });
+        r.push(group.new_ar_available ? "Yes" : "");
+        r.push(group.notebox || "");
+        xrows.push(r);
     });
 
     // ── totals row ───────────────────────────────────────────────────────────────
-    let totals = ["TOTAL", "", ""];
-    if (!cols_hidden) {
-        if (show_company) totals.push("");
-        totals.push("", "", "", "", grand.invoiced, grand.paid, grand.outstanding);
-    }
+    let totals = ["TOTAL", "", "", grand.invoiced, grand.paid, grand.outstanding];
     if (grand_na) {
         if (split_ln)        { totals.push(grand_na.legacy_ar, grand_na.new_ar); }
         if (show_legacy_col) { totals.push(grand_legacy, grand_na.total); }
         totals.push(grand_na.total, grand_na.good, grand_na.bad, grand_na.g1, grand_na.g2, grand_na.g3);
     }
     ranges.forEach(function (r) { totals.push(grand[r.key]); });
-    if (!cols_hidden) totals.push("");
-    totals.push("");
+    totals.push("");  // New AR
+    totals.push("");  // Notebox
     xrows.push(totals);
 
     let date_str = page.main.find('#ard-report-date').val() || frappe.datetime.get_today();
