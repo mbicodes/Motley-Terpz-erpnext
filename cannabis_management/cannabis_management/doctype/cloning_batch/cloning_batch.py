@@ -57,18 +57,17 @@ class CloningBatch(Document):
         self.create_stock_entry()
 
     def get_labor_expense_account(self):
-        """Build the labor expense account name using the company's abbreviation."""
-        abbr = frappe.db.get_value("Company", self.company, "abbr")
-        account_name = "Harvest Labor - {0}".format(abbr)
+        """Labor expense account (fixed)."""
+        account_name = "Harvest Labor - TSBC"
 
-        if frappe.db.exists("Account", account_name):
-            return account_name
-
-        frappe.throw(
-            _("Expense Account {0} not found. Please create it for Company {1}.").format(
-                frappe.bold(account_name), frappe.bold(self.company)
+        if not frappe.db.exists("Account", account_name):
+            frappe.throw(
+                _("Expense Account {0} not found. Please create it first.").format(
+                    frappe.bold(account_name)
+                )
             )
-        )
+
+        return account_name
 
     def create_stock_entry(self):
 
