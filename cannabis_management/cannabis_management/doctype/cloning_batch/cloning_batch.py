@@ -11,6 +11,21 @@ class CloningBatch(Document):
 
     def validate(self):
         self.calculate_totals()
+        self.validate_warehouse_company()
+
+    def validate_warehouse_company(self):
+        """Ensure target warehouse belongs to the selected company."""
+        if self.company and self.target_warehouse:
+            warehouse_company = frappe.db.get_value(
+                "Warehouse", self.target_warehouse, "company"
+            )
+            if warehouse_company and warehouse_company != self.company:
+                frappe.throw(
+                    _("Target Warehouse {0} does not belong to Company {1}.").format(
+                        frappe.bold(self.target_warehouse),
+                        frappe.bold(self.company),
+                    )
+                )
 
     def calculate_totals(self):
         """Calculate totals from Clone Details only."""
@@ -41,6 +56,20 @@ class CloningBatch(Document):
     def on_submit(self):
         self.create_stock_entry()
 
+    def get_labor_expense_account(self):
+        """Build the labor expense account name using the company's abbreviation."""
+        abbr = frappe.db.get_value("Company", self.company, "abbr")
+        account_name = "Harvest Labor - {0}".format(abbr)
+
+        if frappe.db.exists("Account", account_name):
+            return account_name
+
+        frappe.throw(
+            _("Expense Account {0} not found. Please create it for Company {1}.").format(
+                frappe.bold(account_name), frappe.bold(self.company)
+            )
+        )
+
     def create_stock_entry(self):
 
         if not self.target_warehouse:
@@ -60,6 +89,7 @@ class CloningBatch(Document):
 
         has_items = False
 
+        # Clone Details table se items map karna
         for row in self.clone_details or []:
 
             if not row.clone_item:
@@ -84,7 +114,19 @@ class CloningBatch(Document):
         if not has_items:
             frappe.throw(_("Please add at least one Clone Detail."))
 
+        # Labor cost ko Additional Costs table mein add karna
+        if flt(self.total_labor_cost) > 0:
+            stock_entry.append(
+                "additional_costs",
+                {
+                    "expense_account": self.get_labor_expense_account(),
+                    "description": "Labor Cost - Cloning Batch {0}".format(self.name),
+                    "amount": flt(self.total_labor_cost),
+                },
+            )
+
         stock_entry.insert(ignore_permissions=True)
+        stock_entry.submit()
 
         self.db_set("stock_entry", stock_entry.name)
 

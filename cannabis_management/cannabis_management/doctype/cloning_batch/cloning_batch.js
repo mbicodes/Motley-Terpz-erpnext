@@ -1,6 +1,28 @@
+// Copyright (c) 2026, alltechvirtual.com and contributors
+// For license information, please see license.txt
+
 frappe.ui.form.on("Cloning Batch", {
+
+    setup(frm) {
+        // Target Warehouse filter: sirf selected company ke warehouses show hon
+        frm.set_query("target_warehouse", function () {
+            return {
+                filters: {
+                    company: frm.doc.company,
+                    is_group: 0
+                }
+            };
+        });
+    },
+
     refresh(frm) {
         calculate_totals(frm);
+    },
+
+    company(frm) {
+        // Company change hone par purana warehouse clear kar do
+        // taake dusri company ka warehouse selected na reh jaye
+        frm.set_value("target_warehouse", null);
     },
 
     labour_hours(frm) {
@@ -15,7 +37,7 @@ frappe.ui.form.on("Cloning Batch", {
 
 frappe.ui.form.on("Cloning Batch Clone Detail", {
 
-    qty(frm) {
+    quantity(frm) {
         calculate_totals(frm);
     },
 
@@ -34,8 +56,8 @@ function calculate_totals(frm) {
 
     let total_clones = 0;
 
-    (frm.doc.clone_details || []).forEach(function(row) {
-        total_clones += cint(row.qty);
+    (frm.doc.clone_details || []).forEach(function (row) {
+        total_clones += cint(row.quantity);
     });
 
     // Total Labor Cost
