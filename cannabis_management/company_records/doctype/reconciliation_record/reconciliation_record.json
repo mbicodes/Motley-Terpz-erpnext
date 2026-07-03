@@ -1,0 +1,205 @@
+{
+ "actions": [],
+ "autoname": "REC-.YYYY.-.#####",
+ "creation": "2026-07-03 10:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "reconciliation_type",
+  "business_entity",
+  "counterparty_type",
+  "counterparty",
+  "received_from_client",
+  "date_received",
+  "period_start",
+  "period_end",
+  "prepared_by",
+  "reviewed_by",
+  "status",
+  "source_balance",
+  "target_balance",
+  "variance",
+  "variance_explanation",
+  "line_items"
+ ],
+ "fields": [
+  {
+   "allow_in_quick_entry": 1,
+   "fieldname": "reconciliation_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Reconciliation Type",
+   "options": "AR Trailing\nAP Trailing\nInventory vs Metrc\nClient Reconciliation\nBank Recon\nIntercompany",
+   "reqd": 1
+  },
+  {
+   "allow_in_quick_entry": 1,
+   "fieldname": "business_entity",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Business Entity",
+   "options": "Business Entity",
+   "reqd": 1
+  },
+  {
+   "fieldname": "counterparty_type",
+   "fieldtype": "Select",
+   "label": "Counterparty Type",
+   "options": "\nCustomer\nSupplier"
+  },
+  {
+   "depends_on": "counterparty_type",
+   "fieldname": "counterparty",
+   "fieldtype": "Dynamic Link",
+   "label": "Counterparty",
+   "options": "counterparty_type"
+  },
+  {
+   "fieldname": "received_from_client",
+   "fieldtype": "Check",
+   "label": "Received from Client"
+  },
+  {
+   "depends_on": "received_from_client",
+   "fieldname": "date_received",
+   "fieldtype": "Date",
+   "label": "Date Received"
+  },
+  {
+   "fieldname": "period_start",
+   "fieldtype": "Date",
+   "label": "Period Start"
+  },
+  {
+   "allow_in_quick_entry": 1,
+   "fieldname": "period_end",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Period End"
+  },
+  {
+   "fieldname": "prepared_by",
+   "fieldtype": "Link",
+   "label": "Prepared By",
+   "options": "User"
+  },
+  {
+   "fieldname": "reviewed_by",
+   "fieldtype": "Link",
+   "label": "Reviewed By",
+   "options": "User"
+  },
+  {
+   "default": "Draft",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Draft\nUnder Review\nApproved\nLocked"
+  },
+  {
+   "allow_in_quick_entry": 1,
+   "fieldname": "source_balance",
+   "fieldtype": "Currency",
+   "label": "Source Balance"
+  },
+  {
+   "allow_in_quick_entry": 1,
+   "fieldname": "target_balance",
+   "fieldtype": "Currency",
+   "label": "Target Balance"
+  },
+  {
+   "fieldname": "variance",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Variance",
+   "read_only": 1
+  },
+  {
+   "fieldname": "variance_explanation",
+   "fieldtype": "Text Editor",
+   "label": "Variance Explanation"
+  },
+  {
+   "fieldname": "line_items",
+   "fieldtype": "Table",
+   "label": "Line Items",
+   "options": "Reconciliation Line"
+  }
+ ],
+ "grid_page_length": 50,
+ "links": [],
+ "modified": "2026-07-03 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Company Records",
+ "name": "Reconciliation Record",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Director",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounting Team",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Operations",
+   "share": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "ERP Dev Team",
+   "share": 1
+  }
+ ],
+ "quick_entry": 1,
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

@@ -1,0 +1,156 @@
+{
+ "actions": [],
+ "autoname": "CTR-.YYYY.-.#####",
+ "creation": "2026-07-03 10:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "contract_type",
+  "counterparty_type",
+  "counterparty",
+  "business_entity",
+  "payment_terms",
+  "payment_terms_notes",
+  "effective_date",
+  "expiry_date",
+  "auto_renew",
+  "status",
+  "attach_contract",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "contract_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Contract Type",
+   "options": "Client\nVendor\nStaffing\nOther"
+  },
+  {
+   "fieldname": "counterparty_type",
+   "fieldtype": "Select",
+   "label": "Counterparty Type",
+   "options": "\nCustomer\nSupplier"
+  },
+  {
+   "depends_on": "counterparty_type",
+   "fieldname": "counterparty",
+   "fieldtype": "Dynamic Link",
+   "in_list_view": 1,
+   "label": "Counterparty",
+   "options": "counterparty_type"
+  },
+  {
+   "fieldname": "business_entity",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Business Entity",
+   "options": "Business Entity"
+  },
+  {
+   "fieldname": "payment_terms",
+   "fieldtype": "Select",
+   "label": "Payment Terms",
+   "options": "\nNet 15\nNet 30\nNet 45\nNet 60\nCOD\nCustom"
+  },
+  {
+   "depends_on": "eval:doc.payment_terms==\"Custom\"",
+   "fieldname": "payment_terms_notes",
+   "fieldtype": "Data",
+   "label": "Payment Terms Notes"
+  },
+  {
+   "fieldname": "effective_date",
+   "fieldtype": "Date",
+   "label": "Effective Date"
+  },
+  {
+   "fieldname": "expiry_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Expiry Date"
+  },
+  {
+   "fieldname": "auto_renew",
+   "fieldtype": "Check",
+   "label": "Auto Renew"
+  },
+  {
+   "default": "Draft",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Draft\nActive\nExpired\nTerminated"
+  },
+  {
+   "fieldname": "attach_contract",
+   "fieldtype": "Attach",
+   "label": "Attach Contract"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Text Editor",
+   "label": "Notes"
+  }
+ ],
+ "grid_page_length": 50,
+ "links": [],
+ "modified": "2026-07-03 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Company Records",
+ "name": "Company Contract",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Director",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounting Team",
+   "share": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Operations",
+   "share": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

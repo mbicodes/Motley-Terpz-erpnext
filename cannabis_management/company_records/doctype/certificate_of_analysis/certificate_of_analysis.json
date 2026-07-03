@@ -1,0 +1,175 @@
+{
+ "actions": [],
+ "autoname": "COA-.YYYY.-.#####",
+ "creation": "2026-07-03 10:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "product_name",
+  "batch_or_sku",
+  "product_category",
+  "test_type",
+  "testing_lab",
+  "sample_date",
+  "result_date",
+  "result_status",
+  "thc_percent",
+  "cbd_percent",
+  "business_entity",
+  "linked_batch",
+  "attach_coa",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "product_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Product Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "batch_or_sku",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Batch / SKU"
+  },
+  {
+   "fieldname": "product_category",
+   "fieldtype": "Select",
+   "in_standard_filter": 1,
+   "label": "Product Category",
+   "options": "\nVape\nFlower\nConcentrate\nEdible\nOther"
+  },
+  {
+   "fieldname": "test_type",
+   "fieldtype": "Select",
+   "label": "Test Type",
+   "options": "\nFull Panel\nPotency\nPesticides\nHeavy Metals\nMicrobials\nResidual Solvents"
+  },
+  {
+   "fieldname": "testing_lab",
+   "fieldtype": "Data",
+   "label": "Testing Lab"
+  },
+  {
+   "fieldname": "sample_date",
+   "fieldtype": "Date",
+   "label": "Sample Date"
+  },
+  {
+   "fieldname": "result_date",
+   "fieldtype": "Date",
+   "label": "Result Date"
+  },
+  {
+   "fieldname": "result_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Result Status",
+   "options": "\nPass\nFail\nPending\nRetest"
+  },
+  {
+   "fieldname": "thc_percent",
+   "fieldtype": "Float",
+   "label": "THC %"
+  },
+  {
+   "fieldname": "cbd_percent",
+   "fieldtype": "Float",
+   "label": "CBD %"
+  },
+  {
+   "fieldname": "business_entity",
+   "fieldtype": "Link",
+   "label": "Business Entity",
+   "options": "Business Entity"
+  },
+  {
+   "fieldname": "linked_batch",
+   "fieldtype": "Link",
+   "label": "Linked Batch",
+   "options": "Batch"
+  },
+  {
+   "fieldname": "attach_coa",
+   "fieldtype": "Attach",
+   "label": "Attach COA"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Text Editor",
+   "label": "Notes"
+  }
+ ],
+ "grid_page_length": 50,
+ "links": [],
+ "modified": "2026-07-03 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Company Records",
+ "name": "Certificate of Analysis",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Director",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Operations",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounting Team",
+   "share": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "ERP Dev Team",
+   "share": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

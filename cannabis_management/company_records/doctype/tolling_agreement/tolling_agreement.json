@@ -1,0 +1,146 @@
+{
+ "actions": [],
+ "autoname": "TOL-.YYYY.-.#####",
+ "creation": "2026-07-03 10:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "tolling_partner",
+  "business_entity",
+  "input_material",
+  "output_material",
+  "expected_yield_pct",
+  "fee_structure",
+  "fee_rate",
+  "attach_agreement",
+  "active_from",
+  "active_to",
+  "tolling_runs"
+ ],
+ "fields": [
+  {
+   "fieldname": "tolling_partner",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Tolling Partner",
+   "options": "Supplier"
+  },
+  {
+   "fieldname": "business_entity",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Business Entity",
+   "options": "Business Entity"
+  },
+  {
+   "fieldname": "input_material",
+   "fieldtype": "Link",
+   "label": "Input Material",
+   "options": "Item"
+  },
+  {
+   "fieldname": "output_material",
+   "fieldtype": "Link",
+   "label": "Output Material",
+   "options": "Item"
+  },
+  {
+   "fieldname": "expected_yield_pct",
+   "fieldtype": "Percent",
+   "label": "Expected Yield %"
+  },
+  {
+   "fieldname": "fee_structure",
+   "fieldtype": "Select",
+   "label": "Fee Structure",
+   "options": "\nPer lb\nPer batch\n% of output value"
+  },
+  {
+   "fieldname": "fee_rate",
+   "fieldtype": "Currency",
+   "label": "Fee Rate"
+  },
+  {
+   "fieldname": "attach_agreement",
+   "fieldtype": "Attach",
+   "label": "Attach Agreement"
+  },
+  {
+   "fieldname": "active_from",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Active From"
+  },
+  {
+   "fieldname": "active_to",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Active To"
+  },
+  {
+   "fieldname": "tolling_runs",
+   "fieldtype": "Table",
+   "label": "Tolling Runs",
+   "options": "Tolling Run"
+  }
+ ],
+ "grid_page_length": 50,
+ "links": [],
+ "modified": "2026-07-03 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Company Records",
+ "name": "Tolling Agreement",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Director",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Operations",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounting Team",
+   "share": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

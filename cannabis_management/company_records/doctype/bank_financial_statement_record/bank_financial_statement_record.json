@@ -1,0 +1,130 @@
+{
+ "actions": [],
+ "autoname": "FIN-.YYYY.-.#####",
+ "creation": "2026-07-03 10:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "statement_type",
+  "institution_name",
+  "account_last4",
+  "business_entity",
+  "period_start",
+  "period_end",
+  "date_received",
+  "attach_statement",
+  "linked_reconciliation",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "statement_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Statement Type",
+   "options": "Bank Statement\nCredit Card Statement\nMerchant Processor Statement\nOther"
+  },
+  {
+   "fieldname": "institution_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Institution Name"
+  },
+  {
+   "fieldname": "account_last4",
+   "fieldtype": "Data",
+   "label": "Account Last 4"
+  },
+  {
+   "fieldname": "business_entity",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Business Entity",
+   "options": "Business Entity"
+  },
+  {
+   "fieldname": "period_start",
+   "fieldtype": "Date",
+   "label": "Period Start"
+  },
+  {
+   "fieldname": "period_end",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Period End"
+  },
+  {
+   "fieldname": "date_received",
+   "fieldtype": "Date",
+   "label": "Date Received"
+  },
+  {
+   "fieldname": "attach_statement",
+   "fieldtype": "Attach",
+   "label": "Attach Statement"
+  },
+  {
+   "fieldname": "linked_reconciliation",
+   "fieldtype": "Link",
+   "label": "Linked Reconciliation",
+   "options": "Reconciliation Record"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Text Editor",
+   "label": "Notes"
+  }
+ ],
+ "grid_page_length": 50,
+ "links": [],
+ "modified": "2026-07-03 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Company Records",
+ "name": "Bank Financial Statement Record",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Director",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounting Team",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

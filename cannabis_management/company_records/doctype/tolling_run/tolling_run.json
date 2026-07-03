@@ -1,0 +1,60 @@
+{
+ "actions": [],
+ "creation": "2026-07-03 10:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "batch_reference",
+  "input_qty",
+  "output_qty",
+  "actual_yield_pct",
+  "fee_charged"
+ ],
+ "fields": [
+  {
+   "fieldname": "batch_reference",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Batch Reference"
+  },
+  {
+   "fieldname": "input_qty",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Input Qty"
+  },
+  {
+   "fieldname": "output_qty",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Output Qty"
+  },
+  {
+   "fieldname": "actual_yield_pct",
+   "fieldtype": "Percent",
+   "in_list_view": 1,
+   "label": "Actual Yield %",
+   "read_only": 1
+  },
+  {
+   "fieldname": "fee_charged",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Fee Charged"
+  }
+ ],
+ "grid_page_length": 50,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-07-03 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Company Records",
+ "name": "Tolling Run",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

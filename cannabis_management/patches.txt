@@ -7,3 +7,4 @@
 cannabis_management.patches.install_quotation_approval
 cannabis_management.patches.install_quote_to_order
 cannabis_management.patches.install_quotation_stock
+cannabis_management.patches.create_company_records_defaults

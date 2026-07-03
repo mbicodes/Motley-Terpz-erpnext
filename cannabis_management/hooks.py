@@ -486,7 +486,20 @@ fixtures = [
     {"dt": "DocType", "filters": [["name", "=", "Expense Tracker Entry"]]},
     # ── Sales Daily Sync dashboard objects (travel via git) ──ench
     # Role that grants visibility into Nikki's cash/expense widgets
-    {"dt": "Role", "filters": [["name", "=", "Nikki Ledger"]]},
+    # + Company Records module roles
+    {"dt": "Role", "filters": [["name", "in", [
+        "Nikki Ledger",
+        "Accounting Team",
+        "Operations",
+        "ERP Dev Team",
+        "Director",
+    ]]]},
+    # Company Records workflow actions (Workflow / Workflow State are already
+    # exported unfiltered above)
+    {"dt": "Workflow Action Master", "filters": [["name", "in", [
+        "Submit for Review", "Approve", "Reject", "Lock",
+        "Activate", "Mark Expired", "Terminate",
+    ]]]},
     # Day-over-day unreconciled-AR snapshot storage
     {"dt": "DocType", "filters": [["name", "=", "AR Recon Snapshot"]]},
     # The combined Sales Target + Inventory + COD/AR/Unreconciled dashboard block
@@ -495,6 +508,7 @@ fixtures = [
         "Lab Daily Sync Dashboard Block",
         "Sales Target and Inventory Dashboard",  # ye bhi hai aapke paas
         "Distribution Hub",
+        "Company Records Hub",
     ]]]},
 ]
 
