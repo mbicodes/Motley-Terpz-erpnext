@@ -6,7 +6,6 @@
  "engine": "InnoDB",
  "field_order": [
   "clone_item",
-  "strain",
   "item_name",
   "quantity",
   "notes"
@@ -19,14 +18,6 @@
    "label": "Clone Item",
    "options": "Item",
    "reqd": 1
-  },
-  {
-   "fetch_from": "clone_item.item_name",
-   "fieldname": "strain",
-   "fieldtype": "Data",
-   "in_list_view": 1,
-   "label": "Strain",
-   "read_only": 1
   },
   {
    "fetch_from": "clone_item.item_name",
