@@ -31,6 +31,10 @@ frappe.ui.form.on("Cloning Batch", {
 
     labour_rate(frm) {
         calculate_totals(frm);
+    },
+
+    clones_rooted(frm) {
+        calculate_totals(frm);
     }
 });
 
@@ -84,4 +88,19 @@ function calculate_totals(frm) {
             total_clones > 0 ? labour_cost / total_clones : 0
         );
     }
+
+    // Total Clones Taken (KPI)
+    frm.set_value("total_clones_taken", total_clones);
+
+    // Rooting Success % (KPI)
+    frm.set_value(
+        "rooting_success_rate",
+        total_clones > 0 ? (flt(frm.doc.clones_rooted) / total_clones) * 100 : 0
+    );
+
+    // Clones / Hour (Labor Efficiency KPI)
+    frm.set_value(
+        "clones_per_hour",
+        flt(frm.doc.labour_hours) > 0 ? total_clones / flt(frm.doc.labour_hours) : 0
+    );
 }

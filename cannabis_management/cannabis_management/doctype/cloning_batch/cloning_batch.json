@@ -2,7 +2,7 @@
  "actions": [],
  "allow_rename": 1,
  "autoname": "CB-.YYYY.-.####",
- "creation": "2026-06-22 00:00:00",
+ "creation": "2026-07-06 07:53:16.267759",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
@@ -11,13 +11,22 @@
   "session_date",
   "performed_by",
   "target_warehouse",
+  "mom_plant_reference",
+  "metrc_tag",
   "column_break_1",
+  "company",
   "labour_rate",
   "labour_hours",
   "total_labor_cost",
   "section_break_clone",
   "clone_details",
   "total_clone_quantity",
+  "section_break_kpi",
+  "clones_rooted",
+  "total_clones_taken",
+  "column_break_kpi",
+  "rooting_success_rate",
+  "clones_per_hour",
   "stock_entry",
   "notes",
   "amended_from"
@@ -26,6 +35,15 @@
   {
    "fieldname": "section_break_1",
    "fieldtype": "Section Break"
+  },
+  {
+   "default": ":Company",
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
   },
   {
    "fieldname": "batchproject",
@@ -55,6 +73,17 @@
    "in_list_view": 1,
    "label": "Target Warehouse",
    "options": "Warehouse",
+   "reqd": 1
+  },
+  {
+   "fieldname": "mom_plant_reference",
+   "fieldtype": "Data",
+   "label": "Mom Plant Reference"
+  },
+  {
+   "fieldname": "metrc_tag",
+   "fieldtype": "Data",
+   "label": "METRC Tag",
    "reqd": 1
   },
   {
@@ -98,6 +127,38 @@
    "read_only": 1
   },
   {
+   "fieldname": "section_break_kpi",
+   "fieldtype": "Section Break",
+   "label": "Propagation KPIs"
+  },
+  {
+   "fieldname": "clones_rooted",
+   "fieldtype": "Int",
+   "label": "Clones Rooted (Successful)"
+  },
+  {
+   "fieldname": "total_clones_taken",
+   "fieldtype": "Int",
+   "label": "Total Clones Taken",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_kpi",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "rooting_success_rate",
+   "fieldtype": "Percent",
+   "label": "Rooting Success %",
+   "read_only": 1
+  },
+  {
+   "fieldname": "clones_per_hour",
+   "fieldtype": "Float",
+   "label": "Clones / Hour (Rate)",
+   "read_only": 1
+  },
+  {
    "fieldname": "stock_entry",
    "fieldtype": "Link",
    "label": "Stock Entry",
@@ -124,7 +185,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-06-25 09:00:58.300348",
+ "modified": "2026-07-06 07:54:11.476131",
  "modified_by": "Administrator",
  "module": "Cannabis Management",
  "name": "Cloning Batch",
