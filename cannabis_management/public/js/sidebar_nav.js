@@ -61,4 +61,18 @@
         setTimeout(fix, 200);
     });
 
+    // ── Auto-collapse sidebar on page-link click ─────────────────────────────
+    // DataValue theme: page links are 2+ levels deep inside .side-menu-items.
+    // Top-level items (.dropdown-list > li > a) are workspace section headers — skip those.
+    // Clicking any deeper link collapses the sidebar by adding body.hide-main-menu.
+    $(document).on('click', '.side-menu-items a', function () {
+        var $li = $(this).closest('li');
+        // Skip if this is a top-level dropdown section header (direct child of dropdown-list)
+        if ($li.parent().hasClass('dropdown-list') && $li.parent().parent().hasClass('side-menu-items')) {
+            return;
+        }
+        $('body').addClass('hide-main-menu');
+        $('.btn-toggle-main-menu').removeClass('menu-shown');
+    });
+
 }());

@@ -49,6 +49,34 @@ def sync_crm_ar_data():
 
 
 @frappe.whitelist()
+def get_ar_aging_buckets(customer):
+    """AR aging split into current / 1-30 / 31-60 / 61-90 / 90+ by due date,
+    for the account snapshot (Feature 6)."""
+    rows = frappe.db.sql("""
+        SELECT outstanding_amount AS amt, DATEDIFF(CURDATE(), due_date) AS days
+        FROM `tabSales Invoice`
+        WHERE customer = %s AND docstatus = 1 AND outstanding_amount > 0.01
+    """, customer, as_dict=True)
+    b = {"current": 0.0, "b1_30": 0.0, "b31_60": 0.0, "b61_90": 0.0, "b90_plus": 0.0}
+    for r in rows:
+        d = int(r.days or 0)
+        amt = flt(r.amt)
+        if d <= 0:
+            b["current"] += amt
+        elif d <= 30:
+            b["b1_30"] += amt
+        elif d <= 60:
+            b["b31_60"] += amt
+        elif d <= 90:
+            b["b61_90"] += amt
+        else:
+            b["b90_plus"] += amt
+    b = {k: round(v, 2) for k, v in b.items()}
+    b["total"] = round(sum(b.values()), 2)
+    return b
+
+
+@frappe.whitelist()
 def sync_now(lead_name=None):
     """Manual trigger from desk — sync a single lead or all leads."""
     if lead_name:

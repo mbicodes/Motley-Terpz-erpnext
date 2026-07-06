@@ -1,0 +1,35 @@
+{
+ "actions": [],
+ "creation": "2026-07-02 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "labor_rate_per_hour",
+  "overhead_pct",
+  "column_break_main",
+  "default_margin_pct",
+  "packaging_price_source"
+ ],
+ "fields": [
+  {"fieldname": "labor_rate_per_hour", "fieldtype": "Currency", "label": "Labor Rate / Hour", "default": "25"},
+  {"fieldname": "overhead_pct", "fieldtype": "Percent", "label": "Overhead %", "default": "15", "description": "Applied on top of material + labor"},
+  {"fieldname": "column_break_main", "fieldtype": "Column Break"},
+  {"fieldname": "default_margin_pct", "fieldtype": "Percent", "label": "Default Target Margin %", "default": "30", "description": "Used to suggest a customer-facing quote"},
+  {"fieldname": "packaging_price_source", "fieldtype": "Select", "label": "Packaging Cost Source", "options": "Valuation Rate\nLast Purchase Rate", "default": "Valuation Rate", "description": "Where per-unit packaging item costs are pulled from"}
+ ],
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-07-02 00:00:00.000000",
+ "module": "Cannabis Management",
+ "name": "Co-Pack Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {"create": 1, "read": 1, "write": 1, "role": "System Manager"},
+  {"read": 1, "write": 1, "role": "Accounts Manager"},
+  {"read": 1, "write": 1, "role": "Finance Manager"},
+  {"read": 1, "role": "Sales User"},
+  {"read": 1, "role": "Sales Manager"}
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC"
+}

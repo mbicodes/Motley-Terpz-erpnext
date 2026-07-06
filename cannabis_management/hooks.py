@@ -241,7 +241,10 @@ doc_events = {
     },
     # Quotation approval — discount-threshold routing (Sales Manager / Finance)
     "Quotation": {
-        "validate":      "cannabis_management.overrides.quotation_approval.validate",
+        "validate": [
+            "cannabis_management.overrides.quotation_approval.validate",
+            "cannabis_management.overrides.license_compliance.check_license",
+        ],
         "on_update":     "cannabis_management.overrides.quotation_approval.on_update",
         "before_submit": "cannabis_management.overrides.quotation_approval.before_submit",
     },
@@ -259,7 +262,10 @@ doc_events = {
     },
     "Sales Order": {
         "before_validate": "cannabis_management.doc_hooks.sales_invoice.before_validate",
-        "validate": "cannabis_management.overrides.sales_order_restrictions.validate",
+        "validate": [
+            "cannabis_management.overrides.sales_order_restrictions.validate",
+            "cannabis_management.overrides.license_compliance.check_license",
+        ],
         "on_update": "cannabis_management.overrides.sales_order_restrictions.on_update",
         "before_submit": [
             "cannabis_management.overrides.sales_order_restrictions.before_submit",

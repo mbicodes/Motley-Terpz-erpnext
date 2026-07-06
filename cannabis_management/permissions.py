@@ -1,6 +1,15 @@
 import frappe
 
 MANAGER_ROLES = {"System Manager", "Sales Manager", "Accounts Manager"}
+SUPER_ADMIN_ROLE = "Super Admin"
+
+
+def _sees_all_customers(user):
+    """Administrator and 'Super Admin' are the only identities that see every
+    customer regardless of assignment — same bypass used for CRM Lead/Deal."""
+    if user == "Administrator":
+        return True
+    return SUPER_ADMIN_ROLE in frappe.get_roles(user)
 
 
 def _is_sales_person(user):
@@ -21,33 +30,39 @@ def _sp_customer_subquery(user):
 
 
 # ── Customer ──────────────────────────────────────────────────────────────────
+# Visibility: a Customer is visible only to the user(s) it is assigned to via
+# Frappe's standard "Assign To" (`_assign`), or — for the legacy Sales Person
+# workflow — the rep whose CRM Lead owns that customer. Administrator and the
+# "Super Admin" role are the only bypass; this applies regardless of any other
+# role, Sales/System/Accounts Manager included.
 
 def customer_query_conditions(user):
     if not user:
         user = frappe.session.user
 
-    if user == "Administrator":
+    if _sees_all_customers(user):
         return ""
 
-    # SP condition takes priority — checked before role bypass so that a
-    # Sales Person with a broad role (e.g. Sales Manager) is still restricted
-    # to only their assigned customers.
+    like = frappe.db.escape(f"%{user}%")
+    conditions = [f"`tabCustomer`.`_assign` LIKE {like}"]
+
     if _is_sales_person(user):
-        return f"`tabCustomer`.`name` IN ({_sp_customer_subquery(user)})"
+        conditions.append(f"`tabCustomer`.`name` IN ({_sp_customer_subquery(user)})")
 
-    # Not a Sales Person: system managers see everything; everyone else gets
-    # no extra restriction (standard role permissions apply).
-    if set(frappe.get_roles(user)) & MANAGER_ROLES:
-        return ""
-
-    return ""
+    return "(" + " OR ".join(conditions) + ")"
 
 
 def customer_has_permission(doc, user=None, ptype="read"):
     if not user:
         user = frappe.session.user
 
-    if user == "Administrator":
+    if _sees_all_customers(user):
+        return True
+
+    if ptype == "create":
+        return True
+
+    if user in (doc.get("_assign") or ""):
         return True
 
     if _is_sales_person(user):
@@ -57,10 +72,7 @@ def customer_has_permission(doc, user=None, ptype="read"):
             "name"
         ))
 
-    if set(frappe.get_roles(user)) & MANAGER_ROLES:
-        return True
-
-    return True
+    return False
 
 
 # ── Sales Invoice ─────────────────────────────────────────────────────────────
