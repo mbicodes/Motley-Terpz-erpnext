@@ -6,6 +6,10 @@ from frappe import _
 from frappe.model.document import Document
 from frappe.utils import flt, cint, today
 
+from cannabis_management.cannabis_management.doctype.farm_production_batch.farm_production_batch import (
+    update_linked_harvest,
+)
+
 
 class CloningBatch(Document):
 
@@ -55,6 +59,7 @@ class CloningBatch(Document):
 
     def on_submit(self):
         self.create_stock_entry()
+        update_linked_harvest(self)
 
     def get_labor_expense_account(self):
         """Labor expense account (fixed)."""

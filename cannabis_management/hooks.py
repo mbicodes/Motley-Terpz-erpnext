@@ -237,6 +237,7 @@ doc_events = {
     "Sales Invoice": {
         "before_validate": "cannabis_management.doc_hooks.sales_invoice.before_validate",
         "before_submit": "cannabis_management.doc_hooks.sales_invoice.before_submit",
+        "on_submit": "cannabis_management.doc_hooks.sales_invoice.on_submit",
     },
     # Quotation approval — discount-threshold routing (Sales Manager / Finance)
     "Quotation": {

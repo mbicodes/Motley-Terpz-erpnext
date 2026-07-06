@@ -13,6 +13,7 @@
   "target_warehouse",
   "mom_plant_reference",
   "metrc_tag",
+  "linked_harvest",
   "column_break_1",
   "company",
   "labour_rate",
@@ -85,6 +86,12 @@
    "fieldtype": "Data",
    "label": "METRC Tag",
    "reqd": 1
+  },
+  {
+   "fieldname": "linked_harvest",
+   "fieldtype": "Link",
+   "label": "Linked Harvest",
+   "options": "Farm Production Batch"
   },
   {
    "fieldname": "column_break_1",

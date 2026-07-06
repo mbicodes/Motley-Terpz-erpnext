@@ -42,6 +42,14 @@ def before_submit(doc, method=None):
     _check_cod_customer(doc)
 
 
+def on_submit(doc, method=None):
+    from cannabis_management.cannabis_management.doctype.farm_production_batch.farm_production_batch import (
+        update_linked_harvest,
+    )
+
+    update_linked_harvest(doc)
+
+
 def check_ar_policy(doc):
     """Public — called by Sales Invoice and Sales Order before_submit."""
     _check_total_ar_cap(doc)
