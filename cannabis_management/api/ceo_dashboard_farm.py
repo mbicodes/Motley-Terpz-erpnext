@@ -52,15 +52,20 @@ def get_procurement_cards():
 
     for b in batches:
         # batch_qty is ERPNext's LIVE remaining stock (decreases on every sale) —
-        # Lbs Procured must instead be the fixed original incoming quantity,
-        # summed from Stock Ledger Entry Purchase Receipt movements.
+        # Lbs Procured must instead be the fixed original incoming quantity.
+        # ERPNext v15 stores batch movements in Serial and Batch Entry (child
+        # of Serial and Batch Bundle) — Stock Ledger Entry.batch_no is not
+        # populated here. Sum every incoming (positive) qty ever posted
+        # against this batch on a submitted bundle — Purchase Receipt, Stock
+        # Entry top-up, Stock Reconciliation, etc. Sales/deliveries post
+        # negative qty, so this total only ever grows: once a quantity is
+        # procured it stays counted, even after it is fully sold.
         procured = frappe.db.sql(
             """
-            SELECT COALESCE(SUM(actual_qty), 0)
-            FROM `tabStock Ledger Entry`
-            WHERE batch_no = %s AND actual_qty > 0
-            AND voucher_type = 'Purchase Receipt'
-            AND is_cancelled = 0
+            SELECT COALESCE(SUM(sbe.qty), 0)
+            FROM `tabSerial and Batch Entry` sbe
+            INNER JOIN `tabSerial and Batch Bundle` sbb ON sbb.name = sbe.parent
+            WHERE sbe.batch_no = %s AND sbe.qty > 0 AND sbb.docstatus = 1
             """,
             b["name"],
         )[0][0]
@@ -90,13 +95,14 @@ def get_archived_procurement_cards():
     )
 
     for b in batches:
+        # See note in get_procurement_cards() — batch movements live in
+        # Serial and Batch Entry, not Stock Ledger Entry.batch_no, in v15.
         procured = frappe.db.sql(
             """
-            SELECT COALESCE(SUM(actual_qty), 0)
-            FROM `tabStock Ledger Entry`
-            WHERE batch_no = %s AND actual_qty > 0
-            AND voucher_type = 'Purchase Receipt'
-            AND is_cancelled = 0
+            SELECT COALESCE(SUM(sbe.qty), 0)
+            FROM `tabSerial and Batch Entry` sbe
+            INNER JOIN `tabSerial and Batch Bundle` sbb ON sbb.name = sbe.parent
+            WHERE sbe.batch_no = %s AND sbe.qty > 0 AND sbb.docstatus = 1
             """,
             b["name"],
         )[0][0]
