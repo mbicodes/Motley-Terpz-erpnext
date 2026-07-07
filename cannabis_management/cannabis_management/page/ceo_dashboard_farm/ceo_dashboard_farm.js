@@ -28,7 +28,7 @@ frappe.pages['ceo-dashboard-farm'].on_page_load = function (wrapper) {
 		return format_currency(flt(v || 0));
 	}
 	function num(v) {
-		return frappe.format(flt(v || 0), { fieldtype: 'Float', precision: 1 });
+		return frappe.format(flt(v || 0), { fieldtype: 'Float', precision: 1 }, { only_value: true });
 	}
 	function flt(v) { return v === null || v === undefined ? 0 : parseFloat(v) || 0; }
 
@@ -172,9 +172,10 @@ frappe.pages['ceo-dashboard-farm'].on_page_load = function (wrapper) {
       <button class="cdf-toggle-btn" data-batch-toggle="' + b.name + '">Archive →</button>\
     </div>\
   </div>\
-  <div class="cdf-card-body cdf-cols-3">\
-    ' + statBlock('LBS PROCURED', num(b.batch_qty), 'Total lbs received') + '\
+  <div class="cdf-card-body cdf-cols-4">\
+    ' + statBlock('LBS PROCURED', num(b.lbs_procured), 'Original lbs received (fixed)') + '\
     ' + statBlock('LBS SOLD', num(b.lbs_sold), 'Lbs moved to date') + '\
+    ' + statBlock('REMAINING STOCK', num(b.remaining_stock), 'Lbs left in this batch') + '\
     ' + statBlock('AVG SALES PRICE / LB', money(b.avg_price), 'Avg $/lb realized') + '\
   </div>\
 </div>';

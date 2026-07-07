@@ -112,10 +112,11 @@
 	gap: 10px;
 }
 .cdf-card-body.cdf-cols-5 { grid-template-columns: repeat(5, 1fr); }
+.cdf-card-body.cdf-cols-4 { grid-template-columns: repeat(4, 1fr); }
 .cdf-card-body.cdf-cols-3 { grid-template-columns: repeat(3, 1fr); }
 
 .cdf-stat-label { font-size: 11px; font-weight: 700; letter-spacing: 0.03em; color: #444; }
-.cdf-stat-value { font-size: 20px; font-weight: 700; color: #222; margin: 4px 0 2px; }
+.cdf-stat-value { font-size: 20px; font-weight: 700; color: #222; margin: 4px 0 2px; text-align: center; }
 .cdf-stat-caption { font-size: 11px; color: #888; }
 
 /* Placeholder / add-row hint */

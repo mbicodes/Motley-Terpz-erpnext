@@ -51,10 +51,26 @@ def get_procurement_cards():
     )
 
     for b in batches:
+        # batch_qty is ERPNext's LIVE remaining stock (decreases on every sale) —
+        # Lbs Procured must instead be the fixed original incoming quantity,
+        # summed from Stock Ledger Entry Purchase Receipt movements.
+        procured = frappe.db.sql(
+            """
+            SELECT COALESCE(SUM(actual_qty), 0)
+            FROM `tabStock Ledger Entry`
+            WHERE batch_no = %s AND actual_qty > 0
+            AND voucher_type = 'Purchase Receipt'
+            AND is_cancelled = 0
+            """,
+            b["name"],
+        )[0][0]
+
         sold = frappe.db.sql(
             "SELECT COALESCE(SUM(qty), 0), AVG(rate) FROM `tabSales Invoice Item` WHERE batch_no = %s",
             b["name"],
         )[0]
+        b["lbs_procured"] = flt(procured)
+        b["remaining_stock"] = flt(b["batch_qty"])
         b["lbs_sold"] = flt(sold[0])
         b["avg_price"] = flt(sold[1])
 
