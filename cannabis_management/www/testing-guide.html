@@ -380,6 +380,129 @@
     </div>
   </section>
 
+  <!-- PART 3 — CALCULATORS -->
+  <section class="section">
+    <h2><span class="n">03</span> Calculators</h2>
+    <p class="intro">Two calculators live in the CRM sidebar under <b>Calculators</b>. They help reps price jobs during a conversation. Finance can set the default rates once at <span class="mono">/app/co-pack-settings</span> (labor $/hr, overhead %, target margin %).</p>
+
+    <div class="cards">
+      <div class="card">
+        <div class="card-top"><h3>Co-Pack Calculator</h3><span class="pill">Any staff</span></div>
+        <div class="block"><span class="label">What it does</span><p>Works out what a co-packing job costs and a suggested price to quote the client, pulling packaging costs live from your item list.</p></div>
+        <div class="block"><span class="label">How to test</span>
+          <ol class="steps">
+            <li>In the CRM, open <b>Calculators → Co-Pack Calculator</b>.</li>
+            <li>Enter a raw-material cost, run quantity (e.g. 100), labor hours, and add a packaging item by its code.</li>
+            <li>Press <b>Calculate</b>.</li>
+          </ol>
+        </div>
+        <div class="expect"><span class="label">What you should see</span><p>Total cost, <b>cost per unit</b>, and a <b>suggested quote per unit/total</b> (based on the target margin), plus a line-by-line breakdown. Packaging cost = the item's cost × qty × run size.</p></div>
+      </div>
+
+      <div class="card">
+        <div class="card-top"><h3>Tolling Calculator</h3><span class="pill">Any staff</span></div>
+        <div class="block"><span class="label">What it does</span><p>Works out the per-batch cost of a processing/tolling job from input weight and expected yield.</p></div>
+        <div class="block"><span class="label">How to test</span>
+          <ol class="steps">
+            <li>Open <b>Calculators → Tolling Calculator</b>.</li>
+            <li>Enter input pounds (e.g. 100), expected yield % (it pre-fills your historical average), and a tolling rate per lb.</li>
+            <li>Press <b>Calculate</b>.</li>
+          </ol>
+        </div>
+        <div class="expect"><span class="label">What you should see</span><p>Expected <b>output weight</b>, <b>total tolling cost</b>, and cost per output-lb. Example: 100 lb × 15% = 15 lb out; $50/input-lb → $5,000 total → $333.33 per output-lb.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PART 4 — LEADERSHIP DASHBOARDS -->
+  <section class="section">
+    <h2><span class="n">04</span> Leadership dashboards</h2>
+    <p class="intro">New reporting pages in the CRM sidebar under <b>Sales Intelligence</b>. The leaderboard is for leadership; the others help everyone stay on top of deliveries and slipping accounts.</p>
+
+    <div class="cards">
+      <div class="card">
+        <div class="card-top"><h3>Rep Leaderboard</h3><span class="pill acct">matt / admin only</span></div>
+        <div class="block"><span class="label">What it does</span><p>Every rep side by side — deals won/lost, win rate, average deal size, open pipeline, revenue and AR owned. Only the owner (Matt) and admin can see it.</p></div>
+        <div class="block"><span class="label">How to test</span>
+          <ol class="steps">
+            <li>Login As <span class="mono">matt@motleyterpz.com</span> → <b>Sales Intelligence → Rep Leaderboard</b>.</li>
+            <li>Click a column header to sort; change the date range at the top and press Apply.</li>
+          </ol>
+        </div>
+        <div class="expect"><span class="label">What you should see</span><p>One row per rep with their numbers; totals across the top. <b>Note:</b> Revenue defaults to <b>this month</b> — if your sample invoices are older it may show $0; widen the date range and it fills in.</p></div>
+      </div>
+
+      <div class="card">
+        <div class="card-top"><h3>Goal vs Actual</h3><span class="pill">View</span></div>
+        <div class="block"><span class="label">What it does</span><p>Opens your existing Sales Target dashboard inside the CRM. It reads targets live from the system, so on the live server it uses that server's targets automatically.</p></div>
+        <div class="block"><span class="label">How to test</span>
+          <ol class="steps"><li>CRM → <b>Sales Intelligence → Goal vs Actual</b>. Confirm targets and actuals show for the current period.</li></ol>
+        </div>
+        <div class="expect"><span class="label">What you should see</span><p>The sales-target dashboard with pro-rated targets vs actual revenue — no hardcoded numbers.</p></div>
+      </div>
+
+      <div class="card">
+        <div class="card-top"><h3>Upcoming Deliveries</h3><span class="pill">Ops + leadership</span></div>
+        <div class="block"><span class="label">What it does</span><p>Every order with a delivery date that hasn't fully shipped, soonest first, with past-due ones flagged red. Order values are hidden for Operations users.</p></div>
+        <div class="block"><span class="label">How to test</span>
+          <ol class="steps"><li>CRM → <b>Sales Intelligence → Upcoming Deliveries</b>. Check that overdue rows are red and the count matches the header.</li></ol>
+        </div>
+        <div class="expect"><span class="label">What you should see</span><p>A date-sorted list; past-due rows highlighted with a "X days late" badge.</p></div>
+      </div>
+
+      <div class="card">
+        <div class="card-top"><h3>Purchase Insights</h3><span class="pill">Reps see own · leaders see all</span></div>
+        <div class="block"><span class="label">What it does</span><p>Two lists: customers <b>slowing down</b> (ordering less / spending less), and customers <b>due to reorder</b> based on their own ordering rhythm.</p></div>
+        <div class="block"><span class="label">How to test</span>
+          <ol class="steps"><li>CRM → <b>Sales Intelligence → Purchase Insights</b>. Read the reasons shown on each account card.</li></ol>
+        </div>
+        <div class="expect"><span class="label">What you should see</span><p>Cards with plain-English reasons, e.g. "ordering less often (14→1 in 90d), spend down 93%" or "due to reorder — 175d past their usual cadence."</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PART 5 — COMPLIANCE & ACCOUNTS -->
+  <section class="section">
+    <h2><span class="n">05</span> Compliance &amp; accounts</h2>
+    <p class="intro">License tracking, sample logging, and the account snapshot's AR aging.</p>
+
+    <div class="cards">
+      <div class="card">
+        <div class="card-top"><h3>License / compliance warning</h3><span class="pill">View</span></div>
+        <div class="block"><span class="label">What it does</span><p>Each customer now stores a license number, type and expiry. When a quote or order is built for a customer whose license is expired or expiring within 30 days, a warning pops up (it does not block — just alerts).</p></div>
+        <div class="block"><span class="label">How to test</span>
+          <ol class="steps">
+            <li>Open customer <span class="mono">Expando Products, LLC</span> → the "License / Compliance" section shows an <b>expired</b> license.</li>
+            <li>Start a new Quotation for that customer and save → a red <b>"License Expired"</b> warning appears.</li>
+            <li>Try <span class="mono">Ben</span> (expiring soon) → an orange "Expiring Soon" warning. A customer with a valid license shows nothing.</li>
+          </ol>
+        </div>
+        <div class="expect"><span class="label">What you should see</span><p>The right warning for expired / expiring, and no warning for valid or unset licenses.</p></div>
+      </div>
+
+      <div class="card">
+        <div class="card-top"><h3>Sample tracking</h3><span class="pill">Sales</span></div>
+        <div class="block"><span class="label">What it does</span><p>Logs product samples sent to a prospect against a deal — item, qty, date, who approved it.</p></div>
+        <div class="block"><span class="label">How to test</span>
+          <ol class="steps">
+            <li>Open <span class="mono">/app/sample-dispatch</span> → you'll see the sample <span class="mono">SAMPLE-00139</span>.</li>
+            <li>Create a new one: pick a CRM Deal, customer, item, qty, date. Save.</li>
+          </ol>
+        </div>
+        <div class="expect"><span class="label">What you should see</span><p>The sample saved and linked to the chosen deal.</p></div>
+      </div>
+
+      <div class="card">
+        <div class="card-top"><h3>AR aging on the account snapshot</h3><span class="pill">View</span></div>
+        <div class="block"><span class="label">What it does</span><p>The customer dashboard's AR card breaks the balance into current / 31-60 / 61-90 / 90+ buckets.</p></div>
+        <div class="block"><span class="label">How to test</span>
+          <ol class="steps"><li>Open a customer dashboard in the CRM (from a deal or the customer list) and look at the <b>AR Aging</b> card.</li></ol>
+        </div>
+        <div class="expect"><span class="label">What you should see</span><p>The outstanding balance split across the aging buckets, matching the totals in the ERPNext AR reports.</p></div>
+      </div>
+    </div>
+  </section>
+
   <footer class="foot">
     <h3>If something doesn't match</h3>
     <p>Note three things and send them over: (1) which test, (2) which account you were logged in as, (3) what you expected vs. what you actually saw. A screenshot helps.</p>

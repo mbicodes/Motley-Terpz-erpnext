@@ -56,7 +56,7 @@
             "fieldtype": "Link",
             "label": "Company",
             "options": "Company",
-            "default": "Motley Terpz",
+            "default": ":Company",
             "reqd": 1
         },
         {

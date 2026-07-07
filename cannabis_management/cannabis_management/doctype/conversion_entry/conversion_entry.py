@@ -212,7 +212,7 @@ class ConversionEntry(Document):
 	def _build_se_for_row(self, row, cost_map=None, n_ses=1):
 		se = frappe.new_doc("Stock Entry")
 		se.stock_entry_type = "Repack"
-		se.company = self.company or "Motley Terpz"
+		se.company = self.company or frappe.defaults.get_user_default("Company") or frappe.db.get_single_value("Global Defaults", "default_company")
 		if self.posting_date:
 			se.posting_date     = self.posting_date
 			se.set_posting_time = 1
@@ -358,7 +358,7 @@ def _ce_cost_map(ce_doc):
 	if not ce_doc.workstation or not flt(ce_doc.total_time_in_minutes):
 		return {}
 
-	company      = ce_doc.company or "Motley Terpz"
+	company      = ce_doc.company or frappe.defaults.get_user_default("Company") or frappe.db.get_single_value("Global Defaults", "default_company")
 	time_mins    = flt(ce_doc.total_time_in_minutes)
 	cost_map     = {}
 
