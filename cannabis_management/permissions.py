@@ -30,11 +30,11 @@ def _sp_customer_subquery(user):
 
 
 # ── Customer ──────────────────────────────────────────────────────────────────
-# Visibility: a Customer is visible only to the user(s) it is assigned to via
-# Frappe's standard "Assign To" (`_assign`), or — for the legacy Sales Person
-# workflow — the rep whose CRM Lead owns that customer. Administrator and the
-# "Super Admin" role are the only bypass; this applies regardless of any other
-# role, Sales/System/Accounts Manager included.
+# Visibility: the assign/CRM-Lead restriction only applies to users who are
+# registered on the Sales Person list — for them, a Customer is visible only
+# via Frappe's standard "Assign To" (`_assign`) or the CRM Lead they own.
+# Users who are NOT on the Sales Person list see every Customer. Administrator
+# and the "Super Admin" role bypass this regardless of Sales Person status.
 
 def customer_query_conditions(user):
     if not user:
@@ -43,11 +43,14 @@ def customer_query_conditions(user):
     if _sees_all_customers(user):
         return ""
 
-    like = frappe.db.escape(f"%{user}%")
-    conditions = [f"`tabCustomer`.`_assign` LIKE {like}"]
+    if not _is_sales_person(user):
+        return ""
 
-    if _is_sales_person(user):
-        conditions.append(f"`tabCustomer`.`name` IN ({_sp_customer_subquery(user)})")
+    like = frappe.db.escape(f"%{user}%")
+    conditions = [
+        f"`tabCustomer`.`_assign` LIKE {like}",
+        f"`tabCustomer`.`name` IN ({_sp_customer_subquery(user)})",
+    ]
 
     return "(" + " OR ".join(conditions) + ")"
 
@@ -62,17 +65,17 @@ def customer_has_permission(doc, user=None, ptype="read"):
     if ptype == "create":
         return True
 
+    if not _is_sales_person(user):
+        return True
+
     if user in (doc.get("_assign") or ""):
         return True
 
-    if _is_sales_person(user):
-        return bool(frappe.db.get_value(
-            "CRM Lead",
-            {"custom_erp_customer": doc.name, "custom_account_owner": user},
-            "name"
-        ))
-
-    return False
+    return bool(frappe.db.get_value(
+        "CRM Lead",
+        {"custom_erp_customer": doc.name, "custom_account_owner": user},
+        "name"
+    ))
 
 
 # ── Sales Invoice ─────────────────────────────────────────────────────────────
