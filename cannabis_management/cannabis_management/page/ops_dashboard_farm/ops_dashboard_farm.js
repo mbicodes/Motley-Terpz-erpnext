@@ -4,224 +4,238 @@ let ops_from_date = frappe.datetime.get_today();
 let ops_to_date = frappe.datetime.get_today();
 
 frappe.pages["ops-dashboard-farm"].on_page_load = function (wrapper) {
-	const page = frappe.ui.make_app_page({
+	frappe.ui.make_app_page({
 		parent: wrapper,
 		title: "Ops Dashboard - Farm",
 		single_column: true,
 	});
 
-	page.main.append(`
-		<div class="ops-farm-dashboard">
-			<div class="ops-farm-filter-bar">
-				<label style="font-size:12px;">From</label>
-				<input type="date" id="ops-from-date" class="form-control input-sm" style="width:150px;">
-				<label style="font-size:12px;">To</label>
-				<input type="date" id="ops-to-date" class="form-control input-sm" style="width:150px;">
-				<button class="btn btn-xs btn-primary" id="ops-apply-range">Apply</button>
-				<button class="btn btn-xs btn-default" id="ops-reset-today">Today</button>
-			</div>
+	$(wrapper).find(".layout-main-section").html(getOdfHTML());
+	var root = wrapper.querySelector(".odf-dash");
 
-			<div class="ops-farm-section-title">Daily</div>
-			<div class="ops-farm-card-grid" id="daily-grid"></div>
+	root.querySelector("#odf-from-date").value = ops_from_date;
+	root.querySelector("#odf-to-date").value = ops_to_date;
 
-			<div class="ops-farm-section-title">Harvest Window — Lbs Taken Down</div>
-			<div id="harvest-window-table"></div>
-
-			<div class="ops-farm-section-title">Labor Efficiency — Active Sessions</div>
-			<div class="ops-farm-card-grid" id="efficiency-grid"></div>
-
-			<div class="ops-farm-section-title">
-				<span class="ops-farm-archived-toggle" id="archived-sessions-toggle">
-					&#9656; Archived Labor Sessions
-				</span>
-			</div>
-			<div class="ops-farm-archived-list" id="archived-sessions-list"></div>
-		</div>
-	`);
-
-	page.wrapper.find("#ops-from-date").val(ops_from_date);
-	page.wrapper.find("#ops-to-date").val(ops_to_date);
-
-	page.wrapper.find("#ops-apply-range").on("click", function () {
-		ops_from_date = page.wrapper.find("#ops-from-date").val() || frappe.datetime.get_today();
-		ops_to_date = page.wrapper.find("#ops-to-date").val() || frappe.datetime.get_today();
-		reload_all_sections();
+	root.querySelector("#odf-apply-range").addEventListener("click", function () {
+		ops_from_date = root.querySelector("#odf-from-date").value || frappe.datetime.get_today();
+		ops_to_date = root.querySelector("#odf-to-date").value || frappe.datetime.get_today();
+		reload_all_sections(root);
 	});
 
-	page.wrapper.find("#ops-reset-today").on("click", function () {
+	root.querySelector("#odf-reset-today").addEventListener("click", function () {
 		ops_from_date = frappe.datetime.get_today();
 		ops_to_date = frappe.datetime.get_today();
-		page.wrapper.find("#ops-from-date").val(ops_from_date);
-		page.wrapper.find("#ops-to-date").val(ops_to_date);
-		reload_all_sections();
+		root.querySelector("#odf-from-date").value = ops_from_date;
+		root.querySelector("#odf-to-date").value = ops_to_date;
+		reload_all_sections(root);
 	});
 
-	page.wrapper.find("#archived-sessions-toggle").on("click", function () {
-		page.wrapper.find("#archived-sessions-list").toggle();
+	root.querySelector("#odf-archived-toggle").addEventListener("click", function () {
+		root.querySelector("#odf-archived-wrap").classList.toggle("odf-open");
 	});
 
-	reload_all_sections();
+	reload_all_sections(root);
 };
 
-function reload_all_sections() {
-	load_daily_summary();
-	load_harvest_window();
-	load_labor_efficiency();
-	load_archived_sessions();
+function reload_all_sections(root) {
+	load_daily_summary(root);
+	load_harvest_window(root);
+	load_labor_efficiency(root);
+	load_archived_sessions(root);
+}
+
+function num(v) {
+	return frappe.format(flt(v || 0), { fieldtype: "Float", precision: 1 }, { only_value: true });
+}
+function flt(v) {
+	return v === null || v === undefined ? 0 : parseFloat(v) || 0;
+}
+function dash(v) {
+	return v === null || v === undefined || v === "" ? "—" : v;
+}
+function dateRangeLabel() {
+	if (ops_from_date === ops_to_date) return frappe.datetime.str_to_user(ops_from_date);
+	return frappe.datetime.str_to_user(ops_from_date) + " – " + frappe.datetime.str_to_user(ops_to_date);
 }
 
 // ---------------------------------------------------------------------------
 // Section A: Daily
 // ---------------------------------------------------------------------------
 
-function load_daily_summary() {
+function load_daily_summary(root) {
 	frappe.call({
 		method: `${OPS_APP_MODULE}.get_daily_summary`,
 		args: { from_date: ops_from_date, to_date: ops_to_date },
 		callback: function (r) {
-			render_daily_summary(r.message || {});
+			render_daily_summary(root, r.message || {});
 		},
 	});
 }
 
-function render_daily_summary(d) {
-	const $grid = $("#daily-grid").empty();
+function render_daily_summary(root, d) {
+	var hasLogs = !!d.total_logs;
+	root.querySelector("#odf-daily-grid").innerHTML =
+		dailyCardHTML(
+			"Scouting completed",
+			hasLogs ? d.scouting_pct + "%" : "—",
+			"Yes / No + findings",
+			"Target: 100% of days"
+		) +
+		dailyCardHTML(
+			"Issues reported",
+			hasLogs ? d.issues_count : "—",
+			"Count of same-day reports",
+			"Target: 100% same-day"
+		) +
+		dailyCardHTML(
+			"DCC ready status",
+			hasLogs ? d.dcc_pct + "%" : "—",
+			"Pass / Fail checklist",
+			"Target: 100% always"
+		) +
+		dailyCardHTML(
+			"METRC entries current",
+			hasLogs ? d.open_corrections : "—",
+			"Open corrections in METRC",
+			"Target: 0 open items"
+		);
+}
 
-	const empBreakdown = (d.employee_breakdown || [])
-		.map((e) => `${frappe.utils.escape_html(e.employee)}: ${e.scouting_pct}%`)
-		.join(" · ");
-
-	$grid.append(`
-		<div class="ops-farm-card">
-			<div class="ops-farm-card-label">Scouting Completed</div>
-			<div class="ops-farm-card-value">${d.scouting_pct ?? 0}%</div>
-			<div class="ops-farm-card-sub">${empBreakdown || "No logs in range"}</div>
-		</div>
-		<div class="ops-farm-card">
-			<div class="ops-farm-card-label">Issues Reported</div>
-			<div class="ops-farm-card-value">${d.issues_count ?? 0}</div>
-			<div class="ops-farm-card-sub">${d.total_logs ?? 0} total logs in range</div>
-		</div>
-		<div class="ops-farm-card">
-			<div class="ops-farm-card-label">DCC Ready</div>
-			<div class="ops-farm-card-value">${d.dcc_pct ?? 0}%</div>
-			<div class="ops-farm-card-sub">Target: 100%</div>
-		</div>
-		<div class="ops-farm-card">
-			<div class="ops-farm-card-label">METRC Open Corrections</div>
-			<div class="ops-farm-card-value">${d.open_corrections ?? 0}</div>
-			<div class="ops-farm-card-sub">Target: 0</div>
-		</div>
-	`);
+function dailyCardHTML(title, value, caption, target) {
+	return '\
+<div class="odf-daily-card">\
+  <div class="odf-daily-card-head">' + title + '</div>\
+  <div class="odf-daily-card-body">\
+    <div class="odf-daily-value">' + value + '</div>\
+    <div class="odf-daily-caption">' + caption + '</div>\
+    <div class="odf-daily-target">' + target + '</div>\
+  </div>\
+</div>';
 }
 
 // ---------------------------------------------------------------------------
 // Section B: Harvest Window
 // ---------------------------------------------------------------------------
 
-function load_harvest_window() {
+function load_harvest_window(root) {
 	frappe.call({
 		method: `${OPS_APP_MODULE}.get_harvest_window`,
 		args: { from_date: ops_from_date, to_date: ops_to_date },
 		callback: function (r) {
-			render_harvest_window(r.message || []);
+			render_harvest_window(root, r.message || {});
 		},
 	});
 }
 
-function render_harvest_window(rows) {
-	const $container = $("#harvest-window-table").empty();
+function render_harvest_window(root, w) {
+	var target = w.target ? num(w.target) : "[TBD]";
+	var actual = w.actual ? num(w.actual) : "—";
+	var vsTarget = w.target && w.actual ? num(w.actual - w.target) : "—";
 
-	if (!rows.length) {
-		$container.append(`<div class="ops-farm-empty">No harvest events in this range.</div>`);
-		return;
-	}
-
-	let html = `
-		<table class="ops-farm-table">
-			<thead>
-				<tr><th>Harvest</th><th>Date</th><th>Route</th><th>Lbs Taken Down</th></tr>
-			</thead>
-			<tbody>
-	`;
-	rows.forEach((r) => {
-		html += `
-			<tr>
-				<td>${frappe.utils.escape_html(r.harvest_name || r.name)}</td>
-				<td>${frappe.datetime.str_to_user(r.harvest_date)}</td>
-				<td>${frappe.utils.escape_html(r.route || "")}</td>
-				<td>${format_num(r.lbs_produced)}</td>
-			</tr>
-		`;
-	});
-	html += `</tbody></table>`;
-	$container.append(html);
+	root.querySelector("#odf-harvest-window").innerHTML = '\
+<table class="odf-harvest-table">\
+  <thead>\
+    <tr><th>Metric</th><th>Current target</th><th>Actual</th><th>vs. Target</th><th>Notes</th></tr>\
+  </thead>\
+  <tbody>\
+    <tr>\
+      <td class="odf-harvest-metric">Lbs taken down (by event)</td>\
+      <td class="odf-harvest-target">' + target + '</td>\
+      <td>' + actual + '</td>\
+      <td>' + vsTarget + '</td>\
+      <td class="odf-harvest-notes">Logged per harvest event by strain and route. Single seasonal harvest — this is the number that sets the entire year.</td>\
+    </tr>\
+  </tbody>\
+</table>';
 }
 
 // ---------------------------------------------------------------------------
 // Section C: Labor Efficiency
 // ---------------------------------------------------------------------------
 
-function load_labor_efficiency() {
+var EFFICIENCY_CARDS = [
+	{ key: "clones", label: "Clones taken per person/hr", notes: "Propagation session log", archiveFn: archive_cloning },
+	{ key: "planting", label: "Plants planted per person/hr", notes: "Zero material mix-ups required alongside rate", archiveFn: function (root) { archive_task(root, "Planting"); } },
+	{ key: "deleaf", label: "Deleaf per person/hr", notes: "Tracked during deleaf windows only", archiveFn: function (root) { archive_task(root, "Deleaf"); } },
+	{ key: "bucking", label: "Bucking per person/hr", notes: "Fresh frozen route only", archiveFn: function (root) { archive_task(root, "Bucking"); } },
+];
+
+function load_labor_efficiency(root) {
 	frappe.call({
 		method: `${OPS_APP_MODULE}.get_labor_efficiency`,
 		args: { from_date: ops_from_date, to_date: ops_to_date },
 		callback: function (r) {
-			render_labor_efficiency(r.message || {});
+			render_labor_efficiency(root, r.message || {});
 		},
 	});
 }
 
-function render_labor_efficiency(data) {
-	const $grid = $("#efficiency-grid").empty();
+function render_labor_efficiency(root, data) {
+	root.querySelector("#odf-efficiency-list").innerHTML = EFFICIENCY_CARDS.map(function (c) {
+		var stat = data[c.key] || { actual: 0, target: 0 };
+		return sessionCardHTML(c.key, c.label, stat, c.notes);
+	}).join("");
 
-	const cards = [
-		{ key: "clones", label: "Clones Taken / person / hr", archiveFn: () => archive_cloning() },
-		{ key: "planting", label: "Planting Rate / person / hr", archiveFn: () => archive_task("Planting") },
-		{ key: "deleaf", label: "Deleaf / person / hr", archiveFn: () => archive_task("Deleaf") },
-		{ key: "bucking", label: "Bucking / person / hr", archiveFn: () => archive_task("Bucking") },
-	];
-
-	cards.forEach((c) => {
-		const stat = data[c.key] || { actual: 0, target: 0 };
-		const cls = stat.target && stat.actual < stat.target ? "ops-farm-eff-below" : "ops-farm-eff-above";
-
-		const $card = $(`
-			<div class="ops-farm-eff-card">
-				<div class="ops-farm-eff-title">${c.label}</div>
-				<div class="ops-farm-eff-row"><span>Actual</span><b class="${cls}">${stat.actual}</b></div>
-				<div class="ops-farm-eff-row"><span>Target</span><span>${stat.target || "—"}</span></div>
-				<div style="margin-top:8px; text-align:right;">
-					<button class="btn btn-xs btn-default btn-archive-eff">Archive</button>
-				</div>
-			</div>
-		`);
-
-		$card.find(".btn-archive-eff").on("click", c.archiveFn);
-		$grid.append($card);
+	EFFICIENCY_CARDS.forEach(function (c) {
+		var btn = root.querySelector('[data-archive-key="' + c.key + '"]');
+		if (btn) btn.addEventListener("click", function () { c.archiveFn(root); });
 	});
 }
 
-function archive_cloning() {
+function sessionCardHTML(key, label, stat, notes) {
+	var targetHTML = stat.target
+		? '<div class="odf-stat-value">' + num(stat.target) + '</div>'
+		: '<div class="odf-stat-value odf-stat-tbd">[TBD — Matt]</div>';
+	var actualHTML = stat.actual
+		? '<div class="odf-stat-value">' + num(stat.actual) + '</div>'
+		: '<div class="odf-stat-value">—</div>';
+
+	return '\
+<div class="odf-session-card">\
+  <div class="odf-session-head">\
+    <div class="odf-session-title">' + label + ' <span class="odf-session-sub">[' + dateRangeLabel() + ']</span></div>\
+    <div class="odf-session-actions">\
+      <span class="odf-status-pill">● Active</span>\
+      <button class="odf-toggle-btn" data-archive-key="' + key + '">Archive →</button>\
+    </div>\
+  </div>\
+  <div class="odf-session-body">\
+    <div>\
+      <div class="odf-stat-label">TARGET RATE</div>\
+      ' + targetHTML + '\
+    </div>\
+    <div>\
+      <div class="odf-stat-label">ACTUAL RATE</div>\
+      ' + actualHTML + '\
+    </div>\
+    <div>\
+      <div class="odf-stat-label">NOTES</div>\
+      <div class="odf-stat-caption">' + notes + '</div>\
+    </div>\
+  </div>\
+</div>';
+}
+
+function archive_cloning(root) {
 	frappe.call({
 		method: `${OPS_APP_MODULE}.archive_cloning_batches`,
 		args: { from_date: ops_from_date, to_date: ops_to_date },
 		callback: function () {
 			frappe.show_alert({ message: __("Cloning sessions archived"), indicator: "green" });
-			load_labor_efficiency();
-			load_archived_sessions();
+			load_labor_efficiency(root);
+			load_archived_sessions(root);
 		},
 	});
 }
 
-function archive_task(task_type) {
+function archive_task(root, task_type) {
 	frappe.call({
 		method: `${OPS_APP_MODULE}.archive_labor_sessions`,
 		args: { task_type: task_type, from_date: ops_from_date, to_date: ops_to_date },
 		callback: function () {
-			frappe.show_alert({ message: __(`${task_type} sessions archived`), indicator: "green" });
-			load_labor_efficiency();
-			load_archived_sessions();
+			frappe.show_alert({ message: __(task_type + " sessions archived"), indicator: "green" });
+			load_labor_efficiency(root);
+			load_archived_sessions(root);
 		},
 	});
 }
@@ -230,74 +244,132 @@ function archive_task(task_type) {
 // Section D: Archived Sessions
 // ---------------------------------------------------------------------------
 
-function load_archived_sessions() {
+function load_archived_sessions(root) {
 	frappe.call({
 		method: `${OPS_APP_MODULE}.get_archived_sessions`,
 		callback: function (r) {
-			render_archived_sessions(r.message || { cloning: [], labor: [] });
+			render_archived_sessions(root, r.message || { cloning: [], labor: [] });
 		},
 	});
 }
 
-function render_archived_sessions(data) {
-	const $list = $("#archived-sessions-list").empty();
-	const cloning = data.cloning || [];
-	const labor = data.labor || [];
+function render_archived_sessions(root, data) {
+	var cloning = data.cloning || [];
+	var labor = data.labor || [];
+	var $list = root.querySelector("#odf-archived-list");
 
 	if (!cloning.length && !labor.length) {
-		$list.append(`<div class="ops-farm-empty">No archived sessions.</div>`);
+		$list.innerHTML = '<div class="odf-empty">No archived sessions.</div>';
 		return;
 	}
 
-	cloning.forEach((c) => {
-		const $row = $(`
-			<div class="ops-farm-archived-row">
-				<span>Cloning &nbsp;·&nbsp; ${frappe.datetime.str_to_user(c.session_date)}
-					&nbsp;·&nbsp; ${c.clones_per_hour || 0} /hr</span>
-				<button class="btn btn-xs btn-default btn-restore-cloning">Restore Active</button>
-			</div>
-		`);
-		$row.find(".btn-restore-cloning").on("click", function () {
+	var rows = cloning.map(function (c) {
+		return archivedRowHTML(
+			"Cloning",
+			frappe.datetime.str_to_user(c.session_date),
+			c.clones_per_hour,
+			c.target,
+			'data-restore-cloning="' + c.name + '"'
+		);
+	}).concat(
+		labor.map(function (l) {
+			return archivedRowHTML(
+				frappe.utils.escape_html(l.task_type),
+				frappe.datetime.str_to_user(l.session_date),
+				l.rate_per_hour,
+				l.target,
+				'data-restore-labor="' + l.name + '"'
+			);
+		})
+	);
+
+	$list.innerHTML = rows.join("");
+
+	$list.querySelectorAll("[data-restore-cloning]").forEach(function (btn) {
+		btn.addEventListener("click", function () {
 			frappe.call({
 				method: `${OPS_APP_MODULE}.restore_cloning_batch`,
-				args: { name: c.name },
+				args: { name: btn.getAttribute("data-restore-cloning") },
 				callback: function () {
-					load_labor_efficiency();
-					load_archived_sessions();
+					load_labor_efficiency(root);
+					load_archived_sessions(root);
 				},
 			});
 		});
-		$list.append($row);
 	});
-
-	labor.forEach((l) => {
-		const $row = $(`
-			<div class="ops-farm-archived-row">
-				<span>${frappe.utils.escape_html(l.task_type)} &nbsp;·&nbsp;
-					${frappe.datetime.str_to_user(l.session_date)}
-					&nbsp;·&nbsp; ${l.rate_per_hour || 0} /hr</span>
-				<button class="btn btn-xs btn-default btn-restore-labor">Restore Active</button>
-			</div>
-		`);
-		$row.find(".btn-restore-labor").on("click", function () {
+	$list.querySelectorAll("[data-restore-labor]").forEach(function (btn) {
+		btn.addEventListener("click", function () {
 			frappe.call({
 				method: `${OPS_APP_MODULE}.restore_labor_session`,
-				args: { name: l.name },
+				args: { name: btn.getAttribute("data-restore-labor") },
 				callback: function () {
-					load_labor_efficiency();
-					load_archived_sessions();
+					load_labor_efficiency(root);
+					load_archived_sessions(root);
 				},
 			});
 		});
-		$list.append($row);
 	});
 }
 
+function archivedRowHTML(taskType, dateLabel, rate, target, dataAttr) {
+	return '\
+<div class="odf-archived-row">\
+  <div>\
+    <span class="odf-archived-title">' + taskType + ' — ' + dateLabel + '</span>\
+    <span class="odf-archived-meta">Rate: ' + dash(rate ? num(rate) : null) + '&nbsp;&nbsp; Target: ' + dash(target ? num(target) : null) + '</span>\
+  </div>\
+  <div class="odf-session-actions">\
+    <span class="odf-status-pill odf-status-archived">Archived</span>\
+    <button class="odf-toggle-btn odf-restore" ' + dataAttr + '>← Restore Active</button>\
+  </div>\
+</div>';
+}
+
 // ---------------------------------------------------------------------------
-// Helpers
+// Page HTML shell
 // ---------------------------------------------------------------------------
 
-function format_num(val) {
-	if (val === null || val === undefined || isNaN(val)) return "0";
-	return Number(val).toLocaleString("en-US", { maximumFractionDigits: 2 });
+function getOdfHTML() {
+	return '\
+<div class="odf-dash">\
+  <div class="odf-filter-bar">\
+    <label style="font-size:12px;">From</label>\
+    <input type="date" id="odf-from-date" class="form-control input-sm" style="width:150px;">\
+    <label style="font-size:12px;">To</label>\
+    <input type="date" id="odf-to-date" class="form-control input-sm" style="width:150px;">\
+    <button class="btn btn-xs btn-primary" id="odf-apply-range">Apply</button>\
+    <button class="btn btn-xs btn-default" id="odf-reset-today">Today</button>\
+  </div>\
+\
+  <div class="odf-title">Ops Dashboard — Farm</div>\
+  <div class="odf-subtitle">The operational layer beneath the CEO view. This is what the ops manager tracks daily and weekly to make sure the farm is on track before it shows up in the financials. Actuals populated by system. Targets to be set.</div>\
+\
+  <div class="odf-section-bar">\
+    <button class="odf-section-pill odf-pill-light-green">DAILY</button>\
+    <div class="odf-section-line"></div>\
+  </div>\
+  <div class="odf-daily-grid" id="odf-daily-grid"></div>\
+\
+  <div class="odf-section-bar">\
+    <button class="odf-section-pill">HARVEST WINDOW ONLY — TRACKED DAILY BY EVENT</button>\
+    <div class="odf-section-line"></div>\
+  </div>\
+  <div id="odf-harvest-window"></div>\
+\
+  <div class="odf-section-bar">\
+    <button class="odf-section-pill odf-pill-archived">LABOR EFFICIENCY — ACTIVE SESSIONS</button>\
+    <div class="odf-section-line"></div>\
+    <div class="odf-section-caption">Archive completed sessions · restore to active any time</div>\
+  </div>\
+  <div id="odf-efficiency-list"></div>\
+\
+  <div class="odf-section-bar">\
+    <button class="odf-section-pill odf-pill-archived" id="odf-archived-toggle">▾ ARCHIVED LABOR SESSIONS</button>\
+    <div class="odf-section-line"></div>\
+    <div class="odf-section-caption">Click to expand · restore any session to active</div>\
+  </div>\
+  <div id="odf-archived-wrap" class="odf-archived-wrap">\
+    <div id="odf-archived-list"></div>\
+  </div>\
+</div>';
 }

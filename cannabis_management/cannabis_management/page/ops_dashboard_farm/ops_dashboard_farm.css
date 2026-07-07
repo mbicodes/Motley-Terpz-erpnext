@@ -1,35 +1,176 @@
-.ops-farm-dashboard { padding: 10px 0 40px 0; }
-.ops-farm-filter-bar {
-	display: flex; align-items: center; gap: 10px; margin-bottom: 18px;
+.odf-dash {
+	max-width: 1100px;
+	margin: 0 auto;
+	padding: 10px 4px 40px;
+	font-family: inherit;
 }
-.ops-farm-section-title {
-	font-size: 16px; font-weight: 600; margin: 22px 0 10px 0;
-	color: var(--text-color); display: flex; align-items: center; gap: 8px;
+
+.odf-filter-bar {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin-bottom: 10px;
 }
-.ops-farm-card-grid {
-	display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+
+.odf-title {
+	font-size: 26px;
+	font-weight: 700;
+	color: #2f5d34;
+	margin: 22px 0 6px;
+	border-top: 3px solid #2f5d34;
+	padding-top: 14px;
+}
+.odf-subtitle {
+	color: #555;
+	font-size: 13px;
+	line-height: 1.5;
+	margin-bottom: 22px;
+	max-width: 900px;
+}
+
+/* Section dividers */
+.odf-section-bar {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	margin: 26px 0 14px;
+}
+.odf-section-pill {
+	border: none;
+	cursor: pointer;
+	font-size: 12px;
+	font-weight: 700;
+	letter-spacing: 0.04em;
+	padding: 7px 14px;
+	border-radius: 4px;
+	color: #fff;
+	background: #2f5d34;
+	white-space: nowrap;
+}
+.odf-section-pill.odf-pill-light-green { background: #e1efdd; color: #1f4d24; }
+.odf-section-pill.odf-pill-archived { background: #efe9df; color: #333; }
+.odf-section-line { flex: 1; height: 1px; background: #ddd; }
+.odf-section-caption { font-size: 12px; color: #777; font-style: italic; white-space: nowrap; }
+
+/* Daily cards */
+.odf-daily-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
 	gap: 14px;
 }
-.ops-farm-card {
-	border: 1px solid var(--border-color); border-radius: 10px;
-	padding: 16px; background: var(--card-bg, #fff);
+.odf-daily-card {
+	border: 1px solid #d8d8d8;
+	border-radius: 6px;
+	overflow: hidden;
+	background: #fff;
 }
-.ops-farm-card-label { font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
-.ops-farm-card-value { font-size: 22px; font-weight: 700; }
-.ops-farm-card-sub { font-size: 11px; color: var(--text-muted); margin-top: 6px; }
-.ops-farm-eff-card { border: 1px solid var(--border-color); border-radius: 10px; padding: 16px; }
-.ops-farm-eff-title { font-weight: 600; font-size: 13px; margin-bottom: 8px; }
-.ops-farm-eff-row { display: flex; justify-content: space-between; font-size: 12px; padding: 3px 0; }
-.ops-farm-eff-below { color: #d1414b; }
-.ops-farm-eff-above { color: #2c9c4a; }
-.ops-farm-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-.ops-farm-table th, .ops-farm-table td {
-	border-bottom: 1px solid var(--border-color); padding: 6px 8px; text-align: left;
+.odf-daily-card-head {
+	background: #e1efdd;
+	color: #1f4d24;
+	font-weight: 700;
+	font-size: 13px;
+	padding: 10px 14px;
 }
-.ops-farm-empty { color: var(--text-muted); font-size: 12px; padding: 14px 0; }
-.ops-farm-archived-toggle { cursor: pointer; color: var(--text-muted); font-size: 12px; }
-.ops-farm-archived-list { display: none; margin-top: 10px; }
-.ops-farm-archived-row {
-	display: flex; justify-content: space-between; align-items: center;
-	padding: 8px 10px; border-bottom: 1px solid var(--border-color); font-size: 12px;
+.odf-daily-card-body { padding: 14px; }
+.odf-daily-value { font-size: 26px; font-weight: 700; color: #222; margin-bottom: 6px; }
+.odf-daily-caption { font-size: 11px; color: #888; margin-bottom: 10px; }
+.odf-daily-target {
+	display: inline-block;
+	background: #e1efdd;
+	color: #1f4d24;
+	font-weight: 700;
+	font-size: 11px;
+	padding: 4px 10px;
+	border-radius: 4px;
 }
+
+/* Harvest window table */
+.odf-harvest-table { width: 100%; border-collapse: collapse; font-size: 13px; background: #fff; }
+.odf-harvest-table th {
+	background: #2f5d34;
+	color: #fff;
+	text-align: left;
+	font-size: 11px;
+	letter-spacing: 0.02em;
+	padding: 10px 14px;
+}
+.odf-harvest-table td {
+	border-bottom: 1px solid #e5e5e5;
+	padding: 12px 14px;
+	vertical-align: top;
+}
+.odf-harvest-table td.odf-harvest-metric { font-weight: 700; }
+.odf-harvest-target { color: #2f5d34; font-weight: 700; }
+.odf-harvest-notes { color: #666; font-size: 12px; }
+
+/* Labor efficiency session cards */
+.odf-session-card {
+	border: 1px solid #d8d8d8;
+	border-radius: 6px;
+	overflow: hidden;
+	margin-bottom: 14px;
+	background: #fff;
+}
+.odf-session-head {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 12px 18px;
+	color: #fff;
+	background: #5c3a21;
+}
+.odf-session-title { font-size: 15px; font-weight: 700; }
+.odf-session-title .odf-session-sub { font-weight: 400; opacity: 0.85; margin-left: 6px; }
+.odf-session-actions { display: flex; align-items: center; gap: 10px; }
+.odf-status-pill {
+	background: #fff;
+	color: #5c3a21;
+	font-size: 11px;
+	font-weight: 700;
+	padding: 4px 10px;
+	border-radius: 12px;
+}
+.odf-status-pill.odf-status-archived { background: #d9d9d9; color: #444; }
+.odf-toggle-btn {
+	border: 1px solid rgba(255, 255, 255, 0.6);
+	background: transparent;
+	color: #fff;
+	font-size: 11px;
+	font-weight: 600;
+	padding: 4px 10px;
+	border-radius: 12px;
+	cursor: pointer;
+}
+.odf-toggle-btn:hover { background: rgba(255, 255, 255, 0.15); }
+.odf-toggle-btn.odf-restore { border: 1px solid #5c3a21; color: #5c3a21; background: #fff; }
+
+.odf-session-body {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	background: #fff;
+	padding: 16px 18px;
+	gap: 10px;
+}
+.odf-stat-label { font-size: 11px; font-weight: 700; letter-spacing: 0.03em; color: #444; }
+.odf-stat-value { font-size: 20px; font-weight: 700; color: #222; margin: 4px 0 2px; }
+.odf-stat-value.odf-stat-tbd { font-size: 15px; color: #5c3a21; }
+.odf-stat-caption { font-size: 11px; color: #888; }
+
+/* Archived rows */
+.odf-archived-wrap { display: none; }
+.odf-archived-wrap.odf-open { display: block; }
+.odf-archived-row {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	background: #f1ece1;
+	border: 1px solid #e3dcc9;
+	border-radius: 6px;
+	padding: 10px 18px;
+	margin-bottom: 10px;
+	font-size: 13px;
+}
+.odf-archived-row .odf-archived-title { font-weight: 700; margin-right: 14px; }
+.odf-archived-row .odf-archived-meta { color: #555; }
+
+.odf-empty { color: #999; font-size: 12px; padding: 8px 2px; }

@@ -55,14 +55,23 @@ def get_daily_summary(from_date=None, to_date=None):
 
 @frappe.whitelist()
 def get_harvest_window(from_date=None, to_date=None):
+    """Single seasonal KPI: total lbs taken down across all harvest events
+    in range. No per-harvest target exists yet in Farm Settings, so target
+    is always None (frontend shows "[TBD]") until one is added."""
     from_date, to_date = _resolve_range(from_date, to_date)
 
-    return frappe.get_all(
+    rows = frappe.get_all(
         "Farm Production Batch",
         filters={"harvest_date": ["between", [from_date, to_date]]},
-        fields=["name", "harvest_name", "harvest_date", "route", "lbs_produced"],
-        order_by="harvest_date desc",
+        fields=["lbs_produced"],
     )
+    total_lbs = sum(r.lbs_produced or 0 for r in rows)
+
+    return {
+        "target": None,
+        "actual": total_lbs or None,
+        "count": len(rows),
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -132,20 +141,35 @@ def archive_labor_sessions(task_type, from_date=None, to_date=None):
 # Section D: Archived Sessions
 # ---------------------------------------------------------------------------
 
+TASK_TARGET_FIELD = {
+    "Planting": "planting_rate_target",
+    "Deleaf": "deleaf_rate_target",
+    "Bucking": "bucking_rate_target",
+}
+
+
 @frappe.whitelist()
 def get_archived_sessions():
+    settings = frappe.get_single("Farm Settings")
+
     cloning = frappe.get_all(
         "Cloning Batch",
         filters={"status": "Archived"},
         fields=["name", "session_date", "clones_per_hour"],
         order_by="session_date desc",
     )
+    for c in cloning:
+        c["target"] = settings.clones_per_hour_target or None
+
     labor = frappe.get_all(
         "Farm Labor Session",
         filters={"status": "Archived"},
         fields=["name", "task_type", "session_date", "rate_per_hour"],
         order_by="session_date desc",
     )
+    for l in labor:
+        l["target"] = getattr(settings, TASK_TARGET_FIELD.get(l.task_type, ""), None) or None
+
     return {"cloning": cloning, "labor": labor}
 
 

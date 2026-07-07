@@ -83,11 +83,34 @@ def get_archived_procurement_cards():
     if not items:
         return []
 
-    return frappe.get_all(
+    batches = frappe.get_all(
         "Batch",
         filters={"item": ["in", items], "custom_procurement_status": "Archived"},
         fields=["name", "item", "batch_qty"],
     )
+
+    for b in batches:
+        procured = frappe.db.sql(
+            """
+            SELECT COALESCE(SUM(actual_qty), 0)
+            FROM `tabStock Ledger Entry`
+            WHERE batch_no = %s AND actual_qty > 0
+            AND voucher_type = 'Purchase Receipt'
+            AND is_cancelled = 0
+            """,
+            b["name"],
+        )[0][0]
+
+        sold = frappe.db.sql(
+            "SELECT COALESCE(SUM(qty), 0) FROM `tabSales Invoice Item` WHERE batch_no = %s",
+            b["name"],
+        )[0][0]
+
+        b["lbs_procured"] = flt(procured)
+        b["lbs_sold"] = flt(sold)
+        b["remaining_stock"] = flt(b["batch_qty"])
+
+    return batches
 
 
 @frappe.whitelist()

@@ -10,10 +10,16 @@ frappe.pages['ceo-dashboard-farm'].on_page_load = function (wrapper) {
 
 	var API = 'cannabis_management.api.ceo_dashboard_farm.';
 	var archivedHarvestsOpen = false;
+	var archivedProcurementOpen = false;
 
 	root.querySelector('#cdf-archived-toggle').addEventListener('click', function () {
 		archivedHarvestsOpen = !archivedHarvestsOpen;
 		root.querySelector('#cdf-archived-wrap').classList.toggle('cdf-open', archivedHarvestsOpen);
+	});
+
+	root.querySelector('#cdf-procurement-archived-toggle').addEventListener('click', function () {
+		archivedProcurementOpen = !archivedProcurementOpen;
+		root.querySelector('#cdf-procurement-archived-wrap').classList.toggle('cdf-open', archivedProcurementOpen);
 	});
 
 	loadAll();
@@ -21,7 +27,8 @@ frappe.pages['ceo-dashboard-farm'].on_page_load = function (wrapper) {
 	function loadAll() {
 		loadActiveHarvests();
 		loadArchivedHarvests();
-		loadProcurementCards();
+		loadActiveProcurement();
+		loadArchivedProcurement();
 	}
 
 	function money(v) {
@@ -64,7 +71,7 @@ frappe.pages['ceo-dashboard-farm'].on_page_load = function (wrapper) {
 		});
 	}
 
-	function loadProcurementCards() {
+	function loadActiveProcurement() {
 		frappe.call({
 			method: API + 'get_procurement_cards',
 			callback: function (r) {
@@ -78,14 +85,20 @@ frappe.pages['ceo-dashboard-farm'].on_page_load = function (wrapper) {
 				}
 			},
 		});
+	}
+
+	function loadArchivedProcurement() {
 		frappe.call({
 			method: API + 'get_archived_procurement_cards',
 			callback: function (r) {
 				var rows = r.message || [];
-				var target = root.querySelector('#cdf-procurement-archived-count');
-				target.textContent = rows.length
-					? '+ ' + rows.length + ' archived procurement(s) — click to view in Batch list'
-					: '';
+				var target = root.querySelector('#cdf-procurement-archived');
+				if (!rows.length) {
+					target.innerHTML = '<div class="cdf-empty">No archived procurements.</div>';
+					return;
+				}
+				target.innerHTML = rows.map(function (b) { return archivedProcurementRowHTML(b); }).join('');
+				rows.forEach(function (b) { wireBatchToggle(root, b, 'Archived'); });
 			},
 		});
 	}
@@ -117,7 +130,8 @@ frappe.pages['ceo-dashboard-farm'].on_page_load = function (wrapper) {
 				args: { batch_name: b.name, new_status: newStatus },
 				callback: function () {
 					frappe.show_alert({ message: b.name + ' → ' + newStatus, indicator: 'green' });
-					loadProcurementCards();
+					loadActiveProcurement();
+					loadArchivedProcurement();
 				},
 			});
 		});
@@ -181,6 +195,21 @@ frappe.pages['ceo-dashboard-farm'].on_page_load = function (wrapper) {
 </div>';
 	}
 
+	function archivedProcurementRowHTML(b) {
+		var title = (b.item || b.name) + (b.item ? ' [' + b.name + ']' : '');
+		return '\
+<div class="cdf-archived-row">\
+  <div>\
+    <span class="cdf-archived-title">' + frappe.utils.escape_html(title) + '</span>\
+    <span class="cdf-archived-meta">Procured: ' + num(b.lbs_procured) + '&nbsp;&nbsp; Sold: ' + num(b.lbs_sold) + '&nbsp;&nbsp; Remaining: ' + num(b.remaining_stock) + '</span>\
+  </div>\
+  <div class="cdf-card-actions">\
+    <span class="cdf-status-pill cdf-status-archived">Archived</span>\
+    <button class="cdf-toggle-btn cdf-restore" data-batch-toggle="' + b.name + '">← Restore Active</button>\
+  </div>\
+</div>';
+	}
+
 	function statBlock(label, value, caption) {
 		return '\
 <div>\
@@ -226,7 +255,16 @@ Archived harvests are always accessible via the archive list and can be toggled 
     <div class="cdf-section-caption">Same active/archive toggle per procurement</div>\
   </div>\
   <div id="cdf-procurement-active"></div>\
-  <div class="cdf-placeholder-row" id="cdf-procurement-archived-count">+ Procurement 2, 3… · Archived procurements collapse to summary row with same Restore Active button</div>\
+  <div class="cdf-placeholder-row">+ Procurement 2, 3… — new row added for each procurement batch</div>\
+\
+  <div class="cdf-section-bar">\
+    <button class="cdf-section-pill cdf-pill-archived" id="cdf-procurement-archived-toggle">▾ ARCHIVED PROCUREMENTS</button>\
+    <div class="cdf-section-line"></div>\
+    <div class="cdf-section-caption">Click to expand · toggle any archived procurement back to active</div>\
+  </div>\
+  <div id="cdf-procurement-archived-wrap" class="cdf-archived-wrap">\
+    <div id="cdf-procurement-archived"></div>\
+  </div>\
 </div>';
 	}
 };
