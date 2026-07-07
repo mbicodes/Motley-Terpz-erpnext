@@ -1,0 +1,79 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-07-07 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "clones_per_hour_target",
+  "planting_rate_target",
+  "deleaf_rate_target",
+  "bucking_rate_target",
+  "column_break_targets",
+  "rooting_success_target",
+  "scouting_completion_target"
+ ],
+ "fields": [
+  {
+   "fieldname": "clones_per_hour_target",
+   "fieldtype": "Float",
+   "label": "Clones / Hour Target"
+  },
+  {
+   "fieldname": "planting_rate_target",
+   "fieldtype": "Float",
+   "label": "Planting Rate Target"
+  },
+  {
+   "fieldname": "deleaf_rate_target",
+   "fieldtype": "Float",
+   "label": "Deleaf Rate Target"
+  },
+  {
+   "fieldname": "bucking_rate_target",
+   "fieldtype": "Float",
+   "label": "Bucking Rate Target"
+  },
+  {
+   "fieldname": "column_break_targets",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "rooting_success_target",
+   "fieldtype": "Percent",
+   "label": "Rooting Success Target %"
+  },
+  {
+   "default": "100",
+   "fieldname": "scouting_completion_target",
+   "fieldtype": "Percent",
+   "label": "Scouting Completion Target %"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-07-07 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Farm Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
