@@ -14,6 +14,7 @@
   "mom_plant_reference",
   "metrc_tag",
   "linked_harvest",
+  "status",
   "column_break_1",
   "company",
   "labour_rate",
@@ -92,6 +93,14 @@
    "fieldtype": "Link",
    "label": "Linked Harvest",
    "options": "Farm Production Batch"
+  },
+  {
+   "default": "Active",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Active\nArchived"
   },
   {
    "fieldname": "column_break_1",

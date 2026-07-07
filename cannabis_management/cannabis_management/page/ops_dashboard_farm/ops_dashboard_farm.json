@@ -1,0 +1,23 @@
+{
+ "content": null,
+ "creation": "2026-07-08 00:00:00",
+ "docstatus": 0,
+ "doctype": "Page",
+ "icon": "fa fa-tasks",
+ "idx": 0,
+ "modified": "2026-07-08 00:00:00",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "ops-dashboard-farm",
+ "owner": "Administrator",
+ "page_name": "ops-dashboard-farm",
+ "roles": [
+  {"role": "System Manager"},
+  {"role": "Farm Manager"}
+ ],
+ "script": null,
+ "standard": "Yes",
+ "style": null,
+ "system_page": 0,
+ "title": "Ops Dashboard - Farm"
+}
