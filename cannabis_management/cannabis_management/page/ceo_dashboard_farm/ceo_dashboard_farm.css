@@ -1,0 +1,150 @@
+.cdf-dash {
+	max-width: 1100px;
+	margin: 0 auto;
+	padding: 10px 4px 40px;
+	font-family: inherit;
+}
+
+/* Header */
+.cdf-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	background: #2f5d34;
+	color: #fff;
+	padding: 10px 18px;
+	border-radius: 4px;
+	font-size: 12px;
+	letter-spacing: 0.02em;
+}
+.cdf-header .cdf-hdr-left { font-weight: 600; }
+.cdf-header .cdf-hdr-right { font-style: italic; opacity: 0.9; }
+
+.cdf-title {
+	font-size: 26px;
+	font-weight: 700;
+	color: #2f5d34;
+	margin: 22px 0 6px;
+}
+.cdf-subtitle {
+	color: #555;
+	font-size: 13px;
+	line-height: 1.5;
+	margin-bottom: 22px;
+	max-width: 900px;
+}
+
+/* Section dividers */
+.cdf-section-bar {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	margin: 26px 0 14px;
+}
+.cdf-section-pill {
+	border: none;
+	cursor: pointer;
+	font-size: 12px;
+	font-weight: 700;
+	letter-spacing: 0.04em;
+	padding: 7px 14px;
+	border-radius: 4px;
+	color: #fff;
+	background: #2f5d34;
+}
+.cdf-section-pill.cdf-pill-archived { background: #efe9df; color: #333; }
+.cdf-section-pill.cdf-pill-frozen { background: #163b66; }
+.cdf-section-line { flex: 1; height: 1px; background: #ddd; }
+.cdf-section-caption { font-size: 12px; color: #777; font-style: italic; white-space: nowrap; }
+
+/* Harvest / Procurement cards */
+.cdf-card {
+	border: 1px solid #d8d8d8;
+	border-radius: 6px;
+	overflow: hidden;
+	margin-bottom: 14px;
+}
+.cdf-card-head {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 12px 18px;
+	color: #fff;
+}
+.cdf-card.cdf-green-1 .cdf-card-head { background: #1f4d24; }
+.cdf-card.cdf-green-2 .cdf-card-head { background: #3f7d3f; }
+.cdf-card.cdf-navy .cdf-card-head { background: #163b66; }
+
+.cdf-card-title { font-size: 15px; font-weight: 700; }
+.cdf-card-title .cdf-card-sub { font-weight: 400; opacity: 0.85; margin-left: 6px; }
+
+.cdf-card-actions { display: flex; align-items: center; gap: 10px; }
+.cdf-status-pill {
+	background: #fff;
+	color: #2f5d34;
+	font-size: 11px;
+	font-weight: 700;
+	padding: 4px 10px;
+	border-radius: 12px;
+}
+.cdf-status-pill.cdf-status-archived { background: #d9d9d9; color: #444; }
+.cdf-toggle-btn {
+	border: 1px solid rgba(255,255,255,0.6);
+	background: transparent;
+	color: #fff;
+	font-size: 11px;
+	font-weight: 600;
+	padding: 4px 10px;
+	border-radius: 12px;
+	cursor: pointer;
+}
+.cdf-toggle-btn:hover { background: rgba(255,255,255,0.15); }
+.cdf-toggle-btn.cdf-restore {
+	border: 1px solid #2f5d34;
+	color: #2f5d34;
+	background: #fff;
+}
+
+.cdf-card-body {
+	display: grid;
+	background: #fff;
+	padding: 16px 18px;
+	gap: 10px;
+}
+.cdf-card-body.cdf-cols-5 { grid-template-columns: repeat(5, 1fr); }
+.cdf-card-body.cdf-cols-3 { grid-template-columns: repeat(3, 1fr); }
+
+.cdf-stat-label { font-size: 11px; font-weight: 700; letter-spacing: 0.03em; color: #444; }
+.cdf-stat-value { font-size: 20px; font-weight: 700; color: #222; margin: 4px 0 2px; }
+.cdf-stat-caption { font-size: 11px; color: #888; }
+
+/* Placeholder / add-row hint */
+.cdf-placeholder-row {
+	border: 1px dashed #ccc;
+	border-radius: 6px;
+	text-align: center;
+	padding: 10px;
+	font-size: 12px;
+	color: #999;
+	margin-bottom: 18px;
+}
+
+/* Archived list rows */
+.cdf-archived-wrap { display: none; }
+.cdf-archived-wrap.cdf-open { display: block; }
+.cdf-archived-row {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	background: #f1ece1;
+	border: 1px solid #e3dcc9;
+	border-radius: 6px;
+	padding: 10px 18px;
+	margin-bottom: 10px;
+	font-size: 13px;
+}
+.cdf-archived-row .cdf-archived-title { font-weight: 700; margin-right: 14px; }
+.cdf-archived-row .cdf-archived-meta { color: #555; }
+.cdf-archived-row .cdf-card-actions { gap: 10px; }
+
+.cdf-empty { color: #999; font-size: 12px; padding: 8px 2px; }
