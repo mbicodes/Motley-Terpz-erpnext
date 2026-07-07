@@ -362,17 +362,20 @@ def _notify_approvers(doc):
         except Exception:
             frappe.log_error(frappe.get_traceback(), "[quotation_approval] approver email failed")
 
-    _send_slack(
-        header="🧾 Quotation Pending Approval",
-        fields=[
-            ("Quotation", f"<{url}|{doc.name}>"),
-            ("Customer", doc.get("customer_name") or doc.get("party_name") or "—"),
-            ("Discount", f"{eff:.2f}%"),
-            ("Needs", f"{level} approval"),
-            ("Submitted by", creator),
-        ],
-        context="Open the quotation and click Approve or Reject.",
-    )
+    # Slack alert disabled for now — live site_config points slack_webhook_url at
+    # the conversions-motley webhook, so this was posting to the wrong channel.
+    # Re-enable once a dedicated webhook/channel is configured.
+    # _send_slack(
+    #     header="🧾 Quotation Pending Approval",
+    #     fields=[
+    #         ("Quotation", f"<{url}|{doc.name}>"),
+    #         ("Customer", doc.get("customer_name") or doc.get("party_name") or "—"),
+    #         ("Discount", f"{eff:.2f}%"),
+    #         ("Needs", f"{level} approval"),
+    #         ("Submitted by", creator),
+    #     ],
+    #     context="Open the quotation and click Approve or Reject.",
+    # )
 
 
 def _notify_creator(doc, approved, reason=None):

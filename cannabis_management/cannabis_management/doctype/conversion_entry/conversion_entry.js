@@ -1,4 +1,14 @@
 frappe.ui.form.on('Conversion Entry', {
+	onload: function (frm) {
+		// Default the company on new entries, then run the company handler
+		// (applies warehouse filters). Guarded to new docs so opening an
+		// existing entry never overwrites its saved company.
+		if (frm.is_new() && !frm.doc.company) {
+			frm.set_value('company', 'Master Touch Manufacturing');
+			frm.trigger('company');
+		}
+	},
+
 	refresh: function (frm) {
 		_set_warehouse_filters(frm);
 
