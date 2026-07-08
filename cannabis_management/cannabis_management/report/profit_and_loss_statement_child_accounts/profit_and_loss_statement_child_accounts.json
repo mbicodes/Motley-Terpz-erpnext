@@ -13,11 +13,11 @@
  "modified": "2026-07-09 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "Cannabis Management",
- "name": "Profit and Loss Statement (Child Accounts)",
+ "name": "Profit and Loss Statement Child Accounts",
  "owner": "Administrator",
  "prepared_report": 0,
  "ref_doctype": "GL Entry",
- "report_name": "Profit and Loss Statement (Child Accounts)",
+ "report_name": "Profit and Loss Statement Child Accounts",
  "report_type": "Script Report",
  "roles": [
   {
