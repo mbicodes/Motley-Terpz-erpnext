@@ -5,6 +5,8 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "current_target",
+  "section_break_labor_targets",
   "clones_per_hour_target",
   "planting_rate_target",
   "deleaf_rate_target",
@@ -14,6 +16,17 @@
   "scouting_completion_target"
  ],
  "fields": [
+  {
+   "description": "Single seasonal harvest target for total Lbs taken down (Ops Dashboard — Harvest Window).",
+   "fieldname": "current_target",
+   "fieldtype": "Float",
+   "label": "Current Target"
+  },
+  {
+   "fieldname": "section_break_labor_targets",
+   "fieldtype": "Section Break",
+   "label": "Labor Efficiency Targets"
+  },
   {
    "fieldname": "clones_per_hour_target",
    "fieldtype": "Float",

@@ -56,8 +56,7 @@ def get_daily_summary(from_date=None, to_date=None):
 @frappe.whitelist()
 def get_harvest_window(from_date=None, to_date=None):
     """Single seasonal KPI: total lbs taken down across all harvest events
-    in range. No per-harvest target exists yet in Farm Settings, so target
-    is always None (frontend shows "[TBD]") until one is added."""
+    in range, against the seasonal Current Target set in Farm Settings."""
     from_date, to_date = _resolve_range(from_date, to_date)
 
     rows = frappe.get_all(
@@ -66,9 +65,10 @@ def get_harvest_window(from_date=None, to_date=None):
         fields=["lbs_produced"],
     )
     total_lbs = sum(r.lbs_produced or 0 for r in rows)
+    settings = frappe.get_single("Farm Settings")
 
     return {
-        "target": None,
+        "target": settings.current_target or None,
         "actual": total_lbs or None,
         "count": len(rows),
     }

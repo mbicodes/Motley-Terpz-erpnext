@@ -85,23 +85,23 @@
 }
 
 /* Harvest window table */
-.odf-harvest-table { width: 100%; border-collapse: collapse; font-size: 13px; background: #fff; }
+.odf-harvest-table { width: 100%; border-collapse: collapse; font-size: 15px; background: #fff; }
 .odf-harvest-table th {
 	background: #2f5d34;
 	color: #fff;
 	text-align: left;
-	font-size: 11px;
+	font-size: 12px;
 	letter-spacing: 0.02em;
-	padding: 10px 14px;
+	padding: 14px 18px;
 }
 .odf-harvest-table td {
 	border-bottom: 1px solid #e5e5e5;
-	padding: 12px 14px;
+	padding: 18px;
 	vertical-align: top;
 }
 .odf-harvest-table td.odf-harvest-metric { font-weight: 700; }
-.odf-harvest-target { color: #2f5d34; font-weight: 700; }
-.odf-harvest-notes { color: #666; font-size: 12px; }
+.odf-harvest-target { color: #2f5d34; font-weight: 700; font-size: 17px; }
+.odf-harvest-notes { color: #666; font-size: 13px; }
 
 /* Labor efficiency session cards */
 .odf-session-card {
