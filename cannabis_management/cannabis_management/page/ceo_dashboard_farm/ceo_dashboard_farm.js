@@ -176,9 +176,9 @@ frappe.pages['ceo-dashboard-farm'].on_page_load = function (wrapper) {
 	}
 
 	function procurementCardHTML(b, i) {
-		var titleSub = [b.vendor, b.receipt_date ? frappe.datetime.str_to_user(b.receipt_date) : null]
+		var titleSub = [b.item, b.vendor, b.receipt_date ? frappe.datetime.str_to_user(b.receipt_date) : null]
 			.filter(Boolean).join(' · ');
-		var title = frappe.utils.escape_html(b.item || b.name) +
+		var title = 'Procurement ' + (i + 1) +
 			(titleSub ? ' <span class="cdf-card-sub">[' + frappe.utils.escape_html(titleSub) + ']</span>' : '');
 		return '\
 <div class="cdf-card cdf-navy">\

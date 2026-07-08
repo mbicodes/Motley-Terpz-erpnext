@@ -81,12 +81,15 @@ def get_procurement_cards():
 
         # Vendor + date must come from the actual Purchase Receipt that brought this batch in,
         # not the Batch doctype's own supplier/manufacturing_date fields (unreliable/blank).
+        # Same v15 caveat as the procured-qty query above: batch linkage lives on the
+        # Serial and Batch Bundle, not a plain batch_no column on Purchase Receipt Item.
         receipt = frappe.db.sql(
             """
             SELECT pr.supplier_name, pr.posting_date
-            FROM `tabPurchase Receipt Item` pri
-            INNER JOIN `tabPurchase Receipt` pr ON pr.name = pri.parent
-            WHERE pri.batch_no = %s AND pr.docstatus = 1
+            FROM `tabSerial and Batch Entry` sbe
+            INNER JOIN `tabSerial and Batch Bundle` sbb ON sbb.name = sbe.parent
+            INNER JOIN `tabPurchase Receipt` pr ON pr.name = sbb.voucher_no
+            WHERE sbe.batch_no = %s AND sbb.voucher_type = 'Purchase Receipt' AND sbb.docstatus = 1
             ORDER BY pr.posting_date ASC
             LIMIT 1
             """,
