@@ -1,0 +1,71 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-07-09 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "kpi_label",
+  "target",
+  "column_break_kpi_row",
+  "backend_key",
+  "suffix",
+  "section_break_how_measured",
+  "how_measured"
+ ],
+ "fields": [
+  {
+   "fieldname": "kpi_label",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "KPI",
+   "reqd": 1
+  },
+  {
+   "fieldname": "target",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Target"
+  },
+  {
+   "fieldname": "column_break_kpi_row",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Key into the Individual KPI backend response (e.g. scouting_pct). Leave blank to show \"Not Tracked Yet\".",
+   "fieldname": "backend_key",
+   "fieldtype": "Data",
+   "label": "Backend Key (Actual)"
+  },
+  {
+   "fieldname": "suffix",
+   "fieldtype": "Data",
+   "label": "Actual Suffix"
+  },
+  {
+   "fieldname": "section_break_how_measured",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "how_measured",
+   "fieldtype": "Small Text",
+   "in_list_view": 1,
+   "label": "How Measured"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-07-09 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Farm KPI Target Row",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

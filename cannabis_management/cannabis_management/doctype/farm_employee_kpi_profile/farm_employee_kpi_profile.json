@@ -1,0 +1,121 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "field:employee",
+ "creation": "2026-07-09 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "employee",
+  "role_title",
+  "column_break_header",
+  "reports_to",
+  "employment_type",
+  "note",
+  "section_break_responsibilities",
+  "responsibilities",
+  "section_break_kpis",
+  "kpi_targets",
+  "section_break_cadence",
+  "performance_review_cadence"
+ ],
+ "fields": [
+  {
+   "fieldname": "employee",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Employee",
+   "options": "Employee",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "role_title",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Role Title"
+  },
+  {
+   "fieldname": "column_break_header",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "e.g. Jamie Hawk (Director, Admin Strategy & Projects)",
+   "fieldname": "reports_to",
+   "fieldtype": "Data",
+   "label": "Reports To"
+  },
+  {
+   "default": "Full-Time - Remote",
+   "fieldname": "employment_type",
+   "fieldtype": "Data",
+   "label": "Employment Type / Location"
+  },
+  {
+   "description": "Shown as a highlighted note banner on the Individual KPI page. Leave blank to hide.",
+   "fieldname": "note",
+   "fieldtype": "Small Text",
+   "label": "Note"
+  },
+  {
+   "fieldname": "section_break_responsibilities",
+   "fieldtype": "Section Break",
+   "label": "Responsibilities"
+  },
+  {
+   "fieldname": "responsibilities",
+   "fieldtype": "Table",
+   "label": "Responsibilities",
+   "options": "Farm KPI Responsibility"
+  },
+  {
+   "fieldname": "section_break_kpis",
+   "fieldtype": "Section Break",
+   "label": "KPIs & Targets"
+  },
+  {
+   "fieldname": "kpi_targets",
+   "fieldtype": "Table",
+   "label": "KPI Targets",
+   "options": "Farm KPI Target Row"
+  },
+  {
+   "fieldname": "section_break_cadence",
+   "fieldtype": "Section Break",
+   "label": "How Performance Is Measured"
+  },
+  {
+   "fieldname": "performance_review_cadence",
+   "fieldtype": "Small Text",
+   "label": "How Performance Is Measured"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-07-09 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Farm Employee KPI Profile",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
