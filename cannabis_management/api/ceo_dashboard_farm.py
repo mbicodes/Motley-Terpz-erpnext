@@ -79,6 +79,23 @@ def get_procurement_cards():
         b["lbs_sold"] = flt(sold[0])
         b["avg_price"] = flt(sold[1])
 
+        # Vendor + date must come from the actual Purchase Receipt that brought this batch in,
+        # not the Batch doctype's own supplier/manufacturing_date fields (unreliable/blank).
+        receipt = frappe.db.sql(
+            """
+            SELECT pr.supplier_name, pr.posting_date
+            FROM `tabPurchase Receipt Item` pri
+            INNER JOIN `tabPurchase Receipt` pr ON pr.name = pri.parent
+            WHERE pri.batch_no = %s AND pr.docstatus = 1
+            ORDER BY pr.posting_date ASC
+            LIMIT 1
+            """,
+            b["name"],
+            as_dict=True,
+        )
+        b["vendor"] = receipt[0].supplier_name if receipt else b.get("supplier")
+        b["receipt_date"] = receipt[0].posting_date if receipt else b.get("manufacturing_date")
+
     return batches
 
 
