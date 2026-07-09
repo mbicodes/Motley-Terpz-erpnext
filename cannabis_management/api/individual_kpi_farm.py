@@ -126,6 +126,22 @@ def get_actuals(employee, from_date=None, to_date=None):
 		or 0
 	)
 
+	# "Nursery tray log completion" — % of this employee's Cloning Batch
+	# entries that were actually submitted rather than left in Draft.
+	# Cloning Batch has no dedicated "log completed" field, so submission
+	# status is used as the proxy for a completed tray log.
+	tray_logs = frappe.get_all(
+		"Cloning Batch",
+		filters={
+			"performed_by": employee,
+			"session_date": ["between", [from_date, to_date]],
+			"docstatus": ["in", [0, 1]],
+		},
+		fields=["docstatus"],
+	)
+	total_tray_logs = len(tray_logs) or 1
+	tray_log_completion_pct = sum(1 for t in tray_logs if t.docstatus == 1) / total_tray_logs * 100
+
 	return {
 		"scouting_pct": round(scouting_pct, 1),
 		"dcc_pct": round(dcc_pct, 1),
@@ -135,6 +151,7 @@ def get_actuals(employee, from_date=None, to_date=None):
 		"bucking_rate": round(bucking_rate, 2),
 		"planting_rate": round(planting_rate, 2),
 		"clones_rate": round(clones_rate, 2),
+		"tray_log_completion_pct": round(tray_log_completion_pct, 1),
 		"farmwide_dcc_pct": round(farmwide_dcc_pct, 1),
 		"farmwide_open_corrections": farmwide_open_corrections,
 		"total_logs": len(logs),
