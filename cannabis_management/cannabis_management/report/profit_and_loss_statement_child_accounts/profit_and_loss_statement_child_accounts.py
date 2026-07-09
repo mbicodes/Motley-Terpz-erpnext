@@ -140,6 +140,7 @@ def get_net_profit_loss(income, expense, period_list, company, currency=None, co
 		"account": "'" + _("Profit for the year") + "'",
 		"warn_if_negative": True,
 		"currency": currency or frappe.get_cached_value("Company", company, "default_currency"),
+		"is_total_row": 1,
 	}
 
 	has_value = False
