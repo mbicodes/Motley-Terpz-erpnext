@@ -234,6 +234,17 @@ doc_events = {
         ],
     },
     # -----------------------------------------------------------------------
+    # CRM account enhancements (sales-team feedback, July 2026)
+    "CRM Lead": {
+        "before_insert": "cannabis_management.api.crm_account_enhancements.check_lead_duplicate",
+    },
+    "CRM Organization": {
+        "before_insert": "cannabis_management.api.crm_account_enhancements.check_organization_duplicate",
+    },
+    "CRM Deal": {
+        "on_update": "cannabis_management.api.crm_account_enhancements.create_won_deal_followups",
+    },
+    # -----------------------------------------------------------------------
     # AR Policy disabled — before_submit cap check removed
     "Sales Invoice": {
         "before_validate": "cannabis_management.doc_hooks.sales_invoice.before_validate",
