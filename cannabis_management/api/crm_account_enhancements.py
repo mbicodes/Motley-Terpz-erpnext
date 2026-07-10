@@ -95,6 +95,10 @@ def install_crm_account_fields():
     _add_to_side_panel("CRM Lead", "details_section",
                        ["custom_license_name", "custom_license_number", "custom_license_type",
                         "custom_address", "custom_city", "custom_state"])
+    _ensure_quick_entry_section(
+        "CRM Lead", "license_location_section", "License & Location",
+        [["custom_license_number", "custom_address", "custom_city"],
+         ["custom_license_type", "custom_state"]])
     _add_to_side_panel("CRM Organization", "details_section",
                        ["custom_license_name", "custom_license_number", "custom_license_type",
                         "custom_city", "custom_state", "custom_credit_terms",
@@ -117,6 +121,34 @@ def _add_to_side_panel(doctype, section_name, fieldnames):
         for fieldname in fieldnames:
             if fieldname not in fields:
                 fields.append(fieldname)
+    doc.layout = frappe.as_json(layout, indent=None)
+    doc.save(ignore_permissions=True)
+
+
+def _ensure_quick_entry_section(doctype, section_name, label, column_fields):
+    """Append a section (list of field-lists, one per column) to the doctype's
+    Quick Entry layout — the Create dialog in the CRM UI."""
+    layout_name = frappe.db.exists("CRM Fields Layout", {"dt": doctype, "type": "Quick Entry"})
+    if not layout_name:
+        return
+    doc = frappe.get_doc("CRM Fields Layout", layout_name)
+    layout = frappe.parse_json(doc.layout)
+
+    # The layout is either a flat list of sections, or a list of tabs each
+    # holding a "sections" list — append into the right level.
+    has_tabs = any("sections" in entry for entry in layout)
+    sections = layout[-1]["sections"] if has_tabs else layout
+    if any(section.get("name") == section_name for section in sections):
+        return
+    sections.append({
+        "label": label,
+        "name": section_name,
+        "opened": True,
+        "columns": [
+            {"name": f"column_{section_name}_{i}", "fields": fields}
+            for i, fields in enumerate(column_fields)
+        ],
+    })
     doc.layout = frappe.as_json(layout, indent=None)
     doc.save(ignore_permissions=True)
 
