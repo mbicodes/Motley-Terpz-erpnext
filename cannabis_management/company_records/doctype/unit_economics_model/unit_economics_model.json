@@ -1,0 +1,33 @@
+{
+ "actions": [],
+ "creation": "2026-07-08 21:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": ["inputs_json"],
+ "fields": [
+  {
+   "fieldname": "inputs_json",
+   "fieldtype": "Long Text",
+   "label": "Inputs JSON",
+   "description": "All manual (blue-cell) inputs of the Unit Economics model, managed by the Unit Economics page."
+  }
+ ],
+ "grid_page_length": 50,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-07-08 21:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Company Records",
+ "name": "Unit Economics Model",
+ "owner": "Administrator",
+ "permissions": [
+  {"role": "System Manager", "read": 1, "write": 1, "create": 1, "email": 1, "print": 1, "share": 1},
+  {"role": "Director", "read": 1, "write": 1, "create": 1, "email": 1, "print": 1, "share": 1},
+  {"role": "Accounting Team", "read": 1, "write": 1, "create": 1, "email": 1, "print": 1, "share": 1}
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

@@ -1,0 +1,21 @@
+{
+ "creation": "2026-07-08 21:00:00.000000",
+ "doctype": "Page",
+ "icon": "graph",
+ "idx": 0,
+ "modified": "2026-07-08 21:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Company Records",
+ "name": "unit-economics",
+ "owner": "Administrator",
+ "page_name": "unit-economics",
+ "roles": [
+  {"role": "System Manager"},
+  {"role": "Director"},
+  {"role": "Accounting Team"},
+  {"role": "Super Admin"}
+ ],
+ "standard": "Yes",
+ "system_page": 0,
+ "title": "Unit Economics"
+}
