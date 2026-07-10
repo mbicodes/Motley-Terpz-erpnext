@@ -843,6 +843,17 @@ frappe.pages['matt-sales-target'].on_page_load = function (wrapper) {
     setPeriodUI(currentPeriod);
     loadTerritories();
 
+    // ── Embedded Sales Overview section (shared component) ────────────
+    frappe.require([
+        '/assets/cannabis_management/css/sales_overview_section.css',
+        '/assets/cannabis_management/js/sales_overview_section.js'
+    ], function () {
+        cannabis_management.sales_overview.render(
+            rootEl.querySelector('#sd-sales-overview'),
+            { show_title: false }
+        );
+    });
+
     page.set_primary_action('Refresh', function () { loadAll(currentPeriod); }, 'refresh');
 };
 
@@ -960,6 +971,17 @@ function getMattDashboardHTML() {
       <div class="sd-matrix-card">
         <div id="sd-ar-matrix" class="sd-matrix-wrap"><div class="sd-loading"><div class="sd-spinner"></div></div></div>
       </div>
+
+      <div class="sd-matrix-bar" style="margin-top:28px;">
+        <div class="sd-section-title" style="margin:0">
+          <span class="sd-section-icon"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></span>
+          <span>Sales Overview</span>
+        </div>
+        <div class="sd-matrix-controls">
+          <span style="font-size:11px;color:var(--sd-text-muted);padding:4px 8px;background:#f8fafc;border-radius:6px;">Invoices, orders, delivery notes &amp; payments &middot; excl. intercompany</span>
+        </div>
+      </div>
+      <div id="sd-sales-overview"><div class="sd-loading"><div class="sd-spinner"></div></div></div>
 
     </div>
     `;

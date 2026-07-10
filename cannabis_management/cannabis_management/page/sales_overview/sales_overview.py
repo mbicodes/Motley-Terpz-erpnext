@@ -63,10 +63,18 @@ def _resolve_sp(salesperson):
     frappe.throw(f"Unknown sales person: {salesperson}")
 
 
+def _not_intercompany(alias, party_field="customer"):
+    """Exclude intercompany documents (customer flagged is_internal_customer)."""
+    return f"""NOT EXISTS (
+        SELECT 1 FROM `tabCustomer` c
+        WHERE c.name = {alias}.{party_field} AND c.is_internal_customer = 1
+    )"""
+
+
 def _doc_conditions(alias, doctype, date_field, sp, from_date, to_date, company, params):
     """Build WHERE conditions for a sales doctype. A document belongs to a
     sales person if they created it (owner) or appear in its Sales Team."""
-    conds = [f"{alias}.docstatus = 1"]
+    conds = [f"{alias}.docstatus = 1", _not_intercompany(alias)]
     if from_date:
         conds.append(f"{alias}.{date_field} >= %(from_date)s")
         params["from_date"] = from_date
@@ -145,7 +153,7 @@ def _get_payments(sp, from_date, to_date, company, invoice_names, order_names):
     For a sales person, a payment counts if they created it or if it is
     allocated against one of their invoices / orders."""
     params = {}
-    conds = ["pe.docstatus = 1", "pe.payment_type = 'Receive'"]
+    conds = ["pe.docstatus = 1", "pe.payment_type = 'Receive'", _not_intercompany("pe", "party")]
     if from_date:
         conds.append("pe.posting_date >= %(from_date)s")
         params["from_date"] = from_date
