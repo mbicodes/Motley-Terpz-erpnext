@@ -16,12 +16,29 @@ frappe.listview_settings['Sales Order'] = frappe.listview_settings['Sales Order'
 			<circle cx="18.5" cy="18.5" r="2.5"></circle>
 		</svg>`;
 
+	// Give each Logistic Status option its own indicator-pill color.
+	const logistic_status_colors = {
+		'Need to Schedule': 'red',
+		'Scheduled': 'orange',
+		'Order Preparing': 'yellow',
+		'Order Prepared': 'blue',
+		'Order Staged': 'purple',
+		'Order Closed Out': 'green',
+	};
+
 	so_settings.formatters = Object.assign({}, so_settings.formatters, {
 		custom_delivery_note_created(value) {
 			const created = !!value;
 			const color = created ? 'var(--green-600, #1f9d57)' : 'var(--gray-400, #9ca3af)';
 			const title = created ? __('Delivery Note Created') : __('No Delivery Note');
 			return `<span title="${title}" style="color: ${color};">${truck_icon}</span>`;
+		},
+		custom_logistic_status(value) {
+			if (!value) return '';
+			const color = logistic_status_colors[value] || 'gray';
+			return `<span class="indicator-pill ${color} filterable" data-value="${frappe.utils.escape_html(value)}">
+				<span>${__(value)}</span>
+			</span>`;
 		},
 	});
 })();
