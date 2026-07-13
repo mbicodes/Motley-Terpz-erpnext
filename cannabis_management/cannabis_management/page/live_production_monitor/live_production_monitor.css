@@ -1,0 +1,146 @@
+/* ── Live Production Monitor — lpm- namespace ─────────────────────────── */
+.lpm-dash {
+  font-family: 'DM Sans', system-ui, sans-serif;
+  background: #f0f2f5;
+  min-height: 100vh;
+  padding-bottom: 40px;
+}
+
+/* ── Header ─────────────────────────────────────────────────────────────── */
+.lpm-header {
+  background: linear-gradient(135deg, #0c2340 0%, #1a3a5f 100%);
+  padding: 20px 28px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.lpm-brand-name { font-size: 22px; font-weight: 700; color: #ffffff; letter-spacing: -.02em; line-height: 1.1; }
+.lpm-brand-sub  { font-size: 12px; color: #94a3b8; margin-top: 4px; }
+.lpm-hdr-right  { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.lpm-lrefresh   { font-size: 11px; color: #7dd3fc; font-family: 'DM Mono', monospace; }
+.lpm-interval-lbl { font-size: 11px; color: #94a3b8; }
+
+.lpm-toggle { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #e2e8f0; cursor: pointer; }
+.lpm-toggle input { width: 16px; height: 16px; cursor: pointer; }
+
+/* ── Filter bar ─────────────────────────────────────────────────────────── */
+.lpm-fbar {
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 12px 28px;
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.lpm-fg   { display: flex; flex-direction: column; gap: 3px; min-width: 150px; }
+.lpm-flbl { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; color: #94a3b8; }
+.lpm-fsel, .lpm-finp {
+  border: 1px solid #e2e8f0; border-radius: 6px;
+  padding: 6px 10px; font-size: 13px; font-family: 'DM Sans', sans-serif;
+  color: #1e293b; background: #f8fafc; height: 34px;
+}
+.lpm-fsel:focus, .lpm-finp:focus { outline: none; border-color: #2563eb; }
+.lpm-linkctrl { min-width: 150px; }
+.lpm-linkctrl .form-group { margin-bottom: 0; }
+.lpm-linkctrl input { height: 34px; font-size: 13px; background: #f8fafc; }
+
+.lpm-btn {
+  border: none; border-radius: 6px; padding: 0 16px; height: 34px;
+  font-size: 13px; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif;
+  background: #2563eb; color: #fff; transition: opacity .15s;
+  display: inline-flex; align-items: center; justify-content: center;
+  text-decoration: none;
+}
+.lpm-btn:hover { opacity: .85; color: #fff; }
+.lpm-btn-secondary { background: #f1f5f9; color: #1e293b; }
+.lpm-btn[disabled] { background: #e2e8f0; color: #94a3b8; cursor: not-allowed; opacity: .7; }
+
+/* ── KPI Grid ───────────────────────────────────────────────────────────── */
+.lpm-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 14px;
+  padding: 20px 28px 0;
+}
+.lpm-kc {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-left: 3px solid var(--kc, #2563eb);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+.lpm-klbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: #94a3b8; margin-bottom: 6px; }
+.lpm-kval { font-size: 26px; font-weight: 700; font-family: 'DM Mono', monospace; color: var(--kc, #1e293b); line-height: 1; }
+
+/* ── Job Card grid ──────────────────────────────────────────────────────── */
+.lpm-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  padding: 20px 28px;
+}
+@media (max-width: 900px) {
+  .lpm-grid { grid-template-columns: 1fr; }
+  .lpm-kpi-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 520px) {
+  .lpm-kpi-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+.lpm-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px 18px;
+}
+.lpm-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 6px; }
+.lpm-card-title { font-size: 14px; font-weight: 700; color: #1e293b; }
+.lpm-card-ref { font-size: 12px; color: #64748b; margin-bottom: 12px; }
+.lpm-card-ref a { color: #2563eb; text-decoration: none; }
+.lpm-card-ref a:hover { text-decoration: underline; }
+.lpm-ref-sep { margin: 0 6px; color: #cbd5e1; }
+
+.lpm-card-timer-row {
+  display: flex; gap: 24px;
+  background: #f8fafc; border-radius: 8px; padding: 10px 14px; margin-bottom: 12px;
+}
+.lpm-timer-lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #94a3b8; margin-bottom: 2px; }
+.lpm-elapsed { font-size: 18px; font-weight: 700; font-family: 'DM Mono', monospace; color: #0c2340; }
+.lpm-started { font-size: 13px; color: #1e293b; font-family: 'DM Mono', monospace; }
+
+.lpm-card-progress { margin-bottom: 12px; }
+.lpm-pbar { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.lpm-ptr  { flex: 1; height: 7px; background: #f1f5f9; border-radius: 4px; overflow: hidden; }
+.lpm-pfi  { height: 100%; background: #2563eb; border-radius: 4px; }
+.lpm-pfi.mid { background: #d97706; }
+.lpm-pfi.low { background: #e11d48; }
+.lpm-ppct { font-size: 11px; font-family: 'DM Mono', monospace; color: #64748b; white-space: nowrap; }
+.lpm-qty-lbl { font-size: 11px; color: #94a3b8; font-family: 'DM Mono', monospace; }
+
+.lpm-card-meta {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 8px 16px; margin-bottom: 14px;
+}
+.lpm-card-meta > div { display: flex; flex-direction: column; gap: 1px; font-size: 12px; color: #1e293b; }
+.lpm-meta-lbl { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: #94a3b8; }
+
+.lpm-card-actions { display: flex; gap: 10px; }
+.lpm-card-actions .lpm-btn { flex: 1; }
+
+/* Status pills */
+.lpm-pill {
+  display: inline-block; font-size: 10px; font-weight: 700;
+  padding: 3px 9px; border-radius: 20px; letter-spacing: .04em; white-space: nowrap;
+}
+.lpm-pill.grey   { background: #f1f5f9; color: #475569; }
+.lpm-pill.yellow { background: #fef3c7; color: #92400e; }
+.lpm-pill.green  { background: #d1fae5; color: #065f46; }
+.lpm-pill.blue   { background: #dbeafe; color: #1e40af; }
+.lpm-pill.red    { background: #fee2e2; color: #991b1b; }
+.lpm-pill.teal   { background: #ccfbf1; color: #0f766e; }
+.lpm-pill.dark   { background: #e2e8f0; color: #334155; }
+
+.lpm-empty { text-align: center; color: #94a3b8; font-size: 12px; padding: 40px; grid-column: 1 / -1; }
