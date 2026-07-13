@@ -53,7 +53,7 @@ def install_crm_account_fields():
          "options": CRM_LICENSE_TYPES, "insert_after": "custom_license_number"},
         {"fieldname": "custom_license_col_break", "fieldtype": "Column Break",
          "insert_after": "custom_license_type"},
-        {"fieldname": "custom_address", "fieldtype": "Link", "options": "Address",
+        {"fieldname": "custom_address", "fieldtype": "Data", "options": None,
          "label": "Address", "insert_after": "custom_license_col_break"},
         {"fieldname": "custom_city", "fieldtype": "Link", "options": "City", "label": "City",
          "insert_after": "custom_address"},
