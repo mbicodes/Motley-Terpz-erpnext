@@ -1,0 +1,22 @@
+{
+ "content": null,
+ "creation": "2026-07-13 00:00:00",
+ "docstatus": 0,
+ "doctype": "Page",
+ "icon": "fa fa-television",
+ "idx": 0,
+ "modified": "2026-07-13 00:00:00",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "live-production-monitor",
+ "owner": "Administrator",
+ "page_name": "live-production-monitor",
+ "roles": [
+  {"role": "System Manager"}
+ ],
+ "script": null,
+ "standard": "Yes",
+ "style": null,
+ "system_page": 0,
+ "title": "Live Production Monitor"
+}
