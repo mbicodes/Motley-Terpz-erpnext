@@ -12,9 +12,9 @@ frappe.pages['matt-sales-target'].on_page_load = function (wrapper) {
     var currentPeriod = 'weekly';
     var currentMatrix = 'weekly';
     var currentView   = 'value';
-    var matrixCache   = {};
-    var arMatrixData  = null;
-    var bankMatrixData = null;
+    var matrixCache     = {};
+    var arMatrixCache   = {};
+    var bankMatrixCache = {};
 
     // Legacy AR is only shown from June 1 2026 onwards
     var LEGACY_AR_START = '2026-06-01';
@@ -72,8 +72,56 @@ frappe.pages['matt-sales-target'].on_page_load = function (wrapper) {
             title.textContent = (labels[mtx] || 'Weekly') + ' Revenue Matrix';
         }
         if (matrixCache[mtx]) renderMatrix('sd-matrix', matrixCache[mtx]);
-        if (arMatrixData) {
-            renderArMatrix('sd-ar-matrix', arMatrixData, arMatrixData.columns);
+        loadPeriodMatrices(mtx);
+    }
+
+    // ── Bank + AR matrices follow the same Monthly/Weekly/Daily toggle ──
+    var BANK_CAPTIONS = {
+        monthly: 'YTD monthly + last 4 weeks &middot; bank &amp; cash receipts',
+        weekly:  'Last 8 weeks &middot; bank &amp; cash receipts',
+        daily:   'This week &middot; bank &amp; cash receipts'
+    };
+
+    function loadPeriodMatrices(mtx) {
+        var capt = rootEl.querySelector('#sd-bank-caption');
+        if (capt) capt.innerHTML = BANK_CAPTIONS[mtx] || BANK_CAPTIONS.monthly;
+
+        if (arMatrixCache[mtx]) {
+            renderArMatrix('sd-ar-matrix', arMatrixCache[mtx], arMatrixCache[mtx].columns);
+        } else {
+            shimmerEl('sd-ar-matrix');
+            frappe.call({
+                method: API + 'get_ar_matrix',
+                args: { mode: mtx },
+                callback: function (r) {
+                    if (!r.message) return;
+                    arMatrixCache[mtx] = r.message;
+                    if (currentMatrix === mtx) renderArMatrix('sd-ar-matrix', r.message, r.message.columns);
+                },
+                error: function () {
+                    var el = rootEl.querySelector('#sd-ar-matrix');
+                    if (el) el.innerHTML = '<p class="sd-empty">Error loading AR data.</p>';
+                }
+            });
+        }
+
+        if (bankMatrixCache[mtx]) {
+            renderBankMatrix('sd-bank-matrix', bankMatrixCache[mtx]);
+        } else {
+            shimmerEl('sd-bank-matrix');
+            frappe.call({
+                method: API + 'get_matt_bank_matrix',
+                args: { mode: mtx },
+                callback: function (r) {
+                    if (!r.message) return;
+                    bankMatrixCache[mtx] = r.message;
+                    if (currentMatrix === mtx) renderBankMatrix('sd-bank-matrix', r.message);
+                },
+                error: function () {
+                    var el = rootEl.querySelector('#sd-bank-matrix');
+                    if (el) el.innerHTML = '<p class="sd-empty">Error loading bank data.</p>';
+                }
+            });
         }
     }
 
@@ -316,6 +364,11 @@ frappe.pages['matt-sales-target'].on_page_load = function (wrapper) {
         var coll = ar.collected  || {};
         var pace = ar.pace_by_col || {};
         var avg  = ar.avg        || {};
+        var rowT = ar.row_totals || {};
+        // In monthly mode the trailing week-block columns overlap the month
+        // columns — only total_columns participate in row totals.
+        var totalCols = ar.total_columns || cols;
+        function inTotal(c) { return totalCols.indexOf(c) !== -1; }
 
         function arTd(v, cls) {
             return '<td class="sd-matrix-num' + (cls ? ' ' + cls : '') + '">'
@@ -340,7 +393,7 @@ frappe.pages['matt-sales-target'].on_page_load = function (wrapper) {
         html += '<td class="sd-matrix-num" style="text-decoration:line-through;">' + fmtCurrency(bal.total||0) + '</td>';
         html += '<td class="sd-matrix-num">—</td>';
         cols.forEach(function(c){ html += arTd((coll.total||{})[c]||0); });
-        html += arTd(avg.total||0);
+        html += arTd(rowT.total || 0);
         html += '</tr>';
 
         // Per-column visibility: columns whose from_date >= 2026-06-01 show legacy data; earlier = N/A
@@ -378,7 +431,7 @@ frappe.pages['matt-sales-target'].on_page_load = function (wrapper) {
             var t = pace[c] || 0;
             var cls = '';
             if (v > 0 && t > 0) { var r = v/t; cls = r>=1 ? 'sd-cell-green' : r>=0.5 ? 'sd-cell-amber' : 'sd-cell-red'; }
-            legacyTotal += v;
+            if (inTotal(c)) legacyTotal += v;
             html += '<td class="sd-matrix-num ' + cls + '">' + (v > 0 ? fmtCurrency(v) : '—') + '</td>';
         });
         html += arTd(legacyTotal);
@@ -393,7 +446,7 @@ frappe.pages['matt-sales-target'].on_page_load = function (wrapper) {
         var newTotal = 0;
         cols.forEach(function(c) {
             var v = (coll.new_ar||{})[c] || 0;
-            newTotal += v;
+            if (inTotal(c)) newTotal += v;
             html += '<td class="sd-matrix-num' + (v > 0 ? ' sd-cell-green' : '') + '">'
                   + (v > 0 ? fmtCurrency(v) : '—') + '</td>';
         });
@@ -438,7 +491,7 @@ frappe.pages['matt-sales-target'].on_page_load = function (wrapper) {
         var html = '<table class="sd-matrix"><thead><tr>';
         html += '<th class="sd-matrix-th-product">Category</th>';
         cols.forEach(function(c) { html += '<th class="sd-matrix-th-period">' + frappe.utils.escape_html(c) + '</th>'; });
-        html += '<th class="sd-matrix-th-avg">YTD Total</th>';
+        html += '<th class="sd-matrix-th-avg">' + (currentMatrix === 'monthly' ? 'YTD Total' : 'Total') + '</th>';
         html += '</tr></thead><tbody>';
 
         html += row('Bank Incoming', '#0891b2', bankTot, bankGrand);
@@ -770,9 +823,6 @@ frappe.pages['matt-sales-target'].on_page_load = function (wrapper) {
                     daily:   r.message.daily,
                 };
                 renderMatrix('sd-matrix', matrixCache[currentMatrix]);
-                if (arMatrixData) {
-                    renderArMatrix('sd-ar-matrix', arMatrixData, arMatrixData.columns);
-                }
             },
             error: function () {
                 var el = rootEl.querySelector('#sd-matrix');
@@ -780,33 +830,11 @@ frappe.pages['matt-sales-target'].on_page_load = function (wrapper) {
             }
         });
 
-        shimmerEl('sd-ar-matrix');
-        frappe.call({
-            method: API + 'get_ar_matrix',
-            callback: function (r) {
-                if (!r.message) return;
-                arMatrixData = r.message;
-                renderArMatrix('sd-ar-matrix', arMatrixData, arMatrixData.columns);
-            },
-            error: function () {
-                var el = rootEl.querySelector('#sd-ar-matrix');
-                if (el) el.innerHTML = '<p class="sd-empty">Error loading AR data.</p>';
-            }
-        });
-
-        shimmerEl('sd-bank-matrix');
-        frappe.call({
-            method: API + 'get_matt_bank_matrix',
-            callback: function (r) {
-                if (!r.message) return;
-                bankMatrixData = r.message;
-                renderBankMatrix('sd-bank-matrix', bankMatrixData);
-            },
-            error: function () {
-                var el = rootEl.querySelector('#sd-bank-matrix');
-                if (el) el.innerHTML = '<p class="sd-empty">Error loading bank data.</p>';
-            }
-        });
+        // Bank + AR follow the Monthly/Weekly/Daily toggle; clear caches so a
+        // full reload refetches fresh data for the current mode.
+        arMatrixCache = {};
+        bankMatrixCache = {};
+        loadPeriodMatrices(currentMatrix);
     }
 
     function loadTerritories() {
@@ -952,7 +980,7 @@ function getMattDashboardHTML() {
           <span>Bank Incoming</span>
         </div>
         <div class="sd-matrix-controls">
-          <span style="font-size:11px;color:var(--sd-text-muted);padding:4px 8px;background:#f8fafc;border-radius:6px;">YTD monthly bank &amp; cash receipts</span>
+          <span id="sd-bank-caption" style="font-size:11px;color:var(--sd-text-muted);padding:4px 8px;background:#f8fafc;border-radius:6px;">YTD monthly + last 4 weeks &middot; bank &amp; cash receipts</span>
         </div>
       </div>
       <div class="sd-matrix-card">

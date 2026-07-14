@@ -484,33 +484,23 @@ def get_bank_payments_received(from_date, to_date, payment_type='Bank'):
 
 
 @frappe.whitelist()
-def get_matt_bank_matrix():
+def get_matt_bank_matrix(mode='monthly'):
     """
-    Monthly bank-incoming totals (YTD) for Matt's Sales Dashboard.
+    Bank/cash-incoming totals for Matt's Sales Dashboard.
     Queries GL Entry debit on Bank-type accounts matched to a Customer party,
-    aggregated into monthly columns.
+    aggregated into the shared Matt-dashboard period columns
+    (monthly = months YTD + last 4 week blocks / weekly / daily).
     """
     import datetime as dt_mod
-    from frappe.utils import getdate, get_first_day, get_last_day, flt as _flt
+    from frappe.utils import getdate, flt as _flt
 
-    today = getdate(nowdate())
+    columns = _matt_period_columns(mode)
 
-    monthly_columns = []
-    for m in range(1, today.month + 1):
-        mstart = today.replace(month=m, day=1)
-        mend_dt = getdate(str(get_last_day(mstart)))
-        mend = min(mend_dt, today)
-        monthly_columns.append({
-            "label": mstart.strftime('%b'),
-            "from_date": str(mstart),
-            "to_date": str(mend),
-        })
-
-    if not monthly_columns:
+    if not columns:
         return {"columns": [], "column_dates": [], "totals": {}, "grand_total": 0.0}
 
-    min_date = monthly_columns[0]["from_date"]
-    max_date = monthly_columns[-1]["to_date"]
+    min_date = min(c["from_date"] for c in columns)
+    max_date = max(c["to_date"] for c in columns)
 
     def _fetch(account_type):
         return frappe.db.sql("""
@@ -529,9 +519,9 @@ def get_matt_bank_matrix():
               AND bank_gle.is_cancelled = 0
         """, {"s": min_date, "e": max_date, "at": account_type}, as_dict=True)
 
-    col_labels = [c["label"] for c in monthly_columns]
+    col_labels = [c["label"] for c in columns]
     col_ranges = [(c["label"], getdate(c["from_date"]), getdate(c["to_date"]))
-                  for c in monthly_columns]
+                  for c in columns]
 
     bank_totals = {l: 0.0 for l in col_labels}
     cash_totals = {l: 0.0 for l in col_labels}
@@ -542,25 +532,29 @@ def get_matt_bank_matrix():
                 continue
             pd  = r.posting_date if isinstance(r.posting_date, dt_mod.date) else getdate(str(r.posting_date))
             amt = _flt(r.amount)
+            # No break: in monthly mode the trailing week blocks overlap the
+            # month columns and each matching column gets the value.
             for label, fd, td in col_ranges:
                 if fd <= pd <= td:
                     totals_dict[label] += amt
-                    break
 
     _bucket(_fetch('Bank'), bank_totals)
     _bucket(_fetch('Cash'), cash_totals)
 
     combined = {l: bank_totals[l] + cash_totals[l] for l in col_labels}
 
+    # Grand totals over non-overlapping columns only
+    total_labels = [c["label"] for c in _matt_total_columns(columns, mode)]
+
     return {
         "columns":      col_labels,
-        "column_dates": [[c["from_date"], c["to_date"]] for c in monthly_columns],
+        "column_dates": [[c["from_date"], c["to_date"]] for c in columns],
         "bank_totals":  bank_totals,
         "cash_totals":  cash_totals,
         "totals":       combined,
-        "bank_grand":   sum(bank_totals.values()),
-        "cash_grand":   sum(cash_totals.values()),
-        "grand_total":  sum(combined.values()),
+        "bank_grand":   sum(bank_totals[l] for l in total_labels),
+        "cash_grand":   sum(cash_totals[l] for l in total_labels),
+        "grand_total":  sum(combined[l] for l in total_labels),
     }
 
 
@@ -775,11 +769,12 @@ LEGACY_MONTHLY_PACE = 400_000.0
 
 
 @frappe.whitelist()
-def get_ar_matrix():
+def get_ar_matrix(mode='monthly'):
     """
     AR tracking matrix for the sales dashboard.
     Rows: Total AR | Legacy AR (pre-Jun 1) | New AR (Jun 1+)
-    Columns: monthly period blocks.
+    Columns: shared Matt-dashboard period columns
+    (monthly = months YTD + last 4 week blocks / weekly / daily).
     Values: amount collected from each AR category within each period.
     """
     import datetime as dt_mod
@@ -808,19 +803,8 @@ def get_ar_matrix():
     legacy_ar = _bal("AND si.posting_date < %(cutoff)s",  {"cutoff": LEGACY_AR_CUTOFF})
     new_ar    = _bal("AND si.posting_date >= %(cutoff)s", {"cutoff": LEGACY_AR_CUTOFF})
 
-    # ── Build period columns — monthly only for AR tracking ───────────────────
-    monthly_columns = []
-    for m in range(1, today.month + 1):
-        mstart = today.replace(month=m, day=1)
-        mend_dt = getdate(str(get_last_day(mstart)))
-        mend = min(mend_dt, today)
-        monthly_columns.append({
-            "label": mstart.strftime('%b'),
-            "from_date": str(mstart), "to_date": str(mend),
-        })
-
-    # AR matrix always uses full months only — no weekly sub-blocks
-    all_columns = monthly_columns
+    # ── Build period columns — same scheme as the revenue matrix toggle ───────
+    all_columns = _matt_period_columns(mode, today)
 
     min_date = min(c["from_date"] for c in all_columns) if all_columns else str(today)
     max_date = max(c["to_date"]   for c in all_columns) if all_columns else str(today)
@@ -864,6 +848,8 @@ def get_ar_matrix():
 
         is_legacy = inv_date < cutoff_date
 
+        # No break: in monthly mode the trailing week blocks overlap the
+        # month columns and each matching column gets the value.
         for label, fd, td in col_ranges:
             if fd <= pd <= td:
                 totals[label] += amt
@@ -871,7 +857,6 @@ def get_ar_matrix():
                     legacy[label] += amt
                 else:
                     new_ar_coll[label] += amt
-                break
 
     # ── Monthly pace target per column (same frac logic as revenue matrix) ────
     pace_by_col = {}
@@ -882,11 +867,15 @@ def get_ar_matrix():
         frac = col_days / float(month_days)
         pace_by_col[c["label"]] = LEGACY_MONTHLY_PACE * frac
 
-    n = len(col_labels)
-    def _avg(d): return sum(d.values()) / n if n else 0.0
+    # Row totals / averages over non-overlapping columns only
+    total_labels = [c["label"] for c in _matt_total_columns(all_columns, mode)]
+    n = len(total_labels)
+    def _row_total(d): return sum(d[l] for l in total_labels)
+    def _avg(d): return _row_total(d) / n if n else 0.0
 
     return {
         "columns": col_labels,
+        "total_columns": total_labels,
         "column_dates": [[c["from_date"], c["to_date"]] for c in all_columns],
         "balances": {
             "total":  total_ar,
@@ -901,6 +890,11 @@ def get_ar_matrix():
         "pace_by_col":          pace_by_col,
         "legacy_monthly_target": LEGACY_MONTHLY_PACE,
         "legacy_ar_target":      LEGACY_AR_TARGET,
+        "row_totals": {
+            "total":  _row_total(totals),
+            "legacy": _row_total(legacy),
+            "new_ar": _row_total(new_ar_coll),
+        },
         "avg": {
             "total":  _avg(totals),
             "legacy": _avg(legacy),
@@ -990,6 +984,63 @@ def _calendar_blocks_before(date, count):
         d = b_start - _dt.timedelta(days=1)
 
     return blocks
+
+
+def _matt_period_columns(mode, today=None):
+    """
+    Column scheme shared by all Matt-dashboard matrices, matching the
+    revenue matrix (section 1) exactly:
+      monthly: one column per month YTD + last 4 fixed calendar-week blocks
+      weekly:  last 8 fixed calendar-week blocks
+      daily:   Mon-Fri of the current calendar week (up to today)
+    Note: in monthly mode the trailing week blocks overlap the month columns,
+    so totals must be computed over the col_type == 'monthly' subset only.
+    """
+    import datetime as dt_mod
+    from frappe.utils import getdate, get_last_day
+
+    today = today or getdate(nowdate())
+    mode = (mode or 'monthly').lower()
+
+    if mode == 'weekly':
+        return _calendar_blocks_before(today, 8)
+
+    if mode == 'daily':
+        cols = []
+        week_monday = today - dt_mod.timedelta(days=today.weekday())
+        for d in range(5):
+            day = week_monday + dt_mod.timedelta(days=d)
+            if day > today:
+                break
+            cols.append({
+                "label": day.strftime('%a'),
+                "from_date": str(day), "to_date": str(day),
+                "is_full": True,
+                "col_type": "daily",
+            })
+        return cols
+
+    cols = []
+    for m in range(1, today.month + 1):
+        mstart = today.replace(month=m, day=1)
+        mend_dt = getdate(str(get_last_day(mstart)))
+        mend = min(mend_dt, today)
+        cols.append({
+            "label": mstart.strftime('%b'),
+            "from_date": str(mstart), "to_date": str(mend),
+            "is_full": mend == mend_dt,
+            "col_type": "monthly",
+        })
+    cols.extend(_calendar_blocks_before(today, 4))
+    return cols
+
+
+def _matt_total_columns(columns, mode):
+    """Columns that participate in row totals / averages (excludes the
+    overlapping week blocks appended in monthly mode)."""
+    if (mode or 'monthly').lower() == 'monthly':
+        return [c for c in columns if c.get('col_type') == 'monthly']
+    return columns
 
 
 @frappe.whitelist()
