@@ -214,6 +214,9 @@ def check_organization_duplicate(doc, method=None):
         phones=[],
         license_number=doc.get("custom_license_number"),
         exclude=("CRM Organization", doc.name),
+        # converted leads legitimately become an organization during
+        # lead → deal conversion; matching them here would block every convert
+        skip_converted_leads=True,
     )
     if matches:
         frappe.throw(
@@ -224,8 +227,10 @@ def check_organization_duplicate(doc, method=None):
         )
 
 
-def _find_matches(organization, email, phones, license_number, exclude):
+def _find_matches(organization, email, phones, license_number, exclude,
+                  skip_converted_leads=False):
     matches, seen = [], set()
+    lead_filters = {"converted": 0} if skip_converted_leads else {}
 
     def add(doctype, name, label, matched_on, owner_user):
         if (doctype, name) == exclude or (doctype, name) in seen:
@@ -248,6 +253,7 @@ def _find_matches(organization, email, phones, license_number, exclude):
     if or_filters:
         for row in frappe.get_all(
             "CRM Lead",
+            filters=lead_filters,
             or_filters=or_filters,
             fields=["name", "organization", "lead_name", "email",
                     "custom_license_number", "lead_owner"],
@@ -266,9 +272,12 @@ def _find_matches(organization, email, phones, license_number, exclude):
     # phone needs normalized comparison — pull only when a phone was given
     wanted = {p for p in (_digits(p) for p in phones) if len(p) >= 7}
     if wanted:
+        phone_filters = [["mobile_no", "is", "set"]]
+        if skip_converted_leads:
+            phone_filters.append(["converted", "=", 0])
         for row in frappe.get_all(
             "CRM Lead",
-            filters=[["mobile_no", "is", "set"]],
+            filters=phone_filters,
             fields=["name", "organization", "lead_name", "mobile_no", "phone", "lead_owner"],
             limit_page_length=0,
         ):
