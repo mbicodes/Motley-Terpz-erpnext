@@ -26,6 +26,17 @@ frappe.listview_settings['Sales Order'] = frappe.listview_settings['Sales Order'
 		'Order Closed Out': 'green',
 	};
 
+	// Give each Sales Order Type (fieldname: custom_sales_order_type) option its own indicator-pill color.
+	const sales_order_type_colors = {
+		'Sales': 'blue',
+		'Samples': 'cyan',
+		'Events': 'purple',
+		'Testing': 'yellow',
+		'Influencers': 'pink',
+		'Consignment': 'orange',
+		'Tolling': 'darkgrey',
+	};
+
 	so_settings.formatters = Object.assign({}, so_settings.formatters, {
 		custom_delivery_note_created(value) {
 			const created = !!value;
@@ -36,6 +47,13 @@ frappe.listview_settings['Sales Order'] = frappe.listview_settings['Sales Order'
 		custom_logistic_status(value) {
 			if (!value) return '';
 			const color = logistic_status_colors[value] || 'gray';
+			return `<span class="indicator-pill ${color} filterable" data-value="${frappe.utils.escape_html(value)}">
+				<span>${__(value)}</span>
+			</span>`;
+		},
+		custom_sales_order_type(value) {
+			if (!value) return '';
+			const color = sales_order_type_colors[value] || 'gray';
 			return `<span class="indicator-pill ${color} filterable" data-value="${frappe.utils.escape_html(value)}">
 				<span>${__(value)}</span>
 			</span>`;
