@@ -1,0 +1,109 @@
+{
+ "autoname": "format:PCT-{YYYY}-{#####}",
+ "creation": "2026-07-15 14:00:00.000000",
+ "custom": 0,
+ "docstatus": 0,
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "transaction_date",
+  "user",
+  "column_break_1",
+  "money_in",
+  "money_out",
+  "section_reason",
+  "reason",
+  "receipt"
+ ],
+ "fields": [
+  {
+   "default": "Today",
+   "description": "The date the money moved.",
+   "fieldname": "transaction_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Transaction Date",
+   "reqd": 1
+  },
+  {
+   "description": "Set automatically to whoever creates the record.",
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "User",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "ONLY fill this out if you collected money.",
+   "fieldname": "money_in",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Money In"
+  },
+  {
+   "description": "ONLY fill this out if you spent money.",
+   "fieldname": "money_out",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Money Out"
+  },
+  {
+   "fieldname": "section_reason",
+   "fieldtype": "Section Break"
+  },
+  {
+   "description": "What was this money for?",
+   "fieldname": "reason",
+   "fieldtype": "Small Text",
+   "in_list_view": 1,
+   "label": "Reason",
+   "reqd": 1
+  },
+  {
+   "fieldname": "receipt",
+   "fieldtype": "Attach",
+   "label": "Receipt"
+  }
+ ],
+ "idx": 0,
+ "modified": "2026-07-15 15:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cash Management",
+ "name": "Personal Cash Tracking",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Cash Tracking User",
+   "write": 1
+  }
+ ],
+ "sort_field": "transaction_date",
+ "sort_order": "DESC",
+ "track_changes": 1
+}
