@@ -1,3 +1,36 @@
+
+// Render the attached receipt image in the preview panel on the right.
+function render_receipt_preview(frm) {
+	var field = frm.get_field('receipt_preview');
+	if (!field) return;
+	var url = frm.doc.receipt;
+	if (!url) {
+		field.$wrapper.html(
+			'<div style="border:1.5px dashed var(--border-color,#d1d5db);border-radius:10px;' +
+			'padding:26px 12px;text-align:center;color:var(--text-muted,#94a3b8);font-size:12px;">' +
+			__('Receipt preview appears here once attached') + '</div>');
+		return;
+	}
+	var encoded = encodeURI(url);
+	var is_image = /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(url.split('?')[0]);
+	var inner;
+	if (is_image) {
+		inner = '<a href="' + encoded + '" target="_blank" rel="noopener" title="' + __('Open full size') + '">' +
+			'<img src="' + encoded + '" alt="Receipt" loading="lazy" ' +
+			'style="max-width:100%;max-height:320px;border-radius:10px;display:block;' +
+			'border:1px solid var(--border-color,#e2e8f0);box-shadow:0 2px 12px rgba(15,23,42,.10);">' +
+			'</a>' +
+			'<div style="font-size:11px;color:var(--text-muted,#94a3b8);margin-top:5px;">' +
+			__('Click to open full size') + '</div>';
+	} else {
+		inner = '<a href="' + encoded + '" target="_blank" rel="noopener">' + __('Open attached receipt') + '</a>';
+	}
+	field.$wrapper.html(
+		'<div style="padding:2px 0;">' +
+		'<div style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;' +
+		'color:var(--text-muted,#94a3b8);margin-bottom:6px;">' + __('Receipt') + '</div>' + inner + '</div>');
+}
+
 // Money In and Money Out are mutually exclusive — mirror of the server
 // validation in personal_cash_tracking.py, enforced live in the form.
 
@@ -38,6 +71,11 @@ frappe.ui.form.on('Personal Cash Tracking', {
 			);
 		}
 		toggle_money_fields(frm);
+		render_receipt_preview(frm);
+	},
+
+	receipt: function (frm) {
+		render_receipt_preview(frm);
 	},
 
 	money_in: function (frm) {
