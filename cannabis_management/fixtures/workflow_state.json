@@ -138,15 +138,6 @@
   "docstatus": 0,
   "doctype": "Workflow State",
   "icon": "",
-  "modified": "2025-11-15 13:25:59.351773",
-  "name": "draft",
-  "style": "",
-  "workflow_state_name": "draft"
- },
- {
-  "docstatus": 0,
-  "doctype": "Workflow State",
-  "icon": "",
   "modified": "2025-11-15 13:15:50.400960",
   "name": "Send for Review",
   "style": "",
@@ -165,7 +156,7 @@
   "docstatus": 0,
   "doctype": "Workflow State",
   "icon": null,
-  "modified": "2026-07-03 10:00:00.000000",
+  "modified": "2026-07-03 10:00:00",
   "name": "Draft",
   "style": "Danger",
   "workflow_state_name": "Draft"
@@ -174,7 +165,7 @@
   "docstatus": 0,
   "doctype": "Workflow State",
   "icon": null,
-  "modified": "2026-07-03 10:00:00.000000",
+  "modified": "2026-07-03 10:00:00",
   "name": "Under Review",
   "style": "Warning",
   "workflow_state_name": "Under Review"
@@ -183,7 +174,7 @@
   "docstatus": 0,
   "doctype": "Workflow State",
   "icon": null,
-  "modified": "2026-07-03 10:00:00.000000",
+  "modified": "2026-07-03 10:00:00",
   "name": "Locked",
   "style": "Primary",
   "workflow_state_name": "Locked"
@@ -192,7 +183,7 @@
   "docstatus": 0,
   "doctype": "Workflow State",
   "icon": null,
-  "modified": "2026-07-03 10:00:00.000000",
+  "modified": "2026-07-03 10:00:00",
   "name": "Active",
   "style": "Success",
   "workflow_state_name": "Active"
@@ -201,7 +192,7 @@
   "docstatus": 0,
   "doctype": "Workflow State",
   "icon": null,
-  "modified": "2026-07-03 10:00:00.000000",
+  "modified": "2026-07-03 10:00:00",
   "name": "Expired",
   "style": "Danger",
   "workflow_state_name": "Expired"
@@ -210,7 +201,7 @@
   "docstatus": 0,
   "doctype": "Workflow State",
   "icon": null,
-  "modified": "2026-07-03 10:00:00.000000",
+  "modified": "2026-07-03 10:00:00",
   "name": "Terminated",
   "style": "Danger",
   "workflow_state_name": "Terminated"

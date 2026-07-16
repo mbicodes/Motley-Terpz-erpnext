@@ -2,6 +2,28 @@
  {
   "docstatus": 0,
   "doctype": "Client Script",
+  "dt": "Delivery Note",
+  "enabled": 1,
+  "modified": "2026-06-29 13:01:42.408469",
+  "module": null,
+  "name": "Expense head automation",
+  "script": "frappe.ui.form.on('Delivery Note', {\r\n    refresh: function(frm) {\r\n        set_expense_accounts(frm);\r\n    },\r\n    before_save: function(frm) {\r\n        set_expense_accounts(frm);\r\n    }\r\n});\r\n\r\nfunction set_expense_accounts(frm) {\r\n    if (!frm.doc.items || !frm.doc.items.length) return;\r\n    \r\n    let so_name = frm.doc.items[0].against_sales_order;\r\n    if (!so_name) return;\r\n    \r\n    frappe.db.get_value('Sales Order', so_name, 'custom_sales_order_type', function(r) {\r\n        if (!r || !r.custom_sales_order_type) return;\r\n        \r\n        let order_type = r.custom_sales_order_type;\r\n        let expense_account = null;\r\n        \r\n        if (order_type === 'Testing') {\r\n            expense_account = 'Lab Test Expense - MTM';\r\n        } else if (order_type === 'Events' || order_type === 'Samples' || order_type === 'Influencers') {\r\n            expense_account = 'Marketing Expenses - MTM';\r\n        }\r\n        \r\n        if (expense_account) {\r\n            frm.doc.items.forEach(function(row) {\r\n                frappe.model.set_value(row.doctype, row.name, \r\n                    'expense_account', expense_account);\r\n            });\r\n            frm.refresh_field('items');\r\n            frappe.show_alert({\r\n                message: `Expense account set: ${expense_account}`,\r\n                indicator: 'green'\r\n            });\r\n        }\r\n    });\r\n}",
+  "view": "Form"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Client Script",
+  "dt": "Quotation",
+  "enabled": 1,
+  "modified": "2026-07-09 11:58:43.795269",
+  "module": null,
+  "name": "Fetch CRM Deal Products",
+  "script": "frappe.ui.form.on('Quotation', {\n\tonload(frm) {\n\t\tif (!frm.is_new() || !frm.doc.crm_deal) return;\n\t\tif ((frm.doc.items || []).some(d => d.item_code || d.item_name)) return;\n\n\t\tfrappe.call({\n\t\t\tmethod: 'crm.fcrm.doctype.erpnext_crm_settings.erpnext_crm_settings.get_deal_products',\n\t\t\targs: { crm_deal: frm.doc.crm_deal },\n\t\t}).then(async (r) => {\n\t\t\tconst products = r.message || [];\n\t\t\tif (!products.length) return;\n\n\t\t\tfrm.clear_table('items');\n\t\t\tfor (const p of products) {\n\t\t\t\tconst row = frm.add_child('items');\n\t\t\t\tif (p.item_code) {\n\t\t\t\t\tawait frappe.model.set_value(row.doctype, row.name, 'item_code', p.item_code);\n\t\t\t\t} else {\n\t\t\t\t\tawait frappe.model.set_value(row.doctype, row.name, 'item_name', p.item_name);\n\t\t\t\t\tawait frappe.model.set_value(row.doctype, row.name, 'description', p.item_name);\n\t\t\t\t}\n\t\t\t\tawait frappe.model.set_value(row.doctype, row.name, 'qty', p.qty || 1);\n\t\t\t\tif (p.rate) {\n\t\t\t\t\tawait frappe.model.set_value(row.doctype, row.name, 'price_list_rate', p.rate);\n\t\t\t\t}\n\t\t\t\tif (p.discount_percentage) {\n\t\t\t\t\tawait frappe.model.set_value(row.doctype, row.name, 'discount_percentage', p.discount_percentage);\n\t\t\t\t} else if (p.rate) {\n\t\t\t\t\tawait frappe.model.set_value(row.doctype, row.name, 'rate', p.rate);\n\t\t\t\t}\n\t\t\t}\n\t\t\tfrm.refresh_field('items');\n\t\t\tfrappe.show_alert({ message: __('Items fetched from CRM Deal'), indicator: 'green' });\n\t\t});\n\t}\n});\n",
+  "view": "Form"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Client Script",
   "dt": "Item",
   "enabled": 1,
   "modified": "2026-04-20 12:01:03.364503",
