@@ -1,8 +1,36 @@
 import frappe
+from contextlib import contextmanager
 from frappe.utils import nowdate
 
 
 RECON_EDIT_ROLES    = ("Account Manager", "System Manager", "Administrator")
+
+# Roles whose holders see org-wide AR numbers (all companies), identical to
+# what Administrator sees. Without this, Company User Permissions silently
+# zero out non-permitted companies (e.g. matt@motleyterpz.com has Company
+# permissions for only TSBC Ranch / Motley Terpz / TMM Group, so Master Touch
+# Manufacturing, MTPZ and LA Canna invoices vanish from his totals).
+ORG_WIDE_VIEW_ROLES = ("Account Receivable", "System Manager", "CEO")
+
+
+@contextmanager
+def _org_wide_view():
+    """Temporarily elevate to Administrator so the AR report ignores
+    Company User Permissions for users holding an ORG_WIDE_VIEW_ROLES role.
+
+    DO NOT REMOVE: get_ar_data must stay wrapped in this context manager.
+    Anything permission-sensitive for the real user (e.g. _can_edit_recon)
+    must be computed BEFORE entering it.
+    """
+    user = frappe.session.user
+    if user == "Administrator" or not set(frappe.get_roles(user)).intersection(ORG_WIDE_VIEW_ROLES):
+        yield
+        return
+    try:
+        frappe.set_user("Administrator")
+        yield
+    finally:
+        frappe.set_user(user)
 TMM_GROUP_COMPANIES = ["Motley Terpz", "TSBC Ranch"]
 LEGACY_CUTOFF       = "2026-05-31"
 NEW_AR_START        = "2026-06-01"
@@ -198,6 +226,23 @@ def init_page():
 @frappe.whitelist()
 def get_ar_data(company, report_date=None, customer=None, ageing_based_on="Due Date",
                 range_str="30, 60, 90, 120", ar_mode="legacy"):
+    """Whitelisted entry point. Computes user-specific flags first, then runs
+    the whole report fetch inside _org_wide_view() so dashboard-role users
+    (Matt/CEO etc.) always see the same org-wide numbers as Administrator.
+
+    DO NOT edit report logic here — edit _get_ar_data below. This wrapper must
+    stay intact so future changes cannot accidentally drop the elevation.
+    """
+    can_edit_recon = _can_edit_recon()
+    with _org_wide_view():
+        result = _get_ar_data(company, report_date, customer, ageing_based_on,
+                              range_str, ar_mode)
+    result["can_edit_recon"] = can_edit_recon
+    return result
+
+
+def _get_ar_data(company, report_date=None, customer=None, ageing_based_on="Due Date",
+                 range_str="30, 60, 90, 120", ar_mode="legacy"):
     ranges = _build_ranges(range_str)
 
     # Clamp report_date to the correct window so aging is always computed inside the mode's boundary
