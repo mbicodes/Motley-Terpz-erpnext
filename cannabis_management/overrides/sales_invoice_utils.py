@@ -25,6 +25,17 @@ def create_material_transfer_from_si(sales_invoice, source_warehouse, target_war
     has_items = False
     skipped_items = []
 
+    project_mandatory_items = set(
+        frappe.get_all(
+            "Item",
+            filters={
+                "name": ["in", [row.item_code for row in si.items if row.item_code]],
+                "custom_project_mandatory": 1,
+            },
+            pluck="name",
+        )
+    )
+
     for row in si.items:
         if not row.item_code:
             continue
@@ -35,6 +46,14 @@ def create_material_transfer_from_si(sales_invoice, source_warehouse, target_war
 
         requested_qty = flt(row.stock_qty or row.qty)
         if requested_qty <= 0:
+            continue
+
+        if row.item_code in project_mandatory_items:
+            skipped_items.append(
+                "{0} (Project is mandatory for this item — transfer it manually via Stock Entry)".format(
+                    row.item_code
+                )
+            )
             continue
 
         # Check available qty in source warehouse via Bin
