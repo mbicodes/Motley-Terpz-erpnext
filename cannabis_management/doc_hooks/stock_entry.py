@@ -4,6 +4,33 @@ from frappe.utils import flt
 STANDARD_OP_COST_DESC = "Operating Cost as per Work Order / BOM"
 
 
+def sync_row_uom_with_item(doc, method=None):
+    """
+    Keep each item row's UOM consistent with the Item's current stock UOM.
+    Rows created before an item's UOM was corrected keep the stale value
+    (e.g. uom 'Nos' with conversion_factor 1 while the item is now 'Gram').
+    Rows with a real UOM conversion (factor != 1) are left untouched.
+    """
+    for row in doc.get("items", []):
+        if not row.item_code:
+            continue
+
+        stock_uom = frappe.get_cached_value("Item", row.item_code, "stock_uom")
+        if not stock_uom:
+            continue
+
+        if row.uom == stock_uom and row.stock_uom == stock_uom:
+            continue
+
+        if row.uom != stock_uom and flt(row.conversion_factor or 1) != 1:
+            continue
+
+        row.uom = stock_uom
+        row.stock_uom = stock_uom
+        row.conversion_factor = 1
+        row.transfer_qty = flt(row.qty)
+
+
 def populate_micron_finished_goods(doc, method=None):
     """
     For a Manufacture Stock Entry from a Work Order:

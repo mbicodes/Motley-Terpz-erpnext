@@ -1,0 +1,151 @@
+{
+ "creation": "2026-07-15 10:00:00.000000",
+ "custom": 0,
+ "docstatus": 0,
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "entry_type",
+  "account_name",
+  "customer",
+  "category",
+  "amount",
+  "expected_amount",
+  "column_break_media",
+  "method",
+  "terms",
+  "status",
+  "direction",
+  "section_refs",
+  "reference_invoice",
+  "column_break_refs",
+  "payment_entry",
+  "notes"
+ ],
+ "fields": [
+  {
+   "columns": 1,
+   "default": "Sales",
+   "description": "Sales = new sale written this week. AR = collecting an older receivable.",
+   "fieldname": "entry_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Type",
+   "options": "Sales\nAR",
+   "reqd": 1
+  },
+  {
+   "columns": 2,
+   "description": "Free-text account name, exactly like the sheet. Link the real Customer below when known.",
+   "fieldname": "account_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Account"
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "label": "Customer (linked)",
+   "options": "Customer"
+  },
+  {
+   "columns": 2,
+   "fieldname": "category",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Category",
+   "options": "\nFrozen\nRosin/VRR\nEdibles\nPackaged Goods\nWhite Label\nBubble/Static\nPre-Rolls\nOther Extracts\nTolling\nOther"
+  },
+  {
+   "columns": 1,
+   "description": "Dollars already in. Leave blank for money still coming.",
+   "fieldname": "amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Amount (Collected)"
+  },
+  {
+   "columns": 1,
+   "description": "For 'Expected this week' rows \u2014 the amount still coming.",
+   "fieldname": "expected_amount",
+   "fieldtype": "Currency",
+   "label": "Expected This Week $"
+  },
+  {
+   "fieldname": "column_break_media",
+   "fieldtype": "Column Break"
+  },
+  {
+   "columns": 1,
+   "fieldname": "method",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Method",
+   "options": "\nCash\nBank",
+   "reqd": 1
+  },
+  {
+   "default": "COD",
+   "fieldname": "terms",
+   "fieldtype": "Select",
+   "label": "Terms",
+   "options": "COD\nTerms",
+   "reqd": 1
+  },
+  {
+   "columns": 1,
+   "default": "Collected",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Status",
+   "options": "Collected\nExpected this week",
+   "reqd": 1
+  },
+  {
+   "default": "Outbound",
+   "fieldname": "direction",
+   "fieldtype": "Select",
+   "label": "Direction",
+   "options": "Outbound\nInbound",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_refs",
+   "fieldtype": "Section Break",
+   "label": "References"
+  },
+  {
+   "fieldname": "reference_invoice",
+   "fieldtype": "Link",
+   "label": "Sales Invoice",
+   "options": "Sales Invoice"
+  },
+  {
+   "fieldname": "column_break_refs",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "payment_entry",
+   "fieldtype": "Link",
+   "label": "Payment Entry",
+   "options": "Payment Entry"
+  },
+  {
+   "columns": 2,
+   "fieldname": "notes",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Notes"
+  }
+ ],
+ "idx": 0,
+ "istable": 1,
+ "modified": "2026-07-15 11:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Weekly Cash Ledger Line",
+ "owner": "Administrator",
+ "permissions": []
+}

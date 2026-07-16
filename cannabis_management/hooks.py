@@ -162,11 +162,13 @@ permission_query_conditions = {
     # CRM Lead permission (Tolling access) moved to crm.motley_terpz.permissions
     "Cash Ledger Entry":      "cannabis_management.cash_management.permissions.cash_ledger_entry_query",
     "Expense Tracker Entry":  "cannabis_management.cash_management.permissions.expense_tracker_entry_query",
+    "Personal Cash Tracking": "cannabis_management.cash_management.permissions.personal_cash_tracking_query",
 }
 
 has_permission = {
     "Customer":      "cannabis_management.permissions.customer_has_permission",
     "Sales Invoice": "cannabis_management.permissions.sales_invoice_has_permission",
+    "Personal Cash Tracking": "cannabis_management.cash_management.permissions.personal_cash_tracking_has_permission",
 }
 
 
@@ -268,6 +270,7 @@ doc_events = {
     "Stock Entry": {
         "validate": [
             "cannabis_management.cannabis_management.custom.stock_entry.validate",
+            "cannabis_management.doc_hooks.stock_entry.sync_row_uom_with_item",
             "cannabis_management.doc_hooks.stock_entry.populate_micron_finished_goods",
             "cannabis_management.doc_hooks.stock_entry.set_operating_cost_accounts",
         ],

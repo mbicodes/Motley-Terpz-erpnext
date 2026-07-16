@@ -1,0 +1,124 @@
+{
+ "autoname": "format:MCT-{YYYY}-{#####}",
+ "creation": "2026-07-15 14:00:00.000000",
+ "custom": 0,
+ "docstatus": 0,
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "transaction_date",
+  "money_in",
+  "money_out",
+  "column_break_1",
+  "transaction_type",
+  "invoice_number",
+  "business",
+  "section_receipt",
+  "receipt",
+  "transaction_notes"
+ ],
+ "fields": [
+  {
+   "default": "Today",
+   "description": "Date on the receipt, invoice, or cash ledger. If none of these, the date the transaction took place.",
+   "fieldname": "transaction_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Transaction Date",
+   "reqd": 1
+  },
+  {
+   "description": "ONLY fill this out if you collected money. Put the amount collected.",
+   "fieldname": "money_in",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Money In"
+  },
+  {
+   "description": "ONLY fill this out if you spent money. Put the amount spent.",
+   "fieldname": "money_out",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Money Out"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "transaction_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Transaction Type",
+   "options": "\nMotley - Hardware\nClient - Hardware\nClient Payment Towards Invoice\nFresh Frozen Procurement\nTolling Partner Payment\nMotley - Packaging\nLab Testing\nPayroll\nLab Consumables\nMarketing\nSeeds/Clones for Farm\nRent\nLab Setup\nLab Supplies\nCollecting OLD AR\nReimbursement\nOther",
+   "reqd": 1
+  },
+  {
+   "fieldname": "invoice_number",
+   "fieldtype": "Data",
+   "label": "Invoice #"
+  },
+  {
+   "description": "Was this for MTPZ (greenhouse), Motley Terpz (extracts, branding, etc), or TSBC (outdoor farm)? If unsure \u2014 contact Jamie.",
+   "fieldname": "business",
+   "fieldtype": "Select",
+   "in_standard_filter": 1,
+   "label": "Business",
+   "options": "\nMTPZ (greenhouse)\nMotley Terpz (extracts, branding, etc)\nTSBC (outdoor farm)",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_receipt",
+   "fieldtype": "Section Break"
+  },
+  {
+   "description": "Upload the receipt, cash form, etc.",
+   "fieldname": "receipt",
+   "fieldtype": "Attach",
+   "label": "Receipt"
+  },
+  {
+   "description": "Add any additional notes here.",
+   "fieldname": "transaction_notes",
+   "fieldtype": "Small Text",
+   "label": "Transaction Notes",
+   "reqd": 1
+  }
+ ],
+ "idx": 0,
+ "modified": "2026-07-15 15:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cash Management",
+ "name": "Motley Cash Tracking",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Motley Cash Tracker",
+   "write": 1
+  }
+ ],
+ "sort_field": "transaction_date",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

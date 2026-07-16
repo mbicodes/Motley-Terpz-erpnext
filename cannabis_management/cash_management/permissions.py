@@ -83,3 +83,27 @@ def expense_tracker_entry_has_permission(doc, ptype="read", user=None):
     if not person:
         return False
     return doc.get("cash_tracker_person") == person
+
+
+# ── Personal Cash Tracking — strictly own records ──────────────────────────
+
+def _sees_all_personal_cash(user):
+    return user == "Administrator" or "System Manager" in frappe.get_roles(user)
+
+
+def personal_cash_tracking_query(user):
+    """List-level filter: non-managers only see records they created."""
+    user = user or frappe.session.user
+    if _sees_all_personal_cash(user):
+        return ""
+    return f"`tabPersonal Cash Tracking`.owner = {frappe.db.escape(user)}"
+
+
+def personal_cash_tracking_has_permission(doc, ptype="read", user=None):
+    """Document-level gate: only the creator (or System Manager) can touch it."""
+    user = user or frappe.session.user
+    if _sees_all_personal_cash(user):
+        return True
+    if doc is None or isinstance(doc, str):
+        return True  # doctype-level access is decided by role permissions
+    return (doc.get("owner") or user) == user

@@ -1,0 +1,307 @@
+.wld {
+	padding: 4px 6px 40px;
+	position: relative;
+}
+
+/* ── Hero ───────────────────────────────────────────────────────────── */
+.wld-hero {
+	background: linear-gradient(135deg, #1e1033 0%, #3b1a5c 55%, #5b2382 100%);
+	border-radius: 16px;
+	padding: 22px 24px 20px;
+	color: #fff;
+	margin-bottom: 18px;
+	box-shadow: 0 10px 30px rgba(59, 26, 92, 0.35);
+}
+
+.wld-hero-top {
+	display: flex;
+	justify-content: space-between;
+	align-items: flex-start;
+	flex-wrap: wrap;
+	gap: 14px;
+	margin-bottom: 18px;
+}
+
+.wld-brand {
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.22em;
+	color: #f0a92e;
+}
+
+.wld-title {
+	margin: 2px 0 4px;
+	font-size: 26px;
+	font-weight: 800;
+	color: #fff;
+}
+
+.wld-sub {
+	margin: 0;
+	font-size: 13px;
+	color: rgba(255, 255, 255, 0.65);
+}
+
+.wld-toggles {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+	gap: 8px;
+}
+
+.wld-pill-row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	justify-content: flex-end;
+}
+
+.wld-pill {
+	border: 1px solid rgba(255, 255, 255, 0.25);
+	background: rgba(255, 255, 255, 0.08);
+	color: #fff;
+	border-radius: 999px;
+	padding: 7px 16px;
+	font-size: 13px;
+	font-weight: 600;
+	cursor: pointer;
+	transition: background 0.12s, color 0.12s;
+}
+
+.wld-pill:hover {
+	background: rgba(255, 255, 255, 0.18);
+}
+
+.wld-pill.wld-pill-active {
+	background: #f0a92e;
+	border-color: #f0a92e;
+	color: #241238;
+}
+
+.wld-pill-sm {
+	padding: 4px 12px;
+	font-size: 11.5px;
+}
+
+/* ── Hero KPIs ──────────────────────────────────────────────────────── */
+.wld-kpis {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+	gap: 12px;
+}
+
+.wld-kpi {
+	background: rgba(255, 255, 255, 0.07);
+	border: 1px solid rgba(255, 255, 255, 0.12);
+	border-radius: 12px;
+	padding: 14px 16px;
+	backdrop-filter: blur(4px);
+}
+
+.wld-kpi-label {
+	font-size: 10.5px;
+	font-weight: 700;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+	color: rgba(255, 255, 255, 0.55);
+	margin-bottom: 6px;
+}
+
+.wld-kpi-value {
+	font-size: 24px;
+	font-weight: 800;
+	margin-bottom: 6px;
+	color: #fff;
+}
+
+.wld-kpi-value.wld-green { color: #4ade80; }
+.wld-kpi-value.wld-amber { color: #fbbf24; }
+
+.wld-kpi-sub {
+	font-size: 11.5px;
+	color: rgba(255, 255, 255, 0.6);
+	display: flex;
+	flex-wrap: wrap;
+	gap: 5px;
+}
+
+/* ── Tags & pills ───────────────────────────────────────────────────── */
+.wld-tag {
+	display: inline-block;
+	padding: 2px 9px;
+	border-radius: 999px;
+	font-size: 10.5px;
+	font-weight: 700;
+	white-space: nowrap;
+}
+
+.wld-tag-cash { background: rgba(16, 185, 129, 0.18); color: #10b981; }
+.wld-tag-bank { background: rgba(59, 130, 246, 0.18); color: #3b82f6; }
+
+.wld-hero .wld-tag-cash { color: #4ade80; }
+.wld-hero .wld-tag-bank { color: #93c5fd; }
+
+.wld-status {
+	display: inline-block;
+	padding: 2px 9px;
+	border-radius: 999px;
+	font-size: 10.5px;
+	font-weight: 700;
+	white-space: nowrap;
+}
+
+.wld-pill-green { background: rgba(16, 185, 129, 0.12); color: #059669; }
+.wld-pill-amber { background: rgba(245, 158, 11, 0.14); color: #b45309; }
+
+.wld-type {
+	display: inline-block;
+	min-width: 42px;
+	text-align: center;
+	padding: 2px 8px;
+	border-radius: 6px;
+	font-size: 10.5px;
+	font-weight: 800;
+}
+
+.wld-type-sales { background: rgba(124, 58, 237, 0.12); color: #7c3aed; }
+.wld-type-ar { background: rgba(8, 145, 178, 0.12); color: #0891b2; }
+
+/* ── Progress bars ──────────────────────────────────────────────────── */
+.wld-progress {
+	height: 6px;
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.15);
+	overflow: hidden;
+	margin: 4px 0 6px;
+}
+
+.wld-progress-fill {
+	height: 100%;
+	border-radius: 999px;
+	background: #f0a92e;
+	transition: width 0.4s ease;
+}
+
+.wld-progress-lg {
+	height: 8px;
+	background: #eef0f4;
+}
+
+.wld-bar-green { background: #10b981; }
+.wld-bar-amber { background: #f59e0b; }
+.wld-bar-red { background: #ef4444; }
+
+/* ── Cards & layout ─────────────────────────────────────────────────── */
+.wld-grid {
+	display: grid;
+	grid-template-columns: 1fr 2fr;
+	gap: 14px;
+	margin-bottom: 14px;
+}
+
+.wld-grid .wld-span2 { grid-column: span 1; }
+
+.wld-grid:first-of-type { grid-template-columns: 2fr 1fr; }
+
+@media (max-width: 900px) {
+	.wld-grid, .wld-grid:first-of-type { grid-template-columns: 1fr; }
+}
+
+.wld-card {
+	background: var(--card-bg, #fff);
+	border: 1px solid var(--border-color, #e5e7eb);
+	border-radius: 14px;
+	padding: 16px 18px;
+	min-width: 0;
+	box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+}
+
+.wld-card-title {
+	font-size: 13px;
+	font-weight: 700;
+	margin-bottom: 10px;
+	color: var(--text-color, #1e293b);
+}
+
+.wld-muted { color: var(--text-muted, #94a3b8); font-weight: 500; font-size: 12px; }
+.wld-strong { font-weight: 600; }
+
+/* ── Category progress list ─────────────────────────────────────────── */
+.wld-cat { margin-bottom: 12px; }
+
+.wld-cat-head {
+	display: flex;
+	justify-content: space-between;
+	font-size: 12.5px;
+	margin-bottom: 3px;
+}
+
+.wld-cat-name { font-weight: 600; }
+.wld-cat-nums { font-weight: 700; }
+
+/* ── Lines table ────────────────────────────────────────────────────── */
+.wld-table-wrap {
+	overflow: auto;
+	max-height: 460px;
+}
+
+.wld-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 12.5px;
+}
+
+.wld-table th {
+	position: sticky;
+	top: 0;
+	background: var(--card-bg, #fff);
+	text-align: left;
+	font-size: 10px;
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	color: var(--text-muted, #94a3b8);
+	padding: 7px 9px;
+	border-bottom: 2px solid var(--border-color, #e5e7eb);
+	white-space: nowrap;
+}
+
+.wld-table td {
+	padding: 7px 9px;
+	border-bottom: 1px solid var(--border-color, #f1f5f9);
+	white-space: nowrap;
+}
+
+.wld-table .wld-num { text-align: right; font-weight: 700; }
+
+.wld-table tbody tr:hover { background: var(--bg-light-gray, #fafafa); }
+
+/* ── Loading / empty ────────────────────────────────────────────────── */
+.wld-empty {
+	padding: 44px 0;
+	text-align: center;
+	color: var(--text-muted, #94a3b8);
+	font-size: 13px;
+}
+
+.wld-loading {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: rgba(255, 255, 255, 0.5);
+	border-radius: 16px;
+}
+
+.wld-spinner {
+	width: 30px;
+	height: 30px;
+	border: 3px solid #e5e7eb;
+	border-top-color: #7c3aed;
+	border-radius: 50%;
+	animation: wld-spin 0.8s linear infinite;
+}
+
+@keyframes wld-spin {
+	to { transform: rotate(360deg); }
+}

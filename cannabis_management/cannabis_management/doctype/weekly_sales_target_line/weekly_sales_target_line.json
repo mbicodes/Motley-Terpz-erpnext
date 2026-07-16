@@ -1,0 +1,55 @@
+{
+ "creation": "2026-07-15 10:00:00.000000",
+ "custom": 0,
+ "docstatus": 0,
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "category",
+  "target_units",
+  "target_amount",
+  "actual_amount"
+ ],
+ "fields": [
+  {
+   "columns": 3,
+   "fieldname": "category",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Category",
+   "options": "Frozen\nRosin/VRR\nEdibles\nPackaged Goods\nWhite Label\nBubble/Static\nPre-Rolls\nOther Extracts\nTolling\nOther",
+   "reqd": 1
+  },
+  {
+   "columns": 2,
+   "fieldname": "target_units",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Target Units"
+  },
+  {
+   "columns": 2,
+   "fieldname": "target_amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Target $"
+  },
+  {
+   "columns": 2,
+   "fieldname": "actual_amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Actual $ (auto)",
+   "read_only": 1
+  }
+ ],
+ "idx": 0,
+ "istable": 1,
+ "modified": "2026-07-15 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Weekly Sales Target Line",
+ "owner": "Administrator",
+ "permissions": []
+}

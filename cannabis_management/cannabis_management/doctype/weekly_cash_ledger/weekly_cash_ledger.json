@@ -1,0 +1,363 @@
+{
+ "autoname": "format:WCL-{week_of}-{##}",
+ "creation": "2026-07-15 10:00:00.000000",
+ "custom": 0,
+ "docstatus": 0,
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "week_of",
+  "sales_person",
+  "column_break_head",
+  "company",
+  "ledger_title",
+  "section_lines",
+  "lines",
+  "section_targets",
+  "targets",
+  "section_money",
+  "coming_in_total",
+  "coming_in_cash",
+  "coming_in_bank",
+  "column_break_money1",
+  "collected_total",
+  "collected_cash",
+  "collected_bank",
+  "column_break_money2",
+  "expected_total",
+  "expected_cash",
+  "expected_bank",
+  "section_sales",
+  "sales_written_total",
+  "column_break_sales1",
+  "sales_cod",
+  "column_break_sales2",
+  "sales_terms",
+  "column_break_sales3",
+  "sales_target_total",
+  "section_ar",
+  "ar_total",
+  "column_break_ar1",
+  "ar_collected",
+  "column_break_ar2",
+  "ar_expected",
+  "section_inout",
+  "outbound_value",
+  "column_break_io1",
+  "outbound_orders",
+  "column_break_io2",
+  "inbound_value",
+  "column_break_io3",
+  "inbound_orders",
+  "section_notes",
+  "notes"
+ ],
+ "fields": [
+  {
+   "description": "Start date of the week this ledger covers.",
+   "fieldname": "week_of",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Week Of",
+   "reqd": 1
+  },
+  {
+   "fieldname": "sales_person",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Sales Person",
+   "options": "Sales Person"
+  },
+  {
+   "fieldname": "column_break_head",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "ledger_title",
+   "fieldtype": "Data",
+   "hidden": 1,
+   "label": "Title",
+   "read_only": 1
+  },
+  {
+   "description": "One row per line of money \u2014 a sale written this week or an AR payment being collected. Summaries below update on save.",
+   "fieldname": "section_lines",
+   "fieldtype": "Section Break",
+   "label": "Money Lines"
+  },
+  {
+   "fieldname": "lines",
+   "fieldtype": "Table",
+   "label": "Lines",
+   "options": "Weekly Cash Ledger Line"
+  },
+  {
+   "fieldname": "section_targets",
+   "fieldtype": "Section Break",
+   "label": "Weekly Targets by Product"
+  },
+  {
+   "fieldname": "targets",
+   "fieldtype": "Table",
+   "label": "Targets",
+   "options": "Weekly Sales Target Line"
+  },
+  {
+   "collapsible": 0,
+   "fieldname": "section_money",
+   "fieldtype": "Section Break",
+   "label": "Cash Coming In This Week  (money lens)"
+  },
+  {
+   "fieldname": "coming_in_total",
+   "fieldtype": "Currency",
+   "label": "Total Coming In",
+   "read_only": 1
+  },
+  {
+   "fieldname": "coming_in_cash",
+   "fieldtype": "Currency",
+   "label": "\u2014 as Cash",
+   "read_only": 1
+  },
+  {
+   "fieldname": "coming_in_bank",
+   "fieldtype": "Currency",
+   "label": "\u2014 as Bank",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_money1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "collected_total",
+   "fieldtype": "Currency",
+   "label": "Already Collected",
+   "read_only": 1
+  },
+  {
+   "fieldname": "collected_cash",
+   "fieldtype": "Currency",
+   "label": "\u2014 as Cash",
+   "read_only": 1
+  },
+  {
+   "fieldname": "collected_bank",
+   "fieldtype": "Currency",
+   "label": "\u2014 as Bank",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_money2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "expected_total",
+   "fieldtype": "Currency",
+   "label": "Still Coming",
+   "read_only": 1
+  },
+  {
+   "fieldname": "expected_cash",
+   "fieldtype": "Currency",
+   "label": "\u2014 as Cash",
+   "read_only": 1
+  },
+  {
+   "fieldname": "expected_bank",
+   "fieldtype": "Currency",
+   "label": "\u2014 as Bank",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_sales",
+   "fieldtype": "Section Break",
+   "label": "Sales Written This Week  (sales lens)"
+  },
+  {
+   "fieldname": "sales_written_total",
+   "fieldtype": "Currency",
+   "label": "Total Sales Written",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_sales1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sales_cod",
+   "fieldtype": "Currency",
+   "label": "\u2014 COD (cash this week)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_sales2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sales_terms",
+   "fieldtype": "Currency",
+   "label": "\u2014 Terms (cash comes later)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_sales3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "sales_target_total",
+   "fieldtype": "Currency",
+   "label": "Weekly Target",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_ar",
+   "fieldtype": "Section Break",
+   "label": "Accounts Receivable  (collections lens)"
+  },
+  {
+   "fieldname": "ar_total",
+   "fieldtype": "Currency",
+   "label": "Total AR Collecting This Week",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_ar1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "ar_collected",
+   "fieldtype": "Currency",
+   "label": "\u2014 Collected This Week",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_ar2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "ar_expected",
+   "fieldtype": "Currency",
+   "label": "\u2014 Still Expected This Week",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_inout",
+   "fieldtype": "Section Break",
+   "label": "Inbound vs Outbound"
+  },
+  {
+   "fieldname": "outbound_value",
+   "fieldtype": "Currency",
+   "label": "Outbound $",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_io1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "outbound_orders",
+   "fieldtype": "Int",
+   "label": "Outbound # Orders",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_io2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "inbound_value",
+   "fieldtype": "Currency",
+   "label": "Inbound $",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_io3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "inbound_orders",
+   "fieldtype": "Int",
+   "label": "Inbound # Orders",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_notes",
+   "fieldtype": "Section Break",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  }
+ ],
+ "idx": 0,
+ "is_submittable": 0,
+ "modified": "2026-07-15 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Weekly Cash Ledger",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sales Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sales User",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounts User"
+  }
+ ],
+ "search_fields": "week_of,sales_person",
+ "sort_field": "week_of",
+ "sort_order": "DESC",
+ "title_field": "ledger_title",
+ "track_changes": 1
+}
