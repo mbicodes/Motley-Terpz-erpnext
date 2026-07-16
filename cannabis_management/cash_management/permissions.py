@@ -107,3 +107,24 @@ def personal_cash_tracking_has_permission(doc, ptype="read", user=None):
     if doc is None or isinstance(doc, str):
         return True  # doctype-level access is decided by role permissions
     return (doc.get("owner") or user) == user
+
+
+# ── Motley Cash Tracking — strictly own records ─────────────────────────────
+
+def motley_cash_tracking_query(user):
+    """List-level filter: strictly own records. Only the Administrator
+    account bypasses — System Managers do NOT see these entries."""
+    user = user or frappe.session.user
+    if user == "Administrator":
+        return ""
+    return f"`tabMotley Cash Tracking`.owner = {frappe.db.escape(user)}"
+
+
+def motley_cash_tracking_has_permission(doc, ptype="read", user=None):
+    """Document-level gate: only the creator (or the Administrator account)."""
+    user = user or frappe.session.user
+    if user == "Administrator":
+        return True
+    if doc is None or isinstance(doc, str):
+        return True  # doctype-level access is decided by role permissions
+    return (doc.get("owner") or user) == user
