@@ -18,6 +18,8 @@
   "business",
   "section_receipt",
   "receipt",
+  "column_break_receipt",
+  "receipt_preview",
   "transaction_notes"
  ],
  "fields": [
@@ -112,6 +114,15 @@
    "label": "Receipt"
   },
   {
+   "fieldname": "column_break_receipt",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "receipt_preview",
+   "fieldtype": "HTML",
+   "label": "Receipt Preview"
+  },
+  {
    "description": "Add any additional notes here.",
    "fieldname": "transaction_notes",
    "fieldtype": "Small Text",
@@ -120,7 +131,7 @@
   }
  ],
  "idx": 0,
- "modified": "2026-07-15 19:00:00.000000",
+ "modified": "2026-07-16 10:00:00.000000",
  "modified_by": "Administrator",
  "module": "Cash Management",
  "name": "Motley Cash Tracking",

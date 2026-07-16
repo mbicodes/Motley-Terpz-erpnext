@@ -15,7 +15,9 @@
   "money_out",
   "section_reason",
   "reason",
-  "receipt"
+  "receipt",
+  "column_break_receipt",
+  "receipt_preview"
  ],
  "fields": [
   {
@@ -91,10 +93,19 @@
    "fieldname": "receipt",
    "fieldtype": "Attach",
    "label": "Receipt"
+  },
+  {
+   "fieldname": "column_break_receipt",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "receipt_preview",
+   "fieldtype": "HTML",
+   "label": "Receipt Preview"
   }
  ],
  "idx": 0,
- "modified": "2026-07-15 18:00:00.000000",
+ "modified": "2026-07-16 10:00:00.000000",
  "modified_by": "Administrator",
  "module": "Cash Management",
  "name": "Personal Cash Tracking",
