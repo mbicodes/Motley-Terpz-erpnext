@@ -6,8 +6,10 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "cash_tracker_person",
   "transaction_date",
   "user",
+  "employee",
   "column_break_1",
   "money_in",
   "money_out",
@@ -16,6 +18,16 @@
   "receipt"
  ],
  "fields": [
+  {
+   "description": "Pick the tracker person \u2014 User and Employee fill in automatically.",
+   "fieldname": "cash_tracker_person",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Cash Tracker Person",
+   "options": "Cash Tracker Person",
+   "reqd": 1
+  },
   {
    "default": "Today",
    "description": "The date the money moved.",
@@ -27,13 +39,22 @@
    "reqd": 1
   },
   {
-   "description": "Set automatically to whoever creates the record.",
+   "description": "From the Cash Tracker Person; defaults to whoever creates the record.",
+   "fetch_from": "cash_tracker_person.user",
    "fieldname": "user",
    "fieldtype": "Link",
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "User",
    "options": "User",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "cash_tracker_person.employee",
+   "fieldname": "employee",
+   "fieldtype": "Link",
+   "label": "Employee",
+   "options": "Employee",
    "read_only": 1
   },
   {
@@ -73,7 +94,7 @@
   }
  ],
  "idx": 0,
- "modified": "2026-07-15 15:00:00.000000",
+ "modified": "2026-07-15 18:00:00.000000",
  "modified_by": "Administrator",
  "module": "Cash Management",
  "name": "Personal Cash Tracking",

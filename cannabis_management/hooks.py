@@ -163,12 +163,14 @@ permission_query_conditions = {
     "Cash Ledger Entry":      "cannabis_management.cash_management.permissions.cash_ledger_entry_query",
     "Expense Tracker Entry":  "cannabis_management.cash_management.permissions.expense_tracker_entry_query",
     "Personal Cash Tracking": "cannabis_management.cash_management.permissions.personal_cash_tracking_query",
+    "Motley Cash Tracking":   "cannabis_management.cash_management.permissions.motley_cash_tracking_query",
 }
 
 has_permission = {
     "Customer":      "cannabis_management.permissions.customer_has_permission",
     "Sales Invoice": "cannabis_management.permissions.sales_invoice_has_permission",
     "Personal Cash Tracking": "cannabis_management.cash_management.permissions.personal_cash_tracking_has_permission",
+    "Motley Cash Tracking":   "cannabis_management.cash_management.permissions.motley_cash_tracking_has_permission",
 }
 
 

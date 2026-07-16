@@ -6,6 +6,9 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "cash_tracker_person",
+  "user",
+  "employee",
   "transaction_date",
   "money_in",
   "money_out",
@@ -18,6 +21,32 @@
   "transaction_notes"
  ],
  "fields": [
+  {
+   "description": "Pick the tracker person \u2014 User and Employee fill in automatically.",
+   "fieldname": "cash_tracker_person",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Cash Tracker Person",
+   "options": "Cash Tracker Person",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "cash_tracker_person.user",
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "label": "User",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "cash_tracker_person.employee",
+   "fieldname": "employee",
+   "fieldtype": "Link",
+   "label": "Employee",
+   "options": "Employee",
+   "read_only": 1
+  },
   {
    "default": "Today",
    "description": "Date on the receipt, invoice, or cash ledger. If none of these, the date the transaction took place.",
@@ -56,17 +85,20 @@
    "reqd": 1
   },
   {
+   "description": "Required for Hardware and Client Payment Towards Invoice transactions.",
    "fieldname": "invoice_number",
-   "fieldtype": "Data",
-   "label": "Invoice #"
+   "fieldtype": "Link",
+   "label": "Invoice # (Sales Order)",
+   "mandatory_depends_on": "eval:[\"Motley - Hardware\", \"Client - Hardware\", \"Client Payment Towards Invoice\"].includes(doc.transaction_type)",
+   "options": "Sales Order"
   },
   {
-   "description": "Was this for MTPZ (greenhouse), Motley Terpz (extracts, branding, etc), or TSBC (outdoor farm)? If unsure \u2014 contact Jamie.",
+   "description": "Which company was this for? If unsure \u2014 contact Jamie.",
    "fieldname": "business",
-   "fieldtype": "Select",
+   "fieldtype": "Link",
    "in_standard_filter": 1,
    "label": "Business",
-   "options": "\nMTPZ (greenhouse)\nMotley Terpz (extracts, branding, etc)\nTSBC (outdoor farm)",
+   "options": "Company",
    "reqd": 1
   },
   {
@@ -88,25 +120,13 @@
   }
  ],
  "idx": 0,
- "modified": "2026-07-15 15:00:00.000000",
+ "modified": "2026-07-15 19:00:00.000000",
  "modified_by": "Administrator",
  "module": "Cash Management",
  "name": "Motley Cash Tracking",
  "naming_rule": "Expression",
  "owner": "Administrator",
  "permissions": [
-  {
-   "create": 1,
-   "delete": 1,
-   "email": 1,
-   "export": 1,
-   "print": 1,
-   "read": 1,
-   "report": 1,
-   "role": "System Manager",
-   "share": 1,
-   "write": 1
-  },
   {
    "create": 1,
    "email": 1,

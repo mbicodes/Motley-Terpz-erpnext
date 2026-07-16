@@ -9,9 +9,24 @@ function toggle_money_fields(frm) {
 }
 
 frappe.ui.form.on('Personal Cash Tracking', {
+	setup: function (frm) {
+		frm.set_query('cash_tracker_person', function () {
+			return { filters: { is_active: 1 } };
+		});
+	},
+
 	onload: function (frm) {
 		if (frm.is_new() && !frm.doc.transaction_date) {
 			frm.set_value('transaction_date', frappe.datetime.get_today());
+		}
+		if (frm.is_new() && !frm.doc.cash_tracker_person) {
+			frappe.db.get_value('Cash Tracker Person',
+				{ user: frappe.session.user, is_active: 1 }, 'name')
+				.then(function (r) {
+					if (r.message && r.message.name) {
+						frm.set_value('cash_tracker_person', r.message.name);
+					}
+				});
 		}
 	},
 
