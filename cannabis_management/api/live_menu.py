@@ -91,6 +91,15 @@ def get_live_menu_items(item_group, menu_type=None):
         as_dict=True,
     )
 
+    # Items whose item_name ends in "_6" must not show the BHO type badge
+    # on the fresh frozen live menu. The client JS derives the badge from
+    # item_group, so re-tag those items to the parent group here — this
+    # works even for visitors whose browser cached the old page JS.
+    if str(item_group or "").lower().startswith("fresh frozen"):
+        for item in items:
+            if str(item.get("item_name") or "").strip().endswith("_6"):
+                item["item_group"] = "Fresh Frozen"
+
     return {
         "items": items,
         "notes": notes,
