@@ -95,6 +95,19 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
 					<p>Loading receivables&hellip;</p>
 				</div>
 			</div>
+
+			<div class="ard-monthly-section">
+				<div class="ard-monthly-header">
+					<h3 class="ard-monthly-title">Month-wise Collection &mdash; Legacy vs New AR</h3>
+					<p class="ard-monthly-subtitle">Payment entries against invoices posted before Jun 1, 2026 (Legacy) vs on/after Jun 1, 2026 (New AR). Adjustments (credit notes / journal entries) are tracked separately from cash collected.</p>
+				</div>
+				<div id="ard-monthly-area">
+					<div class="ard-loading">
+						<div class="ard-spinner"></div>
+						<p>Loading month-wise collection&hellip;</p>
+					</div>
+				</div>
+			</div>
 		</div>
 	`);
 
@@ -127,7 +140,14 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
             update_motley_btn_visibility(page);
             // Auto-load now that the filters are ready (no Apply button).
             apply_filters(page);
+            load_monthly_collection(page);
         }
+    });
+
+    // Month-wise Collection section follows the Company filter but is
+    // independent of the AR Mode toggle (it always shows Legacy + New side by side).
+    page.main.find('#ard-company').on('change', function () {
+        load_monthly_collection(page);
     });
 
     page.main.find('#ard-report-date').on('change', function () {
@@ -264,6 +284,118 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
         $btn.toggleClass('ard-expanded').html(isExpanded ? '&#9654;' : '&#9660;');
     });
 };
+
+// ─── Month-wise Collection: Legacy vs New AR ──────────────────────────────────
+
+function load_monthly_collection(page) {
+    let area = page.main.find('#ard-monthly-area');
+    area.html(`
+		<div class="ard-loading">
+			<div class="ard-spinner"></div>
+			<p>Loading month-wise collection&hellip;</p>
+		</div>
+	`);
+
+    let company = page.main.find('#ard-company').val() || ALL_ENTITIES;
+
+    frappe.call({
+        method: "cannabis_management.cannabis_management.page.ar_dashboard.ar_dashboard.get_monthly_ar_collection",
+        args: { company: company === ALL_ENTITIES ? null : company },
+        callback: function (r) {
+            if (!r.message) return;
+            render_monthly_collection(page, r.message);
+        },
+        error: function () {
+            area.html('<p class="ard-empty">Failed to load month-wise collection.</p>');
+        }
+    });
+}
+
+function render_monthly_collection(page, data) {
+    let area = page.main.find('#ard-monthly-area');
+
+    let totals_html = `
+		<div class="ard-monthly-tiles">
+			<div class="ard-monthly-tile ard-monthly-tile-legacy">
+				<span>Legacy AR Balance (now)</span><b>${fmt_cur(data.totals.legacy_balance_now)}</b>
+			</div>
+			<div class="ard-monthly-tile">
+				<span>Legacy Collected (all time)</span><b>${fmt_cur(data.totals.legacy_collected)}</b>
+			</div>
+			<div class="ard-monthly-tile">
+				<span>Legacy Adjustments (all time)</span><b>${fmt_cur(data.totals.legacy_adjustment)}</b>
+			</div>
+			<div class="ard-monthly-tile ard-monthly-tile-new">
+				<span>New AR Collected (all time)</span><b>${fmt_cur(data.totals.new_collected)}</b>
+			</div>
+		</div>
+	`;
+
+    let monthly_rows_html = data.monthly.map(function (r) {
+        return `
+			<tr>
+				<td class="ard-monthly-month">${r.label}</td>
+				<td class="ard-num">${fmt_cur(r.legacy_collected)}</td>
+				<td class="ard-num ${r.legacy_adjustment ? 'ard-monthly-adj' : ''}">${r.legacy_adjustment ? fmt_cur(r.legacy_adjustment) : '&mdash;'}</td>
+				<td class="ard-num ard-monthly-balance">${fmt_cur(r.legacy_balance)}</td>
+				<td class="ard-num">${r.new_collected ? fmt_cur(r.new_collected) : '&mdash;'}</td>
+				<td class="ard-num ${r.new_adjustment ? 'ard-monthly-adj' : ''}">${r.new_adjustment ? fmt_cur(r.new_adjustment) : '&mdash;'}</td>
+			</tr>
+		`;
+    }).join('');
+
+    let weekly_html = '';
+    if (data.weekly && data.weekly.length) {
+        let weekly_rows = data.weekly.map(function (w) {
+            return `
+				<tr>
+					<td class="ard-monthly-month">${w.label}</td>
+					<td class="ard-num">${w.legacy_collected ? fmt_cur(w.legacy_collected) : '&mdash;'}</td>
+					<td class="ard-num">${w.new_collected ? fmt_cur(w.new_collected) : '&mdash;'}</td>
+				</tr>
+			`;
+        }).join('');
+        weekly_html = `
+			<div class="ard-monthly-subtitle2">Trailing 4 Weeks (since Jun 1, 2026)</div>
+			<div class="ard-table-wrap ard-monthly-weekly-wrap">
+				<table class="ard-table">
+					<thead>
+						<tr>
+							<th>Week</th>
+							<th class="ard-num">Legacy Collected</th>
+							<th class="ard-num">New AR Collected</th>
+						</tr>
+					</thead>
+					<tbody>${weekly_rows}</tbody>
+				</table>
+			</div>
+		`;
+    }
+
+    area.html(`
+		${totals_html}
+		<div class="ard-table-wrap">
+			<table class="ard-table ard-monthly-table">
+				<thead>
+					<tr>
+						<th rowspan="2">Month</th>
+						<th colspan="3" class="ard-monthly-group-legacy">Legacy AR (invoices &le; May 31, 2026)</th>
+						<th colspan="2" class="ard-monthly-group-new">New AR (invoices &ge; Jun 1, 2026)</th>
+					</tr>
+					<tr>
+						<th class="ard-num">Collected</th>
+						<th class="ard-num">Adjustments</th>
+						<th class="ard-num">Balance (EOM)</th>
+						<th class="ard-num">Collected</th>
+						<th class="ard-num">Adjustments</th>
+					</tr>
+				</thead>
+				<tbody>${monthly_rows_html || '<tr><td colspan="6" class="ard-empty">No collection activity found.</td></tr>'}</tbody>
+			</table>
+		</div>
+		${weekly_html}
+	`);
+}
 
 // ─── AR Mode Switch ───────────────────────────────────────────────────────────
 

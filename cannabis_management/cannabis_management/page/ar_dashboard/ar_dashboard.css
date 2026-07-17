@@ -1227,3 +1227,94 @@
 	white-space: pre-wrap;
 	word-break: break-word;
 }
+
+/* ─── Month-wise Collection: Legacy vs New AR ──────────────────────────────── */
+.ard-monthly-section {
+	margin-top: 24px;
+	padding-top: 20px;
+	border-top: 1px solid var(--ard-border);
+}
+.ard-monthly-header {
+	margin-bottom: 14px;
+}
+.ard-monthly-title {
+	font-size: 16px;
+	font-weight: 700;
+	color: var(--ard-text);
+	margin: 0 0 4px;
+}
+.ard-monthly-subtitle {
+	font-size: 12.5px;
+	color: var(--ard-muted);
+	margin: 0;
+	max-width: 900px;
+}
+.ard-monthly-subtitle2 {
+	font-size: 12px;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: .04em;
+	color: var(--ard-muted);
+	margin: 18px 0 8px;
+}
+.ard-monthly-tiles {
+	display: grid;
+	grid-template-columns: repeat(4, 1fr);
+	gap: 10px;
+	margin-bottom: 14px;
+}
+@media (max-width: 900px) {
+	.ard-monthly-tiles { grid-template-columns: repeat(2, 1fr); }
+}
+.ard-monthly-tile {
+	background: #fff;
+	border: 1px solid var(--ard-border);
+	border-radius: 10px;
+	padding: 12px 14px;
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+}
+.ard-monthly-tile span {
+	font-size: 10.5px;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: .03em;
+	color: var(--ard-muted);
+}
+.ard-monthly-tile b {
+	font-size: 19px;
+	color: var(--ard-text);
+}
+.ard-monthly-tile-legacy { border-left: 3px solid #dc2626; }
+.ard-monthly-tile-legacy b { color: #dc2626; }
+.ard-monthly-tile-new { border-left: 3px solid #059669; }
+.ard-monthly-tile-new b { color: #059669; }
+
+.ard-monthly-table th.ard-monthly-group-legacy {
+	background: #fef2f2;
+	color: #991b1b;
+	text-align: center;
+	border-left: 2px solid var(--ard-border);
+}
+.ard-monthly-table th.ard-monthly-group-new {
+	background: #f0fdf4;
+	color: #065f46;
+	text-align: center;
+	border-left: 2px solid var(--ard-border);
+}
+.ard-monthly-month {
+	font-weight: 600;
+	white-space: nowrap;
+}
+.ard-monthly-balance {
+	font-weight: 700;
+	color: #dc2626;
+}
+.ard-monthly-adj {
+	color: #7c3aed;
+	font-weight: 600;
+}
+.ard-monthly-weekly-wrap .ard-table {
+	min-width: 480px;
+}
