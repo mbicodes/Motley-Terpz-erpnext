@@ -45,11 +45,27 @@ ALLOWED_RECON_STATUSES = (
 )
 
 
+# Legacy fallback — customer records that predate is_internal_customer/represents_company
+# being set consistently. Keep in sync with cannabis_management.api.jamie.INTERNAL_CUSTOMERS.
+_INTERNAL_CUSTOMER_FALLBACK = ("Motley Terpz", "MT", "MTPZ")
+
+
 def _internal_customer_names():
-    """Return the set of customer names marked as internal (is_internal_customer=1)."""
-    return set(frappe.db.sql_list(
-        "SELECT name FROM `tabCustomer` WHERE is_internal_customer = 1"
-    ))
+    """Return every customer name that represents an in-house entity rather than a
+    real external buyer, so intercompany transfers never show up as AR:
+      1. Every Company name (exact match)
+      2. Every Customer flagged is_internal_customer = 1
+      3. Every Customer linked to a company via represents_company
+      4. The legacy fallback list (e.g. "MTPZ" — a real Customer row with
+         is_internal_customer left at 0, so bucket 2 alone misses it)
+    """
+    company_names = frappe.db.sql_list("SELECT name FROM `tabCompany`")
+    internal = frappe.db.sql_list("""
+        SELECT name FROM `tabCustomer`
+        WHERE is_internal_customer = 1
+           OR (represents_company IS NOT NULL AND represents_company != '')
+    """)
+    return set(company_names) | set(internal) | set(_INTERNAL_CUSTOMER_FALLBACK)
 
 
 def _can_edit_recon():
@@ -427,6 +443,218 @@ def update_notebox(party, value):
 
     frappe.db.set_value("Customer", party, "custom_notebox", value or "")
     return {"party": party, "value": value or ""}
+
+
+def _company_condition(alias, company):
+    """Build a (sql_fragment, extra_params) pair scoping `alias`.company to the
+    selected filter, matching the page's existing All Entities / TMM Group /
+    single-company semantics. Returns ("", {}) for All Entities."""
+    if not company or company == "__ALL__":
+        return "", {}
+    if company == "TMM Group":
+        return f"AND {alias}.company IN %(tmm_companies)s", {"tmm_companies": tuple(TMM_GROUP_COMPANIES)}
+    return f"AND {alias}.company = %(company)s", {"company": company}
+
+
+def _month_labels(start_month, end_month):
+    """['2026-01', '2026-02', ...] inclusive, from start_month through end_month
+    (both 'YYYY-MM' strings)."""
+    y, m = (int(x) for x in start_month.split("-"))
+    ey, em = (int(x) for x in end_month.split("-"))
+    months = []
+    while (y, m) <= (ey, em):
+        months.append(f"{y:04d}-{m:02d}")
+        m += 1
+        if m > 12:
+            m = 1
+            y += 1
+    return months
+
+
+def _trailing_weekly_blocks_since(start_date, as_of, weeks=4):
+    """Fixed 7-day blocks anchored at start_date (e.g. June 1), returning only
+    the most recent `weeks` blocks up to as_of. The final block is clipped to
+    as_of so a partial current week still shows real numbers, not padding."""
+    from frappe.utils import add_days, getdate
+
+    start_date = getdate(start_date)
+    as_of = getdate(as_of)
+
+    blocks = []
+    cursor = start_date
+    while cursor <= as_of:
+        block_end = min(add_days(cursor, 6), as_of)
+        blocks.append({
+            "label": f"{cursor.strftime('%b %d')}–{block_end.strftime('%b %d')}",
+            "from_date": str(cursor),
+            "to_date": str(block_end),
+        })
+        cursor = add_days(cursor, 7)
+
+    return blocks[-weeks:]
+
+
+@frappe.whitelist()
+def get_monthly_ar_collection(company=None):
+    """Whitelisted entry point — see _get_ar_data's docstring for why this
+    must stay wrapped in _org_wide_view(). Do not edit report logic here."""
+    with _org_wide_view():
+        return _get_monthly_ar_collection(company)
+
+
+def _get_monthly_ar_collection(company=None):
+    """Month-wise cash collected against Legacy AR (invoices posted on/before
+    2026-05-31) vs New AR (invoices posted on/after 2026-06-01), plus
+    non-payment adjustments (credit notes / journal entries against an
+    invoice) tracked separately so they never get mistaken for cash
+    collected, plus the Legacy AR balance at each month end (which can only
+    shrink — no new legacy invoices are ever created after the cutoff).
+
+    Intercompany customers are excluded from every query below.
+    """
+    internal = _internal_customer_names()
+    internal_tuple = tuple(internal) if internal else ("__none__",)
+
+    company_cond, company_params = _company_condition("pe", company)
+    params = {
+        "internal": internal_tuple,
+        "legacy_cutoff": LEGACY_CUTOFF,
+        **company_params,
+    }
+
+    # ── Cash collected: Payment Entry allocations against Sales Invoices ──────
+    collection_rows = frappe.db.sql(f"""
+        SELECT
+            DATE_FORMAT(pe.posting_date, '%%Y-%%m') AS month,
+            CASE WHEN si.posting_date <= %(legacy_cutoff)s THEN 'legacy' ELSE 'new' END AS ar_type,
+            SUM(per.allocated_amount) AS amount
+        FROM `tabPayment Entry Reference` per
+        JOIN `tabPayment Entry` pe ON pe.name = per.parent
+        JOIN `tabSales Invoice` si ON si.name = per.reference_name
+        WHERE pe.docstatus = 1
+          AND pe.payment_type = 'Receive'
+          AND per.reference_doctype = 'Sales Invoice'
+          AND si.customer NOT IN %(internal)s
+          {company_cond}
+        GROUP BY month, ar_type
+    """, params, as_dict=True)
+
+    # ── Adjustments: Journal Entry lines posted against a Sales Invoice ───────
+    # (credit notes / write-offs / manual corrections — anything that shrinks
+    # AR without being a cash Payment Entry). credit - debit = AR reduction.
+    je_company_cond, je_company_params = _company_condition("je", company)
+    je_params = {"internal": internal_tuple, "legacy_cutoff": LEGACY_CUTOFF, **je_company_params}
+    adjustment_rows = frappe.db.sql(f"""
+        SELECT
+            DATE_FORMAT(je.posting_date, '%%Y-%%m') AS month,
+            CASE WHEN si.posting_date <= %(legacy_cutoff)s THEN 'legacy' ELSE 'new' END AS ar_type,
+            SUM(jea.credit_in_account_currency - jea.debit_in_account_currency) AS amount
+        FROM `tabJournal Entry Account` jea
+        JOIN `tabJournal Entry` je ON je.name = jea.parent
+        JOIN `tabSales Invoice` si ON si.name = jea.reference_name
+        WHERE je.docstatus = 1
+          AND jea.reference_type = 'Sales Invoice'
+          AND si.customer NOT IN %(internal)s
+          {je_company_cond}
+        GROUP BY month, ar_type
+    """, je_params, as_dict=True)
+
+    # ── Legacy total invoiced (fixed) — anchor for the shrinking balance ──────
+    si_company_cond, si_company_params = _company_condition("si", company)
+    si_params = {"internal": internal_tuple, "legacy_cutoff": LEGACY_CUTOFF, **si_company_params}
+    legacy_total_invoiced = frappe.db.sql(f"""
+        SELECT COALESCE(SUM(si.grand_total), 0)
+        FROM `tabSales Invoice` si
+        WHERE si.docstatus = 1
+          AND si.posting_date <= %(legacy_cutoff)s
+          AND si.customer NOT IN %(internal)s
+          {si_company_cond}
+    """, si_params)[0][0]
+
+    # ── Assemble month grid ────────────────────────────────────────────────────
+    today = nowdate()
+    all_months = sorted({r.month for r in collection_rows} | {r.month for r in adjustment_rows})
+    start_month = min(all_months) if all_months else today[:7]
+    end_month = today[:7]
+    months = _month_labels(start_month, end_month)
+
+    by_month = {
+        m: {"legacy_collected": 0.0, "new_collected": 0.0,
+            "legacy_adjustment": 0.0, "new_adjustment": 0.0}
+        for m in months
+    }
+    for r in collection_rows:
+        if r.month in by_month:
+            by_month[r.month][f"{r.ar_type}_collected"] += float(r.amount or 0)
+    for r in adjustment_rows:
+        if r.month in by_month:
+            by_month[r.month][f"{r.ar_type}_adjustment"] += float(r.amount or 0)
+
+    running_reduction = 0.0
+    monthly_rows = []
+    for m in months:
+        row = by_month[m]
+        running_reduction += row["legacy_collected"] + row["legacy_adjustment"]
+        monthly_rows.append({
+            "month": m,
+            "label": frappe.utils.formatdate(f"{m}-01", "MMM yyyy"),
+            "legacy_collected": round(row["legacy_collected"], 2),
+            "legacy_adjustment": round(row["legacy_adjustment"], 2),
+            "legacy_balance": round(legacy_total_invoiced - running_reduction, 2),
+            "new_collected": round(row["new_collected"], 2),
+            "new_adjustment": round(row["new_adjustment"], 2),
+        })
+
+    # ── Trailing 4 weekly blocks since June 1 (weekly granularity) ────────────
+    weekly_blocks = _trailing_weekly_blocks_since(NEW_AR_START, today, weeks=4)
+    weekly_rows = []
+    if weekly_blocks:
+        min_wk, max_wk = weekly_blocks[0]["from_date"], weekly_blocks[-1]["to_date"]
+        wk_params = {**params, "wk_start": min_wk, "wk_end": max_wk}
+        wk_rows = frappe.db.sql(f"""
+            SELECT
+                pe.posting_date AS posting_date,
+                CASE WHEN si.posting_date <= %(legacy_cutoff)s THEN 'legacy' ELSE 'new' END AS ar_type,
+                per.allocated_amount AS amount
+            FROM `tabPayment Entry Reference` per
+            JOIN `tabPayment Entry` pe ON pe.name = per.parent
+            JOIN `tabSales Invoice` si ON si.name = per.reference_name
+            WHERE pe.docstatus = 1
+              AND pe.payment_type = 'Receive'
+              AND per.reference_doctype = 'Sales Invoice'
+              AND si.customer NOT IN %(internal)s
+              AND pe.posting_date BETWEEN %(wk_start)s AND %(wk_end)s
+              {company_cond}
+        """, wk_params, as_dict=True)
+
+        from frappe.utils import getdate
+        for blk in weekly_blocks:
+            fd, td = getdate(blk["from_date"]), getdate(blk["to_date"])
+            legacy_amt = sum(float(r.amount or 0) for r in wk_rows
+                             if r.ar_type == "legacy" and fd <= getdate(str(r.posting_date)) <= td)
+            new_amt = sum(float(r.amount or 0) for r in wk_rows
+                         if r.ar_type == "new" and fd <= getdate(str(r.posting_date)) <= td)
+            weekly_rows.append({
+                "label": blk["label"],
+                "from_date": blk["from_date"],
+                "to_date": blk["to_date"],
+                "legacy_collected": round(legacy_amt, 2),
+                "new_collected": round(new_amt, 2),
+            })
+
+    return {
+        "company": company,
+        "legacy_total_invoiced": round(float(legacy_total_invoiced or 0), 2),
+        "monthly": monthly_rows,
+        "weekly": weekly_rows,
+        "totals": {
+            "legacy_collected": round(sum(r["legacy_collected"] for r in monthly_rows), 2),
+            "legacy_adjustment": round(sum(r["legacy_adjustment"] for r in monthly_rows), 2),
+            "new_collected": round(sum(r["new_collected"] for r in monthly_rows), 2),
+            "new_adjustment": round(sum(r["new_adjustment"] for r in monthly_rows), 2),
+            "legacy_balance_now": monthly_rows[-1]["legacy_balance"] if monthly_rows else round(float(legacy_total_invoiced or 0), 2),
+        },
+    }
 
 
 @frappe.whitelist()
