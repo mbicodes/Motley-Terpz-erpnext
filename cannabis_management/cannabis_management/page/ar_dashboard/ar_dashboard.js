@@ -210,15 +210,17 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
         handle_poc_change(page, $(this));
     });
 
-    // Filter: show only customers with New AR > 1
+    // Inline Notebox edit — save on blur (focusout bubbles; blur does not) when
+    // the text changed.
+    page.main.on('focusout', '.ard-notebox-input', function () {
+        handle_notebox_change(page, $(this));
+    });
+
+    // Filter: show only customers with New AR > 1.
+    // Applied automatically in New AR mode (see apply_filters); the button
+    // remains a manual toggle to widen the view back out.
     page.main.find('#ard-new-ar-only-btn').on('click', function () {
-        page._ard_new_ar_only = !page._ard_new_ar_only;
-        let $btn = page.main.find('#ard-new-ar-only-btn');
-        if (page._ard_new_ar_only) {
-            $btn.text('✓ New AR > 0').addClass('ard-btn-active');
-        } else {
-            $btn.text('New AR > 0').removeClass('ard-btn-active');
-        }
+        set_new_ar_only(page, !page._ard_new_ar_only);
         if (page._ard_all_mode) render_all_entities(page);
         else render_view(page);
     });
@@ -302,10 +304,10 @@ function set_ar_mode(page, mode) {
     }
 
     // Mode changed — reload immediately with the current filters.
+    // (apply_filters sets the New AR > 0 default for the new mode.)
     page._ard_result = null;
     page._ard_all_result = null;
     page._ard_excl_motley = false;
-    page._ard_new_ar_only = false;
     apply_filters(page);
 }
 
@@ -457,14 +459,69 @@ function handle_poc_change(page, $select) {
     });
 }
 
+// ─── Notebox Update ─────────────────────────────────────────────────────────────
+
+function handle_notebox_change(page, $input) {
+    let old_val = $input.attr('data-current') || "";
+    // contenteditable div — read visible text, normalise stray whitespace.
+    let new_val = ($input.text() || "").replace(/ /g, " ").trim();
+
+    if (!page._ard_can_edit) {
+        $input.text(old_val);
+        frappe.show_alert({ message: __("You do not have permission to edit notes."), indicator: 'red' }, 5);
+        return;
+    }
+
+    // Nothing changed — don't hit the server.
+    if (new_val === old_val) return;
+
+    let party = $input.attr('data-party');
+
+    frappe.call({
+        method: "cannabis_management.cannabis_management.page.ar_dashboard.ar_dashboard.update_notebox",
+        args: { party: party, value: new_val },
+        callback: function (r) {
+            if (r.message) {
+                frappe.show_alert({ message: __("Note saved"), indicator: 'green' }, 2);
+                $input.attr('data-current', new_val);
+                // Persist into the loaded row data so re-renders and exports keep the note.
+                let update = function (rows) {
+                    (rows || []).forEach(function (row) {
+                        if (row.party === party) row.notebox = new_val;
+                    });
+                };
+                if (page._ard_result)     update(page._ard_result.rows);
+                if (page._ard_all_result) update(page._ard_all_result.rows);
+            }
+        },
+        error: function () {
+            $input.text(old_val);
+            frappe.show_alert({ message: __("Failed to save note"), indicator: 'red' }, 5);
+        }
+    });
+}
+
 // ─── Data Loading ─────────────────────────────────────────────────────────────
+
+// Sync the "New AR > 0" filter state and its button UI together.
+function set_new_ar_only(page, on) {
+    page._ard_new_ar_only = !!on;
+    let $btn = page.main.find('#ard-new-ar-only-btn');
+    if (on) {
+        $btn.text('✓ New AR > 0').addClass('ard-btn-active');
+    } else {
+        $btn.text('New AR > 0').removeClass('ard-btn-active');
+    }
+}
 
 // Central refresh: routes to the consolidated view when "All Entities" is
 // selected, otherwise loads the single selected company. Called on every
 // filter change (no Apply button).
 function apply_filters(page) {
     page._ard_excl_motley = false;
-    page._ard_new_ar_only = false;
+    // New AR mode opens pre-filtered to customers with New AR > 0 — what the
+    // "New AR > 0" button used to require a click for.
+    set_new_ar_only(page, page._ard_ar_mode === 'new');
     if (page.main.find('#ard-company').val() === ALL_ENTITIES) {
         load_all_entities(page);
     } else {
@@ -802,6 +859,20 @@ function build_poc_cell(page, party, poc, readonly) {
     return `<span class="ard-poc-readonly">${esc(poc || "—")}</span>`;
 }
 
+function build_notebox_cell(page, party, note) {
+    let val = note || "";
+    if (page._ard_can_edit) {
+        // Editable free-text note. Uses a contenteditable div (not a textarea) so
+        // the note flows to full height and prints cleanly in the PDF export.
+        // Saves to the Customer master on blur, then persists in the row data so
+        // it survives re-renders and rides along in every export.
+        return `<div class="ard-notebox-input" contenteditable="true"
+            data-party="${esc_attr(party)}" data-current="${esc_attr(val)}"
+            data-placeholder="Add note…">${esc(val)}</div>`;
+    }
+    return `<div class="ard-notebox-readonly">${esc(val)}</div>`;
+}
+
 // Resolve the active "as of" date for New-AR term bucketing.
 function get_report_date(page) {
     if (page._ard_all_mode && page._ard_all_result) return page._ard_all_result.report_date;
@@ -827,26 +898,25 @@ function na_sum(rows, anchor) {
 
 function na_header_cells(split, show_legacy_col) {
     return `
-						${split ? `<th class="ard-th-num ard-na-legacy">Legacy AR</th><th class="ard-th-num ard-na-new">New AR</th>` : ``}
-						${show_legacy_col ? `<th class="ard-th-num ard-na-legacy" style="background:#fef3c7;color:#92400e;">Legacy AR</th><th class="ard-th-num ard-na-new">New AR</th>` : ``}
+						${(split || show_legacy_col) ? `<th class="ard-th-num ard-col-legacy">Legacy AR</th><th class="ard-th-num ard-na-new">New AR</th>` : ``}
 						<th class="ard-th-num ard-na-total">Total AR</th>
 						<th class="ard-th-num ard-na-good">Total New AR on Good standing</th>
 						<th class="ard-th-num ard-na-bad">Total New AR on Bad standing</th>
-						<th class="ard-th-num ard-good-green">0-10<br><small>Days</small></th>
-						<th class="ard-th-num ard-good-yellow">10-20<br><small>Days</small></th>
-						<th class="ard-th-num ard-good-red">20-30<br><small>Days</small></th>`;
+						<th class="ard-th-num ard-term-red">0-10 Days<br><small>left in terms</small></th>
+						<th class="ard-th-num ard-term-amber">10-20 Days<br><small>left in terms</small></th>
+						<th class="ard-th-num ard-term-green">20-30 Days<br><small>left in terms</small></th>`;
 }
 
 function na_total_cells(s, split, show_legacy_col, legacy_amt) {
     return `
-					${split ? `<td class="ard-num ard-total-cell ard-na-legacy">${s.legacy_ar > 0 ? fmt_cur(s.legacy_ar) : "—"}</td><td class="ard-num ard-total-cell ard-na-new">${s.new_ar > 0 ? fmt_cur(s.new_ar) : "—"}</td>` : ``}
-					${show_legacy_col ? `<td class="ard-num ard-total-cell" style="background:#fef3c7;color:#92400e;font-weight:700;">${legacy_amt > 0 ? fmt_cur(legacy_amt) : "—"}</td><td class="ard-num ard-total-cell ard-na-new">${s.total > 0 ? fmt_cur(s.total) : "—"}</td>` : ``}
+					${split ? `<td class="ard-num ard-total-cell ard-col-legacy">${s.legacy_ar > 0 ? fmt_cur(s.legacy_ar) : "\u2014"}</td><td class="ard-num ard-total-cell ard-na-new">${s.new_ar > 0 ? fmt_cur(s.new_ar) : "\u2014"}</td>` : ``}
+					${show_legacy_col ? `<td class="ard-num ard-total-cell ard-col-legacy">${legacy_amt > 0 ? fmt_cur(legacy_amt) : "\u2014"}</td><td class="ard-num ard-total-cell ard-na-new">${s.total > 0 ? fmt_cur(s.total) : "\u2014"}</td>` : ``}
 					<td class="ard-num ard-total-cell ard-na-total">${fmt_cur(show_legacy_col ? (legacy_amt + s.total) : s.total)}</td>
-					<td class="ard-num ard-total-cell ard-na-good">${s.good > 0 ? fmt_cur(s.good) : "—"}</td>
-					<td class="ard-num ard-total-cell ard-na-bad">${s.bad > 0 ? fmt_cur(s.bad) : "—"}</td>
-					<td class="ard-num ard-total-cell ard-good-green">${s.g1 > 0 ? fmt_cur(s.g1) : "—"}</td>
-					<td class="ard-num ard-total-cell ard-good-yellow">${s.g2 > 0 ? fmt_cur(s.g2) : "—"}</td>
-					<td class="ard-num ard-total-cell ard-good-red">${s.g3 > 0 ? fmt_cur(s.g3) : "—"}</td>`;
+					<td class="ard-num ard-total-cell ard-na-good">${s.good > 0 ? fmt_cur(s.good) : "\u2014"}</td>
+					<td class="ard-num ard-total-cell ard-na-bad">${s.bad > 0 ? fmt_cur(s.bad) : "\u2014"}</td>
+					<td class="ard-num ard-total-cell ard-term-red">${s.g1 > 0 ? fmt_cur(s.g1) : "\u2014"}</td>
+					<td class="ard-num ard-total-cell ard-term-amber">${s.g2 > 0 ? fmt_cur(s.g2) : "\u2014"}</td>
+					<td class="ard-num ard-total-cell ard-term-green">${s.g3 > 0 ? fmt_cur(s.g3) : "\u2014"}</td>`;
 }
 
 function na_invoice_cells(row, anchor, split, show_legacy_col) {
@@ -859,14 +929,14 @@ function na_invoice_cells(row, anchor, split, show_legacy_col) {
     let g2 = good && info.bkey === "g2" ? amt : 0;
     let g3 = good && info.bkey === "g3" ? amt : 0;
     return `
-						${split ? `<td class="ard-num ard-na-legacy">${!is_new ? fmt_cur(amt) : "—"}</td><td class="ard-num ard-na-new">${is_new ? fmt_cur(amt) : "—"}</td>` : ``}
-						${show_legacy_col ? `<td class="ard-num" style="background:#fef3c7;">${legacy ? fmt_cur(amt) : "—"}</td><td class="ard-num ard-na-new">${legacy ? "—" : fmt_cur(amt)}</td>` : ``}
+						${split ? `<td class="ard-num ard-col-legacy">${!is_new ? fmt_cur(amt) : "\u2014"}</td><td class="ard-num ard-na-new">${is_new ? fmt_cur(amt) : "\u2014"}</td>` : ``}
+						${show_legacy_col ? `<td class="ard-num ard-col-legacy">${legacy ? fmt_cur(amt) : "\u2014"}</td><td class="ard-num ard-na-new">${legacy ? "\u2014" : fmt_cur(amt)}</td>` : ``}
 						<td class="ard-num ard-na-total">${fmt_cur(amt)}</td>
-						<td class="ard-num ard-na-good">${(!legacy && good) ? fmt_cur(amt) : "—"}</td>
-						<td class="ard-num ard-na-bad">${(!legacy && !good) ? fmt_cur(amt) : "—"}</td>
-						<td class="ard-range-cell ard-good-green">${g1 > 0 ? fmt_cur(g1) : "—"}</td>
-						<td class="ard-range-cell ard-good-yellow">${g2 > 0 ? fmt_cur(g2) : "—"}</td>
-						<td class="ard-range-cell ard-good-red">${g3 > 0 ? fmt_cur(g3) : "—"}</td>`;
+						<td class="ard-num ard-na-good">${(!legacy && good) ? fmt_cur(amt) : "\u2014"}</td>
+						<td class="ard-num ard-na-bad">${(!legacy && !good) ? fmt_cur(amt) : "\u2014"}</td>
+						<td class="ard-range-cell ard-term-red">${g1 > 0 ? fmt_cur(g1) : "\u2014"}</td>
+						<td class="ard-range-cell ard-term-amber">${g2 > 0 ? fmt_cur(g2) : "\u2014"}</td>
+						<td class="ard-range-cell ard-term-green">${g3 > 0 ? fmt_cur(g3) : "\u2014"}</td>`;
 }
 
 function build_table_html(page, ranges, company, display_rows, view_totals, readonly, show_company) {
@@ -882,7 +952,6 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
     let show_terms = page._ard_ar_mode === 'new' || page._ard_ar_mode === 'all';
     let split_ln = page._ard_ar_mode === 'all'; // Legacy+New: split Total AR into New vs Legacy
     let show_legacy_col = page._ard_ar_mode === 'new'; // New AR: extra column showing legacy outstanding
-    // Legacy outstanding is read straight off the flagged legacy rows (is_legacy).
     let na_anchor = show_terms ? get_report_date(page) : null;
     let na_grand = show_terms ? na_sum(display_rows, na_anchor) : null;
 
@@ -908,23 +977,59 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
         return (customer_groups[a].name || "").localeCompare(customer_groups[b].name || "");
     });
 
+    let total_invoices = display_rows.length;
+    let grand_legacy = display_rows.reduce(function (a, r) { return a + (r.is_legacy ? (r.outstanding || 0) : 0); }, 0);
+
+    // ── Sheet-style header block: TOTALS row on top, group bands, then column headers ──
     let range_headers = ranges.map(function (r, idx) {
         return `<th class="ard-th-range ${range_status_class(idx)}">${r.label}<br><small>Days</small></th>`;
     }).join("");
 
+    let range_total_cells = ranges.map(function (r, idx) {
+        let cls = `ard-range-cell ${range_status_class(idx)}`;
+        return `<td class="${cls} ard-total-cell">${view_totals[r.key] > 0 ? fmt_cur(view_totals[r.key]) : "\u2014"}</td>`;
+    }).join("");
+
+    let totals_cells = `
+					<td class="ard-td-sticky ard-total-cell">TOTALS<div class="ard-invoice-count-compact" style="color:var(--ard-muted);font-size:11px;margin-top:2px;font-weight:400;">${esc(company)} &bull; ${total_invoices} inv &bull; ${customer_order.length} cust</div></td>
+					<td class="ard-total-cell"></td>
+					<td class="ard-total-cell"></td>
+					<td class="ard-num ard-total-cell">${fmt_cur(view_totals.invoiced)}</td>
+					<td class="ard-num ard-total-cell">${fmt_cur(view_totals.paid)}</td>
+					<td class="ard-num ard-total-cell ard-outstanding">${fmt_cur(view_totals.outstanding)}</td>
+					${show_terms ? na_total_cells(na_grand, split_ln, show_legacy_col, grand_legacy) : ``}
+					${range_total_cells}
+					<td class="ard-total-cell ard-td-new-ar"></td>
+					<td class="ard-total-cell ard-td-notebox"></td>`;
+
+    let band_row = "";
+    if (show_terms) {
+        let lead_cols = 6 + ((split_ln || show_legacy_col) ? 2 : 0) + 3;
+        band_row = `
+					<tr class="ard-band-row">
+						<th colspan="${lead_cols}" class="ard-band-blank"></th>
+						<th colspan="3" class="ard-band-terms">New AR on Terms</th>
+						<th colspan="${ranges.length}" class="ard-band-overdue">OVERDUE NEW AR</th>
+						<th colspan="2" class="ard-band-blank ard-band-trail"></th>
+					</tr>`;
+    }
+
     let html = `
-		<div class="ard-table-wrap ard-newar-table">
+		<div class="ard-table-wrap ard-newar-table ard-sheet">
 			<table class="ard-table">
 				<thead>
-					<!--TOP_TOTALS-->
+					<tr class="ard-totals-row ard-top-totals">${totals_cells}
+					</tr>
+					${band_row}
 					<tr class="ard-head-row">
 						<th class="ard-th-sticky">Customer</th>
 						<th class="ard-th-recon">Recon Status</th>
 						<th class="ard-th-poc">POC</th>
-						${show_company ? '<th class="ard-th-entity ard-detail-col">Entity</th>' : ''}<th class="ard-detail-col">Invoice No.</th><th class="ard-detail-col">Type</th><th class="ard-detail-col">Posting Date</th><th class="ard-detail-col">Due Date</th><th class="ard-th-num ard-detail-col">Invoiced</th><th class="ard-th-num ard-detail-col">Paid</th><th class="ard-th-num ard-detail-col">Outstanding</th>
+						<th class="ard-th-num">Invoiced</th>
+						<th class="ard-th-num">Paid</th>
+						<th class="ard-th-num">Outstanding</th>
 						${show_terms ? na_header_cells(split_ln, show_legacy_col) : ``}
 						${range_headers}
-						<th class="ard-th-status">Status</th>
 						<th class="ard-th-new-ar">New AR</th>
 						<th class="ard-th-notebox">Notebox</th>
 					</tr>
@@ -932,10 +1037,8 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
 				<tbody>
 	`;
 
-    let total_invoices = 0;
     customer_order.forEach(function (party) {
         let group = customer_groups[party];
-        total_invoices += group.rows.length;
 
         let sub = { invoiced: 0, paid: 0, outstanding: 0 };
         let group_legacy = 0; // sum of this customer's legacy outstanding
@@ -951,7 +1054,7 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
         let sub_range_cells = ranges.map(function (r, idx) {
             let val = sub[r.key];
             let cls = `ard-range-cell ${range_status_class(idx)}`;
-            return `<td class="${cls} ard-total-cell">${val > 0 ? fmt_cur(val) : "—"}</td>`;
+            return `<td class="${cls} ard-total-cell">${val > 0 ? fmt_cur(val) : "\u2014"}</td>`;
         }).join("");
 
         let recon_cell = build_recon_cell(page, group.party, group.recon_status, readonly);
@@ -971,12 +1074,13 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
 				</td>
 				<td class="ard-td-recon">${recon_cell}</td>
 				<td class="ard-td-poc">${poc_cell}</td>
-				<td colspan="${show_company ? 5 : 4}" class="ard-detail-col" style="color:var(--ard-muted);font-size:12px;">${group.rows.length} invoice(s)</td><td class="ard-num ard-total-cell ard-detail-col">${fmt_cur(sub.invoiced)}</td><td class="ard-num ard-total-cell ard-detail-col">${fmt_cur(sub.paid)}</td><td class="ard-num ard-total-cell ard-outstanding ard-detail-col">${fmt_cur(sub.outstanding)}</td>
+				<td class="ard-num ard-total-cell">${fmt_cur(sub.invoiced)}</td>
+				<td class="ard-num ard-total-cell">${fmt_cur(sub.paid)}</td>
+				<td class="ard-num ard-total-cell ard-outstanding">${fmt_cur(sub.outstanding)}</td>
 				${show_terms ? na_total_cells(na_sum(group.rows, na_anchor), split_ln, show_legacy_col, group_legacy) : ``}
 				${sub_range_cells}
-				<td></td>
 				<td class="ard-td-new-ar">${new_ar_cell}</td>
-				<td class="ard-td-notebox" title="${esc_attr(group.notebox || "")}">${esc(group.notebox || "")}</td>
+				<td class="ard-td-notebox">${build_notebox_cell(page, group.party, group.notebox)}</td>
 			</tr>
 		`;
 
@@ -985,20 +1089,22 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
             let range_cells = ranges.map(function (r, idx) {
                 let val = row[r.key] || 0;
                 let cls = val > 0 ? `ard-range-cell ${range_status_class(idx)}` : "ard-range-cell ard-range-zero";
-                return `<td class="${cls}">${val > 0 ? fmt_cur(val) : "—"}</td>`;
+                return `<td class="${cls}">${val > 0 ? fmt_cur(val) : "\u2014"}</td>`;
             }).join("");
 
             html += `
 				<tr class="ard-invoice-row" data-party="${esc_attr(row.party)}" style="display:none;">
 					<td class="ard-td-sticky" style="padding-left:24px;">
 						<a href="/app/sales-invoice/${esc(row.voucher_no)}" target="_blank" class="ard-link">${esc(row.voucher_no)}</a>
+						<div class="ard-inv-meta">${show_company && row.company ? esc(row.company) + " &bull; " : ""}${fmt_date(row.posting_date)} &rarr; ${fmt_date(row.due_date)} <span class="ard-badge ${status.cls}">${status.label}</span></div>
 					</td>
 					<td></td>
 					<td></td>
-					${show_company ? `<td class="ard-entity-cell ard-detail-col">${esc(row.company || "")}</td>` : ``}<td class="ard-detail-col"></td><td class="ard-type ard-detail-col">${esc(row.voucher_type)}</td><td class="ard-date ard-detail-col">${fmt_date(row.posting_date)}</td><td class="ard-date ard-detail-col">${fmt_date(row.due_date)}</td><td class="ard-num ard-detail-col">${fmt_cur(row.invoiced)}</td><td class="ard-num ard-detail-col">${fmt_cur(row.paid)}</td><td class="ard-num ard-outstanding ard-detail-col">${fmt_cur(row.outstanding)}</td>
+					<td class="ard-num">${fmt_cur(row.invoiced)}</td>
+					<td class="ard-num">${fmt_cur(row.paid)}</td>
+					<td class="ard-num ard-outstanding">${fmt_cur(row.outstanding)}</td>
 					${show_terms ? na_invoice_cells(row, na_anchor, split_ln, show_legacy_col) : ``}
 					${range_cells}
-					<td style="text-align:center;"><span class="ard-badge ${status.cls}">${status.label}</span></td>
 					<td></td>
 					<td></td>
 				</tr>
@@ -1006,34 +1112,11 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
         });
     });
 
-    let range_total_cells = ranges.map(function (r, idx) {
-        let cls = `ard-range-cell ${range_status_class(idx)}`;
-        return `<td class="${cls} ard-total-cell">${fmt_cur(view_totals[r.key])}</td>`;
-    }).join("");
-
-    let grand_legacy = display_rows.reduce(function (a, r) { return a + (r.is_legacy ? (r.outstanding || 0) : 0); }, 0);
-    let totals_cells = `
-						<td class="ard-td-sticky ard-total-cell">${esc(company)}<div class="ard-invoice-count-compact" style="color:var(--ard-muted);font-size:11px;margin-top:2px;">${total_invoices} inv &bull; ${customer_order.length} cust</div></td>
-						<td class="ard-total-cell"></td>
-						<td class="ard-total-cell"></td>
-						<td class="ard-total-cell ard-detail-col" colspan="${show_company ? 5 : 4}">${total_invoices} invoice(s) &bull; ${customer_order.length} customer(s)</td><td class="ard-num ard-total-cell ard-detail-col">${fmt_cur(view_totals.invoiced)}</td><td class="ard-num ard-total-cell ard-detail-col">${fmt_cur(view_totals.paid)}</td><td class="ard-num ard-total-cell ard-outstanding ard-detail-col">${fmt_cur(view_totals.outstanding)}</td>
-						${show_terms ? na_total_cells(na_grand, split_ln, show_legacy_col, grand_legacy) : ``}
-						${range_total_cells}
-						<td></td>
-						<td></td>
-						<td class="ard-total-cell"></td>`;
-
     html += `
 				</tbody>
-				<tfoot>
-					<tr class="ard-totals-row">${totals_cells}</tr>
-				</tfoot>
 			</table>
 		</div>
 	`;
-
-    // Mirror the totals row at the very top, just above the column headings.
-    html = html.replace("<!--TOP_TOTALS-->", `<tr class="ard-totals-row ard-top-totals">${totals_cells}</tr>`);
 
     return html;
 }
@@ -1117,7 +1200,6 @@ function load_all_entities(page) {
     page._ard_all_mode = true;
     page._ard_all_result = null;
     page._ard_excl_motley = false;
-    page._ard_new_ar_only = false;
     show_export_buttons(page, false);
     page.main.find('#ard-motley-btn').hide();
 
@@ -1251,10 +1333,12 @@ function classify_ar_row(row, report_date) {
         let bkey = overdue <= 30 ? "b1" : overdue <= 60 ? "b2" : overdue <= 90 ? "b3" : overdue <= 120 ? "b4" : "b5";
         return { section: "bad", bkey: bkey, days: overdue };
     }
-    let age = diff_days(report_date, row.posting_date); // report - posting (days on terms)
-    if (age === null || age < 0) age = 0;
-    let bkey = age <= 10 ? "g1" : age <= 20 ? "g2" : "g3";
-    return { section: "good", bkey: bkey, days: age };
+    // On terms — bucket by days LEFT until the due date, matching the recon
+    // sheet: 0-10 left = urgent (red), 10-20 left = amber, 20-30 left = green.
+    let left = diff_days(row.due_date, report_date);
+    if (left === null || left < 0) left = 0;
+    let bkey = left <= 10 ? "g1" : left <= 20 ? "g2" : "g3";
+    return { section: "good", bkey: bkey, days: left };
 }
 
 // ─── Copy to clipboard (formatted client summary) ──────────────────────────────
@@ -1387,24 +1471,33 @@ function export_pdf(page) {
         return;
     }
 
-    // Print CSS: landscape, compact cells, all invoices expanded, sticky columns
-    // turned static so the wide table lays out at its full natural width.
+    // Print CSS: landscape, compact cells, sheet-only output — the PDF mirrors the
+    // recon Google Sheet: a purple logo banner, then the spreadsheet table, one row
+    // per customer (invoice rows collapsed), no summary cards / projection / aging bar.
     let print_css =
         'body{padding:0;margin:0;background:#fff;}' +
         // Kill centering/max-width so content starts at the left edge of the page
         '.ard-container{max-width:none!important;margin:0!important;padding:4px 6px!important;}' +
         '#ard-pdf-page{padding:0;}' +
-        // Hide interactive UI
+        // Purple logo banner at the very top (matches the Google Sheet header)
+        '.ard-pdf-logo-banner{background:#5a1a9e;padding:12px 18px;margin:0 0 8px;text-align:left;}' +
+        '.ard-pdf-logo-banner img{height:64px;width:auto;display:inline-block;}' +
+        // Hide interactive UI and the non-sheet dashboard sections
         '.ard-filter-bar,.ard-copy-btn,.ard-expand-btn,.ard-btn-secondary,.ard-btn-danger,' +
-        '.ard-header-right,.ard-btn-group{display:none!important;}' +
-        '.ard-invoice-row{display:table-row!important;}' +
-        // Summary cards and header: compact
+        '.ard-header-right,.ard-btn-group,' +
+        '#ard-summary-section,#ard-projection-section,#ard-aging-section{display:none!important;}' +
+        // Sheet shows one row per customer — keep invoice detail rows collapsed
+        '.ard-invoice-row{display:none!important;}' +
+        // Interactive controls print as plain text (recon / POC / New AR / Notebox)
+        '.ard-recon-select,.ard-poc-select{border:none!important;background:transparent!important;' +
+          '-webkit-appearance:none;appearance:none;padding:0!important;}' +
+        '.ard-new-ar-btn{border:none!important;background:transparent!important;padding:0!important;' +
+          'color:#202124!important;font-weight:600;}' +
+        '.ard-notebox-input,.ard-notebox-readonly{border:none!important;background:transparent!important;' +
+          'padding:0!important;min-height:0!important;min-width:120px;}' +
+        // Notes may be long — let the Notebox column wrap instead of clipping
+        '.ard-td-notebox,.ard-td-notebox *{white-space:normal!important;}' +
         '.ard-header{padding:4px 0!important;margin-bottom:4px!important;}' +
-        '.ard-summary-row{gap:4px!important;margin-bottom:4px!important;}' +
-        '.ard-card{padding:5px 8px!important;min-width:0!important;}' +
-        '.ard-card-label{font-size:7px!important;}' +
-        '.ard-card-value{font-size:11px!important;}' +
-        '.ard-projection-wrap,.ard-aging-dist-wrap{margin-bottom:4px!important;padding:6px 8px!important;}' +
         // Remove all scroll/height constraints so scrollWidth is accurate
         '.ard-table-wrap{overflow:visible!important;max-height:none!important;height:auto!important;' +
           'border:none!important;box-shadow:none!important;border-radius:0!important;}' +
@@ -1414,6 +1507,8 @@ function export_pdf(page) {
         // Neutralise sticky positioning so nothing overlaps when laid flat
         '.ard-th-sticky,.ard-td-sticky,.ard-grid-rownum,.ard-grid-corner,' +
         '.ard-table thead th{position:static!important;left:auto!important;top:auto!important;box-shadow:none!important;}' +
+        // Keep the sheet column tints in the printed PDF
+        '*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}' +
         '@page{size:landscape;margin:5mm;}';
 
     // Measure the widest .ard-table directly (not the outer wrapper — the wrapper
@@ -1436,19 +1531,45 @@ function export_pdf(page) {
         '  setTimeout(function(){window.print();},400);' +
         '};';
 
-    w.document.write(
-        '<!doctype html><html><head><meta charset="utf-8"><title>AR Aging Report</title>' + head +
-        '<style>' + print_css + '</style>' +
-        '<scr' + 'ipt>' + fit_script + '</scr' + 'ipt>' +
-        '</head><body><div id="ard-pdf-page">' + container.outerHTML + '</div></body></html>'
-    );
-    w.document.close();
-    w.focus();
+    // Write the print document once we have the logo (embedded as a data URI so it
+    // is guaranteed to render — no dependency on the blank window resolving /files).
+    function write_doc(logo_src) {
+        let logo_banner = logo_src
+            ? '<div class="ard-pdf-logo-banner"><img src="' + logo_src + '" alt="Motley Terpz"></div>'
+            : '';
+        w.document.write(
+            '<!doctype html><html><head><meta charset="utf-8"><title>AR Aging Report</title>' + head +
+            '<style>' + print_css + '</style>' +
+            '<scr' + 'ipt>' + fit_script + '</scr' + 'ipt>' +
+            '</head><body><div id="ard-pdf-page">' + logo_banner + container.outerHTML + '</div></body></html>'
+        );
+        w.document.close();
+        w.focus();
+    }
+
+    // Convert the (same-origin) logo to a data URI via canvas, then write. If it
+    // can't be loaded for any reason, still produce the PDF without the banner.
+    let img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = function () {
+        try {
+            let canvas = document.createElement("canvas");
+            canvas.width = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+            canvas.getContext("2d").drawImage(img, 0, 0);
+            write_doc(canvas.toDataURL("image/png"));
+        } catch (e) {
+            write_doc(window.location.origin + '/files/Motley-Terpz-Web-Logo.png');
+        }
+    };
+    img.onerror = function () { write_doc(null); };
+    img.src = window.location.origin + '/files/Motley-Terpz-Web-Logo.png';
 }
 
-// Show/hide the export wrap and hide-cols button based on whether data is on screen.
+// Show/hide the export wrap based on whether data is on screen.
+// The sheet layout has no detail columns, so the Hide Columns D–K button stays hidden.
 function show_export_buttons(page, has_rows) {
-    page.main.find('#ard-export-dd, #ard-hide-cols-btn, #ard-new-ar-only-btn').toggle(!!has_rows);
+    page.main.find('#ard-export-dd, #ard-new-ar-only-btn').toggle(!!has_rows);
     if (!has_rows) page.main.find('#ard-export-menu').hide();
 }
 
@@ -1508,7 +1629,8 @@ function export_excel(page, use_all) {
     if (show_terms) {
         if (split_ln)        { header.push("Legacy AR", "New AR"); }
         if (show_legacy_col) { header.push("Legacy AR", "New AR"); }
-        header.push("Total AR", "Good AR", "Bad AR", "0-10 Days", "10-20 Days", "20-30 Days");
+        header.push("Total AR", "Total New AR on Good standing", "Total New AR on Bad standing",
+            "0-10 Days left in terms", "10-20 Days left in terms", "20-30 Days left in terms");
     }
     ranges.forEach(function (r) { header.push(r.label + " Days"); });
     header.push("New AR");

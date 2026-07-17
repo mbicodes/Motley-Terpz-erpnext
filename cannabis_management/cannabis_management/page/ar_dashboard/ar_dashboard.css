@@ -1061,3 +1061,169 @@
 /* Invoice count in sticky cell: hidden by default, shown when compact   */
 .ard-invoice-count-compact { display: none; }
 .ard-detail-hidden .ard-invoice-count-compact { display: block; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Spreadsheet skin — matches the AR recon Google Sheet
+   ═══════════════════════════════════════════════════════════════════════ */
+.ard-sheet .ard-invoice-count-compact { display: block; }
+
+.ard-sheet .ard-table {
+	font-size: 12px;
+	background: #fff;
+	border-collapse: collapse;
+}
+.ard-sheet .ard-table th,
+.ard-sheet .ard-table td {
+	border: 1px solid #d9d9d9;
+}
+
+/* Header rows: white sheet look, bold black labels, no uppercase */
+.ard-sheet .ard-table thead tr { background: #fff; border-bottom: none; }
+.ard-sheet .ard-table thead th { background-color: #fff; }
+.ard-sheet .ard-head-row th {
+	color: #202124;
+	text-transform: none;
+	letter-spacing: 0;
+	font-size: 11.5px;
+	font-weight: 700;
+	padding: 7px 10px;
+	vertical-align: bottom;
+	min-width: 92px;
+}
+.ard-sheet .ard-head-row th small { font-weight: 600; color: inherit; }
+.ard-sheet .ard-head-row th.ard-th-sticky { min-width: 230px; }
+.ard-sheet .ard-head-row th.ard-th-recon { min-width: 150px; }
+
+/* Column-specific header tints (sheet colors) */
+.ard-sheet .ard-head-row th.ard-col-legacy   { background-color: #fff8e1; color: #92400e; }
+.ard-sheet .ard-head-row th.ard-na-new       { background-color: #fff; color: #202124; }
+.ard-sheet .ard-head-row th.ard-na-total     { background-color: #fff; color: #202124; }
+.ard-sheet .ard-head-row th.ard-na-good      { background-color: #fff; color: #38761d; }
+.ard-sheet .ard-head-row th.ard-na-bad       { background-color: #fff; color: #cc0000; }
+.ard-sheet .ard-head-row th.ard-term-red     { background-color: #fce8e6; color: #cc0000; }
+.ard-sheet .ard-head-row th.ard-term-amber   { background-color: #fff8e1; color: #b45309; }
+.ard-sheet .ard-head-row th.ard-term-green   { background-color: #d9ead3; color: #38761d; }
+
+/* Overdue headers: graduated pinks, red labels */
+.ard-sheet .ard-head-row th.ard-th-range.bar-current { color: #cc0000; background: #fdf0ef; }
+.ard-sheet .ard-head-row th.ard-th-range.bar-30      { color: #cc0000; background: #fbe3e1; }
+.ard-sheet .ard-head-row th.ard-th-range.bar-60      { color: #b80000; background: #f8d4d1; }
+.ard-sheet .ard-head-row th.ard-th-range.bar-90      { color: #a60000; background: #f5c4c0; }
+.ard-sheet .ard-head-row th.ard-th-range.bar-120     { color: #940000; background: #f1b3ae; }
+
+/* Group band row (row 3 in the sheet) */
+.ard-sheet .ard-band-row th {
+	position: static;
+	padding: 4px 8px;
+	font-size: 11px;
+	font-weight: 700;
+	text-align: center;
+	text-transform: none;
+	letter-spacing: .2px;
+	border: 1px solid #d9d9d9;
+}
+.ard-sheet .ard-band-blank   { background-color: #fff !important; }
+.ard-sheet .ard-band-terms   { background-color: #fff2cc !important; color: #bf8f00; }
+.ard-sheet .ard-band-overdue { background-color: #f4cccc !important; color: #cc0000; }
+
+/* TOTALS row pinned at the top of the sheet */
+.ard-sheet .ard-top-totals td {
+	background-color: #f8f9fa;
+	font-weight: 700;
+	color: #202124;
+	border: 1px solid #d9d9d9;
+	font-size: 12px;
+	padding: 7px 10px;
+}
+.ard-sheet .ard-top-totals .ard-td-sticky { background-color: #f8f9fa; }
+
+/* Body: white rows like the sheet (group rows carry the customer totals) */
+.ard-sheet .ard-customer-group-row td {
+	background-color: #fff;
+	border-top: 1px solid #d9d9d9;
+	font-weight: 600;
+	font-size: 12px;
+}
+.ard-sheet .ard-customer-group-row .ard-td-sticky { background-color: #fff; }
+.ard-sheet .ard-customer-group-row:hover td             { background-color: #f5f8ff; }
+.ard-sheet .ard-customer-group-row:hover .ard-td-sticky { background-color: #f5f8ff; }
+
+/* Legacy AR column: light amber fill, amber values (sheet column H) */
+.ard-sheet td.ard-col-legacy {
+	background-color: #fff8e1 !important;
+	color: #b45309;
+	font-weight: 700;
+}
+
+/* On-terms columns: pink / cream / green fills */
+.ard-sheet td.ard-term-red   { background-color: #fce8e6 !important; color: #cc0000; font-weight: 600; }
+.ard-sheet td.ard-term-amber { background-color: #fff8e1 !important; color: #92400e; font-weight: 600; }
+.ard-sheet td.ard-term-green { background-color: #d9ead3 !important; color: #38761d; font-weight: 600; }
+
+/* Good / Bad standing value colors */
+.ard-sheet td.ard-na-good { color: #38761d; }
+.ard-sheet td.ard-na-bad  { color: #cc0000; }
+
+/* Overdue cells: graduated pinks with red values (lightest → darkest) */
+.ard-sheet .ard-range-cell.bar-current { color: #cc0000; background: #fdf0ef; font-weight: 600; }
+.ard-sheet .ard-range-cell.bar-30      { color: #cc0000; background: #fbe3e1; font-weight: 600; }
+.ard-sheet .ard-range-cell.bar-60      { color: #b80000; background: #f8d4d1; font-weight: 600; }
+.ard-sheet .ard-range-cell.bar-90      { color: #a60000; background: #f5c4c0; font-weight: 600; }
+.ard-sheet .ard-range-cell.bar-120     { color: #940000; background: #f1b3ae; font-weight: 600; }
+.ard-sheet .ard-range-cell.ard-range-zero { background: #fdf0ef; color: #d3a7a3; }
+
+/* Invoice detail rows (expanded) */
+.ard-sheet .ard-inv-meta {
+	font-size: 10px;
+	color: var(--ard-muted);
+	margin-top: 2px;
+	font-weight: 400;
+}
+
+/* 120+ bucket support outside the table (cards / aging bar / legend) */
+.ard-card-range.bar-120 { border-top: 3px solid #7f1d1d; }
+.ard-card-range.bar-120::before { display: none; }
+.ard-card-range.bar-120 .ard-card-value { color: #7f1d1d; }
+.ard-bar-seg.bar-120    { background: #7f1d1d; }
+.ard-legend-dot.bar-120 { background: #7f1d1d; }
+
+/* ── Editable Notebox column ─────────────────────────────────────────── */
+.ard-th-notebox { min-width: 160px; }
+.ard-td-notebox { padding: 4px 6px !important; vertical-align: top; }
+.ard-notebox-input {
+	min-width: 150px;
+	min-height: 26px;
+	max-width: 260px;
+	padding: 4px 7px;
+	border: 1px solid var(--ard-border);
+	border-radius: 5px;
+	background: var(--ard-surface);
+	color: var(--ard-text);
+	font-size: 12px;
+	font-weight: 400;
+	line-height: 1.4;
+	white-space: pre-wrap;
+	word-break: break-word;
+	cursor: text;
+	transition: border-color .15s, box-shadow .15s;
+}
+.ard-notebox-input:hover { border-color: var(--ard-border-hover); }
+.ard-notebox-input:focus {
+	outline: none;
+	border-color: var(--ard-primary);
+	box-shadow: 0 0 0 2px rgba(124, 58, 237, .15);
+	background: #fff;
+}
+/* Placeholder text when the note is empty */
+.ard-notebox-input:empty::before {
+	content: attr(data-placeholder);
+	color: var(--ard-muted);
+	opacity: .7;
+}
+.ard-notebox-readonly {
+	font-size: 12px;
+	font-weight: 400;
+	color: var(--ard-text);
+	white-space: pre-wrap;
+	word-break: break-word;
+}

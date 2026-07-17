@@ -293,6 +293,52 @@
 }
 .mbi-export-btn:hover { background: #f1f5f9; color: var(--sd-emerald); border-color: var(--sd-emerald); }
 
+/* ── Trigger report ─────────────────────────────────────────────────────── */
+.mbi-trigger-row { display: flex; gap: 14px; flex-wrap: wrap; padding: 18px 18px 10px; }
+.mbi-trigger-btn {
+  flex: 1; min-width: 280px; display: flex; align-items: center; gap: 14px;
+  padding: 14px 18px; border: 1px solid var(--sd-border); border-radius: 10px;
+  background: #fff; cursor: pointer; text-align: left;
+  font-family: 'DM Sans', sans-serif; transition: all 0.18s;
+}
+.mbi-trigger-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(15,23,42,0.08);
+}
+.mbi-trigger-btn.blue:hover:not(:disabled)   { border-color: var(--sd-blue); }
+.mbi-trigger-btn.violet:hover:not(:disabled) { border-color: var(--sd-violet); }
+.mbi-trigger-btn:disabled { opacity: 0.55; cursor: default; }
+.mbi-trigger-icon {
+  width: 38px; height: 38px; border-radius: 10px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.mbi-trigger-icon svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2; }
+.mbi-trigger-btn.blue .mbi-trigger-icon   { background: var(--sd-blue-dim); color: var(--sd-blue); }
+.mbi-trigger-btn.violet .mbi-trigger-icon { background: var(--sd-violet-dim); color: var(--sd-violet); }
+.mbi-trigger-btn.sending .mbi-trigger-icon { animation: mbiSendPulse 1s ease-in-out infinite; }
+@keyframes mbiSendPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+.mbi-trigger-text { min-width: 0; }
+.mbi-trigger-label {
+  display: block; font-size: 13px; font-weight: 700;
+  color: var(--sd-text-primary); letter-spacing: -0.1px;
+}
+.mbi-trigger-emails {
+  display: block; font-size: 11px; color: var(--sd-text-muted); margin-top: 2px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mbi-trigger-arrow {
+  margin-left: auto; flex-shrink: 0; color: var(--sd-text-muted);
+  transition: transform 0.18s, color 0.18s;
+}
+.mbi-trigger-arrow svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; }
+.mbi-trigger-btn.blue:hover:not(:disabled) .mbi-trigger-arrow   { transform: translateX(3px); color: var(--sd-blue); }
+.mbi-trigger-btn.violet:hover:not(:disabled) .mbi-trigger-arrow { transform: translateX(3px); color: var(--sd-violet); }
+.mbi-trigger-note {
+  padding: 0 18px 16px; font-size: 11px; color: var(--sd-text-muted);
+  display: flex; align-items: center; gap: 6px;
+}
+.mbi-trigger-note svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2; flex-shrink: 0; }
+
 /* ── Responsive ─────────────────────────────────────────────────────────── */
 @media (max-width: 1100px) {
   .mbi-kpi-row { grid-template-columns: repeat(4,1fr); }

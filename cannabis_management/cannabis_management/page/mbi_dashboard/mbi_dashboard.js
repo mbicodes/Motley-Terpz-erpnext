@@ -18,6 +18,7 @@ function init_mbi(page, wrapper) {
 	wire_company_toggle(root, state, page);
 	wire_section_collapse(root);
 	wire_tabs(root);
+	wire_trigger_report(root);
 	load_all(root, state);
 
 	root.querySelector('#mbi-refresh-btn').addEventListener('click', function() {
@@ -46,6 +47,48 @@ function get_mbi_html() {
       <svg class="mbi-section-icon" viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.81"/></svg>
       Refresh
     </button>
+  </div>
+</div>
+
+<div class="mbi-section" id="mbi-sec-trigger">
+  <div class="mbi-section-header" data-sec="trigger">
+    <span class="mbi-section-title">
+      <svg class="mbi-section-icon" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      Trigger Report
+    </span>
+    <svg class="mbi-chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+  </div>
+  <div class="mbi-section-body" id="trigger-body">
+    <div class="mbi-trigger-row">
+      <button class="mbi-trigger-btn blue" data-target="mbi">
+        <span class="mbi-trigger-icon">
+          <svg viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </span>
+        <span class="mbi-trigger-text">
+          <span class="mbi-trigger-label">Send Report to MBI</span>
+          <span class="mbi-trigger-emails">mbi@alltechvirtual.com</span>
+        </span>
+        <span class="mbi-trigger-arrow">
+          <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </span>
+      </button>
+      <button class="mbi-trigger-btn violet" data-target="team">
+        <span class="mbi-trigger-icon">
+          <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </span>
+        <span class="mbi-trigger-text">
+          <span class="mbi-trigger-label">Send Report to Nikki, Matt &amp; Imran</span>
+          <span class="mbi-trigger-emails">nikki@motleyterpz.com &middot; matt@motleyterpz.com &middot; imran@motleyterpz.com</span>
+        </span>
+        <span class="mbi-trigger-arrow">
+          <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </span>
+      </button>
+    </div>
+    <div class="mbi-trigger-note">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      Emails the Weekly Sale Report for the current week with the detailed PDF attached.
+    </div>
   </div>
 </div>
 
@@ -114,6 +157,46 @@ function mbi_section(id, body_id, title, icon_svg, badge_html, collapsed) {
     <div class="mbi-loading"><div class="mbi-spinner"></div>Loading…</div>
   </div>
 </div>`;
+}
+
+/* ─── Trigger report buttons ────────────────────────────────────────────── */
+var TRIGGER_TARGET_LABELS = {
+	'mbi':  'mbi@alltechvirtual.com',
+	'team': 'nikki@motleyterpz.com, matt@motleyterpz.com, imran@motleyterpz.com'
+};
+
+function wire_trigger_report(root) {
+	root.querySelectorAll('.mbi-trigger-btn').forEach(function(btn) {
+		btn.addEventListener('click', function() {
+			var target = btn.dataset.target;
+			var emails = TRIGGER_TARGET_LABELS[target] || target;
+			frappe.confirm(
+				__('Send the Weekly Sale Report to <b>{0}</b>?', [frappe.utils.escape_html(emails)]),
+				function() {
+					var label = btn.querySelector('.mbi-trigger-label');
+					var orig = label ? label.textContent : '';
+					btn.disabled = true;
+					btn.classList.add('sending');
+					if (label) label.textContent = __('Sending…');
+					frappe.call({
+						method: 'cannabis_management.api.weekly_report.trigger_report',
+						args: { target: target },
+						callback: function() {
+							frappe.show_alert({message: __('Report sent to {0}', [frappe.utils.escape_html(emails)]), indicator: 'green'});
+						},
+						error: function() {
+							frappe.show_alert({message: __('Failed to send report'), indicator: 'red'});
+						},
+						always: function() {
+							btn.disabled = false;
+							btn.classList.remove('sending');
+							if (label) label.textContent = orig;
+						}
+					});
+				}
+			);
+		});
+	});
 }
 
 /* ─── Collapse / expand ─────────────────────────────────────────────────── */
