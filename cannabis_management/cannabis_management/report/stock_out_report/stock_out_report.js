@@ -45,7 +45,7 @@ frappe.query_reports["Stock Out Report"] = {
 			fieldname: "voucher_type",
 			label: __("Voucher Type"),
 			fieldtype: "Select",
-			options: "\nDelivery Note\nSales Invoice\nStock Entry\nStock Reconciliation",
+			options: "\nDelivery Note\nSales Invoice\nStock Reconciliation",
 		},
 	],
 };
