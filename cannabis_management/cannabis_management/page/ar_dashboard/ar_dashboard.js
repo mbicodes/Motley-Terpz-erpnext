@@ -362,8 +362,8 @@ function render_monthly_collection(page, data) {
 					<thead>
 						<tr>
 							<th>Week</th>
-							<th class="ard-num">Legacy Collected</th>
-							<th class="ard-num">New AR Collected</th>
+							<th class="ard-th-num">Legacy Collected</th>
+							<th class="ard-th-num">New AR Collected</th>
 						</tr>
 					</thead>
 					<tbody>${weekly_rows}</tbody>
@@ -383,11 +383,11 @@ function render_monthly_collection(page, data) {
 						<th colspan="2" class="ard-monthly-group-new">New AR (invoices &ge; Jun 1, 2026)</th>
 					</tr>
 					<tr>
-						<th class="ard-num">Collected</th>
-						<th class="ard-num">Adjustments</th>
-						<th class="ard-num">Balance (EOM)</th>
-						<th class="ard-num">Collected</th>
-						<th class="ard-num">Adjustments</th>
+						<th class="ard-th-num">Collected</th>
+						<th class="ard-th-num">Adjustments</th>
+						<th class="ard-th-num">Balance (EOM)</th>
+						<th class="ard-th-num">Collected</th>
+						<th class="ard-th-num">Adjustments</th>
 					</tr>
 				</thead>
 				<tbody>${monthly_rows_html || '<tr><td colspan="6" class="ard-empty">No collection activity found.</td></tr>'}</tbody>
