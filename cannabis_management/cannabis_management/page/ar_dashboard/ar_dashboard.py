@@ -414,6 +414,22 @@ def update_poc(party, value):
 
 
 @frappe.whitelist()
+def update_notebox(party, value):
+    """Save free-text notes to the custom_notebox field on the Customer master.
+    The note persists until changed, and rides along in every export."""
+    if not _can_edit_recon():
+        frappe.throw(
+            "You do not have permission to edit notes.",
+            frappe.PermissionError,
+        )
+    if not frappe.db.exists("Customer", party):
+        frappe.throw(f"Customer {party} not found")
+
+    frappe.db.set_value("Customer", party, "custom_notebox", value or "")
+    return {"party": party, "value": value or ""}
+
+
+@frappe.whitelist()
 def update_new_ar_available(party, value):
     """Toggle the custom_new_ar_available flag on the Customer master."""
     if not _can_edit_recon():

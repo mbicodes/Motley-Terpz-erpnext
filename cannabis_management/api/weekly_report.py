@@ -70,6 +70,27 @@ def send_weekly_report():
 
 # ── Manual triggers ───────────────────────────────────────────────────────────
 
+# Fixed recipient sets for the MBI Dashboard "Trigger Report" buttons.
+# Kept server-side so the client can never pass arbitrary addresses.
+TRIGGER_TARGETS = {
+    "mbi":  ["mbi@alltechvirtual.com"],
+    "team": ["nikki@motleyterpz.com", "matt@motleyterpz.com", "imran@motleyterpz.com"],
+}
+
+
+@frappe.whitelist()
+def trigger_report(target, week_start=None, week_end=None):
+    recipients = TRIGGER_TARGETS.get(target)
+    if not recipients:
+        frappe.throw("Unknown report target: {0}".format(frappe.bold(target)))
+    if not week_start:
+        week_start, week_end = _week_range()
+    if not week_end:
+        week_end = str(getdate(week_start) + timedelta(days=4))
+    _do_send(week_start, week_end, recipients)
+    return {"sent_to": recipients}
+
+
 @frappe.whitelist()
 def send_now_2(week_start=None, week_end=None):
     if not week_start:

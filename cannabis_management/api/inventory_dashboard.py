@@ -1,24 +1,38 @@
 import frappe
 
+# All groups except Fresh Frozen are restricted to this company's warehouses
+MTM_COMPANY = "Master Touch Manufacturing"
+FRESH_FROZEN_GROUPS = ("Fresh Frozen", "Fresh Frozen - BHO", "Fresh Frozen - SHO")
+
+
 @frappe.whitelist(allow_guest=True)
 def get_stock_by_item_group(item_group, _=None):
+    company_condition = ""
+    values = [item_group]
+
+    if item_group not in FRESH_FROZEN_GROUPS:
+        company_condition = "AND w.company = %s"
+        values.append(MTM_COMPANY)
+
     items = frappe.db.sql("""
-        SELECT 
-            b.item_code, 
+        SELECT
+            b.item_code,
             i.item_name,
             i.item_group,
-            b.warehouse, 
+            b.warehouse,
             b.actual_qty,
             b.reserved_stock as reserved_qty
         FROM `tabBin` b
         INNER JOIN `tabItem` i ON i.name = b.item_code
+        INNER JOIN `tabWarehouse` w ON w.name = b.warehouse
         WHERE i.item_group = %s
             AND i.disabled = 0
             AND i.custom_show_in_dashboard = 1
             AND b.actual_qty != 0
             AND b.warehouse NOT LIKE 'Virtual%%'
+            {company_condition}
         ORDER BY i.item_name
-    """, (item_group,), as_dict=True)
+    """.format(company_condition=company_condition), tuple(values), as_dict=True)
 
     # Collect all unique item_codes
     item_codes = list(set(item.item_code for item in items))
