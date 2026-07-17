@@ -4,10 +4,6 @@
 import frappe
 from frappe import _
 
-# Stock Entry purposes that only move stock between warehouses inside the
-# same company — not a real outward movement, so excluded from this report.
-INTERNAL_TRANSFER_PURPOSES = ("Material Transfer", "Material Transfer for Manufacture")
-
 
 def execute(filters=None):
 	filters = frappe._dict(filters or {})
@@ -51,14 +47,13 @@ def get_data(filters):
 			sle.company
 		FROM `tabStock Ledger Entry` sle
 		LEFT JOIN `tabItem` it ON it.name = sle.item_code
-		LEFT JOIN `tabStock Entry` se ON se.name = sle.voucher_no AND sle.voucher_type = 'Stock Entry'
 		WHERE sle.is_cancelled = 0
 			AND sle.actual_qty < 0
-			AND (se.name IS NULL OR se.purpose NOT IN %(internal_transfer_purposes)s)
+			AND sle.voucher_type != 'Stock Entry'
 			{conditions}
 		ORDER BY sle.posting_date DESC, sle.posting_time DESC
 		""",
-		{**values, "internal_transfer_purposes": INTERNAL_TRANSFER_PURPOSES},
+		values,
 		as_dict=True,
 	)
 

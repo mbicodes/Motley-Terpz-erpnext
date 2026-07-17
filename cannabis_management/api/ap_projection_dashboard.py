@@ -5,6 +5,7 @@ from frappe import _
 from frappe.utils import add_days, add_months, flt, get_first_day, get_last_day, getdate, nowdate
 
 ALLOWED_ROLES = ("System Manager", "Accounts Manager", "Accounts User")
+IN_SCOPE_ABBRS = ("MTM", "TSBC", "MT")  # Master Touch Manufacturing, TSBC Ranch, Motley Terpz
 
 FREQUENCY_STEP = {
     "Daily": lambda d: add_days(d, 1),
@@ -25,8 +26,9 @@ def _check_permission():
 def _scope_companies():
     return frappe.get_list(
         "Company",
+        filters={"abbr": ["in", list(IN_SCOPE_ABBRS)]},
         fields=["name", "abbr"],
-        order_by="name",
+        order_by="abbr",
     )
 
 
