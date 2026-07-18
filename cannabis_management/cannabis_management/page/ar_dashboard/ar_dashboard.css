@@ -1259,11 +1259,11 @@
 }
 .ard-monthly-tiles {
 	display: grid;
-	grid-template-columns: repeat(4, 1fr);
+	grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
 	gap: 10px;
 	margin-bottom: 14px;
 }
-@media (max-width: 900px) {
+@media (max-width: 640px) {
 	.ard-monthly-tiles { grid-template-columns: repeat(2, 1fr); }
 }
 .ard-monthly-tile {
@@ -1310,10 +1310,6 @@
 .ard-monthly-balance {
 	font-weight: 700;
 	color: #dc2626;
-}
-.ard-monthly-adj {
-	color: #7c3aed;
-	font-weight: 600;
 }
 .ard-monthly-weekly-wrap .ard-table {
 	min-width: 480px;
