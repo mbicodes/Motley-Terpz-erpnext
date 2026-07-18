@@ -99,7 +99,7 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
 			<div class="ard-monthly-section">
 				<div class="ard-monthly-header">
 					<h3 class="ard-monthly-title">Month-wise Collection &mdash; Legacy vs New AR</h3>
-					<p class="ard-monthly-subtitle">Payment entries against invoices posted before Jun 1, 2026 (Legacy) vs on/after Jun 1, 2026 (New AR). Adjustments (credit notes / journal entries) are tracked separately from cash collected.</p>
+					<p class="ard-monthly-subtitle">Payment entries received in Cash or Bank against invoices posted before Jun 1, 2026 (Legacy) vs on/after Jun 1, 2026 (New AR).</p>
 				</div>
 				<div id="ard-monthly-area">
 					<div class="ard-loading">
@@ -320,13 +320,16 @@ function render_monthly_collection(page, data) {
 				<span>Legacy AR Balance (now)</span><b>${fmt_cur(data.totals.legacy_balance_now)}</b>
 			</div>
 			<div class="ard-monthly-tile">
-				<span>Legacy Collected (all time)</span><b>${fmt_cur(data.totals.legacy_collected)}</b>
+				<span>Legacy Cash (all time)</span><b>${fmt_cur(data.totals.legacy_cash)}</b>
 			</div>
 			<div class="ard-monthly-tile">
-				<span>Legacy Adjustments (all time)</span><b>${fmt_cur(data.totals.legacy_adjustment)}</b>
+				<span>Legacy Bank (all time)</span><b>${fmt_cur(data.totals.legacy_bank)}</b>
 			</div>
 			<div class="ard-monthly-tile ard-monthly-tile-new">
-				<span>New AR Collected (all time)</span><b>${fmt_cur(data.totals.new_collected)}</b>
+				<span>New AR Cash (all time)</span><b>${fmt_cur(data.totals.new_cash)}</b>
+			</div>
+			<div class="ard-monthly-tile ard-monthly-tile-new">
+				<span>New AR Bank (all time)</span><b>${fmt_cur(data.totals.new_bank)}</b>
 			</div>
 		</div>
 	`;
@@ -335,11 +338,11 @@ function render_monthly_collection(page, data) {
         return `
 			<tr>
 				<td class="ard-monthly-month">${r.label}</td>
-				<td class="ard-num">${fmt_cur(r.legacy_collected)}</td>
-				<td class="ard-num ${r.legacy_adjustment ? 'ard-monthly-adj' : ''}">${r.legacy_adjustment ? fmt_cur(r.legacy_adjustment) : '&mdash;'}</td>
+				<td class="ard-num">${r.legacy_cash ? fmt_cur(r.legacy_cash) : '&mdash;'}</td>
+				<td class="ard-num">${r.legacy_bank ? fmt_cur(r.legacy_bank) : '&mdash;'}</td>
 				<td class="ard-num ard-monthly-balance">${fmt_cur(r.legacy_balance)}</td>
-				<td class="ard-num">${r.new_collected ? fmt_cur(r.new_collected) : '&mdash;'}</td>
-				<td class="ard-num ${r.new_adjustment ? 'ard-monthly-adj' : ''}">${r.new_adjustment ? fmt_cur(r.new_adjustment) : '&mdash;'}</td>
+				<td class="ard-num">${r.new_cash ? fmt_cur(r.new_cash) : '&mdash;'}</td>
+				<td class="ard-num">${r.new_bank ? fmt_cur(r.new_bank) : '&mdash;'}</td>
 			</tr>
 		`;
     }).join('');
@@ -350,8 +353,10 @@ function render_monthly_collection(page, data) {
             return `
 				<tr>
 					<td class="ard-monthly-month">${w.label}</td>
-					<td class="ard-num">${w.legacy_collected ? fmt_cur(w.legacy_collected) : '&mdash;'}</td>
-					<td class="ard-num">${w.new_collected ? fmt_cur(w.new_collected) : '&mdash;'}</td>
+					<td class="ard-num">${w.legacy_cash ? fmt_cur(w.legacy_cash) : '&mdash;'}</td>
+					<td class="ard-num">${w.legacy_bank ? fmt_cur(w.legacy_bank) : '&mdash;'}</td>
+					<td class="ard-num">${w.new_cash ? fmt_cur(w.new_cash) : '&mdash;'}</td>
+					<td class="ard-num">${w.new_bank ? fmt_cur(w.new_bank) : '&mdash;'}</td>
 				</tr>
 			`;
         }).join('');
@@ -361,9 +366,15 @@ function render_monthly_collection(page, data) {
 				<table class="ard-table">
 					<thead>
 						<tr>
-							<th>Week</th>
-							<th class="ard-th-num">Legacy Collected</th>
-							<th class="ard-th-num">New AR Collected</th>
+							<th rowspan="2">Week</th>
+							<th colspan="2" class="ard-monthly-group-legacy">Legacy AR</th>
+							<th colspan="2" class="ard-monthly-group-new">New AR</th>
+						</tr>
+						<tr>
+							<th class="ard-th-num">Cash</th>
+							<th class="ard-th-num">Bank</th>
+							<th class="ard-th-num">Cash</th>
+							<th class="ard-th-num">Bank</th>
 						</tr>
 					</thead>
 					<tbody>${weekly_rows}</tbody>
@@ -383,11 +394,11 @@ function render_monthly_collection(page, data) {
 						<th colspan="2" class="ard-monthly-group-new">New AR (invoices &ge; Jun 1, 2026)</th>
 					</tr>
 					<tr>
-						<th class="ard-th-num">Collected</th>
-						<th class="ard-th-num">Adjustments</th>
+						<th class="ard-th-num">Cash</th>
+						<th class="ard-th-num">Bank</th>
 						<th class="ard-th-num">Balance (EOM)</th>
-						<th class="ard-th-num">Collected</th>
-						<th class="ard-th-num">Adjustments</th>
+						<th class="ard-th-num">Cash</th>
+						<th class="ard-th-num">Bank</th>
 					</tr>
 				</thead>
 				<tbody>${monthly_rows_html || '<tr><td colspan="6" class="ard-empty">No collection activity found.</td></tr>'}</tbody>

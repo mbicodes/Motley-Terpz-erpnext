@@ -504,11 +504,14 @@ def get_monthly_ar_collection(company=None):
 
 def _get_monthly_ar_collection(company=None):
     """Month-wise cash collected against Legacy AR (invoices posted on/before
-    2026-05-31) vs New AR (invoices posted on/after 2026-06-01), plus
-    non-payment adjustments (credit notes / journal entries against an
-    invoice) tracked separately so they never get mistaken for cash
-    collected, plus the Legacy AR balance at each month end (which can only
-    shrink — no new legacy invoices are ever created after the cutoff).
+    2026-05-31) vs New AR (invoices posted on/after 2026-06-01), split by
+    Cash vs Bank (by the receiving account's account_type — same convention
+    used by the Sales Overview / Weekly Cash Ledger pages), plus the Legacy
+    AR balance at each month end (which can only shrink — no new legacy
+    invoices are ever created after the cutoff).
+
+    Only real Payment Entries (money actually received) count here — no
+    credit notes / write-offs / journal adjustments.
 
     Intercompany customers are excluded from every query below.
     """
@@ -522,42 +525,26 @@ def _get_monthly_ar_collection(company=None):
         **company_params,
     }
 
-    # ── Cash collected: Payment Entry allocations against Sales Invoices ──────
+    # ── Cash received: Payment Entry allocations against Sales Invoices ───────
+    # receipt_type is Cash only when the receiving account is flagged
+    # account_type='Cash' in the Chart of Accounts; everything else is Bank.
     collection_rows = frappe.db.sql(f"""
         SELECT
             DATE_FORMAT(pe.posting_date, '%%Y-%%m') AS month,
             CASE WHEN si.posting_date <= %(legacy_cutoff)s THEN 'legacy' ELSE 'new' END AS ar_type,
+            CASE WHEN acc.account_type = 'Cash' THEN 'cash' ELSE 'bank' END AS receipt_type,
             SUM(per.allocated_amount) AS amount
         FROM `tabPayment Entry Reference` per
         JOIN `tabPayment Entry` pe ON pe.name = per.parent
         JOIN `tabSales Invoice` si ON si.name = per.reference_name
+        LEFT JOIN `tabAccount` acc ON acc.name = pe.paid_to
         WHERE pe.docstatus = 1
           AND pe.payment_type = 'Receive'
           AND per.reference_doctype = 'Sales Invoice'
           AND si.customer NOT IN %(internal)s
           {company_cond}
-        GROUP BY month, ar_type
+        GROUP BY month, ar_type, receipt_type
     """, params, as_dict=True)
-
-    # ── Adjustments: Journal Entry lines posted against a Sales Invoice ───────
-    # (credit notes / write-offs / manual corrections — anything that shrinks
-    # AR without being a cash Payment Entry). credit - debit = AR reduction.
-    je_company_cond, je_company_params = _company_condition("je", company)
-    je_params = {"internal": internal_tuple, "legacy_cutoff": LEGACY_CUTOFF, **je_company_params}
-    adjustment_rows = frappe.db.sql(f"""
-        SELECT
-            DATE_FORMAT(je.posting_date, '%%Y-%%m') AS month,
-            CASE WHEN si.posting_date <= %(legacy_cutoff)s THEN 'legacy' ELSE 'new' END AS ar_type,
-            SUM(jea.credit_in_account_currency - jea.debit_in_account_currency) AS amount
-        FROM `tabJournal Entry Account` jea
-        JOIN `tabJournal Entry` je ON je.name = jea.parent
-        JOIN `tabSales Invoice` si ON si.name = jea.reference_name
-        WHERE je.docstatus = 1
-          AND jea.reference_type = 'Sales Invoice'
-          AND si.customer NOT IN %(internal)s
-          {je_company_cond}
-        GROUP BY month, ar_type
-    """, je_params, as_dict=True)
 
     # ── Legacy total invoiced (fixed) — anchor for the shrinking balance ──────
     si_company_cond, si_company_params = _company_condition("si", company)
@@ -573,36 +560,33 @@ def _get_monthly_ar_collection(company=None):
 
     # ── Assemble month grid ────────────────────────────────────────────────────
     today = nowdate()
-    all_months = sorted({r.month for r in collection_rows} | {r.month for r in adjustment_rows})
+    all_months = sorted({r.month for r in collection_rows})
     start_month = min(all_months) if all_months else today[:7]
     end_month = today[:7]
     months = _month_labels(start_month, end_month)
 
     by_month = {
-        m: {"legacy_collected": 0.0, "new_collected": 0.0,
-            "legacy_adjustment": 0.0, "new_adjustment": 0.0}
+        m: {"legacy_cash": 0.0, "legacy_bank": 0.0, "new_cash": 0.0, "new_bank": 0.0}
         for m in months
     }
     for r in collection_rows:
         if r.month in by_month:
-            by_month[r.month][f"{r.ar_type}_collected"] += float(r.amount or 0)
-    for r in adjustment_rows:
-        if r.month in by_month:
-            by_month[r.month][f"{r.ar_type}_adjustment"] += float(r.amount or 0)
+            by_month[r.month][f"{r.ar_type}_{r.receipt_type}"] += float(r.amount or 0)
 
-    running_reduction = 0.0
+    running_collected = 0.0
     monthly_rows = []
     for m in months:
         row = by_month[m]
-        running_reduction += row["legacy_collected"] + row["legacy_adjustment"]
+        legacy_total = row["legacy_cash"] + row["legacy_bank"]
+        running_collected += legacy_total
         monthly_rows.append({
             "month": m,
             "label": frappe.utils.formatdate(f"{m}-01", "MMM yyyy"),
-            "legacy_collected": round(row["legacy_collected"], 2),
-            "legacy_adjustment": round(row["legacy_adjustment"], 2),
-            "legacy_balance": round(legacy_total_invoiced - running_reduction, 2),
-            "new_collected": round(row["new_collected"], 2),
-            "new_adjustment": round(row["new_adjustment"], 2),
+            "legacy_cash": round(row["legacy_cash"], 2),
+            "legacy_bank": round(row["legacy_bank"], 2),
+            "legacy_balance": round(legacy_total_invoiced - running_collected, 2),
+            "new_cash": round(row["new_cash"], 2),
+            "new_bank": round(row["new_bank"], 2),
         })
 
     # ── Trailing 4 weekly blocks since June 1 (weekly granularity) ────────────
@@ -615,10 +599,12 @@ def _get_monthly_ar_collection(company=None):
             SELECT
                 pe.posting_date AS posting_date,
                 CASE WHEN si.posting_date <= %(legacy_cutoff)s THEN 'legacy' ELSE 'new' END AS ar_type,
+                CASE WHEN acc.account_type = 'Cash' THEN 'cash' ELSE 'bank' END AS receipt_type,
                 per.allocated_amount AS amount
             FROM `tabPayment Entry Reference` per
             JOIN `tabPayment Entry` pe ON pe.name = per.parent
             JOIN `tabSales Invoice` si ON si.name = per.reference_name
+            LEFT JOIN `tabAccount` acc ON acc.name = pe.paid_to
             WHERE pe.docstatus = 1
               AND pe.payment_type = 'Receive'
               AND per.reference_doctype = 'Sales Invoice'
@@ -628,18 +614,29 @@ def _get_monthly_ar_collection(company=None):
         """, wk_params, as_dict=True)
 
         from frappe.utils import getdate
+
         for blk in weekly_blocks:
             fd, td = getdate(blk["from_date"]), getdate(blk["to_date"])
-            legacy_amt = sum(float(r.amount or 0) for r in wk_rows
-                             if r.ar_type == "legacy" and fd <= getdate(str(r.posting_date)) <= td)
-            new_amt = sum(float(r.amount or 0) for r in wk_rows
-                         if r.ar_type == "new" and fd <= getdate(str(r.posting_date)) <= td)
+            legacy_cash = sum(float(r.amount or 0) for r in wk_rows
+                               if r.ar_type == "legacy" and r.receipt_type == "cash"
+                               and fd <= getdate(str(r.posting_date)) <= td)
+            legacy_bank = sum(float(r.amount or 0) for r in wk_rows
+                               if r.ar_type == "legacy" and r.receipt_type == "bank"
+                               and fd <= getdate(str(r.posting_date)) <= td)
+            new_cash = sum(float(r.amount or 0) for r in wk_rows
+                           if r.ar_type == "new" and r.receipt_type == "cash"
+                           and fd <= getdate(str(r.posting_date)) <= td)
+            new_bank = sum(float(r.amount or 0) for r in wk_rows
+                           if r.ar_type == "new" and r.receipt_type == "bank"
+                           and fd <= getdate(str(r.posting_date)) <= td)
             weekly_rows.append({
                 "label": blk["label"],
                 "from_date": blk["from_date"],
                 "to_date": blk["to_date"],
-                "legacy_collected": round(legacy_amt, 2),
-                "new_collected": round(new_amt, 2),
+                "legacy_cash": round(legacy_cash, 2),
+                "legacy_bank": round(legacy_bank, 2),
+                "new_cash": round(new_cash, 2),
+                "new_bank": round(new_bank, 2),
             })
 
     return {
@@ -648,10 +645,10 @@ def _get_monthly_ar_collection(company=None):
         "monthly": monthly_rows,
         "weekly": weekly_rows,
         "totals": {
-            "legacy_collected": round(sum(r["legacy_collected"] for r in monthly_rows), 2),
-            "legacy_adjustment": round(sum(r["legacy_adjustment"] for r in monthly_rows), 2),
-            "new_collected": round(sum(r["new_collected"] for r in monthly_rows), 2),
-            "new_adjustment": round(sum(r["new_adjustment"] for r in monthly_rows), 2),
+            "legacy_cash": round(sum(r["legacy_cash"] for r in monthly_rows), 2),
+            "legacy_bank": round(sum(r["legacy_bank"] for r in monthly_rows), 2),
+            "new_cash": round(sum(r["new_cash"] for r in monthly_rows), 2),
+            "new_bank": round(sum(r["new_bank"] for r in monthly_rows), 2),
             "legacy_balance_now": monthly_rows[-1]["legacy_balance"] if monthly_rows else round(float(legacy_total_invoiced or 0), 2),
         },
     }
