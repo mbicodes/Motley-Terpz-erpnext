@@ -1640,6 +1640,11 @@ function export_pdf(page) {
           'padding:0!important;min-height:0!important;min-width:120px;}' +
         // Notes may be long — let the Notebox column wrap instead of clipping
         '.ard-td-notebox,.ard-td-notebox *{white-space:normal!important;}' +
+        // Customer column: show only the customer name, readable size. Drop the
+        // "N invoice(s)" line and the sub-id, and let long names wrap.
+        '.ard-invoice-count-compact,.ard-customer-group-id{display:none!important;}' +
+        '.ard-td-sticky{white-space:normal!important;}' +
+        '.ard-customer-group-name{font-size:9px!important;font-weight:700!important;white-space:normal!important;}' +
         '.ard-header{padding:4px 0!important;margin-bottom:4px!important;}' +
         // Remove all scroll/height constraints so scrollWidth is accurate
         '.ard-table-wrap{overflow:visible!important;max-height:none!important;height:auto!important;' +
