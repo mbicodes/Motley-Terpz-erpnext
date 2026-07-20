@@ -517,6 +517,7 @@ fixtures = [
         "Operations",
         "ERP Dev Team",
         "Director",
+        "Farm Manager",
     ]]]},
     # Company Records workflow actions (Workflow / Workflow State are already
     # exported unfiltered above)
