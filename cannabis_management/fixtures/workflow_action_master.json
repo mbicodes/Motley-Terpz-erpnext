@@ -2,49 +2,49 @@
  {
   "docstatus": 0,
   "doctype": "Workflow Action Master",
-  "modified": "2026-07-03 10:00:00.000000",
+  "modified": "2026-07-03 10:00:00",
   "name": "Submit for Review",
   "workflow_action_name": "Submit for Review"
  },
  {
   "docstatus": 0,
   "doctype": "Workflow Action Master",
-  "modified": "2026-07-03 10:00:00.000000",
+  "modified": "2026-07-03 10:00:00",
   "name": "Approve",
   "workflow_action_name": "Approve"
  },
  {
   "docstatus": 0,
   "doctype": "Workflow Action Master",
-  "modified": "2026-07-03 10:00:00.000000",
+  "modified": "2026-07-03 10:00:00",
   "name": "Reject",
   "workflow_action_name": "Reject"
  },
  {
   "docstatus": 0,
   "doctype": "Workflow Action Master",
-  "modified": "2026-07-03 10:00:00.000000",
+  "modified": "2026-07-03 10:00:00",
   "name": "Lock",
   "workflow_action_name": "Lock"
  },
  {
   "docstatus": 0,
   "doctype": "Workflow Action Master",
-  "modified": "2026-07-03 10:00:00.000000",
+  "modified": "2026-07-03 10:00:00",
   "name": "Activate",
   "workflow_action_name": "Activate"
  },
  {
   "docstatus": 0,
   "doctype": "Workflow Action Master",
-  "modified": "2026-07-03 10:00:00.000000",
+  "modified": "2026-07-03 10:00:00",
   "name": "Mark Expired",
   "workflow_action_name": "Mark Expired"
  },
  {
   "docstatus": 0,
   "doctype": "Workflow Action Master",
-  "modified": "2026-07-03 10:00:00.000000",
+  "modified": "2026-07-03 10:00:00",
   "name": "Terminate",
   "workflow_action_name": "Terminate"
  }
