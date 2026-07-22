@@ -3,6 +3,23 @@ from frappe.utils import today, now, add_days, getdate
 
 
 # ---------------------------------------------------------------------------
+# Cancel restriction (Motley / Personal Cash Tracking)
+# ---------------------------------------------------------------------------
+
+def restrict_cancel(doc, method):
+    """before_cancel guard: block cancellation unless the current user is a
+    cash admin (Administrator / MBI). Authoritative regardless of role perms."""
+    from cannabis_management.cash_management.permissions import is_cash_admin
+    if not is_cash_admin(frappe.session.user):
+        frappe.throw(
+            "Only the Administrator or MBI can cancel a submitted cash tracking entry. "
+            "Please contact them if this entry needs to be reversed.",
+            frappe.PermissionError,
+            title="Cancellation Not Allowed",
+        )
+
+
+# ---------------------------------------------------------------------------
 # before_save helpers
 # ---------------------------------------------------------------------------
 

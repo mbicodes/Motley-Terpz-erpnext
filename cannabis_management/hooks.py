@@ -237,6 +237,14 @@ doc_events = {
             "cannabis_management.cash_management.utils.cash_utils.publish_realtime_balance",
         ],
     },
+    # Cash tracking capture forms — submittable; cancellation is restricted to
+    # the Administrator / MBI (see cash_utils.restrict_cancel).
+    "Motley Cash Tracking": {
+        "before_cancel": "cannabis_management.cash_management.utils.cash_utils.restrict_cancel",
+    },
+    "Personal Cash Tracking": {
+        "before_cancel": "cannabis_management.cash_management.utils.cash_utils.restrict_cancel",
+    },
     # -----------------------------------------------------------------------
     # CRM account enhancements (sales-team feedback, July 2026)
     "CRM Lead": {

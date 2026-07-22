@@ -5,6 +5,7 @@
  "docstatus": 0,
  "doctype": "DocType",
  "engine": "InnoDB",
+ "is_submittable": 1,
  "field_order": [
   "cash_tracker_person",
   "transaction_date",
@@ -17,7 +18,8 @@
   "reason",
   "receipt",
   "column_break_receipt",
-  "receipt_preview"
+  "receipt_preview",
+  "amended_from"
  ],
  "fields": [
   {
@@ -27,6 +29,7 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Cash Tracker Person",
+   "ignore_user_permissions": 1,
    "options": "Cash Tracker Person",
    "reqd": 1
   },
@@ -48,6 +51,7 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "User",
+   "ignore_user_permissions": 1,
    "options": "User",
    "read_only": 1
   },
@@ -56,6 +60,7 @@
    "fieldname": "employee",
    "fieldtype": "Link",
    "label": "Employee",
+   "ignore_user_permissions": 1,
    "options": "Employee",
    "read_only": 1
   },
@@ -102,6 +107,15 @@
    "fieldname": "receipt_preview",
    "fieldtype": "HTML",
    "label": "Receipt Preview"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "options": "Personal Cash Tracking",
+   "read_only": 1,
+   "print_hide": 1,
+   "no_copy": 1
   }
  ],
  "idx": 0,
@@ -113,8 +127,10 @@
  "owner": "Administrator",
  "permissions": [
   {
+   "amend": 1,
+   "cancel": 1,
    "create": 1,
-   "delete": 0,
+   "delete": 1,
    "email": 1,
    "export": 1,
    "print": 1,
@@ -122,16 +138,21 @@
    "report": 1,
    "role": "System Manager",
    "share": 1,
+   "submit": 1,
    "write": 1
   },
   {
+   "amend": 0,
+   "cancel": 0,
    "create": 1,
+   "delete": 0,
    "email": 1,
    "export": 1,
    "print": 1,
    "read": 1,
    "report": 1,
    "role": "Cash Tracking User",
+   "submit": 1,
    "write": 1
   }
  ],

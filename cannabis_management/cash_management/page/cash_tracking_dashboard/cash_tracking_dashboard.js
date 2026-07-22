@@ -1,0 +1,223 @@
+frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
+	var page = frappe.ui.make_app_page({
+		parent: wrapper,
+		title: 'Cash Tracking',
+		single_column: true
+	});
+
+	wrapper.page = page;
+	var state = {
+		tracker: 'all',
+		person: '',       // '' = all (admins only)
+		is_admin: false,
+		from_date: '',
+		to_date: '',
+		rows: []
+	};
+	page._state = state;
+
+	page.main.html(`
+		<div class="ctd-container">
+			<div class="ctd-header">
+				<div>
+					<h2 class="ctd-title">Cash Tracking</h2>
+					<p class="ctd-subtitle" id="ctd-subtitle">Motley &amp; Personal cash entries</p>
+				</div>
+				<button class="ctd-refresh" id="ctd-refresh" title="Refresh">
+					<span class="ctd-refresh-icon">&#8635;</span> Refresh
+				</button>
+			</div>
+
+			<div class="ctd-filter-bar">
+				<div class="ctd-filter-group">
+					<label class="ctd-label">Tracker</label>
+					<div class="ctd-toggle" id="ctd-tracker-toggle">
+						<button class="ctd-toggle-btn ctd-active" data-val="all">All</button>
+						<button class="ctd-toggle-btn" data-val="motley">Motley</button>
+						<button class="ctd-toggle-btn" data-val="personal">Personal</button>
+					</div>
+				</div>
+				<div class="ctd-filter-group" id="ctd-person-group">
+					<label class="ctd-label">User</label>
+					<select id="ctd-person" class="ctd-select"></select>
+				</div>
+				<div class="ctd-filter-group">
+					<label class="ctd-label">From</label>
+					<input type="date" id="ctd-from" class="ctd-input" />
+				</div>
+				<div class="ctd-filter-group">
+					<label class="ctd-label">To</label>
+					<input type="date" id="ctd-to" class="ctd-input" />
+				</div>
+			</div>
+
+			<div class="ctd-cards">
+				<div class="ctd-card ctd-card-in">
+					<div class="ctd-card-label">Money In</div>
+					<div class="ctd-card-value" id="ctd-total-in">$0.00</div>
+				</div>
+				<div class="ctd-card ctd-card-out">
+					<div class="ctd-card-label">Money Out</div>
+					<div class="ctd-card-value" id="ctd-total-out">$0.00</div>
+				</div>
+				<div class="ctd-card ctd-card-net">
+					<div class="ctd-card-label">Net</div>
+					<div class="ctd-card-value" id="ctd-total-net">$0.00</div>
+				</div>
+				<div class="ctd-card ctd-card-count">
+					<div class="ctd-card-label">Entries</div>
+					<div class="ctd-card-value" id="ctd-total-count">0</div>
+				</div>
+			</div>
+
+			<div class="ctd-table-wrap">
+				<table class="ctd-table">
+					<thead>
+						<tr>
+							<th>Date</th>
+							<th>ID</th>
+							<th>Tracker</th>
+							<th class="ctd-col-user">User</th>
+							<th>Type / Reason</th>
+							<th>Business</th>
+							<th class="ctd-num">Money In</th>
+							<th class="ctd-num">Money Out</th>
+							<th>Status</th>
+						</tr>
+					</thead>
+					<tbody id="ctd-tbody"></tbody>
+				</table>
+				<div class="ctd-empty" id="ctd-empty" style="display:none;">
+					<div class="ctd-empty-icon">&#128179;</div>
+					<div>No cash tracking entries for the selected filters.</div>
+				</div>
+			</div>
+		</div>
+	`);
+
+	// ---- helpers -------------------------------------------------------
+	function fmt_money(v) {
+		v = v || 0;
+		return (v < 0 ? '-$' : '$') + Math.abs(v).toLocaleString('en-US', {
+			minimumFractionDigits: 2, maximumFractionDigits: 2
+		});
+	}
+
+	function esc(s) { return frappe.utils.escape_html(s == null ? '' : String(s)); }
+
+	function status_badge(s) {
+		var cls = 'ctd-badge ctd-badge-' + (s || 'Draft').toLowerCase();
+		return '<span class="' + cls + '">' + esc(s || 'Draft') + '</span>';
+	}
+
+	function tracker_badge(t) {
+		var cls = 'ctd-tag ctd-tag-' + t.toLowerCase();
+		return '<span class="' + cls + '">' + esc(t) + '</span>';
+	}
+
+	function doctype_of(tracker) {
+		return tracker === 'Personal' ? 'Personal Cash Tracking' : 'Motley Cash Tracking';
+	}
+
+	// ---- rendering -----------------------------------------------------
+	function render(result) {
+		state.rows = result.rows || [];
+		var t = result.totals || {};
+		$('#ctd-total-in').text(fmt_money(t.money_in));
+		$('#ctd-total-out').text(fmt_money(t.money_out));
+		var net = t.net || 0;
+		var $net = $('#ctd-total-net').text(fmt_money(net));
+		$net.closest('.ctd-card-net').toggleClass('ctd-negative', net < 0);
+		$('#ctd-total-count').text(t.count || 0);
+
+		var $body = $('#ctd-tbody').empty();
+		if (!state.rows.length) {
+			$('#ctd-empty').show();
+			return;
+		}
+		$('#ctd-empty').hide();
+
+		state.rows.forEach(function (r) {
+			var link = '/app/' + frappe.router.slug(doctype_of(r.tracker)) + '/' + encodeURIComponent(r.name);
+			var tr = `
+				<tr>
+					<td>${esc(frappe.datetime.str_to_user(r.date) || r.date || '')}</td>
+					<td><a href="${link}" class="ctd-link">${esc(r.name)}</a></td>
+					<td>${tracker_badge(r.tracker)}</td>
+					<td class="ctd-col-user">${esc(r.person || r.user || '')}</td>
+					<td class="ctd-cat" title="${esc(r.notes || r.category || '')}">${esc(r.category || '')}</td>
+					<td>${esc(r.business || '')}</td>
+					<td class="ctd-num ctd-in">${r.money_in ? fmt_money(r.money_in) : ''}</td>
+					<td class="ctd-num ctd-out">${r.money_out ? fmt_money(r.money_out) : ''}</td>
+					<td>${status_badge(r.status)}</td>
+				</tr>`;
+			$body.append(tr);
+		});
+	}
+
+	function load() {
+		frappe.call({
+			method: 'cannabis_management.cash_management.page.cash_tracking_dashboard.cash_tracking_dashboard.get_entries',
+			args: {
+				tracker: state.tracker,
+				person: state.person,
+				from_date: state.from_date,
+				to_date: state.to_date
+			},
+			freeze: false,
+			callback: function (r) {
+				if (r.message) { render(r.message); }
+			}
+		});
+	}
+
+	// ---- filter wiring -------------------------------------------------
+	function load_persons() {
+		frappe.call({
+			method: 'cannabis_management.cash_management.page.cash_tracking_dashboard.cash_tracking_dashboard.get_persons',
+			callback: function (r) {
+				var data = r.message || {};
+				state.is_admin = !!data.is_admin;
+				var $sel = $('#ctd-person').empty();
+				if (state.is_admin) {
+					$sel.append('<option value="">All Users</option>');
+				}
+				(data.persons || []).forEach(function (p) {
+					$sel.append('<option value="' + esc(p.name) + '">' +
+						esc(p.full_name || p.name) + '</option>');
+				});
+				// Non-admins: lock to their own person, no "All".
+				if (!state.is_admin) {
+					if (data.persons && data.persons.length) {
+						state.person = data.persons[0].name;
+						$sel.val(state.person);
+					}
+					$sel.prop('disabled', true);
+					$('#ctd-subtitle').text('Your cash entries');
+				} else {
+					$('#ctd-subtitle').text('All users — Motley & Personal cash entries');
+				}
+				load();
+			}
+		});
+	}
+
+	$('#ctd-tracker-toggle').on('click', '.ctd-toggle-btn', function () {
+		$('#ctd-tracker-toggle .ctd-toggle-btn').removeClass('ctd-active');
+		$(this).addClass('ctd-active');
+		state.tracker = $(this).data('val');
+		load();
+	});
+
+	$('#ctd-person').on('change', function () {
+		if (!state.is_admin) { return; }   // hard guard; server enforces too
+		state.person = $(this).val();
+		load();
+	});
+
+	$('#ctd-from').on('change', function () { state.from_date = $(this).val(); load(); });
+	$('#ctd-to').on('change', function () { state.to_date = $(this).val(); load(); });
+	$('#ctd-refresh').on('click', function () { load(); });
+
+	load_persons();
+};
