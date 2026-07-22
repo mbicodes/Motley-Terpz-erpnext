@@ -2,6 +2,16 @@ import frappe
 
 FINANCE_ROLES = {"Finance Manager", "Accounts Manager", "System Manager", "Administrator"}
 
+# Users with full cross-person access to the cash tracking capture forms
+# (Motley / Personal Cash Tracking): they read every person's records and are
+# the only ones who may cancel a submitted entry. Everyone else — even holders
+# of System Manager on this staging site — is restricted to their own records.
+CASH_ADMIN_USERS = {"Administrator", "mbi@alltechvirtual.com"}
+
+
+def is_cash_admin(user=None):
+    return (user or frappe.session.user) in CASH_ADMIN_USERS
+
 
 def _get_person_for_user(user=None):
     """Return the Cash Tracker Person name linked to this ERPNext user, or None."""
@@ -87,23 +97,22 @@ def expense_tracker_entry_has_permission(doc, ptype="read", user=None):
 
 # ── Personal Cash Tracking — strictly own records ──────────────────────────
 
-def _sees_all_personal_cash(user):
-    return user == "Administrator" or "System Manager" in frappe.get_roles(user)
-
-
 def personal_cash_tracking_query(user):
-    """List-level filter: non-managers only see records they created."""
+    """List-level filter: cash admins see all; everyone else only their own."""
     user = user or frappe.session.user
-    if _sees_all_personal_cash(user):
+    if is_cash_admin(user):
         return ""
     return f"`tabPersonal Cash Tracking`.owner = {frappe.db.escape(user)}"
 
 
 def personal_cash_tracking_has_permission(doc, ptype="read", user=None):
-    """Document-level gate: only the creator (or System Manager) can touch it."""
+    """Document-level gate: cash admins have full access; everyone else may only
+    touch their own records and can never cancel."""
     user = user or frappe.session.user
-    if _sees_all_personal_cash(user):
+    if is_cash_admin(user):
         return True
+    if ptype == "cancel":
+        return False
     if doc is None or isinstance(doc, str):
         return True  # doctype-level access is decided by role permissions
     return (doc.get("owner") or user) == user
@@ -112,19 +121,21 @@ def personal_cash_tracking_has_permission(doc, ptype="read", user=None):
 # ── Motley Cash Tracking — strictly own records ─────────────────────────────
 
 def motley_cash_tracking_query(user):
-    """List-level filter: strictly own records. Only the Administrator
-    account bypasses — System Managers do NOT see these entries."""
+    """List-level filter: cash admins see all; everyone else only their own."""
     user = user or frappe.session.user
-    if user == "Administrator":
+    if is_cash_admin(user):
         return ""
     return f"`tabMotley Cash Tracking`.owner = {frappe.db.escape(user)}"
 
 
 def motley_cash_tracking_has_permission(doc, ptype="read", user=None):
-    """Document-level gate: only the creator (or the Administrator account)."""
+    """Document-level gate: cash admins have full access; everyone else may only
+    touch their own records and can never cancel."""
     user = user or frappe.session.user
-    if user == "Administrator":
+    if is_cash_admin(user):
         return True
+    if ptype == "cancel":
+        return False
     if doc is None or isinstance(doc, str):
         return True  # doctype-level access is decided by role permissions
     return (doc.get("owner") or user) == user
