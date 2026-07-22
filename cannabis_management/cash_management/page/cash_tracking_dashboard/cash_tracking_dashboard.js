@@ -228,6 +228,36 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 	$('#ctd-refresh').on('click', function () { load(); });
 	$('#ctd-new-motley').on('click', function () { frappe.new_doc('Motley Cash Tracking'); });
 	$('#ctd-new-personal').on('click', function () { frappe.new_doc('Personal Cash Tracking'); });
+// Apply options passed in from the Motley / Personal form buttons
+	// (tracker to preselect + a from/to date range), then reflect them in the UI.
+	function apply_route_options() {
+		var opts = frappe.route_options || {};
+		frappe.route_options = null;
+		if (opts.tracker) { state.tracker = opts.tracker; }
+		if (opts.from_date) { state.from_date = opts.from_date; }
+		if (opts.to_date) { state.to_date = opts.to_date; }
 
+		$('#ctd-tracker-toggle .ctd-toggle-btn').removeClass('ctd-active');
+		$('#ctd-tracker-toggle .ctd-toggle-btn[data-val="' + state.tracker + '"]').addClass('ctd-active');
+		$('#ctd-from').val(state.from_date || '');
+		$('#ctd-to').val(state.to_date || '');
+	}
+
+	// Expose so on_page_show can re-apply presets on repeat visits (the page
+	// object is created once; on_page_load does not run again).
+	page.apply_route_options = apply_route_options;
+	page.reload_data = load;
+
+	apply_route_options();
 	load_persons();
+};
+
+// Fires every time the page is shown. If the user clicked a form button again
+// (which sets frappe.route_options), re-apply the incoming tracker + dates.
+frappe.pages['cash-tracking-dashboard'].on_page_show = function (wrapper) {
+	var page = wrapper.page;
+	if (page && page.apply_route_options && frappe.route_options) {
+		page.apply_route_options();
+		page.reload_data();
+	}
 };
