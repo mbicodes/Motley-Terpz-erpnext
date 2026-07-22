@@ -38,6 +38,19 @@
 }
 .ctd-refresh:hover { background: var(--fg-hover-color, #f1f5f9); }
 .ctd-refresh-icon { font-size: 14px; }
+.ctd-actions {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex-wrap: wrap;
+	justify-content: flex-end;
+}
+.ctd-new {
+	background: var(--primary, #2563eb);
+	border-color: var(--primary, #2563eb);
+	color: #fff;
+}
+.ctd-new:hover { background: var(--primary, #1d4ed8); filter: brightness(0.95); }
 
 /* ---- filter bar ---- */
 .ctd-filter-bar {

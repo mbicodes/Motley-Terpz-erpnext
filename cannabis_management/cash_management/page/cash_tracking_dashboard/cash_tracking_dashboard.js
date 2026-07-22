@@ -23,9 +23,17 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 					<h2 class="ctd-title">Cash Tracking</h2>
 					<p class="ctd-subtitle" id="ctd-subtitle">Motley &amp; Personal cash entries</p>
 				</div>
-				<button class="ctd-refresh" id="ctd-refresh" title="Refresh">
-					<span class="ctd-refresh-icon">&#8635;</span> Refresh
-				</button>
+				<div class="ctd-actions">
+					<button class="ctd-refresh ctd-new" id="ctd-new-motley" title="New Motley Cash Tracking">
+						<span class="ctd-refresh-icon">&#43;</span> Motley Cash
+					</button>
+					<button class="ctd-refresh ctd-new" id="ctd-new-personal" title="New Personal Cash Tracking">
+						<span class="ctd-refresh-icon">&#43;</span> Personal Cash
+					</button>
+					<button class="ctd-refresh" id="ctd-refresh" title="Refresh">
+						<span class="ctd-refresh-icon">&#8635;</span> Refresh
+					</button>
+				</div>
 			</div>
 
 			<div class="ctd-filter-bar">
@@ -218,6 +226,8 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 	$('#ctd-from').on('change', function () { state.from_date = $(this).val(); load(); });
 	$('#ctd-to').on('change', function () { state.to_date = $(this).val(); load(); });
 	$('#ctd-refresh').on('click', function () { load(); });
+	$('#ctd-new-motley').on('click', function () { frappe.new_doc('Motley Cash Tracking'); });
+	$('#ctd-new-personal').on('click', function () { frappe.new_doc('Personal Cash Tracking'); });
 
 	load_persons();
 };
