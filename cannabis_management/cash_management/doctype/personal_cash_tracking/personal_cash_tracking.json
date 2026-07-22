@@ -8,17 +8,19 @@
  "is_submittable": 1,
  "field_order": [
   "cash_tracker_person",
-  "transaction_date",
   "user",
   "employee",
-  "column_break_1",
+  "transaction_date",
   "money_in",
   "money_out",
+  "column_break_1",
+  "transaction_type",
+  "business",
   "section_reason",
-  "reason",
   "receipt",
   "column_break_receipt",
   "receipt_preview",
+  "reason",
   "amended_from"
  ],
  "fields": [
@@ -81,6 +83,25 @@
    "fieldtype": "Currency",
    "in_list_view": 1,
    "label": "Money Out"
+  },
+  {
+   "fieldname": "transaction_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Transaction Type",
+   "options": "\nMotley - Hardware\nClient - Hardware\nClient Payment Towards Invoice\nFresh Frozen Procurement\nTolling Partner Payment\nMotley - Packaging\nLab Testing\nPayroll\nLab Consumables\nMarketing\nSeeds/Clones for Farm\nRent\nLab Setup\nLab Supplies\nCollecting OLD AR\nReimbursement\nOther",
+   "reqd": 1
+  },
+  {
+   "description": "Which company was this for? If unsure — contact Jamie.",
+   "fieldname": "business",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Business",
+   "ignore_user_permissions": 1,
+   "options": "Company",
+   "reqd": 1
   },
   {
    "fieldname": "section_reason",
