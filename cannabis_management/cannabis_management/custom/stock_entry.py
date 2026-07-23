@@ -3,6 +3,45 @@ from frappe import _
 from frappe.utils import flt
 
 
+def before_validate(doc, method=None):
+    """
+    Keep a manually-rated Repack finished-good row internally consistent
+    BEFORE core's set_basic_rate()/distribute_additional_costs() run.
+
+    When set_basic_rate_manually is checked, core skips recalculating that
+    row's basic_rate *and* basic_amount (same skipped code block) -- but it
+    still later recomputes amount = basic_amount + additional_cost using
+    whatever basic_amount happens to already be stored. If the user just
+    edited Amount (or Rate) and basic_amount wasn't refreshed to match, that
+    stale basic_amount silently overwrites their edit back to the old value.
+    Sync basic_amount here so core's recompute lands on the value the user
+    actually intended, however they edited the row.
+    """
+    if doc.stock_entry_type != "Repack":
+        return
+
+    before = doc.get_doc_before_save()
+    before_items = {i.name: i for i in (before.items if before else [])}
+
+    for item in doc.items:
+        if not (item.t_warehouse and not item.s_warehouse):
+            continue
+        if not item.get("set_basic_rate_manually"):
+            continue
+
+        prev = before_items.get(item.name)
+        if prev and flt(item.amount) != flt(prev.amount):
+            # Amount was hand-edited this save -- treat it as the source of
+            # truth and derive rate/basic_amount from it.
+            if flt(item.qty):
+                item.basic_rate = flt(item.amount) / flt(item.qty)
+            item.basic_amount = flt(item.amount)
+        else:
+            # Nothing changed, or the user edited Rate instead -- keep
+            # basic_amount in step with basic_rate.
+            item.basic_amount = flt(item.qty) * flt(item.basic_rate)
+
+
 def validate(doc, method):
     """
     For any stock entry where material is going out (s_warehouse is set),
@@ -48,14 +87,33 @@ def validate(doc, method):
     doc.total_quantity = sum(item.qty for item in doc.items if item.get("is_finished_item"))
 
     # ── For Repack: Match Valuation and Allow Zero Rates ──
-    if doc.stock_entry_type == "Repack" and doc.get("custom_rosin_recording_reference"):
-        # First: allow zero rate for outgoing items
+    if doc.stock_entry_type == "Repack":
+        # Items across different item groups get different Difference Accounts
+        # (expense_account) from their Item Defaults. That mismatch alone posts
+        # a GL entry for the account difference, on top of the real item-group
+        # inventory-account movement. Force one shared Difference Account per
+        # Repack so that leg only ever reflects a genuine RM/FG valuation gap.
+        unify_repack_difference_account(doc)
+
+        # ERPNext's set_basic_rate() (core, runs before this hook) recomputes an
+        # incoming row's rate/amount from the outgoing cost every single save,
+        # unless set_basic_rate_manually is checked on that row -- overwriting
+        # any amount the user just typed. Flip it on automatically so a manual
+        # edit sticks from the next save onward, without the user having to
+        # find and check that box themselves.
         for item in doc.items:
-            if item.s_warehouse and not item.t_warehouse:
-                item.allow_zero_valuation_rate = 1
-        
-        # Second: distribute the input value (even if 0) across outputs
-        set_repack_valuation(doc)
+            if item.t_warehouse and not item.s_warehouse:
+                item.set_basic_rate_manually = 1
+
+        if doc.get("custom_rosin_recording_reference"):
+            # First: allow zero rate for outgoing items
+            for item in doc.items:
+                if item.s_warehouse and not item.t_warehouse:
+                    item.allow_zero_valuation_rate = 1
+
+            # Second: distribute the input value (even if 0) across outputs,
+            # skipping any finished-good row the user has manually rated.
+            set_repack_valuation(doc)
 
 
 def _pin_rm_qty_to_work_order(doc):
@@ -96,6 +154,26 @@ def _pin_rm_qty_to_work_order(doc):
         item.transfer_qty = flt(pinned_qty) * flt(item.conversion_factor or 1)
         item.basic_amount = flt(pinned_qty) * flt(item.basic_rate)
         item.amount = flt(pinned_qty) * flt(item.valuation_rate or item.basic_rate)
+
+
+def unify_repack_difference_account(doc):
+    """
+    Force every item row in a Repack entry onto one shared Difference Account
+    (expense_account), instead of each item's own Item Default (which varies
+    by item group). With a shared account, the Difference Account GL leg nets
+    to zero when RM value == FG value, and only shows a real amount when
+    there's a genuine valuation gap -- matching what "Difference Account" is
+    meant to represent, rather than an artifact of different item defaults.
+    """
+    shared_account = frappe.get_cached_value(
+        "Company", doc.company, "stock_adjustment_account"
+    ) or next((item.expense_account for item in doc.items if item.expense_account), None)
+
+    if not shared_account:
+        return
+
+    for item in doc.items:
+        item.expense_account = shared_account
 
 
 def set_repack_valuation(doc):
@@ -139,12 +217,19 @@ def set_repack_valuation(doc):
         rm_item.basic_rate = rate
         rm_amount = flt(rm_item.qty) * rate
         rm_item.amount = rm_amount
-        
+
+        # Rows the user has manually rated keep their own amount; only the
+        # remaining pool (RM value minus what's manually assigned) gets
+        # divided across the still-automatic finished goods.
+        manual_fg = [fg for fg in fg_items if fg.get("set_basic_rate_manually")]
+        auto_fg = [fg for fg in fg_items if not fg.get("set_basic_rate_manually")]
+        remaining_amount = rm_amount - sum(flt(fg.amount) for fg in manual_fg)
+
         # Divide amount among this block's specific finished goods
-        sum_fg_qty = sum(flt(fg.qty) for fg in fg_items)
+        sum_fg_qty = sum(flt(fg.qty) for fg in auto_fg)
         if sum_fg_qty > 0:
-            new_rate = rm_amount / sum_fg_qty
-            for fg in fg_items:
+            new_rate = remaining_amount / sum_fg_qty
+            for fg in auto_fg:
                 fg.basic_rate = flt(new_rate, 4)
                 fg.amount = flt(fg.qty) * fg.basic_rate
 

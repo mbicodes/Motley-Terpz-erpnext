@@ -42,6 +42,25 @@ frappe.ui.form.on("Stock Entry Detail", {
         setTimeout(() => calculate_total_quantity(frm), 300);
     },
 
+    amount: function (frm, cdt, cdn) {
+        // Repack finished-good (t_warehouse only) rows: core recalculates
+        // rate/amount from the outgoing cost on every save unless
+        // set_basic_rate_manually is checked, and nothing client-side keeps
+        // basic_rate in step with a direct Amount edit -- so without this,
+        // whatever's typed here can get overwritten before/On save.
+        let row = locals[cdt][cdn];
+        if (frm.doc.stock_entry_type !== "Repack" || !row.t_warehouse || row.s_warehouse) {
+            return;
+        }
+        if (!row.set_basic_rate_manually) {
+            frappe.model.set_value(cdt, cdn, "set_basic_rate_manually", 1);
+        }
+        if (flt(row.qty)) {
+            frappe.model.set_value(cdt, cdn, "basic_rate", flt(row.amount) / flt(row.qty));
+        }
+        frappe.model.set_value(cdt, cdn, "basic_amount", flt(row.amount));
+    },
+
     is_finished_item: function (frm, cdt, cdn) {
         setTimeout(() => calculate_total_quantity(frm), 300);
     },
