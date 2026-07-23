@@ -1,0 +1,38 @@
+{
+ "charts": [],
+ "content": "[{\"id\":\"sdsBlock01\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Sales Daily Sync Dashboard Block\",\"col\":12}}]",
+ "creation": "2026-06-25 07:57:02.248560",
+ "custom_blocks": [
+  {
+   "custom_block_name": "Sales Daily Sync Dashboard Block",
+   "label": "Sales Daily Sync Dashboard Block"
+  }
+ ],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "sell",
+ "idx": 0,
+ "indicator_color": "green",
+ "is_hidden": 0,
+ "label": "Sales Daily Sync Dashboard",
+ "links": [],
+ "modified": "2026-06-29 09:44:49.784260",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Sales Daily Sync Dashboard",
+ "number_cards": [],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [
+  {
+   "role": "Workspace:Sales Daily Sync Dashboard"
+  }
+ ],
+ "sequence_id": 54.0,
+ "shortcuts": [],
+ "title": "Sales Daily Sync Dashboard"
+}
