@@ -543,5 +543,8 @@ fixtures = [
         "Distribution Hub",
         "Company Records Hub",
     ]]]},
+    # Client-facing Extracts Live Menu page (JS: display-name aliases +
+    # Tier group ordering). Git-managed so it deploys via bench update.
+    {"dt": "Web Page", "filters": [["name", "=", "live-menu-2"]]},
 ]
 
