@@ -6,15 +6,16 @@ Logic (exactly as specified):
   2. If the item's group has a row there → use that account.
   3. If not → fall back to the warehouse's own `account` field (system default).
 
-Why we query SLEs instead of using voucher_detail_no on GL entries
-──────────────────────────────────────────────────────────────────
-ERPNext's StockController.get_gl_entries() calls process_gl_map() internally,
-which runs merge_similar_entries(). That collapses entries sharing the same
-account + cost_center into one row and nulls voucher_detail_no. By the time
-apply_item_group_mapping() sees the list, every warehouse entry is already a
-single merged row with voucher_detail_no=NULL. We work around this by querying
-the Stock Ledger Entries from the DB — they carry correct voucher_detail_no
-values and are available because make_gl_entries() is called after SLE creation.
+Why we rebuild the warehouse leg from SLEs instead of patching gl_entries
+──────────────────────────────────────────────────────────────────────────
+ERPNext's StockController.get_gl_entries() merges all SLEs that share the same
+account (via process_gl_map -> merge_similar_entries) before this runs. When a
+Repack's source and target warehouse fall back to the same account (e.g. both
+have no explicit `account` set and use the company default), their amounts net
+against each other. If the net happens to be zero, core drops the row entirely
+-- so there's nothing left in gl_entries to split by item group, and the whole
+warehouse-side entry silently disappears. Rebuilding directly from the Stock
+Ledger Entries avoids depending on what survived that merge.
 
 Why we avoid a reverse account→warehouse map
 ─────────────────────────────────────────────
@@ -26,10 +27,10 @@ mappings to be looked up. Instead we read the warehouse directly from each SLE,
 which is always unambiguous.
 """
 
-import copy
 from collections import defaultdict
 
 import frappe
+from frappe import _
 from frappe.utils import flt
 
 
@@ -71,40 +72,40 @@ def resolve_account(
 
 def apply_item_group_mapping(doc, gl_entries: list, warehouse_account: dict) -> list:
     """
-    Split any merged warehouse GL entry that spans multiple item groups with
-    different mapped accounts.
+    Rebuild the warehouse-account leg of the Stock GL entries so each item's
+    stock movement posts to its item-group-mapped account (falling back to the
+    warehouse's default account), instead of trying to split whatever core's
+    already-merged GL list happens to still contain.
 
     Returns a new list; originals are not mutated.
     """
     if not warehouse_account:
         return gl_entries
 
-    # Build item_code lookup: child row name → item_code
-    item_code_map = {
-        item.name: item.item_code
-        for item in (doc.get("items") or [])
-        if item.item_code
+    item_rows = {
+        item.name: item for item in (doc.get("items") or []) if item.get("item_code")
     }
+    fallback_cost_center = doc.get("cost_center") or frappe.get_cached_value(
+        "Company", doc.company, "cost_center"
+    )
 
-    ig_cache    = {}  # item_code → item_group
+    ig_cache = {}      # item_code → item_group
     wh_map_cache = {}  # warehouse → {item_group: account}
 
-    # Query SLEs — they retain per-item voucher_detail_no after submission
     sles = frappe.db.get_all(
         "Stock Ledger Entry",
         filters={
-            "voucher_no":   doc.name,
+            "voucher_no": doc.name,
             "voucher_type": doc.doctype,
             "is_cancelled": 0,
         },
         fields=["voucher_detail_no", "warehouse", "stock_value_difference"],
     )
 
-    # Build: original_account → {resolved_account → total_amount}
-    # Drive entirely from SLE.warehouse — never reverse-map from account→warehouse,
-    # because multiple warehouses may share the same company-default GL account.
-    splits_by_account   = {}           # str → defaultdict(float)
-    sle_total_by_account = defaultdict(float)
+    # (resolved_account, cost_center) → net amount, plus one representative
+    # item row per bucket (used for against/project/is_opening/dimensions)
+    agg = defaultdict(float)
+    representative = {}
 
     for sle in sles:
         wh = sle.warehouse
@@ -115,78 +116,56 @@ def apply_item_group_mapping(doc, gl_entries: list, warehouse_account: dict) -> 
         if not original_account:
             continue
 
-        # Skip warehouses with no custom mapping rows at all
-        if not _get_warehouse_mapping(wh, wh_map_cache):
-            continue
+        item_row = item_rows.get(sle.voucher_detail_no)
+        resolved = (
+            resolve_account(wh, item_row.get("item_code"), original_account, ig_cache, wh_map_cache)
+            if item_row
+            else original_account
+        )
 
-        amount = flt(sle.stock_value_difference)
-        sle_total_by_account[original_account] += amount
+        cost_center = (item_row.get("cost_center") if item_row else None) or fallback_cost_center
+        key = (resolved, cost_center)
+        agg[key] += flt(sle.stock_value_difference)
+        representative.setdefault(key, item_row)
 
-        item_code = item_code_map.get(sle.voucher_detail_no)
-        if not item_code:
-            # No item match → tracked as remainder, stays in original account
-            continue
-
-        resolved = resolve_account(wh, item_code, original_account, ig_cache, wh_map_cache)
-
-        if original_account not in splits_by_account:
-            splits_by_account[original_account] = defaultdict(float)
-        splits_by_account[original_account][resolved] += amount
-
-    # Only process accounts where at least one item maps to a *different* account
-    accounts_to_split = {
-        acc: d
-        for acc, d in splits_by_account.items()
-        if any(resolved != acc for resolved in d)
+    precision = frappe.get_precision("GL Entry", "debit_in_account_currency")
+    warehouse_accounts = {
+        info.get("account") for info in warehouse_account.values() if info.get("account")
     }
 
-    if not accounts_to_split:
-        return gl_entries
+    # Drop core's warehouse-leg entries entirely -- regenerated below from SLEs.
+    # Rounding-gain/loss entries (internal stock transfer) are kept as-is.
+    rounding_remark = _("Rounding gain/loss Entry for Stock Transfer")
+    kept_entries = [
+        gle
+        for gle in gl_entries
+        if gle.get("account") not in warehouse_accounts or gle.get("remarks") == rounding_remark
+    ]
 
-    # Rebuild the GL entry list
     new_entries = []
-    for gle in gl_entries:
-        account = gle.get("account")
-        splits  = accounts_to_split.get(account)
-
-        if not splits:
-            new_entries.append(gle)
+    for (account, cost_center), amount in agg.items():
+        amount = flt(amount, precision)
+        if abs(amount) < (1.0 / (10**precision)):
             continue
 
-        # Absorb SLEs with no item match into the original account bucket
-        mapped_total = sum(splits.values())
-        sle_total    = sle_total_by_account.get(account, 0.0)
-        remainder    = sle_total - mapped_total
-        if abs(remainder) > 0.0001:
-            splits[account] += remainder
+        item_row = representative.get((account, cost_center))
+        args = {
+            "account": account,
+            "against": (item_row.get("expense_account") if item_row else None),
+            "cost_center": cost_center,
+            "project": (item_row.get("project") if item_row else None) or doc.get("project"),
+            "remarks": doc.get("remarks") or _("Accounting Entry for Stock"),
+            "is_opening": (item_row.get("is_opening") if item_row else None)
+            or doc.get("is_opening")
+            or "No",
+        }
+        if amount >= 0:
+            args["debit"] = amount
+            args["debit_in_account_currency"] = amount
+        else:
+            args["credit"] = -amount
+            args["credit_in_account_currency"] = -amount
 
-        # Absorb any valuation-rate rounding difference between GL and SLEs
-        gle_net      = flt(gle.get("debit", 0)) - flt(gle.get("credit", 0))
-        gl_sle_diff  = gle_net - sle_total
-        if abs(gl_sle_diff) > 0.0001:
-            splits[account] += gl_sle_diff
+        new_entries.append(doc.get_gl_dict(args, item=item_row))
 
-        # Emit one GL entry per resolved account
-        for resolved_acc, amount in splits.items():
-            if abs(amount) < 0.0001:
-                continue
-            new_gle = copy.copy(gle)
-            new_gle["account"] = resolved_acc
-            if resolved_acc != account:
-                new_gle["account_currency"] = (
-                    frappe.db.get_value("Account", resolved_acc, "account_currency")
-                    or gle.get("account_currency")
-                )
-            if amount >= 0:
-                new_gle["debit"]                     = amount
-                new_gle["debit_in_account_currency"]  = amount
-                new_gle["credit"]                    = 0.0
-                new_gle["credit_in_account_currency"] = 0.0
-            else:
-                new_gle["debit"]                     = 0.0
-                new_gle["debit_in_account_currency"]  = 0.0
-                new_gle["credit"]                    = -amount
-                new_gle["credit_in_account_currency"] = -amount
-            new_entries.append(new_gle)
-
-    return new_entries
+    return kept_entries + new_entries
