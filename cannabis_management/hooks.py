@@ -278,6 +278,7 @@ doc_events = {
         "on_submit": "cannabis_management.doc_hooks.material_request.on_submit",
     },
     "Stock Entry": {
+        "before_validate": "cannabis_management.cannabis_management.custom.stock_entry.before_validate",
         "validate": [
             "cannabis_management.cannabis_management.custom.stock_entry.validate",
             "cannabis_management.doc_hooks.stock_entry.sync_row_uom_with_item",
