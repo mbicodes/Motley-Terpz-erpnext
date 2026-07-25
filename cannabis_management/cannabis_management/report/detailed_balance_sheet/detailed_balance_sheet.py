@@ -62,6 +62,10 @@ def execute(filters=None):
 		accumulated_values=filters.accumulated_values,
 	)
 
+	simplify_root_heading(asset, period_list, _("Assets"))
+	simplify_root_heading(liability, period_list, _("Liabilities"))
+	simplify_root_heading(equity, period_list, _("Equity"))
+
 	provisional_profit_loss, total_credit = get_provisional_profit_loss(
 		asset, liability, equity, period_list, filters.company, currency
 	)
@@ -106,6 +110,22 @@ def execute(filters=None):
 		compute_growth_view_data(data, period_list)
 
 	return columns, data, message, chart, report_summary, primitive_summary
+
+
+def simplify_root_heading(rows, period_list, label):
+	"""Turn the top-level root account row into a plain section heading:
+	only the label shows, no rolled-up total (that belongs solely on the
+	Total Asset/Liability/Equity row at the bottom of each section)."""
+	if not rows:
+		return
+	root = rows[0]
+	if root.get("indent") != 0:
+		return
+	root["account_name"] = label
+	root["opening_balance"] = None
+	root["total"] = None
+	for period in period_list:
+		root[period.key] = None
 
 
 def get_provisional_profit_loss(
