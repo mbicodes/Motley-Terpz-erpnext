@@ -1,22 +1,43 @@
 // Adds a link to "Profit and Loss Statement Child Accounts" inside the
 // "Financial Statements" dropdown of erpnext's standard Balance Sheet,
-// Profit and Loss Statement, and Cash Flow reports (that dropdown is shared
-// via erpnext.financial_statements.onload, so this patches all three).
+// Profit and Loss Statement, and Cash Flow reports.
+//
+// Two things this file must NOT do, both of which silently killed the link:
+//
+//   * frappe.ready() only exists on the website/portal (it is defined inline in
+//     frappe/templates/base.html). On the desk (/app) it is undefined, so
+//     calling it here threw a TypeError and nothing below it ever ran.
+//
+//   * frappe.query_reports["Profit and Loss Statement"] is undefined at desk
+//     boot. Report scripts are fetched lazily (frappe.desk.query_report.get_script)
+//     the first time a report is opened, so there is nothing to patch yet.
+//
+// Instead patch the shared erpnext.financial_statements.onload, which all three
+// standard reports inherit via $.extend(). erpnext.bundle.js is loaded before
+// this file (apps.txt order), and because the reports copy the object later,
+// every copy picks up the patched onload.
 
-frappe.ready(function () {
-	add_child_accounts_link_to_financial_statements();
-});
+(function () {
+	function add_child_accounts_link_to_financial_statements() {
+		if (
+			typeof erpnext === "undefined" ||
+			!erpnext.financial_statements ||
+			erpnext.financial_statements._cm_child_accounts_link_patched
+		) {
+			return false;
+		}
+		erpnext.financial_statements._cm_child_accounts_link_patched = true;
 
-function add_child_accounts_link_to_financial_statements() {
-	["Profit and Loss Statement", "Balance Sheet", "Cash Flow"].forEach(function (report_name) {
-		var settings = frappe.query_reports[report_name];
-		if (!settings || settings._cm_child_accounts_link_patched) return;
-		settings._cm_child_accounts_link_patched = true;
+		var original_onload = erpnext.financial_statements.onload;
 
-		var original_onload = settings.onload;
-		settings.onload = function (report) {
-			if (original_onload) original_onload(report);
-			if (!report.page) return;
+		erpnext.financial_statements.onload = function (report) {
+			if (original_onload) original_onload.call(this, report);
+
+			if (!report || !report.page) return;
+
+			// The child-accounts reports build their own dropdown; don't add a
+			// link back to the report the user is already looking at.
+			if ((report.report_name || "").indexOf("Child Accounts") !== -1) return;
 
 			var menu = find_financial_statements_menu(report.page);
 			if (!menu) menu = report.page.add_custom_button_group(__("Financial Statements"));
@@ -28,16 +49,25 @@ function add_child_accounts_link_to_financial_statements() {
 				});
 			});
 		};
-	});
-}
 
-function find_financial_statements_menu(page) {
-	var group = page.custom_actions
-		.find(".custom-btn-group-label")
-		.filter(function () {
-			return $(this).text().trim() === __("Financial Statements");
-		})
-		.closest(".custom-btn-group")
-		.find(".dropdown-menu");
-	return group.length ? group : null;
-}
+		return true;
+	}
+
+	function find_financial_statements_menu(page) {
+		var group = page.custom_actions
+			.find(".custom-btn-group-label")
+			.filter(function () {
+				return $(this).text().trim() === __("Financial Statements");
+			})
+			.closest(".custom-btn-group")
+			.find(".dropdown-menu");
+		return group.length ? group : null;
+	}
+
+	// erpnext.bundle.js normally wins the race, but don't depend on script order:
+	// retry once the DOM is ready and once the desk signals app_ready.
+	if (!add_child_accounts_link_to_financial_statements()) {
+		$(document).ready(add_child_accounts_link_to_financial_statements);
+		$(document).on("app_ready", add_child_accounts_link_to_financial_statements);
+	}
+})();
