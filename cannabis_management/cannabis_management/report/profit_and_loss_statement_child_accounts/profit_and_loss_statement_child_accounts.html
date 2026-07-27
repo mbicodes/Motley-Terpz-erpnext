@@ -53,7 +53,7 @@
 		{% for(let j=0, k=data.length; j<k; j++) { %}
 			{%
 				var row = data[j];
-				var row_class = data[j].parent_account || data[j].parent_section ? "" : "financial-statements-important";
+				var row_class = data[j].is_total_row ? "financial-statements-important" : "";
 				row_class += data[j].account_name || data[j].section ? "" : " financial-statements-blank-row";
 			%}
 			<tr class="{%= row_class %}">

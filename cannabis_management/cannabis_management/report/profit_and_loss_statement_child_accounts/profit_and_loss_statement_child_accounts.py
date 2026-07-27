@@ -1,22 +1,60 @@
 # Copyright (c) 2015, Frappe Technologies Pvt. Ltd. and Contributors
 # License: GNU General Public License v3. See license.txt
 #
-# Copy of erpnext's Profit and Loss Statement report, pointed at this app's
-# local financial_statements module instead of erpnext's, so that group/
-# parent account rows are dropped and only child (leaf) accounts show up.
+# Restructures the standard Profit and Loss Statement into a multi-step
+# income statement: Income -> Total Income -> Cost of Goods Sold ->
+# Total COGS -> Gross Profit -> Expense (everything under the Expense root
+# that isn't COGS) -> Total Expense -> Net Profit.
+#
+# Parent/child accounts are kept exactly as they appear in the standard
+# report (real groups, real indentation, collapsible) - the only structural
+# change is that the Cost of Goods Sold branch is cut out of the Expense
+# tree and shown under its own heading instead of buried inside Expense.
+#
+# COGS accounts are identified from the chart of accounts rather than a
+# fixed account_type: for each company we find the Expense account(s) named
+# "Cost of Goods Sold"/"Cost of Goods Solds" and treat that account plus its
+# entire descendant branch as COGS. Everything else under Expense is a
+# regular expense. This matches how COGS is actually modeled per company in
+# this instance (sometimes a single leaf account, sometimes a large group
+# with many product-level child accounts).
+#
+# Same restructuring as profit_and_loss_statement_gross_profit.py - kept as
+# a separate, self-contained report (its own name/roles/menu wiring) rather
+# than reusing that module directly.
+#
+# Every leaf account row is further expanded, in place, into its own
+# transactions (vouchers) - no navigating away to General Ledger - and every
+# voucher that carries its own item table (Sales/Purchase Invoice, Delivery
+# Note, Purchase Receipt, Stock Entry, Stock Reconciliation - see
+# VOUCHER_ITEM_DOCTYPE) is expanded one level further into its line items,
+# exactly like QuickBooks lets you drill from a statement all the way down to
+# the transaction (and, where there is one, the item) level. See
+# attach_transaction_rows() in financial_statements.py - shared with the
+# Detailed Balance Sheet report, which drills down the same way.
 
 import frappe
 from frappe import _
 from frappe.utils import flt
 
 from cannabis_management.cannabis_management.report.financial_statements import (
+	attach_transaction_rows,
+	blank_group_amounts,
+	blank_missing_transaction_detail_fields,
 	compute_growth_view_data,
 	compute_margin_view_data,
 	get_columns,
-	get_data,
-	get_filtered_list_for_consolidated_report,
 	get_period_list,
+	get_transaction_detail_columns,
 )
+
+# Deliberately erpnext's unmodified financial_statements.get_data() here, not
+# this app's local "child accounts" copy - we want the real group/parent
+# hierarchy (same as the standard Profit and Loss Statement), not a
+# flattened leaf-only list.
+from erpnext.accounts.report.financial_statements import get_data
+
+COGS_ACCOUNT_NAMES = ("Cost of Goods Sold", "Cost of Goods Solds")
 
 
 def execute(filters=None):
@@ -30,7 +68,11 @@ def execute(filters=None):
 		company=filters.company,
 	)
 
-	income = get_data(
+	# Full account tree (real groups + leaves, indented exactly like the
+	# standard Profit and Loss Statement) - this is the same get_data() the
+	# standard report itself calls, so Total Income/Total Expense below tie
+	# out to it exactly.
+	income_tree = get_data(
 		filters.company,
 		"Income",
 		"Credit",
@@ -40,7 +82,7 @@ def execute(filters=None):
 		ignore_closing_entries=True,
 	)
 
-	expense = get_data(
+	expense_tree = get_data(
 		filters.company,
 		"Expense",
 		"Debit",
@@ -50,25 +92,110 @@ def execute(filters=None):
 		ignore_closing_entries=True,
 	)
 
-	net_profit_loss = get_net_profit_loss(
-		income, expense, period_list, filters.company, filters.presentation_currency
-	)
-
-	data = []
-	data.extend(income or [])
-	data.extend(expense or [])
-	if net_profit_loss:
-		data.append(net_profit_loss)
-
-	columns = get_columns(filters.periodicity, period_list, filters.accumulated_values, filters.company)
-
 	currency = filters.presentation_currency or frappe.get_cached_value(
 		"Company", filters.company, "default_currency"
 	)
-	chart = get_chart_data(filters, period_list, income, expense, net_profit_loss, currency)
+
+	total_income_row = income_tree[-2] if income_tree and len(income_tree) >= 2 else None
+	total_expense_all_row = expense_tree[-2] if expense_tree and len(expense_tree) >= 2 else None
+	if total_income_row:
+		# get_data()'s add_total_row doesn't flag is_total_row - add it so this
+		# row still bolds and sits at the root tree level like every other
+		# summary row we build below.
+		total_income_row["is_total_row"] = 1
+		total_income_row["indent"] = 0
+
+	# Body rows only: drop the root account row itself (our own "Income"/
+	# "Expense" section heading takes its place at the same indent level)
+	# and the trailing [total_row, blank] pair.
+	income_rows = income_tree[1:-2] if income_tree and len(income_tree) >= 2 else []
+	expense_rows = expense_tree[1:-2] if expense_tree and len(expense_tree) >= 2 else []
+
+	cogs_rows, cogs_anchor_rows, opex_rows = split_cogs_branch(
+		expense_rows, filters.company, period_list
+	)
+
+	# Sum only the anchor row(s) - each anchor's own "total"/period values are
+	# already the rolled-up sum of its whole branch, so summing every row in
+	# cogs_rows too would double-count everything beneath the anchor.
+	total_cogs_row = make_total_row(cogs_anchor_rows, period_list, _("Total Cost of Goods Sold"), currency)
+	gross_profit_row = make_diff_row(
+		total_income_row, total_cogs_row, period_list, _("Gross Profit"), currency
+	)
+	# Total Expense (ex-COGS) is derived by subtracting COGS from the
+	# authoritative combined Expense total, rather than summed independently
+	# from opex_rows - so Total COGS + Total Expense always equals the
+	# standard report's Total Expense exactly, and Net Profit below ties out
+	# to the standard report's Net Profit exactly.
+	total_expense_row = make_diff_row(
+		total_expense_all_row, total_cogs_row, period_list, _("Total Expense"), currency
+	)
+	net_profit_row = make_diff_row(
+		gross_profit_row, total_expense_row, period_list, _("Net Profit"), currency
+	)
+
+	# Expand every leaf account into its own transactions (and, for
+	# vouchers with an item table, their line items) as further-indented
+	# child rows in this same tree.
+	income_rows = attach_transaction_rows(income_rows, filters, period_list, currency)
+	cogs_rows = attach_transaction_rows(cogs_rows, filters, period_list, currency)
+	opex_rows = attach_transaction_rows(opex_rows, filters, period_list, currency)
+
+	# Group/parent accounts roll up every descendant's amount - needed above
+	# for Total Income/COGS/Expense etc. to tie out, but confusing to display:
+	# a parent's number reads like its own balance stacked on top of its
+	# children's. Blank it for display only, after all of that arithmetic is
+	# already done, so only real leaf accounts show a figure.
+	blank_group_amounts(income_rows, period_list)
+	blank_group_amounts(cogs_rows, period_list)
+	blank_group_amounts(opex_rows, period_list)
+
+	data = []
+	data.append(get_section_heading_row(_("Income"), period_list))
+	data.extend(income_rows)
+	if total_income_row:
+		data.append(total_income_row)
+	data.append({})
+
+	data.append(get_section_heading_row(_("Cost of Goods Sold"), period_list))
+	data.extend(cogs_rows)
+	data.append(total_cogs_row)
+	data.append(gross_profit_row)
+	data.append({})
+
+	data.append(get_section_heading_row(_("Expense"), period_list))
+	data.extend(opex_rows)
+	data.append(total_expense_row)
+	data.append({})
+
+	data.append(net_profit_row)
+
+	blank_missing_transaction_detail_fields(data)
+
+	columns = get_columns(filters.periodicity, period_list, filters.accumulated_values, filters.company)
+	columns.extend(get_transaction_detail_columns(data))
+
+	chart = get_chart_data(
+		filters,
+		columns,
+		total_income_row,
+		total_cogs_row,
+		gross_profit_row,
+		total_expense_row,
+		net_profit_row,
+		currency,
+	)
 
 	report_summary, primitive_summary = get_report_summary(
-		period_list, filters.periodicity, income, expense, net_profit_loss, currency, filters
+		period_list,
+		filters.periodicity,
+		total_income_row,
+		total_cogs_row,
+		gross_profit_row,
+		total_expense_row,
+		net_profit_row,
+		currency,
+		filters,
 	)
 
 	if filters.get("selected_view") == "Growth":
@@ -80,48 +207,202 @@ def execute(filters=None):
 	return columns, data, None, chart, report_summary, primitive_summary
 
 
-def get_report_summary(
-	period_list, periodicity, income, expense, net_profit_loss, currency, filters, consolidated=False
-):
-	net_income, net_expense, net_profit = 0.0, 0.0, 0.0
+def split_cogs_branch(expense_rows, company, period_list):
+	"""Cut the Cost of Goods Sold branch(es) out of the Expense account tree.
 
-	# from consolidated financial statement
-	if filters.get("accumulated_in_group_company"):
-		period_list = get_filtered_list_for_consolidated_report(filters, period_list)
+	expense_rows is the Expense tree (real groups + leaves, in the same
+	lft/pre-order the standard report uses, root already excluded). We locate
+	the topmost Expense account(s) actually named "Cost of Goods Sold"/
+	"Cost of Goods Solds" and cut out each one's entire branch - the account
+	row plus every row more indented than it that immediately follows,
+	which is exactly how frappe-datatable itself decides parent/child
+	grouping. Everything left behind is a regular expense.
 
-	if filters.accumulated_values:
-		# when 'accumulated_values' is enabled, periods have running balance.
-		# so, last period will have the net amount.
-		key = period_list[-1].key
-		if income:
-			net_income = income[-2].get(key)
-		if expense:
-			net_expense = expense[-2].get(key)
-		if net_profit_loss:
-			net_profit = net_profit_loss.get(key)
-	else:
+	Every ancestor group still left in Expense (e.g. "Direct Expenses",
+	"Stock Expenses") had the removed branch's value baked into its own
+	rolled-up total by accumulate_values_into_parents - so once the branch
+	is pulled out, we subtract it back out of each remaining ancestor too.
+	Otherwise those group subtotals would still include COGS while the
+	Total Expense row below them wouldn't, and the numbers wouldn't add up.
+	"""
+	anchor_names = get_cogs_anchor_account_names(company)
+
+	rows_by_account = {row.get("account"): row for row in expense_rows if row.get("account")}
+	anchor_rows_in_order = [row for row in expense_rows if row.get("account") in anchor_names]
+	for anchor_row in anchor_rows_in_order:
+		subtract_from_ancestors(rows_by_account, anchor_row, period_list)
+
+	cogs_rows = []
+	cogs_anchor_rows = []
+	opex_rows = []
+
+	i = 0
+	n = len(expense_rows)
+	while i < n:
+		row = expense_rows[i]
+		if row.get("account") in anchor_names:
+			anchor_indent = row.get("indent") or 0
+			cogs_anchor_rows.append(row)
+			cogs_rows.append(row)
+			i += 1
+			while i < n and (expense_rows[i].get("indent") or 0) > anchor_indent:
+				cogs_rows.append(expense_rows[i])
+				i += 1
+		else:
+			opex_rows.append(row)
+			i += 1
+
+	reindent_branches(cogs_rows, cogs_anchor_rows, new_anchor_indent=1)
+
+	return cogs_rows, cogs_anchor_rows, opex_rows
+
+
+def get_cogs_anchor_account_names(company):
+	"""Topmost Expense account(s) for this company that represent Cost of
+	Goods Sold. If one matching account contains another (e.g. a
+	"Cost of Goods Solds" group that itself has a nested "Cost of Goods
+	Sold" leaf inside it), keep only the outermost one so its branch is cut
+	out as a single unit instead of being sliced twice.
+	"""
+	anchors = frappe.db.sql(
+		"""
+		select name, lft, rgt from `tabAccount`
+		where company=%s and root_type='Expense'
+		and account_name in %s
+		""",
+		(company, COGS_ACCOUNT_NAMES),
+		as_dict=True,
+	)
+
+	maximal = []
+	for i, anchor in enumerate(anchors):
+		contained = any(
+			j != i and anchors[j].lft < anchor.lft and anchor.rgt < anchors[j].rgt
+			for j in range(len(anchors))
+		)
+		if not contained:
+			maximal.append(anchor.name)
+
+	return set(maximal)
+
+
+def subtract_from_ancestors(rows_by_account, anchor_row, period_list):
+	parent = anchor_row.get("parent_account")
+	while parent and parent in rows_by_account:
+		ancestor = rows_by_account[parent]
 		for period in period_list:
-			key = period if consolidated else period.key
-			if income:
-				net_income += income[-2].get(key)
-			if expense:
-				net_expense += expense[-2].get(key)
-			if net_profit_loss:
-				net_profit += net_profit_loss.get(key)
+			ancestor[period.key] = flt(ancestor.get(period.key, 0.0)) - flt(anchor_row.get(period.key, 0.0))
+		ancestor["total"] = flt(ancestor.get("total", 0.0)) - flt(anchor_row.get("total", 0.0))
+		parent = ancestor.get("parent_account")
+
+
+def reindent_branches(rows, anchor_rows, new_anchor_indent):
+	"""Shift each extracted branch so its anchor row sits at
+	new_anchor_indent, preserving the relative depth of everything beneath
+	it (e.g. an anchor 3 levels deep with children 1 level further down
+	keeps that 1-level gap once re-based under the new heading)."""
+	anchor_ids = {id(row) for row in anchor_rows}
+	delta = 0
+	for row in rows:
+		if id(row) in anchor_ids:
+			delta = new_anchor_indent - (row.get("indent") or 0)
+			row["indent"] = new_anchor_indent
+		else:
+			row["indent"] = (row.get("indent") or 0) + delta
+
+
+def get_section_heading_row(account_name, period_list):
+	row = {
+		"account_name": account_name,
+		"is_group": 1,
+		"is_total_row": 1,
+		"indent": 0,
+	}
+	# Blank out every amount column. frappe's Currency formatter routes
+	# anything falsy - including an unset key or "" - through format_currency,
+	# which coerces it to "0.00"; only a strict None (JSON null) short-
+	# circuits to a truly empty cell.
+	for period in period_list:
+		row[period.key] = None
+	row["total"] = None
+	return row
+
+
+def make_total_row(rows, period_list, label, currency):
+	total_row = {
+		"account_name": "'" + label + "'",
+		"account": "'" + label + "'",
+		"currency": currency,
+		"is_total_row": 1,
+		"indent": 0,
+		"total": 0.0,
+	}
+	for period in period_list:
+		total_row[period.key] = 0.0
+
+	for row in rows:
+		for period in period_list:
+			total_row[period.key] += flt(row.get(period.key, 0.0))
+		total_row["total"] += flt(row.get("total", 0.0))
+
+	return total_row
+
+
+def make_diff_row(row_a, row_b, period_list, label, currency):
+	row_a = row_a or {}
+	row_b = row_b or {}
+	diff_row = {
+		"account_name": "'" + label + "'",
+		"account": "'" + label + "'",
+		"currency": currency,
+		"is_total_row": 1,
+		"indent": 0,
+		"warn_if_negative": True,
+		"total": flt(row_a.get("total", 0.0)) - flt(row_b.get("total", 0.0)),
+	}
+	for period in period_list:
+		diff_row[period.key] = flt(row_a.get(period.key, 0.0)) - flt(row_b.get(period.key, 0.0))
+
+	return diff_row
+
+
+def get_report_summary(
+	period_list,
+	periodicity,
+	total_income_row,
+	total_cogs_row,
+	gross_profit_row,
+	total_expense_row,
+	net_profit_row,
+	currency,
+	filters,
+):
+	def summarize(row):
+		if not row:
+			return 0.0
+		if filters.accumulated_values:
+			return flt(row.get(period_list[-1].key, 0.0))
+		return sum(flt(row.get(period.key, 0.0)) for period in period_list)
+
+	net_income = summarize(total_income_row)
+	net_cogs = summarize(total_cogs_row)
+	gross_profit = summarize(gross_profit_row)
+	net_expense = summarize(total_expense_row)
+	net_profit = summarize(net_profit_row)
 
 	if len(period_list) == 1 and periodicity == "Yearly":
-		profit_label = _("Profit This Year")
-		income_label = _("Total Income This Year")
-		expense_label = _("Total Expense This Year")
+		profit_label = _("Net Profit This Year")
 	else:
 		profit_label = _("Net Profit")
-		income_label = _("Total Income")
-		expense_label = _("Total Expense")
 
 	return [
-		{"value": net_income, "label": income_label, "datatype": "Currency", "currency": currency},
+		{"value": net_income, "label": _("Total Income"), "datatype": "Currency", "currency": currency},
 		{"type": "separator", "value": "-"},
-		{"value": net_expense, "label": expense_label, "datatype": "Currency", "currency": currency},
+		{"value": net_cogs, "label": _("Total COGS"), "datatype": "Currency", "currency": currency},
+		{"type": "separator", "value": "=", "color": "blue"},
+		{"value": gross_profit, "label": _("Gross Profit"), "datatype": "Currency", "currency": currency},
+		{"type": "separator", "value": "-"},
+		{"value": net_expense, "label": _("Total Expense"), "datatype": "Currency", "currency": currency},
 		{"type": "separator", "value": "=", "color": "blue"},
 		{
 			"value": net_profit,
@@ -133,57 +414,29 @@ def get_report_summary(
 	], net_profit
 
 
-def get_net_profit_loss(income, expense, period_list, company, currency=None, consolidated=False):
-	total = 0
-	net_profit_loss = {
-		"account_name": "'" + _("Profit for the year") + "'",
-		"account": "'" + _("Profit for the year") + "'",
-		"warn_if_negative": True,
-		"currency": currency or frappe.get_cached_value("Company", company, "default_currency"),
-		"is_total_row": 1,
-	}
+def get_chart_data(
+	filters,
+	columns,
+	total_income_row,
+	total_cogs_row,
+	gross_profit_row,
+	total_expense_row,
+	net_profit_row,
+	currency,
+):
+	period_columns = columns[2:]
+	labels = [d.get("label") for d in period_columns]
 
-	has_value = False
-
-	for period in period_list:
-		key = period if consolidated else period.key
-		total_income = flt(income[-2][key], 3) if income else 0
-		total_expense = flt(expense[-2][key], 3) if expense else 0
-
-		net_profit_loss[key] = total_income - total_expense
-
-		if net_profit_loss[key]:
-			has_value = True
-
-		total += flt(net_profit_loss[key])
-		net_profit_loss["total"] = total
-
-	if has_value:
-		return net_profit_loss
-
-
-def get_chart_data(filters, chart_columns, income, expense, net_profit_loss, currency):
-	labels = [col.get("label") for col in chart_columns]
-
-	income_data, expense_data, net_profit = [], [], []
-
-	for col in chart_columns:
-		key = col.get("key") or col.get("fieldname")
-
-		if income:
-			income_data.append(income[-2].get(key))
-		if expense:
-			expense_data.append(expense[-2].get(key))
-		if net_profit_loss:
-			net_profit.append(net_profit_loss.get(key))
+	def series(row):
+		return [flt((row or {}).get(p.get("fieldname"), 0.0)) for p in period_columns]
 
 	datasets = []
-	if income_data:
-		datasets.append({"name": _("Income"), "values": income_data})
-	if expense_data:
-		datasets.append({"name": _("Expense"), "values": expense_data})
-	if net_profit:
-		datasets.append({"name": _("Net Profit/Loss"), "values": net_profit})
+	if total_income_row:
+		datasets.append({"name": _("Income"), "values": series(total_income_row)})
+	datasets.append({"name": _("Cost of Goods Sold"), "values": series(total_cogs_row)})
+	datasets.append({"name": _("Gross Profit"), "values": series(gross_profit_row)})
+	datasets.append({"name": _("Expense"), "values": series(total_expense_row)})
+	datasets.append({"name": _("Net Profit"), "values": series(net_profit_row)})
 
 	chart = {"data": {"labels": labels, "datasets": datasets}}
 

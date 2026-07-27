@@ -749,18 +749,284 @@ def compute_growth_view_data(data, columns):
 			data[row_idx][current_period_key] = growth_percent
 
 
-def compute_margin_view_data(data, columns, accumulated_values):
+VOUCHER_ITEM_DOCTYPE = {
+	# Second element is the fieldname on that item doctype holding its
+	# valuation/cost rate - deliberately not the selling/buying "rate" field,
+	# so the item drill-down always shows what the stock was actually worth,
+	# not what it was invoiced at. Sales Invoice/Delivery Note items don't
+	# have a "valuation_rate" field of their own; "incoming_rate" is
+	# ERPNext's own field for the same thing on outward stock movements.
+	"Sales Invoice": ("Sales Invoice Item", "incoming_rate"),
+	"Purchase Invoice": ("Purchase Invoice Item", "valuation_rate"),
+	"Delivery Note": ("Delivery Note Item", "incoming_rate"),
+	"Purchase Receipt": ("Purchase Receipt Item", "valuation_rate"),
+	"Stock Entry": ("Stock Entry Detail", "valuation_rate"),
+	"Stock Reconciliation": ("Stock Reconciliation Item", "valuation_rate"),
+}
+
+
+def blank_group_amounts(rows, period_list):
+	"""Blank every period + total cell on group/parent account rows in place.
+	Leaf accounts, transaction rows and item rows (none of which carry
+	is_group) are left untouched, and so are the synthetic total/heading
+	rows built elsewhere (they never set is_group either)."""
+	for row in rows:
+		if row.get("is_group"):
+			for period in period_list:
+				row[period.key] = None
+			row["total"] = None
+
+
+def attach_transaction_rows(rows, filters, period_list, currency):
+	"""Expand every leaf account row in `rows` with its own transactions
+	(vouchers) as indented child rows in this same tree - clicking the
+	account's expand arrow reveals them right here, no separate General
+	Ledger report involved. Vouchers with their own item table (see
+	VOUCHER_ITEM_DOCTYPE) get one level further: their line items as
+	grandchild rows.
+
+	Group rows are left untouched (Frappe doesn't allow postings directly on
+	a group account, so they never have transactions of their own)."""
+	leaf_accounts = [row["account"] for row in rows if row.get("account") and not row.get("is_group")]
+	if not leaf_accounts:
+		return rows
+
+	gl_entries = get_account_transactions(leaf_accounts, filters, period_list)
+	if filters.get("presentation_currency"):
+		convert_to_presentation_currency(gl_entries, get_currency(filters))
+
+	entries_by_account = {}
+	for entry in gl_entries:
+		entries_by_account.setdefault(entry.account, []).append(entry)
+
+	items_by_voucher = get_item_rows_by_voucher(gl_entries)
+
+	out = []
+	for row in rows:
+		out.append(row)
+		account = row.get("account")
+		if not account or row.get("is_group"):
+			continue
+
+		account_indent = flt(row.get("indent", 0))
+
+		for entry in entries_by_account.get(account, []):
+			txn_key = f"{account}::txn::{entry.name}"
+			out.append(
+				make_transaction_row(
+					txn_key, account, account_indent + 1, entry, period_list, currency
+				)
+			)
+
+			if entry.voucher_type not in VOUCHER_ITEM_DOCTYPE:
+				continue
+
+			for item in items_by_voucher.get((entry.voucher_type, entry.voucher_no), []):
+				out.append(
+					make_item_row(txn_key, account_indent + 2, item, period_list, currency)
+				)
+
+	return out
+
+
+def make_transaction_row(txn_key, parent_account, indent, entry, period_list, currency):
+	row = {
+		# Quoted like make_total_row()/make_diff_row()'s synthetic rows -
+		# the "account" column is fieldtype Link/Account, and frappe's Link
+		# formatter special-cases a 'quoted' value to render as plain text
+		# instead of building a (here, broken - txn_key isn't a real Account)
+		# link to /app/account/<value>. Only real leaf account rows should
+		# ever be clickable through to an actual Account record.
+		"account": "'" + txn_key + "'",
+		"parent_account": parent_account,
+		"indent": indent,
+		"account_name": f"{entry.voucher_type} {entry.voucher_no}",
+		"currency": currency,
+		"posting_date": entry.posting_date,
+		"voucher_type": entry.voucher_type,
+		"voucher_no": entry.voucher_no,
+		"party": entry.party,
+		"against": entry.against,
+		"debit": entry.debit,
+		"credit": entry.credit,
+	}
+	for period in period_list:
+		row[period.key] = None
+	row["total"] = None
+	return row
+
+
+def make_item_row(parent_key, indent, item, period_list, currency):
+	row = {
+		# Quoted for the same reason as make_transaction_row() above.
+		"account": "'" + f"{parent_key}::item::{item.idx}" + "'",
+		"parent_account": parent_key,
+		"indent": indent,
+		"account_name": item.item_name or item.item_code,
+		"currency": currency,
+		"item_code": item.item_code,
+		"item_name": item.item_name,
+		"qty": item.qty,
+		"rate": item.rate,
+		"amount": item.amount,
+	}
+	for period in period_list:
+		row[period.key] = None
+	row["total"] = None
+	return row
+
+
+def get_account_transactions(accounts, filters, period_list):
+	gl_entry = frappe.qb.DocType("GL Entry")
+	query = (
+		frappe.qb.from_(gl_entry)
+		.select(
+			gl_entry.name,
+			gl_entry.posting_date,
+			gl_entry.voucher_type,
+			gl_entry.voucher_no,
+			gl_entry.against,
+			gl_entry.party_type,
+			gl_entry.party,
+			gl_entry.account,
+			gl_entry.debit,
+			gl_entry.credit,
+			gl_entry.debit_in_account_currency,
+			gl_entry.credit_in_account_currency,
+			gl_entry.account_currency,
+		)
+		.where(gl_entry.company == filters.company)
+		.where(gl_entry.is_cancelled == 0)
+		.where(gl_entry.account.isin(accounts))
+		.where(gl_entry.posting_date >= period_list[0]["year_start_date"])
+		.where(gl_entry.posting_date <= period_list[-1]["to_date"])
+		.orderby(gl_entry.posting_date)
+		.orderby(gl_entry.creation)
+	)
+	# Same finance book / cost center / project / accounting dimension
+	# filters the account totals above were computed with, so the
+	# transactions listed under an account always match its total.
+	query = apply_additional_conditions("GL Entry", query, None, True, filters)
+	return query.run(as_dict=True)
+
+
+def get_item_rows_by_voucher(gl_entries):
+	voucher_names_by_doctype = {}
+	for entry in gl_entries:
+		if entry.voucher_type in VOUCHER_ITEM_DOCTYPE:
+			voucher_names_by_doctype.setdefault(entry.voucher_type, set()).add(entry.voucher_no)
+
+	items_by_voucher = {}
+	for voucher_type, voucher_names in voucher_names_by_doctype.items():
+		item_doctype, rate_fieldname = VOUCHER_ITEM_DOCTYPE[voucher_type]
+		items = frappe.get_all(
+			item_doctype,
+			filters={"parent": ["in", list(voucher_names)]},
+			# Alias each doctype's own valuation-rate fieldname (it isn't
+			# always called "valuation_rate" - see VOUCHER_ITEM_DOCTYPE) to a
+			# uniform "rate" key so make_item_row() doesn't need to care
+			# which voucher type an item came from.
+			fields=["parent", "idx", "item_code", "item_name", "qty", f"{rate_fieldname} as rate", "amount"],
+			order_by="parent, idx",
+		)
+		for item in items:
+			items_by_voucher.setdefault((voucher_type, item.parent), []).append(item)
+
+	return items_by_voucher
+
+
+TRANSACTION_DETAIL_FIELDS = (
+	"posting_date",
+	"voucher_type",
+	"voucher_no",
+	"party",
+	"against",
+	"debit",
+	"credit",
+	"item_code",
+	"item_name",
+	"qty",
+	"rate",
+	"amount",
+)
+
+
+def blank_missing_transaction_detail_fields(data):
+	"""Every transaction-detail column (see get_transaction_detail_columns())
+	is only relevant to some rows - Debit/Credit/Party/Against only to
+	transaction rows, Qty/Rate/Amount/Item Code/Item Name only to item rows,
+	none of them to plain account/group/total rows. Frappe's Currency/Float
+	formatters only render a blank cell for a field that's explicitly None;
+	a field that's merely absent from the row still formats as "0.00" (the
+	frontend checks `value === null`, not `value == null`) - so every row
+	needs each not-applicable field set to a real None, not just left unset."""
+	for row in data:
+		if not row:
+			continue
+		for field in TRANSACTION_DETAIL_FIELDS:
+			if field not in row:
+				row[field] = None
+
+
+def get_transaction_detail_columns(data):
+	"""Only include a transaction-detail column if at least one row in this
+	report run actually has a value for it - e.g. no point showing "Item
+	Code"/"Qty"/"Valuation Rate" if none of the transactions drilled into
+	this time carry an item table, or "Party" if every voucher here posts
+	without one. `data` is the report's fully-built row list."""
+	all_columns = [
+		{"label": _("Posting Date"), "fieldname": "posting_date", "fieldtype": "Date", "width": 100},
+		{"label": _("Voucher Type"), "fieldname": "voucher_type", "fieldtype": "Data", "width": 130},
+		{
+			"label": _("Voucher No"),
+			"fieldname": "voucher_no",
+			"fieldtype": "Dynamic Link",
+			"options": "voucher_type",
+			"width": 160,
+		},
+		{"label": _("Party"), "fieldname": "party", "fieldtype": "Data", "width": 140},
+		{"label": _("Against"), "fieldname": "against", "fieldtype": "Data", "width": 140},
+		{"label": _("Debit"), "fieldname": "debit", "fieldtype": "Currency", "options": "currency", "width": 120},
+		{"label": _("Credit"), "fieldname": "credit", "fieldtype": "Currency", "options": "currency", "width": 120},
+		{"label": _("Item Code"), "fieldname": "item_code", "fieldtype": "Link", "options": "Item", "width": 120},
+		{"label": _("Item Name"), "fieldname": "item_name", "fieldtype": "Data", "width": 160},
+		{"label": _("Qty"), "fieldname": "qty", "fieldtype": "Float", "width": 80},
+		{
+			"label": _("Valuation Rate"),
+			"fieldname": "rate",
+			"fieldtype": "Currency",
+			"options": "currency",
+			"width": 120,
+		},
+		{"label": _("Amount"), "fieldname": "amount", "fieldtype": "Currency", "options": "currency", "width": 100},
+	]
+
+	return [
+		column
+		for column in all_columns
+		if any(row.get(column["fieldname"]) not in (None, "") for row in data if row)
+	]
+
+
+def compute_margin_view_data(data, columns, accumulated_values, base_account_name=None):
+	"""Percent-of-base view: every row's value is shown as a percentage of
+	`base_account_name`'s value in that same column (e.g. "% of Income" for
+	Profit and Loss, "% of Assets" - a common-size balance sheet - for the
+	Balance Sheet). Defaults to Income to preserve the original P&L-only
+	behaviour of this function."""
 	if not columns:
 		return
 
 	if not accumulated_values:
 		columns.append({"key": "total"})
 
+	base_account_name = base_account_name or _("Income")
+
 	data_copy = copy.deepcopy(data)
 
 	base_row = None
 	for row in data_copy:
-		if row.get("account_name") == _("Income"):
+		if row.get("account_name") == base_account_name:
 			base_row = row
 			break
 
@@ -778,7 +1044,7 @@ def compute_margin_view_data(data, columns, accumulated_values):
 			base_value = base_row[curr_period]
 			curr_value = row[curr_period]
 
-			if curr_value is None or base_value <= 0:
+			if curr_value is None or base_value is None or base_value <= 0:
 				data[row_idx][curr_period] = None
 				continue
 
