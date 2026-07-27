@@ -1,11 +1,28 @@
 # Copyright (c) 2015, Frappe Technologies Pvt. Ltd. and Contributors
 # License: GNU General Public License v3. See license.txt
+#
+# Every leaf account row (Asset/Liability/Equity) is expanded, in place, into
+# its own transactions (vouchers) - no navigating away to General Ledger -
+# and every voucher that carries its own item table (Sales/Purchase Invoice,
+# Delivery Note, Purchase Receipt, Stock Entry, Stock Reconciliation) is
+# expanded one level further into its line items, exactly like Profit and
+# Loss Statement (Child Accounts) does. See attach_transaction_rows() in
+# financial_statements.py, shared between the two reports. Group/parent
+# account rows also have their rolled-up amount blanked for display - see
+# blank_group_amounts() - so only leaf accounts show a figure.
 
 
 import frappe
 from frappe import _
 from frappe.utils import cint, flt
 
+from cannabis_management.cannabis_management.report.financial_statements import (
+	attach_transaction_rows,
+	blank_group_amounts,
+	blank_missing_transaction_detail_fields,
+	compute_margin_view_data,
+	get_transaction_detail_columns,
+)
 from erpnext.accounts.report.financial_statements import (
 	compute_growth_view_data,
 	get_columns,
@@ -66,6 +83,15 @@ def execute(filters=None):
 	simplify_root_heading(liability, period_list, _("Liabilities"))
 	simplify_root_heading(equity, period_list, _("Equity"))
 
+	# get_provisional_profit_loss()/check_opening_balance()/get_report_summary()/
+	# get_chart_data() below all index asset[-2]/asset[-1] (and the same for
+	# liability/equity) directly, so expand_and_blank_group_rows() must leave
+	# those two trailing rows exactly where they are - only the body between
+	# the root row and that trailing pair gets expanded.
+	asset = expand_and_blank_group_rows(asset, filters, period_list, currency)
+	liability = expand_and_blank_group_rows(liability, filters, period_list, currency)
+	equity = expand_and_blank_group_rows(equity, filters, period_list, currency)
+
 	provisional_profit_loss, total_credit = get_provisional_profit_loss(
 		asset, liability, equity, period_list, filters.company, currency
 	)
@@ -96,9 +122,12 @@ def execute(filters=None):
 	if total_credit:
 		data.append(total_credit)
 
+	blank_missing_transaction_detail_fields(data)
+
 	columns = get_columns(
 		filters.periodicity, period_list, filters.accumulated_values, company=filters.company
 	)
+	columns.extend(get_transaction_detail_columns(data))
 
 	chart = get_chart_data(filters, columns, asset, liability, equity, currency)
 
@@ -109,7 +138,40 @@ def execute(filters=None):
 	if filters.get("selected_view") == "Growth":
 		compute_growth_view_data(data, period_list)
 
+	if filters.get("selected_view") == "Margin":
+		# Common-size balance sheet: every row shown as a % of Total Assets
+		# (which by construction equals Total Liabilities + Equity), not %
+		# of Income - there's no Income row on a Balance Sheet. The "Assets"
+		# root heading row itself has its amount blanked by
+		# simplify_root_heading() above (by design - see that function's
+		# docstring), so the base has to be the real Total Asset row
+		# add_total_row() appends instead - same quoted account_name format
+		# used everywhere else in this file for synthetic total rows.
+		total_asset_label = "'" + _("Total {0} ({1})").format(_("Asset"), _("Debit")) + "'"
+		compute_margin_view_data(
+			data, period_list, filters.accumulated_values, base_account_name=total_asset_label
+		)
+
 	return columns, data, message, chart, report_summary, primitive_summary
+
+
+def expand_and_blank_group_rows(rows, filters, period_list, currency):
+	"""Same in-place transaction/item drill-down and group-amount blanking
+	the Profit and Loss Statement (Child Accounts) report uses - see
+	attach_transaction_rows()/blank_group_amounts() in financial_statements.py.
+
+	`rows` is get_data()'s output: [root account row, ...group/leaf rows...,
+	total row, {}]. Root and the trailing [total row, {}] pair are left
+	untouched - callers below (get_provisional_profit_loss(),
+	check_opening_balance(), etc.) index into them directly - only the body
+	in between is expanded."""
+	if not rows or len(rows) < 2:
+		return rows
+
+	root, body, tail = rows[:1], rows[1:-2], rows[-2:]
+	body = attach_transaction_rows(body, filters, period_list, currency)
+	blank_group_amounts(body, period_list)
+	return root + body + tail
 
 
 def simplify_root_heading(rows, period_list, label):
