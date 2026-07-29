@@ -138,7 +138,10 @@ def execute(filters=None):
 	# vouchers with an item table, their line items) as further-indented
 	# child rows in this same tree.
 	income_rows = attach_transaction_rows(income_rows, filters, period_list, currency)
-	cogs_rows = attach_transaction_rows(cogs_rows, filters, period_list, currency)
+	# COGS is the one branch where the item drill-down shows valuation/cost
+	# rate instead of the selling rate - it's about what the stock actually
+	# cost, not what it was invoiced at.
+	cogs_rows = attach_transaction_rows(cogs_rows, filters, period_list, currency, use_valuation_rate=True)
 	opex_rows = attach_transaction_rows(opex_rows, filters, period_list, currency)
 
 	# Group/parent accounts roll up every descendant's amount - needed above
