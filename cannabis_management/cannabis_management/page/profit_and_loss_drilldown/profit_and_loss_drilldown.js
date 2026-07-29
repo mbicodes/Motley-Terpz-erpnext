@@ -56,6 +56,25 @@ frappe.pages["profit-and-loss-drilldown"].on_page_load = function (wrapper) {
 		"debit", "credit", "item_code", "item_name", "qty", "rate", "amount",
 	];
 
+	// ── Stock Valuation Lineage drill-down (COGS only) ───────────────────────
+	// A COGS item row sold via Sales Invoice/Delivery Note (see show_lineage
+	// on the row - set server-side in make_item_row()) can expand one level
+	// further into its backward valuation trace: Sold -> Produced/Repack ->
+	// Consumed Input -> ... -> Purchased/Opening/Transferred - the exact same
+	// engine as the standalone "Stock Valuation Lineage" report, fetched on
+	// demand for just this one line via get_item_lineage(). These 4 columns
+	// only ever appear on lineage rows, so the backend never returns them -
+	// they're appended to state.dynamicColumnDefs by hand once the report
+	// loads (see runReport()'s callback) so the same expand/collapse-driven
+	// dynamic-column logic picks them up automatically.
+	var LINEAGE_ONLY_COLUMNS = [
+		{ label: "Phase", fieldname: "phase", fieldtype: "Data", width: 220 },
+		{ label: "UOM", fieldname: "uom", fieldtype: "Data", width: 70 },
+		{ label: "Warehouse", fieldname: "warehouse", fieldtype: "Link", options: "Warehouse", width: 160 },
+		{ label: "Stock Ledger Entry", fieldname: "stock_ledger_entry", fieldtype: "Link", options: "Stock Ledger Entry", width: 170 },
+	];
+	var LINEAGE_METHOD = "cannabis_management.cannabis_management.report.stock_valuation_lineage.stock_valuation_lineage.get_item_lineage";
+
 	var VOUCHER_TYPE_LABELS_INCOME = ["income"];
 
 	// ── State ───────────────────────────────────────────────────────────────
@@ -82,6 +101,7 @@ frappe.pages["profit-and-loss-drilldown"].on_page_load = function (wrapper) {
 		chartData: null,
 		reportMessage: null,
 		expandedState: {},
+		rowsByKey: {},
 		lastVisible: [],
 		lastDynamicColumns: [],
 		fiscal_years: [],
@@ -300,12 +320,18 @@ frappe.pages["profit-and-loss-drilldown"].on_page_load = function (wrapper) {
             .row-net-profit td .num-negative, .row-net-profit td .net-negative { color: #fca5a5 !important; font-size: 15px; }
             .row-transaction td { background: #f8fbff; color: #475569; font-size: 12.5px; }
             .row-item td { background: #fdfdff; color: #64748b; font-size: 12px; }
+            .row-lineage td { background: #fbfaff; color: #7c7a99; font-size: 11.5px; font-style: italic; }
+            .row-lineage .pld-account-cell span:not(.pld-indent):not(.pld-toggle-spacer) { font-style: normal; }
 
             .pld-account-cell { display: flex; align-items: center; }
             .pld-indent { display: inline-block; flex-shrink: 0; }
             .pld-toggle { width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; color: #cbd5e1; flex-shrink: 0; font-size: 9px; transition: transform 0.18s, color 0.15s; margin-right: 3px; user-select: none; border-radius: 4px; }
             .pld-toggle:hover { background: #e0e7ff; color: #6366f1; }
             .pld-toggle.open { transform: rotate(90deg); color: #6366f1; }
+            .pld-toggle-lineage { color: #a78bfa; }
+            .pld-toggle-lineage:hover { background: #ede9fe; color: #7c3aed; }
+            .pld-toggle-lineage.open { color: #7c3aed; }
+            .pld-toggle-lineage.loading { animation: pld-spin 0.8s linear infinite; transform-origin: center; cursor: wait; }
             .pld-toggle-spacer { width: 23px; display: inline-block; flex-shrink: 0; }
             .pld-acct-icon { width: 24px; height: 24px; border-radius: 7px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; margin-right: 8px; flex-shrink: 0; }
             .icon-income  { background: linear-gradient(135deg, #d1fae5, #a7f3d0); color: #065f46; }
@@ -445,11 +471,13 @@ frappe.pages["profit-and-loss-drilldown"].on_page_load = function (wrapper) {
 	}
 
 	function annotateRows(allRows) {
+		state.rowsByKey = {};
 		for (var i = 0; i < allRows.length; i++) {
 			var row = allRows[i];
 			if (!row) continue;
 			row.__kind = classifyRow(row);
 			row.__key = row.__kind === "blank" ? null : rowKey(row);
+			if (row.__key) state.rowsByKey[row.__key] = row;
 			if (row.__kind === "transaction") {
 				var indent = row.indent || 0;
 				var next = allRows[i + 1];
@@ -461,12 +489,18 @@ frappe.pages["profit-and-loss-drilldown"].on_page_load = function (wrapper) {
 	// Seed a sensible default expand state so the initial view reads like a
 	// normal income statement, not an exploded wall of transactions: account
 	// rows at indent <= 2 start expanded (absence from the map = expanded);
-	// deeper account rows and every transaction row start collapsed.
+	// deeper account rows, every transaction row, and every lineage-eligible
+	// COGS item row start collapsed (nobody wants a 50-row valuation trace
+	// unfolding under every single sold item by default).
 	function seedDefaultExpandState(allRows) {
 		var expanded = {};
 		for (var i = 0; i < allRows.length; i++) {
 			var row = allRows[i];
-			if (!row || row.__kind === "blank" || row.__kind === "item" || row.__kind === "total") continue;
+			if (!row || row.__kind === "blank" || row.__kind === "total") continue;
+			if (row.__kind === "item") {
+				if (row.show_lineage) expanded[row.__key] = false;
+				continue;
+			}
 			var indent = row.indent || 0;
 			if (row.__kind === "transaction") {
 				expanded[row.__key] = false;
@@ -509,7 +543,11 @@ frappe.pages["profit-and-loss-drilldown"].on_page_load = function (wrapper) {
 			var isHidden = collapseStack.length > 0;
 			if (!isHidden) visible.push(row);
 
-			var isCollapsible = row.__kind === "group" || row.__kind === "leaf" || row.__kind === "transaction";
+			// A lineage-eligible item row is also collapsible: its lineage
+			// phase rows (fetched on demand) are its children, one level
+			// deeper, exactly like a leaf account's transactions.
+			var isCollapsible = row.__kind === "group" || row.__kind === "leaf" || row.__kind === "transaction"
+				|| (row.__kind === "item" && row.show_lineage);
 			var isCollapsed = isCollapsible && expandedState[row.__key] === false;
 			if (isCollapsible && isCollapsed) {
 				collapseStack.push(indent);
@@ -894,6 +932,8 @@ frappe.pages["profit-and-loss-drilldown"].on_page_load = function (wrapper) {
 			formatted = fmt_number(val);
 		} else if (col.fieldtype === "Date") {
 			formatted = escHtml(frappe.datetime.str_to_user ? frappe.datetime.str_to_user(val) : String(val));
+		} else if (col.fieldtype === "Link" && col.options) {
+			formatted = frappe.utils.get_form_link(col.options, val, true, escHtml(String(val)));
 		} else {
 			formatted = escHtml(String(val));
 		}
@@ -906,10 +946,17 @@ frappe.pages["profit-and-loss-drilldown"].on_page_load = function (wrapper) {
 		var labelHtml;
 		var label = escHtml(row.account_name || "");
 
-		if (row.__kind === "group" || row.__kind === "leaf" || row.__kind === "transaction") {
+		var isLineageToggle = row.__kind === "item" && row.show_lineage;
+		if (row.__kind === "group" || row.__kind === "leaf" || row.__kind === "transaction" || isLineageToggle) {
+			// Same !== false ("absent from the map = open") convention for
+			// every collapsible kind, lineage-eligible items included -
+			// seedDefaultExpandState() explicitly seeds these to false so
+			// they still start closed despite the shared convention.
 			var isOpen = state.expandedState[row.__key] !== false;
-			toggleHtml = '<span class="pld-toggle ' + (isOpen ? "open" : "") + '" data-key="' + escHtml(row.__key) + '">▶</span>';
-		} else if (row.__kind === "item") {
+			var lineageClass = isLineageToggle ? " pld-toggle-lineage" + (row.__lineageLoading ? " loading" : "") : "";
+			var title = isLineageToggle ? ' title="Trace valuation lineage"' : "";
+			toggleHtml = '<span class="pld-toggle' + lineageClass + (isOpen ? " open" : "") + '" data-key="' + escHtml(row.__key) + '"' + title + '>' + (row.__lineageLoading ? "⟳" : "▶") + '</span>';
+		} else if (row.__kind === "item" || row.__kind === "lineage") {
 			toggleHtml = '<span class="pld-toggle-spacer"></span>';
 		}
 
@@ -921,8 +968,8 @@ frappe.pages["profit-and-loss-drilldown"].on_page_load = function (wrapper) {
 
 		if (row.__kind === "transaction") {
 			labelHtml = frappe.utils.get_form_link(row.voucher_type, row.voucher_no, true, label);
-		} else if (row.__kind === "item") {
-			labelHtml = frappe.utils.get_form_link("Item", row.item_code, true, label);
+		} else if (row.__kind === "item" || row.__kind === "lineage") {
+			labelHtml = row.item_code ? frappe.utils.get_form_link("Item", row.item_code, true, label) : label;
 		} else {
 			// Real account rows (leaf or group) and every synthetic
 			// total/heading row never navigate anywhere - they already
@@ -942,6 +989,7 @@ frappe.pages["profit-and-loss-drilldown"].on_page_load = function (wrapper) {
 		if (row.__kind === "total") return isLastRealRow ? "row-net-profit" : "row-total";
 		if (row.__kind === "transaction") return "row-transaction";
 		if (row.__kind === "item") return "row-item";
+		if (row.__kind === "lineage") return "row-lineage";
 		return "row-leaf";
 	}
 
@@ -998,7 +1046,101 @@ frappe.pages["profit-and-loss-drilldown"].on_page_load = function (wrapper) {
 
 	// ── Table event binding (delegated on the persistent #pld-root so it
 	// survives every innerHTML rebuild of the body underneath it) ───────────
+	// Turns one Stock Valuation Lineage phase row (get_item_lineage()'s own
+	// shape: phase/item_code/qty/uom/valuation_rate/amount/warehouse/
+	// voucher_type/voucher_no/posting_date/stock_ledger_entry/indent) into
+	// this table's row shape. Reuses "rate"/"amount"/"item_code"/"qty"/
+	// "voucher_type"/"voucher_no"/"posting_date" so the EXISTING
+	// transaction-detail columns already know how to render them; only
+	// "phase"/"uom"/"warehouse"/"stock_ledger_entry" are genuinely new (see
+	// LINEAGE_ONLY_COLUMNS).
+	function lineageRowToDisplayRow(lineageRow, itemRow, idx) {
+		var key = itemRow.__key + "::lineage::" + idx;
+		return {
+			__kind: "lineage",
+			__key: key,
+			account: "'" + key + "'",
+			parent_account: itemRow.__key,
+			indent: (itemRow.indent || 0) + 1 + (lineageRow.indent || 0),
+			currency: itemRow.currency,
+			account_name: lineageRow.phase + (lineageRow.item_name || lineageRow.item_code
+				? " — " + (lineageRow.item_name || lineageRow.item_code) : ""),
+			phase: lineageRow.phase,
+			item_code: lineageRow.item_code,
+			item_name: lineageRow.item_name,
+			qty: lineageRow.qty,
+			uom: lineageRow.uom,
+			rate: lineageRow.valuation_rate,
+			amount: lineageRow.amount,
+			warehouse: lineageRow.warehouse,
+			voucher_type: lineageRow.voucher_type,
+			voucher_no: lineageRow.voucher_no,
+			posting_date: lineageRow.posting_date,
+			stock_ledger_entry: lineageRow.stock_ledger_entry,
+		};
+	}
+
+	function insertRowsAfter(afterRow, newRows) {
+		var idx = state.allRows.indexOf(afterRow);
+		if (idx === -1) return;
+		state.allRows.splice.apply(state.allRows, [idx + 1, 0].concat(newRows));
+	}
+
 	function bindTableEventsOnce() {
+		// Bound BEFORE the generic .pld-toggle handler below and stops
+		// immediate propagation - a lineage toggle's element carries BOTH
+		// classes (it's a .pld-toggle for styling), so without this the
+		// generic handler would also fire and flip expandedState a second,
+		// conflicting time.
+		$root.on("click", "#pld-tbody .pld-toggle-lineage", function (e) {
+			e.stopPropagation();
+			e.stopImmediatePropagation();
+			var key = $(this).data("key");
+			var row = state.rowsByKey[key];
+			if (!row) return;
+
+			if (row.__lineageLoaded || row.__lineageLoading) {
+				if (!row.__lineageLoading) {
+					state.expandedState[key] = state.expandedState[key] === false ? true : false;
+					rerenderTable();
+				}
+				return;
+			}
+
+			row.__lineageLoading = true;
+			state.expandedState[key] = true;
+			rerenderTable();
+
+			frappe.call({
+				method: LINEAGE_METHOD,
+				args: {
+					item_code: row.item_code,
+					warehouse: row.warehouse,
+					voucher_type: row.voucher_type,
+					voucher_no: row.voucher_no,
+				},
+				callback: function (r) {
+					row.__lineageLoading = false;
+					row.__lineageLoaded = true;
+					var lineageRows = (r.message || []).map(function (lr, idx) {
+						return lineageRowToDisplayRow(lr, row, idx);
+					});
+					lineageRows.forEach(function (lr) { state.rowsByKey[lr.__key] = lr; });
+					if (lineageRows.length) {
+						insertRowsAfter(row, lineageRows);
+					} else {
+						frappe.show_alert({ message: __("No lineage could be traced for this item."), indicator: "orange" });
+					}
+					rerenderTable();
+				},
+				error: function () {
+					row.__lineageLoading = false;
+					frappe.show_alert({ message: __("Failed to load valuation lineage."), indicator: "red" });
+					rerenderTable();
+				},
+			});
+		});
+
 		$root.on("click", "#pld-tbody .pld-toggle", function (e) {
 			e.stopPropagation();
 			var key = $(this).data("key");
@@ -1215,9 +1357,14 @@ frappe.pages["profit-and-loss-drilldown"].on_page_load = function (wrapper) {
 					state.baseColumns = allColumns.filter(function (c) {
 						return !c.hidden && TRANSACTION_DETAIL_FIELDNAMES.indexOf(c.fieldname) === -1;
 					});
+					// LINEAGE_ONLY_COLUMNS never come back from the backend -
+					// they only ever appear on lineage rows fetched later, on
+					// demand, so they're added to the candidate pool by hand;
+					// the same dynamic-column logic then shows/hides them
+					// exactly like every other transaction-detail column.
 					state.dynamicColumnDefs = allColumns.filter(function (c) {
 						return !c.hidden && TRANSACTION_DETAIL_FIELDNAMES.indexOf(c.fieldname) !== -1;
-					});
+					}).concat(LINEAGE_ONLY_COLUMNS);
 					state.allRows = msg.result || [];
 					state.summary = msg.report_summary || [];
 					state.chartData = msg.chart || null;

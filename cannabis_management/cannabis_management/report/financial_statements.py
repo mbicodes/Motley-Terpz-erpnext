@@ -750,18 +750,22 @@ def compute_growth_view_data(data, columns):
 
 
 VOUCHER_ITEM_DOCTYPE = {
-	# Second element is the fieldname on that item doctype holding its
-	# valuation/cost rate - deliberately not the selling/buying "rate" field,
-	# so the item drill-down always shows what the stock was actually worth,
-	# not what it was invoiced at. Sales Invoice/Delivery Note items don't
-	# have a "valuation_rate" field of their own; "incoming_rate" is
-	# ERPNext's own field for the same thing on outward stock movements.
-	"Sales Invoice": ("Sales Invoice Item", "incoming_rate"),
-	"Purchase Invoice": ("Purchase Invoice Item", "valuation_rate"),
-	"Delivery Note": ("Delivery Note Item", "incoming_rate"),
-	"Purchase Receipt": ("Purchase Receipt Item", "valuation_rate"),
-	"Stock Entry": ("Stock Entry Detail", "valuation_rate"),
-	"Stock Reconciliation": ("Stock Reconciliation Item", "valuation_rate"),
+	# (item doctype, selling/buying rate fieldname, valuation/cost rate
+	# fieldname). Which of the two rate columns is used is a per-call choice
+	# (see attach_transaction_rows()'s use_valuation_rate) - COGS accounts
+	# want to show what the stock actually cost, everywhere else (Income,
+	# Expense, Balance Sheet accounts) wants what it was actually invoiced
+	# at. Sales Invoice/Delivery Note items don't have a "valuation_rate"
+	# field of their own; "incoming_rate" is ERPNext's own field for the
+	# same thing on outward stock movements. Stock Entry/Stock
+	# Reconciliation are pure inventory movements with no selling price at
+	# all, so both columns point at the same valuation_rate field.
+	"Sales Invoice": ("Sales Invoice Item", "rate", "incoming_rate"),
+	"Purchase Invoice": ("Purchase Invoice Item", "rate", "valuation_rate"),
+	"Delivery Note": ("Delivery Note Item", "rate", "incoming_rate"),
+	"Purchase Receipt": ("Purchase Receipt Item", "rate", "valuation_rate"),
+	"Stock Entry": ("Stock Entry Detail", "valuation_rate", "valuation_rate"),
+	"Stock Reconciliation": ("Stock Reconciliation Item", "valuation_rate", "valuation_rate"),
 }
 
 
@@ -777,7 +781,15 @@ def blank_group_amounts(rows, period_list):
 			row["total"] = None
 
 
-def attach_transaction_rows(rows, filters, period_list, currency):
+VALUATION_RATE_ACCOUNT_TYPES = {"Stock", "Stock Adjustment"}
+
+# Voucher types the Stock Valuation Lineage report can backward-trace from
+# (see get_item_lineage() in that report's .py) - only these item rows get
+# the extra "trace lineage" expand step in the COGS branch.
+LINEAGE_VOUCHER_TYPES = ("Sales Invoice", "Delivery Note")
+
+
+def attach_transaction_rows(rows, filters, period_list, currency, use_valuation_rate=False):
 	"""Expand every leaf account row in `rows` with its own transactions
 	(vouchers) as indented child rows in this same tree - clicking the
 	account's expand arrow reveals them right here, no separate General
@@ -785,11 +797,37 @@ def attach_transaction_rows(rows, filters, period_list, currency):
 	VOUCHER_ITEM_DOCTYPE) get one level further: their line items as
 	grandchild rows.
 
+	use_valuation_rate: pass True to force valuation/cost rate for every
+	leaf account in this call - used for the Profit and Loss Statement's
+	COGS branch, whose accounts are identified by name (see
+	get_cogs_anchor_account_names() in profit_and_loss_statement_child_accounts.py),
+	not a reliable account_type, so an explicit override is the only
+	trustworthy signal there.
+
+	Left False (the default), each leaf account decides for itself instead:
+	Stock/Stock Adjustment accounts (VALUATION_RATE_ACCOUNT_TYPES) show
+	valuation rate, everything else (Receivable, Payable, Bank, Income,
+	Expense, ...) shows the selling/buying rate - this is what the Detailed
+	Balance Sheet relies on, since its Asset tree mixes Stock accounts in
+	with Receivable/Payable/Bank in the very same call, and the same
+	voucher (e.g. a stock-updating Sales Invoice) can post to both a
+	Receivable account and a Stock account at once, each wanting a
+	different rate for the exact same line item.
+
 	Group rows are left untouched (Frappe doesn't allow postings directly on
 	a group account, so they never have transactions of their own)."""
 	leaf_accounts = [row["account"] for row in rows if row.get("account") and not row.get("is_group")]
 	if not leaf_accounts:
 		return rows
+
+	account_types = {}
+	if not use_valuation_rate:
+		account_types = {
+			a.name: a.account_type
+			for a in frappe.get_all(
+				"Account", filters={"name": ["in", leaf_accounts]}, fields=["name", "account_type"]
+			)
+		}
 
 	gl_entries = get_account_transactions(leaf_accounts, filters, period_list)
 	if filters.get("presentation_currency"):
@@ -809,6 +847,7 @@ def attach_transaction_rows(rows, filters, period_list, currency):
 			continue
 
 		account_indent = flt(row.get("indent", 0))
+		account_uses_valuation_rate = use_valuation_rate or account_types.get(account) in VALUATION_RATE_ACCOUNT_TYPES
 
 		for entry in entries_by_account.get(account, []):
 			txn_key = f"{account}::txn::{entry.name}"
@@ -821,9 +860,24 @@ def attach_transaction_rows(rows, filters, period_list, currency):
 			if entry.voucher_type not in VOUCHER_ITEM_DOCTYPE:
 				continue
 
+			# Only forced valuation (the P&L COGS branch) offers the lineage
+			# drill-down - Balance Sheet's Stock accounts also show valuation
+			# rate (via the account_type auto-detect above) but weren't part
+			# of what was asked for here, so they don't get the extra step.
+			show_lineage = use_valuation_rate and entry.voucher_type in LINEAGE_VOUCHER_TYPES
+
 			for item in items_by_voucher.get((entry.voucher_type, entry.voucher_no), []):
 				out.append(
-					make_item_row(txn_key, account_indent + 2, item, period_list, currency)
+					make_item_row(
+						txn_key,
+						account_indent + 2,
+						item,
+						period_list,
+						currency,
+						account_uses_valuation_rate,
+						show_lineage=show_lineage,
+						voucher_type=entry.voucher_type,
+					)
 				)
 
 	return out
@@ -856,7 +910,15 @@ def make_transaction_row(txn_key, parent_account, indent, entry, period_list, cu
 	return row
 
 
-def make_item_row(parent_key, indent, item, period_list, currency):
+def make_item_row(
+	parent_key, indent, item, period_list, currency, use_valuation_rate, show_lineage=False, voucher_type=None
+):
+	rate = item.valuation_rate if use_valuation_rate else item.selling_rate
+	# Recomputed rather than taken from the document's own stored amount -
+	# that amount is always qty * selling rate, even when valuation rate is
+	# what's about to be shown here, so trusting it would show a rate and
+	# amount that don't multiply out to each other.
+	amount = flt(item.qty) * flt(rate)
 	row = {
 		# Quoted for the same reason as make_transaction_row() above.
 		"account": "'" + f"{parent_key}::item::{item.idx}" + "'",
@@ -867,9 +929,18 @@ def make_item_row(parent_key, indent, item, period_list, currency):
 		"item_code": item.item_code,
 		"item_name": item.item_name,
 		"qty": item.qty,
-		"rate": item.rate,
-		"amount": item.amount,
+		"rate": rate,
+		"amount": amount,
 	}
+	if show_lineage:
+		# Everything get_item_lineage() (stock_valuation_lineage.py) needs to
+		# re-identify this exact sold Stock Ledger Entry on demand - the
+		# frontend calls it only when this row is actually expanded, instead
+		# of every item in the report being traced up front.
+		row["show_lineage"] = True
+		row["warehouse"] = item.warehouse
+		row["voucher_type"] = voucher_type
+		row["voucher_no"] = item.parent
 	for period in period_list:
 		row[period.key] = None
 	row["total"] = None
@@ -911,6 +982,13 @@ def get_account_transactions(accounts, filters, period_list):
 
 
 def get_item_rows_by_voucher(gl_entries):
+	"""Fetches BOTH the selling/buying rate and the valuation/cost rate for
+	every item, aliased uniformly regardless of voucher type - which one
+	make_item_row() actually uses is decided per leaf account by its caller
+	(attach_transaction_rows()), not here, since the very same voucher can
+	be attached under two different accounts in the same call that each
+	want a different rate (e.g. a stock-updating Sales Invoice posts to
+	both a Receivable account and a Stock account)."""
 	voucher_names_by_doctype = {}
 	for entry in gl_entries:
 		if entry.voucher_type in VOUCHER_ITEM_DOCTYPE:
@@ -918,18 +996,30 @@ def get_item_rows_by_voucher(gl_entries):
 
 	items_by_voucher = {}
 	for voucher_type, voucher_names in voucher_names_by_doctype.items():
-		item_doctype, rate_fieldname = VOUCHER_ITEM_DOCTYPE[voucher_type]
+		item_doctype, selling_rate_field, valuation_rate_field = VOUCHER_ITEM_DOCTYPE[voucher_type]
+		fields = [
+			"parent",
+			"idx",
+			"item_code",
+			"item_name",
+			"qty",
+			f"{selling_rate_field} as selling_rate",
+			f"{valuation_rate_field} as valuation_rate",
+		]
+		# Stock Entry Detail has no plain "warehouse" field (s_warehouse/
+		# t_warehouse instead) - and it isn't one of LINEAGE_VOUCHER_TYPES
+		# anyway, so it doesn't need one.
+		if voucher_type != "Stock Entry":
+			fields.append("warehouse")
 		items = frappe.get_all(
 			item_doctype,
 			filters={"parent": ["in", list(voucher_names)]},
-			# Alias each doctype's own valuation-rate fieldname (it isn't
-			# always called "valuation_rate" - see VOUCHER_ITEM_DOCTYPE) to a
-			# uniform "rate" key so make_item_row() doesn't need to care
-			# which voucher type an item came from.
-			fields=["parent", "idx", "item_code", "item_name", "qty", f"{rate_fieldname} as rate", "amount"],
+			fields=fields,
 			order_by="parent, idx",
 		)
 		for item in items:
+			if voucher_type == "Stock Entry":
+				item.warehouse = None
 			items_by_voucher.setdefault((voucher_type, item.parent), []).append(item)
 
 	return items_by_voucher
@@ -971,9 +1061,9 @@ def blank_missing_transaction_detail_fields(data):
 def get_transaction_detail_columns(data):
 	"""Only include a transaction-detail column if at least one row in this
 	report run actually has a value for it - e.g. no point showing "Item
-	Code"/"Qty"/"Valuation Rate" if none of the transactions drilled into
-	this time carry an item table, or "Party" if every voucher here posts
-	without one. `data` is the report's fully-built row list."""
+	Code"/"Qty"/"Rate" if none of the transactions drilled into this time
+	carry an item table, or "Party" if every voucher here posts without
+	one. `data` is the report's fully-built row list."""
 	all_columns = [
 		{"label": _("Posting Date"), "fieldname": "posting_date", "fieldtype": "Date", "width": 100},
 		{"label": _("Voucher Type"), "fieldname": "voucher_type", "fieldtype": "Data", "width": 130},
@@ -992,7 +1082,11 @@ def get_transaction_detail_columns(data):
 		{"label": _("Item Name"), "fieldname": "item_name", "fieldtype": "Data", "width": 160},
 		{"label": _("Qty"), "fieldname": "qty", "fieldtype": "Float", "width": 80},
 		{
-			"label": _("Valuation Rate"),
+			# Selling/buying rate everywhere except the Cost of Goods Sold
+			# branch, where callers pass use_valuation_rate=True to
+			# attach_transaction_rows() and this same column shows the
+			# valuation/cost rate instead - see VOUCHER_ITEM_DOCTYPE.
+			"label": _("Rate"),
 			"fieldname": "rate",
 			"fieldtype": "Currency",
 			"options": "currency",
