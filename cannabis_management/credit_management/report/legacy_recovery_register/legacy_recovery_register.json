@@ -1,0 +1,15 @@
+{
+ "name": "Legacy Recovery Register",
+ "doctype": "Report",
+ "report_name": "Legacy Recovery Register",
+ "ref_doctype": "Sales Invoice",
+ "report_type": "Script Report",
+ "module": "Credit Management",
+ "is_standard": "Yes",
+ "roles": [
+  {"role": "Finance Manager"},
+  {"role": "Managing Director"},
+  {"role": "Chief Executive Officer"},
+  {"role": "System Manager"}
+ ]
+}

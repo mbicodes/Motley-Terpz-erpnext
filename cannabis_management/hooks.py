@@ -284,7 +284,13 @@ doc_events = {
             "cannabis_management.doc_hooks.stock_entry.sync_row_uom_with_item",
             "cannabis_management.doc_hooks.stock_entry.populate_micron_finished_goods",
             "cannabis_management.doc_hooks.stock_entry.set_operating_cost_accounts",
+            # Metric Tag: mirror muid/to_muid on single-leg rows so either field works
+            "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.normalize_stock_entry_tag_fields",
         ],
+        # Metric Tag status/qty lifecycle sync — also covers the Stock Entries a Job Card generates
+        "before_submit": "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.validate_metric_tag_status",
+        "on_submit": "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
+        "on_cancel": "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
     },
     "Sales Order": {
         "before_validate": "cannabis_management.doc_hooks.sales_invoice.before_validate",
@@ -295,6 +301,8 @@ doc_events = {
         "on_update": "cannabis_management.overrides.sales_order_restrictions.on_update",
         "before_submit": [
             "cannabis_management.overrides.sales_order_restrictions.before_submit",
+            # Credit & AR Policy — Outbound Gate 1
+            "cannabis_management.credit_management.gate.check_sales_order",
         ],
         "on_submit": [
             "cannabis_management.overrides.sales_order_restrictions.on_submit",
@@ -303,6 +311,12 @@ doc_events = {
         ],
     },
     "Delivery Note": {
+        "before_submit": [
+            # Credit & AR Policy — Gate 1 blocks product movement on a hold/freeze
+            "cannabis_management.credit_management.gate.check_delivery_note",
+            # Metric Tag status lifecycle sync
+            "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.validate_metric_tag_status",
+        ],
         "on_update": [
             "cannabis_management.overrides.delivery_note_hooks.update_sales_invoice_delivery_status",
             "cannabis_management.overrides.delivery_note_hooks.update_sales_order_delivery_status",
@@ -310,15 +324,32 @@ doc_events = {
         "on_submit": [
             "cannabis_management.overrides.delivery_note_hooks.update_sales_invoice_delivery_status",
             "cannabis_management.overrides.delivery_note_hooks.update_sales_order_delivery_status",
+            "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
         ],
         "on_cancel": [
             "cannabis_management.overrides.delivery_note_hooks.update_sales_invoice_delivery_status",
             "cannabis_management.overrides.delivery_note_hooks.update_sales_order_delivery_status",
+            "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
         ],
         "validate": "cannabis_management.overrides.delivery_note_hooks.set_expense_head",
     },
+    # Metric Tag status/qty lifecycle sync
+    "Purchase Receipt": {
+        "before_submit": "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.validate_metric_tag_status",
+        "on_submit": "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
+        "on_cancel": "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
+    },
+    "Stock Reconciliation": {
+        "before_submit": "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.validate_metric_tag_status",
+        "on_submit": "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
+        "on_cancel": "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
+    },
     "Timesheet": {
         "after_insert": "cannabis_management.overrides.timesheet_hooks.auto_submit_timesheet",
+    },
+    # Credit & AR Policy — every customer gets a default COD Credit Profile
+    "Customer": {
+        "after_insert": "cannabis_management.credit_management.gate.on_customer_insert",
     },
     "Payment Entry": {
         "on_submit": "cannabis_management.cannabis_management.utils.irs_8300.check_cash_threshold"
@@ -351,6 +382,8 @@ scheduler_events = {
             "cannabis_management.api.overdue_owner_reminder.send_overdue_owner_reminders",
             # Daily unreconciled-customer count snapshot (day-over-day AR tracking)
             "cannabis_management.api.sales_daily_sync.snapshot_unreconciled",
+            # Credit & AR Policy — recompute exposure, holds, metrics, freeze
+            "cannabis_management.credit_management.tasks.run_daily",
         ],
         # Daily jobs: Mon–Fri only (midnight Berlin time)
         "0 0 * * 1-5": [
@@ -373,6 +406,13 @@ scheduler_events = {
         "0 14 * * 5": [
             # "cannabis_management.overrides.payment_overdue_alert.friday_overdue_report",  # AR Policy disabled
             # "cannabis_management.api.ar_monitor.send_weekly_ar_report",  # AR Policy disabled
+            # Credit & AR Policy — Friday Red List to MD & CEO
+            "cannabis_management.credit_management.reporting.send_friday_report",
+        ],
+        # Credit & AR Policy — monthly (1st, 06:00 UTC): finance charges + workout review
+        "0 6 1 * *": [
+            "cannabis_management.credit_management.reporting.accrue_finance_charges",
+            "cannabis_management.credit_management.reporting.monthly_workout_review_reminder",
         ],
         # Weekly Sale Report: Friday 4 PM PDT (23:00 UTC)
         # "0 23 * * 5": [

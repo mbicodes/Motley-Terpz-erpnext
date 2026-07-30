@@ -1,0 +1,139 @@
+{
+ "actions": [],
+ "allow_import": 1,
+ "allow_rename": 1,
+ "autoname": "field:tag_code",
+ "creation": "2026-07-28 22:04:45.404156",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "tag_code",
+  "muid",
+  "status",
+  "item_code",
+  "current_qty",
+  "uom",
+  "column_break_1",
+  "warehouse",
+  "last_transaction_type",
+  "last_transaction_id",
+  "last_updated"
+ ],
+ "fields": [
+  {
+   "fieldname": "tag_code",
+   "fieldtype": "Data",
+   "label": "Tag Code",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "description": "Full 13–15 digit physical METRC tag code. Primary key / Link target used throughout the system, including as the Inventory Dimension value."
+  },
+  {
+   "fieldname": "muid",
+   "fieldtype": "Data",
+   "label": "MUID",
+   "read_only": 1,
+   "in_list_view": 1,
+   "description": "Last digits of Tag Code. Auto-derived on save."
+  },
+  {
+   "default": "Unused",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Unused\nActive\nEmpty",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "item_code",
+   "fieldtype": "Link",
+   "label": "Item Code",
+   "options": "Item",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "current_qty",
+   "fieldtype": "Float",
+   "label": "Current Qty",
+   "read_only": 1,
+   "in_list_view": 1,
+   "description": "Cached display value kept in sync with the Stock Ledger balance for this tag. Stock Ledger Entry remains the source of truth."
+  },
+  {
+   "fieldname": "uom",
+   "fieldtype": "Link",
+   "label": "UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "warehouse",
+   "fieldtype": "Link",
+   "label": "Warehouse",
+   "options": "Warehouse",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "last_transaction_type",
+   "fieldtype": "Data",
+   "label": "Last Transaction Type",
+   "read_only": 1,
+   "description": "DocType name of the most recent transaction touching this tag."
+  },
+  {
+   "fieldname": "last_transaction_id",
+   "fieldtype": "Dynamic Link",
+   "label": "Last Transaction ID",
+   "options": "last_transaction_type",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_updated",
+   "fieldtype": "Datetime",
+   "label": "Last Updated",
+   "read_only": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-07-28 22:04:45.404156",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Metric Tag",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "read": 1,
+   "report": 1,
+   "role": "Stock User"
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "search_fields": "muid",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
