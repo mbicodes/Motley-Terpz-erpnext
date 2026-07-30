@@ -35,7 +35,7 @@
 
 import frappe
 from frappe import _
-from frappe.utils import flt
+from frappe.utils import cint, flt
 
 from cannabis_management.cannabis_management.report.financial_statements import (
 	attach_transaction_rows,
@@ -134,15 +134,41 @@ def execute(filters=None):
 		gross_profit_row, total_expense_row, period_list, _("Net Profit"), currency
 	)
 
-	# Expand every leaf account into its own transactions (and, for
-	# vouchers with an item table, their line items) as further-indented
-	# child rows in this same tree.
-	income_rows = attach_transaction_rows(income_rows, filters, period_list, currency)
-	# COGS is the one branch where the item drill-down shows valuation/cost
-	# rate instead of the selling rate - it's about what the stock actually
-	# cost, not what it was invoiced at.
-	cogs_rows = attach_transaction_rows(cogs_rows, filters, period_list, currency, use_valuation_rate=True)
-	opex_rows = attach_transaction_rows(opex_rows, filters, period_list, currency)
+	# Tag every COGS leaf/group row with which rate mode its own on-demand
+	# drill-down (get_account_drilldown() below) needs to request - done
+	# unconditionally (cheap, and harmless for callers that never look at
+	# it) so the caller never has to re-derive COGS branch membership itself.
+	for row in cogs_rows:
+		row["use_valuation_rate"] = 1
+
+	if filters.get("skip_transaction_drilldown"):
+		# The Profit and Loss (Drilldown) custom Page (see
+		# cannabis_management/page/profit_and_loss_drilldown/) renders its
+		# own plain HTML table and fetches a leaf account's transactions
+		# (and, for vouchers with an item table, their line items) on demand
+		# only once that account is actually expanded - see
+		# get_account_drilldown()/get_accounts_drilldown() below. Skipping
+		# attach_transaction_rows() here avoids building potentially
+		# thousands of transaction/item rows up front for accounts nobody
+		# ends up expanding, which is what made every report run slow
+		# regardless of how much of the tree the user actually looked at.
+		#
+		# Any OTHER caller of this report (e.g. the standard query-report
+		# viewer, which has no on-demand fetch mechanism of its own) doesn't
+		# set this filter, so it keeps getting the full eager drill-down
+		# exactly as before - this flag is opt-in, not a behavior change for
+		# anyone but our own Page.
+		pass
+	else:
+		# Expand every leaf account into its own transactions (and, for
+		# vouchers with an item table, their line items) as further-indented
+		# child rows in this same tree.
+		income_rows = attach_transaction_rows(income_rows, filters, period_list, currency)
+		# COGS is the one branch where the item drill-down shows valuation/cost
+		# rate instead of the selling rate - it's about what the stock actually
+		# cost, not what it was invoiced at.
+		cogs_rows = attach_transaction_rows(cogs_rows, filters, period_list, currency, use_valuation_rate=True)
+		opex_rows = attach_transaction_rows(opex_rows, filters, period_list, currency)
 
 	# Group/parent accounts roll up every descendant's amount - needed above
 	# for Total Income/COGS/Expense etc. to tie out, but confusing to display:
@@ -453,3 +479,101 @@ def get_chart_data(
 	chart["currency"] = currency
 
 	return chart
+
+
+def _resolve_drilldown_filters(filters):
+	filters = frappe.parse_json(filters) if isinstance(filters, str) else filters
+	return frappe._dict(filters)
+
+
+def _get_drilldown_period_list_and_currency(filters):
+	period_list = get_period_list(
+		filters.from_fiscal_year,
+		filters.to_fiscal_year,
+		filters.period_start_date,
+		filters.period_end_date,
+		filters.filter_based_on,
+		filters.periodicity,
+		company=filters.company,
+	)
+	currency = filters.presentation_currency or frappe.get_cached_value(
+		"Company", filters.company, "default_currency"
+	)
+	return period_list, currency
+
+
+@frappe.whitelist()
+def get_account_drilldown(account, indent, filters, use_valuation_rate=0):
+	"""On-demand counterpart to attach_transaction_rows() for exactly ONE
+	leaf account - called by the Profit and Loss (Drilldown) Page only once
+	that account is actually expanded (see filters.skip_transaction_drilldown
+	in execute() above), instead of every leaf account's transactions/items
+	being built and shipped to the browser on every report run whether or
+	not anyone ever looks at them. Reuses attach_transaction_rows() itself
+	unmodified against a single-row placeholder list, so the returned rows
+	are byte-for-byte identical to what execute() used to return inline -
+	just fetched lazily."""
+	if not frappe.has_permission("GL Entry", "read"):
+		frappe.throw(_("Not permitted to view General Ledger entries"), frappe.PermissionError)
+
+	filters = _resolve_drilldown_filters(filters)
+	period_list, currency = _get_drilldown_period_list_and_currency(filters)
+
+	placeholder = {"account": account, "indent": cint(indent)}
+	rows = attach_transaction_rows(
+		[placeholder], filters, period_list, currency, use_valuation_rate=cint(use_valuation_rate)
+	)
+	rows = rows[1:]  # drop the placeholder row - the caller already has it
+	blank_missing_transaction_detail_fields(rows)
+	return rows
+
+
+@frappe.whitelist()
+def get_accounts_drilldown(accounts, filters):
+	"""Bulk form of get_account_drilldown() for every leaf account at once -
+	used by the Page's "Expand All", which (unlike a single row's toggle)
+	genuinely does want every account's transactions, so this batches into
+	as few GL Entry queries as attach_transaction_rows() itself would use
+	(one per rate-mode - normal vs COGS valuation rate) rather than firing
+	one request per account.
+
+	`accounts` is a JSON list of {"account", "indent", "use_valuation_rate"}
+	objects (exactly what the Page already has for every not-yet-loaded leaf
+	row). Returns a dict keyed by account name."""
+	if not frappe.has_permission("GL Entry", "read"):
+		frappe.throw(_("Not permitted to view General Ledger entries"), frappe.PermissionError)
+
+	accounts = frappe.parse_json(accounts) if isinstance(accounts, str) else accounts
+	filters = _resolve_drilldown_filters(filters)
+	period_list, currency = _get_drilldown_period_list_and_currency(filters)
+
+	result = {}
+
+	def run_batch(entries, use_valuation_rate):
+		if not entries:
+			return
+		placeholders = [{"account": e["account"], "indent": cint(e.get("indent", 0))} for e in entries]
+		rows = attach_transaction_rows(
+			placeholders, filters, period_list, currency, use_valuation_rate=use_valuation_rate
+		)
+		# attach_transaction_rows() preserves input order and never
+		# interleaves - each placeholder's own row is immediately followed
+		# by (only) its own children - so splitting the flat result back
+		# into per-account buckets is a single linear walk.
+		placeholder_accounts = {p["account"] for p in placeholders}
+		current_account = None
+		for row in rows:
+			if row.get("account") in placeholder_accounts and not row.get("is_group"):
+				current_account = row.get("account")
+				result[current_account] = []
+				continue
+			if current_account is not None:
+				result[current_account].append(row)
+
+	run_batch([a for a in accounts if not cint(a.get("use_valuation_rate"))], False)
+	run_batch([a for a in accounts if cint(a.get("use_valuation_rate"))], True)
+
+	for account_rows in result.values():
+		blank_missing_transaction_detail_fields(account_rows)
+
+	return result
