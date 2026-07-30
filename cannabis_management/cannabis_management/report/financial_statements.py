@@ -25,6 +25,7 @@ from erpnext.accounts.doctype.accounting_dimension.accounting_dimension import (
 )
 from erpnext.accounts.report.utils import convert_to_presentation_currency, get_currency
 from erpnext.accounts.utils import get_fiscal_year, get_zero_cutoff
+from erpnext.stock import get_warehouse_account_map
 
 
 def get_period_list(
@@ -768,6 +769,54 @@ VOUCHER_ITEM_DOCTYPE = {
 	"Stock Reconciliation": ("Stock Reconciliation Item", "valuation_rate", "valuation_rate"),
 }
 
+# Which item-row fields can identify the ONE GL account a given item actually
+# posted to, per voucher type - used by attach_transaction_rows() to filter
+# items_by_voucher() down to only the items relevant to the leaf account
+# currently being drilled into (see item_matches_account() below). A single
+# voucher's item table can span several accounts at once (e.g. a Delivery
+# Note posting several items out of warehouse A and several out of warehouse
+# B, each warehouse mapped to a different stock account, all summarized into
+# one combined COGS entry): without this filter, every item on the voucher
+# was shown under every one of the voucher's GL entries, regardless of which
+# account that item actually affected.
+#
+# "direct": fields holding an actual Account name to compare against
+# entry.account as-is (income/expense accounts, which the item carries
+# directly). "warehouse": fields holding a Warehouse name, resolved to that
+# warehouse's stock account via get_warehouse_account_map() before comparing
+# - covers the asset/stock side of the same postings, where the item only
+# knows which warehouse it moved through, not the account name itself.
+VOUCHER_ITEM_ACCOUNT_FIELDS = {
+	"Sales Invoice": {"direct": ("income_account", "expense_account"), "warehouse": ("warehouse", "target_warehouse")},
+	"Purchase Invoice": {"direct": ("expense_account",), "warehouse": ("warehouse", "from_warehouse")},
+	"Delivery Note": {"direct": ("expense_account",), "warehouse": ("warehouse", "target_warehouse")},
+	"Purchase Receipt": {"direct": ("expense_account",), "warehouse": ("warehouse", "from_warehouse")},
+	"Stock Entry": {"direct": ("expense_account",), "warehouse": ("s_warehouse", "t_warehouse")},
+	"Stock Reconciliation": {"direct": (), "warehouse": ("warehouse",)},
+}
+
+
+def item_matches_account(item, voucher_type, account, warehouse_account_map):
+	"""True if `item` (one row from items_by_voucher()) is actually one of the
+	items that posted to `account` on this voucher - see
+	VOUCHER_ITEM_ACCOUNT_FIELDS above. Voucher types with no mapping here fail
+	open (keep the item) rather than silently hiding data for a type nobody's
+	verified yet."""
+	field_map = VOUCHER_ITEM_ACCOUNT_FIELDS.get(voucher_type)
+	if not field_map:
+		return True
+
+	for fieldname in field_map["direct"]:
+		if item.get(fieldname) == account:
+			return True
+
+	for fieldname in field_map["warehouse"]:
+		warehouse = item.get(fieldname)
+		if warehouse and warehouse_account_map.get(warehouse, {}).get("account") == account:
+			return True
+
+	return False
+
 
 def blank_group_amounts(rows, period_list):
 	"""Blank every period + total cell on group/parent account rows in place.
@@ -838,6 +887,7 @@ def attach_transaction_rows(rows, filters, period_list, currency, use_valuation_
 		entries_by_account.setdefault(entry.account, []).append(entry)
 
 	items_by_voucher = get_item_rows_by_voucher(gl_entries)
+	warehouse_account_map = get_warehouse_account_map(filters.get("company"))
 
 	out = []
 	for row in rows:
@@ -866,7 +916,14 @@ def attach_transaction_rows(rows, filters, period_list, currency, use_valuation_
 			# of what was asked for here, so they don't get the extra step.
 			show_lineage = use_valuation_rate and entry.voucher_type in LINEAGE_VOUCHER_TYPES
 
-			for item in items_by_voucher.get((entry.voucher_type, entry.voucher_no), []):
+			voucher_items = items_by_voucher.get((entry.voucher_type, entry.voucher_no), [])
+			matching_items = [
+				item
+				for item in voucher_items
+				if item_matches_account(item, entry.voucher_type, account, warehouse_account_map)
+			]
+
+			for item in matching_items:
 				out.append(
 					make_item_row(
 						txn_key,
@@ -1006,11 +1063,14 @@ def get_item_rows_by_voucher(gl_entries):
 			f"{selling_rate_field} as selling_rate",
 			f"{valuation_rate_field} as valuation_rate",
 		]
-		# Stock Entry Detail has no plain "warehouse" field (s_warehouse/
-		# t_warehouse instead) - and it isn't one of LINEAGE_VOUCHER_TYPES
-		# anyway, so it doesn't need one.
-		if voucher_type != "Stock Entry":
-			fields.append("warehouse")
+		# Also fetch whichever fields item_matches_account() needs to tell
+		# which account/warehouse this item actually posted to (varies by
+		# voucher type - e.g. Stock Entry Detail has no plain "warehouse"
+		# field, s_warehouse/t_warehouse instead).
+		account_field_map = VOUCHER_ITEM_ACCOUNT_FIELDS.get(voucher_type, {})
+		for fieldname in list(account_field_map.get("direct", ())) + list(account_field_map.get("warehouse", ())):
+			if fieldname not in fields:
+				fields.append(fieldname)
 		items = frappe.get_all(
 			item_doctype,
 			filters={"parent": ["in", list(voucher_names)]},
