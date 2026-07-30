@@ -301,8 +301,6 @@ doc_events = {
         "on_update": "cannabis_management.overrides.sales_order_restrictions.on_update",
         "before_submit": [
             "cannabis_management.overrides.sales_order_restrictions.before_submit",
-            # Credit & AR Policy — Outbound Gate 1
-            "cannabis_management.credit_management.gate.check_sales_order",
         ],
         "on_submit": [
             "cannabis_management.overrides.sales_order_restrictions.on_submit",
@@ -312,8 +310,6 @@ doc_events = {
     },
     "Delivery Note": {
         "before_submit": [
-            # Credit & AR Policy — Gate 1 blocks product movement on a hold/freeze
-            "cannabis_management.credit_management.gate.check_delivery_note",
             # Metric Tag status lifecycle sync
             "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.validate_metric_tag_status",
         ],
@@ -347,10 +343,6 @@ doc_events = {
     "Timesheet": {
         "after_insert": "cannabis_management.overrides.timesheet_hooks.auto_submit_timesheet",
     },
-    # Credit & AR Policy — every customer gets a default COD Credit Profile
-    "Customer": {
-        "after_insert": "cannabis_management.credit_management.gate.on_customer_insert",
-    },
     "Payment Entry": {
         "on_submit": "cannabis_management.cannabis_management.utils.irs_8300.check_cash_threshold"
     },
@@ -382,8 +374,6 @@ scheduler_events = {
             "cannabis_management.api.overdue_owner_reminder.send_overdue_owner_reminders",
             # Daily unreconciled-customer count snapshot (day-over-day AR tracking)
             "cannabis_management.api.sales_daily_sync.snapshot_unreconciled",
-            # Credit & AR Policy — recompute exposure, holds, metrics, freeze
-            "cannabis_management.credit_management.tasks.run_daily",
         ],
         # Daily jobs: Mon–Fri only (midnight Berlin time)
         "0 0 * * 1-5": [
@@ -406,13 +396,6 @@ scheduler_events = {
         "0 14 * * 5": [
             # "cannabis_management.overrides.payment_overdue_alert.friday_overdue_report",  # AR Policy disabled
             # "cannabis_management.api.ar_monitor.send_weekly_ar_report",  # AR Policy disabled
-            # Credit & AR Policy — Friday Red List to MD & CEO
-            "cannabis_management.credit_management.reporting.send_friday_report",
-        ],
-        # Credit & AR Policy — monthly (1st, 06:00 UTC): finance charges + workout review
-        "0 6 1 * *": [
-            "cannabis_management.credit_management.reporting.accrue_finance_charges",
-            "cannabis_management.credit_management.reporting.monthly_workout_review_reminder",
         ],
         # Weekly Sale Report: Friday 4 PM PDT (23:00 UTC)
         # "0 23 * * 5": [
