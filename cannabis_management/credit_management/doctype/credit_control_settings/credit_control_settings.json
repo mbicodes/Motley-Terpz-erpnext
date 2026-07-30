@@ -1,0 +1,214 @@
+{
+ "name": "Credit Control Settings",
+ "doctype": "DocType",
+ "module": "Credit Management",
+ "issingle": 1,
+ "track_changes": 1,
+ "fields": [
+  {
+   "fieldname": "policy_section",
+   "fieldtype": "Section Break",
+   "label": "Policy"
+  },
+  {
+   "fieldname": "effective_date",
+   "fieldtype": "Date",
+   "label": "Effective Date (New Book start)",
+   "default": "2026-06-01",
+   "description": "Invoices before this date are Legacy; on/after are New Book."
+  },
+  {
+   "fieldname": "enforcement_mode",
+   "fieldtype": "Select",
+   "label": "Enforcement Mode",
+   "options": "Enforce\nObserve",
+   "default": "Enforce",
+   "in_list_view": 1,
+   "description": "Enforce = the outbound gate blocks orders. Observe = gate only warns (no blocking) — use while cleaning up AR before going live."
+  },
+  {
+   "fieldname": "column_break_policy",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "scope_consolidated",
+   "fieldtype": "Check",
+   "label": "Consolidate AR across all companies",
+   "default": "1"
+  },
+  {
+   "fieldname": "thresholds_section",
+   "fieldtype": "Section Break",
+   "label": "Freeze Thresholds"
+  },
+  {
+   "fieldname": "ar_cap",
+   "fieldtype": "Currency",
+   "label": "Total AR Cap",
+   "default": "400000"
+  },
+  {
+   "fieldname": "dso_target_days",
+   "fieldtype": "Int",
+   "label": "DSO Target (days)",
+   "default": "14"
+  },
+  {
+   "fieldname": "dso_breach_days",
+   "fieldtype": "Int",
+   "label": "DSO Breach (days)",
+   "default": "30"
+  },
+  {
+   "fieldname": "column_break_thresholds",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "cei_target_pct",
+   "fieldtype": "Percent",
+   "label": "CEI Target %",
+   "default": "100"
+  },
+  {
+   "fieldname": "cei_breach_pct",
+   "fieldtype": "Percent",
+   "label": "CEI Breach % (below)",
+   "default": "85"
+  },
+  {
+   "fieldname": "charges_section",
+   "fieldtype": "Section Break",
+   "label": "Finance Charges"
+  },
+  {
+   "fieldname": "finance_charge_rate_monthly",
+   "fieldtype": "Percent",
+   "label": "Finance Charge Rate (per month, simple)",
+   "default": "1.5"
+  },
+  {
+   "fieldname": "column_break_charges",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "max_lawful_rate_monthly",
+   "fieldtype": "Percent",
+   "label": "Max Lawful Rate (per month, 0 = not set)",
+   "default": "0",
+   "description": "If set and lower than the policy rate, the lawful rate is used."
+  },
+  {
+   "fieldname": "hold_section",
+   "fieldtype": "Section Break",
+   "label": "Stop Work (Hold) Thresholds"
+  },
+  {
+   "fieldname": "hard_hold_days",
+   "fieldtype": "Int",
+   "label": "Hard Hold at days past due (over)",
+   "default": "5"
+  },
+  {
+   "fieldname": "column_break_hold",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "hard_hold_amount",
+   "fieldtype": "Currency",
+   "label": "Hard Hold at amount past due (>=)",
+   "default": "1000"
+  },
+  {
+   "fieldname": "freeze_state_section",
+   "fieldtype": "Section Break",
+   "label": "Freeze State (maintained by the engine — unfreeze is manual)"
+  },
+  {
+   "fieldname": "is_frozen",
+   "fieldtype": "Check",
+   "label": "Company-Wide Freeze Active",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "frozen_reason",
+   "fieldtype": "Small Text",
+   "label": "Freeze Reason",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_freeze",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "frozen_since",
+   "fieldtype": "Datetime",
+   "label": "Frozen Since",
+   "read_only": 1
+  },
+  {
+   "fieldname": "metrics_section",
+   "fieldtype": "Section Break",
+   "label": "Live Metrics (maintained by the engine)"
+  },
+  {
+   "fieldname": "total_ar",
+   "fieldtype": "Currency",
+   "label": "Total AR",
+   "read_only": 1
+  },
+  {
+   "fieldname": "new_book_ar",
+   "fieldtype": "Currency",
+   "label": "New Book AR",
+   "read_only": 1
+  },
+  {
+   "fieldname": "legacy_ar",
+   "fieldtype": "Currency",
+   "label": "Legacy AR",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_metrics",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "current_dso",
+   "fieldtype": "Float",
+   "label": "Current DSO (new book)",
+   "read_only": 1,
+   "precision": "1"
+  },
+  {
+   "fieldname": "current_cei",
+   "fieldtype": "Percent",
+   "label": "Current CEI (new book)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "metrics_updated_on",
+   "fieldtype": "Datetime",
+   "label": "Metrics Updated On",
+   "read_only": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1, "write": 1, "create": 1, "delete": 1, "print": 1, "report": 1, "share": 1
+  },
+  {
+   "role": "Finance Manager",
+   "read": 1, "write": 1, "print": 1, "report": 1
+  },
+  {
+   "role": "Managing Director",
+   "read": 1, "print": 1
+  },
+  {
+   "role": "Chief Executive Officer",
+   "read": 1, "print": 1
+  }
+ ]
+}

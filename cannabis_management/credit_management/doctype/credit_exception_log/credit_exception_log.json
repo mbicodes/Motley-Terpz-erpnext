@@ -1,0 +1,39 @@
+{
+ "name": "Credit Exception Log",
+ "doctype": "DocType",
+ "module": "Credit Management",
+ "autoname": "format:CEX-{YYYY}-{#####}",
+ "is_submittable": 1,
+ "track_changes": 1,
+ "description": "The written record of an MD (and, for freeze, CEO) approval or policy exception. Verbal approvals do not exist — nothing takes effect without a submitted row here.",
+ "field_order": [
+  "exception_type", "customer", "column_break_1", "date", "amount",
+  "detail_section", "reason", "reference_doctype", "reference_name",
+  "approval_section", "approved_by_md", "co_approved_by_ceo", "column_break_2", "reported_on_friday", "amended_from"
+ ],
+ "fields": [
+  {"fieldname": "exception_type", "fieldtype": "Select", "label": "Type", "options": "Credit Line Approval\nNet 30 Term\nOver-Limit Override\nFreeze Exception\nHold Release\nWorkout Designation\nOther", "reqd": 1, "in_list_view": 1, "in_standard_filter": 1},
+  {"fieldname": "customer", "fieldtype": "Link", "options": "Customer", "label": "Customer", "in_list_view": 1, "in_standard_filter": 1},
+  {"fieldname": "column_break_1", "fieldtype": "Column Break"},
+  {"fieldname": "date", "fieldtype": "Date", "label": "Date", "default": "Today", "reqd": 1, "in_list_view": 1},
+  {"fieldname": "amount", "fieldtype": "Currency", "label": "Amount (line / limit / order)"},
+  {"fieldname": "detail_section", "fieldtype": "Section Break", "label": "Detail"},
+  {"fieldname": "reason", "fieldtype": "Small Text", "label": "Reason", "reqd": 1},
+  {"fieldname": "reference_doctype", "fieldtype": "Link", "options": "DocType", "label": "Reference DocType"},
+  {"fieldname": "reference_name", "fieldtype": "Dynamic Link", "options": "reference_doctype", "label": "Reference Name"},
+  {"fieldname": "approval_section", "fieldtype": "Section Break", "label": "Approval (submit = it takes effect)"},
+  {"fieldname": "approved_by_md", "fieldtype": "Link", "options": "User", "label": "Approved By (MD)", "reqd": 1},
+  {"fieldname": "co_approved_by_ceo", "fieldtype": "Link", "options": "User", "label": "Co-Approved By (CEO)", "description": "Required for Freeze Exception."},
+  {"fieldname": "column_break_2", "fieldtype": "Column Break"},
+  {"fieldname": "reported_on_friday", "fieldtype": "Check", "label": "Included in a Friday Report", "read_only": 1},
+  {"fieldname": "amended_from", "fieldtype": "Link", "options": "Credit Exception Log", "label": "Amended From", "read_only": 1, "print_hide": 1, "no_copy": 1}
+ ],
+ "permissions": [
+  {"role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 1, "submit": 1, "cancel": 1, "amend": 1, "export": 1, "print": 1, "report": 1, "share": 1},
+  {"role": "Finance Manager", "read": 1, "write": 1, "create": 1, "submit": 1, "cancel": 1, "amend": 1, "export": 1, "print": 1, "report": 1, "email": 1},
+  {"role": "Managing Director", "read": 1, "write": 1, "create": 1, "submit": 1, "cancel": 1, "print": 1, "report": 1},
+  {"role": "Chief Executive Officer", "read": 1, "write": 1, "submit": 1, "print": 1, "report": 1}
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC"
+}

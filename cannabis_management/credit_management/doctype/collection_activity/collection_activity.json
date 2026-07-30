@@ -1,0 +1,33 @@
+{
+ "name": "Collection Activity",
+ "doctype": "DocType",
+ "module": "Credit Management",
+ "autoname": "format:COLL-{YYYY}-{#####}",
+ "track_changes": 1,
+ "description": "Collection contact log — promises to pay, last contact, next action. Feeds the Friday Red List.",
+ "field_order": [
+  "customer", "activity_date", "column_break_1", "activity_type",
+  "ptp_section", "promise_to_pay_date", "promise_amount", "column_break_2", "next_action", "next_action_date", "notes"
+ ],
+ "fields": [
+  {"fieldname": "customer", "fieldtype": "Link", "options": "Customer", "label": "Customer", "reqd": 1, "in_list_view": 1, "in_standard_filter": 1},
+  {"fieldname": "activity_date", "fieldtype": "Datetime", "label": "Activity Date", "default": "now", "reqd": 1, "in_list_view": 1},
+  {"fieldname": "column_break_1", "fieldtype": "Column Break"},
+  {"fieldname": "activity_type", "fieldtype": "Select", "label": "Type", "options": "Call\nEmail\nPromise to Pay\nDemand\nNote", "reqd": 1, "in_list_view": 1, "in_standard_filter": 1},
+  {"fieldname": "ptp_section", "fieldtype": "Section Break"},
+  {"fieldname": "promise_to_pay_date", "fieldtype": "Date", "label": "Promise to Pay Date"},
+  {"fieldname": "promise_amount", "fieldtype": "Currency", "label": "Promise Amount"},
+  {"fieldname": "column_break_2", "fieldtype": "Column Break"},
+  {"fieldname": "next_action", "fieldtype": "Data", "label": "Next Action"},
+  {"fieldname": "next_action_date", "fieldtype": "Date", "label": "Next Action Date"},
+  {"fieldname": "notes", "fieldtype": "Small Text", "label": "Notes"}
+ ],
+ "permissions": [
+  {"role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 1, "export": 1, "print": 1, "report": 1, "share": 1},
+  {"role": "Finance Manager", "read": 1, "write": 1, "create": 1, "export": 1, "print": 1, "report": 1},
+  {"role": "Sales Manager", "read": 1, "write": 1, "create": 1, "report": 1},
+  {"role": "Managing Director", "read": 1, "report": 1}
+ ],
+ "sort_field": "activity_date",
+ "sort_order": "DESC"
+}
