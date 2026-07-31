@@ -301,6 +301,8 @@ doc_events = {
         "on_update": "cannabis_management.overrides.sales_order_restrictions.on_update",
         "before_submit": [
             "cannabis_management.overrides.sales_order_restrictions.before_submit",
+            # Credit control — COD default gate / Disable Credit Sale
+            "cannabis_management.overrides.credit_control.check_credit_on_sales_order",
         ],
         "on_submit": [
             "cannabis_management.overrides.sales_order_restrictions.on_submit",
@@ -374,6 +376,8 @@ scheduler_events = {
             "cannabis_management.api.overdue_owner_reminder.send_overdue_owner_reminders",
             # Daily unreconciled-customer count snapshot (day-over-day AR tracking)
             "cannabis_management.api.sales_daily_sync.snapshot_unreconciled",
+            # Credit control — due/overdue notifications, freeze, auto-disable credit sale
+            "cannabis_management.overrides.credit_control.run_daily",
         ],
         # Daily jobs: Mon–Fri only (midnight Berlin time)
         "0 0 * * 1-5": [
