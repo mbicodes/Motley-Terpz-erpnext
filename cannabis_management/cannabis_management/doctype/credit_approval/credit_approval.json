@@ -1,0 +1,40 @@
+{
+ "name": "Credit Approval",
+ "doctype": "DocType",
+ "module": "Cannabis Management",
+ "autoname": "format:CA-{YYYY}-{#####}",
+ "is_submittable": 1,
+ "track_changes": 1,
+ "description": "Formal credit documentation and approval for a customer. Submitting sets the customer's Credit Limit.",
+ "field_order": [
+  "customer", "sales_order", "column_break_1", "credit_amount",
+  "documents_section", "company_registration", "license", "column_break_2", "financial_information", "payment_history",
+  "remarks_section", "remarks", "signature", "amended_from"
+ ],
+ "fields": [
+  {"fieldname": "customer", "fieldtype": "Link", "options": "Customer", "label": "Customer", "reqd": 1, "in_list_view": 1, "in_standard_filter": 1},
+  {"fieldname": "sales_order", "fieldtype": "Link", "options": "Sales Order", "label": "Sales Order", "read_only": 1, "description": "Set automatically when created from a Sales Order."},
+  {"fieldname": "column_break_1", "fieldtype": "Column Break"},
+  {"fieldname": "credit_amount", "fieldtype": "Currency", "label": "Credit Amount", "reqd": 1, "in_list_view": 1, "description": "Approved credit limit. On submit this is written to the customer's Credit Limit."},
+
+  {"fieldname": "documents_section", "fieldtype": "Section Break", "label": "Documents"},
+  {"fieldname": "company_registration", "fieldtype": "Attach", "label": "Company Registration"},
+  {"fieldname": "license", "fieldtype": "Attach", "label": "License"},
+  {"fieldname": "column_break_2", "fieldtype": "Column Break"},
+  {"fieldname": "financial_information", "fieldtype": "Attach", "label": "Financial Information"},
+  {"fieldname": "payment_history", "fieldtype": "Attach", "label": "Payment History"},
+
+  {"fieldname": "remarks_section", "fieldtype": "Section Break", "label": "Remarks & Signature"},
+  {"fieldname": "remarks", "fieldtype": "Small Text", "label": "Remarks"},
+  {"fieldname": "signature", "fieldtype": "Signature", "label": "Signature"},
+  {"fieldname": "amended_from", "fieldtype": "Link", "options": "Credit Approval", "label": "Amended From", "read_only": 1, "print_hide": 1, "no_copy": 1}
+ ],
+ "permissions": [
+  {"role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 1, "submit": 1, "cancel": 1, "amend": 1, "export": 1, "print": 1, "report": 1, "share": 1, "email": 1},
+  {"role": "Accounts Manager", "read": 1, "write": 1, "create": 1, "submit": 1, "cancel": 1, "amend": 1, "export": 1, "print": 1, "report": 1, "email": 1},
+  {"role": "Sales Manager", "read": 1, "write": 1, "create": 1, "print": 1, "report": 1},
+  {"role": "Sales User", "read": 1, "write": 1, "create": 1, "report": 1}
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC"
+}
