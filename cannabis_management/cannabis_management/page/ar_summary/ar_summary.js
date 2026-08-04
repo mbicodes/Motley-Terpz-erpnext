@@ -235,7 +235,6 @@ frappe.pages['ar-summary'].on_page_load = function (wrapper) {
 					'<tr>' +
 					'<td><a class="ars-inv-link" href="' + link + '">' + esc(inv.name) + '</a></td>' +
 					ref_cell(inv.sales_order, 'sales-order') +
-					ref_cell(inv.delivery_note, 'delivery-note') +
 					'<td class="ars-muted">' + esc(inv.company) + '</td>' +
 					'<td class="ars-c ars-muted">' + esc(inv.posting_date) + '</td>' +
 					'<td class="ars-c ars-muted">' + esc(inv.due_date) + '</td>' +
@@ -255,14 +254,14 @@ frappe.pages['ar-summary'].on_page_load = function (wrapper) {
 					'</div>' +
 					'<div class="ars-scroll"><table class="ars-ltable">' +
 						'<thead><tr>' +
-							'<th>Invoice #</th><th>Sales Order</th><th>Delivery Note</th><th>Company</th>' +
+							'<th>Invoice #</th><th>Sales Order</th><th>Company</th>' +
 							'<th class="ars-c">Posting Date</th><th class="ars-c">Due Date</th>' +
 							'<th class="ars-r">Invoice Total</th><th class="ars-r">Paid Amount</th>' +
 							'<th class="ars-r">Outstanding</th><th class="ars-c">Status</th>' +
 						'</tr></thead>' +
 						'<tbody>' + body + '</tbody>' +
 						'<tfoot><tr class="ars-ltotal">' +
-							'<td colspan="6">TOTAL</td>' +
+							'<td colspan="5">TOTAL</td>' +
 							'<td class="ars-r">' + money(t.invoice_total) + '</td>' +
 							'<td class="ars-r">' + money(t.paid) + '</td>' +
 							'<td class="ars-r ars-out">' + money(t.outstanding) + '</td><td></td>' +
