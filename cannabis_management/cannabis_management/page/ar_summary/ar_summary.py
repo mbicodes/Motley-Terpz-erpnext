@@ -290,13 +290,13 @@ def _build_ledger_sheet(ws, groups, prepared):
     fill_ref = fill(AMT)  # light tint behind reference cells too (kept subtle/white-ish)
 
     ws.title = "Customer Ledgers"
-    LAST = 10  # A:J
+    LAST = 9  # A:I
     ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=LAST)
     ws["A1"] = (f"Prepared {prepared} — each customer is its own boxed block, "
                 "sorted by outstanding balance (highest first)")
     ws["A1"].font = Font(italic=True, size=10, color="595959")
 
-    headers = ["Invoice #", "Sales Order", "Delivery Note", "Company",
+    headers = ["Invoice #", "Sales Order", "Company",
                "Posting Date", "Due Date", "Invoice Total", "Paid Amount",
                "Outstanding", "Status"]
 
@@ -321,7 +321,7 @@ def _build_ledger_sheet(ws, groups, prepared):
             cell.font = Font(bold=True)
             cell.fill = fill(COLHDR)
             cell.border = border
-            cell.alignment = center if c >= 5 else left
+            cell.alignment = center if c >= 4 else left
         r += 1
 
         # invoice rows
@@ -333,17 +333,16 @@ def _build_ledger_sheet(ws, groups, prepared):
             name_cell.border = border
 
             _ref_cell(ws, r, 2, inv.get("sales_order"), "sales-order", border, PatternFill(), left)
-            _ref_cell(ws, r, 3, inv.get("delivery_note"), "delivery-note", border, PatternFill(), left)
 
-            ws.cell(row=r, column=4, value=inv["company"]).alignment = left
-            ws.cell(row=r, column=5,
+            ws.cell(row=r, column=3, value=inv["company"]).alignment = left
+            ws.cell(row=r, column=4,
                     value=formatdate(inv["posting_date"], "yyyy-MM-dd") if inv["posting_date"] else "").alignment = center
-            ws.cell(row=r, column=6,
+            ws.cell(row=r, column=5,
                     value=formatdate(inv["due_date"], "yyyy-MM-dd") if inv["due_date"] else "").alignment = center
 
-            it = ws.cell(row=r, column=7, value=flt(inv["invoice_total"]))
-            pd = ws.cell(row=r, column=8, value=flt(inv["paid"]))
-            out = ws.cell(row=r, column=9, value=flt(inv["outstanding"]))
+            it = ws.cell(row=r, column=6, value=flt(inv["invoice_total"]))
+            pd = ws.cell(row=r, column=7, value=flt(inv["paid"]))
+            out = ws.cell(row=r, column=8, value=flt(inv["outstanding"]))
             for cell in (it, pd):
                 cell.number_format = money
                 cell.alignment = right
@@ -357,7 +356,7 @@ def _build_ledger_sheet(ws, groups, prepared):
             else:
                 out.fill = fill(GREEN)
 
-            ws.cell(row=r, column=10, value=inv["status"]).alignment = center
+            ws.cell(row=r, column=9, value=inv["status"]).alignment = center
 
             for c in range(1, LAST + 1):
                 ws.cell(row=r, column=c).border = border
@@ -366,22 +365,22 @@ def _build_ledger_sheet(ws, groups, prepared):
         # per-customer TOTAL row (yellow); outstanding total in red
         t = g["totals"]
         ws.cell(row=r, column=1, value="TOTAL")
-        for c in range(1, 7):
+        for c in range(1, 6):
             ws.cell(row=r, column=c).fill = fill(TOTAL_YELLOW)
             ws.cell(row=r, column=c).font = Font(bold=True)
-        for col, key in ((7, "invoice_total"), (8, "paid"), (9, "outstanding")):
+        for col, key in ((6, "invoice_total"), (7, "paid"), (8, "outstanding")):
             cell = ws.cell(row=r, column=col, value=flt(t[key]))
             cell.number_format = money
             cell.alignment = right
             cell.fill = fill(TOTAL_YELLOW)
-            cell.font = Font(bold=True, color=RED_FONT) if col == 9 else Font(bold=True)
-        ws.cell(row=r, column=10).fill = fill(TOTAL_YELLOW)
+            cell.font = Font(bold=True, color=RED_FONT) if col == 8 else Font(bold=True)
+        ws.cell(row=r, column=9).fill = fill(TOTAL_YELLOW)
         for c in range(1, LAST + 1):
             ws.cell(row=r, column=c).border = border
         r += 2  # blank spacer between customers
 
-    widths = {"A": 22, "B": 20, "C": 20, "D": 24, "E": 13,
-              "F": 13, "G": 14, "H": 14, "I": 14, "J": 13}
+    widths = {"A": 22, "B": 20, "C": 24, "D": 13, "E": 13,
+              "F": 14, "G": 14, "H": 14, "I": 13}
     for col, w in widths.items():
         ws.column_dimensions[col].width = w
     ws.freeze_panes = "A3"
