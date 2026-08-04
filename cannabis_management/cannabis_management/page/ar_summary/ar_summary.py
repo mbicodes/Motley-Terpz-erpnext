@@ -64,29 +64,50 @@ def _summary_rows(company=None, from_date=None, to_date=None):
 
 
 def _attach_references(invoices):
-    """Attach the Sales Order(s) and Delivery Note(s) each invoice was built from,
-    read from the invoice item rows."""
+    """Attach each invoice's Sales Order(s) — the SO it was created against, read
+    from the invoice item rows — and the Delivery Note(s) raised against those
+    Sales Orders (NOT the delivery_note stamped on the invoice item)."""
     names = [i["name"] for i in invoices]
     if not names:
         return
+
+    # 1. Sales Order(s) each invoice was created against.
     rows = frappe.db.sql(
         """
-        SELECT parent, sales_order, delivery_note
+        SELECT parent, sales_order
         FROM `tabSales Invoice Item`
-        WHERE parent IN %(names)s
+        WHERE parent IN %(names)s AND IFNULL(sales_order, '') != ''
         """,
         {"names": tuple(names)},
         as_dict=True,
     )
-    so_map, dn_map = {}, {}
+    so_map, all_sos = {}, set()
     for r in rows:
-        if r.sales_order:
-            so_map.setdefault(r.parent, set()).add(r.sales_order)
-        if r.delivery_note:
-            dn_map.setdefault(r.parent, set()).add(r.delivery_note)
+        so_map.setdefault(r.parent, set()).add(r.sales_order)
+        all_sos.add(r.sales_order)
+
+    # 2. Delivery Note(s) raised against those Sales Orders.
+    so_to_dn = {}
+    if all_sos:
+        dn_rows = frappe.db.sql(
+            """
+            SELECT against_sales_order AS so, parent AS dn
+            FROM `tabDelivery Note Item`
+            WHERE against_sales_order IN %(sos)s AND docstatus = 1
+            """,
+            {"sos": tuple(all_sos)},
+            as_dict=True,
+        )
+        for r in dn_rows:
+            so_to_dn.setdefault(r.so, set()).add(r.dn)
+
     for inv in invoices:
-        inv["sales_order"] = sorted(so_map.get(inv["name"], []))
-        inv["delivery_note"] = sorted(dn_map.get(inv["name"], []))
+        sos = so_map.get(inv["name"], set())
+        inv["sales_order"] = sorted(sos)
+        dns = set()
+        for so in sos:
+            dns |= so_to_dn.get(so, set())
+        inv["delivery_note"] = sorted(dns)
 
 
 def _ledger_groups(company=None, from_date=None, to_date=None):
