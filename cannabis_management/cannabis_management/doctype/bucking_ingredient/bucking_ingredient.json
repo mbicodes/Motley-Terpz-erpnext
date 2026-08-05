@@ -1,0 +1,66 @@
+{
+ "actions": [],
+ "creation": "2026-08-06 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "source_item",
+  "source_warehouse",
+  "qty_used",
+  "uom",
+  "cost"
+ ],
+ "fields": [
+  {
+   "fieldname": "source_item",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Source Item",
+   "options": "Item",
+   "reqd": 1
+  },
+  {
+   "fieldname": "source_warehouse",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Source Warehouse",
+   "options": "Warehouse",
+   "reqd": 1
+  },
+  {
+   "fieldname": "qty_used",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Qty Used",
+   "reqd": 1
+  },
+  {
+   "fieldname": "uom",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "UOM",
+   "options": "\nKg\nPound"
+  },
+  {
+   "fieldname": "cost",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Cost"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-08-06 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Bucking Ingredient",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

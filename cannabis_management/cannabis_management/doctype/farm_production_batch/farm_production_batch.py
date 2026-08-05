@@ -25,10 +25,18 @@ class FarmProductionBatch(Document):
 
         labor_cost = 0
         if frappe.db.exists("DocType", "Farm Labor Session"):
+            # Bucking rows roll up their full Assembly cost (ingredients +
+            # additional costs + labor); Planting/Deleaf rows only ever had
+            # labor, so total_cost still applies there.
             labor_cost = flt(
                 frappe.db.sql(
                     """
-                    SELECT COALESCE(SUM(total_cost), 0)
+                    SELECT COALESCE(SUM(
+                        CASE
+                            WHEN task_type = 'Bucking' THEN total_assembly_cost
+                            ELSE total_cost
+                        END
+                    ), 0)
                     FROM `tabFarm Labor Session`
                     WHERE linked_harvest = %s AND docstatus = 1
                     """,
