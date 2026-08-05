@@ -9,8 +9,8 @@ from frappe.utils import flt
 class FarmProductionBatch(Document):
 
     def recalculate_rollups(self):
-        """Sum linked Cloning Batch / Farm Labor Session / Sales Invoice
-        records into this harvest's cost and revenue fields."""
+        """Sum linked Cloning Batch / Farm Labor Session / Plant Batch /
+        Sales Invoice records into this harvest's cost and revenue fields."""
 
         propagation_cost = flt(
             frappe.db.sql(
@@ -44,6 +44,19 @@ class FarmProductionBatch(Document):
                 )[0][0]
             )
 
+        plant_batch_input_costs = 0
+        if frappe.db.exists("DocType", "Plant Batch"):
+            plant_batch_input_costs = flt(
+                frappe.db.sql(
+                    """
+                    SELECT COALESCE(SUM(total_input_cost), 0)
+                    FROM `tabPlant Batch`
+                    WHERE linked_harvest = %s AND docstatus = 1
+                    """,
+                    (self.name,),
+                )[0][0]
+            )
+
         revenue_to_date = flt(
             frappe.db.sql(
                 """
@@ -57,7 +70,7 @@ class FarmProductionBatch(Document):
 
         self.propagation_cost = propagation_cost
         self.labor_cost = labor_cost
-        self.costs_to_date = propagation_cost + labor_cost
+        self.costs_to_date = propagation_cost + labor_cost + plant_batch_input_costs
         self.revenue_to_date = revenue_to_date
         self.gross_profit = revenue_to_date - self.costs_to_date
         self.net_to_date = self.gross_profit  # overhead TBD, defaults to 0
@@ -68,8 +81,8 @@ class FarmProductionBatch(Document):
 def update_linked_harvest(doc, method=None):
     """on_submit hook for any doctype carrying linked_harvest /
     custom_linked_harvest — recalculates the Farm Production Batch it
-    points to. Wire this into Cloning Batch, Sales Invoice, and (once
-    built) Farm Labor Session."""
+    points to. Wired into Cloning Batch, Sales Invoice, Farm Labor Session,
+    and Plant Batch."""
 
     harvest_name = doc.get("linked_harvest") or doc.get("custom_linked_harvest")
     if not harvest_name:
