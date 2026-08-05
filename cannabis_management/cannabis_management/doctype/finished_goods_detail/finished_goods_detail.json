@@ -21,7 +21,6 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Item",
-   "link_filters": "[[\"Item\",\"custom_is_parent\",\"=\",1]]",
    "options": "Item"
   },
   {

@@ -15,7 +15,9 @@ def validate(doc, method=None):
 
 
 def on_submit(doc, method=None):
-    if not doc.custom_finished_goods or not doc.items:
+    # custom_finished_goods / custom_routing are optional customisations — use
+    # doc.get() so submit keeps working when those fields are not installed.
+    if not doc.get("custom_finished_goods") or not doc.items:
         return
 
     _create_boms_from_mr(doc)
