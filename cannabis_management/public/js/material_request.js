@@ -17,16 +17,6 @@ frappe.ui.form.on("Material Request", {
         frm.set_query('custom_project', () => ({
             filters: { company: frm.doc.company }
         }));
-
-        frm.set_query('custom_rm_item', () => ({
-            filters: { custom_is_parent: 1 }
-        }));
-
-        frm.set_query('item', 'custom_finished_goods', () => {
-            if (frm.doc.custom_rm_item) {
-                return { filters: { custom_parent_item: frm.doc.custom_rm_item } };
-            }
-        });
     },
 
     refresh(frm) {
@@ -109,12 +99,13 @@ frappe.ui.form.on("Finished Goods Detail", {
 function disable_fg_add_row(frm) {
     // Hide the "Add Row" button on the custom_finished_goods child table
     setTimeout(() => {
-        frm.fields_dict['custom_finished_goods'].grid.wrapper
-            .find('.grid-add-row')
-            .hide();
+        let fg = frm.fields_dict['custom_finished_goods'];
+        if (!fg || !fg.grid) return;   // field not installed on this site
+
+        fg.grid.wrapper.find('.grid-add-row').hide();
 
         // Also disable the ability to add via keyboard / grid toolbar
-        frm.fields_dict['custom_finished_goods'].grid.cannot_add_rows = true;
+        fg.grid.cannot_add_rows = true;
     }, 200);
 }
 
