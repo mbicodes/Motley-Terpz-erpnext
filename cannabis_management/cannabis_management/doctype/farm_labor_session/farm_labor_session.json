@@ -24,10 +24,18 @@
   "rate_per_hour",
   "total_cost",
   "section_break_bucking",
-  "bucked_item",
-  "target_warehouse",
-  "column_break_bucking",
-  "weight_uom",
+  "ingredients",
+  "outputs",
+  "additional_costs",
+  "section_break_bucking_totals",
+  "total_ingredient_cost",
+  "total_additional_cost",
+  "total_assembly_cost",
+  "column_break_bucking_totals",
+  "yield_pct",
+  "moisture_loss_pct",
+  "machine_hours",
+  "terpene_pct",
   "stock_entry",
   "amended_from"
  ],
@@ -81,6 +89,7 @@
    "fieldtype": "Column Break"
   },
   {
+   "depends_on": "eval:doc.task_type != \"Bucking\"",
    "fieldname": "strain",
    "fieldtype": "Link",
    "label": "Strain",
@@ -143,34 +152,91 @@
    "depends_on": "eval:doc.task_type==\"Bucking\"",
    "fieldname": "section_break_bucking",
    "fieldtype": "Section Break",
-   "label": "Bucking Details"
+   "label": "Bucking Assembly"
   },
   {
    "depends_on": "eval:doc.task_type==\"Bucking\"",
-   "fieldname": "bucked_item",
-   "fieldtype": "Link",
-   "label": "Bucked Item",
+   "fieldname": "ingredients",
+   "fieldtype": "Table",
+   "label": "Ingredients",
    "mandatory_depends_on": "eval:doc.task_type==\"Bucking\"",
-   "options": "Item"
+   "options": "Bucking Ingredient"
   },
   {
    "depends_on": "eval:doc.task_type==\"Bucking\"",
-   "fieldname": "target_warehouse",
-   "fieldtype": "Link",
-   "label": "Target Warehouse",
+   "fieldname": "outputs",
+   "fieldtype": "Table",
+   "label": "Outputs",
    "mandatory_depends_on": "eval:doc.task_type==\"Bucking\"",
-   "options": "Warehouse"
+   "options": "Bucking Output"
   },
   {
-   "fieldname": "column_break_bucking",
+   "depends_on": "eval:doc.task_type==\"Bucking\"",
+   "fieldname": "additional_costs",
+   "fieldtype": "Table",
+   "label": "Additional Costs",
+   "options": "Bucking Additional Cost"
+  },
+  {
+   "depends_on": "eval:doc.task_type==\"Bucking\"",
+   "fieldname": "section_break_bucking_totals",
+   "fieldtype": "Section Break",
+   "label": "Assembly Totals"
+  },
+  {
+   "depends_on": "eval:doc.task_type==\"Bucking\"",
+   "fieldname": "total_ingredient_cost",
+   "fieldtype": "Currency",
+   "label": "Total Ingredient Cost",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.task_type==\"Bucking\"",
+   "fieldname": "total_additional_cost",
+   "fieldtype": "Currency",
+   "label": "Total Additional Cost",
+   "read_only": 1
+  },
+  {
+   "bold": 1,
+   "depends_on": "eval:doc.task_type==\"Bucking\"",
+   "fieldname": "total_assembly_cost",
+   "fieldtype": "Currency",
+   "label": "Total Assembly Cost",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_bucking_totals",
    "fieldtype": "Column Break"
   },
   {
    "depends_on": "eval:doc.task_type==\"Bucking\"",
-   "fieldname": "weight_uom",
-   "fieldtype": "Select",
-   "label": "Weight UOM",
-   "options": "\nKg\nPound"
+   "description": "SUM(Qty Produced) / SUM(Qty Used) × 100. Only meaningful when Ingredient and Output UOM match.",
+   "fieldname": "yield_pct",
+   "fieldtype": "Percent",
+   "label": "Yield %",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.task_type==\"Bucking\"",
+   "description": "Optional — only fill when Ingredients are wet material and Outputs are dried/cured.",
+   "fieldname": "moisture_loss_pct",
+   "fieldtype": "Percent",
+   "label": "Moisture Loss %",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.task_type==\"Bucking\"",
+   "fieldname": "machine_hours",
+   "fieldtype": "Float",
+   "label": "Machine Hours"
+  },
+  {
+   "depends_on": "eval:doc.task_type==\"Bucking\"",
+   "description": "Filled in later once lab results are available.",
+   "fieldname": "terpene_pct",
+   "fieldtype": "Percent",
+   "label": "Terpene %"
   },
   {
    "fieldname": "stock_entry",
@@ -194,7 +260,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-07-06 00:00:00.000000",
+ "modified": "2026-08-06 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "Cannabis Management",
  "name": "Farm Labor Session",

@@ -25,19 +25,53 @@ class FarmLaborSession(Document):
         else:
             self.rate_per_hour = 0
 
+        if self.task_type == "Bucking":
+            self.calculate_bucking_assembly_totals()
+
+    def calculate_bucking_assembly_totals(self):
+        """Distru-style Assembly rollup: cost from Ingredients + Additional
+        Costs + labor, and Yield / Moisture Loss derived from Ingredient vs
+        Output quantities."""
+
+        total_ingredient_cost = sum(flt(row.cost) for row in self.ingredients)
+        total_additional_cost = sum(flt(row.amount) for row in self.additional_costs)
+
+        self.total_ingredient_cost = total_ingredient_cost
+        self.total_additional_cost = total_additional_cost
+        self.total_assembly_cost = (
+            total_ingredient_cost + total_additional_cost + flt(self.hours) * flt(self.labor_rate)
+        )
+
+        qty_used = sum(flt(row.qty_used) for row in self.ingredients)
+        qty_produced = sum(flt(row.qty_produced) for row in self.outputs)
+
+        self.yield_pct = (qty_produced / qty_used * 100) if qty_used else 0
+        self.moisture_loss_pct = ((qty_used - qty_produced) / qty_used * 100) if qty_used else 0
+
     def validate_warehouse_company(self):
-        """Ensure target warehouse belongs to the selected company (Bucking only)."""
-        if self.task_type == "Bucking" and self.company and self.target_warehouse:
-            warehouse_company = frappe.db.get_value(
-                "Warehouse", self.target_warehouse, "company"
-            )
-            if warehouse_company and warehouse_company != self.company:
-                frappe.throw(
-                    _("Target Warehouse {0} does not belong to Company {1}.").format(
-                        frappe.bold(self.target_warehouse),
-                        frappe.bold(self.company),
-                    )
+        """Ensure every Ingredient/Output warehouse belongs to the selected
+        company (Bucking only)."""
+        if self.task_type != "Bucking" or not self.company:
+            return
+
+        for row in self.ingredients:
+            self._check_warehouse_company(row.source_warehouse, "Source Warehouse")
+
+        for row in self.outputs:
+            self._check_warehouse_company(row.target_warehouse, "Target Warehouse")
+
+    def _check_warehouse_company(self, warehouse, label):
+        if not warehouse:
+            return
+        warehouse_company = frappe.db.get_value("Warehouse", warehouse, "company")
+        if warehouse_company and warehouse_company != self.company:
+            frappe.throw(
+                _("{0} {1} does not belong to Company {2}.").format(
+                    label,
+                    frappe.bold(warehouse),
+                    frappe.bold(self.company),
                 )
+            )
 
     def on_submit(self):
         if self.task_type == "Bucking":
@@ -45,42 +79,65 @@ class FarmLaborSession(Document):
         update_linked_harvest(self)
 
     def create_bucking_stock_entry(self):
-        """Bucking is the only task that produces a sellable stock item
-        (packaged fresh-frozen flower). Planting and Deleaf never reach
-        this code path."""
+        """Bucking is the Assembly-style task: multiple harvested Ingredients
+        consumed, multiple packaged Outputs produced. Planting and Deleaf
+        never reach this code path."""
 
-        if not self.bucked_item:
-            frappe.throw(_("Bucked Item is required for Bucking sessions."))
+        if not self.ingredients:
+            frappe.throw(_("At least one Ingredient row is required for Bucking sessions."))
 
-        if not self.target_warehouse:
-            frappe.throw(_("Target Warehouse is required for Bucking sessions."))
+        if not self.outputs:
+            frappe.throw(_("At least one Output row is required for Bucking sessions."))
 
         if not self.company:
             frappe.throw(_("Company is required."))
 
-        qty = flt(self.units_completed)
-        if qty <= 0:
-            frappe.throw(_("Units Completed must be greater than zero for Bucking sessions."))
-
         stock_entry = frappe.new_doc("Stock Entry")
-        stock_entry.stock_entry_type = "Material Receipt"
+        # Repack (not Manufacture) — per client instruction, this Assembly
+        # is treated as a repack of harvested material into packaged
+        # output, not a BOM/Work Order-backed manufacture.
+        stock_entry.stock_entry_type = "Repack"
         stock_entry.company = self.company
         stock_entry.posting_date = self.session_date or today()
 
-        stock_entry.append(
-            "items",
-            {
-                "item_code": self.bucked_item,
-                "qty": qty,
-                "uom": self.weight_uom,
-                "t_warehouse": self.target_warehouse,
-            },
-        )
+        for ing in self.ingredients:
+            if flt(ing.qty_used) <= 0:
+                frappe.throw(_("Qty Used must be greater than zero for every Ingredient row."))
+            if not ing.source_warehouse:
+                frappe.throw(_("Source Warehouse is required for every Ingredient row."))
+
+            stock_entry.append(
+                "items",
+                {
+                    "item_code": ing.source_item,
+                    "qty": flt(ing.qty_used),
+                    "uom": ing.uom,
+                    "s_warehouse": ing.source_warehouse,
+                    "is_finished_item": 0,
+                },
+            )
+
+        for out in self.outputs:
+            if flt(out.qty_produced) <= 0:
+                frappe.throw(_("Qty Produced must be greater than zero for every Output row."))
+            if not out.target_warehouse:
+                frappe.throw(_("Target Warehouse is required for every Output row."))
+
+            stock_entry.append(
+                "items",
+                {
+                    "item_code": out.output_item,
+                    "qty": flt(out.qty_produced),
+                    "uom": out.uom,
+                    "t_warehouse": out.target_warehouse,
+                    "is_finished_item": 1,
+                },
+            )
 
         stock_entry.insert(ignore_permissions=True)
-        # Left in draft — the harvested plant is METRC-tracked, not an
-        # ERPNext stock item, so there is no matching source-side
-        # transaction to submit against yet.
+        # Left in draft — same pattern as before, not auto-submitted. The
+        # harvested plant is METRC-tracked, not an ERPNext stock item, so
+        # there is no matching source-side transaction to submit against yet.
 
         self.db_set("stock_entry", stock_entry.name)
 
