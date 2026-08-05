@@ -1,10 +1,10 @@
 {
  "content": null,
- "creation": "2026-07-27 00:00:00.000000",
+ "creation": "2026-07-27 00:00:00",
  "docstatus": 0,
  "doctype": "Page",
  "idx": 0,
- "modified": "2026-07-27 00:00:00.000000",
+ "modified": "2026-07-31 12:39:17.244949",
  "modified_by": "Administrator",
  "module": "Cannabis Management",
  "name": "detailed-balance-sheet-drilldown",
@@ -19,6 +19,9 @@
   },
   {
    "role": "Auditor"
+  },
+  {
+   "role": "Matt Schneider - Consolidated"
   }
  ],
  "script": null,

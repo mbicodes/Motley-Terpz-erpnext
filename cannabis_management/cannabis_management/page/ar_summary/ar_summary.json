@@ -1,20 +1,19 @@
 {
  "content": null,
- "creation": "2026-08-01 10:00:00.000000",
+ "creation": "2026-08-01 10:00:00",
  "docstatus": 0,
  "doctype": "Page",
  "idx": 0,
- "modified": "2026-08-01 10:00:00.000000",
+ "modified": "2026-08-04 11:33:36.116735",
  "modified_by": "Administrator",
  "module": "Cannabis Management",
  "name": "ar-summary",
  "owner": "Administrator",
  "page_name": "ar-summary",
  "roles": [
-  {"role": "Account Receivable"},
-  {"role": "Accounts Manager"},
-  {"role": "Finance Manager"},
-  {"role": "System Manager"}
+  {
+   "role": "AR Dashboard"
+  }
  ],
  "script": null,
  "standard": "Yes",
