@@ -48,7 +48,8 @@ app_include_js = [
     "/assets/cannabis_management/js/stock_balance_custom.js",
     "/assets/cannabis_management/js/payment_calendar.js",
     "/assets/cannabis_management/js/sidebar_nav.js",
-    "/assets/cannabis_management/js/financial_statements_child_accounts_link.js"
+    "/assets/cannabis_management/js/financial_statements_child_accounts_link.js",
+    "/assets/cannabis_management/js/pnl_gl_export.js"
 ]
 
 
