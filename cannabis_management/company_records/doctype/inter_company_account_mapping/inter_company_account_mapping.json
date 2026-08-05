@@ -1,0 +1,142 @@
+{
+ "actions": [],
+ "autoname": "format:{paying_company}-{receiving_company}",
+ "creation": "2026-08-03 10:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "paying_company",
+  "receiving_company",
+  "accounts_section",
+  "due_from_account",
+  "column_break_1",
+  "due_to_account",
+  "notes_section",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "paying_company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Paying Company",
+   "options": "Company",
+   "reqd": 1,
+   "description": "The company that makes the payment on behalf of the group"
+  },
+  {
+   "fieldname": "receiving_company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Receiving Company",
+   "options": "Company",
+   "reqd": 1,
+   "description": "The company whose expense is being paid for"
+  },
+  {
+   "fieldname": "accounts_section",
+   "fieldtype": "Section Break",
+   "label": "Account Mapping"
+  },
+  {
+   "fieldname": "due_from_account",
+   "fieldtype": "Link",
+   "label": "Due From Account (Intercompany Receivable)",
+   "options": "Account",
+   "reqd": 1,
+   "description": "Belongs to the Paying Company. Used as the receivable in the paying company's Journal Entry."
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "due_to_account",
+   "fieldtype": "Link",
+   "label": "Due To Account (Intercompany Payable)",
+   "options": "Account",
+   "reqd": 1,
+   "description": "Belongs to the Receiving Company. Used as the payable in the receiving company's Journal Entry."
+  },
+  {
+   "fieldname": "notes_section",
+   "fieldtype": "Section Break",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  }
+ ],
+ "grid_page_length": 50,
+ "links": [],
+ "modified": "2026-08-03 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Company Records",
+ "name": "Inter Company Account Mapping",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Director",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounting Team",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Operations",
+   "share": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "ERP Dev Team",
+   "share": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

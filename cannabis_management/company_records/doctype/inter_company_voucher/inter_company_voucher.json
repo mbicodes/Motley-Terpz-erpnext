@@ -1,0 +1,217 @@
+{
+ "actions": [],
+ "autoname": "ICV-.YYYY.-.#####",
+ "creation": "2026-08-03 10:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "is_submittable": 1,
+ "field_order": [
+  "voucher_details_section",
+  "posting_date",
+  "reference_no",
+  "column_break_1",
+  "paying_company",
+  "currency",
+  "bank_section",
+  "bank_account",
+  "column_break_2",
+  "total_amount",
+  "remarks_section",
+  "remarks",
+  "allocations_section",
+  "allocations",
+  "generated_entries_section",
+  "journal_entries",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "fieldname": "voucher_details_section",
+   "fieldtype": "Section Break",
+   "label": "Voucher Details"
+  },
+  {
+   "default": "Today",
+   "fieldname": "posting_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Posting Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "reference_no",
+   "fieldtype": "Data",
+   "label": "Reference No.",
+   "description": "Cheque, bank, or external reference"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "paying_company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Paying Company",
+   "options": "Company",
+   "reqd": 1,
+   "read_only_depends_on": "eval:doc.docstatus == 1",
+   "description": "The company making the payment"
+  },
+  {
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "label": "Currency",
+   "options": "Currency"
+  },
+  {
+   "fieldname": "bank_section",
+   "fieldtype": "Section Break",
+   "label": "Bank & Amount"
+  },
+  {
+   "fieldname": "bank_account",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Bank Account",
+   "options": "Account",
+   "reqd": 1,
+   "description": "Bank or cash account to be credited. Must belong to the Paying Company."
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "total_amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Total Amount",
+   "options": "currency",
+   "reqd": 1,
+   "description": "Must equal the sum of all allocation rows"
+  },
+  {
+   "fieldname": "remarks_section",
+   "fieldtype": "Section Break",
+   "label": "Remarks"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  },
+  {
+   "fieldname": "allocations_section",
+   "fieldtype": "Section Break",
+   "label": "Company-wise Expense Allocation"
+  },
+  {
+   "fieldname": "allocations",
+   "fieldtype": "Table",
+   "label": "Allocations",
+   "options": "Inter Company Expense Allocation"
+  },
+  {
+   "fieldname": "generated_entries_section",
+   "fieldtype": "Section Break",
+   "label": "Generated Journal Entries"
+  },
+  {
+   "fieldname": "journal_entries",
+   "fieldtype": "Table",
+   "label": "Generated Entries",
+   "options": "Inter Company Voucher Entry",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "options": "Inter Company Voucher",
+   "no_copy": 1,
+   "print_hide": 1,
+   "read_only": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "links": [],
+ "modified": "2026-08-03 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Company Records",
+ "name": "Inter Company Voucher",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Director",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounting Team",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Operations",
+   "share": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "ERP Dev Team",
+   "share": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
