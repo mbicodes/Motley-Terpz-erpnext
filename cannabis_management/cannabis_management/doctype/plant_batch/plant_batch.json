@@ -1,0 +1,263 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "PB-.YYYY.-.####",
+ "creation": "2026-08-05 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_lifecycle",
+  "strain",
+  "room_row",
+  "stage",
+  "plant_count",
+  "column_break_lifecycle",
+  "source_cloning_batch",
+  "linked_harvest",
+  "date_transplanted",
+  "date_flowering_start",
+  "date_harvested",
+  "section_break_metrc",
+  "metrc_tag_range_start",
+  "column_break_metrc",
+  "metrc_tag_range_end",
+  "section_break_harvest",
+  "wet_weight",
+  "dry_weight",
+  "column_break_harvest",
+  "plants_lost",
+  "plants_harvested",
+  "section_break_loss",
+  "loss_log",
+  "section_break_input",
+  "input_log",
+  "total_input_cost",
+  "section_break_analytics",
+  "moisture_loss_pct",
+  "waste_pct",
+  "column_break_analytics",
+  "days_to_flower",
+  "yield_per_plant",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_lifecycle",
+   "fieldtype": "Section Break",
+   "label": "Batch Details"
+  },
+  {
+   "fieldname": "strain",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Strain",
+   "options": "Item",
+   "reqd": 1
+  },
+  {
+   "fieldname": "room_row",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Room / Row"
+  },
+  {
+   "default": "Immature",
+   "fieldname": "stage",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Stage",
+   "options": "Immature\nVegetative\nFlower\nHarvested",
+   "reqd": 1
+  },
+  {
+   "fieldname": "plant_count",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Plant Count (Initial)",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_lifecycle",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "source_cloning_batch",
+   "fieldtype": "Link",
+   "label": "Source Cloning Batch",
+   "options": "Cloning Batch"
+  },
+  {
+   "fieldname": "linked_harvest",
+   "fieldtype": "Link",
+   "label": "Linked Harvest",
+   "options": "Farm Production Batch"
+  },
+  {
+   "fieldname": "date_transplanted",
+   "fieldtype": "Date",
+   "label": "Date Transplanted"
+  },
+  {
+   "fieldname": "date_flowering_start",
+   "fieldtype": "Date",
+   "label": "Date Flowering Start"
+  },
+  {
+   "fieldname": "date_harvested",
+   "fieldtype": "Date",
+   "label": "Date Harvested"
+  },
+  {
+   "fieldname": "section_break_metrc",
+   "fieldtype": "Section Break",
+   "label": "METRC Tag Range"
+  },
+  {
+   "fieldname": "metrc_tag_range_start",
+   "fieldtype": "Data",
+   "label": "METRC Tag Range — Start"
+  },
+  {
+   "fieldname": "column_break_metrc",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "metrc_tag_range_end",
+   "fieldtype": "Data",
+   "label": "METRC Tag Range — End"
+  },
+  {
+   "fieldname": "section_break_harvest",
+   "fieldtype": "Section Break",
+   "label": "Harvest Weight & Loss"
+  },
+  {
+   "fieldname": "wet_weight",
+   "fieldtype": "Float",
+   "label": "Wet Weight"
+  },
+  {
+   "fieldname": "dry_weight",
+   "fieldtype": "Float",
+   "label": "Dry Weight"
+  },
+  {
+   "fieldname": "column_break_harvest",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "plants_lost",
+   "fieldtype": "Int",
+   "label": "Plants Lost",
+   "read_only": 1
+  },
+  {
+   "fieldname": "plants_harvested",
+   "fieldtype": "Int",
+   "label": "Plants Harvested",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_loss",
+   "fieldtype": "Section Break",
+   "label": "Loss Log"
+  },
+  {
+   "fieldname": "loss_log",
+   "fieldtype": "Table",
+   "label": "Loss Log",
+   "options": "Plant Batch Loss Log"
+  },
+  {
+   "fieldname": "section_break_input",
+   "fieldtype": "Section Break",
+   "label": "Input / Additive Log"
+  },
+  {
+   "fieldname": "input_log",
+   "fieldtype": "Table",
+   "label": "Input / Additive Log",
+   "options": "Plant Batch Input Log"
+  },
+  {
+   "fieldname": "total_input_cost",
+   "fieldtype": "Currency",
+   "label": "Total Input Cost",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_analytics",
+   "fieldtype": "Section Break",
+   "label": "Analytics (Calculated)"
+  },
+  {
+   "fieldname": "moisture_loss_pct",
+   "fieldtype": "Percent",
+   "label": "Moisture Loss %",
+   "read_only": 1
+  },
+  {
+   "fieldname": "waste_pct",
+   "fieldtype": "Percent",
+   "label": "Waste %",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_analytics",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "days_to_flower",
+   "fieldtype": "Int",
+   "label": "Days to Flower",
+   "read_only": 1
+  },
+  {
+   "fieldname": "yield_per_plant",
+   "fieldtype": "Float",
+   "label": "Yield per Plant",
+   "read_only": 1
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Plant Batch",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-08-05 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Plant Batch",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

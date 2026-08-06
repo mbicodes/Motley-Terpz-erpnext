@@ -1,0 +1,239 @@
+{
+ "charts": [
+  {
+   "chart_name": "METRC API Activity",
+   "label": "METRC API Activity"
+  }
+ ],
+ "content": "[{\"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>METRC Compliance</b></span>\", \"col\": 12}}, {\"type\": \"paragraph\", \"data\": {\"text\": \"California seed-to-sale reporting. METRC is the system of record for compliance state &mdash; where the two systems disagree, the difference is a variance to investigate, never an automatic overwrite.\", \"col\": 12}}, {\"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h6\\\"><b>Push health</b></span>\", \"col\": 12}}, {\"type\": \"number_card\", \"data\": {\"number_card_name\": \"METRC Invoices Synced\", \"col\": 3}}, {\"type\": \"number_card\", \"data\": {\"number_card_name\": \"METRC Deliveries Synced\", \"col\": 3}}, {\"type\": \"number_card\", \"data\": {\"number_card_name\": \"METRC Outbox Queued\", \"col\": 3}}, {\"type\": \"number_card\", \"data\": {\"number_card_name\": \"METRC Outbox Parked\", \"col\": 3}}, {\"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h6\\\"><b>Inventory coverage</b></span>\", \"col\": 12}}, {\"type\": \"number_card\", \"data\": {\"number_card_name\": \"METRC Items Synced\", \"col\": 3}}, {\"type\": \"number_card\", \"data\": {\"number_card_name\": \"METRC Items Tracked\", \"col\": 3}}, {\"type\": \"number_card\", \"data\": {\"number_card_name\": \"METRC Items Need Review\", \"col\": 3}}, {\"type\": \"number_card\", \"data\": {\"number_card_name\": \"METRC Packages Synced\", \"col\": 3}}, {\"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h6\\\"><b>Tag pool</b></span>\", \"col\": 12}}, {\"type\": \"number_card\", \"data\": {\"number_card_name\": \"METRC Tags Total\", \"col\": 3}}, {\"type\": \"number_card\", \"data\": {\"number_card_name\": \"METRC Tags Unused\", \"col\": 3}}, {\"type\": \"number_card\", \"data\": {\"number_card_name\": \"METRC Tags Active\", \"col\": 3}}, {\"type\": \"number_card\", \"data\": {\"number_card_name\": \"METRC Invoices Failed\", \"col\": 3}}, {\"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h6\\\"><b>System health</b></span>\", \"col\": 12}}, {\"type\": \"number_card\", \"data\": {\"number_card_name\": \"METRC API Errors\", \"col\": 3}}, {\"type\": \"number_card\", \"data\": {\"number_card_name\": \"METRC Cursors Failing\", \"col\": 3}}, {\"type\": \"number_card\", \"data\": {\"number_card_name\": \"METRC Outbox Success\", \"col\": 3}}, {\"type\": \"number_card\", \"data\": {\"number_card_name\": \"METRC Invoices Pending\", \"col\": 3}}, {\"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"type\": \"chart\", \"data\": {\"chart_name\": \"METRC API Activity\", \"col\": 12}}, {\"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h6\\\"><b>Open</b></span>\", \"col\": 12}}, {\"type\": \"card\", \"data\": {\"card_name\": \"Configuration\", \"col\": 4}}, {\"type\": \"card\", \"data\": {\"card_name\": \"Monitoring\", \"col\": 4}}, {\"type\": \"card\", \"data\": {\"card_name\": \"Inventory\", \"col\": 4}}]",
+ "creation": "2026-08-04 22:26:19.527906",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "hide_custom": 0,
+ "icon": "shield",
+ "idx": 0,
+ "indicator_color": "green",
+ "is_hidden": 0,
+ "label": "METRC",
+ "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Configuration",
+   "link_count": 0,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "description": "Keys, facilities, UOM map, auto-create and dry-run switches.",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Metrc Settings",
+   "link_count": 0,
+   "link_to": "Metrc Settings",
+   "link_type": "DocType",
+   "onboard": 1,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Monitoring",
+   "link_count": 0,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "description": "Queued and failed writes. Parked rows need a human.",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Metrc Outbox",
+   "link_count": 0,
+   "link_to": "Metrc Outbox",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "description": "One forward-only cursor per licence and endpoint.",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Metrc Sync State",
+   "link_count": 0,
+   "link_to": "Metrc Sync State",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "description": "Every request and response, for audit and debugging.",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Metrc API Log",
+   "link_count": 0,
+   "link_to": "Metrc API Log",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "dependencies": "Metric Tag",
+   "description": "Where METRC and the stock ledger disagree.",
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Metrc Variance",
+   "link_count": 0,
+   "link_to": "Metrc Variance",
+   "link_type": "Report",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Inventory",
+   "link_count": 0,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "description": "The tag registry - one row per physical METRC label.",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Metric Tag",
+   "link_count": 0,
+   "link_to": "Metric Tag",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "description": "The ERPNext side of a METRC package.",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Batch",
+   "link_count": 0,
+   "link_to": "Batch",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "description": "Flag tracked items and review auto-created ones.",
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Item",
+   "link_count": 0,
+   "link_to": "Item",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2026-08-04 22:26:19.527906",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "METRC",
+ "number_cards": [
+  {
+   "number_card_name": "METRC Items Synced"
+  },
+  {
+   "number_card_name": "METRC Items Tracked"
+  },
+  {
+   "number_card_name": "METRC Items Need Review"
+  },
+  {
+   "number_card_name": "METRC Tags Total"
+  },
+  {
+   "number_card_name": "METRC Tags Unused"
+  },
+  {
+   "number_card_name": "METRC Tags Active"
+  },
+  {
+   "number_card_name": "METRC Packages Synced"
+  },
+  {
+   "number_card_name": "METRC Invoices Synced"
+  },
+  {
+   "number_card_name": "METRC Invoices Pending"
+  },
+  {
+   "number_card_name": "METRC Invoices Failed"
+  },
+  {
+   "number_card_name": "METRC Deliveries Synced"
+  },
+  {
+   "number_card_name": "METRC Outbox Queued"
+  },
+  {
+   "number_card_name": "METRC Outbox Parked"
+  },
+  {
+   "number_card_name": "METRC Outbox Success"
+  },
+  {
+   "number_card_name": "METRC API Errors"
+  },
+  {
+   "number_card_name": "METRC Cursors Failing"
+  }
+ ],
+ "owner": "Administrator",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [],
+ "sequence_id": 40.0,
+ "shortcuts": [
+  {
+   "color": "Red",
+   "doc_view": "",
+   "label": "Parked Writes",
+   "link_to": "Metrc Outbox",
+   "stats_filter": "{\"status\": \"Parked\"}",
+   "type": "DocType"
+  },
+  {
+   "color": "Orange",
+   "doc_view": "",
+   "label": "Items to Review",
+   "link_to": "Item",
+   "stats_filter": "{\"custom_metrc_auto_created\": 1}",
+   "type": "DocType"
+  },
+  {
+   "color": "Orange",
+   "doc_view": "",
+   "label": "Invoices Not Synced",
+   "link_to": "Sales Invoice",
+   "stats_filter": "{\"custom_metrc_sync_status\": [\"in\", [\"Queued\", \"Failed\", \"Parked\"]]}",
+   "type": "DocType"
+  },
+  {
+   "color": "Green",
+   "doc_view": "",
+   "label": "Unused Tags",
+   "link_to": "Metric Tag",
+   "stats_filter": "{\"status\": \"Unused\"}",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "",
+   "label": "Variance Report",
+   "link_to": "Metrc Variance",
+   "report_ref_doctype": "Metric Tag",
+   "type": "Report"
+  }
+ ],
+ "title": "METRC"
+}

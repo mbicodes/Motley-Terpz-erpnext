@@ -78,6 +78,18 @@ class FarmLaborSession(Document):
             self.create_bucking_stock_entry()
         update_linked_harvest(self)
 
+    def get_additional_cost_account(self, cost_type):
+        """Resolve an expense account for a Bucking Additional Cost row.
+        Prefers the Company's own 'Farm {cost_type} - ABBR' account (matches
+        the farm companies' chart of accounts, e.g. 'Farm Equipment - TSBC');
+        falls back to the Company's Stock Adjustment account when no such
+        dedicated account exists (e.g. Packaging, Other)."""
+        abbr = frappe.db.get_value("Company", self.company, "abbr")
+        candidate = f"Farm {cost_type} - {abbr}" if abbr else None
+        if candidate and frappe.db.exists("Account", candidate):
+            return candidate
+        return frappe.db.get_value("Company", self.company, "stock_adjustment_account")
+
     def create_bucking_stock_entry(self):
         """Bucking is the Assembly-style task: multiple harvested Ingredients
         consumed, multiple packaged Outputs produced. Planting and Deleaf
@@ -134,10 +146,44 @@ class FarmLaborSession(Document):
                 },
             )
 
+        # Additional Costs (Bucking Additional Cost table) → Stock Entry's
+        # own Additional Costs table, so Packaging/Equipment/Other charges
+        # actually land on the finished-good valuation instead of being
+        # calculated on the session but dropped on the floor.
+        missing_account = False
+        for cost in self.additional_costs:
+            amount = flt(cost.amount)
+            if amount <= 0:
+                continue
+
+            expense_account = self.get_additional_cost_account(cost.cost_type or "Other")
+            if not expense_account:
+                missing_account = True
+
+            stock_entry.append(
+                "additional_costs",
+                {
+                    "expense_account": expense_account,
+                    "description": cost.description or cost.cost_type or _("Additional Cost"),
+                    "amount": amount,
+                },
+            )
+
         stock_entry.insert(ignore_permissions=True)
         # Left in draft — same pattern as before, not auto-submitted. The
         # harvested plant is METRC-tracked, not an ERPNext stock item, so
         # there is no matching source-side transaction to submit against yet.
+
+        if missing_account:
+            frappe.msgprint(
+                _(
+                    "Could not find an expense account for one or more Additional Cost rows. "
+                    "Please set an Expense Account on Stock Entry {0} before submitting it, "
+                    "or set a Stock Adjustment Account on Company {1}."
+                ).format(frappe.bold(stock_entry.name), frappe.bold(self.company)),
+                alert=True,
+                indicator="orange",
+            )
 
         self.db_set("stock_entry", stock_entry.name)
 
