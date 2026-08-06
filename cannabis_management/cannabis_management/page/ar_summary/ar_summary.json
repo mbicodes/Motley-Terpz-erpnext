@@ -4,7 +4,7 @@
  "docstatus": 0,
  "doctype": "Page",
  "idx": 0,
- "modified": "2026-08-04 11:33:36.116735",
+ "modified": "2026-08-06 04:56:32.588730",
  "modified_by": "Administrator",
  "module": "Cannabis Management",
  "name": "ar-summary",
@@ -13,6 +13,9 @@
  "roles": [
   {
    "role": "AR Dashboard"
+  },
+  {
+   "role": "System Manager"
   }
  ],
  "script": null,

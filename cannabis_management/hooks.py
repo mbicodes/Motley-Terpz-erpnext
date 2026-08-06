@@ -49,7 +49,9 @@ app_include_js = [
     "/assets/cannabis_management/js/payment_calendar.js",
     "/assets/cannabis_management/js/sidebar_nav.js",
     "/assets/cannabis_management/js/financial_statements_child_accounts_link.js",
-    "/assets/cannabis_management/js/pnl_gl_export.js"
+    "/assets/cannabis_management/js/pnl_gl_export.js",
+    # Shared METRC form helpers — must load before the per-doctype scripts
+    "/assets/cannabis_management/js/metrc_indicator.js",
 ]
 
 
@@ -61,18 +63,23 @@ doctype_js = {
     # Cash Management forms
     "Cash Ledger Entry": "cash_management/doctype/cash_ledger_entry/cash_ledger_entry.js",
     "Expense Tracker Entry": "cash_management/doctype/expense_tracker_entry/expense_tracker_entry.js",
-    # Existing
-    "Stock Entry": "public/js/stock_entry.js",
+    # Existing — METRC form UX is appended as a second file per doctype rather
+    # than merged into these, so the integration stays removable in one place.
+    "Stock Entry": ["public/js/stock_entry.js", "public/js/metrc/stock_entry_metrc.js"],
     "Purchase Order": "public/js/purchase_order.js",
     "Purchase Receipt": "public/js/purchase_receipt.js",
     "Purchase Invoice": "public/js/purchase_invoice.js",
-    "Delivery Note": "public/js/delivery_note.js",
-    "Sales Invoice": "public/js/sales_invoice.js",
+    "Delivery Note": ["public/js/delivery_note.js", "public/js/metrc/delivery_note_metrc.js"],
+    "Sales Invoice": ["public/js/sales_invoice.js", "public/js/metrc/sales_invoice_metrc.js"],
     "Sales Order": "public/js/sales_order.js",
     "Material Request": "public/js/material_request.js",
     "Item Group": "public/js/item_group_custom.js",
     "Job Card": "public/js/job_card.js",
     "Quotation": "public/js/quotation.js",
+    # METRC only
+    "Stock Reconciliation": "public/js/metrc/stock_reconciliation_metrc.js",
+    "Work Order": "public/js/metrc/work_order_metrc.js",
+    "Batch": "public/js/metrc/batch_metrc.js",
 }
 doctype_list_js = {
     "Sales Invoice": "public/js/sales_invoice_list.js",
@@ -262,7 +269,12 @@ doc_events = {
     "Sales Invoice": {
         "before_validate": "cannabis_management.doc_hooks.sales_invoice.before_validate",
         "before_submit": "cannabis_management.doc_hooks.sales_invoice.before_submit",
-        "on_submit": "cannabis_management.doc_hooks.sales_invoice.on_submit",
+        "on_submit": [
+            "cannabis_management.doc_hooks.sales_invoice.on_submit",
+            # METRC: queue a sales receipt (transactional outbox, never a live call)
+            "cannabis_management.metrc.push.sales.on_submit",
+        ],
+        "on_cancel": "cannabis_management.metrc.push.sales.on_cancel",
     },
     # Quotation approval — discount-threshold routing (Sales Manager / Finance)
     "Quotation": {
@@ -280,6 +292,7 @@ doc_events = {
     },
     "Stock Entry": {
         "before_validate": "cannabis_management.cannabis_management.custom.stock_entry.before_validate",
+        # METRC push is appended to on_submit below, after the Metric Tag sync.
         "validate": [
             "cannabis_management.cannabis_management.custom.stock_entry.validate",
             "cannabis_management.doc_hooks.stock_entry.sync_row_uom_with_item",
@@ -290,7 +303,12 @@ doc_events = {
         ],
         # Metric Tag status/qty lifecycle sync — also covers the Stock Entries a Job Card generates
         "before_submit": "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.validate_metric_tag_status",
-        "on_submit": "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
+        "on_submit": [
+            "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
+            # METRC: report outbound consumption/waste as a package adjustment.
+            # Runs after the tag sync so Metric Tag quantities are current.
+            "cannabis_management.metrc.push.packages.on_stock_entry_submit",
+        ],
         "on_cancel": "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
     },
     "Sales Order": {
@@ -302,8 +320,6 @@ doc_events = {
         "on_update": "cannabis_management.overrides.sales_order_restrictions.on_update",
         "before_submit": [
             "cannabis_management.overrides.sales_order_restrictions.before_submit",
-            # Credit control — COD default gate / Disable Credit Sale
-            "cannabis_management.overrides.credit_control.check_credit_on_sales_order",
         ],
         "on_submit": [
             "cannabis_management.overrides.sales_order_restrictions.on_submit",
@@ -324,6 +340,8 @@ doc_events = {
             "cannabis_management.overrides.delivery_note_hooks.update_sales_invoice_delivery_status",
             "cannabis_management.overrides.delivery_note_hooks.update_sales_order_delivery_status",
             "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
+            # METRC: queue an outgoing transfer template for dispatch
+            "cannabis_management.metrc.push.transfers.on_submit",
         ],
         "on_cancel": [
             "cannabis_management.overrides.delivery_note_hooks.update_sales_invoice_delivery_status",
@@ -340,8 +358,24 @@ doc_events = {
     },
     "Stock Reconciliation": {
         "before_submit": "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.validate_metric_tag_status",
-        "on_submit": "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
+        "on_submit": [
+            "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
+            # METRC: a reconciliation is a package adjustment (signed delta)
+            "cannabis_management.metrc.push.packages.on_stock_reconciliation_submit",
+        ],
         "on_cancel": "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
+    },
+    # -----------------------------------------------------------------------
+    # METRC — manufacturing / processing jobs
+    "Work Order": {
+        "on_submit": "cannabis_management.metrc.push.processing.on_work_order_submit",
+    },
+    "Manufacture Stock Entry": {
+        "on_submit": "cannabis_management.metrc.push.processing.on_manufacture_stock_entry_submit",
+    },
+    # METRC — drop cached UOM maps / enumerations when settings change
+    "Metrc Settings": {
+        "on_update": "cannabis_management.metrc.maintenance.clear_caches",
     },
     "Timesheet": {
         "after_insert": "cannabis_management.overrides.timesheet_hooks.auto_submit_timesheet",
@@ -377,8 +411,6 @@ scheduler_events = {
             "cannabis_management.api.overdue_owner_reminder.send_overdue_owner_reminders",
             # Daily unreconciled-customer count snapshot (day-over-day AR tracking)
             "cannabis_management.api.sales_daily_sync.snapshot_unreconciled",
-            # Credit control — due/overdue notifications, freeze, auto-disable credit sale
-            "cannabis_management.overrides.credit_control.run_daily",
         ],
         # Daily jobs: Mon–Fri only (midnight Berlin time)
         "0 0 * * 1-5": [
@@ -414,6 +446,42 @@ scheduler_events = {
         # Weekly Sales Report: remind Tuesday 8 AM UTC if unacknowledged
         "0 8 * * 2": [
             "cannabis_management.cannabis_management.overrides.weekly_signoff.send_acknowledgment_reminder",
+        ],
+        # -------------------------------------------------------------------
+        # METRC integration
+        # Cadence balances the per-facility rate limit against compliance
+        # freshness. Metrc does not require real-time reporting, but a
+        # same-day discrepancy is far cheaper to resolve than a week-old one.
+        # -------------------------------------------------------------------
+        # Master data (items, strains, facilities, tag pool, enumerations): hourly
+        "15 * * * *": [
+            "cannabis_management.metrc.pull.sync_master_data",
+        ],
+        # Inventory (packages, transfers): every 30 minutes
+        "*/30 * * * *": [
+            "cannabis_management.metrc.pull.sync_inventory",
+        ],
+        # Outbox worker: every 5 minutes
+        "*/5 * * * *": [
+            "cannabis_management.metrc.push.outbox.process_outbox",
+        ],
+        # Operations (sales receipts, lab tests): 02:00
+        "0 2 * * *": [
+            "cannabis_management.metrc.pull.sync_operations",
+        ],
+        # Daily master creation: new METRC Items and Tags become ERPNext records.
+        # Kept out of the hourly job so the review queue arrives as one batch.
+        "30 3 * * *": [
+            "cannabis_management.metrc.pull.sync_new_masters",
+        ],
+        # Variance report + stalled-cursor / parked-write alerts: 06:00
+        "0 6 * * *": [
+            "cannabis_management.metrc.reconcile.send_daily_variance_report",
+            "cannabis_management.metrc.pull.alert_on_stalled_syncs",
+        ],
+        # Log pruning: Sunday 03:00
+        "0 3 * * 0": [
+            "cannabis_management.metrc.maintenance.prune_logs",
         ],
         # Daily Sale Report: Mon–Fri 01:00 Berlin (CEST=UTC+2) = Sun–Thu 23:00 UTC = Mon–Fri 04:00 PKT
         # Server is Europe/Berlin; cron uses server local time, not UTC

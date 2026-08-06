@@ -101,12 +101,33 @@ def _attach_references(invoices):
         for r in dn_rows:
             so_to_dn.setdefault(r.so, set()).add(r.dn)
 
+    # 3. Payment Entry(ies) made against each invoice, or against its Sales Order
+    #    (advances). Read from Payment Entry Reference; submitted payments only.
+    inv_pe, so_pe = {}, {}
+    pe_rows = frappe.db.sql(
+        """
+        SELECT per.reference_doctype AS rdt, per.reference_name AS rname, per.parent AS pe
+        FROM `tabPayment Entry Reference` per
+        INNER JOIN `tabPayment Entry` pe ON pe.name = per.parent AND pe.docstatus = 1
+        WHERE (per.reference_doctype = 'Sales Invoice' AND per.reference_name IN %(inv)s)
+           OR (per.reference_doctype = 'Sales Order' AND per.reference_name IN %(sos)s)
+        """,
+        {"inv": tuple(names), "sos": tuple(all_sos) if all_sos else ("",)},
+        as_dict=True,
+    )
+    for r in pe_rows:
+        (inv_pe if r.rdt == "Sales Invoice" else so_pe).setdefault(r.rname, set()).add(r.pe)
+
     for inv in invoices:
         sos = so_map.get(inv["name"], set())
         inv["sales_order"] = sorted(sos)
         dns = set()
         for so in sos:
             dns |= so_to_dn.get(so, set())
+        pes = set(inv_pe.get(inv["name"], set()))
+        for so in sos:
+            pes |= so_pe.get(so, set())
+        inv["payment_entries"] = sorted(pes)
         inv["delivery_note"] = sorted(dns)
 
 
@@ -290,15 +311,15 @@ def _build_ledger_sheet(ws, groups, prepared):
     fill_ref = fill(AMT)  # light tint behind reference cells too (kept subtle/white-ish)
 
     ws.title = "Customer Ledgers"
-    LAST = 9  # A:I
+    LAST = 10  # A:J
     ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=LAST)
     ws["A1"] = (f"Prepared {prepared} — each customer is its own boxed block, "
                 "sorted by outstanding balance (highest first)")
     ws["A1"].font = Font(italic=True, size=10, color="595959")
 
-    headers = ["Invoice #", "Sales Order", "Company",
-               "Posting Date", "Due Date", "Invoice Total", "Paid Amount",
-               "Outstanding", "Status"]
+    headers = ["Invoice #", "Sales Order", "Payment",
+               "Company", "Posting Date", "Due Date", "Invoice Total",
+               "Paid Amount", "Outstanding", "Status"]
 
     r = 3
     for g in groups:
@@ -321,7 +342,7 @@ def _build_ledger_sheet(ws, groups, prepared):
             cell.font = Font(bold=True)
             cell.fill = fill(COLHDR)
             cell.border = border
-            cell.alignment = center if c >= 4 else left
+            cell.alignment = center if c >= 5 else left
         r += 1
 
         # invoice rows
@@ -333,16 +354,17 @@ def _build_ledger_sheet(ws, groups, prepared):
             name_cell.border = border
 
             _ref_cell(ws, r, 2, inv.get("sales_order"), "sales-order", border, PatternFill(), left)
+            _ref_cell(ws, r, 3, inv.get("payment_entries"), "payment-entry", border, PatternFill(), left)
 
-            ws.cell(row=r, column=3, value=inv["company"]).alignment = left
-            ws.cell(row=r, column=4,
-                    value=formatdate(inv["posting_date"], "yyyy-MM-dd") if inv["posting_date"] else "").alignment = center
+            ws.cell(row=r, column=4, value=inv["company"]).alignment = left
             ws.cell(row=r, column=5,
+                    value=formatdate(inv["posting_date"], "yyyy-MM-dd") if inv["posting_date"] else "").alignment = center
+            ws.cell(row=r, column=6,
                     value=formatdate(inv["due_date"], "yyyy-MM-dd") if inv["due_date"] else "").alignment = center
 
-            it = ws.cell(row=r, column=6, value=flt(inv["invoice_total"]))
-            pd = ws.cell(row=r, column=7, value=flt(inv["paid"]))
-            out = ws.cell(row=r, column=8, value=flt(inv["outstanding"]))
+            it = ws.cell(row=r, column=7, value=flt(inv["invoice_total"]))
+            pd = ws.cell(row=r, column=8, value=flt(inv["paid"]))
+            out = ws.cell(row=r, column=9, value=flt(inv["outstanding"]))
             for cell in (it, pd):
                 cell.number_format = money
                 cell.alignment = right
@@ -356,7 +378,7 @@ def _build_ledger_sheet(ws, groups, prepared):
             else:
                 out.fill = fill(GREEN)
 
-            ws.cell(row=r, column=9, value=inv["status"]).alignment = center
+            ws.cell(row=r, column=10, value=inv["status"]).alignment = center
 
             for c in range(1, LAST + 1):
                 ws.cell(row=r, column=c).border = border
@@ -365,22 +387,22 @@ def _build_ledger_sheet(ws, groups, prepared):
         # per-customer TOTAL row (yellow); outstanding total in red
         t = g["totals"]
         ws.cell(row=r, column=1, value="TOTAL")
-        for c in range(1, 6):
+        for c in range(1, 7):
             ws.cell(row=r, column=c).fill = fill(TOTAL_YELLOW)
             ws.cell(row=r, column=c).font = Font(bold=True)
-        for col, key in ((6, "invoice_total"), (7, "paid"), (8, "outstanding")):
+        for col, key in ((7, "invoice_total"), (8, "paid"), (9, "outstanding")):
             cell = ws.cell(row=r, column=col, value=flt(t[key]))
             cell.number_format = money
             cell.alignment = right
             cell.fill = fill(TOTAL_YELLOW)
-            cell.font = Font(bold=True, color=RED_FONT) if col == 8 else Font(bold=True)
-        ws.cell(row=r, column=9).fill = fill(TOTAL_YELLOW)
+            cell.font = Font(bold=True, color=RED_FONT) if col == 9 else Font(bold=True)
+        ws.cell(row=r, column=10).fill = fill(TOTAL_YELLOW)
         for c in range(1, LAST + 1):
             ws.cell(row=r, column=c).border = border
         r += 2  # blank spacer between customers
 
-    widths = {"A": 22, "B": 20, "C": 24, "D": 13, "E": 13,
-              "F": 14, "G": 14, "H": 14, "I": 13}
+    widths = {"A": 22, "B": 20, "C": 20, "D": 24, "E": 13,
+              "F": 13, "G": 14, "H": 14, "I": 14, "J": 13}
     for col, w in widths.items():
         ws.column_dimensions[col].width = w
     ws.freeze_panes = "A3"

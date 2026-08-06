@@ -1,5 +1,5 @@
 import frappe
-from frappe.utils import add_months, today
+from frappe.utils import add_months, cint, today
 
 
 @frappe.whitelist()
@@ -142,6 +142,41 @@ def get_actuals(employee, from_date=None, to_date=None):
 	total_tray_logs = len(tray_logs) or 1
 	tray_log_completion_pct = sum(1 for t in tray_logs if t.docstatus == 1) / total_tray_logs * 100
 
+	# --- Plant Batch Loss Log based KPI: Plant Loss Rate ---
+	# Plants this employee logged as lost, as a % of the plant counts of the
+	# Plant Batches those loss entries belong to (loss_date scoped to the
+	# same range as everything else here). Closes the previously
+	# "Not Tracked Yet" Plant Loss Rate row on the Individual KPI page.
+	loss_rows = frappe.db.sql(
+		"""
+		SELECT pbl.qty_lost, pbl.parent
+		FROM `tabPlant Batch Loss Log` pbl
+		WHERE pbl.logged_by = %s
+		AND pbl.loss_date BETWEEN %s AND %s
+		""",
+		(employee, from_date, to_date),
+		as_dict=True,
+	)
+	plants_lost_logged = sum(cint(r.qty_lost) for r in loss_rows)
+
+	batch_names = list({r.parent for r in loss_rows})
+	plant_count_total = 0
+	if batch_names:
+		plant_count_total = (
+			frappe.db.sql(
+				"""
+				SELECT COALESCE(SUM(plant_count), 0)
+				FROM `tabPlant Batch`
+				WHERE name IN %(batch_names)s
+				""",
+				{"batch_names": batch_names},
+			)[0][0]
+			or 0
+		)
+	plant_loss_pct = (
+		(plants_lost_logged / plant_count_total * 100) if plant_count_total else 0
+	)
+
 	return {
 		"scouting_pct": round(scouting_pct, 1),
 		"dcc_pct": round(dcc_pct, 1),
@@ -155,4 +190,6 @@ def get_actuals(employee, from_date=None, to_date=None):
 		"farmwide_dcc_pct": round(farmwide_dcc_pct, 1),
 		"farmwide_open_corrections": farmwide_open_corrections,
 		"total_logs": len(logs),
+		"plant_loss_pct": round(plant_loss_pct, 1),
+		"plants_lost_logged": plants_lost_logged,
 	}
