@@ -46,9 +46,6 @@ GENERIC_EMAIL_PREFIXES = (
 	"no-reply",
 )
 
-EXTENSION_MARKERS = re.compile(r"(ext\.?|extension|x)\s*\d{1,6}\s*$", re.IGNORECASE)
-
-
 class CreditApplication(Document):
 	# ── lifecycle ────────────────────────────────────────────────────────
 
@@ -58,6 +55,7 @@ class CreditApplication(Document):
 		self._sync_group_and_exposure()
 		self._stamp_license_verification()
 		self._flag_enhanced_assessment()
+		self._validate_phone_country_code()
 		self._validate_ap_contact()
 		self._validate_state_requirements()
 
@@ -65,9 +63,17 @@ class CreditApplication(Document):
 		if self.workflow_state == STATE_APPROVED:
 			self._stamp_approval()
 
+	@property
+	def agreement_complete(self) -> bool:
+		"""Signed *and* on file. A tick without the document is not an agreement."""
+		return bool(self.credit_agreement_signed and self.credit_agreement_document)
+
 	def on_submit(self):
 		if self.workflow_state == STATE_APPROVED:
-			self.apply_approval()
+			if self.agreement_complete:
+				self.apply_approval()
+			else:
+				self._await_agreement()
 		elif self.workflow_state == STATE_REJECTED:
 			self._notify_rejected()
 		self._notify_requestor_of_decision()
@@ -75,6 +81,19 @@ class CreditApplication(Document):
 	def on_update_after_submit(self):
 		previous = self.get_doc_before_save()
 		was = previous.workflow_state if previous else None
+
+		# The signed agreement usually lands *after* the MD has approved. When it
+		# does, that is the moment the terms actually go live.
+		if (
+			self.workflow_state == STATE_APPROVED
+			and self.agreement_complete
+			and not self._is_live_on_customer()
+		):
+			self.apply_approval()
+			self.add_comment(
+				"Info",
+				_("Signed Credit Agreement received — terms are now live for this customer."),
+			)
 
 		if was == self.workflow_state:
 			return
@@ -133,13 +152,33 @@ class CreditApplication(Document):
 			bool(threshold and flt(self.recommended_limit) > threshold)
 		)
 
+	# ── phone numbers ────────────────────────────────────────────────────
+
+	def _validate_phone_country_code(self):
+		"""Plain text fields, deliberately — Frappe's Phone control garbles the
+		number when a country is picked after typing (drops/duplicates the
+		local trunk zero) and its country picker can overlap the input.
+		A leading '+' is enough to make the country code unambiguous."""
+		for fieldname, label in (
+			("requestor_phone", _("Phone Number")),
+			("ap_contact", _("AP Contact")),
+		):
+			phone = (self.get(fieldname) or "").strip()
+			self.set(fieldname, phone)
+			if phone and not phone.startswith("+"):
+				frappe.throw(
+					_(
+						"<b>{0}</b> needs a country code, e.g. +1 415 555 0100.<br><br>"
+						"Add a leading <b>+</b> and the country code before the number."
+					).format(frappe.utils.escape_html(phone)),
+					title=label,
+				)
+
 	# ── AP contact ───────────────────────────────────────────────────────
 
 	def _validate_ap_contact(self):
 		if self.ap_contact_email:
 			self._validate_ap_email()
-		if self.ap_contact_phone:
-			self._validate_ap_phone()
 
 	def _validate_ap_email(self):
 		email = (self.ap_contact_email or "").strip().lower()
@@ -162,82 +201,48 @@ class CreditApplication(Document):
 				title=_("AP Contact Email"),
 			)
 
-	def _validate_ap_phone(self):
-		phone = (self.ap_contact_phone or "").strip()
-
-		if EXTENSION_MARKERS.search(phone):
-			frappe.throw(
-				_(
-					"<b>{0}</b> looks like a mainline with an extension.<br><br>"
-					"Policy requires the AP contact's <b>direct line</b> — a number that "
-					"reaches them without going through a switchboard."
-				).format(frappe.utils.escape_html(phone)),
-				title=_("AP Contact Phone"),
-			)
-
-		digits = re.sub(r"\D", "", phone)
-		if len(digits) < 10:
-			frappe.throw(
-				_(
-					"<b>{0}</b> is not a complete phone number. An extension on its own is "
-					"not a direct line — enter the full direct dial."
-				).format(frappe.utils.escape_html(phone)),
-				title=_("AP Contact Phone"),
-			)
-
-		self._warn_duplicate_phone(digits)
-
-	def _warn_duplicate_phone(self, digits: str):
-		"""Two customers sharing an AP direct line usually means a broker or a
-		related entity that should be in the same credit group."""
-		others = frappe.db.sql(
-			"""
-			SELECT name, custom_ap_contact_phone
-			FROM `tabCustomer`
-			WHERE custom_ap_contact_phone IS NOT NULL
-			  AND custom_ap_contact_phone != ''
-			  AND name != %s
-			""",
-			(self.customer or "",),
-			as_dict=True,
-		)
-		clashes = [
-			row.name
-			for row in others
-			if re.sub(r"\D", "", row.custom_ap_contact_phone or "") == digits
-		]
-		if clashes:
-			frappe.msgprint(
-				_(
-					"This AP direct line is already on file for {0}. If these are related "
-					"entities, set a shared <b>Credit Group Parent</b> so they draw on one line."
-				).format(", ".join(frappe.bold(name) for name in clashes[:5])),
-				title=_("Duplicate AP Contact"),
-				indicator="orange",
-			)
-
 	# ── state gates ──────────────────────────────────────────────────────
 
 	def _validate_state_requirements(self):
-		if self.workflow_state == STATE_PENDING_MD:
+		if self.workflow_state == STATE_FINANCE_REVIEW:
+			self._validate_applicant_submission()
+		elif self.workflow_state == STATE_PENDING_MD:
 			self._validate_recommendation()
 		elif self.workflow_state == STATE_APPROVED:
 			self._validate_recommendation()
 			self._validate_approval()
 
+	def _validate_applicant_submission(self):
+		"""What the customer has to give us before Finance will look at it.
+
+		The AP contact belongs here, not at MD approval: it is the applicant's
+		information, and chasing it at the last gate stalls the decision rather
+		than the paperwork. The same rules apply whether the form is filled in
+		the desk or through a Web Form, because this runs server-side on validate.
+		"""
+		problems = []
+
+		if not self.ap_contact_name:
+			problems.append(_("AP contact name is missing."))
+		if not self.ap_contact_email:
+			problems.append(_("AP contact email is missing."))
+
+		utils.throw_consolidated(problems, "AP Contact Required")
+
 	def _validate_recommendation(self):
 		"""Everything Finance must have documented before recommending a line."""
 		problems = []
 
+		# Payment history and financial capacity notes are captured on the form
+		# but deliberately not enforced — Finance often recommends before the
+		# narrative is written up.
 		required = [
 			("exact_legal_buyer", _("Exact legal buyer (the legal entity, not the DBA)")),
 			("legal_entity_type", _("Legal entity type")),
 			("license_number", _("License number")),
 			("license_expiry_date", _("License expiry date")),
-			("payment_history_summary", _("Payment history summary")),
 			("expected_weekly_volume", _("Expected weekly volume")),
 			("expected_monthly_revenue", _("Expected monthly revenue")),
-			("financial_capacity_notes", _("Financial capacity notes")),
 		]
 		for fieldname, label in required:
 			if not self.get(fieldname):
@@ -275,12 +280,12 @@ class CreditApplication(Document):
 		settings = utils.get_settings()
 		problems = []
 
+		# The signed agreement is deliberately NOT required here. The MD approves
+		# the line; the countersigned agreement is the condition precedent to the
+		# terms actually going live, checked after submit in `agreement_complete`.
+		# The AP contact is collected from the applicant at Finance Review, not
+		# demanded again at approval.
 		checks = [
-			(self.credit_agreement_signed, _("The Credit Agreement is not marked as signed.")),
-			(
-				self.credit_agreement_document,
-				_("The signed Credit Agreement document is not attached."),
-			),
 			(
 				self.finance_charge_clause_included,
 				_("The finance charge clause is not confirmed as included."),
@@ -294,9 +299,6 @@ class CreditApplication(Document):
 				_("The reconciliation clause has not been acknowledged by the customer."),
 			),
 			(self.onboarding_form_complete, _("The onboarding form is not complete.")),
-			(self.ap_contact_name, _("AP contact name is missing.")),
-			(self.ap_contact_phone, _("AP contact direct line is missing.")),
-			(self.ap_contact_email, _("AP contact email is missing.")),
 		]
 		for value, message in checks:
 			if not value:
@@ -339,6 +341,53 @@ class CreditApplication(Document):
 
 	# ── side effects ─────────────────────────────────────────────────────
 
+	def _is_live_on_customer(self) -> bool:
+		return (
+			frappe.db.get_value("Customer", self.customer, "custom_active_credit_application")
+			== self.name
+		)
+
+	def _await_agreement(self):
+		"""Approved by the MD, but the countersigned agreement is not on file yet.
+
+		Nothing is written to the Customer: no limit, no terms template, no
+		status change. The decision is recorded; the line stays shut until the
+		agreement arrives.
+		"""
+		self.add_comment(
+			"Info",
+			_(
+				"Approved by the Managing Director. <b>Terms are not live yet</b> — the "
+				"signed Credit Agreement must be attached before this customer can order "
+				"on terms."
+			),
+		)
+		self._notify_awaiting_agreement()
+
+	def _notify_awaiting_agreement(self):
+		recipients = utils.dedupe_recipients(
+			self.owner, self.email_id, utils.finance_recipients()
+		)
+		if not recipients:
+			return
+
+		self._sendmail(
+			recipients,
+			_("Credit line approved, pending signed agreement — {0}").format(self.customer),
+			_(
+				"<p>The Managing Director has approved a <b>{limit}</b> line on "
+				"<b>{terms}</b> for <b>{customer}</b>.</p>"
+				"<p style='color:#b91c1c;'><b>Terms are not live yet.</b> The signed Credit "
+				"Agreement must be marked as signed and attached to the application before "
+				"this customer can place a Terms order.</p><p>{link}</p>"
+			).format(
+				limit=utils.fmt_currency(self.approved_limit),
+				terms=frappe.utils.escape_html(self.approved_terms or ""),
+				customer=frappe.utils.escape_html(self.customer),
+				link=utils.doc_link("Credit Application", self.name),
+			),
+		)
+
 	def apply_approval(self):
 		"""Terms go live in the ERP. This is the only place that happens."""
 		self._supersede_previous_applications()
@@ -376,7 +425,7 @@ class CreditApplication(Document):
 		Enforcement is our own group-wide engine; this row keeps ERPNext's own
 		credit-limit check consistent rather than silently looser.
 		"""
-		_write_credit_limit(self.customer, self.company, flt(self.approved_limit))
+		_write_credit_limit(self.customer, utils.company_of(self.customer), flt(self.approved_limit))
 
 	def _update_customer(self, live: bool):
 		"""Push the approved line onto the Customer, and the limit onto the
@@ -398,7 +447,6 @@ class CreditApplication(Document):
 					"custom_license_expiry": self.license_expiry_date,
 					"custom_license_verified": 1 if self.license_verified else 0,
 					"custom_ap_contact_name": self.ap_contact_name,
-					"custom_ap_contact_phone": self.ap_contact_phone,
 					"custom_ap_contact_email": self.ap_contact_email,
 				}
 			)
@@ -435,7 +483,7 @@ class CreditApplication(Document):
 		self._notify_revoked(reason)
 
 	def _zero_credit_limit(self):
-		_write_credit_limit(self.customer, self.company, 0)
+		_write_credit_limit(self.customer, utils.company_of(self.customer), 0)
 
 	def _reopen_terms_sales_orders(self):
 		"""Open Terms orders lose their approval when the line goes away."""
@@ -628,6 +676,12 @@ def _write_credit_limit(customer: str, company: str, limit: float):
 	against — skip silently rather than fail the approval on a bad link.
 	"""
 	if not company or not frappe.db.exists("Company", company):
+		return
+
+	if not company:
+		frappe.logger("credit_and_ar").warning(
+			f"No company could be derived for {customer} — native credit limit row not written."
+		)
 		return
 
 	row = frappe.db.get_value(

@@ -216,12 +216,25 @@ def get_active_credit_application(customer: str) -> dict | None:
 			"docstatus": 1,
 			"workflow_state": "Approved",
 		},
-		fields=["name", "customer", "approved_limit", "approved_terms", "counsel_approved_clause"],
+		fields=[
+			"name",
+			"customer",
+			"approved_limit",
+			"approved_terms",
+			"counsel_approved_clause",
+			"credit_agreement_signed",
+			"credit_agreement_document",
+		],
 		order_by="modified desc",
-		limit=1,
 	)
 
-	return rows[0] if rows else None
+	# Approved is not the same as live. The MD's decision opens the line; the
+	# countersigned agreement is what makes it usable.
+	for row in rows:
+		if row.credit_agreement_signed and row.credit_agreement_document:
+			return row
+
+	return None
 
 
 def describe_line_blocker(customer: str) -> str | None:
@@ -239,11 +252,18 @@ def describe_line_blocker(customer: str) -> str | None:
 	rows = frappe.get_all(
 		"Credit Application",
 		filters={"customer": ("in", members), "docstatus": 1},
-		fields=["name", "workflow_state"],
+		fields=[
+			"name",
+			"workflow_state",
+			"credit_agreement_signed",
+			"credit_agreement_document",
+		],
 		order_by="modified desc",
 	)
 
-	if not rows or not any(row.workflow_state == "Approved" for row in rows):
+	approved = [row for row in rows if row.workflow_state == "Approved"]
+
+	if not approved:
 		latest = rows[0] if rows else None
 		if latest and latest.workflow_state in ("Revoked", "Expired"):
 			return frappe._(
@@ -255,6 +275,13 @@ def describe_line_blocker(customer: str) -> str | None:
 			"Terms not available — {0} has no approved credit line. The customer must "
 			"complete the Line of Credit form and sign the Credit Agreement."
 		).format(frappe.bold(customer))
+
+	if not any(row.credit_agreement_signed and row.credit_agreement_document for row in approved):
+		return frappe._(
+			"Terms not available yet — the line for {0} is approved, but the signed Credit "
+			"Agreement is not on file. Mark {1} as signed and attach the countersigned "
+			"agreement, and terms go live immediately."
+		).format(frappe.bold(customer), approved[0].name)
 
 	return None
 

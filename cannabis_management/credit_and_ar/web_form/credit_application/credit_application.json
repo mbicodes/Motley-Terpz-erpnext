@@ -1,24 +1,26 @@
 {
  "allow_comments": 0,
  "allow_delete": 0,
- "allow_edit": 1,
+ "allow_edit": 0,
  "allow_incomplete": 0,
  "allow_multiple": 0,
  "allow_print": 0,
  "anonymous": 1,
  "apply_document_permissions": 0,
  "button_label": "Submit application",
- "creation": "2026-08-11 00:00:00.000000",
- "custom_css": ".web-form-wrapper {\n  --ca-ink: #16211c;\n  --ca-ink-soft: #5c6b64;\n  --ca-line: #dfe4e0;\n  --ca-accent: #1f4034;\n  --ca-accent-soft: #eef2ef;\n  --ca-surface: #ffffff;\n  --ca-page: #f7f8f6;\n  color: var(--ca-ink);\n}\n\n.web-form-wrapper .page-header,\n.web-form-wrapper .web-form-header {\n  border-bottom: 1px solid var(--ca-line);\n  padding-bottom: 1rem;\n  margin-bottom: 1.75rem;\n}\n\n.web-form-wrapper .web-form-head .title,\n.web-form-wrapper h1 {\n  font-weight: 600;\n  letter-spacing: -0.02em;\n}\n\n.web-form-wrapper .section-head,\n.web-form-wrapper .form-section .section-head {\n  font-size: 0.75rem;\n  font-weight: 600;\n  text-transform: uppercase;\n  letter-spacing: 0.08em;\n  color: var(--ca-accent);\n  padding-bottom: 0.5rem;\n  margin-bottom: 1rem;\n  border-bottom: 1px solid var(--ca-line);\n}\n\n.web-form-wrapper .form-section {\n  background: var(--ca-surface);\n  border: 1px solid var(--ca-line);\n  border-radius: 10px;\n  padding: 1.5rem 1.5rem 0.75rem;\n  margin-bottom: 1.25rem;\n}\n\n.web-form-wrapper .control-label {\n  font-weight: 500;\n  color: var(--ca-ink);\n}\n\n.web-form-wrapper .help-box,\n.web-form-wrapper .form-control + .help-box {\n  color: var(--ca-ink-soft);\n  font-size: 0.8125rem;\n  line-height: 1.45;\n}\n\n.web-form-wrapper .form-control {\n  border: 1px solid var(--ca-line);\n  border-radius: 6px;\n  background: var(--ca-page);\n  transition: border-color 0.15s ease, box-shadow 0.15s ease;\n}\n\n.web-form-wrapper .form-control:focus {\n  border-color: var(--ca-accent);\n  background: var(--ca-surface);\n  box-shadow: 0 0 0 3px var(--ca-accent-soft);\n  outline: none;\n}\n\n.web-form-wrapper .btn-primary,\n.web-form-wrapper .btn-form-submit {\n  background: var(--ca-accent);\n  border-color: var(--ca-accent);\n  font-weight: 600;\n  padding: 0.55rem 1.4rem;\n  border-radius: 6px;\n}\n\n.web-form-wrapper .btn-primary:hover,\n.web-form-wrapper .btn-form-submit:hover {\n  background: #163027;\n  border-color: #163027;\n}\n\n.web-form-wrapper .btn-primary:focus-visible {\n  outline: 2px solid var(--ca-accent);\n  outline-offset: 2px;\n}\n\n.ca-license-warning {\n  margin-top: 0.4rem;\n  font-size: 0.8125rem;\n  color: #8a5a00;\n}\n\n@media (max-width: 767px) {\n  .web-form-wrapper .form-section {\n    padding: 1.1rem 1.1rem 0.4rem;\n  }\n}\n\n@media (prefers-reduced-motion: reduce) {\n  .web-form-wrapper .form-control {\n    transition: none;\n  }\n}\n",
+ "condition_json": "[]",
+ "creation": "2026-08-10 16:08:20.816856",
+ "custom_css": ".ca-logo {\n  display: block;\n  max-height: 56px;\n  width: auto;\n  margin: 0 auto 1.25rem;\n  object-fit: contain;\n}\n\n.web-form-container {\n  --ca-ink: #16211c;\n  --ca-ink-soft: #5c6b64;\n  --ca-line: #dfe4e0;\n  --ca-accent: #1f4034;\n  --ca-accent-soft: #eef2ef;\n  --ca-surface: #ffffff;\n  --ca-page: #f7f8f6;\n  max-width: 800px;\n  margin: 0 auto;\n  color: var(--ca-ink);\n}\n\n.web-form-container .web-form-header {\n  border-bottom: 1px solid var(--ca-line);\n  padding-bottom: 1.25rem;\n  margin-bottom: 2rem;\n}\n\n.web-form-container .web-form-head .title,\n.web-form-container h1 {\n  font-weight: 700;\n  font-size: 1.75rem;\n  letter-spacing: -0.02em;\n  color: var(--ca-ink);\n}\n\n.web-form-container .web-form-introduction p {\n  color: var(--ca-ink-soft);\n  font-size: 0.95rem;\n  line-height: 1.55;\n  margin-bottom: 0.4rem;\n}\n\n.web-form-wrapper {\n  counter-reset: ca-section;\n}\n\n.web-form-wrapper .section-head,\n.web-form-wrapper .form-section .section-head {\n  display: flex;\n  align-items: center;\n  gap: 0.6rem;\n  font-size: 0.8rem;\n  font-weight: 600;\n  text-transform: uppercase;\n  letter-spacing: 0.06em;\n  color: var(--ca-accent);\n  padding-bottom: 0.6rem;\n  margin-bottom: 1.1rem;\n  border-bottom: 1px solid var(--ca-line);\n}\n\n.web-form-wrapper .form-section {\n  counter-increment: ca-section;\n  background: var(--ca-surface);\n  border: 1px solid var(--ca-line);\n  border-radius: 10px;\n  padding: 1.6rem 1.6rem 0.85rem;\n  margin-bottom: 1.4rem;\n  box-shadow: 0 1px 2px rgba(22, 33, 28, 0.04);\n}\n\n.web-form-wrapper .section-head::before {\n  content: counter(ca-section);\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  width: 1.5rem;\n  height: 1.5rem;\n  flex: 0 0 auto;\n  border-radius: 50%;\n  background: var(--ca-accent);\n  color: #fff;\n  font-size: 0.7rem;\n  font-weight: 700;\n  letter-spacing: 0;\n  text-transform: none;\n}\n\n.web-form-wrapper .control-label {\n  font-weight: 500;\n  color: var(--ca-ink);\n}\n\n.web-form-wrapper .help-box,\n.web-form-wrapper .form-control + .help-box {\n  color: var(--ca-ink-soft);\n  font-size: 0.8125rem;\n  line-height: 1.45;\n}\n\n.web-form-wrapper .form-control {\n  border: 1px solid var(--ca-line);\n  border-radius: 6px;\n  background: var(--ca-page);\n  transition: border-color 0.15s ease, box-shadow 0.15s ease;\n}\n\n.web-form-wrapper .form-control:focus {\n  border-color: var(--ca-accent);\n  background: var(--ca-surface);\n  box-shadow: 0 0 0 3px var(--ca-accent-soft);\n  outline: none;\n}\n\n.web-form-footer {\n  border-top: 1px solid var(--ca-line);\n  padding-top: 1.25rem;\n  margin-top: 0.5rem;\n}\n\n.web-form-footer .submit-btn {\n  background: var(--ca-accent);\n  border-color: var(--ca-accent);\n  font-weight: 600;\n  padding: 0.6rem 1.6rem;\n  font-size: 0.9rem;\n  border-radius: 6px;\n}\n\n.web-form-footer .submit-btn:hover {\n  background: #163027;\n  border-color: #163027;\n}\n\n.web-form-footer .submit-btn:focus-visible {\n  outline: 2px solid var(--ca-accent);\n  outline-offset: 2px;\n}\n\n.web-form-footer .discard-btn {\n  border-radius: 6px;\n  font-weight: 500;\n  color: var(--ca-ink-soft);\n  border-color: var(--ca-line);\n}\n\n.ca-license-warning {\n  margin-top: 0.4rem;\n  font-size: 0.8125rem;\n  color: #8a5a00;\n}\n\n@media (max-width: 767px) {\n  .web-form-container {\n    max-width: 100%;\n  }\n  .web-form-wrapper .form-section {\n    padding: 1.1rem 1.1rem 0.4rem;\n  }\n}\n\n@media (prefers-reduced-motion: reduce) {\n  .web-form-wrapper .form-control {\n    transition: none;\n  }\n}\n",
  "doc_type": "Credit Application",
  "docstatus": 0,
  "doctype": "Web Form",
  "idx": 0,
  "introduction_text": "<p>Tell us who is buying and how you expect to buy. Finance reviews every application and follows up on the contact details you leave here.</p><p class=\"text-muted\">Fields marked with an asterisk are required. Nothing is shared outside our finance team.</p>",
  "is_standard": 1,
+ "list_columns": [],
  "login_required": 0,
  "max_attachment_size": 0,
- "modified": "2026-08-11 00:00:00.000000",
+ "modified": "2026-08-11 05:29:54.712141",
  "modified_by": "Administrator",
  "module": "Credit and AR",
  "name": "credit-application",
@@ -28,205 +30,475 @@
  "show_attachments": 0,
  "show_list": 0,
  "show_sidebar": 0,
- "success_message": "Thanks — your application is with our finance team. We'll be in touch within two business days.",
+ "success_message": "Thanks \u2014 your application is with our finance team. We'll be in touch within two business days.",
  "title": "Credit Application",
  "web_form_fields": [
   {
+   "allow_read_on_all_link_options": 0,
    "fieldname": "sec_requestor",
    "fieldtype": "Section Break",
-   "label": "Your details"
+   "hidden": 0,
+   "label": "Your details",
+   "max_length": 0,
+   "max_value": 0,
+   "read_only": 0,
+   "reqd": 0,
+   "show_in_filter": 0
   },
   {
+   "allow_read_on_all_link_options": 0,
    "fieldname": "requestor_name",
    "fieldtype": "Data",
+   "hidden": 0,
    "label": "Requestor Name",
    "max_length": 140,
-   "reqd": 1
+   "max_value": 0,
+   "read_only": 0,
+   "reqd": 1,
+   "show_in_filter": 0
   },
   {
+   "allow_read_on_all_link_options": 0,
    "fieldname": "requestor_email",
    "fieldtype": "Data",
+   "hidden": 0,
    "label": "Email Address",
+   "max_length": 0,
+   "max_value": 0,
    "options": "Email",
-   "reqd": 1
+   "read_only": 0,
+   "reqd": 1,
+   "show_in_filter": 0
   },
   {
+   "allow_read_on_all_link_options": 0,
    "fieldname": "cb_requestor",
-   "fieldtype": "Column Break"
+   "fieldtype": "Column Break",
+   "hidden": 0,
+   "max_length": 0,
+   "max_value": 0,
+   "read_only": 0,
+   "reqd": 0,
+   "show_in_filter": 0
   },
   {
+   "allow_read_on_all_link_options": 0,
+   "description": "Include your country code, e.g. +1 415 555 0100.",
    "fieldname": "requestor_phone",
-   "fieldtype": "Phone",
+   "fieldtype": "Data",
+   "hidden": 0,
    "label": "Phone Number",
-   "max_length": 20,
-   "reqd": 1
+   "max_length": 0,
+   "max_value": 0,
+   "read_only": 0,
+   "reqd": 1,
+   "show_in_filter": 0
   },
   {
+   "allow_read_on_all_link_options": 0,
    "fieldname": "sec_business",
    "fieldtype": "Section Break",
-   "label": "Your business"
+   "hidden": 0,
+   "label": "Your business",
+   "max_length": 0,
+   "max_value": 0,
+   "read_only": 0,
+   "reqd": 0,
+   "show_in_filter": 0
   },
   {
-   "description": "The entity that will be invoiced and that owes the money — not your DBA.",
+   "allow_read_on_all_link_options": 0,
+   "description": "The entity that will be invoiced and that owes the money \u2014 not your DBA.",
    "fieldname": "exact_legal_buyer",
    "fieldtype": "Data",
+   "hidden": 0,
    "label": "Legal business name",
    "max_length": 140,
-   "reqd": 1
+   "max_value": 0,
+   "read_only": 0,
+   "reqd": 1,
+   "show_in_filter": 0
   },
   {
+   "allow_read_on_all_link_options": 0,
    "fieldname": "legal_entity_type",
    "fieldtype": "Select",
+   "hidden": 0,
    "label": "Entity type",
+   "max_length": 0,
+   "max_value": 0,
    "options": "\nLLC\nCorporation\nPartnership\nSole Proprietor\nOther",
-   "reqd": 1
+   "read_only": 0,
+   "reqd": 1,
+   "show_in_filter": 0
   },
   {
+   "allow_read_on_all_link_options": 0,
    "fieldname": "cb_business",
-   "fieldtype": "Column Break"
+   "fieldtype": "Column Break",
+   "hidden": 0,
+   "max_length": 0,
+   "max_value": 0,
+   "read_only": 0,
+   "reqd": 0,
+   "show_in_filter": 0
   },
   {
+   "allow_read_on_all_link_options": 0,
    "description": "Leave blank if you trade under your legal name.",
    "fieldname": "dba_name",
    "fieldtype": "Data",
+   "hidden": 0,
    "label": "Doing business as",
-   "max_length": 140
+   "max_length": 140,
+   "max_value": 0,
+   "read_only": 0,
+   "reqd": 0,
+   "show_in_filter": 0
   },
   {
+   "allow_read_on_all_link_options": 0,
    "description": "Which of our companies are you buying from?",
    "fieldname": "company",
    "fieldtype": "Select",
+   "hidden": 0,
    "label": "Applying to",
+   "max_length": 0,
+   "max_value": 0,
    "options": "\nFresh Frozen\nExtracts",
-   "reqd": 1
+   "read_only": 0,
+   "reqd": 1,
+   "show_in_filter": 0
   },
   {
+   "allow_read_on_all_link_options": 0,
+   "fieldname": "sec_address",
+   "fieldtype": "Section Break",
+   "hidden": 0,
+   "label": "Business Address",
+   "max_length": 0,
+   "max_value": 0,
+   "read_only": 0,
+   "reqd": 0,
+   "show_in_filter": 0
+  },
+  {
+   "allow_read_on_all_link_options": 0,
+   "fieldname": "business_address",
+   "fieldtype": "Data",
+   "hidden": 0,
+   "label": "Business Address",
+   "max_length": 240,
+   "max_value": 0,
+   "read_only": 0,
+   "reqd": 0,
+   "show_in_filter": 0
+  },
+  {
+   "allow_read_on_all_link_options": 0,
+   "fieldname": "cb_address",
+   "fieldtype": "Column Break",
+   "hidden": 0,
+   "max_length": 0,
+   "max_value": 0,
+   "read_only": 0,
+   "reqd": 0,
+   "show_in_filter": 0
+  },
+  {
+   "allow_read_on_all_link_options": 0,
+   "fieldname": "city",
+   "fieldtype": "Data",
+   "hidden": 0,
+   "label": "City",
+   "max_length": 140,
+   "max_value": 0,
+   "read_only": 0,
+   "reqd": 0,
+   "show_in_filter": 0
+  },
+  {
+   "allow_read_on_all_link_options": 0,
+   "fieldname": "state",
+   "fieldtype": "Data",
+   "hidden": 0,
+   "label": "State",
+   "max_length": 140,
+   "max_value": 0,
+   "read_only": 0,
+   "reqd": 0,
+   "show_in_filter": 0
+  },
+  {
+   "allow_read_on_all_link_options": 0,
+   "fieldname": "zip",
+   "fieldtype": "Data",
+   "hidden": 0,
+   "label": "ZIP",
+   "max_length": 20,
+   "max_value": 0,
+   "read_only": 0,
+   "reqd": 0,
+   "show_in_filter": 0
+  },
+  {
+   "allow_read_on_all_link_options": 0,
    "fieldname": "sec_license",
    "fieldtype": "Section Break",
-   "label": "License"
+   "hidden": 0,
+   "label": "License",
+   "max_length": 0,
+   "max_value": 0,
+   "read_only": 0,
+   "reqd": 0,
+   "show_in_filter": 0
   },
   {
+   "allow_read_on_all_link_options": 0,
    "description": "Exactly as it appears on the license. We verify it before terms are issued.",
    "fieldname": "license_number",
    "fieldtype": "Data",
+   "hidden": 0,
    "label": "License number",
    "max_length": 60,
-   "reqd": 1
+   "max_value": 0,
+   "read_only": 0,
+   "reqd": 1,
+   "show_in_filter": 0
   },
   {
+   "allow_read_on_all_link_options": 0,
    "fieldname": "license_type",
    "fieldtype": "Data",
+   "hidden": 0,
    "label": "License type",
-   "max_length": 60
+   "max_length": 60,
+   "max_value": 0,
+   "read_only": 0,
+   "reqd": 0,
+   "show_in_filter": 0
   },
   {
+   "allow_read_on_all_link_options": 0,
    "fieldname": "cb_license",
-   "fieldtype": "Column Break"
+   "fieldtype": "Column Break",
+   "hidden": 0,
+   "max_length": 0,
+   "max_value": 0,
+   "read_only": 0,
+   "reqd": 0,
+   "show_in_filter": 0
   },
   {
+   "allow_read_on_all_link_options": 0,
    "fieldname": "license_expiry_date",
    "fieldtype": "Date",
+   "hidden": 0,
    "label": "License expires",
-   "reqd": 1
+   "max_length": 0,
+   "max_value": 0,
+   "read_only": 0,
+   "reqd": 1,
+   "show_in_filter": 0
   },
   {
+   "allow_read_on_all_link_options": 0,
    "fieldname": "sec_volume",
    "fieldtype": "Section Break",
-   "label": "Expected volume"
+   "hidden": 0,
+   "label": "Expected volume",
+   "max_length": 0,
+   "max_value": 0,
+   "read_only": 0,
+   "reqd": 0,
+   "show_in_filter": 0
   },
   {
+   "allow_read_on_all_link_options": 0,
    "default": "Lbs",
    "fieldname": "expected_volume_uom",
    "fieldtype": "Select",
+   "hidden": 0,
    "label": "Unit",
-   "options": "Grams\nLbs"
+   "max_length": 0,
+   "max_value": 0,
+   "options": "Grams\nLbs",
+   "read_only": 0,
+   "reqd": 0,
+   "show_in_filter": 0
   },
   {
-   "description": "A working estimate is fine — this sizes the line, it isn't a commitment.",
+   "allow_read_on_all_link_options": 0,
+   "description": "A working estimate is fine \u2014 this sizes the line, it isn't a commitment.",
    "fieldname": "expected_weekly_volume",
    "fieldtype": "Float",
+   "hidden": 0,
    "label": "Expected weekly volume",
-   "precision": "2"
+   "max_length": 0,
+   "max_value": 0,
+   "precision": "2",
+   "read_only": 0,
+   "reqd": 0,
+   "show_in_filter": 0
   },
   {
+   "allow_read_on_all_link_options": 0,
    "fieldname": "cb_volume",
-   "fieldtype": "Column Break"
+   "fieldtype": "Column Break",
+   "hidden": 0,
+   "max_length": 0,
+   "max_value": 0,
+   "read_only": 0,
+   "reqd": 0,
+   "show_in_filter": 0
   },
   {
+   "allow_read_on_all_link_options": 0,
    "fieldname": "expected_monthly_revenue",
    "fieldtype": "Currency",
-   "label": "Expected monthly purchases"
+   "hidden": 0,
+   "label": "Expected monthly purchases",
+   "max_length": 0,
+   "max_value": 0,
+   "read_only": 0,
+   "reqd": 0,
+   "show_in_filter": 0
   },
   {
+   "allow_read_on_all_link_options": 0,
    "fieldname": "sec_credit",
    "fieldtype": "Section Break",
-   "label": "Credit request"
+   "hidden": 0,
+   "label": "Credit request",
+   "max_length": 0,
+   "max_value": 0,
+   "read_only": 0,
+   "reqd": 0,
+   "show_in_filter": 0
   },
   {
+   "allow_read_on_all_link_options": 0,
    "description": "The maximum open balance you want to carry at any one time.",
    "fieldname": "requested_limit",
    "fieldtype": "Currency",
+   "hidden": 0,
    "label": "Credit limit requested",
-   "reqd": 1
+   "max_length": 0,
+   "max_value": 0,
+   "read_only": 0,
+   "reqd": 1,
+   "show_in_filter": 0
   },
   {
+   "allow_read_on_all_link_options": 0,
    "fieldname": "cb_credit",
-   "fieldtype": "Column Break"
+   "fieldtype": "Column Break",
+   "hidden": 0,
+   "max_length": 0,
+   "max_value": 0,
+   "read_only": 0,
+   "reqd": 0,
+   "show_in_filter": 0
   },
   {
+   "allow_read_on_all_link_options": 0,
    "fieldname": "recommended_terms",
-   "fieldtype": "Link",
+   "fieldtype": "Select",
+   "hidden": 0,
    "label": "Recommended Terms",
-   "options": "Payment Terms Template"
+   "max_length": 0,
+   "max_value": 0,
+   "options": "\nNET7\nNET15\nNET21\nNET30\n50% down NET7\n50% down NET15\n50% down NET21\n50% down NET30",
+   "read_only": 0,
+   "reqd": 0,
+   "show_in_filter": 0
   },
   {
+   "allow_read_on_all_link_options": 0,
    "description": "Years in operation, other supplier references, seasonality, anything that helps us read your capacity to pay.",
    "fieldname": "financial_capacity_notes",
    "fieldtype": "Text",
-   "label": "Financial background"
+   "hidden": 0,
+   "label": "Financial background",
+   "max_length": 0,
+   "max_value": 0,
+   "read_only": 0,
+   "reqd": 0,
+   "show_in_filter": 0
   },
   {
+   "allow_read_on_all_link_options": 0,
    "fieldname": "sec_ap_contact",
    "fieldtype": "Section Break",
-   "label": "AP contact & onboarding"
+   "hidden": 0,
+   "label": "AP contact & onboarding",
+   "max_length": 0,
+   "max_value": 0,
+   "read_only": 0,
+   "reqd": 0,
+   "show_in_filter": 0
   },
   {
+   "allow_read_on_all_link_options": 0,
+   "description": "Include the country code, e.g. +1 415 555 0100.",
    "fieldname": "ap_contact",
-   "fieldtype": "Phone",
-   "label": "AP Contact"
+   "fieldtype": "Data",
+   "hidden": 0,
+   "label": "AP Contact",
+   "max_length": 0,
+   "max_value": 0,
+   "read_only": 0,
+   "reqd": 0,
+   "show_in_filter": 0
   },
   {
+   "allow_read_on_all_link_options": 0,
    "fieldname": "ap_contact_name",
    "fieldtype": "Data",
+   "hidden": 0,
    "label": "AP Contact Name",
-   "max_length": 140
+   "max_length": 140,
+   "max_value": 0,
+   "read_only": 0,
+   "reqd": 0,
+   "show_in_filter": 0
   },
   {
+   "allow_read_on_all_link_options": 0,
    "fieldname": "cb_ap_contact",
-   "fieldtype": "Column Break"
+   "fieldtype": "Column Break",
+   "hidden": 0,
+   "max_length": 0,
+   "max_value": 0,
+   "read_only": 0,
+   "reqd": 0,
+   "show_in_filter": 0
   },
   {
-   "description": "Must be a direct line. Mainline or extension-only numbers are rejected.",
-   "fieldname": "ap_contact_phone",
-   "fieldtype": "Int",
-   "label": "AP Contact Direct Line"
-  },
-  {
+   "allow_read_on_all_link_options": 0,
    "description": "A named person, not a shared inbox. info@, ap@, billing@ and similar are rejected.",
    "fieldname": "ap_contact_email",
    "fieldtype": "Data",
+   "hidden": 0,
    "label": "AP Contact Email",
-   "options": "Email"
+   "max_length": 0,
+   "max_value": 0,
+   "options": "Email",
+   "read_only": 0,
+   "reqd": 0,
+   "show_in_filter": 0
   },
   {
-   "fieldname": "onboarding_form_complete",
-   "fieldtype": "Check",
-   "label": "Onboarding Packet"
-  },
-  {
+   "allow_read_on_all_link_options": 0,
    "fieldname": "onboarding_form_document",
    "fieldtype": "Attach",
-   "label": "Onboarding Form Document"
+   "hidden": 0,
+   "label": "Onboarding Packet",
+   "max_length": 0,
+   "max_value": 0,
+   "read_only": 0,
+   "reqd": 0,
+   "show_in_filter": 0
   }
  ]
 }

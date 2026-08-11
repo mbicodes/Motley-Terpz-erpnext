@@ -24,6 +24,19 @@ frappe.ui.form.on('Sales Order', {
 				__('Actions')
 			);
 		}
+
+		// Payment Entry action — draft only. Once submitted, ERPNext's own
+		// "Payment" button already appears under Create, so this fills the
+		// gap for drafts without duplicating it post-submit. Routes through
+		// the same cscript.make_payment_entry() the core button uses, so the
+		// customer is fetched onto the new Payment Entry exactly the same way.
+		if (frm.doc.docstatus === 0 && !frm.is_new() && frappe.model.can_create('Payment Entry')) {
+			frm.add_custom_button(
+				__('Payment Entry'),
+				function () { frm.cscript.make_payment_entry(); },
+				__('Actions')
+			);
+		}
 	},
 	custom_mode_of_payment(frm) {
 		apply_payment_terms_restrictions(frm);

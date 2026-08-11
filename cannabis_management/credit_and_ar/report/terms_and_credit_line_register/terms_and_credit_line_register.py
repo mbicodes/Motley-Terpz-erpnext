@@ -23,8 +23,6 @@ def get_data(filters):
 		return []
 
 	conditions = {"docstatus": 1, "workflow_state": "Approved"}
-	if filters.get("company"):
-		conditions["company"] = filters["company"]
 	if filters.get("customer"):
 		conditions["customer"] = filters["customer"]
 
@@ -34,7 +32,6 @@ def get_data(filters):
 		fields=[
 			"name",
 			"customer",
-			"company",
 			"exact_legal_buyer",
 			"approved_limit",
 			"approved_terms",
@@ -75,7 +72,6 @@ def get_data(filters):
 			{
 				"customer": app.customer,
 				"legal_buyer": app.exact_legal_buyer,
-				"company": app.company,
 				"approved_limit": limit,
 				"terms": app.approved_terms,
 				"agreement_signed_date": app.agreement_signed_date,
@@ -152,7 +148,6 @@ def get_columns():
 		{"label": _("Customer"), "fieldname": "customer", "fieldtype": "Link",
 		 "options": "Customer", "width": 190},
 		{"label": _("Legal Buyer"), "fieldname": "legal_buyer", "fieldtype": "Data", "width": 190},
-		{"label": _("Company"), "fieldname": "company", "fieldtype": "Data", "width": 130},
 		{"label": _("Approved Limit"), "fieldname": "approved_limit", "fieldtype": "Currency",
 		 "width": 130},
 		{"label": _("Terms"), "fieldname": "terms", "fieldtype": "Link",

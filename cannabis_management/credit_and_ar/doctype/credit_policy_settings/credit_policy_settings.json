@@ -1,0 +1,509 @@
+{
+ "actions": [],
+ "creation": "2026-08-06 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "sb_policy_dates",
+  "policy_effective_date",
+  "cb_policy_dates",
+  "policy_dates_help",
+  "sb_thresholds",
+  "total_ar_cap",
+  "dso_target_days",
+  "dso_breach_days",
+  "cb_thresholds",
+  "cei_target",
+  "cei_breach_below",
+  "thresholds_help",
+  "sb_stop_work",
+  "warning_enabled",
+  "hard_hold_days",
+  "cb_stop_work",
+  "hard_hold_amount",
+  "stop_work_help",
+  "sb_limits",
+  "enhanced_review_threshold",
+  "default_payment_terms_template",
+  "max_terms_days",
+  "cb_limits",
+  "terms_requiring_md_exception",
+  "sb_finance_charge",
+  "finance_charge_enabled",
+  "monthly_rate",
+  "max_lawful_rate",
+  "apply_to",
+  "finance_charge_templates",
+  "cb_finance_charge",
+  "finance_charge_item",
+  "finance_charge_income_account",
+  "require_counsel_approved_clause",
+  "auto_submit_finance_charges",
+  "sb_workout",
+  "default_paydown_mode",
+  "default_paydown_percent",
+  "cb_workout",
+  "workout_review_frequency_days",
+  "workout_no_shrink_days",
+  "sb_routing",
+  "managing_director",
+  "chief_executive_officer",
+  "ops_manager",
+  "cb_routing",
+  "collections_officer",
+  "finance_notification_role",
+  "routing_help",
+  "sb_scoring",
+  "score_min",
+  "score_max",
+  "intercompany_customer_group",
+  "cb_scoring",
+  "qualifying_weekly_volume_g",
+  "qualifying_weekly_volume_lbs",
+  "sb_live_state",
+  "company_freeze_active",
+  "freeze_reason",
+  "freeze_started_on",
+  "cb_live_state",
+  "current_total_ar",
+  "current_dso",
+  "current_cei",
+  "last_metrics_run"
+ ],
+ "fields": [
+  {
+   "fieldname": "sb_policy_dates",
+   "fieldtype": "Section Break",
+   "label": "Policy Dates"
+  },
+  {
+   "description": "Invoices dated <b>before</b> this date belong to the Legacy Recovery Register: collected on their original terms, never charged finance charges, and excluded from the new-book AR cap, DSO and CEI. <b>Every scheduled Credit &amp; AR job stays inert until this date is set.</b>",
+   "fieldname": "policy_effective_date",
+   "fieldtype": "Date",
+   "label": "Policy Effective Date"
+  },
+  {
+   "fieldname": "cb_policy_dates",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "policy_dates_help",
+   "fieldtype": "HTML",
+   "options": "<p class=\"text-muted small\">Set this once, at go-live. Changing it later re-classifies historical invoices between the Legacy and New Book ledgers.</p>"
+  },
+  {
+   "fieldname": "sb_thresholds",
+   "fieldtype": "Section Break",
+   "label": "Company-Wide Thresholds"
+  },
+  {
+   "default": "400000",
+   "description": "New-book AR only. Legacy balances are reported separately and do not trigger the freeze.",
+   "fieldname": "total_ar_cap",
+   "fieldtype": "Currency",
+   "label": "Total AR Cap"
+  },
+  {
+   "default": "14",
+   "fieldname": "dso_target_days",
+   "fieldtype": "Int",
+   "label": "DSO Target (Days)"
+  },
+  {
+   "default": "30",
+   "description": "Freeze when DSO reaches this value.",
+   "fieldname": "dso_breach_days",
+   "fieldtype": "Int",
+   "label": "DSO Breach (Days)"
+  },
+  {
+   "fieldname": "cb_thresholds",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "100",
+   "fieldname": "cei_target",
+   "fieldtype": "Percent",
+   "label": "CEI Target"
+  },
+  {
+   "default": "85",
+   "description": "Freeze when CEI falls below this value.",
+   "fieldname": "cei_breach_below",
+   "fieldtype": "Percent",
+   "label": "CEI Breach Below"
+  },
+  {
+   "fieldname": "thresholds_help",
+   "fieldtype": "HTML",
+   "options": "<p class=\"text-muted small\">A breach on any one metric freezes all new unsecured exposure &mdash; including good-standing accounts.</p>"
+  },
+  {
+   "fieldname": "sb_stop_work",
+   "fieldtype": "Section Break",
+   "label": "Stop Work Rule"
+  },
+  {
+   "default": "1",
+   "fieldname": "warning_enabled",
+   "fieldtype": "Check",
+   "label": "Raise Warning on First Day Past Due"
+  },
+  {
+   "default": "5",
+   "description": "Hard hold once any invoice is more than this many days past due.",
+   "fieldname": "hard_hold_days",
+   "fieldtype": "Int",
+   "label": "Hard Hold After (Days Past Due)"
+  },
+  {
+   "fieldname": "cb_stop_work",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1000",
+   "description": "Hard hold once total past-due reaches this amount, regardless of age.",
+   "fieldname": "hard_hold_amount",
+   "fieldtype": "Currency",
+   "label": "Hard Hold At (Past Due Amount)"
+  },
+  {
+   "fieldname": "stop_work_help",
+   "fieldtype": "HTML",
+   "options": "<p class=\"text-muted small\">Whichever trigger comes first applies. A hard hold blocks Sales Order submit, Delivery Note, Work Order and production Stock Entry. Quotations are always allowed.</p>"
+  },
+  {
+   "fieldname": "sb_limits",
+   "fieldtype": "Section Break",
+   "label": "Limits &amp; Terms"
+  },
+  {
+   "default": "20000",
+   "description": "Recommended limits above this amount require enhanced assessment notes on the Credit Application.",
+   "fieldname": "enhanced_review_threshold",
+   "fieldtype": "Currency",
+   "label": "Enhanced Review Threshold"
+  },
+  {
+   "fieldname": "default_payment_terms_template",
+   "fieldtype": "Link",
+   "label": "Default Payment Terms Template",
+   "options": "Payment Terms Template"
+  },
+  {
+   "default": "30",
+   "description": "Hard ceiling. Nothing beyond Net 30, ever.",
+   "fieldname": "max_terms_days",
+   "fieldtype": "Int",
+   "label": "Maximum Terms (Days)"
+  },
+  {
+   "fieldname": "cb_limits",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Comma-separated Payment Terms Template names. Approving a Credit Application on any of these requires a written MD exception reason.",
+   "fieldname": "terms_requiring_md_exception",
+   "fieldtype": "Small Text",
+   "label": "Terms Requiring MD Exception"
+  },
+  {
+   "fieldname": "sb_finance_charge",
+   "fieldtype": "Section Break",
+   "label": "Finance Charge"
+  },
+  {
+   "default": "0",
+   "fieldname": "finance_charge_enabled",
+   "fieldtype": "Check",
+   "label": "Finance Charges Enabled"
+  },
+  {
+   "default": "1.5",
+   "depends_on": "finance_charge_enabled",
+   "description": "Simple, non-compounding, pro-rated by day from the day after the due date.",
+   "fieldname": "monthly_rate",
+   "fieldtype": "Percent",
+   "label": "Monthly Rate"
+  },
+  {
+   "depends_on": "finance_charge_enabled",
+   "description": "The lower of this and the monthly rate is charged. Leave blank for no statutory ceiling.",
+   "fieldname": "max_lawful_rate",
+   "fieldtype": "Percent",
+   "label": "Maximum Lawful Monthly Rate"
+  },
+  {
+   "default": "All Terms Invoices",
+   "depends_on": "finance_charge_enabled",
+   "fieldname": "apply_to",
+   "fieldtype": "Select",
+   "label": "Apply To",
+   "options": "All Terms Invoices\nNet 30 Only\nPer Payment Terms Template"
+  },
+  {
+   "depends_on": "eval:doc.finance_charge_enabled && doc.apply_to=='Per Payment Terms Template'",
+   "description": "Comma-separated Payment Terms Template names that accrue finance charges.",
+   "fieldname": "finance_charge_templates",
+   "fieldtype": "Small Text",
+   "label": "Finance Charge Templates"
+  },
+  {
+   "fieldname": "cb_finance_charge",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "finance_charge_enabled",
+   "fieldname": "finance_charge_item",
+   "fieldtype": "Link",
+   "label": "Finance Charge Item",
+   "options": "Item"
+  },
+  {
+   "depends_on": "finance_charge_enabled",
+   "fieldname": "finance_charge_income_account",
+   "fieldtype": "Link",
+   "label": "Finance Charge Income Account",
+   "options": "Account"
+  },
+  {
+   "default": "1",
+   "depends_on": "finance_charge_enabled",
+   "description": "No charge is assessed under a credit agreement missing the California counsel-approved clause.",
+   "fieldname": "require_counsel_approved_clause",
+   "fieldtype": "Check",
+   "label": "Require Counsel-Approved Clause"
+  },
+  {
+   "default": "0",
+   "depends_on": "finance_charge_enabled",
+   "description": "Off: finance charge invoices are left in Draft for Finance review.",
+   "fieldname": "auto_submit_finance_charges",
+   "fieldtype": "Check",
+   "label": "Auto-Submit Finance Charge Invoices"
+  },
+  {
+   "fieldname": "sb_workout",
+   "fieldtype": "Section Break",
+   "label": "Workout"
+  },
+  {
+   "default": "Percent of Order Value",
+   "fieldname": "default_paydown_mode",
+   "fieldtype": "Select",
+   "label": "Default Paydown Mode",
+   "options": "Percent of Order Value\nFixed Amount per Order"
+  },
+  {
+   "default": "15",
+   "description": "Policy range is 10&ndash;20%.",
+   "fieldname": "default_paydown_percent",
+   "fieldtype": "Percent",
+   "label": "Default Paydown Percent"
+  },
+  {
+   "fieldname": "cb_workout",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "30",
+   "fieldname": "workout_review_frequency_days",
+   "fieldtype": "Int",
+   "label": "Workout Review Frequency (Days)"
+  },
+  {
+   "default": "60",
+   "description": "If the balance has not shrunk within this many days, flag for final demand and collections.",
+   "fieldname": "workout_no_shrink_days",
+   "fieldtype": "Int",
+   "label": "Workout No-Shrink Limit (Days)"
+  },
+  {
+   "fieldname": "sb_routing",
+   "fieldtype": "Section Break",
+   "label": "Routing"
+  },
+  {
+   "fieldname": "managing_director",
+   "fieldtype": "Link",
+   "label": "Managing Director",
+   "options": "User"
+  },
+  {
+   "fieldname": "chief_executive_officer",
+   "fieldtype": "Link",
+   "label": "Chief Executive Officer",
+   "options": "User"
+  },
+  {
+   "description": "Approves Terms Sales Orders alongside the Managing Director.",
+   "fieldname": "ops_manager",
+   "fieldtype": "Link",
+   "label": "Ops Manager",
+   "options": "User"
+  },
+  {
+   "fieldname": "cb_routing",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "collections_officer",
+   "fieldtype": "Link",
+   "label": "Collections Officer",
+   "options": "User"
+  },
+  {
+   "default": "Credit Finance",
+   "fieldname": "finance_notification_role",
+   "fieldtype": "Link",
+   "label": "Finance Notification Role",
+   "options": "Role"
+  },
+  {
+   "fieldname": "routing_help",
+   "fieldtype": "HTML",
+   "options": "<p class=\"text-muted small\">Blank routing slots are skipped silently and logged &mdash; notifications never fail because a recipient is unassigned.</p>"
+  },
+  {
+   "fieldname": "sb_scoring",
+   "fieldtype": "Section Break",
+   "label": "Scoring &amp; Reporting"
+  },
+  {
+   "default": "350",
+   "fieldname": "score_min",
+   "fieldtype": "Int",
+   "label": "Score Minimum"
+  },
+  {
+   "default": "800",
+   "fieldname": "score_max",
+   "fieldtype": "Int",
+   "label": "Score Maximum"
+  },
+  {
+   "description": "Optional. Customers in this group are excluded from client-facing credit reports. Leave blank if intercompany trading is not in use.",
+   "fieldname": "intercompany_customer_group",
+   "fieldtype": "Link",
+   "label": "Intercompany Customer Group",
+   "options": "Customer Group"
+  },
+  {
+   "fieldname": "cb_scoring",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1000",
+   "description": "Reporting and scoring only &mdash; never gates a credit application.",
+   "fieldname": "qualifying_weekly_volume_g",
+   "fieldtype": "Float",
+   "label": "Qualifying Weekly Volume (g)"
+  },
+  {
+   "default": "100",
+   "fieldname": "qualifying_weekly_volume_lbs",
+   "fieldtype": "Float",
+   "label": "Qualifying Weekly Volume (lbs)"
+  },
+  {
+   "fieldname": "sb_live_state",
+   "fieldtype": "Section Break",
+   "label": "Live State"
+  },
+  {
+   "default": "0",
+   "fieldname": "company_freeze_active",
+   "fieldtype": "Check",
+   "label": "Company Freeze Active",
+   "read_only": 1
+  },
+  {
+   "fieldname": "freeze_reason",
+   "fieldtype": "Small Text",
+   "label": "Freeze Reason",
+   "read_only": 1
+  },
+  {
+   "fieldname": "freeze_started_on",
+   "fieldtype": "Datetime",
+   "label": "Freeze Started On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cb_live_state",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "current_total_ar",
+   "fieldtype": "Currency",
+   "label": "Current Total AR (New Book)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "current_dso",
+   "fieldtype": "Float",
+   "label": "Current DSO",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "current_cei",
+   "fieldtype": "Percent",
+   "label": "Current CEI",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_metrics_run",
+   "fieldtype": "Datetime",
+   "label": "Last Metrics Run",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-08-06 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Credit and AR",
+ "name": "Credit Policy Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "All",
+   "share": 1
+  },
+  {
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "Credit Finance",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "Managing Director",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "quick_entry": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
