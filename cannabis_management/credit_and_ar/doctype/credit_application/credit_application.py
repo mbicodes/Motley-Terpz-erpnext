@@ -447,6 +447,7 @@ class CreditApplication(Document):
 					"custom_license_expiry": self.license_expiry_date,
 					"custom_license_verified": 1 if self.license_verified else 0,
 					"custom_ap_contact_name": self.ap_contact_name,
+					"custom_ap_contact_phone": self.ap_contact,
 					"custom_ap_contact_email": self.ap_contact_email,
 				}
 			)

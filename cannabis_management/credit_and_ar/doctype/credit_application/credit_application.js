@@ -40,7 +40,7 @@ frappe.ui.form.on("Credit Application", {
 					license_expiry_date: message.custom_license_expiry,
 					credit_group_parent: message.custom_credit_group_parent,
 					ap_contact_name: message.custom_ap_contact_name,
-					ap_contact_phone: message.custom_ap_contact_phone,
+					ap_contact: message.custom_ap_contact_phone,
 					ap_contact_email: message.custom_ap_contact_email,
 				};
 				// Only fill blanks — never overwrite what the credit file already says.
