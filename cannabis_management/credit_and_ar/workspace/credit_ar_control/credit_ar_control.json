@@ -77,7 +77,7 @@
    "type": "Link"
   }
  ],
- "modified": "2026-08-06 00:00:00.000000",
+ "modified": "2026-08-11 19:21:16.479634",
  "modified_by": "Administrator",
  "module": "Credit and AR",
  "name": "Credit and AR Control",
@@ -86,7 +86,26 @@
  "parent_page": "",
  "public": 1,
  "quick_lists": [],
- "roles": [],
+ "roles": [
+  {
+   "role": "Credit Finance"
+  },
+  {
+   "role": "Managing Director"
+  },
+  {
+   "role": "Ops Manager"
+  },
+  {
+   "role": "Collections Officer"
+  },
+  {
+   "role": "Accounts Manager"
+  },
+  {
+   "role": "System Manager"
+  }
+ ],
  "sequence_id": 40.0,
  "shortcuts": [
   {
