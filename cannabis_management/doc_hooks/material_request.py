@@ -88,12 +88,20 @@ def _create_boms_from_mr(doc):
             operation = routing_op.operation
             yield_pct = flt(fg_row.expected_yield_)
 
-            if not yield_pct:
-                frappe.throw(
-                    _("Finished Goods row {0}: Expected Yield cannot be zero for {1}").format(
-                        fg_row.idx, fg_item
-                    )
+            # Item and/or Yield can still be blank — e.g. the row just came
+            # from auto-populating off Routing and hasn't been filled in yet.
+            # Skip building this one hop rather than blocking the whole
+            # submit; BOM/Work Order creation for it can happen later once
+            # the row is complete (via Create ▾ → Work Order (FG), which
+            # re-runs this same auto-BOM logic on demand).
+            if not fg_item or not yield_pct:
+                frappe.msgprint(
+                    _("Finished Goods row {0}: skipping BOM for now — {1} not set yet.").format(
+                        fg_row.idx, _("Finished Item") if not fg_item else _("Expected Yield")
+                    ),
+                    alert=True,
                 )
+                continue
 
             fg_uom = frappe.db.get_value("Item", fg_item, "stock_uom") or "Gram"
             yield_fraction = yield_pct / 100.0

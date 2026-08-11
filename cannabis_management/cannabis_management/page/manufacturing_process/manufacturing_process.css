@@ -1,4 +1,31 @@
 /* ── Manufacturing Process — single-page Work Order document trail ── */
+/* Same vars on :root too — document view popups (Work Order/BOM/etc.) render
+   as frappe.ui.Dialogs appended to <body>, outside .mp-dash, so they need
+   these custom properties to inherit from somewhere other than .mp-dash. */
+:root {
+	--mp-border:     #e2e8f0;
+	--mp-bg:         #f0f2f5;
+	--mp-surface:    #ffffff;
+	--mp-navy:       #0d1b2a;
+	--mp-navy2:      #1b2f44;
+	--mp-text:       #1e293b;
+	--mp-sec:        #64748b;
+	--mp-muted:      #94a3b8;
+	--mp-gold:       #c68b2a;
+	--mp-emerald:    #059669;
+	--mp-emerald-dim:rgba(5,150,105,0.10);
+	--mp-blue:       #2563eb;
+	--mp-blue-dim:   rgba(37,99,235,0.10);
+	--mp-rose:       #e11d48;
+	--mp-rose-dim:   rgba(225,29,72,0.10);
+	--mp-amber:      #d97706;
+	--mp-amber-dim:  rgba(217,119,6,0.10);
+	--mp-cyan:       #0891b2;
+	--mp-cyan-dim:   rgba(8,145,178,0.10);
+	--mp-grey-dim:   rgba(100,116,139,0.12);
+	--mp-r:          10px;
+}
+
 .mp-dash {
 	--mp-border:     #e2e8f0;
 	--mp-bg:         #f0f2f5;
@@ -155,3 +182,9 @@
 .mp-badge-cyan    { background: var(--mp-cyan-dim);    color: var(--mp-cyan); }
 .mp-badge-emerald { background: var(--mp-emerald-dim); color: var(--mp-emerald); }
 .mp-badge-rose    { background: var(--mp-rose-dim);    color: var(--mp-rose); }
+
+/* ── Work Orders list (rows are clickable — pick one to drill into) ── */
+.mp-wo-row { cursor: pointer; }
+.mp-wo-row:hover { background: #f8fafc; }
+.mp-wo-row-selected { background: var(--mp-blue-dim) !important; }
+.mp-card-head .btn[disabled], .mp-add-group .btn[disabled] { opacity: .45; cursor: not-allowed; }
