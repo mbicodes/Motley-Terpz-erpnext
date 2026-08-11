@@ -9,7 +9,7 @@
  "field_order": [
   "naming_series",
   "customer",
-  "company",
+  "sales_person",
   "cb_header",
   "application_type",
   "previous_application",
@@ -25,6 +25,7 @@
   "exact_legal_buyer",
   "legal_entity_type",
   "dba_name",
+  "company",
   "cb_legal",
   "license_number",
   "license_type",
@@ -33,6 +34,12 @@
   "license_verified_by",
   "license_verified_on",
   "license_document",
+  "sec_address",
+  "business_address",
+  "cb_address",
+  "city",
+  "state",
+  "zip",
   "sec_history",
   "payment_history_summary",
   "historical_payment_score",
@@ -74,7 +81,6 @@
   "cb_onboarding",
   "ap_contact",
   "ap_contact_name",
-  "ap_contact_phone",
   "ap_contact_email",
   "sec_md_approval",
   "md_approved",
@@ -109,11 +115,12 @@
    "search_index": 1
   },
   {
-   "fieldname": "company",
-   "fieldtype": "Select",
+   "fieldname": "sales_person",
+   "fieldtype": "Link",
+   "in_list_view": 1,
    "in_standard_filter": 1,
-   "label": "Company",
-   "options": "\nFresh Frozen\nExtracts"
+   "label": "Sales Person",
+   "options": "Sales Person"
   },
   {
    "fieldname": "cb_header",
@@ -208,6 +215,13 @@
    "label": "DBA Name"
   },
   {
+   "fieldname": "company",
+   "fieldtype": "Select",
+   "label": "Company",
+   "options": "\nFresh Frozen\nExtracts",
+   "reqd": 1
+  },
+  {
    "fieldname": "cb_legal",
    "fieldtype": "Column Break"
   },
@@ -251,6 +265,36 @@
    "fieldname": "license_document",
    "fieldtype": "Attach",
    "label": "License Document"
+  },
+  {
+   "fieldname": "sec_address",
+   "fieldtype": "Section Break",
+   "label": "Business Address"
+  },
+  {
+   "fieldname": "business_address",
+   "fieldtype": "Data",
+   "label": "Business Address",
+   "length": 240
+  },
+  {
+   "fieldname": "cb_address",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "city",
+   "fieldtype": "Data",
+   "label": "City"
+  },
+  {
+   "fieldname": "state",
+   "fieldtype": "Data",
+   "label": "State"
+  },
+  {
+   "fieldname": "zip",
+   "fieldtype": "Data",
+   "label": "ZIP"
   },
   {
    "fieldname": "sec_history",
@@ -407,19 +451,22 @@
    "default": "0",
    "fieldname": "credit_agreement_signed",
    "fieldtype": "Check",
-   "label": "Credit Agreement Signed"
+   "label": "Credit Agreement Signed",
+   "allow_on_submit": 1
   },
   {
    "fieldname": "credit_agreement_document",
    "fieldtype": "Attach",
    "label": "Credit Agreement Document",
-   "mandatory_depends_on": "credit_agreement_signed"
+   "mandatory_depends_on": "credit_agreement_signed",
+   "allow_on_submit": 1
   },
   {
    "depends_on": "credit_agreement_signed",
    "fieldname": "agreement_signed_date",
    "fieldtype": "Date",
-   "label": "Agreement Signed Date"
+   "label": "Agreement Signed Date",
+   "allow_on_submit": 1
   },
   {
    "fieldname": "cb_agreement",
@@ -480,12 +527,6 @@
    "fieldname": "ap_contact_name",
    "fieldtype": "Data",
    "label": "AP Contact Name"
-  },
-  {
-   "description": "Must be a direct line. Mainline or extension-only numbers are rejected.",
-   "fieldname": "ap_contact_phone",
-   "fieldtype": "Data",
-   "label": "AP Contact Direct Line"
   },
   {
    "description": "A named person, not a shared inbox. info@, ap@, billing@ and similar are rejected.",
@@ -559,7 +600,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-08-10 11:26:23.490256",
+ "modified": "2026-08-11 17:12:57.372447",
  "modified_by": "Administrator",
  "module": "Credit and AR",
  "name": "Credit Application",

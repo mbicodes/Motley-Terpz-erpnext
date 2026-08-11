@@ -1,0 +1,568 @@
+{
+ "actions": [],
+ "allow_import": 1,
+ "autoname": "naming_series:",
+ "creation": "2026-08-06 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "customer",
+  "company",
+  "case_type",
+  "cb_header",
+  "status",
+  "opened_on",
+  "opened_by",
+  "show_on_red_list",
+  "sec_trigger",
+  "trigger_reason",
+  "trigger_details",
+  "cb_trigger",
+  "past_due_amount",
+  "total_outstanding",
+  "max_days_past_due",
+  "sec_collections",
+  "assigned_to",
+  "promise_to_pay_date",
+  "promise_to_pay_amount",
+  "promise_kept",
+  "cb_collections",
+  "last_contact_date",
+  "last_contact_notes",
+  "next_action",
+  "next_action_date",
+  "sec_plan",
+  "plan_principal",
+  "plan_start_date",
+  "plan_end_date",
+  "installment_frequency",
+  "cb_plan",
+  "plan_signed_document",
+  "plan_signed_on",
+  "finance_approved_by",
+  "finance_approved_on",
+  "sec_plan_ratify",
+  "md_ratified",
+  "md_ratified_by",
+  "md_ratified_on",
+  "cb_plan_ratify",
+  "new_line_credit_application",
+  "total_exposure_at_approval",
+  "missed_installments",
+  "sec_schedule",
+  "schedule",
+  "sec_workout",
+  "workout_designated_by",
+  "workout_designated_on",
+  "workout_reason",
+  "cb_workout",
+  "paydown_mode",
+  "paydown_percent",
+  "paydown_amount",
+  "sec_workout_progress",
+  "starting_balance",
+  "recovered_to_date",
+  "current_balance",
+  "cb_workout_progress",
+  "balance_trend",
+  "last_review_date",
+  "next_review_date",
+  "sec_release",
+  "release_requested_on",
+  "release_basis",
+  "cb_release",
+  "released_by",
+  "released_on",
+  "release_notes"
+ ],
+ "fields": [
+  {
+   "default": "ARC-.YYYY.-",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "no_copy": 1,
+   "options": "ARC-.YYYY.-",
+   "print_hide": 1,
+   "reqd": 1,
+   "set_only_once": 1
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Customer",
+   "options": "Customer",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "case_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Case Type",
+   "options": "Warning\nHard Hold\nImmediate Hold\nPayment Plan\nWorkout",
+   "reqd": 1
+  },
+  {
+   "fieldname": "cb_header",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Open",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Open\nActive\nCured\nReleased\nDefaulted\nClosed"
+  },
+  {
+   "fieldname": "opened_on",
+   "fieldtype": "Date",
+   "label": "Opened On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "opened_by",
+   "fieldtype": "Link",
+   "label": "Opened By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "show_on_red_list",
+   "fieldtype": "Check",
+   "label": "Show on Red List"
+  },
+  {
+   "fieldname": "sec_trigger",
+   "fieldtype": "Section Break",
+   "label": "Trigger"
+  },
+  {
+   "fieldname": "trigger_reason",
+   "fieldtype": "Select",
+   "label": "Trigger Reason",
+   "options": "Past Due Days\nPast Due Amount\nReturned Payment\nBroken Promise to Pay\nExpired License\nSuspected Fraud\nInsolvency Signs\nLimit Breach\nPlan Default\nManual"
+  },
+  {
+   "fieldname": "trigger_details",
+   "fieldtype": "Small Text",
+   "label": "Trigger Details"
+  },
+  {
+   "fieldname": "cb_trigger",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "past_due_amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Past Due Amount",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_outstanding",
+   "fieldtype": "Currency",
+   "label": "Total Outstanding",
+   "read_only": 1
+  },
+  {
+   "fieldname": "max_days_past_due",
+   "fieldtype": "Int",
+   "label": "Max Days Past Due",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sec_collections",
+   "fieldtype": "Section Break",
+   "label": "Collections"
+  },
+  {
+   "fieldname": "assigned_to",
+   "fieldtype": "Link",
+   "label": "Assigned To",
+   "options": "User"
+  },
+  {
+   "fieldname": "promise_to_pay_date",
+   "fieldtype": "Date",
+   "label": "Promise to Pay Date"
+  },
+  {
+   "fieldname": "promise_to_pay_amount",
+   "fieldtype": "Currency",
+   "label": "Promise to Pay Amount"
+  },
+  {
+   "default": "0",
+   "description": "A promise that passes its date without payment becomes an immediate hold.",
+   "fieldname": "promise_kept",
+   "fieldtype": "Check",
+   "label": "Promise Kept",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cb_collections",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "last_contact_date",
+   "fieldtype": "Date",
+   "label": "Last Contact Date"
+  },
+  {
+   "fieldname": "last_contact_notes",
+   "fieldtype": "Small Text",
+   "label": "Last Contact Notes"
+  },
+  {
+   "fieldname": "next_action",
+   "fieldtype": "Data",
+   "label": "Next Action"
+  },
+  {
+   "fieldname": "next_action_date",
+   "fieldtype": "Date",
+   "label": "Next Action Date"
+  },
+  {
+   "depends_on": "eval:doc.case_type=='Payment Plan'",
+   "fieldname": "sec_plan",
+   "fieldtype": "Section Break",
+   "label": "Payment Plan"
+  },
+  {
+   "fieldname": "plan_principal",
+   "fieldtype": "Currency",
+   "label": "Plan Principal"
+  },
+  {
+   "fieldname": "plan_start_date",
+   "fieldtype": "Date",
+   "label": "Plan Start Date"
+  },
+  {
+   "fieldname": "plan_end_date",
+   "fieldtype": "Date",
+   "label": "Plan End Date"
+  },
+  {
+   "default": "Monthly",
+   "fieldname": "installment_frequency",
+   "fieldtype": "Select",
+   "label": "Installment Frequency",
+   "options": "Weekly\nBi-Weekly\nMonthly"
+  },
+  {
+   "fieldname": "cb_plan",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "plan_signed_document",
+   "fieldtype": "Attach",
+   "label": "Signed Plan Document"
+  },
+  {
+   "fieldname": "plan_signed_on",
+   "fieldtype": "Date",
+   "label": "Plan Signed On"
+  },
+  {
+   "fieldname": "finance_approved_by",
+   "fieldtype": "Link",
+   "label": "Finance Approved By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "finance_approved_on",
+   "fieldtype": "Datetime",
+   "label": "Finance Approved On",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.case_type=='Payment Plan'",
+   "fieldname": "sec_plan_ratify",
+   "fieldtype": "Section Break",
+   "label": "Ratification &amp; New Line"
+  },
+  {
+   "default": "0",
+   "description": "A plan is not usable until the Managing Director ratifies it.",
+   "fieldname": "md_ratified",
+   "fieldtype": "Check",
+   "label": "MD Ratified"
+  },
+  {
+   "fieldname": "md_ratified_by",
+   "fieldtype": "Link",
+   "label": "Ratified By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "md_ratified_on",
+   "fieldtype": "Datetime",
+   "label": "Ratified On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cb_plan_ratify",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "A separate approved line, sized against plan balance plus the new line.",
+   "fieldname": "new_line_credit_application",
+   "fieldtype": "Link",
+   "label": "New Line Credit Application",
+   "options": "Credit Application"
+  },
+  {
+   "fieldname": "total_exposure_at_approval",
+   "fieldtype": "Currency",
+   "label": "Total Exposure at Approval",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "missed_installments",
+   "fieldtype": "Int",
+   "label": "Missed Installments",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.case_type=='Payment Plan'",
+   "fieldname": "sec_schedule",
+   "fieldtype": "Section Break",
+   "label": "Schedule"
+  },
+  {
+   "fieldname": "schedule",
+   "fieldtype": "Table",
+   "label": "Installments",
+   "options": "AR Case Installment"
+  },
+  {
+   "depends_on": "eval:doc.case_type=='Workout'",
+   "fieldname": "sec_workout",
+   "fieldtype": "Section Break",
+   "label": "Workout"
+  },
+  {
+   "description": "Only the Managing Director can designate a workout account.",
+   "fieldname": "workout_designated_by",
+   "fieldtype": "Link",
+   "label": "Designated By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "workout_designated_on",
+   "fieldtype": "Date",
+   "label": "Designated On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "workout_reason",
+   "fieldtype": "Text",
+   "label": "Workout Reason",
+   "mandatory_depends_on": "eval:doc.case_type=='Workout'"
+  },
+  {
+   "fieldname": "cb_workout",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Percent of Order Value",
+   "fieldname": "paydown_mode",
+   "fieldtype": "Select",
+   "label": "Paydown Mode",
+   "options": "Percent of Order Value\nFixed Amount per Order"
+  },
+  {
+   "depends_on": "eval:doc.paydown_mode=='Percent of Order Value'",
+   "fieldname": "paydown_percent",
+   "fieldtype": "Percent",
+   "label": "Paydown Percent"
+  },
+  {
+   "depends_on": "eval:doc.paydown_mode=='Fixed Amount per Order'",
+   "fieldname": "paydown_amount",
+   "fieldtype": "Currency",
+   "label": "Paydown Amount"
+  },
+  {
+   "depends_on": "eval:doc.case_type=='Workout'",
+   "fieldname": "sec_workout_progress",
+   "fieldtype": "Section Break",
+   "label": "Recovery"
+  },
+  {
+   "fieldname": "starting_balance",
+   "fieldtype": "Currency",
+   "label": "Starting Balance"
+  },
+  {
+   "fieldname": "recovered_to_date",
+   "fieldtype": "Currency",
+   "label": "Recovered to Date",
+   "read_only": 1
+  },
+  {
+   "description": "The balance only moves down. A rising balance ends the workout.",
+   "fieldname": "current_balance",
+   "fieldtype": "Currency",
+   "label": "Current Balance",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cb_workout_progress",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "balance_trend",
+   "fieldtype": "Select",
+   "label": "Balance Trend",
+   "options": "\nShrinking\nFlat\nRising",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_review_date",
+   "fieldtype": "Date",
+   "label": "Last Review Date",
+   "read_only": 1
+  },
+  {
+   "fieldname": "next_review_date",
+   "fieldtype": "Date",
+   "label": "Next Review Date",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sec_release",
+   "fieldtype": "Section Break",
+   "label": "Release"
+  },
+  {
+   "fieldname": "release_requested_on",
+   "fieldtype": "Datetime",
+   "label": "Release Requested On"
+  },
+  {
+   "description": "Release is a Credit Finance action. Each basis is verified live before the hold lifts.",
+   "fieldname": "release_basis",
+   "fieldtype": "Select",
+   "label": "Release Basis",
+   "options": "\nPaid in Full\nCurrent on Approved Plan\nMD Exception"
+  },
+  {
+   "fieldname": "cb_release",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "released_by",
+   "fieldtype": "Link",
+   "label": "Released By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "released_on",
+   "fieldtype": "Datetime",
+   "label": "Released On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "release_notes",
+   "fieldtype": "Small Text",
+   "label": "Release Notes"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-08-06 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Credit and AR",
+ "name": "AR Case",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Credit Finance",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Managing Director",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Collections Officer",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Ops Manager"
+  },
+  {
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sales User"
+  }
+ ],
+ "search_fields": "customer,case_type,status",
+ "show_name_in_global_search": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "customer",
+ "track_changes": 1
+}

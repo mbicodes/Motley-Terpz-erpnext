@@ -68,7 +68,9 @@ doctype_js = {
     "Purchase Invoice": "public/js/purchase_invoice.js",
     "Delivery Note": "public/js/delivery_note.js",
     "Sales Invoice": "public/js/sales_invoice.js",
-    "Sales Order": "public/js/sales_order.js",
+    "Sales Order": ["public/js/sales_order.js", "public/js/credit_and_ar/sales_order_credit.js"],
+    "Payment Entry": "public/js/credit_and_ar/payment_entry_credit.js",
+    "Customer": "public/js/credit_and_ar/customer_credit.js",
     "Material Request": "public/js/material_request.js",
     "Item Group": "public/js/item_group_custom.js",
     "Job Card": "public/js/job_card.js",
@@ -205,6 +207,10 @@ doc_events = {
     "Workstation": {
         "validate": "cannabis_management.cannabis_management.doctype.operating_component.operating_component.validate_workstation",
     },
+
+    "Credit Application": {
+        "before_insert": "cannabis_management.credit_and_ar.web_form_intake.before_insert",
+    },
     # -----------------------------------------------------------------------
     # Cash Management Module
     # -----------------------------------------------------------------------
@@ -261,9 +267,13 @@ doc_events = {
     # AR Policy disabled — before_submit cap check removed
     "Sales Invoice": {
         "before_validate": "cannabis_management.doc_hooks.sales_invoice.before_validate",
+        # Legacy / New Book / Plan classification, written as the invoice is saved
+        "validate": "cannabis_management.credit_and_ar.payment_entry_hooks.stamp_invoice_ledger",
         "before_submit": "cannabis_management.doc_hooks.sales_invoice.before_submit",
         "on_submit": [
             "cannabis_management.doc_hooks.sales_invoice.on_submit",
+            # §7 limit breach → immediate hold
+            "cannabis_management.credit_and_ar.hold_engine.on_sales_invoice_submit",
         ],
     },
     # Quotation approval — discount-threshold routing (Sales Manager / Finance)
@@ -291,7 +301,11 @@ doc_events = {
             "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.normalize_stock_entry_tag_fields",
         ],
         # Metric Tag status/qty lifecycle sync — also covers the Stock Entries a Job Card generates
-        "before_submit": "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.validate_metric_tag_status",
+        "before_submit": [
+            # Gate 1: production transfers and manufacture only, per §7.
+            "cannabis_management.credit_and_ar.hold_engine.enforce_hold",
+            "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.validate_metric_tag_status",
+        ],
         "on_submit": [
             "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
         ],
@@ -300,12 +314,17 @@ doc_events = {
     "Sales Order": {
         "before_validate": "cannabis_management.doc_hooks.sales_invoice.before_validate",
         "validate": [
-            "cannabis_management.overrides.sales_order_restrictions.validate",
+            # Credit & AR gate — COD / Terms / Sample routing. Supersedes
+            # overrides.sales_order_restrictions.validate, which set the approval
+            # status from a hard-coded rule and is no longer wired.
+            "cannabis_management.credit_and_ar.sales_order_hooks.validate",
             "cannabis_management.overrides.license_compliance.check_license",
         ],
-        "on_update": "cannabis_management.overrides.sales_order_restrictions.on_update",
+        "on_update": "cannabis_management.credit_and_ar.sales_order_hooks.on_update",
         "before_submit": [
-            "cannabis_management.overrides.sales_order_restrictions.before_submit",
+            "cannabis_management.credit_and_ar.sales_order_hooks.before_submit",
+            # Gate 1: a hard or immediate hold stops the order dead.
+            "cannabis_management.credit_and_ar.hold_engine.enforce_hold",
         ],
         "on_submit": [
             "cannabis_management.overrides.sales_order_restrictions.on_submit",
@@ -315,6 +334,8 @@ doc_events = {
     },
     "Delivery Note": {
         "before_submit": [
+            # Gate 1: no product moves for a held customer.
+            "cannabis_management.credit_and_ar.hold_engine.enforce_hold",
             # Metric Tag status lifecycle sync
             "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.validate_metric_tag_status",
         ],
@@ -342,16 +363,35 @@ doc_events = {
     },
     "Stock Reconciliation": {
         "before_submit": "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.validate_metric_tag_status",
-        "on_submit": [
-            "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
-        ],
+        "on_submit": "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
         "on_cancel": "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
+    },
+    "Work Order": {
+        # Gate 1: no production starts for a held customer's order.
+        "before_submit": "cannabis_management.credit_and_ar.hold_engine.enforce_hold",
     },
     "Timesheet": {
         "after_insert": "cannabis_management.overrides.timesheet_hooks.auto_submit_timesheet",
     },
+    "Customer": {
+        # Credit & AR policy exemption: keep the displayed state honest when the
+        # flag is toggled. The engines read the flag live, so nothing migrates.
+        "validate": "cannabis_management.credit_and_ar.customer_hooks.validate",
+        "on_update": "cannabis_management.credit_and_ar.customer_hooks.on_update",
+    },
     "Payment Entry": {
-        "on_submit": "cannabis_management.cannabis_management.utils.irs_8300.check_cash_threshold"
+        # Two ledgers, never netted — plan money cannot pay the new book.
+        "validate": "cannabis_management.credit_and_ar.payment_entry_hooks.validate",
+        "on_submit": [
+            "cannabis_management.cannabis_management.utils.irs_8300.check_cash_threshold",
+            "cannabis_management.credit_and_ar.payment_entry_hooks.on_submit",
+        ],
+        # A cancellation flagged as a returned payment raises an immediate hold.
+        # An ordinary correction does not.
+        "on_cancel": [
+            "cannabis_management.credit_and_ar.hold_engine.on_payment_entry_cancel",
+            "cannabis_management.credit_and_ar.payment_entry_hooks.on_cancel",
+        ],
     },
     "Job Card": {
         "validate": [
@@ -381,6 +421,22 @@ scheduler_events = {
             "cannabis_management.api.overdue_owner_reminder.send_overdue_owner_reminders",
             # Daily unreconciled-customer count snapshot (day-over-day AR tracking)
             "cannabis_management.api.sales_daily_sync.snapshot_unreconciled",
+            # ── Credit & AR Control ──────────────────────────────────────────
+            # Every day including weekends: past due accrues at the weekend too,
+            # and a hold that waits until Monday is not a stop-work order.
+            # All of these no-op until Credit Policy Settings.policy_effective_date
+            # is set. Order matters — metrics read the state the engines set.
+            "cannabis_management.credit_and_ar.hold_engine.evaluate_customer_credit_status",
+            "cannabis_management.credit_and_ar.hold_engine.check_broken_promises",
+            "cannabis_management.credit_and_ar.hold_engine.check_license_expiry",
+            # Plans and workouts run independently of the past-due engine:
+            # one missed installment holds everything, and a workout balance
+            # that stops shrinking ends the workout.
+            "cannabis_management.credit_and_ar.plan_workout.check_plan_installments",
+            "cannabis_management.credit_and_ar.plan_workout.review_workouts",
+            # Metrics and scoring last: they read the state set above.
+            "cannabis_management.credit_and_ar.metrics.evaluate_company_metrics",
+            "cannabis_management.credit_and_ar.scoring.update_customer_payment_scores",
         ],
         # Daily jobs: Mon–Fri only (midnight Berlin time)
         "0 0 * * 1-5": [
@@ -399,6 +455,10 @@ scheduler_events = {
             "cannabis_management.overrides.sales_order_delivery_reminder.send_delivery_date_reminders",
             # "cannabis_management.overrides.payment_overdue_alert.on_sales_invoice_submit",  # AR Policy disabled
         ],
+        # Credit & AR: Friday report to MD and CEO, 08:00 UTC
+        "0 8 * * 5": [
+            "cannabis_management.credit_and_ar.weekly_report.send_weekly_report",
+        ],
         # Friday: payment overdue report at 9 AM PDT (14:00 UTC / 15:00 PST)
         "0 14 * * 5": [
             # "cannabis_management.overrides.payment_overdue_alert.friday_overdue_report",  # AR Policy disabled
@@ -408,6 +468,11 @@ scheduler_events = {
         # "0 23 * * 5": [
         #     "cannabis_management.api.weekly_report.send_weekly_report",
         # ],
+        # Credit & AR: finance charges on the 1st of each month, 06:00 UTC.
+        # Left in Draft unless auto_submit_finance_charges is on.
+        "0 6 1 * *": [
+            "cannabis_management.credit_and_ar.finance_charge.apply_finance_charges",
+        ],
         # Weekly Sales Report: generate Monday 8 AM UTC
         "0 8 * * 1": [
             "cannabis_management.cannabis_management.overrides.weekly_signoff.generate_weekly_signoff",
@@ -465,6 +530,19 @@ override_whitelisted_methods = {
     # Always set party_type=Employee on Payment Entries created from Cash/Expense doctypes.
     "cannabis_management.cash_management.utils.cash_utils.create_payment_entry":
         "cannabis_management.api.cash_payment_override.create_payment_entry",
+
+    # Credit & AR: an unapproved Terms Sales Order must not print. Client-side
+    # menu hiding is cosmetic — these are the routes that actually render a
+    # document, so the block is enforced here. Everything else passes through
+    # to the original implementation untouched.
+    "frappe.www.printview.get_html_and_style":
+        "cannabis_management.credit_and_ar.print_guard.get_html_and_style",
+    "frappe.utils.print_format.download_pdf":
+        "cannabis_management.credit_and_ar.print_guard.download_pdf",
+    "frappe.utils.weasyprint.download_pdf":
+        "cannabis_management.credit_and_ar.print_guard.weasyprint_download_pdf",
+    "frappe.core.doctype.communication.email.make":
+        "cannabis_management.credit_and_ar.print_guard.make",
 }
 #
 # each overriding function accepts a `data` argument;
@@ -557,12 +635,32 @@ fixtures = [
         "ERP Dev Team",
         "Director",
         "Farm Manager",
+        # Credit & AR Control
+        "Credit Finance",
+        "Managing Director",
+        "Ops Manager",
+        "Collections Officer",
+    ]]]},
+    # Credit & AR: the payment-terms ladder. Only the module's own templates
+    # travel — the site's PAYMENT SCHEDULE BREAKDOWN template is left alone.
+    {"dt": "Payment Terms Template", "filters": [["name", "in", [
+        "COD",
+        "NET7",
+        "NET15",
+        "NET21",
+        "NET30",
+        "50% down NET7",
+        "50% down NET15",
+        "50% down NET21",
+        "50% down NET30",
     ]]]},
     # Company Records workflow actions (Workflow / Workflow State are already
     # exported unfiltered above)
     {"dt": "Workflow Action Master", "filters": [["name", "in", [
         "Submit for Review", "Approve", "Reject", "Lock",
         "Activate", "Mark Expired", "Terminate",
+        # Credit Application Approval
+        "Recommend", "Revoke",
     ]]]},
     # Day-over-day unreconciled-AR snapshot storage
     {"dt": "DocType", "filters": [["name", "=", "AR Recon Snapshot"]]},
@@ -577,5 +675,8 @@ fixtures = [
     # Client-facing Extracts Live Menu page (JS: display-name aliases +
     # Tier group ordering). Git-managed so it deploys via bench update.
     {"dt": "Web Page", "filters": [["name", "=", "live-menu-2"]]},
+    # Credit & AR: dashboard cards and the §17 in-desk alerts
+    {"dt": "Number Card", "filters": [["name", "like", "Credit \u2014 %"]]},
+    {"dt": "Notification", "filters": [["module", "=", "Credit and AR"]]},
 ]
 

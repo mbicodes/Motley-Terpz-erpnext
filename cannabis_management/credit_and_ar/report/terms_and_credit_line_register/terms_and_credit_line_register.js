@@ -1,6 +1,5 @@
 frappe.query_reports["Terms and Credit Line Register"] = {
 	filters: [
-		{ fieldname: "company", label: __("Company"), fieldtype: "Select", options: "\nFresh Frozen\nExtracts" },
 		{ fieldname: "customer", label: __("Customer"), fieldtype: "Link", options: "Customer" },
 	],
 
