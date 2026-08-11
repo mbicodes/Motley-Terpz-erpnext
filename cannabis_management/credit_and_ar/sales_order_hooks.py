@@ -194,9 +194,61 @@ def _validate_terms(doc, summary):
 	):
 		doc.custom_approval_status = utils.APPROVAL_PENDING
 
+	if doc.custom_approval_status == utils.APPROVAL_PENDING and _qualifies_for_auto_approval(
+		doc, summary
+	):
+		_auto_approve_terms(doc)
+
 	doc.custom_print_blocked = int(doc.custom_approval_status == utils.APPROVAL_PENDING)
 
 	_warn_terms_problems(doc)
+
+
+def _qualifies_for_auto_approval(doc, summary) -> bool:
+	"""A Managing Director already signed off on this account's credit line —
+	an order that stays inside it does not need a second, per-order sign-off.
+
+	Anything that would still need a human — a hold, a freeze, an expired or
+	revoked line, a wrong term, an account on a plan or workout, or an order
+	that pushes exposure past the approved line — falls straight through to
+	the usual Pending Approval queue, unchanged.
+	"""
+	if frappe.db.get_value("Customer", doc.customer, "custom_credit_status") != (
+		utils.STATUS_TERMS_APPROVED
+	):
+		return False
+
+	if _terms_problems(doc):
+		return False
+
+	credit_portion = utils.template_credit_portion(doc.payment_terms_template) / 100.0
+	order_credit_exposure = flt(doc.grand_total) * credit_portion
+	over_limit = order_credit_exposure - flt(summary["available_line"])
+	return over_limit <= 0.005
+
+
+def _auto_approve_terms(doc):
+	"""Same end state as ``api.approve_terms`` — approved, print unblocked —
+	minus the human. ``custom_terms_approved_by`` still needs a real User for
+	the Link field; Administrator marks it as policy-driven rather than
+	claiming a person signed off who did not."""
+	doc.custom_approval_status = utils.APPROVAL_APPROVED
+	doc.custom_terms_approved_by = "Administrator"
+	doc.custom_terms_approved_on = frappe.utils.now_datetime()
+	doc.custom_terms_rejection_reason = None
+
+	# A brand-new document has no row in the database yet, so a Comment
+	# pointing at it as its reference would fail to link. Only log the
+	# comment for a document that already exists — new inserts still carry
+	# the same audit trail via the approved_by/approved_on stamp above.
+	if not doc.get("__islocal"):
+		doc.add_comment(
+			"Comment",
+			_(
+				"Terms auto-approved — order stays within {0}'s approved credit line, "
+				"no Managing Director sign-off required."
+			).format(doc.customer),
+		)
 
 
 def _warn_terms_problems(doc):
