@@ -121,6 +121,10 @@ doctype_list_js = {
 # Frappe CRM still imports.  Runs before after_migrate hooks fire.
 before_migrate = ["cannabis_management.compat.install_frappe_shims"]
 
+# frappe.model.sync re-imports standard workspace fixtures on every migrate, so
+# the workspaces we removed from the sidebar have to be dropped again afterwards.
+after_migrate = ["cannabis_management.workspace_cleanup.remove_unwanted_workspaces"]
+
 # Installation
 # ------------
 
