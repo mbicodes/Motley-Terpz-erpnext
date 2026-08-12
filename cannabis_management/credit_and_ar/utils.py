@@ -345,18 +345,35 @@ def intercompany_customers() -> list[str]:
 
 def finance_recipients() -> list[str]:
 	settings = get_settings()
-	return users_with_role(settings.finance_notification_role or "Credit Finance")
+	role = settings.finance_notification_role or "Credit Finance"
+	users = users_with_role(role)
+	if not users:
+		# Every credit notification routes through this role. An empty result
+		# means the whole module goes quiet, so say so rather than return [] and
+		# let each caller return early in silence.
+		frappe.logger("credit_and_ar").warning(
+			f"No enabled System User holds the {role} role — credit notifications have no recipients."
+		)
+	return users
 
 
 def dedupe_recipients(*groups) -> list[str]:
-	"""Flatten recipient groups, drop blanks and duplicates, preserve order."""
+	"""Flatten recipient groups, drop blanks and duplicates, preserve order.
+
+	``Guest`` is dropped. Anything submitted through a public web form is owned
+	by Guest, so ``doc.owner`` lands here as the literal string "Guest" — not an
+	address. Frappe validates every Email Queue recipient, so one bad entry
+	raises and the *whole* notification is lost, including the real Finance
+	recipients alongside it. Guest is also never a valid ToDo assignee, so the
+	filter is safe for the approver-routing callers too.
+	"""
 	seen: dict[str, None] = {}
 	for group in groups:
 		if not group:
 			continue
 		items = [group] if isinstance(group, str) else group
 		for item in items:
-			if item and item not in seen:
+			if item and item != "Guest" and item not in seen:
 				seen[item] = None
 	return list(seen)
 
