@@ -261,10 +261,12 @@ def _get_ar_data(company, report_date=None, customer=None, ageing_based_on="Due 
                  range_str="30, 60, 90, 120", ar_mode="legacy"):
     ranges = _build_ranges(range_str)
 
-    # Clamp report_date to the correct window so aging is always computed inside the mode's boundary
+    # Aging "as of" date. Legacy aging is computed relative to TODAY (not clamped
+    # to the May-31 cutover) — LEGACY_CUTOFF is only used below to classify which
+    # invoices are legacy (posting_date <= cutoff), never to freeze the aging date.
     if ar_mode == "legacy":
-        if not report_date or str(report_date) > LEGACY_CUTOFF:
-            report_date = LEGACY_CUTOFF
+        if not report_date:
+            report_date = nowdate()
     elif ar_mode == "all":
         if not report_date:
             report_date = nowdate()

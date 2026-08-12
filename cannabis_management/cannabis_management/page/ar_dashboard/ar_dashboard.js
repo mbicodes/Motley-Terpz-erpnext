@@ -498,8 +498,21 @@ function handle_recon_change(page, $select) {
                 if (page._ard_result)     update_rows(page._ard_result.rows);
                 if (page._ard_all_result) update_rows(page._ard_all_result.rows);
 
-                if (page._ard_all_mode) render_all_entities(page);
-                else render_view(page);
+                // The <select> cell already reflects the new value + colour (see
+                // apply_recon_select_class above) and the in-memory rows are
+                // updated. Nothing else on the page depends on reconciliation
+                // status — the summary cards, aging bar and totals are all
+                // financial. So a full table rebuild (which throws the user back
+                // to the top of the page) is only warranted when a reconciliation
+                // FILTER is active and this row no longer matches it, i.e. the row
+                // must leave the current view. Even then, keep the scroll position.
+                let recon_filter = page.main.find('#ard-recon-filter').val();
+                if (recon_filter && recon_filter !== new_status) {
+                    with_scroll_preserved(page, function () {
+                        if (page._ard_all_mode) render_all_entities(page);
+                        else render_view(page);
+                    });
+                }
             }
         },
         error: function () {
@@ -773,6 +786,30 @@ function compute_view_totals(display_rows, ranges) {
 }
 
 // ─── Rendering ────────────────────────────────────────────────────────────────
+
+// Walk up from `el` to the first ancestor that actually scrolls, falling back to
+// the document scrolling element (the desk usually scrolls the window).
+function get_scroll_parent(el) {
+    while (el && el !== document.body && el !== document.documentElement) {
+        let s = window.getComputedStyle(el);
+        if (/(auto|scroll)/.test(s.overflowY) && el.scrollHeight > el.clientHeight) return el;
+        el = el.parentElement;
+    }
+    return document.scrollingElement || document.documentElement;
+}
+
+// Run a re-render without throwing the user back to the top of the page. The row
+// set can change (a filtered row leaving the view shortens the page), so restore
+// on the next frame as well, once layout has settled.
+function with_scroll_preserved(page, fn) {
+    let start = (page.main && page.main[0]) ? page.main[0] : document.body;
+    let scroller = get_scroll_parent(start);
+    let top = scroller.scrollTop;
+    fn();
+    let restore = function () { scroller.scrollTop = top; };
+    restore();
+    window.requestAnimationFrame(restore);
+}
 
 function render_dashboard(page, result) {
     let { rows } = result;
