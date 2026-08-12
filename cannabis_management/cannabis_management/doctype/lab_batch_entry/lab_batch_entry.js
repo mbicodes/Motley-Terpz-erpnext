@@ -132,14 +132,15 @@ function fetch_stock_balance_items(frm) {
 	frappe.call({
 		method: "cannabis_management.cannabis_management.doctype.lab_batch_entry.lab_batch_entry.get_stock_balance_items",
 		args: { project: project, warehouse: tolling_partner },
+		freeze: true,
+		freeze_message: __("Fetching stock balance …"),
 		callback: function (r) {
 			if (!r.message || r.message.length === 0) {
-				_fetching_stock_balance = false;
-				frappe.msgprint(__("No items with stock balance found for the selected Batch and Tolling Partner."));
+				frappe.msgprint(__("No items with a stock balance greater than zero were found in <b>{0}</b> for <b>{1}</b>.", [tolling_partner, project]));
 				return;
 			}
 
-			frm.doc.lab_batch_entry_child = [];
+			frm.clear_table("lab_batch_entry_child");
 
 			r.message.forEach((item) => {
 				const new_row = frm.add_child("lab_batch_entry_child");
@@ -153,6 +154,10 @@ function fetch_stock_balance_items(frm) {
 			frm.refresh_field("lab_batch_entry_child");
 			frm.dirty();
 			calculate_total_quantity(frm);
+		},
+		// Always release the guard - on the old code an error left it stuck
+		// at true, so every later click on Fetch Details did nothing at all.
+		always: function () {
 			_fetching_stock_balance = false;
 		},
 	});

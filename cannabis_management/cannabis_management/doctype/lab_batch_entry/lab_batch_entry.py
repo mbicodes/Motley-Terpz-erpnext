@@ -55,12 +55,19 @@ def get_stock_balance_items(project, warehouse):
 
 	from erpnext.stock.report.stock_balance.stock_balance import execute
 
+	# The company must come from the warehouse being fetched, not a fixed
+	# name. Tolling Partner warehouses exist under both Motley Terpz and
+	# Master Touch Manufacturing, and the Stock Balance report filters its
+	# ledger entries on company - hardcoding one company returned an empty
+	# list for every warehouse belonging to the other one.
+	company = frappe.db.get_value("Warehouse", warehouse, "company")
+
 	filters = frappe._dict({
 		"from_date": "2000-01-01",
 		"to_date": frappe.utils.today(),
 		"warehouse": [warehouse],
 		"project": [project],
-		"company": "Motley Terpz",
+		"company": company,
 	})
 
 	_columns, data = execute(filters)
