@@ -365,9 +365,11 @@ class CreditApplication(Document):
 		self._notify_awaiting_agreement()
 
 	def _notify_awaiting_agreement(self):
-		recipients = utils.dedupe_recipients(
-			self.owner, self.email_id, utils.finance_recipients()
-		)
+		# Internal only. The message carries the approved limit and a desk link,
+		# and tells the reader to attach the signed agreement — none of which
+		# belongs with the applicant. They hear from
+		# ``_notify_requestor_of_decision`` instead.
+		recipients = utils.dedupe_recipients(self.owner, utils.finance_recipients())
 		if not recipients:
 			return
 
@@ -676,13 +678,13 @@ def _write_credit_limit(customer: str, company: str, limit: float):
 	not a Company link, so there is no matching Company record to mirror
 	against — skip silently rather than fail the approval on a bad link.
 	"""
-	if not company or not frappe.db.exists("Company", company):
-		return
-
 	if not company:
 		frappe.logger("credit_and_ar").warning(
 			f"No company could be derived for {customer} — native credit limit row not written."
 		)
+		return
+
+	if not frappe.db.exists("Company", company):
 		return
 
 	row = frappe.db.get_value(
