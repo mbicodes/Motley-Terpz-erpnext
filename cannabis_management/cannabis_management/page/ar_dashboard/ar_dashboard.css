@@ -90,7 +90,7 @@
 	width: 100%;
 	min-width: 110px;
 	height: 28px;
-	padding: 0 8px;
+	padding: 0 26px 0 8px;            /* room on the right for the custom caret */
 	border: 1px solid var(--ard-border);
 	border-radius: 6px;
 	font-size: 11px;
@@ -98,10 +98,19 @@
 	font-family: var(--ard-font);
 	letter-spacing: .3px;
 	cursor: pointer;
-	background: #fff;
 	color: var(--ard-muted);
-	transition: background .15s, color .15s, border-color .15s;
+	transition: background-color .15s, color .15s, border-color .15s;
 	outline: none;
+	/* appearance:none is required for the status background-color to actually
+	   render on a native <select>'s closed control across browsers — without it
+	   the colour coding is silently ignored. Re-add a custom caret afterwards. */
+	-webkit-appearance: none;
+	-moz-appearance: none;
+	appearance: none;
+	background-color: #fff;
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath fill='%23666' d='M0 0l5 6 5-6z'/%3E%3C/svg%3E");
+	background-repeat: no-repeat;
+	background-position: right 9px center;
 }
 .ard-recon-select:focus {
 	box-shadow: 0 0 0 2px rgba(59, 130, 246, .2);
@@ -139,17 +148,17 @@
 }
 
 .ard-recon-select.ard-recon-reconciled {
-	background: var(--ard-current-lt);
+	background-color: var(--ard-current-lt);
 	color: var(--ard-current);
 	border-color: var(--ard-current);
 }
 .ard-recon-select.ard-recon-unreconciled {
-	background: var(--ard-90-lt);
+	background-color: var(--ard-90-lt);
 	color: var(--ard-90);
 	border-color: var(--ard-90);
 }
 .ard-recon-select.ard-recon-empty {
-	background: #f3f4f6;
+	background-color: #f3f4f6;
 	color: var(--ard-muted);
 }
 
@@ -935,19 +944,19 @@
 }
 .ard-recon-select.ard-recon-trouble,
 .ard-recon-readonly.ard-recon-trouble {
-	background: #fef3c7;
+	background-color: #fef3c7;
 	color: #92400e;
 	border-color: #d97706;
 }
 .ard-recon-select.ard-recon-dispute,
 .ard-recon-readonly.ard-recon-dispute {
-	background: #ede9fe;
+	background-color: #ede9fe;
 	color: #5b21b6;
 	border-color: #7c3aed;
 }
 .ard-recon-select.ard-recon-adjustment,
 .ard-recon-readonly.ard-recon-adjustment {
-	background: #dbeafe;
+	background-color: #dbeafe;
 	color: #1e40af;
 	border-color: #3b82f6;
 }

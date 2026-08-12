@@ -96,6 +96,9 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
 				</div>
 			</div>
 
+			<!-- MONTH-WISE COLLECTION — disabled on request. To re-enable: remove this
+			     comment wrapper AND uncomment the two load_monthly_collection() call
+			     sites below (search "month-wise collection disabled").
 			<div class="ard-monthly-section">
 				<div class="ard-monthly-header">
 					<h3 class="ard-monthly-title">Month-wise Collection &mdash; Legacy vs New AR</h3>
@@ -108,6 +111,7 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
 					</div>
 				</div>
 			</div>
+			-->
 		</div>
 	`);
 
@@ -140,15 +144,16 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
             update_motley_btn_visibility(page);
             // Auto-load now that the filters are ready (no Apply button).
             apply_filters(page);
-            load_monthly_collection(page);
+            // load_monthly_collection(page);  // month-wise collection disabled
         }
     });
 
     // Month-wise Collection section follows the Company filter but is
     // independent of the AR Mode toggle (it always shows Legacy + New side by side).
-    page.main.find('#ard-company').on('change', function () {
-        load_monthly_collection(page);
-    });
+    // month-wise collection disabled — re-enable together with the HTML section above.
+    // page.main.find('#ard-company').on('change', function () {
+    //     load_monthly_collection(page);
+    // });
 
     page.main.find('#ard-report-date').on('change', function () {
         page.main.find('#ard-report-date-display').text($(this).val());
