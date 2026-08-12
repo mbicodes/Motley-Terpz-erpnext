@@ -1,7 +1,7 @@
 frappe.ui.form.on("Lab Batch Entry", {
 	onload(frm) {
-		const filter = { company: "Motley Terpz" };
-		const tolling_filter = { company: "Motley Terpz", warehouse_type: "Tolling Partner" };
+		const filter = { company: ["in", ["Motley Terpz", "Master Touch Manufacturing"]] };
+		const tolling_filter = { company: ["in", ["Motley Terpz", "Master Touch Manufacturing"]], warehouse_type: "Tolling Partner" };
 
 		// Parent fields
 		frm.set_query("batchproject", () => ({ filters: filter }));
