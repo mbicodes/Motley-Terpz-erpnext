@@ -3,15 +3,21 @@
 #
 # The "Expense" half of the standard Profit and Loss Statement, on its own:
 # every Expense account (real groups + leaf/child accounts, indented exactly
-# like the standard report) with its Debit balance, plus a Total Expense row
+# like the standard report) with its Debit figure, plus a Total Expense row
 # at the bottom. No Income, no COGS split, no Net Profit - just what was
 # spent, account by account, so it reads as a plain expense report instead of
 # a full income statement.
 #
-# Deliberately reuses erpnext's own financial_statements.get_data() unmodified
-# - the same function the standard Profit and Loss Statement calls for its
-# own Expense section - so every child account and every total here ties out
-# to that report exactly.
+# Figures here are DEBIT ONLY: every amount is the sum of the Debit column of
+# the General Ledger for that account. Credit postings against an expense
+# account (returns, reversals, journal corrections, the year-end close) are
+# NOT netted off - this report answers "what was debited", not "what is the
+# net balance". That is the one deliberate difference from the standard
+# Profit and Loss Statement, which shows debit minus credit.
+#
+# Everything else is erpnext's own financial_statements machinery, reused
+# unmodified - the same account tree, indentation, period handling and
+# totalling the standard report uses.
 
 import re
 
@@ -20,10 +26,18 @@ from frappe import _
 from frappe.utils import cstr, flt
 
 from erpnext.accounts.report.financial_statements import (
+	accumulate_values_into_parents,
+	add_total_row,
+	calculate_values,
 	compute_growth_view_data,
+	filter_accounts,
+	filter_out_zero_value_rows,
+	get_accounts,
+	get_appropriate_currency,
 	get_columns,
-	get_data,
 	get_period_list,
+	prepare_data,
+	set_gl_entries_by_account,
 )
 
 # The report is scoped to this fixed set of TSBC farming expense heads - the
@@ -63,13 +77,12 @@ def keep_allowed_heads(expense, period_list, currency):
 	accounts are kept so the layout is unchanged; every other account is
 	dropped.
 
-	Group figures are recomputed from the allowed leaves alone. ``get_data()``
-	has already rolled *all* children into each parent, so leaving those
+	Group figures are recomputed from the allowed leaves alone. The parents
+	have already had *all* their children rolled into them, so leaving those
 	numbers untouched would show a group total larger than the rows visible
 	beneath it. The same applies to the "Total Expense (Debit)" row, which is
 	rebuilt here. The trailing ``[total, {}]`` shape is preserved because
-	``get_report_summary()`` and ``get_chart_data()`` both read the total as
-	``expense[-2]``.
+	``get_report_summary()`` reads the total as ``expense[-2]``.
 	"""
 	rows = expense or []
 	by_account = {row.get("account"): row for row in rows if row.get("account")}
@@ -117,6 +130,66 @@ def keep_allowed_heads(expense, period_list, currency):
 	return out + [total_row, {}]
 
 
+def get_debit_only_data(company, period_list, filters):
+	"""erpnext's ``get_data()`` for the Expense tree, but debit-side only.
+
+	Same steps, same helpers, same output shape as the standard Profit and
+	Loss Statement - the single change is that every fetched GL Entry has its
+	Credit zeroed before the periods are totalled. ``calculate_values()`` adds
+	up ``debit - credit``, so with credit forced to 0 each figure becomes the
+	plain sum of the General Ledger's Debit column, and a credit-only posting
+	contributes nothing instead of reducing the expense.
+	"""
+	accounts = get_accounts(company, "Expense")
+	if not accounts:
+		return None
+
+	accounts, accounts_by_name, parent_children_map = filter_accounts(accounts)
+
+	company_currency = get_appropriate_currency(company, filters)
+
+	gl_entries_by_account = {}
+	for root in frappe.db.sql(
+		"""select lft, rgt from `tabAccount`
+			where root_type = 'Expense' and ifnull(parent_account, '') = ''""",
+		as_dict=1,
+	):
+		set_gl_entries_by_account(
+			company,
+			period_list[0]["year_start_date"],
+			period_list[-1]["to_date"],
+			filters,
+			gl_entries_by_account,
+			root.lft,
+			root.rgt,
+			root_type="Expense",
+			ignore_closing_entries=True,
+		)
+
+	# The debit-only rule, applied once, at the source.
+	for entries in gl_entries_by_account.values():
+		for entry in entries:
+			entry.credit = 0.0
+			entry.credit_in_account_currency = 0.0
+
+	calculate_values(accounts_by_name, gl_entries_by_account, period_list, filters.accumulated_values, False)
+	accumulate_values_into_parents(accounts, accounts_by_name, period_list)
+
+	out = prepare_data(
+		accounts,
+		"Debit",
+		period_list,
+		company_currency,
+		accumulated_values=filters.accumulated_values,
+	)
+	out = filter_out_zero_value_rows(out, parent_children_map, filters.show_zero_values)
+
+	if out:
+		add_total_row(out, "Expense", "Debit", period_list, company_currency)
+
+	return out
+
+
 def execute(filters=None):
 	period_list = get_period_list(
 		filters.from_fiscal_year,
@@ -130,33 +203,22 @@ def execute(filters=None):
 
 	# Full Expense account tree (real groups + leaves, indented exactly like
 	# the standard Profit and Loss Statement) with a Total Expense row
-	# already appended - same get_data() the standard report itself calls,
-	# so this ties out to it exactly.
-	expense = get_data(
-		filters.company,
-		"Expense",
-		"Debit",
-		period_list,
-		filters=filters,
-		accumulated_values=filters.accumulated_values,
-		ignore_closing_entries=True,
-	)
+	# already appended - built from the General Ledger's Debit column alone.
+	expense = get_debit_only_data(filters.company, period_list, filters)
 
 	currency = filters.presentation_currency or frappe.get_cached_value(
 		"Company", filters.company, "default_currency"
 	)
 
-	# Keep only the allowed expense heads. Everything downstream - the data,
-	# the chart and the summary - reads this same filtered list, so the total
-	# on screen always matches the rows above it.
+	# Keep only the allowed expense heads. Everything downstream - the data
+	# and the summary - reads this same filtered list, so the total on screen
+	# always matches the rows above it.
 	expense = keep_allowed_heads(expense, period_list, currency)
 
 	data = []
 	data.extend(expense or [])
 
 	columns = get_columns(filters.periodicity, period_list, filters.accumulated_values, filters.company)
-
-	chart = get_chart_data(filters, columns, expense, currency)
 
 	report_summary, primitive_summary = get_report_summary(
 		period_list, filters.periodicity, expense, currency, filters
@@ -165,7 +227,8 @@ def execute(filters=None):
 	if filters.get("selected_view") == "Growth":
 		compute_growth_view_data(data, period_list)
 
-	return columns, data, None, chart, report_summary, primitive_summary
+	# No chart - this report is the figures only.
+	return columns, data, None, None, report_summary, primitive_summary
 
 
 def get_report_summary(period_list, periodicity, expense, currency, filters):
@@ -190,29 +253,3 @@ def get_report_summary(period_list, periodicity, expense, currency, filters):
 	return [
 		{"value": net_expense, "label": expense_label, "datatype": "Currency", "currency": currency},
 	], net_expense
-
-
-def get_chart_data(filters, columns, expense, currency):
-	labels = [d.get("label") for d in columns[2:]]
-
-	expense_data = []
-	for p in columns[2:]:
-		if expense:
-			expense_data.append(expense[-2].get(p.get("fieldname")))
-
-	datasets = []
-	if expense_data:
-		datasets.append({"name": _("Expense"), "values": expense_data})
-
-	chart = {"data": {"labels": labels, "datasets": datasets}}
-
-	if not filters.accumulated_values:
-		chart["type"] = "bar"
-	else:
-		chart["type"] = "line"
-
-	chart["fieldtype"] = "Currency"
-	chart["options"] = "currency"
-	chart["currency"] = currency
-
-	return chart
