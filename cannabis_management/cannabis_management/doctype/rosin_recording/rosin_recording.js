@@ -13,25 +13,35 @@ const CALCULATED_FIELDS = [
 	"raw_material_quantity"
 ];
 
+// ── Parent fields scoped to a company, with the doctype holding that company ──
+const COMPANY_SCOPED_FIELDS = [
+	["batch", "Project"],
+	["tolling_partner", "Warehouse"],
+	["target_warehouse", "Warehouse"],
+	["expense_account", "Account"]
+];
+
 // ── Parent form: setup grid + fetch stock balance from master-level fields ──
 frappe.ui.form.on("Rosin Recording", {
 	onload(frm) {
 		setup_grid(frm);
 
-		const filter = { company: "Motley Terpz" };
-		const tolling_filter = { company: "Motley Terpz", warehouse_type: "Tolling Partner" };
+		// Every company-scoped link on this form follows the Company field.
+		// Company blank → no company filter is applied at all.
+		const company_filter = (extra) =>
+			Object.assign(frm.doc.company ? { company: frm.doc.company } : {}, extra || {});
+
+		const tolling_filter = () => company_filter({ warehouse_type: "Tolling Partner" });
 
 		// Parent fields
-		frm.set_query("batch", () => ({ filters: filter }));
-		frm.set_query("tolling_partner", () => ({ filters: tolling_filter }));
-		frm.set_query("target_warehouse", () => ({ filters: filter }));
-		frm.set_query("expense_account", () => ({
-			filters: { company: "Motley Terpz", is_group: 0 }
-		}));
+		frm.set_query("batch", () => ({ filters: company_filter() }));
+		frm.set_query("tolling_partner", () => ({ filters: tolling_filter() }));
+		frm.set_query("target_warehouse", () => ({ filters: company_filter() }));
+		frm.set_query("expense_account", () => ({ filters: company_filter({ is_group: 0 }) }));
 
 		// Child table fields
-		frm.set_query("batch_no", "lab_tolling_data", () => ({ filters: filter }));
-		frm.set_query("source_bloom", "lab_tolling_data", () => ({ filters: tolling_filter }));
+		frm.set_query("batch_no", "lab_tolling_data", () => ({ filters: company_filter() }));
+		frm.set_query("source_bloom", "lab_tolling_data", () => ({ filters: tolling_filter() }));
 		frm.set_query("prime_strain", "lab_tolling_data", () => ({ filters: {} }));
 		frm.set_query("subprime_strain", "lab_tolling_data", () => ({ filters: {} }));
 	},
@@ -44,6 +54,22 @@ frappe.ui.form.on("Rosin Recording", {
 				create_physical_inventory_verification(frm);
 			});
 		}
+	},
+
+	// ── Company changed: drop every value that belongs to a different company ──
+	company(frm) {
+		if (!frm.doc.company) return;
+
+		COMPANY_SCOPED_FIELDS.forEach(([fieldname, doctype]) => {
+			const value = frm.doc[fieldname];
+			if (!value) return;
+
+			frappe.db.get_value(doctype, value, "company", (r) => {
+				if (r && r.company && r.company !== frm.doc.company) {
+					frm.set_value(fieldname, "");
+				}
+			});
+		});
 	},
 
 	// ── Auto-fetch stock balance when parent-level batch changes ──
@@ -177,6 +203,7 @@ function fetch_stock_balance_items(frm) {
 		args: {
 			project: batch,
 			warehouse: tolling_partner,
+			company: frm.doc.company,
 		},
 		callback: function (r) {
 			if (!r.message || r.message.length === 0) {
