@@ -4,8 +4,17 @@
 // guarded server-side in credit_and_ar/print_guard.py; removing these menu
 // items just stops people hitting a wall they can see coming.
 
+// Public intake form prospects use to apply for terms — see
+// credit_and_ar/web_form/credit_application/credit_application.json (route below).
+const CREDIT_APPLICATION_ROUTE = "credit-application";
+
 frappe.ui.form.on("Sales Order", {
 	refresh(frm) {
+		// Always available — sales reps need to hand this link to a customer
+		// regardless of the order's docstatus, so it isn't gated like the
+		// approval buttons below.
+		add_credit_application_link(frm);
+
 		if (frm.doc.__islocal) return;
 
 		render_credit_banner(frm);
@@ -34,6 +43,21 @@ function is_terms(frm) {
 function can_approve() {
 	return ["Managing Director", "Ops Manager", "System Manager"].some((role) =>
 		frappe.user_roles.includes(role)
+	);
+}
+
+function add_credit_application_link(frm) {
+	const url = frappe.urllib.get_full_url(`/${CREDIT_APPLICATION_ROUTE}`);
+
+	frm.add_custom_button(
+		__("Open Link"),
+		() => window.open(url, "_blank"),
+		__("Credit Application")
+	);
+	frm.add_custom_button(
+		__("Copy Link"),
+		() => frappe.utils.copy_to_clipboard(url),
+		__("Credit Application")
 	);
 }
 

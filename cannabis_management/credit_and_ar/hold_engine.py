@@ -38,6 +38,13 @@ GATE_1_DOCTYPES = ("Sales Order", "Delivery Note", "Work Order", "Stock Entry")
 
 PRODUCTION_STOCK_ENTRY_PURPOSES = ("Material Transfer for Manufacture", "Manufacture")
 
+# Group-wide Accounts Receivable ceiling. Independent of the past-due checks
+# below: this fires on the *total* outstanding balance across the credit
+# group, even on invoices that are not yet due. Intercompany customers are
+# already excluded from the sweep entirely (see the "customers" filter in
+# `evaluate_customer_credit_status`).
+AR_HOLD_THRESHOLD = 400_000
+
 
 # ── daily sweep ──────────────────────────────────────────────────────────────
 
@@ -76,30 +83,44 @@ def evaluate_customer_credit_status():
 def _evaluate_one(customer, hard_hold_days, hard_hold_amount, warning_enabled):
 	snapshot = credit_engine.get_past_due_snapshot(customer)
 	past_due = flt(snapshot["past_due_amount"])
+	total_outstanding = flt(snapshot["total_outstanding"])
 	max_days = int(snapshot["max_days_past_due"])
 
 	case = _get_auto_case(customer)
 
+	# Whichever trigger comes first applies. The AR-total ceiling is checked
+	# regardless of past-due status — a customer can carry 400k+ in current,
+	# not-yet-due invoices and still be over the line.
+	breach_by_days = bool(hard_hold_days) and past_due > 0 and max_days > hard_hold_days
+	breach_by_amount = bool(hard_hold_amount) and past_due > 0 and past_due >= hard_hold_amount
+	breach_by_ar_total = total_outstanding >= AR_HOLD_THRESHOLD
+
+	if breach_by_days or breach_by_amount or breach_by_ar_total:
+		if breach_by_days:
+			reason = "Past Due Days"
+			details = _(
+				"{0} past due, oldest invoice {1} days overdue. Threshold: {2} days / {3}."
+			).format(
+				utils.fmt_currency(past_due), max_days, hard_hold_days, utils.fmt_currency(hard_hold_amount)
+			)
+		elif breach_by_amount:
+			reason = "Past Due Amount"
+			details = _(
+				"{0} past due, oldest invoice {1} days overdue. Threshold: {2} days / {3}."
+			).format(
+				utils.fmt_currency(past_due), max_days, hard_hold_days, utils.fmt_currency(hard_hold_amount)
+			)
+		else:
+			reason = "AR Threshold Breach"
+			details = _(
+				"{0} total accounts receivable across the credit group exceeds the {1} ceiling."
+			).format(utils.fmt_currency(total_outstanding), utils.fmt_currency(AR_HOLD_THRESHOLD))
+		_raise_or_upgrade(customer, TYPE_HARD_HOLD, reason, details, snapshot, case)
+		return
+
 	if past_due <= 0:
 		if case:
 			_cure(case, snapshot)
-		return
-
-	# Whichever trigger comes first applies.
-	breach_by_days = hard_hold_days and max_days > hard_hold_days
-	breach_by_amount = hard_hold_amount and past_due >= hard_hold_amount
-
-	if breach_by_days or breach_by_amount:
-		reason = "Past Due Days" if breach_by_days else "Past Due Amount"
-		details = (
-			_("{0} past due, oldest invoice {1} days overdue. Threshold: {2} days / {3}.").format(
-				utils.fmt_currency(past_due),
-				max_days,
-				hard_hold_days,
-				utils.fmt_currency(hard_hold_amount),
-			)
-		)
-		_raise_or_upgrade(customer, TYPE_HARD_HOLD, reason, details, snapshot, case)
 		return
 
 	if warning_enabled:
