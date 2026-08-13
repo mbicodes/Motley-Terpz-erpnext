@@ -3,6 +3,10 @@ from frappe import _
 from frappe.model.document import Document
 from frappe.utils import flt
 
+from cannabis_management.cannabis_management.doctype.rosin_recording.rosin_recording import (
+	get_rosin_company,
+)
+
 
 class HashRecording(Document):
 	def validate(self):
@@ -75,6 +79,7 @@ def create_rosin_recording(hash_recording_name):
 	rosin_rec = frappe.new_doc("Rosin Recording")
 	rosin_rec.batch = hash_rec.batchproject
 	rosin_rec.tolling_partner = hash_rec.tolling_partner
+	rosin_rec.company = get_rosin_company(hash_rec.tolling_partner, hash_rec.batchproject)
 	rosin_rec.hash_reference = hash_rec.name
 	rosin_rec.rate_tolling_partner = flt(hash_rec.get("rate_tolling_partner"))
 	rosin_rec.tolling_partner_charges = flt(hash_rec.get("tolling_partner_charges"))

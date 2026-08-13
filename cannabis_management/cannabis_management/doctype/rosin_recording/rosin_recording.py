@@ -286,7 +286,11 @@ class RosinRecording(Document):
 		
 		se = frappe.new_doc("Stock Entry")
 		se.stock_entry_type = "Repack"
-		se.company = "Motley Terpz"
+		# Company comes from this document; older records without it fall back
+		# to the company that owns the tolling partner warehouse.
+		se.company = self.company or frappe.db.get_value(
+			"Warehouse", self.tolling_partner, "company"
+		)
 		se.custom_rosin_recording_reference = self.name
 
 		has_items = False
@@ -351,19 +355,36 @@ class RosinRecording(Document):
 		)
 
 
+def get_rosin_company(tolling_partner=None, project=None):
+	"""Company for a Rosin Recording: the tolling partner warehouse's company,
+	falling back to the batch (Project) company."""
+	company = None
+
+	if tolling_partner:
+		company = frappe.db.get_value("Warehouse", tolling_partner, "company")
+
+	if not company and project:
+		company = frappe.db.get_value("Project", project, "company")
+
+	return company
+
+
 @frappe.whitelist()
-def get_stock_balance_items(project, warehouse):
+def get_stock_balance_items(project, warehouse, company=None):
 	if not project or not warehouse:
 		return []
 
 	from erpnext.stock.report.stock_balance.stock_balance import execute
+
+	# Company selected on the form; fall back to the warehouse's own company
+	company = company or frappe.db.get_value("Warehouse", warehouse, "company")
 
 	filters = frappe._dict({
 		"from_date": "2000-01-01",
 		"to_date": frappe.utils.today(),
 		"warehouse": [warehouse],
 		"project": [project],
-		"company": "Motley Terpz",
+		"company": company,
 	})
 
 	_columns, data = execute(filters)

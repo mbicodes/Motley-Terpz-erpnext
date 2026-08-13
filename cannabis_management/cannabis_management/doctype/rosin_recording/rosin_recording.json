@@ -7,6 +7,7 @@
     "engine": "InnoDB",
     "field_order": [
         "section_break_qtmw",
+        "company",
         "tolling_partner",
         "batch",
         "expected_rosin_yield",
@@ -44,6 +45,12 @@
             "allow_bulk_edit": 1,
             "label": "Lab Tolling Data",
             "options": "Lab Tolling Data"
+        },
+        {
+            "fieldname": "company",
+            "fieldtype": "Link",
+            "label": "Company",
+            "options": "Company"
         },
         {
             "fieldname": "batch",
