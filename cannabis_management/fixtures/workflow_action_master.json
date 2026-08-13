@@ -2,6 +2,20 @@
  {
   "docstatus": 0,
   "doctype": "Workflow Action Master",
+  "modified": "2026-08-06 11:00:28.495936",
+  "name": "Recommend",
+  "workflow_action_name": "Recommend"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow Action Master",
+  "modified": "2026-08-06 11:00:28.500740",
+  "name": "Revoke",
+  "workflow_action_name": "Revoke"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow Action Master",
   "modified": "2026-07-03 10:00:00",
   "name": "Submit for Review",
   "workflow_action_name": "Submit for Review"

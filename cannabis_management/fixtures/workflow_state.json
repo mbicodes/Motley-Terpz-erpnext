@@ -3,6 +3,33 @@
   "docstatus": 0,
   "doctype": "Workflow State",
   "icon": "",
+  "modified": "2026-08-06 11:00:28.455721",
+  "name": "Finance Review",
+  "style": "Warning",
+  "workflow_state_name": "Finance Review"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow State",
+  "icon": "",
+  "modified": "2026-08-06 11:00:28.458991",
+  "name": "Pending MD Approval",
+  "style": "Primary",
+  "workflow_state_name": "Pending MD Approval"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow State",
+  "icon": "",
+  "modified": "2026-08-06 11:00:28.468077",
+  "name": "Revoked",
+  "style": "Danger",
+  "workflow_state_name": "Revoked"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow State",
+  "icon": "",
   "modified": "2026-05-11 11:18:42.778197",
   "name": "Pending Approval",
   "style": "",
@@ -205,5 +232,14 @@
   "name": "Terminated",
   "style": "Danger",
   "workflow_state_name": "Terminated"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Workflow State",
+  "icon": "",
+  "modified": "2026-08-13 11:24:48.146983",
+  "name": "Submit for Review",
+  "style": "Warning",
+  "workflow_state_name": "Submit for Review"
  }
 ]

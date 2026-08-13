@@ -13,8 +13,10 @@ WORKFLOW_NAME = "Credit Application Approval"
 DOCTYPE = "Credit Application"
 
 # (state, doc_status, style, allow_edit)
+# A received application (desk or Web Form) lands directly in "Submit for
+# Review" — there is no separate internal Draft state to sit in first.
 STATES = [
-	("Draft", 0, "Warning", "Credit Finance"),
+	("Submit for Review", 0, "Warning", "Credit Finance"),
 	("Finance Review", 0, "Warning", "Credit Finance"),
 	("Pending MD Approval", 0, "Primary", "Managing Director"),
 	("Approved", 1, "Success", "Credit Finance"),
@@ -23,19 +25,19 @@ STATES = [
 	("Revoked", 1, "Danger", "Credit Finance"),
 ]
 
-# Draft is editable by Sales too; the extra grants are added as additional rows
-# because a Workflow Document State carries exactly one role.
+# "Submit for Review" is editable by Sales too; the extra grants are added as
+# additional rows because a Workflow Document State carries exactly one role.
 EXTRA_STATE_ROLES = [
-	("Draft", "Sales User"),
-	("Draft", "System Manager"),
+	("Submit for Review", "Sales User"),
+	("Submit for Review", "System Manager"),
 	("Finance Review", "System Manager"),
 	("Pending MD Approval", "System Manager"),
 ]
 
 # (action, from_state, next_state, allowed_role)
 TRANSITIONS = [
-	("Submit for Review", "Draft", "Finance Review", "Sales User"),
-	("Submit for Review", "Draft", "Finance Review", "Credit Finance"),
+	("Submit for Review", "Submit for Review", "Finance Review", "Sales User"),
+	("Submit for Review", "Submit for Review", "Finance Review", "Credit Finance"),
 	("Recommend", "Finance Review", "Pending MD Approval", "Credit Finance"),
 	("Reject", "Finance Review", "Rejected", "Credit Finance"),
 	("Approve", "Pending MD Approval", "Approved", "Managing Director"),
