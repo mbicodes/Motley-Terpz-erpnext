@@ -156,7 +156,7 @@
    "fieldname": "trigger_reason",
    "fieldtype": "Select",
    "label": "Trigger Reason",
-   "options": "Past Due Days\nPast Due Amount\nReturned Payment\nBroken Promise to Pay\nExpired License\nSuspected Fraud\nInsolvency Signs\nLimit Breach\nPlan Default\nManual"
+   "options": "Past Due Days\nPast Due Amount\nAR Threshold Breach\nReturned Payment\nBroken Promise to Pay\nExpired License\nSuspected Fraud\nInsolvency Signs\nLimit Breach\nPlan Default\nManual"
   },
   {
    "fieldname": "trigger_details",
