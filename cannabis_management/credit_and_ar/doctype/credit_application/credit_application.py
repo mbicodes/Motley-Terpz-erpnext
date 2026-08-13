@@ -14,7 +14,7 @@ from frappe.utils import flt, getdate, now_datetime, nowdate
 
 from cannabis_management.credit_and_ar import credit_engine, utils
 
-STATE_DRAFT = "Draft"
+STATE_SUBMIT_FOR_REVIEW = "Submit for Review"
 STATE_FINANCE_REVIEW = "Finance Review"
 STATE_PENDING_MD = "Pending MD Approval"
 STATE_APPROVED = "Approved"
@@ -108,8 +108,11 @@ class CreditApplication(Document):
 	# ── derived values ───────────────────────────────────────────────────
 
 	def _default_state(self):
+		# A received application goes straight to "Submit for Review" — it does
+		# not sit in an internal Draft first, whether it came in from the desk
+		# or from the public Web Form.
 		if not self.workflow_state:
-			self.workflow_state = STATE_DRAFT
+			self.workflow_state = STATE_SUBMIT_FOR_REVIEW
 
 	def _set_correspondence_defaults(self):
 		if not self.subject:
@@ -273,19 +276,10 @@ class CreditApplication(Document):
 				)
 			)
 
-		utils.throw_consolidated(problems, "Cannot Recommend — Credit File Incomplete")
-
-	def _validate_approval(self):
-		"""Everything that must exist before terms go live in the ERP."""
-		settings = utils.get_settings()
-		problems = []
-
-		# The signed agreement is deliberately NOT required here. The MD approves
-		# the line; the countersigned agreement is the condition precedent to the
-		# terms actually going live, checked after submit in `agreement_complete`.
-		# The AP contact is collected from the applicant at Finance Review, not
-		# demanded again at approval.
-		checks = [
+		# These three clauses become mandatory the moment Finance recommends —
+		# they carry through (and stay enforced) at MD approval too, since
+		# `_validate_state_requirements` runs this same check at STATE_APPROVED.
+		clause_checks = [
 			(
 				self.finance_charge_clause_included,
 				_("The finance charge clause is not confirmed as included."),
@@ -298,11 +292,27 @@ class CreditApplication(Document):
 				self.reconciliation_clause_acknowledged,
 				_("The reconciliation clause has not been acknowledged by the customer."),
 			),
-			(self.onboarding_form_complete, _("The onboarding form is not complete.")),
 		]
-		for value, message in checks:
+		for value, message in clause_checks:
 			if not value:
 				problems.append(message)
+
+		utils.throw_consolidated(problems, "Cannot Recommend — Credit File Incomplete")
+
+	def _validate_approval(self):
+		"""Everything that must exist before terms go live in the ERP."""
+		settings = utils.get_settings()
+		problems = []
+
+		# The signed agreement is deliberately NOT required here. The MD approves
+		# the line; the countersigned agreement is the condition precedent to the
+		# terms actually going live, checked after submit in `agreement_complete`.
+		# The AP contact is collected from the applicant at Finance Review, not
+		# demanded again at approval. The finance charge, collection cost and
+		# reconciliation clauses are checked in `_validate_recommendation` —
+		# mandatory from the moment Finance recommends, and still enforced here
+		# because that same method runs again at STATE_APPROVED. The onboarding
+		# form completeness is no longer a condition of approval.
 
 		if flt(self.approved_limit) <= 0:
 			problems.append(_("Approved limit must be greater than zero."))

@@ -440,7 +440,7 @@
    "fieldname": "enhanced_assessment_notes",
    "fieldtype": "Text",
    "label": "Enhanced Assessment Notes",
-   "mandatory_depends_on": "eval:doc.requires_enhanced_assessment && doc.workflow_state && doc.workflow_state!='Draft'"
+   "mandatory_depends_on": "eval:doc.requires_enhanced_assessment && doc.workflow_state && doc.workflow_state!='Submit for Review'"
   },
   {
    "fieldname": "sec_agreement",

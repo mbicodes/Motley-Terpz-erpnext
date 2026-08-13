@@ -37,12 +37,12 @@ NOTIFICATIONS = [
 		"name": "Credit Application Received",
 		"document_type": "Credit Application",
 		"event": "New",
-		"condition": "doc.workflow_state == 'Draft'",
+		"condition": "doc.workflow_state == 'Submit for Review'",
 		"subject": "New credit application received — {{ doc.exact_legal_buyer or doc.customer or doc.name }}",
 		"message": (
 			"<p>A new credit application has been received"
 			"{% if doc.exact_legal_buyer %} from <b>{{ doc.exact_legal_buyer }}</b>{% endif %} "
-			"and is sitting in <b>Draft</b>.</p>"
+			"and is sitting in <b>Submit for Review</b>.</p>"
 			"<p>Requested limit <b>{{ frappe.utils.fmt_money(doc.requested_limit, currency='USD') }}</b>.</p>"
 		),
 		"recipients": [{"receiver_by_role": "Accounts Manager"}],
