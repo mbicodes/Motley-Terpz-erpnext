@@ -43,6 +43,18 @@ frappe.ui.form.on('Sales Order', {
 	},
 	custom_approval_status(frm) {
 		apply_payment_terms_restrictions(frm);
+	},
+	delivery_date(frm) {
+		// Propagate the header Delivery Date to every item row so the user can set
+		// it once at the top instead of editing each line. Fires only on an actual
+		// change of the header field (not on form load).
+		if (!frm.doc.delivery_date || !(frm.doc.items || []).length) return;
+		frm.doc.items.forEach(function (row) {
+			if (row.delivery_date !== frm.doc.delivery_date) {
+				frappe.model.set_value(row.doctype, row.name, 'delivery_date', frm.doc.delivery_date);
+			}
+		});
+		frm.refresh_field('items');
 	}
 });
 
