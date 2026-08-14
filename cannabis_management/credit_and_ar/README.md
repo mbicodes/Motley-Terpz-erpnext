@@ -211,24 +211,23 @@ never one item at a time.
   rejected. A direct line already on file for another customer raises a
   non-blocking warning suggesting a shared **Credit Group Parent**.
 
-### Approval is not the same as going live
+### Approval goes live immediately
 
-The MD approving records the decision. **The line stays shut until the
-countersigned Credit Agreement is on file** — marked signed *and* attached; a
-tick without the document is not an agreement.
+The MD's approval is the gate on its own. **Terms go live on submit**,
+whether or not the countersigned Credit Agreement is on file yet.
 
-* Approve with the agreement already on file → terms go live immediately.
-* Approve without it → the application submits, nothing is written to the
-  Customer (no limit, no terms template, no status change), and the owner, the
-  AP contact and Finance are emailed that terms are **not** live yet.
+* Approve with the agreement already on file → terms go live, as before.
+* Approve without it → terms **still** go live on submit (limit, terms
+  template and status are written to the Customer), and the owner, the AP
+  contact and Finance are emailed that the signed Credit Agreement is still
+  outstanding — a paperwork reminder, not a hold on the line.
 * `credit_agreement_signed`, `credit_agreement_document` and
-  `agreement_signed_date` are `allow_on_submit`, so the agreement can be
-  attached after approval. **The moment it is, the terms go live** — the same
-  `apply_approval()` runs, and a comment records it.
+  `agreement_signed_date` are `allow_on_submit`, so the agreement can still be
+  attached after approval to close out the file; it no longer changes whether
+  the line is usable.
 
-Until then `credit_engine.get_active_credit_application()` will not return the
-application, and Sales sees: *"Terms not available yet — the line for X is
-approved, but the signed Credit Agreement is not on file."*
+`credit_engine.get_active_credit_application()` returns the application the
+moment it is Approved and submitted, agreement or not.
 
 ### What going live does
 
