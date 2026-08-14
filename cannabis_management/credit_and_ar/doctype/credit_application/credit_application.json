@@ -520,7 +520,7 @@
   },
   {
    "fieldname": "ap_contact",
-   "fieldtype": "Phone",
+   "fieldtype": "Data",
    "label": "AP Contact"
   },
   {

@@ -226,15 +226,14 @@ def get_active_credit_application(customer: str) -> dict | None:
 			"credit_agreement_document",
 		],
 		order_by="modified desc",
+		limit=1,
 	)
 
-	# Approved is not the same as live. The MD's decision opens the line; the
-	# countersigned agreement is what makes it usable.
-	for row in rows:
-		if row.credit_agreement_signed and row.credit_agreement_document:
-			return row
-
-	return None
+	# The MD's approval is the gate on its own — terms go live on submit
+	# regardless of agreement status (see CreditApplication.on_submit). The
+	# signed agreement is tracked but no longer required for the line to be
+	# usable.
+	return rows[0] if rows else None
 
 
 def describe_line_blocker(customer: str) -> str | None:
@@ -252,12 +251,7 @@ def describe_line_blocker(customer: str) -> str | None:
 	rows = frappe.get_all(
 		"Credit Application",
 		filters={"customer": ("in", members), "docstatus": 1},
-		fields=[
-			"name",
-			"workflow_state",
-			"credit_agreement_signed",
-			"credit_agreement_document",
-		],
+		fields=["name", "workflow_state"],
 		order_by="modified desc",
 	)
 
@@ -276,13 +270,8 @@ def describe_line_blocker(customer: str) -> str | None:
 			"complete the Line of Credit form and sign the Credit Agreement."
 		).format(frappe.bold(customer))
 
-	if not any(row.credit_agreement_signed and row.credit_agreement_document for row in approved):
-		return frappe._(
-			"Terms not available yet — the line for {0} is approved, but the signed Credit "
-			"Agreement is not on file. Mark {1} as signed and attach the countersigned "
-			"agreement, and terms go live immediately."
-		).format(frappe.bold(customer), approved[0].name)
-
+	# Approved is live on its own now (see CreditApplication.on_submit) — a
+	# missing signed agreement is a paperwork reminder, not a terms blocker.
 	return None
 
 

@@ -70,10 +70,12 @@ class CreditApplication(Document):
 
 	def on_submit(self):
 		if self.workflow_state == STATE_APPROVED:
-			if self.agreement_complete:
-				self.apply_approval()
-			else:
-				self._await_agreement()
+			# Terms go live the moment the MD approves — the decision itself is
+			# the gate, not the paperwork. The signed agreement is still
+			# expected, but chasing it no longer holds up the customer's line.
+			self.apply_approval()
+			if not self.agreement_complete:
+				self._notify_agreement_outstanding()
 		elif self.workflow_state == STATE_REJECTED:
 			self._notify_rejected()
 		self._notify_requestor_of_decision()
@@ -82,17 +84,15 @@ class CreditApplication(Document):
 		previous = self.get_doc_before_save()
 		was = previous.workflow_state if previous else None
 
-		# The signed agreement usually lands *after* the MD has approved. When it
-		# does, that is the moment the terms actually go live.
-		if (
-			self.workflow_state == STATE_APPROVED
-			and self.agreement_complete
-			and not self._is_live_on_customer()
-		):
+		# Terms already go live at submit (see `on_submit`). This is a safety
+		# net only — it catches applications approved before that took effect,
+		# or any other edge case where an Approved application isn't yet live
+		# on its customer — so a later edit self-heals rather than staying stuck.
+		if self.workflow_state == STATE_APPROVED and not self._is_live_on_customer():
 			self.apply_approval()
 			self.add_comment(
 				"Info",
-				_("Signed Credit Agreement received — terms are now live for this customer."),
+				_("Credit line synced to the customer record."),
 			)
 
 		if was == self.workflow_state:
@@ -304,9 +304,10 @@ class CreditApplication(Document):
 		settings = utils.get_settings()
 		problems = []
 
-		# The signed agreement is deliberately NOT required here. The MD approves
-		# the line; the countersigned agreement is the condition precedent to the
-		# terms actually going live, checked after submit in `agreement_complete`.
+		# The signed agreement is deliberately NOT required here. The MD's approval
+		# is the gate — terms go live on submit regardless of agreement status
+		# (see `on_submit`); an outstanding signature only triggers a paperwork
+		# reminder (`_notify_agreement_outstanding`), it no longer blocks anything.
 		# The AP contact is collected from the applicant at Finance Review, not
 		# demanded again at approval. The finance charge, collection cost and
 		# reconciliation clauses are checked in `_validate_recommendation` —
@@ -357,19 +358,20 @@ class CreditApplication(Document):
 			== self.name
 		)
 
-	def _await_agreement(self):
-		"""Approved by the MD, but the countersigned agreement is not on file yet.
+	def _notify_agreement_outstanding(self):
+		"""Approved by the MD and already live on the Customer — but the
+		countersigned agreement is not on file yet.
 
-		Nothing is written to the Customer: no limit, no terms template, no
-		status change. The decision is recorded; the line stays shut until the
-		agreement arrives.
+		This is a paperwork reminder only. It no longer gates anything: the
+		limit, terms and status are already written to the Customer by
+		``apply_approval`` in ``on_submit``, regardless of agreement status.
 		"""
 		self.add_comment(
 			"Info",
 			_(
-				"Approved by the Managing Director. <b>Terms are not live yet</b> — the "
-				"signed Credit Agreement must be attached before this customer can order "
-				"on terms."
+				"Approved by the Managing Director. <b>Terms are now live</b> for this "
+				"customer. The signed Credit Agreement is still outstanding — attach it "
+				"to close out the file."
 			),
 		)
 		self._notify_awaiting_agreement()
@@ -385,13 +387,14 @@ class CreditApplication(Document):
 
 		self._sendmail(
 			recipients,
-			_("Credit line approved, pending signed agreement — {0}").format(self.customer),
+			_("Credit line approved — signed agreement still outstanding — {0}").format(self.customer),
 			_(
 				"<p>The Managing Director has approved a <b>{limit}</b> line on "
-				"<b>{terms}</b> for <b>{customer}</b>.</p>"
-				"<p style='color:#b91c1c;'><b>Terms are not live yet.</b> The signed Credit "
-				"Agreement must be marked as signed and attached to the application before "
-				"this customer can place a Terms order.</p><p>{link}</p>"
+				"<b>{terms}</b> for <b>{customer}</b>, and terms are already live on the "
+				"account.</p>"
+				"<p style='color:#b91c1c;'><b>The signed Credit Agreement is still "
+				"outstanding.</b> Please get it signed and attached to the application to "
+				"close out the file.</p><p>{link}</p>"
 			).format(
 				limit=utils.fmt_currency(self.approved_limit),
 				terms=frappe.utils.escape_html(self.approved_terms or ""),

@@ -402,19 +402,6 @@
   },
   {
    "allow_read_on_all_link_options": 0,
-   "fieldname": "recommended_terms",
-   "fieldtype": "Select",
-   "hidden": 0,
-   "label": "Recommended Terms",
-   "max_length": 0,
-   "max_value": 0,
-   "options": "\nNET7\nNET15\nNET21\nNET30\n50% down NET7\n50% down NET15\n50% down NET21\n50% down NET30",
-   "read_only": 0,
-   "reqd": 0,
-   "show_in_filter": 0
-  },
-  {
-   "allow_read_on_all_link_options": 0,
    "description": "Years in operation, other supplier references, seasonality, anything that helps us read your capacity to pay.",
    "fieldname": "financial_capacity_notes",
    "fieldtype": "Text",
