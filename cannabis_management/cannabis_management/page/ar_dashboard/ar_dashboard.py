@@ -9,7 +9,7 @@ RECON_EDIT_ROLES    = ("Account Manager", "System Manager", "Administrator")
 # what Administrator sees. Without this, Company User Permissions silently
 # zero out non-permitted companies (e.g. matt@motleyterpz.com has Company
 # permissions for only TSBC Ranch / Motley Terpz / TMM Group, so Master Touch
-# Manufacturing, MTPZ and LA Canna invoices vanish from his totals).
+# Manufacturing, MTPZ and LA Canna invoices vanish from his totals)edw.
 ORG_WIDE_VIEW_ROLES = ("Account Receivable", "System Manager", "CEO")
 
 
@@ -34,6 +34,7 @@ def _org_wide_view():
 TMM_GROUP_COMPANIES = ["Motley Terpz", "TSBC Ranch"]
 LEGACY_CUTOFF       = "2026-05-31"
 NEW_AR_START        = "2026-06-01"
+
 
 ALLOWED_RECON_STATUSES = (
     "",

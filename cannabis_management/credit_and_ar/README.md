@@ -18,6 +18,7 @@ policy document where the two disagree.
 | 1 | **Every non-COD payment terms template** requires a written MD exception reason on the Credit Application. |
 | 2 | Finance charges apply to **all past-due terms invoices**, not NET30 only. |
 | 3 | 50%-down terms: the deposit must be **cleared** before production/staging. Only the deferred half counts against the credit line. |
+| 14 | **Cash orders are outside the policy** (2026-08-18). Mode of Payment = Cash On Delivery ⇒ no approval, no credit line, no deposit, no print block, **and no hold** — on the order and on Delivery Notes raised from it. ERPNext's own defaults stand, including `payment_terms_template`. Rationale: cash carries no exposure, and 109 customers sat on Hard Hold unable to trade even for cash. **Exception:** the workout paydown still applies to cash, so a workout customer cannot escape the paydown by switching every order to cash. |
 | 4 | Sample orders are zero-value but **stock still leaves inventory**. No reason code, no monthly cap, and **holds do not block samples**. |
 | 5 | **Per-order MD approval, always.** A live credit line does not auto-pass future Terms orders. |
 | 6 | **Single group-wide line** shared across TSBC Ranch, Motley Terpz and Master Touch Manufacturing. |
@@ -286,14 +287,17 @@ Order type is derived, never entered twice:
 ```
 Samples                       →  Sample
 Payment Terms (not a sample)  →  Terms
-anything else, incl. blank    →  COD
+anything else, incl. blank    →  Cash   (Mode of Payment = Cash On Delivery)
 ```
+
+**Cash is outside the policy entirely.** The money arrives with the product, so there
+is no exposure for the policy to protect — see decision 14.
 
 ### On save — nothing blocks a draft
 
 | Type | What happens |
 |---|---|
-| **COD** | Forced onto the `COD` template, payment schedule cleared, approval `Not Required`, print unblocked. No credit checks. |
+| **Cash** | Nothing. Approval `Not Required`, print unblocked, no deposit, no credit line — and the document is otherwise left to ERPNext: `payment_terms_template` and `payment_schedule` are **not** touched. No credit checks, and **holds do not block cash orders**. |
 | **Sample** | Every rate, discount and margin forced to **0**, totals recalculated, then a hard assertion that the grand total is zero. Terms cleared. No credit checks, and **holds do not block samples**. |
 | **Terms** | Computed and stamped — available line, required deposit, approval status, print block — plus an **orange warning** listing everything that will stop the order at submit. |
 
