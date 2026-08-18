@@ -68,18 +68,15 @@
 			}
 
 			// ── Start ────────────────────────────────────────────────────────
-			// Same four fields, same fieldtypes, same order as core ERPNext's own
-			// Timesheet "Start Timer" popup (erpnext.timesheet.timer, in
-			// erpnext/public/js/projects/timer.js) — deliberately no extra
-			// description text or filtering beyond what that dialog has, so this
-			// reads as the same control a worker would meet inside Desk.
+			// Same fieldtypes/order as core ERPNext's own Timesheet "Start Timer"
+			// popup (erpnext.timesheet.timer) minus Project/Task, which this
+			// portal doesn't ask for — deliberately no extra description text or
+			// filtering beyond what that dialog has otherwise.
 			function openStartDialog() {
 				var dialog = new frappe.ui.Dialog({
 					title: __('Start Timer'),
 					fields: [
 						{ fieldtype: 'Link', label: __('Activity Type'), fieldname: 'activity_type', reqd: 1, options: 'Activity Type' },
-						{ fieldtype: 'Link', label: __('Project'), fieldname: 'project', options: 'Project' },
-						{ fieldtype: 'Link', label: __('Task'), fieldname: 'task', options: 'Task' },
 						{ fieldtype: 'Float', label: __('Expected Hrs'), fieldname: 'expected_hours' },
 					],
 					primary_action_label: __('Start'),
@@ -96,8 +93,6 @@
 			function startTimer(values) {
 				timerState = {
 					activity_type: values.activity_type,
-					project: values.project || null,
-					task: values.task || null,
 					expected_hours: values.expected_hours || null,
 					// Date.now() (epoch ms), NOT a formatted wall-clock string — see
 					// the note on save_timer_entry for why: outside Desk,
@@ -127,10 +122,7 @@
 				$idle.style.display = 'none';
 				$running.style.display = '';
 
-				var bits = [timerState.activity_type];
-				if (timerState.project) bits.push(timerState.project);
-				if (timerState.task) bits.push(timerState.task);
-				$meta.textContent = bits.join(' · ');
+				$meta.textContent = timerState.activity_type;
 
 				tick();
 				clearInterval(tickInterval);
@@ -162,8 +154,6 @@
 							method: API + 'save_timer_entry',
 							args: {
 								activity_type: timerState.activity_type,
-								project: timerState.project,
-								task: timerState.task,
 								expected_hours: timerState.expected_hours,
 								// A plain duration, not a formatted timestamp — the
 								// server stamps from_time/to_time off its own clock

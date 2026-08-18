@@ -1,5 +1,12 @@
 """Confine a code-unlocked session to the Manufacturing Process page.
 
+STATUS: written and tested, but NOT currently wired in — hooks.py's
+``before_request`` entry for ``guard`` is commented out. A code holder is now
+free to also use the rest of the ERP while a Manufacturing Portal session is
+active, without signing out of the portal first, by explicit request. That's
+a real trade-off (see below), made deliberately: re-enable by uncommenting
+the ``before_request`` line in hooks.py if the confinement is wanted back.
+
 Runs as a ``before_request`` hook. Frappe builds ``HTTPRequest()`` (which establishes
 the session) immediately before running these hooks, so ``frappe.session`` is
 populated by the time this executes.

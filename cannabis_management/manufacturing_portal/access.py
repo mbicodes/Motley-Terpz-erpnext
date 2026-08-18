@@ -5,14 +5,18 @@ user, that user is logged in for real (``login_manager.login_as``) so every exis
 whitelisted endpoint keeps enforcing *their* permissions — no parallel permission
 system is invented here.
 
-The resulting session is marked ``mfg_portal_only``, and ``session_guard`` confines
-it to this page. See the module README for the honest limits of that confinement.
+The resulting session is marked ``mfg_portal_only``. ``session_guard`` CAN confine
+that session to this page alone, but that confinement is currently switched off
+(hooks.py's ``before_request`` entry for it is commented out) — by request, so a
+code holder can also use the rest of the ERP without signing out of the portal
+first. See session_guard's own module docstring for the trade-off and how to
+switch it back on.
 
 Threat model, stated plainly: a short code typed on a shop floor is a low-value
 credential. Hashing it would not meaningfully help — the keyspace is small enough to
 enumerate offline regardless. What actually protects it is enforced uniqueness, a
-per-IP failure budget with lockout, the restricted session, and the fact that every
-attempt (success or failure) is written to Process Access Log.
+per-IP failure budget with lockout, and the fact that every attempt (success or
+failure) is written to Process Access Log.
 """
 
 import frappe
@@ -139,11 +143,28 @@ def is_code_session():
 	return bool((session.get("data") or {}).get(SESSION_FLAG))
 
 
+PREVIOUS_USER_KEY = "mfg_portal_previous_user"
+
+
 def _mark_session_restricted():
 	frappe.local.session.data[SESSION_FLAG] = 1
 	# Force the write: Frappe only flushes session data to the Sessions table every
 	# 10 minutes otherwise, and the guard must see this flag on the very next
 	# request.
+	frappe.local.session_obj.update(force=True)
+	frappe.db.commit()
+
+
+def _clear_session_restricted():
+	"""Drop the portal markers without touching the underlying login.
+
+	Used by lock() when the current session's real identity has nothing to
+	restore and nothing to log out of — the session itself stays exactly as
+	valid as it was.
+	"""
+	data = frappe.local.session.data
+	data.pop(SESSION_FLAG, None)
+	data.pop(PREVIOUS_USER_KEY, None)
 	frappe.local.session_obj.update(force=True)
 	frappe.db.commit()
 
@@ -161,6 +182,16 @@ def unlock(code=None):
 	through this function writes an audit row.
 	"""
 	ip, _agent = _request_context()
+
+	# If this browser already has a real Desk login, remember it — login_as()
+	# below replaces the session outright (cookie-based sessions are one per
+	# browser, not one per tab), so without this the person would just be
+	# dropped as Guest once they hit Sign out. Restoring it there instead
+	# means unlocking a code never has to feel like being logged out of your
+	# own account, without ever blocking the unlock itself.
+	previous_user = frappe.session.user
+	if previous_user in (None, "Guest") or is_code_session():
+		previous_user = None
 
 	if is_locked_out(ip):
 		log_attempt("Locked Out", reason=f"{_failure_count(ip)} failures from this address")
@@ -196,7 +227,15 @@ def unlock(code=None):
 
 	frappe.local.login_manager.login_as(user)
 	_mark_session_restricted()
-	log_attempt("Success", user=user)
+	if previous_user:
+		# login_as() just built a brand new session — stash the note in *that*
+		# one so lock() can find it later.
+		frappe.local.session.data[PREVIOUS_USER_KEY] = previous_user
+		frappe.local.session_obj.update(force=True)
+	log_attempt(
+		"Success", user=user,
+		reason=f"was signed in as {previous_user}" if previous_user else None,
+	)
 
 	return {
 		"ok": True,
@@ -208,12 +247,33 @@ def unlock(code=None):
 
 @frappe.whitelist()
 def lock():
-	"""End a code session (the page's Sign out button)."""
+	"""End a code session (the page's Sign out button).
+
+	Returns to whichever real Desk login this browser had before the code was
+	entered (see unlock's ``previous_user``), rather than always dropping to
+	Guest — unlocking a code never has to end with someone stranded logged out
+	of their own ERP account. And when the code just belonged to the account
+	that was already logged in here (e.g. testing your own code), there is
+	nothing to restore either: signing out must only drop back to the Access
+	Code screen, never tear down a real ERP session that has nothing to do
+	with the code — including in every other tab this browser is signed into.
+	"""
 	user = frappe.session.user
+	previous_user = None
 	if is_code_session():
+		session = getattr(frappe.local, "session", None)
+		previous_user = (session.get("data") or {}).get(PREVIOUS_USER_KEY) if session else None
 		log_attempt("Success", user=user, reason="signed out")
 
-	frappe.local.login_manager.logout()
+	if previous_user and previous_user == user:
+		_clear_session_restricted()
+	elif (
+		previous_user
+		and frappe.db.get_value("User", previous_user, "enabled")
+	):
+		frappe.local.login_manager.login_as(previous_user)
+	else:
+		frappe.local.login_manager.logout()
 	frappe.db.commit()
 	return {"ok": True, "redirect": PORTAL_ROUTE}
 
