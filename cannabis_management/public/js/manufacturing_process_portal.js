@@ -2,11 +2,36 @@
  *
  * Two jobs only:
  *   1. Guest  → drive the code-entry form against manufacturing_portal.access.unlock
- *   2. Signed in → mount the shared app (public/js/manufacturing_process_app.js)
+ *   2. Signed in → mount the Time Clock (public/js/manufacturing_process_timer_portal.js)
  *
- * All page behaviour lives in the shared module, which the Desk page mounts too.
+ * The full Work Order/BOM/Job Card trail (manufacturing_process_app.js) is a
+ * Desk-only view now — the portal's whole job, once unlocked, is Start Timer.
  * Keep this file free of business logic.
  */
+
+// Desk always populates frappe.boot.user with can_create/can_read/etc. arrays
+// (permission lists the whole Link-field control relies on) — a plain website
+// page like this one never gets that object at all. Several core Link-field
+// code paths read it unguarded (frappe.model.can_create, the "remember last
+// picked value" cache in control_link.js) and throw the moment they're hit,
+// which — because it happens INSIDE the search_link success callback, before
+// the line that actually shows the results — silently kills the awesomplete
+// dropdown for every Link field on this page (Activity Type/Project/Task
+// would search fine on the network tab, but nothing ever appeared to pick
+// from). An empty-permissions stub is both safe and correct here: this
+// restricted portal session shouldn't be offering "Create a new X" or any
+// other permission-gated affordance anyway.
+frappe.boot = frappe.boot || {};
+if (!frappe.boot.user) {
+	frappe.boot.user = { last_selected_values: {} };
+	[
+		"can_create", "can_select", "can_read", "can_write", "can_get_report",
+		"can_delete", "can_submit", "can_cancel", "can_import", "can_export",
+		"can_print", "can_email", "can_share",
+	].forEach(function (key) {
+		frappe.boot.user[key] = [];
+	});
+}
 
 frappe.ready(function () {
 	var ACCESS = "cannabis_management.manufacturing_portal.access.";
@@ -62,19 +87,17 @@ frappe.ready(function () {
 		return;
 	}
 
-	// ── 2. unlocked: mount the shared app ────────────────────────────
+	// ── 2. unlocked: mount the Time Clock ────────────────────────────
 	if (!appRoot) return;
 
-	if (!window.cannabis || !cannabis.manufacturingProcess) {
+	if (!window.cannabis || !cannabis.manufacturingTimer) {
 		appRoot.innerHTML =
 			'<div class="mpx-fatal">The Manufacturing Process module failed to load. ' +
 			"Try reloading the page.</div>";
 		return;
 	}
 
-	cannabis.manufacturingProcess.mount(appRoot, {
-		initialWorkOrder: appRoot.dataset.initialWorkOrder || null,
-	});
+	cannabis.manufacturingTimer.mount(appRoot);
 
 	var signOut = document.getElementById("mpxSignOut");
 	if (signOut) {

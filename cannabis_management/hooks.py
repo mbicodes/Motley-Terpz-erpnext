@@ -55,8 +55,10 @@ app_include_js = [
     # Shared "Company" report filter carrying an All Company option — must load
     # before any report script that calls cannabis.reports.company_filter().
     "/assets/cannabis_management/js/company_filter.js",
-    # Manufacturing Process page logic, shared by the Desk page and the portal page
-    # at /manufacturing-process. Must load before the Desk page's thin shell.
+    # Manufacturing Process Desk page logic (Work Order/BOM/Job Card trail).
+    # Must load before the Desk page's thin shell. The portal at
+    # /manufacturing-process is a separate, lighter Time Clock view now —
+    # see www/manufacturing-process.html — and does not use this file.
     "/assets/cannabis_management/js/manufacturing_process_app.js",
 ]
 

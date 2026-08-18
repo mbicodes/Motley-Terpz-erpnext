@@ -4,11 +4,13 @@
 
 {% block head_include %}
 <meta name="viewport" content="width=device-width, initial-scale=1">
-{# The trail/card styling is shared with the Desk page — single source of truth. #}
-<link rel="stylesheet" href="/assets/cannabis_management/css/manufacturing_process.css">
 {#
   manufacturing-process.css sits next to this template and Frappe inlines it
-  automatically as `colocated_css`. Do NOT add a <link> for it as well.
+  automatically as `colocated_css`. Do NOT add a <link> for it as well. It now
+  covers the whole unlocked view (Time Clock card) — the portal no longer
+  mounts the Work Order/BOM/Job Card trail, so it has no need for that shared
+  dashboard stylesheet (/assets/cannabis_management/css/manufacturing_process.css),
+  which the Desk page still uses on its own.
 
   There is deliberately no colocated .js: Frappe skips colocated JS entirely when a
   template defines its own {% block script %} (see load_colocated_files in
@@ -54,7 +56,7 @@
   <button class="mpx-signout" id="mpxSignOut">{{ _("Sign out") }}</button>
 </div>
 
-<div id="mpxApp" data-initial-work-order="{{ initial_work_order }}"></div>
+<div id="mpxApp"></div>
 
 {% endif %}
 
@@ -63,14 +65,15 @@
 {% block script %}
   {% if not locked %}
     {#
-      These two bundles are what make frappe.ui.Dialog and the Link / Table (grid)
-      controls available outside Desk — the same pair Web Forms load. They must come
-      before the shared app module, which is written against them.
+      These two bundles are what make frappe.ui.Dialog and the Link control
+      (used by the Start Timer popup: Activity Type / Project / Task) available
+      outside Desk — the same pair Web Forms load. They must come before the
+      timer module, which is written against them.
     #}
     {{ include_script('controls.bundle.js') }}
     {{ include_script('dialog.bundle.js') }}
-    <script src="/assets/cannabis_management/js/manufacturing_process_app.js"></script>
+    <script src="/assets/cannabis_management/js/manufacturing_process_timer_portal.js"></script>
   {% endif %}
-  {# Portal shell: drives the code form when locked, mounts the app when unlocked. #}
+  {# Portal shell: drives the code form when locked, mounts the Time Clock when unlocked. #}
   <script src="/assets/cannabis_management/js/manufacturing_process_portal.js"></script>
 {% endblock %}

@@ -161,8 +161,10 @@ def run():
 			"/manufacturing-process/",
 			"/manufacturing-process.js",
 			"/manufacturing-process.css",
-			"/assets/cannabis_management/js/manufacturing_process_app.js",
-			"/api/method/cannabis_management.api.manufacturing_process.get_trail",
+			"/website_script.js",
+			"/assets/cannabis_management/js/manufacturing_process_timer_portal.js",
+			"/api/method/cannabis_management.api.manufacturing_process.get_timer_defaults",
+			"/api/method/cannabis_management.api.manufacturing_process.save_timer_entry",
 			"/api/method/cannabis_management.manufacturing_portal.access.lock",
 			"/api/method/frappe.desk.search.search_link",
 			"/api/method/frappe.client.insert",
@@ -183,6 +185,16 @@ def run():
 		bad_block = [p for p in blocked if session_guard._is_allowed(session_guard._normalise(p))]
 		_check("allowlist permits every path the page needs", not bad_allow, bad_allow)
 		_check("allowlist blocks everything else", not bad_block, bad_block)
+
+		# ── legacy cmd= dispatch (website.js's frappe.call POSTs to "/") ──
+		# This is what the page's own JS (Sign out, Start Timer) actually sends —
+		# not /api/method/<method> — so it needs its own allow/block check.
+		frappe.form_dict.cmd = "cannabis_management.manufacturing_portal.access.lock"
+		_check("cmd= dispatch allows the page's own methods", session_guard._is_allowed("/"))
+		frappe.form_dict.cmd = "frappe.client.delete"
+		_check("cmd= dispatch blocks everything else", not session_guard._is_allowed("/"))
+		frappe.form_dict.pop("cmd", None)
+		_check("bare POST / with no cmd is still blocked", not session_guard._is_allowed("/"))
 
 	finally:
 		_cleanup()

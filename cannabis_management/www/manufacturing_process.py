@@ -19,8 +19,5 @@ def get_context(context):
 	if not context.locked:
 		user = frappe.session.user
 		context.full_name = frappe.db.get_value("User", user, "full_name") or user
-		# Preselect a Work Order from ?work_order=… — the portal equivalent of the
-		# Desk route segment. Passed to the shared module as options.initialWorkOrder.
-		context.initial_work_order = frappe.form_dict.get("work_order") or ""
 
 	return context
