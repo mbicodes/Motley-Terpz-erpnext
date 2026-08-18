@@ -700,10 +700,20 @@ override_doctype_dashboards = {
 
 # Request Events
 # ----------------
-# Confines a session opened with a Manufacturing Portal code to /manufacturing-process.
-# No-ops for every normally authenticated session, so the cost on ordinary requests is
-# one dict lookup.
-before_request = ["cannabis_management.manufacturing_portal.session_guard.guard"]
+# Manufacturing Portal's route confinement (session_guard.guard) is deliberately
+# NOT wired in here. A code holder needs to be free to also use the rest of the
+# ERP without signing out of the portal first — see
+# manufacturing_portal/session_guard.py's module docstring for what this trades
+# away and how to re-enable it if that ever needs to change back.
+# before_request = ["cannabis_management.manufacturing_portal.session_guard.guard"]
+before_request = [
+	# Keeps logins (the standard /login page AND the Manufacturing Portal's own
+	# code-unlock) from silently failing to persist when this site is reached
+	# through something other than this bench's own nginx (e.g. a raw port
+	# forward straight to gunicorn) — see the module docstring for why. No-ops
+	# for every request that actually came through nginx.
+	"cannabis_management.manufacturing_portal.cookie_scheme_fix.fix_scheme_for_unproxied_requests",
+]
 # after_request = ["cannabis_management.cannabis_management.utils.after_request"]
 
 # Job Events

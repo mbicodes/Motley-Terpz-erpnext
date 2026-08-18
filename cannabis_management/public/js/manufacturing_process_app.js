@@ -1220,8 +1220,8 @@
 
 	// ── Start Timer widget ───────────────────────────────────────────────
 	// Modelled on ERPNext's own Timesheet "Start Timer" popup
-	// (erpnext.timesheet.timer / public/js/projects/timer.js) — same four
-	// fields, same idea — but self-contained here since there is no `frm` on
+	// (erpnext.timesheet.timer / public/js/projects/timer.js) — same idea,
+	// minus Project/Task — but self-contained here since there is no `frm` on
 	// this page: the running timer lives in the header as a live pill, and
 	// the Timesheet document itself is only created once, when the worker
 	// clicks "End & Save". The Employee is never asked for — the backend
@@ -1242,17 +1242,15 @@
 		});
 	}
 
-	// Same four fields, same fieldtypes, same order as core ERPNext's own
-	// Timesheet "Start Timer" popup (erpnext.timesheet.timer, in
-	// erpnext/public/js/projects/timer.js) — deliberately no extra
-	// description text or filtering beyond what that dialog has.
+	// Same fieldtypes/order as core ERPNext's own Timesheet "Start Timer" popup
+	// (erpnext.timesheet.timer) minus Project/Task, which this page doesn't
+	// ask for — deliberately no extra description text or filtering beyond
+	// what that dialog has otherwise.
 	function openTimerDialog() {
 		var dialog = new frappe.ui.Dialog({
 			title: __('Start Timer'),
 			fields: [
 				{ fieldtype: 'Link', label: __('Activity Type'), fieldname: 'activity_type', reqd: 1, options: 'Activity Type' },
-				{ fieldtype: 'Link', label: __('Project'), fieldname: 'project', options: 'Project' },
-				{ fieldtype: 'Link', label: __('Task'), fieldname: 'task', options: 'Task' },
 				{ fieldtype: 'Float', label: __('Expected Hrs'), fieldname: 'expected_hours' },
 			],
 			primary_action_label: __('Start'),
@@ -1269,8 +1267,6 @@
 	function startTimer(values) {
 		timerState = {
 			activity_type: values.activity_type,
-			project: values.project || null,
-			task: values.task || null,
 			expected_hours: values.expected_hours || null,
 			// Date.now() (epoch ms), NOT a formatted wall-clock string — see the
 			// note on save_timer_entry for why: outside Desk, frappe.datetime's
@@ -1304,10 +1300,7 @@
 		var live = root.querySelector('#mp-timer-live');
 		live.style.display = '';
 
-		var labelBits = [timerState.activity_type];
-		if (timerState.project) labelBits.push(timerState.project);
-		if (timerState.task) labelBits.push(timerState.task);
-		root.querySelector('#mp-timer-label').textContent = labelBits.join(' · ');
+		root.querySelector('#mp-timer-label').textContent = timerState.activity_type;
 
 		tickTimer();
 		clearInterval(timerTickInterval);
@@ -1336,8 +1329,6 @@
 			function () {
 				var payload = {
 					activity_type: timerState.activity_type,
-					project: timerState.project,
-					task: timerState.task,
 					expected_hours: timerState.expected_hours,
 					// A plain duration, not a formatted timestamp — the server
 					// stamps from_time/to_time off its own clock from this.
