@@ -3,6 +3,18 @@ from frappe import _
 from frappe.utils import flt
 
 
+def is_conversion_repack(doc) -> bool:
+    """A Repack draft that a Conversion Entry generated.
+
+    These are balanced automatically on every save (see
+    rebalance_conversion_repack) instead of honouring a hand-typed rate, so they
+    take a different path through both hooks below.
+    """
+    return doc.stock_entry_type == "Repack" and bool(
+        doc.get("custom_conversion_entry_reference")
+    )
+
+
 def before_validate(doc, method=None):
     """
     Keep a manually-rated Repack finished-good row internally consistent
@@ -18,6 +30,13 @@ def before_validate(doc, method=None):
     actually intended, however they edited the row.
     """
     if doc.stock_entry_type != "Repack":
+        return
+
+    if is_conversion_repack(doc):
+        # No manual rate to protect here -- rebalance_conversion_repack owns
+        # these rows outright. Keep core's hands off them (see the note there
+        # on why core cannot be allowed to run its own repack distribution).
+        _pin_conversion_fg_rows(doc)
         return
 
     before = doc.get_doc_before_save()
@@ -95,6 +114,13 @@ def validate(doc, method):
         # Repack so that leg only ever reflects a genuine RM/FG valuation gap.
         unify_repack_difference_account(doc)
 
+        if is_conversion_repack(doc):
+            # Conversion Entry drafts are the opposite case: the finished-good
+            # value must always mirror the raw material consumed, however the
+            # draft is edited afterwards. Rebalance instead of pinning.
+            rebalance_conversion_repack(doc)
+            return
+
         # ERPNext's set_basic_rate() (core, runs before this hook) recomputes an
         # incoming row's rate/amount from the outgoing cost every single save,
         # unless set_basic_rate_manually is checked on that row -- overwriting
@@ -114,6 +140,75 @@ def validate(doc, method):
             # Second: distribute the input value (even if 0) across outputs,
             # skipping any finished-good row the user has manually rated.
             set_repack_valuation(doc)
+
+
+def _pin_conversion_fg_rows(doc):
+    """Tell core to leave the finished-good rates alone; we set them ourselves."""
+    for item in doc.items:
+        if item.t_warehouse and not item.s_warehouse:
+            item.set_basic_rate_manually = 1
+
+
+def rebalance_conversion_repack(doc):
+    """Push the whole raw-material cost onto the finished goods, pro rata by qty.
+
+    This is the formula Conversion Entry applies when it builds the draft, kept
+    live for the draft's whole life: edit a qty, swap an item, add or delete a
+    row, and total incoming value lands back on total outgoing value.
+
+    Core cannot be left to do this. ERPNext's repack distribution
+    (`get_basic_rate_for_repacked_items`) only handles one finished item, or
+    several rows of the *same* item. With two different finished goods -- which
+    a Conversion Entry supports -- it returns None, and `set_basic_rate` assigns
+    that None straight onto the row; the row then falls through to
+    `get_valuation_rate`, which either picks an unrelated rate or throws
+    "Valuation Rate for the Item ... is required" and blocks the save outright.
+    So the rows are pinned with set_basic_rate_manually (core skips them
+    entirely) and rated here instead.
+
+    Runs after core's validate, so the outgoing rows already carry the real
+    incoming rate for the posting date rather than a Bin snapshot.
+    """
+    _pin_conversion_fg_rows(doc)
+
+    outgoing = [d for d in doc.items if d.s_warehouse and not d.t_warehouse]
+    finished = [d for d in doc.items if d.t_warehouse and not d.s_warehouse]
+    if not finished:
+        return
+
+    total_outgoing = sum(flt(d.basic_amount) for d in outgoing)
+    # transfer_qty, not qty: core computes basic_amount as transfer_qty * rate,
+    # so distributing on qty would not balance when a row uses a UOM whose
+    # conversion factor is not 1.
+    total_fg_qty = sum(flt(d.transfer_qty) for d in finished)
+    if total_fg_qty <= 0:
+        return
+
+    precision = finished[0].precision("basic_amount")
+    assigned = 0.0
+
+    for index, item in enumerate(finished):
+        if index == len(finished) - 1:
+            # Last row absorbs the rounding residual, so the two sides match to
+            # the cent instead of drifting apart by a fraction per row.
+            amount = flt(total_outgoing - assigned, precision)
+        else:
+            amount = flt(total_outgoing * flt(item.transfer_qty) / total_fg_qty, precision)
+        assigned += amount
+
+        item.basic_amount = amount
+        # Deliberately unrounded, matching core's own comment on basic_rate:
+        # rounding here reintroduces the drift the residual just removed.
+        item.basic_rate = amount / flt(item.transfer_qty) if flt(item.transfer_qty) else 0.0
+
+    # Everything downstream of basic_amount has to run again. This is
+    # calculate_rate_and_amount() minus set_basic_rate(), which would undo the
+    # distribution we just made, and minus init_landed_taxes_and_totals(), which
+    # only touches the additional-cost rows and already ran.
+    doc.distribute_additional_costs()
+    doc.update_valuation_rate()
+    doc.set_total_incoming_outgoing_value()
+    doc.set_total_amount()
 
 
 def _pin_rm_qty_to_work_order(doc):

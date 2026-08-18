@@ -1,0 +1,83 @@
+{
+ "charts": [],
+ "content": "[{\"id\":\"xgWbJuBBov\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Phase 1: Harvest &amp; P&amp;L</b><b></b></span>\",\"col\":12}},{\"id\":\"2wvEmkkH2C\",\"type\":\"paragraph\",\"data\":{\"text\":\"phase rolls up every linked cost and any recorded revenue into a single harvest-level profit and loss view.\",\"col\":12}},{\"id\":\"qjOqPcuFsw\",\"type\":\"paragraph\",\"data\":{\"text\":\"1. Farm Production Batch: Create one record per harvest event \u2014 name, date, route, strain(s), lbs produced.\",\"col\":12}},{\"id\":\"Wo8bkpkTZl\",\"type\":\"paragraph\",\"data\":{\"text\":\"2. Costs to Date, Revenue to Date, Gross Profit, and Net are calculated automatically from linked Cloning Batch, Farm Labor Session, and Sales Invoice records.\",\"col\":12}},{\"id\":\"6Mh1qtRFyT\",\"type\":\"paragraph\",\"data\":{\"text\":\"3. Set Status to Active or Archived to control what shows on the CEO Dashboard.\",\"col\":12}},{\"id\":\"S4odAHVhPQ\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Farm Production Batch\",\"col\":3}},{\"id\":\"CV8D-8gfUd\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\" style=\\\"\\\"></span><span class=\\\"h3\\\"><b><i>Phase 2: Propagation (Nursery)</i></b></span>\",\"col\":12}},{\"id\":\"EG-anhrh-B\",\"type\":\"paragraph\",\"data\":{\"text\":\"This phase handles taking cuttings from mother plants and tracking rooting success before transplant.\",\"col\":12}},{\"id\":\"TFtkAFUJJJ\",\"type\":\"paragraph\",\"data\":{\"text\":\"2. Cloning Batch: Record cuttings taken, strain, METRC tag, and labor hours.\",\"col\":12}},{\"id\":\"p6JIzyzl8v\",\"type\":\"paragraph\",\"data\":{\"text\":\"3. Linked Harvest: Select which harvest cycle this propagation batch supports.\",\"col\":12}},{\"id\":\"kiC69jGh3e\",\"type\":\"paragraph\",\"data\":{\"text\":\"4. On submit, a draft Stock Entry is automatically created receiving the clones into the nursery warehouse.\",\"col\":12}},{\"id\":\"vCX-lQYuGN\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Cloning Batch\",\"col\":3}},{\"id\":\"PnsaaBS6GC\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Phase 3: Field Work (Planting, Deleaf, Bucking)</b><b></b></span>\",\"col\":12}},{\"id\":\"2YAYesM0hT\",\"type\":\"paragraph\",\"data\":{\"text\":\"This phase rolls up every linked cost and any recorded revenue into a single harvest-level profit and loss view.\",\"col\":12}},{\"id\":\"BZCJXIQIFJ\",\"type\":\"paragraph\",\"data\":{\"text\":\"1. Farm Production Batch: Create one record per harvest event \u2014 name, date, route, strain(s), lbs produced.\",\"col\":12}},{\"id\":\"232heB7ZpK\",\"type\":\"paragraph\",\"data\":{\"text\":\"2. Costs to Date, Revenue to Date, Gross Profit, and Net are calculated automatically from linked Cloning Batch, Farm Labor Session, and Sales Invoice records.\",\"col\":12}},{\"id\":\"6Rwx-MxzB9\",\"type\":\"paragraph\",\"data\":{\"text\":\"3. Set Status to Active or Archived to control what shows on the CEO Dashboard.\",\"col\":12}},{\"id\":\"qxF6OIz0k0\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Farm Labor Session\",\"col\":3}},{\"id\":\"CFh00wqmiu\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Phase 4: Daily Compliance<b></b></span>\",\"col\":12}},{\"id\":\"5WuT1fqQzM\",\"type\":\"paragraph\",\"data\":{\"text\":\"This phase captures the end-of-day scouting and compliance record for each farm manager, individually.\",\"col\":12}},{\"id\":\"ECcZlV-gZN\",\"type\":\"paragraph\",\"data\":{\"text\":\"1. Farm Daily Log: One entry per person, per operating day \u2014 scouting completed, findings, any issue, and DCC readiness.\",\"col\":12}},{\"id\":\"oigLDX-h_o\",\"type\":\"paragraph\",\"data\":{\"text\":\"2. A missed scouting day or an unreported issue is surfaced later through a simple filtered list view \u2014 no extra setup needed here.\",\"col\":12}},{\"id\":\"bQRnT5pt-b\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Farm Daily Log\",\"col\":3}},{\"id\":\"vRCje4ABiU\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h3\\\"><b><i>Phase 5: Dashboards &amp; Reports</i></b></span>\",\"col\":12}},{\"id\":\"ue0-0t3NHB\",\"type\":\"paragraph\",\"data\":{\"text\":\"<b>Once data has been logged through Phases 1\u20134, these three pages turn it into the views the team actually checks day to day: harvest profit and loss, daily operational health, and individual performance</b>\",\"col\":12}},{\"id\":\"iotglwzggj\",\"type\":\"paragraph\",\"data\":{\"text\":\"1. CEO Dashboard: active and archived harvests with live cost, revenue, and profit \u2014 plus Frozen Flip procurement tracking.\",\"col\":12}},{\"id\":\"mI0rcnj4Pv\",\"type\":\"paragraph\",\"data\":{\"text\":\"2. Ops Dashboard: daily scouting and compliance status, plus labor efficiency by task, filterable by date range.\",\"col\":12}},{\"id\":\"P3LQV6TIXc\",\"type\":\"paragraph\",\"data\":{\"text\":\"3. Individual KPI: per-employee responsibilities and KPI targets vs. actuals, selectable by name.\",\"col\":12}},{\"id\":\"gG5LCErC_e\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"CEO - Farm Dashboard\",\"col\":4}},{\"id\":\"YLIsXSltkp\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"OPS - Farm Dashboard\",\"col\":3}},{\"id\":\"WYS8zpLqxI\",\"type\":\"paragraph\",\"data\":{\"text\":\"<span class=\\\"h3\\\"><b><i>Notes</i></b></span>\",\"col\":12}},{\"id\":\"EQb3rPv210\",\"type\":\"paragraph\",\"data\":{\"text\":\"Shortcut cards automatically display the live record count once linked to a DocType (as seen in the Lab Batch example) \u2014 no manual number entry.&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;&nbsp;<br>Card order in the workspace should follow the operational flow: Propagation \u2192 Field Work \u2192 Harvest \u2192 Compliance, so anyone new to the system reads it top to bottom like an SOP.<br>This workspace can be assigned to a specific role (e.g. \\\"Farm User\\\") under Workspace settings so it only appears for relevant staff.<br>Farm Settings (once built) can be added as a simple shortcut at the bottom for quick access to target-rate configuration.\",\"col\":12}}]",
+ "creation": "2026-07-06 12:45:45.332934",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "agriculture",
+ "idx": 0,
+ "indicator_color": "green",
+ "is_hidden": 0,
+ "label": "Harvesting Process",
+ "links": [],
+ "modified": "2026-08-11 08:20:37.929719",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Harvesting Process",
+ "number_cards": [],
+ "owner": "muhammad.huzaifa@alltechvirtual.com",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [
+  {
+   "role": "Manufacturing Manager"
+  },
+  {
+   "role": "Manufacturing User"
+  }
+ ],
+ "sequence_id": 57.0,
+ "shortcuts": [
+  {
+   "color": "Grey",
+   "doc_view": "New",
+   "label": "Farm Daily Log",
+   "link_to": "Farm Daily Log",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "CEO - Farm Dashboard",
+   "link_to": "ceo-dashboard-farm",
+   "type": "Page"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "New",
+   "label": "Cloning Batch",
+   "link_to": "Cloning Batch",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "New",
+   "label": "Farm Labor Session",
+   "link_to": "Farm Labor Session",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "OPS - Farm Dashboard",
+   "link_to": "ops-dashboard-farm",
+   "type": "Page"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "New",
+   "label": "Farm Production Batch",
+   "link_to": "Farm Production Batch",
+   "stats_filter": "[]",
+   "type": "DocType"
+  }
+ ],
+ "title": "Harvesting Process"
+}

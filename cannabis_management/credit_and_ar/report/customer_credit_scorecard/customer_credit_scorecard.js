@@ -1,6 +1,6 @@
 frappe.query_reports["Customer Credit Scorecard"] = {
 	filters: [
-		{ fieldname: "company", label: __("Company"), fieldtype: "Link", options: "Company" },
+		cannabis.reports.company_filter({ default: cannabis.reports.ALL_COMPANIES }),
 		{ fieldname: "customer", label: __("Customer"), fieldtype: "Link", options: "Customer" },
 		{
 			fieldname: "customer_group",

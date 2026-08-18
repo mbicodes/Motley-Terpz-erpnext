@@ -1,0 +1,76 @@
+{% extends "templates/web.html" %}
+
+{% block title %}{{ _("Manufacturing Process") }}{% endblock %}
+
+{% block head_include %}
+<meta name="viewport" content="width=device-width, initial-scale=1">
+{# The trail/card styling is shared with the Desk page — single source of truth. #}
+<link rel="stylesheet" href="/assets/cannabis_management/css/manufacturing_process.css">
+{#
+  manufacturing-process.css sits next to this template and Frappe inlines it
+  automatically as `colocated_css`. Do NOT add a <link> for it as well.
+
+  There is deliberately no colocated .js: Frappe skips colocated JS entirely when a
+  template defines its own {% block script %} (see load_colocated_files in
+  website/page_renderers/template_page.py), and this page must define that block to
+  control bundle load order. The shell script is loaded explicitly there instead.
+#}
+{% endblock %}
+
+{% block page_content %}
+
+{% if locked %}
+
+<!-- ── Locked: code entry ───────────────────────────────────────────── -->
+<div class="mpx-lock-wrap">
+  <div class="mpx-lock">
+    <div class="mpx-lock-icon">&#128274;</div>
+    <h1 class="mpx-lock-title">{{ _("Manufacturing Process") }}</h1>
+    <p class="mpx-lock-sub">{{ _("Enter your access code to continue.") }}</p>
+
+    <form id="mpxUnlockForm" autocomplete="off">
+      <input type="password"
+             id="mpxCode"
+             class="mpx-code-input"
+             inputmode="text"
+             autocomplete="off"
+             autocapitalize="off"
+             spellcheck="false"
+             placeholder="{{ _('Access code') }}"
+             aria-label="{{ _('Access code') }}">
+      <button type="submit" class="mpx-unlock-btn" id="mpxUnlockBtn">{{ _("Unlock") }}</button>
+    </form>
+
+    <div class="mpx-lock-msg" id="mpxMsg" role="alert" aria-live="assertive"></div>
+    <p class="mpx-lock-foot">{{ _("Every attempt is recorded.") }}</p>
+  </div>
+</div>
+
+{% else %}
+
+<!-- ── Unlocked: the app ────────────────────────────────────────────── -->
+<div class="mpx-bar">
+  <span class="mpx-bar-user">{{ full_name }}</span>
+  <button class="mpx-signout" id="mpxSignOut">{{ _("Sign out") }}</button>
+</div>
+
+<div id="mpxApp" data-initial-work-order="{{ initial_work_order }}"></div>
+
+{% endif %}
+
+{% endblock %}
+
+{% block script %}
+  {% if not locked %}
+    {#
+      These two bundles are what make frappe.ui.Dialog and the Link / Table (grid)
+      controls available outside Desk — the same pair Web Forms load. They must come
+      before the shared app module, which is written against them.
+    #}
+    {{ include_script('controls.bundle.js') }}
+    {{ include_script('dialog.bundle.js') }}
+    <script src="/assets/cannabis_management/js/manufacturing_process_app.js"></script>
+  {% endif %}
+  {# Portal shell: drives the code form when locked, mounts the app when unlocked. #}
+  <script src="/assets/cannabis_management/js/manufacturing_process_portal.js"></script>
+{% endblock %}

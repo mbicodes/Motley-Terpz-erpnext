@@ -45,12 +45,6 @@ frappe.query_reports["Sales and Purchase Report"] = {
 			"fieldtype": "Link",
 			"options": "Customer",
 		},
-		{
-			"fieldname": "company",
-			"label": __("Company"),
-			"fieldtype": "Link",
-			"options": "Company",
-			"default": frappe.defaults.get_user_default("Company"),
-		},
+		cannabis.reports.company_filter(),
 	],
 };

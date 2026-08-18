@@ -128,6 +128,14 @@ function load_companies(page) {
 			let select = page.main.find("#ws-company-filter");
 			let default_company = frappe.defaults.get_user_default("Company") || "";
 
+			// "All Company" is a sentinel the server expands to every company —
+			// it is not a Company record, so it is added rather than fetched.
+			// The user's own company stays the default so nobody's view widens
+			// without them asking for it.
+			select.append(
+				`<option value="All Company" ${default_company ? "" : "selected"}>${__("All Company")}</option>`
+			);
+
 			if (r.message && r.message.length) {
 				r.message.forEach(function (company) {
 					let selected = company === default_company ? "selected" : "";

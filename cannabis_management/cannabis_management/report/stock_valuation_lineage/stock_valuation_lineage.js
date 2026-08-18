@@ -24,13 +24,7 @@ frappe.query_reports["Stock Valuation Lineage"] = {
 			options: ["Both", "Sales Invoice", "Delivery Note"].join("\n"),
 			default: "Both",
 		},
-		{
-			fieldname: "company",
-			label: __("Company"),
-			fieldtype: "Link",
-			options: "Company",
-			default: frappe.defaults.get_user_default("Company"),
-		},
+		cannabis.reports.company_filter(),
 		{
 			fieldname: "item_code",
 			label: __("Item"),

@@ -3,14 +3,7 @@
 
 frappe.query_reports["Gross Profit Stock Items"] = {
 	filters: [
-		{
-			fieldname: "company",
-			label: __("Company"),
-			fieldtype: "Link",
-			options: "Company",
-			default: frappe.defaults.get_user_default("Company"),
-			reqd: 1,
-		},
+		cannabis.reports.company_filter({ reqd: 1 }),
 		{
 			fieldname: "from_date",
 			label: __("From Date"),

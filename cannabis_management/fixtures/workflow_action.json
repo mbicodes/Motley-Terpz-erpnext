@@ -1,6 +1,678 @@
 [
  {
   "completed_by": "Administrator",
+  "completed_by_role": "Credit Finance",
+  "docstatus": 0,
+  "doctype": "Workflow Action",
+  "modified": "2026-08-06 13:07:09.040088",
+  "name": "ds2an3i2ld",
+  "permitted_roles": [
+   {
+    "parent": "ds2an3i2ld",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Credit Finance"
+   },
+   {
+    "parent": "ds2an3i2ld",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Sales User"
+   }
+  ],
+  "reference_doctype": "Credit Application",
+  "reference_name": "CREDIT-APP-2026-00005",
+  "status": "Completed",
+  "user": null,
+  "workflow_state": "Draft"
+ },
+ {
+  "completed_by": "Administrator",
+  "completed_by_role": "Credit Finance",
+  "docstatus": 0,
+  "doctype": "Workflow Action",
+  "modified": "2026-08-06 13:11:57.591453",
+  "name": "gm74n7shn2",
+  "permitted_roles": [
+   {
+    "parent": "gm74n7shn2",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Credit Finance"
+   }
+  ],
+  "reference_doctype": "Credit Application",
+  "reference_name": "CREDIT-APP-2026-00005",
+  "status": "Completed",
+  "user": null,
+  "workflow_state": "Finance Review"
+ },
+ {
+  "completed_by": "Administrator",
+  "completed_by_role": "Managing Director",
+  "docstatus": 0,
+  "doctype": "Workflow Action",
+  "modified": "2026-08-06 13:15:57.817774",
+  "name": "j1akf3nege",
+  "permitted_roles": [
+   {
+    "parent": "j1akf3nege",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Managing Director"
+   }
+  ],
+  "reference_doctype": "Credit Application",
+  "reference_name": "CREDIT-APP-2026-00005",
+  "status": "Completed",
+  "user": null,
+  "workflow_state": "Pending MD Approval"
+ },
+ {
+  "completed_by": null,
+  "completed_by_role": null,
+  "docstatus": 0,
+  "doctype": "Workflow Action",
+  "modified": "2026-08-06 13:20:26.293294",
+  "name": "ll7secjuli",
+  "permitted_roles": [
+   {
+    "parent": "ll7secjuli",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Managing Director"
+   },
+   {
+    "parent": "ll7secjuli",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Credit Finance"
+   }
+  ],
+  "reference_doctype": "Credit Application",
+  "reference_name": "CREDIT-APP-2026-00005",
+  "status": "Open",
+  "user": null,
+  "workflow_state": "Approved"
+ },
+ {
+  "completed_by": "Administrator",
+  "completed_by_role": "Credit Finance",
+  "docstatus": 0,
+  "doctype": "Workflow Action",
+  "modified": "2026-08-06 13:43:54.112690",
+  "name": "3d5iasqqb0",
+  "permitted_roles": [
+   {
+    "parent": "3d5iasqqb0",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Credit Finance"
+   },
+   {
+    "parent": "3d5iasqqb0",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Sales User"
+   }
+  ],
+  "reference_doctype": "Credit Application",
+  "reference_name": "CREDIT-APP-2026-00006",
+  "status": "Completed",
+  "user": null,
+  "workflow_state": "Draft"
+ },
+ {
+  "completed_by": null,
+  "completed_by_role": null,
+  "docstatus": 0,
+  "doctype": "Workflow Action",
+  "modified": "2026-08-06 13:43:59.373158",
+  "name": "3ep14bjp5v",
+  "permitted_roles": [
+   {
+    "parent": "3ep14bjp5v",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Credit Finance"
+   }
+  ],
+  "reference_doctype": "Credit Application",
+  "reference_name": "CREDIT-APP-2026-00006",
+  "status": "Open",
+  "user": null,
+  "workflow_state": "Finance Review"
+ },
+ {
+  "completed_by": "Administrator",
+  "completed_by_role": "Credit Finance",
+  "docstatus": 0,
+  "doctype": "Workflow Action",
+  "modified": "2026-08-10 06:06:10.499092",
+  "name": "66papdpa82",
+  "permitted_roles": [
+   {
+    "parent": "66papdpa82",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Credit Finance"
+   },
+   {
+    "parent": "66papdpa82",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Sales User"
+   }
+  ],
+  "reference_doctype": "Credit Application",
+  "reference_name": "CREDIT-APP-2026-00007",
+  "status": "Completed",
+  "user": null,
+  "workflow_state": "Draft"
+ },
+ {
+  "completed_by": "Administrator",
+  "completed_by_role": "Credit Finance",
+  "docstatus": 0,
+  "doctype": "Workflow Action",
+  "modified": "2026-08-10 06:06:15.201164",
+  "name": "688l2e2o77",
+  "permitted_roles": [
+   {
+    "parent": "688l2e2o77",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Credit Finance"
+   }
+  ],
+  "reference_doctype": "Credit Application",
+  "reference_name": "CREDIT-APP-2026-00007",
+  "status": "Completed",
+  "user": null,
+  "workflow_state": "Finance Review"
+ },
+ {
+  "completed_by": "Administrator",
+  "completed_by_role": "Managing Director",
+  "docstatus": 0,
+  "doctype": "Workflow Action",
+  "modified": "2026-08-10 06:08:00.190527",
+  "name": "791guronr0",
+  "permitted_roles": [
+   {
+    "parent": "791guronr0",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Managing Director"
+   }
+  ],
+  "reference_doctype": "Credit Application",
+  "reference_name": "CREDIT-APP-2026-00007",
+  "status": "Completed",
+  "user": null,
+  "workflow_state": "Pending MD Approval"
+ },
+ {
+  "completed_by": "Administrator",
+  "completed_by_role": "Credit Finance",
+  "docstatus": 0,
+  "doctype": "Workflow Action",
+  "modified": "2026-08-10 06:12:30.024916",
+  "name": "9tcvfj3lqr",
+  "permitted_roles": [
+   {
+    "parent": "9tcvfj3lqr",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Managing Director"
+   },
+   {
+    "parent": "9tcvfj3lqr",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Credit Finance"
+   }
+  ],
+  "reference_doctype": "Credit Application",
+  "reference_name": "CREDIT-APP-2026-00007",
+  "status": "Completed",
+  "user": null,
+  "workflow_state": "Approved"
+ },
+ {
+  "completed_by": "Administrator",
+  "completed_by_role": "Credit Finance",
+  "docstatus": 0,
+  "doctype": "Workflow Action",
+  "modified": "2026-08-10 06:14:40.290366",
+  "name": "b62d1a9ges",
+  "permitted_roles": [
+   {
+    "parent": "b62d1a9ges",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Credit Finance"
+   },
+   {
+    "parent": "b62d1a9ges",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Sales User"
+   }
+  ],
+  "reference_doctype": "Credit Application",
+  "reference_name": "CREDIT-APP-2026-00007-1",
+  "status": "Completed",
+  "user": null,
+  "workflow_state": "Draft"
+ },
+ {
+  "completed_by": "Administrator",
+  "completed_by_role": "Credit Finance",
+  "docstatus": 0,
+  "doctype": "Workflow Action",
+  "modified": "2026-08-10 06:14:42.173303",
+  "name": "b6ln69tdgf",
+  "permitted_roles": [
+   {
+    "parent": "b6ln69tdgf",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Credit Finance"
+   }
+  ],
+  "reference_doctype": "Credit Application",
+  "reference_name": "CREDIT-APP-2026-00007-1",
+  "status": "Completed",
+  "user": null,
+  "workflow_state": "Finance Review"
+ },
+ {
+  "completed_by": null,
+  "completed_by_role": null,
+  "docstatus": 0,
+  "doctype": "Workflow Action",
+  "modified": "2026-08-10 06:14:44.775432",
+  "name": "b7fv7fm51t",
+  "permitted_roles": [
+   {
+    "parent": "b7fv7fm51t",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Managing Director"
+   }
+  ],
+  "reference_doctype": "Credit Application",
+  "reference_name": "CREDIT-APP-2026-00007-1",
+  "status": "Open",
+  "user": null,
+  "workflow_state": "Pending MD Approval"
+ },
+ {
+  "completed_by": null,
+  "completed_by_role": null,
+  "docstatus": 0,
+  "doctype": "Workflow Action",
+  "modified": "2026-08-10 11:33:07.300149",
+  "name": "5p1hdgvirs",
+  "permitted_roles": [
+   {
+    "parent": "5p1hdgvirs",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Credit Finance"
+   },
+   {
+    "parent": "5p1hdgvirs",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Sales User"
+   }
+  ],
+  "reference_doctype": "Credit Application",
+  "reference_name": "CREDIT-APP-2026-00008",
+  "status": "Open",
+  "user": null,
+  "workflow_state": "Draft"
+ },
+ {
+  "completed_by": "Administrator",
+  "completed_by_role": "Credit Finance",
+  "docstatus": 0,
+  "doctype": "Workflow Action",
+  "modified": "2026-08-10 15:29:14.886873",
+  "name": "g4cdluckm4",
+  "permitted_roles": [
+   {
+    "parent": "g4cdluckm4",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Credit Finance"
+   },
+   {
+    "parent": "g4cdluckm4",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Sales User"
+   }
+  ],
+  "reference_doctype": "Credit Application",
+  "reference_name": "CREDIT-APP-2026-00009",
+  "status": "Completed",
+  "user": null,
+  "workflow_state": "Draft"
+ },
+ {
+  "completed_by": "Administrator",
+  "completed_by_role": "Credit Finance",
+  "docstatus": 0,
+  "doctype": "Workflow Action",
+  "modified": "2026-08-10 15:50:46.774631",
+  "name": "so3f9l71d6",
+  "permitted_roles": [
+   {
+    "parent": "so3f9l71d6",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Credit Finance"
+   }
+  ],
+  "reference_doctype": "Credit Application",
+  "reference_name": "CREDIT-APP-2026-00009",
+  "status": "Completed",
+  "user": null,
+  "workflow_state": "Finance Review"
+ },
+ {
+  "completed_by": null,
+  "completed_by_role": null,
+  "docstatus": 0,
+  "doctype": "Workflow Action",
+  "modified": "2026-08-10 15:54:04.771514",
+  "name": "ulv6m27q54",
+  "permitted_roles": [
+   {
+    "parent": "ulv6m27q54",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Managing Director"
+   }
+  ],
+  "reference_doctype": "Credit Application",
+  "reference_name": "CREDIT-APP-2026-00009",
+  "status": "Open",
+  "user": null,
+  "workflow_state": "Pending MD Approval"
+ },
+ {
+  "completed_by": "Administrator",
+  "completed_by_role": "Credit Finance",
+  "docstatus": 0,
+  "doctype": "Workflow Action",
+  "modified": "2026-08-11 05:35:37.046086",
+  "name": "01qu75mkvm",
+  "permitted_roles": [
+   {
+    "parent": "01qu75mkvm",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Credit Finance"
+   },
+   {
+    "parent": "01qu75mkvm",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Sales User"
+   }
+  ],
+  "reference_doctype": "Credit Application",
+  "reference_name": "CREDIT-APP-2026-00010",
+  "status": "Completed",
+  "user": null,
+  "workflow_state": "Draft"
+ },
+ {
+  "completed_by": "Administrator",
+  "completed_by_role": "Credit Finance",
+  "docstatus": 0,
+  "doctype": "Workflow Action",
+  "modified": "2026-08-11 05:37:29.414436",
+  "name": "14ujtn9isg",
+  "permitted_roles": [
+   {
+    "parent": "14ujtn9isg",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Credit Finance"
+   }
+  ],
+  "reference_doctype": "Credit Application",
+  "reference_name": "CREDIT-APP-2026-00010",
+  "status": "Completed",
+  "user": null,
+  "workflow_state": "Finance Review"
+ },
+ {
+  "completed_by": "Administrator",
+  "completed_by_role": "Credit Finance",
+  "docstatus": 0,
+  "doctype": "Workflow Action",
+  "modified": "2026-08-11 05:40:20.722203",
+  "name": "2qffgcvihl",
+  "permitted_roles": [
+   {
+    "parent": "2qffgcvihl",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Credit Finance"
+   },
+   {
+    "parent": "2qffgcvihl",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Sales User"
+   }
+  ],
+  "reference_doctype": "Credit Application",
+  "reference_name": "CREDIT-APP-2026-00011",
+  "status": "Completed",
+  "user": null,
+  "workflow_state": "Draft"
+ },
+ {
+  "completed_by": "Administrator",
+  "completed_by_role": "Credit Finance",
+  "docstatus": 0,
+  "doctype": "Workflow Action",
+  "modified": "2026-08-11 05:40:22.529406",
+  "name": "2r19m76ebg",
+  "permitted_roles": [
+   {
+    "parent": "2r19m76ebg",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Credit Finance"
+   }
+  ],
+  "reference_doctype": "Credit Application",
+  "reference_name": "CREDIT-APP-2026-00011",
+  "status": "Completed",
+  "user": null,
+  "workflow_state": "Finance Review"
+ },
+ {
+  "completed_by": "Administrator",
+  "completed_by_role": "Managing Director",
+  "docstatus": 0,
+  "doctype": "Workflow Action",
+  "modified": "2026-08-11 05:41:51.323890",
+  "name": "3mpst7d7sj",
+  "permitted_roles": [
+   {
+    "parent": "3mpst7d7sj",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Managing Director"
+   }
+  ],
+  "reference_doctype": "Credit Application",
+  "reference_name": "CREDIT-APP-2026-00011",
+  "status": "Completed",
+  "user": null,
+  "workflow_state": "Pending MD Approval"
+ },
+ {
+  "completed_by": "Administrator",
+  "completed_by_role": "Credit Finance",
+  "docstatus": 0,
+  "doctype": "Workflow Action",
+  "modified": "2026-08-11 05:57:53.972203",
+  "name": "d3jfmk85si",
+  "permitted_roles": [
+   {
+    "parent": "d3jfmk85si",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Credit Finance"
+   },
+   {
+    "parent": "d3jfmk85si",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Managing Director"
+   }
+  ],
+  "reference_doctype": "Credit Application",
+  "reference_name": "CREDIT-APP-2026-00011",
+  "status": "Completed",
+  "user": null,
+  "workflow_state": "Approved"
+ },
+ {
+  "completed_by": null,
+  "completed_by_role": null,
+  "docstatus": 0,
+  "doctype": "Workflow Action",
+  "modified": "2026-08-11 07:20:18.607477",
+  "name": "tcqb1unejq",
+  "permitted_roles": [
+   {
+    "parent": "tcqb1unejq",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Credit Finance"
+   },
+   {
+    "parent": "tcqb1unejq",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Sales User"
+   }
+  ],
+  "reference_doctype": "Credit Application",
+  "reference_name": "CREDIT-APP-2026-00013",
+  "status": "Open",
+  "user": null,
+  "workflow_state": "Draft"
+ },
+ {
+  "completed_by": "Administrator",
+  "completed_by_role": "Credit Finance",
+  "docstatus": 0,
+  "doctype": "Workflow Action",
+  "modified": "2026-08-11 13:01:40.338370",
+  "name": "5dbfkvn0im",
+  "permitted_roles": [
+   {
+    "parent": "5dbfkvn0im",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Sales User"
+   },
+   {
+    "parent": "5dbfkvn0im",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Credit Finance"
+   }
+  ],
+  "reference_doctype": "Credit Application",
+  "reference_name": "CREDIT-APP-2026-00014",
+  "status": "Completed",
+  "user": null,
+  "workflow_state": "Draft"
+ },
+ {
+  "completed_by": "Administrator",
+  "completed_by_role": "Credit Finance",
+  "docstatus": 0,
+  "doctype": "Workflow Action",
+  "modified": "2026-08-11 13:02:10.773697",
+  "name": "5mr02q3ag4",
+  "permitted_roles": [
+   {
+    "parent": "5mr02q3ag4",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Credit Finance"
+   }
+  ],
+  "reference_doctype": "Credit Application",
+  "reference_name": "CREDIT-APP-2026-00014",
+  "status": "Completed",
+  "user": null,
+  "workflow_state": "Finance Review"
+ },
+ {
+  "completed_by": "Administrator",
+  "completed_by_role": "Managing Director",
+  "docstatus": 0,
+  "doctype": "Workflow Action",
+  "modified": "2026-08-11 13:06:37.232592",
+  "name": "8a4tbh29ul",
+  "permitted_roles": [
+   {
+    "parent": "8a4tbh29ul",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Managing Director"
+   }
+  ],
+  "reference_doctype": "Credit Application",
+  "reference_name": "CREDIT-APP-2026-00014",
+  "status": "Completed",
+  "user": null,
+  "workflow_state": "Pending MD Approval"
+ },
+ {
+  "completed_by": null,
+  "completed_by_role": null,
+  "docstatus": 0,
+  "doctype": "Workflow Action",
+  "modified": "2026-08-11 13:32:20.799841",
+  "name": "ncgmc4irsu",
+  "permitted_roles": [
+   {
+    "parent": "ncgmc4irsu",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Credit Finance"
+   },
+   {
+    "parent": "ncgmc4irsu",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Managing Director"
+   }
+  ],
+  "reference_doctype": "Credit Application",
+  "reference_name": "CREDIT-APP-2026-00014",
+  "status": "Open",
+  "user": null,
+  "workflow_state": "Approved"
+ },
+ {
+  "completed_by": "Administrator",
   "completed_by_role": "Director",
   "docstatus": 0,
   "doctype": "Workflow Action",
@@ -1765,5 +2437,74 @@
   "status": "Open",
   "user": null,
   "workflow_state": "Send for Review"
+ },
+ {
+  "completed_by": "Administrator",
+  "completed_by_role": "Credit Finance",
+  "docstatus": 0,
+  "doctype": "Workflow Action",
+  "modified": "2026-08-13 09:26:02.179485",
+  "name": "ui5aumfuo6",
+  "permitted_roles": [
+   {
+    "parent": "ui5aumfuo6",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Credit Finance"
+   },
+   {
+    "parent": "ui5aumfuo6",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Sales User"
+   }
+  ],
+  "reference_doctype": "Credit Application",
+  "reference_name": "CREDIT-APP-2026-00015",
+  "status": "Completed",
+  "user": null,
+  "workflow_state": "Draft"
+ },
+ {
+  "completed_by": "Administrator",
+  "completed_by_role": "Credit Finance",
+  "docstatus": 0,
+  "doctype": "Workflow Action",
+  "modified": "2026-08-13 09:26:48.047615",
+  "name": "v0gk5l03n3",
+  "permitted_roles": [
+   {
+    "parent": "v0gk5l03n3",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Credit Finance"
+   }
+  ],
+  "reference_doctype": "Credit Application",
+  "reference_name": "CREDIT-APP-2026-00015",
+  "status": "Completed",
+  "user": null,
+  "workflow_state": "Finance Review"
+ },
+ {
+  "completed_by": null,
+  "completed_by_role": null,
+  "docstatus": 0,
+  "doctype": "Workflow Action",
+  "modified": "2026-08-13 09:31:24.618946",
+  "name": "1mu16i46io",
+  "permitted_roles": [
+   {
+    "parent": "1mu16i46io",
+    "parentfield": "permitted_roles",
+    "parenttype": "Workflow Action",
+    "role": "Managing Director"
+   }
+  ],
+  "reference_doctype": "Credit Application",
+  "reference_name": "CREDIT-APP-2026-00015",
+  "status": "Open",
+  "user": null,
+  "workflow_state": "Pending MD Approval"
  }
 ]

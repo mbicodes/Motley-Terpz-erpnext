@@ -1000,19 +1000,20 @@
 	background: #eff6ff;
 }
 
-/* ── POC column ───────────────────────────────────────────────── */
-.ard-th-poc {
-	min-width: 80px;
+/* ── Yes/No columns (Onboarding, Company Made Contact) ────────── */
+.ard-th-flag {
+	min-width: 90px;
 	text-align: center;
+	white-space: normal;
 }
-.ard-td-poc {
+.ard-td-flag {
 	font-size: 11px;
 	font-weight: 600;
 	color: var(--ard-text);
 	text-align: center;
 	padding: 4px 6px !important;
 }
-.ard-poc-select {
+.ard-flag-select {
 	font-size: 11px;
 	font-weight: 600;
 	padding: 2px 4px;
@@ -1023,7 +1024,7 @@
 	cursor: pointer;
 	max-width: 90px;
 }
-.ard-poc-readonly {
+.ard-flag-readonly {
 	font-size: 11px;
 	font-weight: 600;
 	color: var(--ard-muted);

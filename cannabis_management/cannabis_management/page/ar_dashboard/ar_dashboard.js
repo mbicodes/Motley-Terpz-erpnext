@@ -230,9 +230,9 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
         handle_recon_change(page, $(this));
     });
 
-    // Inline POC dropdown change
-    page.main.on('change', '.ard-poc-select', function () {
-        handle_poc_change(page, $(this));
+    // Inline Yes/No dropdown change (Onboarding, Company Made Contact)
+    page.main.on('change', '.ard-flag-select', function () {
+        handle_flag_change(page, $(this));
     });
 
     // Inline Notebox edit — save on blur (focusout bubbles; blur does not) when
@@ -584,28 +584,37 @@ function handle_new_ar_click(page, $btn) {
     });
 }
 
-// ─── POC Update ───────────────────────────────────────────────────────────────
+// ─── Yes/No flag update (Onboarding, Company Made Contact) ─────────────────────
 
-function handle_poc_change(page, $select) {
+var FLAG_LABELS = {
+    onboarding:           "Onboarding",
+    company_made_contact: "Company Made Contact",
+};
+
+function handle_flag_change(page, $select) {
     if (!page._ard_can_edit) {
         $select.val($select.attr('data-current') || "");
         return;
     }
     let party   = $select.attr('data-party');
+    let field   = $select.attr('data-field');
     let new_val = $select.val();
     let old_val = $select.attr('data-current') || "";
+    let label   = FLAG_LABELS[field] || field;
     $select.prop('disabled', true);
     frappe.call({
-        method: "cannabis_management.cannabis_management.page.ar_dashboard.ar_dashboard.update_poc",
-        args: { party: party, value: new_val },
+        method: "cannabis_management.cannabis_management.page.ar_dashboard.ar_dashboard.update_ar_flag",
+        args: { party: party, field: field, value: new_val },
         callback: function (r) {
             $select.prop('disabled', false);
             if (r.message) {
-                frappe.show_alert({ message: __("POC updated"), indicator: 'green' }, 3);
+                frappe.show_alert({ message: __("{0} updated", [label]), indicator: 'green' }, 3);
                 $select.attr('data-current', new_val);
+                // Keep the cached rows in step so the value survives a re-render
+                // and rides along in every export.
                 let update = function (rows) {
                     (rows || []).forEach(function (row) {
-                        if (row.party === party) row.poc = new_val;
+                        if (row.party === party) row[field] = new_val;
                     });
                 };
                 if (page._ard_result)     update(page._ard_result.rows);
@@ -615,7 +624,7 @@ function handle_poc_change(page, $select) {
         error: function () {
             $select.prop('disabled', false);
             $select.val(old_val);
-            frappe.show_alert({ message: __("Failed to update POC"), indicator: 'red' }, 5);
+            frappe.show_alert({ message: __("Failed to update {0}", [label]), indicator: 'red' }, 5);
         }
     });
 }
@@ -1028,20 +1037,23 @@ function build_recon_cell(page, party, status, readonly) {
     return `<span class="${badge_cls}" title="Read-only — Account Manager role required to edit">${esc(label)}</span>`;
 }
 
-var POC_OPTIONS = [
-    { value: "",        label: "—" },
-    { value: "Company", label: "Company" },
-    { value: "Nikki",   label: "Nikki" },
+// Yes/No columns (Onboarding, Company Made Contact). Blank is kept as a real
+// option so "nobody has answered yet" stays distinct from an explicit "No".
+var YES_NO_OPTIONS = [
+    { value: "",    label: "—" },
+    { value: "Yes", label: "Yes" },
+    { value: "No",  label: "No" },
 ];
 
-function build_poc_cell(page, party, poc, readonly) {
+function build_flag_cell(page, party, field, value) {
     if (page._ard_can_edit) {
-        let opts = POC_OPTIONS.map(function (o) {
-            return `<option value="${esc_attr(o.value)}" ${poc === o.value ? "selected" : ""}>${esc(o.label)}</option>`;
+        let opts = YES_NO_OPTIONS.map(function (o) {
+            return `<option value="${esc_attr(o.value)}" ${value === o.value ? "selected" : ""}>${esc(o.label)}</option>`;
         }).join("");
-        return `<select class="ard-poc-select" data-party="${esc_attr(party)}" data-current="${esc_attr(poc)}">${opts}</select>`;
+        return `<select class="ard-flag-select" data-party="${esc_attr(party)}"
+            data-field="${esc_attr(field)}" data-current="${esc_attr(value)}">${opts}</select>`;
     }
-    return `<span class="ard-poc-readonly">${esc(poc || "—")}</span>`;
+    return `<span class="ard-flag-readonly">${esc(value || "—")}</span>`;
 }
 
 function build_notebox_cell(page, party, note) {
@@ -1149,7 +1161,8 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
                 name: row.customer_name || row.party,
                 party: row.party,
                 recon_status: row.reconciliation_status || "",
-                poc: row.poc || "",
+                onboarding: row.onboarding || "",
+                company_made_contact: row.company_made_contact || "",
                 new_ar_available: !!row.new_ar_available,
                 notebox: row.notebox || "",
                 rows: []
@@ -1179,6 +1192,7 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
 					<td class="ard-td-sticky ard-total-cell">TOTALS<div class="ard-invoice-count-compact" style="color:var(--ard-muted);font-size:11px;margin-top:2px;font-weight:400;">${esc(company)} &bull; ${total_invoices} inv &bull; ${customer_order.length} cust</div></td>
 					<td class="ard-total-cell"></td>
 					<td class="ard-total-cell"></td>
+					<td class="ard-total-cell"></td>
 					<td class="ard-num ard-total-cell">${fmt_cur(view_totals.invoiced)}</td>
 					<td class="ard-num ard-total-cell">${fmt_cur(view_totals.paid)}</td>
 					<td class="ard-num ard-total-cell ard-outstanding">${fmt_cur(view_totals.outstanding)}</td>
@@ -1189,7 +1203,9 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
 
     let band_row = "";
     if (show_terms) {
-        let lead_cols = 6 + ((split_ln || show_legacy_col) ? 2 : 0) + 3;
+        // Customer, Recon, Onboarding, Company Made Contact, Invoiced, Paid,
+        // Outstanding (7) + the optional Legacy/New pair + Total AR, Good, Bad.
+        let lead_cols = 7 + ((split_ln || show_legacy_col) ? 2 : 0) + 3;
         band_row = `
 					<tr class="ard-band-row">
 						<th colspan="${lead_cols}" class="ard-band-blank"></th>
@@ -1209,7 +1225,8 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
 					<tr class="ard-head-row">
 						<th class="ard-th-sticky">Customer</th>
 						<th class="ard-th-recon">Recon Status</th>
-						<th class="ard-th-poc">POC</th>
+						<th class="ard-th-flag">Onboarding</th>
+						<th class="ard-th-flag">Company Made Contact</th>
 						<th class="ard-th-num">Invoiced</th>
 						<th class="ard-th-num">Paid</th>
 						<th class="ard-th-num">Outstanding</th>
@@ -1242,8 +1259,9 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
             return `<td class="${cls} ard-total-cell">${val > 0 ? fmt_cur(val) : "\u2014"}</td>`;
         }).join("");
 
-        let recon_cell = build_recon_cell(page, group.party, group.recon_status, readonly);
-        let poc_cell   = build_poc_cell(page, group.party, group.poc, readonly);
+        let recon_cell      = build_recon_cell(page, group.party, group.recon_status, readonly);
+        let onboarding_cell = build_flag_cell(page, group.party, "onboarding", group.onboarding);
+        let contact_cell    = build_flag_cell(page, group.party, "company_made_contact", group.company_made_contact);
 
         let new_ar_active = group.new_ar_available;
         let new_ar_cell = page._ard_can_edit
@@ -1258,7 +1276,8 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
 					<div class="ard-invoice-count-compact" style="color:var(--ard-muted);font-size:11px;margin-top:2px;">${group.rows.length} invoice(s)</div>
 				</td>
 				<td class="ard-td-recon">${recon_cell}</td>
-				<td class="ard-td-poc">${poc_cell}</td>
+				<td class="ard-td-flag">${onboarding_cell}</td>
+				<td class="ard-td-flag">${contact_cell}</td>
 				<td class="ard-num ard-total-cell">${fmt_cur(sub.invoiced)}</td>
 				<td class="ard-num ard-total-cell">${fmt_cur(sub.paid)}</td>
 				<td class="ard-num ard-total-cell ard-outstanding">${fmt_cur(sub.outstanding)}</td>
@@ -1283,6 +1302,7 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
 						<a href="/app/sales-invoice/${esc(row.voucher_no)}" target="_blank" class="ard-link">${esc(row.voucher_no)}</a>
 						<div class="ard-inv-meta">${show_company && row.company ? esc(row.company) + " &bull; " : ""}${fmt_date(row.posting_date)} &rarr; ${fmt_date(row.due_date)} <span class="ard-badge ${status.cls}">${status.label}</span></div>
 					</td>
+					<td></td>
 					<td></td>
 					<td></td>
 					<td class="ard-num">${fmt_cur(row.invoiced)}</td>
@@ -1673,8 +1693,8 @@ function export_pdf(page) {
         '#ard-summary-section,#ard-projection-section,#ard-aging-section{display:none!important;}' +
         // Sheet shows one row per customer — keep invoice detail rows collapsed
         '.ard-invoice-row{display:none!important;}' +
-        // Interactive controls print as plain text (recon / POC / New AR / Notebox)
-        '.ard-recon-select,.ard-poc-select{border:none!important;background:transparent!important;' +
+        // Interactive controls print as plain text (recon / Yes-No flags / New AR / Notebox)
+        '.ard-recon-select,.ard-flag-select{border:none!important;background:transparent!important;' +
           '-webkit-appearance:none;appearance:none;padding:0!important;}' +
         '.ard-new-ar-btn{border:none!important;background:transparent!important;padding:0!important;' +
           'color:#202124!important;font-weight:600;}' +
@@ -1815,7 +1835,8 @@ function export_excel(page, use_all) {
     // Excel export is always a per-customer summary (one row per customer),
     // regardless of the on-screen "Hide Columns D–K" toggle. Per-invoice-only
     // columns (Invoice No., Type, dates, Status, Entity) are omitted.
-    let header = ["Customer", "Recon Status", "POC", "Invoiced", "Paid", "Outstanding"];
+    let header = ["Customer", "Recon Status", "Onboarding", "Company Made Contact",
+        "Invoiced", "Paid", "Outstanding"];
     if (show_terms) {
         if (split_ln)        { header.push("Legacy AR", "New AR"); }
         if (show_legacy_col) { header.push("Legacy AR", "New AR"); }
@@ -1834,7 +1855,8 @@ function export_excel(page, use_all) {
             customer_groups[key] = {
                 name: row.customer_name || row.party, party: row.party,
                 recon_status: row.reconciliation_status || "",
-                poc: row.poc || "",
+                onboarding: row.onboarding || "",
+                company_made_contact: row.company_made_contact || "",
                 new_ar_available: !!row.new_ar_available,
                 notebox: row.notebox || "",
                 rows: []
@@ -1895,7 +1917,8 @@ function export_excel(page, use_all) {
         }
 
         // one row per customer (always — collapsed summary)
-        let r = [group.name, group.recon_status, group.poc, sub.invoiced, sub.paid, sub.outstanding];
+        let r = [group.name, group.recon_status, group.onboarding, group.company_made_contact,
+            sub.invoiced, sub.paid, sub.outstanding];
         if (show_terms && group_na) {
             if (split_ln)        { r.push(group_na.legacy_ar, group_na.new_ar); }
             if (show_legacy_col) { r.push(group_legacy, group_na.total); }
@@ -1908,7 +1931,7 @@ function export_excel(page, use_all) {
     });
 
     // ── totals row ───────────────────────────────────────────────────────────────
-    let totals = ["TOTAL", "", "", grand.invoiced, grand.paid, grand.outstanding];
+    let totals = ["TOTAL", "", "", "", grand.invoiced, grand.paid, grand.outstanding];
     if (grand_na) {
         if (split_ln)        { totals.push(grand_na.legacy_ar, grand_na.new_ar); }
         if (show_legacy_col) { totals.push(grand_legacy, grand_na.total); }

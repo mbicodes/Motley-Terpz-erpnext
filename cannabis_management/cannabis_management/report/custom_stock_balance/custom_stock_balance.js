@@ -3,14 +3,7 @@
 
 frappe.query_reports["Custom Stock Balance"] = {
 	filters: [
-		{
-			fieldname: "company",
-			label: __("Company"),
-			fieldtype: "Link",
-			width: "80",
-			options: "Company",
-			default: frappe.defaults.get_default("company"),
-		},
+		cannabis.reports.company_filter(),
 		{
 			fieldname: "from_date",
 			label: __("From Date"),
