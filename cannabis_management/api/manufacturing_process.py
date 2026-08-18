@@ -4,10 +4,11 @@ Entries), plus quick-create helpers that reuse ERPNext's own mapped-doc logic
 so items/warehouses come pre-filled exactly like the standard Work Order form.
 """
 import json
+from datetime import timedelta
 
 import frappe
 from frappe import _
-from frappe.utils import flt
+from frappe.utils import flt, get_datetime, now_datetime
 
 
 @frappe.whitelist()
@@ -310,6 +311,101 @@ def get_trail(work_order):
 	data["stock_entries"] = stock_entries
 
 	return data
+
+
+# ---------------------------------------------------------------------------
+# Start Timer widget
+# ---------------------------------------------------------------------------
+
+
+@frappe.whitelist()
+def get_timer_defaults():
+	"""Whoami-style helper for the Start Timer widget: the Employee this
+	session's user resolves to (for display only), and whether one even
+	exists — the page uses this to grey the button out with a clear reason
+	instead of letting someone start a timer that will fail to save."""
+	employee = frappe.db.get_value(
+		"Employee", {"user_id": frappe.session.user}, ["name", "employee_name"], as_dict=True
+	)
+	return {
+		"employee": employee.name if employee else None,
+		"employee_name": employee.employee_name if employee else None,
+	}
+
+
+@frappe.whitelist()
+def save_timer_entry(
+	activity_type, project=None, task=None, expected_hours=None,
+	elapsed_seconds=None, from_time=None, to_time=None,
+):
+	"""Create a Timesheet from the portal's Start Timer widget, one time log row.
+
+	The Employee is always resolved server-side from the signed-in user's own
+	Employee record (User ID match) — never trusted from the client, the same
+	rule ``manufacturing_portal.access`` follows for everything security
+	relevant. ``hours`` is deliberately left for the Timesheet controller to
+	compute from ``from_time``/``to_time`` (``calculate_hours`` in core), so
+	there is only one place that arithmetic can go wrong.
+
+	``elapsed_seconds`` (what the widget actually sends) is a plain duration —
+	measured client-side purely from ``Date.now()`` differences, never a
+	wall-clock timestamp the browser formatted itself. That sidesteps a real
+	bug hit while testing this page: outside Desk, ``frappe.boot.time_zone``
+	is never populated, and ``frappe.datetime.get_datetime_as_string()``
+	(used for the Start moment) vs ``now_datetime()`` (used for the End
+	moment) apply DIFFERENT timezone handling in that situation — so a
+	Start and End taken seconds apart could land many hours apart once
+	formatted, and ERPNext's own "To date cannot be before from date" check
+	on Timesheet correctly rejected the result. Both timestamps are now
+	stamped from this one server clock instead; ``from_time``/``to_time``
+	remain as an explicit-anchor fallback for any other caller.
+
+	Only ever inserted here, never explicitly submitted — this app's own
+	``Timesheet.after_insert`` hook (``overrides.timesheet_hooks.auto_submit_timesheet``)
+	auto-submits every Timesheet on the site regardless of how it was created,
+	so duplicating that call here would be redundant, not "more correct".
+	"""
+	if not activity_type:
+		frappe.throw(_("Activity Type is required."))
+
+	employee, company = frappe.db.get_value(
+		"Employee", {"user_id": frappe.session.user}, ["name", "company"]
+	) or (None, None)
+	if not employee:
+		frappe.throw(
+			_(
+				"No Employee record is linked to your account ({0}). "
+				"Ask an administrator to set that Employee's User ID field."
+			).format(frappe.session.user)
+		)
+
+	end = get_datetime(to_time) if to_time else now_datetime()
+	if elapsed_seconds not in (None, ""):
+		start = end - timedelta(seconds=flt(elapsed_seconds))
+	else:
+		start = get_datetime(from_time) if from_time else end
+
+	ts = frappe.new_doc("Timesheet")
+	ts.employee = employee
+	ts.company = company
+	ts.append("time_logs", {
+		"activity_type": activity_type,
+		"project": project or None,
+		"task": task or None,
+		"from_time": start,
+		"to_time": end,
+		"expected_hours": flt(expected_hours) if expected_hours else None,
+		"completed": 1,
+	})
+	ts.insert()
+	frappe.db.commit()
+
+	return {
+		"name": ts.name,
+		"employee": employee,
+		"employee_name": frappe.db.get_value("Employee", employee, "employee_name"),
+		"total_hours": flt(ts.total_hours),
+	}
 
 
 @frappe.whitelist()

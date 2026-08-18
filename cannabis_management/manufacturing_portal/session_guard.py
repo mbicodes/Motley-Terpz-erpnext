@@ -72,6 +72,10 @@ ALLOWED_EXACT_PATHS = {
 	"/logout",
 	"/favicon.ico",
 	"/robots.txt",
+	# Loaded by every website page's base template (templates/web.html), code
+	# session or not — blocking it just replaces a harmless static request with
+	# a redirect that the browser tries (and fails) to execute as JS.
+	"/website_script.js",
 }
 
 # Exact whitelisted methods this page needs.
@@ -148,12 +152,29 @@ def _is_allowed(path):
 
 	if path.startswith(_API_PREFIX):
 		method = path[len(_API_PREFIX) :]
-		if method in ALLOWED_METHODS:
-			return True
-		if method.startswith(ALLOWED_METHOD_PREFIXES):
+		return _is_allowed_method(method)
+
+	# Legacy RPC dispatch: frappe.call()/xcall() on a WEBSITE page — which is
+	# what this portal's own scripts use, since website.js's frappe.call is a
+	# different (lighter) implementation than Desk's — POSTs to "/" with the
+	# method name in the `cmd` form field instead of hitting
+	# /api/method/<method>. Frappe core still honours this on the server side
+	# (app.py: `elif frappe.form_dict.cmd`, deprecated but functional), so
+	# without this branch every authenticated call this page's own JS makes —
+	# Sign out, loading/saving the timer — would silently get redirected right
+	# back to this page by the check below instead of ever running.
+	if path == "/":
+		cmd = frappe.form_dict.get("cmd")
+		if cmd and _is_allowed_method(cmd):
 			return True
 
 	return False
+
+
+def _is_allowed_method(method):
+	if method in ALLOWED_METHODS:
+		return True
+	return method.startswith(ALLOWED_METHOD_PREFIXES)
 
 
 def _log_denial_once(path):

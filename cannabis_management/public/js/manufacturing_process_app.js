@@ -35,6 +35,11 @@
 	var mrFilterControl;
 	var currentWorkOrder = null;
 
+	var TIMER_STORAGE_KEY = 'mpx_timer_' + frappe.session.user;
+	var timerState = null;
+	var timerTickInterval = null;
+	var timerExceededAlerted = false;
+
 	// ── Work Order picker (searchable Link, outside a form) — this is still
 	// the base the whole trail is built on. ─────────────────────────────────
 	woControl = frappe.ui.form.make_control({
@@ -114,8 +119,23 @@
 		createStockEntry('Manufacture');
 	});
 
+	root.querySelector('#mp-timer-start-btn').addEventListener('click', function () {
+		openTimerDialog();
+	});
+	root.querySelector('#mp-timer-stop-btn').addEventListener('click', function () {
+		endTimer();
+	});
+	root.querySelector('#mp-timer-cancel').addEventListener('click', function () {
+		frappe.confirm(
+			__('Discard this running timer without saving it as a Timesheet?'),
+			function () { clearTimerState(); }
+		);
+	});
+
 	loadRecent();
 	selectFromRoute();
+	resumeTimerFromStorage();
+	checkTimerEmployeeLink();
 
 	// ── If the page was opened as /app/manufacturing-process/WO-0001 ────────
 	function selectFromRoute() {
@@ -1198,6 +1218,158 @@
 		`;
 	}
 
+	// ── Start Timer widget ───────────────────────────────────────────────
+	// Modelled on ERPNext's own Timesheet "Start Timer" popup
+	// (erpnext.timesheet.timer / public/js/projects/timer.js) — same four
+	// fields, same idea — but self-contained here since there is no `frm` on
+	// this page: the running timer lives in the header as a live pill, and
+	// the Timesheet document itself is only created once, when the worker
+	// clicks "End & Save". The Employee is never asked for — the backend
+	// resolves it from the signed-in user.
+	function checkTimerEmployeeLink() {
+		// A running timer already in localStorage means the link was fine when it
+		// was started — don't second-guess it now with a stale disabled button.
+		if (timerState) return;
+		frappe.call({
+			method: API + 'get_timer_defaults',
+			callback: function (r) {
+				var employee = r.message && r.message.employee;
+				if (employee) return;
+				var btn = root.querySelector('#mp-timer-start-btn');
+				btn.disabled = true;
+				btn.title = __('No Employee record is linked to your account — ask an administrator to set that Employee\'s User ID field.');
+			},
+		});
+	}
+
+	// Same four fields, same fieldtypes, same order as core ERPNext's own
+	// Timesheet "Start Timer" popup (erpnext.timesheet.timer, in
+	// erpnext/public/js/projects/timer.js) — deliberately no extra
+	// description text or filtering beyond what that dialog has.
+	function openTimerDialog() {
+		var dialog = new frappe.ui.Dialog({
+			title: __('Start Timer'),
+			fields: [
+				{ fieldtype: 'Link', label: __('Activity Type'), fieldname: 'activity_type', reqd: 1, options: 'Activity Type' },
+				{ fieldtype: 'Link', label: __('Project'), fieldname: 'project', options: 'Project' },
+				{ fieldtype: 'Link', label: __('Task'), fieldname: 'task', options: 'Task' },
+				{ fieldtype: 'Float', label: __('Expected Hrs'), fieldname: 'expected_hours' },
+			],
+			primary_action_label: __('Start'),
+			primary_action: function () {
+				var values = dialog.get_values();
+				if (!values) return;
+				dialog.hide();
+				startTimer(values);
+			},
+		});
+		dialog.show();
+	}
+
+	function startTimer(values) {
+		timerState = {
+			activity_type: values.activity_type,
+			project: values.project || null,
+			task: values.task || null,
+			expected_hours: values.expected_hours || null,
+			// Date.now() (epoch ms), NOT a formatted wall-clock string — see the
+			// note on save_timer_entry for why: outside Desk, frappe.datetime's
+			// Start-time and End-time helpers can disagree on timezone.
+			start_ms: Date.now(),
+		};
+		timerExceededAlerted = false;
+		localStorage.setItem(TIMER_STORAGE_KEY, JSON.stringify(timerState));
+		showTimerRunning();
+		frappe.show_alert({ message: __('Timer started — {0}.', [timerState.activity_type]), indicator: 'green' });
+	}
+
+	function resumeTimerFromStorage() {
+		var raw = null;
+		try { raw = localStorage.getItem(TIMER_STORAGE_KEY); } catch (e) { /* localStorage unavailable */ }
+		if (!raw) return;
+		try {
+			timerState = JSON.parse(raw);
+		} catch (e) {
+			timerState = null;
+		}
+		if (timerState && timerState.activity_type && timerState.start_ms) {
+			showTimerRunning();
+		} else {
+			clearTimerState();
+		}
+	}
+
+	function showTimerRunning() {
+		root.querySelector('#mp-timer-start-btn').style.display = 'none';
+		var live = root.querySelector('#mp-timer-live');
+		live.style.display = '';
+
+		var labelBits = [timerState.activity_type];
+		if (timerState.project) labelBits.push(timerState.project);
+		if (timerState.task) labelBits.push(timerState.task);
+		root.querySelector('#mp-timer-label').textContent = labelBits.join(' · ');
+
+		tickTimer();
+		clearInterval(timerTickInterval);
+		timerTickInterval = setInterval(tickTimer, 1000);
+	}
+
+	function tickTimer() {
+		if (!timerState) return;
+		var elapsedSeconds = Math.max(0, Math.floor((Date.now() - timerState.start_ms) / 1000));
+		var hours = Math.floor(elapsedSeconds / 3600);
+		var minutes = Math.floor((elapsedSeconds % 3600) / 60);
+		var seconds = elapsedSeconds % 60;
+		var pad = function (n) { return (n < 10 ? '0' : '') + n; };
+		root.querySelector('#mp-timer-clock').textContent = pad(hours) + ':' + pad(minutes) + ':' + pad(seconds);
+
+		if (!timerExceededAlerted && timerState.expected_hours && elapsedSeconds >= timerState.expected_hours * 3600) {
+			timerExceededAlerted = true;
+			frappe.show_alert({ message: __('Timer has passed the expected {0} hour(s).', [timerState.expected_hours]), indicator: 'orange' });
+		}
+	}
+
+	function endTimer() {
+		if (!timerState) return;
+		frappe.confirm(
+			__('End the timer and save this as a Timesheet entry?'),
+			function () {
+				var payload = {
+					activity_type: timerState.activity_type,
+					project: timerState.project,
+					task: timerState.task,
+					expected_hours: timerState.expected_hours,
+					// A plain duration, not a formatted timestamp — the server
+					// stamps from_time/to_time off its own clock from this.
+					elapsed_seconds: Math.max(0, Math.floor((Date.now() - timerState.start_ms) / 1000)),
+				};
+				frappe.call({
+					method: API + 'save_timer_entry',
+					args: payload,
+					freeze: true,
+					freeze_message: __('Saving Timesheet…'),
+					callback: function (r) {
+						if (!r.message) return;
+						clearTimerState();
+						frappe.show_alert({
+							message: __('Timesheet {0} saved — {1} hour(s) logged.', [r.message.name, flt(r.message.total_hours).toFixed(2)]),
+							indicator: 'green',
+						});
+					},
+				});
+			}
+		);
+	}
+
+	function clearTimerState() {
+		timerState = null;
+		clearInterval(timerTickInterval);
+		timerTickInterval = null;
+		try { localStorage.removeItem(TIMER_STORAGE_KEY); } catch (e) { /* localStorage unavailable */ }
+		root.querySelector('#mp-timer-live').style.display = 'none';
+		root.querySelector('#mp-timer-start-btn').style.display = '';
+	}
+
 	function getMpHTML() {
 		return `
 		<div class="mp-dash">
@@ -1208,6 +1380,16 @@
 					<div class="mp-brand-sub">One page for the whole trail — BOM → Work Order → Job Cards → Stock Entries</div>
 				</div>
 				<div class="mp-hdr-right">
+					<div class="mp-timer-widget" id="mp-timer-widget">
+						<button class="btn btn-sm mp-timer-start-btn" id="mp-timer-start-btn">⏱ Start Timer</button>
+						<div class="mp-timer-live" id="mp-timer-live" style="display:none;">
+							<span class="mp-timer-dot"></span>
+							<span class="mp-timer-clock" id="mp-timer-clock">00:00:00</span>
+							<span class="mp-timer-label" id="mp-timer-label"></span>
+							<button class="mp-timer-cancel" id="mp-timer-cancel" title="${__('Discard without saving')}">✕</button>
+							<button class="btn btn-xs mp-timer-stop-btn" id="mp-timer-stop-btn">⏹ ${__('End & Save')}</button>
+						</div>
+					</div>
 					<button class="btn btn-sm" id="mp-new-mr-btn">+ New Material Request</button>
 					<button class="btn btn-sm btn-primary" id="mp-new-wo-btn">+ New Work Order</button>
 				</div>
