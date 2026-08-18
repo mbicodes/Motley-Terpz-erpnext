@@ -40,13 +40,21 @@ def get_breakdown_label(category, item_group, item_code=None, item_name=None):
     return None
 
 
+ALL_COMPANIES = "All Company"
+
+
 def get_companies_to_query(company):
     """
-    If the selected company has child companies (i.e. it is a parent/group company),
-    return a list containing the parent plus all direct children so that the page
-    shows consolidated data for the whole group.
-    Otherwise return a single-item list with the company itself.
+    Resolve the company filter to the list of companies to actually query.
+
+    `All Company` is a UI sentinel, not a Company record — it means every
+    company on the site. Otherwise, a parent/group company expands to itself
+    plus its direct children so the page shows the whole group, and anything
+    else is just itself.
     """
+    if company == ALL_COMPANIES:
+        return frappe.get_all("Company", pluck="name")
+
     children = frappe.get_all(
         "Company",
         filters={"parent_company": company},
@@ -131,6 +139,9 @@ def get_weekly_summary(from_date=None, to_date=None, company=None, mode="value")
         company = frappe.defaults.get_user_default("Company")
         if not company:
             company = frappe.db.get_single_value("Global Defaults", "default_company")
+        if not company:
+            # No default configured anywhere — showing everything beats an error.
+            company = ALL_COMPANIES
 
     to_date = getdate(to_date)
 

@@ -17,7 +17,16 @@
   "warehouse",
   "last_transaction_type",
   "last_transaction_id",
-  "last_updated"
+  "last_updated",
+  "farm_section",
+  "source_batch",
+  "growth_stage",
+  "is_mother",
+  "farm_cb",
+  "flowering_date",
+  "days_in_flower",
+  "accumulated_cost",
+  "destroyed_by"
  ],
  "fields": [
   {
@@ -100,6 +109,67 @@
    "fieldtype": "Datetime",
    "label": "Last Updated",
    "read_only": 1
+  },
+  {
+   "fieldname": "farm_section",
+   "fieldtype": "Section Break",
+   "label": "Farm / Cultivation",
+   "collapsible": 1,
+   "description": "Farm-only lifecycle fields. Independent of the Status field above, which tracks stock/METRC sync state."
+  },
+  {
+   "fieldname": "source_batch",
+   "fieldtype": "Link",
+   "label": "Source Batch",
+   "options": "Batch",
+   "in_standard_filter": 1,
+   "description": "Immature Batch this plant was promoted from."
+  },
+  {
+   "fieldname": "growth_stage",
+   "fieldtype": "Select",
+   "label": "Growth Stage",
+   "options": "\nVegetative\nFlowering\nMother\nDestroyed\nHarvested",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "description": "Farm lifecycle state — independent of Status."
+  },
+  {
+   "fieldname": "is_mother",
+   "fieldtype": "Check",
+   "label": "Is Mother"
+  },
+  {
+   "fieldname": "farm_cb",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "flowering_date",
+   "fieldtype": "Date",
+   "label": "Flowering Date",
+   "description": "Set when growth_stage becomes Flowering."
+  },
+  {
+   "fieldname": "days_in_flower",
+   "fieldtype": "Int",
+   "label": "Days in Flower",
+   "read_only": 1,
+   "description": "today − flowering_date. Recomputed on save."
+  },
+  {
+   "fieldname": "accumulated_cost",
+   "fieldtype": "Currency",
+   "label": "Accumulated Cost",
+   "read_only": 1,
+   "description": "Running total from Plant Cost Entry records applied to this tag."
+  },
+  {
+   "fieldname": "destroyed_by",
+   "fieldtype": "Link",
+   "label": "Destroyed By",
+   "options": "Employee",
+   "read_only": 1,
+   "description": "Employee who destroyed this plant (set at destroy time)."
   }
  ],
  "grid_page_length": 50,

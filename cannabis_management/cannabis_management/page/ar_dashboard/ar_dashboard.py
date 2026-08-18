@@ -44,6 +44,17 @@ ALLOWED_RECON_STATUSES = (
     "Adjustment",
 )
 
+# Yes/No columns edited inline on the dashboard. Key = the name the row payload
+# and the front-end use; value = the Customer custom field it is stored in.
+# Both are plain Selects rather than Checks so "not answered yet" stays
+# distinguishable from "No" — a blank cell means nobody has said either way.
+AR_FLAG_FIELDS = {
+    "onboarding": "custom_onboarding",
+    "company_made_contact": "custom_company_made_contact",
+}
+
+ALLOWED_FLAG_VALUES = ("", "Yes", "No")
+
 
 # Legacy fallback — customer records that predate is_internal_customer/represents_company
 # being set consistently. Keep in sync with cannabis_management.api.jamie.INTERNAL_CUSTOMERS.
@@ -340,46 +351,45 @@ def _get_ar_data(company, report_date=None, customer=None, ageing_based_on="Due 
 
     totals = _compute_totals(rows, ranges)
 
-    # Attach reconciliation status, POC, and new_ar_available from Customer master
+    # Attach reconciliation status, the AR flags and new_ar_available from Customer master
     unique_parties = list({r["party"] for r in rows if r.get("party")})
+    blank_info = {"recon": "", "new_ar_available": False, "notebox": ""}
+    blank_info.update({key: "" for key in AR_FLAG_FIELDS})
     cust_info = {}
     if unique_parties:
         fetch_fields = ["name", "custom_reconciliation_status", "custom_notebox"]
-        # custom_poc and custom_new_ar_available are added via setup_ar_custom_fields;
-        # fetch them silently if they exist.
+        # The AR flags and custom_new_ar_available are added via
+        # setup_ar_custom_fields; fetch them silently if they exist.
+        optional = list(AR_FLAG_FIELDS.values()) + ["custom_new_ar_available"]
         try:
             cust_rows = frappe.get_all(
                 "Customer",
                 filters={"name": ["in", unique_parties]},
-                fields=fetch_fields + ["custom_poc", "custom_new_ar_available"],
+                fields=fetch_fields + optional,
             )
-            for c in cust_rows:
-                cust_info[c["name"]] = {
-                    "recon": c.get("custom_reconciliation_status") or "",
-                    "poc": c.get("custom_poc") or "",
-                    "new_ar_available": bool(c.get("custom_new_ar_available")),
-                    "notebox": c.get("custom_notebox") or "",
-                }
         except Exception:
             cust_rows = frappe.get_all(
                 "Customer",
                 filters={"name": ["in", unique_parties]},
                 fields=fetch_fields,
             )
-            for c in cust_rows:
-                cust_info[c["name"]] = {
-                    "recon": c.get("custom_reconciliation_status") or "",
-                    "poc": "",
-                    "new_ar_available": False,
-                    "notebox": c.get("custom_notebox") or "",
-                }
+        for c in cust_rows:
+            info = {
+                "recon": c.get("custom_reconciliation_status") or "",
+                "new_ar_available": bool(c.get("custom_new_ar_available")),
+                "notebox": c.get("custom_notebox") or "",
+            }
+            for key, fieldname in AR_FLAG_FIELDS.items():
+                info[key] = c.get(fieldname) or ""
+            cust_info[c["name"]] = info
 
     for r in rows:
-        info = cust_info.get(r["party"], {"recon": "", "poc": "", "new_ar_available": False, "notebox": ""})
+        info = cust_info.get(r["party"], blank_info)
         r["reconciliation_status"] = info["recon"]
-        r["poc"]                   = info["poc"]
         r["new_ar_available"]      = info["new_ar_available"]
         r["notebox"]               = info.get("notebox", "")
+        for key in AR_FLAG_FIELDS:
+            r[key] = info.get(key, "")
 
     return {
         "rows": rows,
@@ -416,19 +426,26 @@ def update_recon_status(party, status):
 
 
 @frappe.whitelist()
-def update_poc(party, value):
-    """Update the custom_poc field on the Customer master."""
+def update_ar_flag(party, field, value):
+    """Set one of the inline Yes/No columns (Onboarding, Company Made Contact).
+
+    `field` is the payload key, not a fieldname — it is looked up in
+    AR_FLAG_FIELDS so a caller can never steer this at an arbitrary column.
+    """
     if not _can_edit_recon():
         frappe.throw(
-            "You do not have permission to change POC.",
+            "You do not have permission to change this field.",
             frappe.PermissionError,
         )
-    if value not in ("", "Company", "Nikki"):
-        frappe.throw("Invalid POC value")
+    fieldname = AR_FLAG_FIELDS.get(field)
+    if not fieldname:
+        frappe.throw("Unknown field")
+    if value not in ALLOWED_FLAG_VALUES:
+        frappe.throw("Invalid value — expected Yes or No")
     if not frappe.db.exists("Customer", party):
         frappe.throw(f"Customer {party} not found")
-    frappe.db.set_value("Customer", party, "custom_poc", value)
-    return {"party": party, "value": value}
+    frappe.db.set_value("Customer", party, fieldname, value)
+    return {"party": party, "field": field, "value": value}
 
 
 @frappe.whitelist()
@@ -810,23 +827,37 @@ def setup_ar_custom_fields():
             "insert_after": "customer_name",
         }).insert(ignore_permissions=True)
 
-    # POC field
-    if not frappe.db.exists("Custom Field", {"dt": "Customer", "fieldname": "custom_poc"}):
-        frappe.get_doc({
-            "doctype": "Custom Field",
-            "dt": "Customer",
-            "fieldname": "custom_poc",
-            "label": "POC",
-            "fieldtype": "Select",
-            "options": "\nCompany\nNikki",
-            "insert_after": "custom_reconciliation_status",
-        }).insert(ignore_permissions=True)
-    else:
-        poc_cf = frappe.db.get_value(
-            "Custom Field", {"dt": "Customer", "fieldname": "custom_poc"}, "name"
+    # Onboarding / Company Made Contact — the two inline Yes/No columns.
+    # These replaced the old POC column on the dashboard. custom_poc itself is
+    # deliberately left in place: 108 customers still carry a Company/Nikki
+    # value there and it means something different, so it is not reused.
+    flag_options = "\n".join(ALLOWED_FLAG_VALUES)
+    flag_labels = {
+        "custom_onboarding": "Onboarding",
+        "custom_company_made_contact": "Company Made Contact",
+    }
+    previous = "custom_poc"
+    for fieldname, label in flag_labels.items():
+        existing_flag = frappe.db.get_value(
+            "Custom Field", {"dt": "Customer", "fieldname": fieldname}, "name"
         )
-        if poc_cf:
-            frappe.db.set_value("Custom Field", poc_cf, "options", "\nCompany\nNikki")
+        if existing_flag:
+            frappe.db.set_value("Custom Field", existing_flag, {
+                "label": label,
+                "fieldtype": "Select",
+                "options": flag_options,
+            })
+        else:
+            frappe.get_doc({
+                "doctype": "Custom Field",
+                "dt": "Customer",
+                "fieldname": fieldname,
+                "label": label,
+                "fieldtype": "Select",
+                "options": flag_options,
+                "insert_after": previous,
+            }).insert(ignore_permissions=True)
+        previous = fieldname
 
     # New AR Available flag
     if not frappe.db.exists("Custom Field", {"dt": "Customer", "fieldname": "custom_new_ar_available"}):
@@ -837,7 +868,7 @@ def setup_ar_custom_fields():
             "label": "New AR Available",
             "fieldtype": "Check",
             "default": "0",
-            "insert_after": "custom_poc",
+            "insert_after": "custom_company_made_contact",
         }).insert(ignore_permissions=True)
 
     frappe.db.commit()

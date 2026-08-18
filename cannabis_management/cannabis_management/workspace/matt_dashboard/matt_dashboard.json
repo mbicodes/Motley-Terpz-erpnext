@@ -1,0 +1,98 @@
+{
+ "charts": [],
+ "content": "[{\"id\":\"AS5GdsyzOk\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"CEO\",\"col\":12}},{\"id\":\"heMQ3JYCh_\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"AR\",\"col\":12}}]",
+ "creation": "2026-02-23 08:36:22.854102",
+ "custom_blocks": [
+  {
+   "custom_block_name": "CEO",
+   "label": "CEO"
+  },
+  {
+   "custom_block_name": "AR",
+   "label": "AR"
+  }
+ ],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "dashboard",
+ "idx": 0,
+ "indicator_color": "green",
+ "is_hidden": 1,
+ "label": "Matt Dashboard",
+ "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sales Target Dashboard (for Matt)",
+   "link_count": 0,
+   "link_to": "matt-sales-target",
+   "link_type": "Page",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Aging AR Dashboard",
+   "link_count": 0,
+   "link_to": "ar-dashboard",
+   "link_type": "Page",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Business Overview Report",
+   "link_count": 0,
+   "link_to": "weekly-summary",
+   "link_type": "Page",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Stock Balance",
+   "link_count": 0,
+   "link_to": "Stock Balance",
+   "link_type": "Report",
+   "onboard": 0,
+   "report_ref_doctype": "Stock Ledger Entry",
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Stock Ledger",
+   "link_count": 0,
+   "link_to": "Stock Ledger",
+   "link_type": "Report",
+   "onboard": 0,
+   "report_ref_doctype": "Stock Ledger Entry",
+   "type": "Link"
+  }
+ ],
+ "modified": "2026-08-11 08:23:41.109411",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Matt Dashboard",
+ "number_cards": [],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [
+  {
+   "role": "CEO"
+  },
+  {
+   "role": "Workspace:Matt Dashboard"
+  }
+ ],
+ "sequence_id": 40.0,
+ "shortcuts": [],
+ "title": "Matt Dashboard"
+}

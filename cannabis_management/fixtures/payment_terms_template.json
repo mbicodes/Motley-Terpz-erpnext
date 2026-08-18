@@ -1,0 +1,300 @@
+[
+ {
+  "allocate_payment_based_on_payment_terms": 0,
+  "docstatus": 0,
+  "doctype": "Payment Terms Template",
+  "modified": "2026-06-01 13:06:37.424935",
+  "name": "NET30",
+  "template_name": "NET30",
+  "terms": [
+   {
+    "credit_days": 30,
+    "credit_months": 0,
+    "description": "Payment after 30 Days",
+    "discount": 0.0,
+    "discount_type": "Percentage",
+    "discount_validity": 0,
+    "discount_validity_based_on": "Day(s) after invoice date",
+    "due_date_based_on": "Day(s) after invoice date",
+    "invoice_portion": 100.0,
+    "mode_of_payment": null,
+    "parent": "NET30",
+    "parentfield": "terms",
+    "parenttype": "Payment Terms Template",
+    "payment_term": null
+   }
+  ]
+ },
+ {
+  "allocate_payment_based_on_payment_terms": 0,
+  "docstatus": 0,
+  "doctype": "Payment Terms Template",
+  "modified": "2026-06-01 13:06:37.430199",
+  "name": "NET15",
+  "template_name": "NET15",
+  "terms": [
+   {
+    "credit_days": 15,
+    "credit_months": 0,
+    "description": "Payment after 15 Days",
+    "discount": 0.0,
+    "discount_type": "Percentage",
+    "discount_validity": 0,
+    "discount_validity_based_on": "Day(s) after invoice date",
+    "due_date_based_on": "Day(s) after invoice date",
+    "invoice_portion": 100.0,
+    "mode_of_payment": null,
+    "parent": "NET15",
+    "parentfield": "terms",
+    "parenttype": "Payment Terms Template",
+    "payment_term": null
+   }
+  ]
+ },
+ {
+  "allocate_payment_based_on_payment_terms": 0,
+  "docstatus": 0,
+  "doctype": "Payment Terms Template",
+  "modified": "2026-06-01 13:06:37.437724",
+  "name": "NET7",
+  "template_name": "NET7",
+  "terms": [
+   {
+    "credit_days": 7,
+    "credit_months": 0,
+    "description": "Payment after 7 Days",
+    "discount": 0.0,
+    "discount_type": "Percentage",
+    "discount_validity": 0,
+    "discount_validity_based_on": "Day(s) after invoice date",
+    "due_date_based_on": "Day(s) after invoice date",
+    "invoice_portion": 100.0,
+    "mode_of_payment": null,
+    "parent": "NET7",
+    "parentfield": "terms",
+    "parenttype": "Payment Terms Template",
+    "payment_term": null
+   }
+  ]
+ },
+ {
+  "allocate_payment_based_on_payment_terms": 0,
+  "docstatus": 0,
+  "doctype": "Payment Terms Template",
+  "modified": "2026-08-06 13:00:31.098349",
+  "name": "COD",
+  "template_name": "COD",
+  "terms": [
+   {
+    "credit_days": 0,
+    "credit_months": 0,
+    "description": null,
+    "discount": 0.0,
+    "discount_type": "Percentage",
+    "discount_validity": 0,
+    "discount_validity_based_on": "Day(s) after invoice date",
+    "due_date_based_on": "Day(s) after invoice date",
+    "invoice_portion": 100.0,
+    "mode_of_payment": null,
+    "parent": "COD",
+    "parentfield": "terms",
+    "parenttype": "Payment Terms Template",
+    "payment_term": "COD"
+   }
+  ]
+ },
+ {
+  "allocate_payment_based_on_payment_terms": 0,
+  "docstatus": 0,
+  "doctype": "Payment Terms Template",
+  "modified": "2026-08-06 10:47:11.599108",
+  "name": "NET21",
+  "template_name": "NET21",
+  "terms": [
+   {
+    "credit_days": 21,
+    "credit_months": 0,
+    "description": "100% due 21 days after invoice date",
+    "discount": 0.0,
+    "discount_type": "Percentage",
+    "discount_validity": 0,
+    "discount_validity_based_on": "Day(s) after invoice date",
+    "due_date_based_on": "Day(s) after invoice date",
+    "invoice_portion": 100.0,
+    "mode_of_payment": null,
+    "parent": "NET21",
+    "parentfield": "terms",
+    "parenttype": "Payment Terms Template",
+    "payment_term": null
+   }
+  ]
+ },
+ {
+  "allocate_payment_based_on_payment_terms": 0,
+  "docstatus": 0,
+  "doctype": "Payment Terms Template",
+  "modified": "2026-08-06 10:47:11.603580",
+  "name": "50% down NET7",
+  "template_name": "50% down NET7",
+  "terms": [
+   {
+    "credit_days": 0,
+    "credit_months": 0,
+    "description": "50% due on delivery",
+    "discount": 0.0,
+    "discount_type": "Percentage",
+    "discount_validity": 0,
+    "discount_validity_based_on": "Day(s) after invoice date",
+    "due_date_based_on": "Day(s) after invoice date",
+    "invoice_portion": 50.0,
+    "mode_of_payment": null,
+    "parent": "50% down NET7",
+    "parentfield": "terms",
+    "parenttype": "Payment Terms Template",
+    "payment_term": null
+   },
+   {
+    "credit_days": 7,
+    "credit_months": 0,
+    "description": "50% due 7 days after invoice date",
+    "discount": 0.0,
+    "discount_type": "Percentage",
+    "discount_validity": 0,
+    "discount_validity_based_on": "Day(s) after invoice date",
+    "due_date_based_on": "Day(s) after invoice date",
+    "invoice_portion": 50.0,
+    "mode_of_payment": null,
+    "parent": "50% down NET7",
+    "parentfield": "terms",
+    "parenttype": "Payment Terms Template",
+    "payment_term": null
+   }
+  ]
+ },
+ {
+  "allocate_payment_based_on_payment_terms": 0,
+  "docstatus": 0,
+  "doctype": "Payment Terms Template",
+  "modified": "2026-08-06 10:47:11.611216",
+  "name": "50% down NET21",
+  "template_name": "50% down NET21",
+  "terms": [
+   {
+    "credit_days": 0,
+    "credit_months": 0,
+    "description": "50% due on delivery",
+    "discount": 0.0,
+    "discount_type": "Percentage",
+    "discount_validity": 0,
+    "discount_validity_based_on": "Day(s) after invoice date",
+    "due_date_based_on": "Day(s) after invoice date",
+    "invoice_portion": 50.0,
+    "mode_of_payment": null,
+    "parent": "50% down NET21",
+    "parentfield": "terms",
+    "parenttype": "Payment Terms Template",
+    "payment_term": null
+   },
+   {
+    "credit_days": 21,
+    "credit_months": 0,
+    "description": "50% due 21 days after invoice date",
+    "discount": 0.0,
+    "discount_type": "Percentage",
+    "discount_validity": 0,
+    "discount_validity_based_on": "Day(s) after invoice date",
+    "due_date_based_on": "Day(s) after invoice date",
+    "invoice_portion": 50.0,
+    "mode_of_payment": null,
+    "parent": "50% down NET21",
+    "parentfield": "terms",
+    "parenttype": "Payment Terms Template",
+    "payment_term": null
+   }
+  ]
+ },
+ {
+  "allocate_payment_based_on_payment_terms": 0,
+  "docstatus": 0,
+  "doctype": "Payment Terms Template",
+  "modified": "2026-06-01 13:06:37.397406",
+  "name": "50% down NET30",
+  "template_name": "50% down NET30",
+  "terms": [
+   {
+    "credit_days": 0,
+    "credit_months": 0,
+    "description": "50% down payment on invoice date",
+    "discount": 0.0,
+    "discount_type": "Percentage",
+    "discount_validity": 0,
+    "discount_validity_based_on": "Day(s) after invoice date",
+    "due_date_based_on": "Day(s) after invoice date",
+    "invoice_portion": 50.0,
+    "mode_of_payment": null,
+    "parent": "50% down NET30",
+    "parentfield": "terms",
+    "parenttype": "Payment Terms Template",
+    "payment_term": null
+   },
+   {
+    "credit_days": 30,
+    "credit_months": 0,
+    "description": "Balance due 30 days after invoice",
+    "discount": 0.0,
+    "discount_type": "Percentage",
+    "discount_validity": 0,
+    "discount_validity_based_on": "Day(s) after invoice date",
+    "due_date_based_on": "Day(s) after invoice date",
+    "invoice_portion": 50.0,
+    "mode_of_payment": null,
+    "parent": "50% down NET30",
+    "parentfield": "terms",
+    "parenttype": "Payment Terms Template",
+    "payment_term": null
+   }
+  ]
+ },
+ {
+  "allocate_payment_based_on_payment_terms": 0,
+  "docstatus": 0,
+  "doctype": "Payment Terms Template",
+  "modified": "2026-06-01 13:06:37.417384",
+  "name": "50% down NET15",
+  "template_name": "50% down NET15",
+  "terms": [
+   {
+    "credit_days": 0,
+    "credit_months": 0,
+    "description": "50% down payment on invoice date",
+    "discount": 0.0,
+    "discount_type": "Percentage",
+    "discount_validity": 0,
+    "discount_validity_based_on": "Day(s) after invoice date",
+    "due_date_based_on": "Day(s) after invoice date",
+    "invoice_portion": 50.0,
+    "mode_of_payment": null,
+    "parent": "50% down NET15",
+    "parentfield": "terms",
+    "parenttype": "Payment Terms Template",
+    "payment_term": null
+   },
+   {
+    "credit_days": 15,
+    "credit_months": 0,
+    "description": "Balance due 15 days after invoice",
+    "discount": 0.0,
+    "discount_type": "Percentage",
+    "discount_validity": 0,
+    "discount_validity_based_on": "Day(s) after invoice date",
+    "due_date_based_on": "Day(s) after invoice date",
+    "invoice_portion": 50.0,
+    "mode_of_payment": null,
+    "parent": "50% down NET15",
+    "parentfield": "terms",
+    "parenttype": "Payment Terms Template",
+    "payment_term": null
+   }
+  ]
+ }
+]

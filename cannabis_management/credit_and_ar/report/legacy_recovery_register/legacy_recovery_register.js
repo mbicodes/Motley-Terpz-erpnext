@@ -1,6 +1,6 @@
 frappe.query_reports["Legacy Recovery Register"] = {
 	filters: [
-		{ fieldname: "company", label: __("Company"), fieldtype: "Link", options: "Company" },
+		cannabis.reports.company_filter({ default: cannabis.reports.ALL_COMPANIES }),
 		{ fieldname: "customer", label: __("Customer"), fieldtype: "Link", options: "Customer" },
 		{
 			fieldname: "include_settled",

@@ -1,0 +1,163 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "TD-.#####",
+ "creation": "2026-08-10 11:01:54.414932",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "teardown_name",
+  "teardown_type",
+  "weight_unit",
+  "status",
+  "cb1",
+  "dry_room",
+  "output_item",
+  "linked_harvest",
+  "total_cost_transferred",
+  "sb1",
+  "teardown_tags",
+  "amended_from",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "fieldname": "teardown_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Teardown Name"
+  },
+  {
+   "default": "Regular",
+   "fieldname": "teardown_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Type",
+   "options": "Regular\nManicure",
+   "reqd": 1
+  },
+  {
+   "default": "g",
+   "fieldname": "weight_unit",
+   "fieldtype": "Select",
+   "label": "Weight Unit",
+   "options": "g\nlb"
+  },
+  {
+   "default": "Preparing",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Status",
+   "options": "Preparing\nCompleted",
+   "read_only": 1
+  },
+  {
+   "fieldname": "cb1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Destination for harvested material (set at finalize)",
+   "fieldname": "dry_room",
+   "fieldtype": "Link",
+   "label": "Dry Room",
+   "options": "Warehouse"
+  },
+  {
+   "fieldname": "output_item",
+   "fieldtype": "Link",
+   "label": "Output Item",
+   "options": "Item"
+  },
+  {
+   "fieldname": "linked_harvest",
+   "fieldtype": "Link",
+   "label": "Linked Harvest",
+   "options": "Farm Production Batch"
+  },
+  {
+   "fieldname": "total_cost_transferred",
+   "fieldtype": "Currency",
+   "label": "Total Cost Transferred",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sb1",
+   "fieldtype": "Section Break",
+   "label": "Tags"
+  },
+  {
+   "fieldname": "teardown_tags",
+   "fieldtype": "Table",
+   "label": "Teardown Tags",
+   "options": "Teardown Tag"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Teardown",
+   "print_hide": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Teardown",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-08-10 11:01:54.414932",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Teardown",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Stock Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "teardown_name"
+}

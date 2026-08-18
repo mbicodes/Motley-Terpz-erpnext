@@ -52,6 +52,12 @@ frappe.ui.form.on("Stock Entry Detail", {
         if (frm.doc.stock_entry_type !== "Repack" || !row.t_warehouse || row.s_warehouse) {
             return;
         }
+        // Conversion Entry drafts are rebalanced against the raw material cost
+        // on every save, so pinning a hand-typed amount here would only be
+        // overwritten -- and would freeze the row in the meantime.
+        if (frm.doc.custom_conversion_entry_reference) {
+            return;
+        }
         if (!row.set_basic_rate_manually) {
             frappe.model.set_value(cdt, cdn, "set_basic_rate_manually", 1);
         }

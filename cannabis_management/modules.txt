@@ -3,3 +3,5 @@ Motley Forms
 Cash Management
 Company Records
 Credit and AR
+Time Clock
+Manufacturing Portal

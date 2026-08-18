@@ -10,10 +10,27 @@ from frappe.utils import flt, now_datetime
 class MetricTag(Document):
 	def validate(self):
 		self.set_muid()
+		self.set_farm_derived()
 		self.last_updated = now_datetime()
 
 	def set_muid(self):
 		self.muid = (self.tag_code or "")[-4:]
+
+	def set_farm_derived(self):
+		"""Farm-only derived fields. No-op for non-Farm tags (growth_stage /
+		flowering_date left blank), so existing stock/METRC behaviour is
+		unaffected."""
+		# Stamp flowering_date the first time the plant enters Flowering.
+		if self.growth_stage == "Flowering" and not self.flowering_date:
+			self.flowering_date = frappe.utils.today()
+
+		# days_in_flower = today − flowering_date (0 when not flowering).
+		if self.flowering_date:
+			self.days_in_flower = frappe.utils.date_diff(
+				frappe.utils.today(), self.flowering_date
+			)
+		else:
+			self.days_in_flower = 0
 
 
 # ---------------------------------------------------------------------------

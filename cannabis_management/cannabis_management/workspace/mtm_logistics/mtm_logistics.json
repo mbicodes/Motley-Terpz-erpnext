@@ -1,0 +1,60 @@
+{
+ "charts": [],
+ "content": "[{\"id\":\"H98k1CxBkd\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"MTM - Pending Orders Dashboard\",\"col\":12}},{\"id\":\"NMTej9XO4J\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"MTM - Orders Need to Schedule\",\"col\":12}},{\"id\":\"Pia9f4e6io\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"MTM - Orders @ Lab\",\"col\":12}},{\"id\":\"IjZG0PB94F\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"MTM - Orders Preparing\",\"col\":12}},{\"id\":\"0l4iEPxfaE\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"MTM - Order Prepared\",\"col\":12}},{\"id\":\"mb7escoAT6\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"MTM - Order Staged\",\"col\":12}},{\"id\":\"FNhHgmnukC\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"MTM - Orders - Ready for Close Out\",\"col\":12}}]",
+ "creation": "2026-06-08 10:49:15.661066",
+ "custom_blocks": [
+  {
+   "custom_block_name": "MTM - Orders - Ready for Close Out",
+   "label": "MTM - Orders - Ready for Close Out"
+  },
+  {
+   "custom_block_name": "MTM - Pending Orders Dashboard",
+   "label": "MTM - Pending Orders Dashboard"
+  },
+  {
+   "custom_block_name": "MTM - Orders Need to Schedule",
+   "label": "MTM - Orders Need to Schedule"
+  },
+  {
+   "custom_block_name": "MTM - Orders @ Lab",
+   "label": "MTM - Orders @ Lab"
+  },
+  {
+   "custom_block_name": "MTM - Orders Preparing",
+   "label": "MTM - Orders Preparing"
+  },
+  {
+   "custom_block_name": "MTM - Order Prepared",
+   "label": "MTM - Order Prepared"
+  },
+  {
+   "custom_block_name": "MTM - Order Staged",
+   "label": "MTM - Order Staged"
+  }
+ ],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "hide_custom": 0,
+ "icon": "map",
+ "idx": 0,
+ "indicator_color": "green",
+ "is_hidden": 0,
+ "label": "MTM Logistics",
+ "links": [],
+ "modified": "2026-08-11 08:20:15.665569",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "MTM Logistics",
+ "number_cards": [],
+ "owner": "Administrator",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [
+  {
+   "role": "Workspace: MTM Logistics"
+  }
+ ],
+ "sequence_id": 1.0,
+ "shortcuts": [],
+ "title": "MTM Logistics"
+}

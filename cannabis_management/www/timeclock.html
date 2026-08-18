@@ -1,0 +1,97 @@
+{% extends "templates/web.html" %}
+
+{% block title %}{{ _("Time Clock") }}{% endblock %}
+
+{% block head_include %}
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+{# timeclock.css and timeclock.js are picked up and inlined automatically by Frappe
+   because they sit next to this template and share its name. Do NOT also link them
+   with <link>/<script src> tags: the JS would then execute twice, registering two
+   delegated click listeners and firing two punches per tap. #}
+{% endblock %}
+
+{% block page_content %}
+
+<div class="tc-wrap" id="tcWrap" data-can-manage-notes="{{ 1 if can_manage_notes else 0 }}">
+
+  {% if not has_clock_access %}
+
+  <div class="tc-card tc-noaccess">
+    <div class="tc-noaccess-icon">&#9201;</div>
+    <h2>{{ _("No time clock access") }}</h2>
+    <p>
+      {{ _("Your account does not have the") }} <strong>{{ clock_role }}</strong>
+      {{ _("role, so you cannot punch in or out yet.") }}
+    </p>
+    <p class="tc-muted">{{ _("Ask an administrator to grant it, then reload this page.") }}</p>
+  </div>
+
+  {% else %}
+
+  <!-- ── CLOCK CARD ──────────────────────────────────────────────── -->
+  <div class="tc-card tc-clock" id="tcClockCard">
+    <div class="tc-greeting">{{ _("Hi") }}, <span class="tc-name">{{ full_name }}</span></div>
+
+    <div class="tc-now" id="tcNow">&mdash;&mdash;:&mdash;&mdash;</div>
+    <div class="tc-today" id="tcToday">&nbsp;</div>
+
+    <div class="tc-state" id="tcState">
+      <span class="tc-dot"></span>
+      <span class="tc-state-text">{{ _("Loading…") }}</span>
+    </div>
+
+    <button class="tc-punch" id="tcPunchBtn" disabled>
+      <span class="tc-punch-label">{{ _("Loading…") }}</span>
+    </button>
+
+    <div class="tc-elapsed" id="tcElapsed"></div>
+    <div class="tc-msg" id="tcMsg" role="status" aria-live="polite"></div>
+  </div>
+
+  <!-- ── TODAY'S PUNCHES ────────────────────────────────────────── -->
+  <div class="tc-card">
+    <div class="tc-card-head">
+      <h3>{{ _("Today") }}</h3>
+      <span class="tc-total" id="tcTotal"></span>
+    </div>
+    <div id="tcSessions" class="tc-sessions">
+      <div class="tc-empty">{{ _("Loading…") }}</div>
+    </div>
+    <div class="tc-note-banner" id="tcMyNote" hidden></div>
+  </div>
+
+  {% endif %}
+
+  <!-- ── ROSTER / NOTES (note-takers only) ─────────────────────────── -->
+  {% if can_manage_notes %}
+  <div class="tc-card" id="tcRosterCard">
+    <div class="tc-card-head">
+      <h3>{{ _("Team") }}</h3>
+      <button class="tc-mini-btn" id="tcRosterRefresh">{{ _("Refresh") }}</button>
+    </div>
+    <div id="tcRoster" class="tc-roster">
+      <div class="tc-empty">{{ _("Loading…") }}</div>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+
+<!-- Note editor dialog: plain markup, shown/hidden by JS. No PIN — the role is the gate. -->
+{% if can_manage_notes %}
+<div class="tc-modal" id="tcNoteModal" hidden>
+  <div class="tc-modal-box">
+    <h4 id="tcNoteModalTitle">{{ _("Day Note") }}</h4>
+    <textarea id="tcNoteText" rows="4" maxlength="500"
+              placeholder="{{ _('e.g. Called in sick, On vacation') }}"></textarea>
+    <div class="tc-modal-actions">
+      <button class="tc-mini-btn tc-danger" id="tcNoteRemove">{{ _("Remove") }}</button>
+      <span class="tc-spacer"></span>
+      <button class="tc-mini-btn" id="tcNoteCancel">{{ _("Cancel") }}</button>
+      <button class="tc-mini-btn tc-primary" id="tcNoteSave">{{ _("Save") }}</button>
+    </div>
+    <div class="tc-modal-msg" id="tcNoteMsg"></div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

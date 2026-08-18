@@ -1,12 +1,6 @@
 frappe.query_reports["Samples"] = {
 	filters: [
-		{
-			fieldname: "company",
-			label: __("Company"),
-			fieldtype: "Link",
-			options: "Company",
-			default: frappe.defaults.get_user_default("Company"),
-		},
+		cannabis.reports.company_filter(),
 		{
 			fieldname: "customer",
 			label: __("Customer"),

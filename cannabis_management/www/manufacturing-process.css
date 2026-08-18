@@ -1,0 +1,153 @@
+/* Portal shell styling for the Manufacturing Process page.
+ *
+ * Only the lock screen and the thin signed-in bar live here. Everything inside the
+ * app itself is styled by the shared /assets/cannabis_management/css/manufacturing_process.css,
+ * which the Desk page uses too.
+ *
+ * REBRAND: swap the values in :root.
+ */
+
+:root {
+  /* REBRAND: */ --mpx-accent: #1F4A24;
+  /* REBRAND: */ --mpx-accent-dark: #16351A;
+  --mpx-bg: #f4f6f4;
+  --mpx-card: #ffffff;
+  --mpx-border: #dde3dd;
+  --mpx-text: #1b2420;
+  --mpx-muted: #6b7770;
+  --mpx-error: #b3261e;
+}
+
+/* ── lock screen ─────────────────────────────────────────────────── */
+
+.mpx-lock-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 68vh;
+  padding: 24px 16px;
+}
+
+.mpx-lock {
+  width: 100%;
+  max-width: 380px;
+  background: var(--mpx-card);
+  border: 1px solid var(--mpx-border);
+  border-radius: 16px;
+  padding: 32px 26px 24px;
+  text-align: center;
+  box-shadow: 0 10px 30px rgba(27, 36, 32, .07);
+}
+
+.mpx-lock-icon { font-size: 34px; line-height: 1; }
+
+.mpx-lock-title {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 12px 0 4px;
+  color: var(--mpx-text);
+}
+
+.mpx-lock-sub {
+  font-size: 14px;
+  color: var(--mpx-muted);
+  margin: 0 0 20px;
+}
+
+.mpx-code-input {
+  width: 100%;
+  height: 52px;
+  border: 1.5px solid var(--mpx-border);
+  border-radius: 10px;
+  padding: 0 14px;
+  font-size: 20px;
+  letter-spacing: .18em;
+  text-align: center;
+  color: var(--mpx-text);
+  background: #fff;
+}
+
+.mpx-code-input:focus {
+  outline: none;
+  border-color: var(--mpx-accent);
+  box-shadow: 0 0 0 3px rgba(31, 74, 36, .12);
+}
+
+.mpx-unlock-btn {
+  width: 100%;
+  height: 48px;
+  margin-top: 12px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--mpx-accent);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: .04em;
+  cursor: pointer;
+}
+
+.mpx-unlock-btn:hover:not(:disabled) { background: var(--mpx-accent-dark); }
+.mpx-unlock-btn:disabled { background: #9fb0a4; cursor: default; }
+
+.mpx-lock-msg {
+  min-height: 20px;
+  margin-top: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--mpx-muted);
+}
+
+.mpx-lock-msg.is-error { color: var(--mpx-error); }
+
+.mpx-lock-foot {
+  margin: 16px 0 0;
+  font-size: 11px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--mpx-muted);
+}
+
+/* ── signed-in bar ───────────────────────────────────────────────── */
+
+.mpx-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 8px 4px 12px;
+  font-size: 13px;
+  color: var(--mpx-muted);
+}
+
+.mpx-bar-user { font-weight: 600; color: var(--mpx-text); }
+
+.mpx-signout {
+  border: 1px solid var(--mpx-border);
+  background: #fff;
+  border-radius: 8px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--mpx-text);
+}
+
+.mpx-signout:hover { background: #f3f5f3; }
+.mpx-signout:disabled { opacity: .55; cursor: default; }
+
+.mpx-fatal {
+  padding: 24px;
+  text-align: center;
+  color: var(--mpx-error);
+  font-size: 14px;
+}
+
+/* The portal loads website.bundle.css, which carries most Desk control styling but
+ * fewer .btn-xs rules than desk.bundle.css. The page's dialogs use btn-xs heavily,
+ * so pin a sane size rather than letting them render full-height. */
+.mp-dash .btn-xs {
+  padding: 2px 8px;
+  font-size: 11px;
+  line-height: 1.5;
+}

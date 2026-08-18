@@ -52,14 +52,7 @@ frappe.query_reports["Sales Analytics"] = {
 			default: erpnext.utils.get_fiscal_year(frappe.datetime.get_today(), true)[2],
 			reqd: 1,
 		},
-		{
-			fieldname: "company",
-			label: __("Company"),
-			fieldtype: "Link",
-			options: "Company",
-			default: frappe.defaults.get_user_default("Company"),
-			reqd: 1,
-		},
+		cannabis.reports.company_filter({ reqd: 1 }),
 		{
 			fieldname: "range",
 			label: __("Range"),

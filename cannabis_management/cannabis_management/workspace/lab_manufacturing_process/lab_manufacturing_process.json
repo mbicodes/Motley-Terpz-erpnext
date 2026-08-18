@@ -1,0 +1,88 @@
+{
+ "charts": [],
+ "content": "[{\"id\":\"0SultSYg_F\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Lab Manufacturing Process</span>\",\"col\":12}},{\"id\":\"WDX9cuDqq6\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Manufacturing Request\",\"col\":3}},{\"id\":\"tShoRFFaW9\",\"type\":\"paragraph\",\"data\":{\"text\":\"&nbsp; 1. Starting point of the manufacturing cycle. Click Add Material Request and fill in Purpose (Manufacture), Company, Project, and Required By Date.<br>2. In the Items table, Enter the raw materials required for production.<br>3. Open the Finished Product Specification tab, select the Routing \u2014 System will auto populate child table&nbsp; \u2014 and select the Item (Finished Product). Save and Submit.<br>4. From the Create menu, click Work Order to proceed to the next step.)&nbsp;&nbsp;\",\"col\":12}},{\"id\":\"5lDyTaDrD3\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Bill of Materials (BOM)\",\"col\":3}},{\"id\":\"9Q8qbdks97\",\"type\":\"paragraph\",\"data\":{\"text\":\"1. In this system, BOM is not created manually. It is automatically generated upon submission of the Material Request based on predefined logic and mappings.<br>2. When the Material Request is submitted:\\n<br>&nbsp; &nbsp; . System identifies the Finished Good Item<br>&nbsp; &nbsp; . Fetches the relevant Raw Materials<br>&nbsp; &nbsp; . Determines the required quantities based on defined rules / planning\\n<br>3. The system automatically pulls the following into the BOM:<br>&nbsp; &nbsp; . Raw Materials (as selected / mapped in Material Request)\\n<br>&nbsp; &nbsp; . Finished Good (target production item)\\n<br>&nbsp; &nbsp; . Operations (linked through predefined Routing or configuration)<br>&nbsp; &nbsp; . Workstations and Operation Time<br>4.Costing is also auto-populated:<br>&nbsp; &nbsp; .&nbsp; Operation-wise cost is fetched from Workstation / Routing setup<br>&nbsp; &nbsp; .&nbsp; Material cost is derived from item valuation rate<br>&nbsp; &nbsp; . Total BOM cost is calculated automatically\\n\",\"col\":12}},{\"id\":\"qmKe_Vkx72\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Work Order\",\"col\":3}},{\"id\":\"9j9SyFvYEf\",\"type\":\"paragraph\",\"data\":{\"text\":\"&nbsp; Created in Draft from the Material Request via Create \u2192 Work Order. The system generates Work Order for all finished goods for all Each Operation.<br>All related Work Orders appear under the Connections Section of Manufacturing Request as well.<br>1. Open each Work Order and configure: Source Warehouse, Target Warehouse, Workstation (where the operation will be performed), and Planned Start Date. Save, Submit.(On submission, a Job Card is automatically created in Draft as the next action).<br>2. and click Start. it will route to Stock Entry for material Transfer for manufacturing Setting Save, Submit. The Work Order status moves to In Progress.&nbsp;&nbsp;\",\"col\":12}},{\"id\":\"9-77IRfX0E\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Material Transfer for Manufacture\",\"col\":3}},{\"id\":\"RpxACRaPFQ\",\"type\":\"paragraph\",\"data\":{\"text\":\"1. This step is used to physically move raw materials from the Source Warehouse (e.g., Stores) to the Work In Progress (WIP) or Production Warehouse before starting 2. production.<br>2. From the Work Order, click Start \u2192 Stock Entry (Material Transfer for Manufacture). The system will auto-fetch required raw materials based on BOM.<br>3. In the Stock Entry:<br>&nbsp; . Set Source Warehouse (Raw Material Store)<br>&nbsp; . Set Target Warehouse (WIP / Production Area)<br>&nbsp; . Verify quantities as per BOM (can adjust if required)<br>4.&nbsp;Save and Submit the entry.\",\"col\":12}},{\"id\":\"G7R10FmDCs\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Job Card\",\"col\":3}},{\"id\":\"vd0c26oxMZ\",\"type\":\"paragraph\",\"data\":{\"text\":\"1. Job Card is used to execute and track each operation defined in the Routing (e.g., Wash, Press, etc.).<br>2. Job Cards are automatically created when the Work Order is submitted.<br>3. In each Job Card:<br>&nbsp; &nbsp; &nbsp;. Define Workstation (where operation is performed)<br>&nbsp; &nbsp; &nbsp;. Enter Qty to Manufacture<br>&nbsp; &nbsp; &nbsp;. System shows Total Work Order Qty<br>&nbsp; &nbsp; &nbsp;. Record Start Time and End Time<br>4. Add operation-level details in a custom Micron Table, including:<br>&nbsp; &nbsp; &nbsp;. Micron Size<br>&nbsp; &nbsp; &nbsp;. Grams Collected<br>&nbsp; &nbsp; &nbsp;. METRC Tag<br>&nbsp; &nbsp; &nbsp;. Quality Tag<br>&nbsp; &nbsp; &nbsp;. Collected By<br>5. Submit Job Card after completing operation.&nbsp;\",\"col\":12}},{\"id\":\"EvxqOiM1fK\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Manufacture\",\"col\":3}},{\"id\":\"Lv-Rlaih_g\",\"type\":\"paragraph\",\"data\":{\"text\":\"1.&nbsp;This step is used to produce the Finished Goods and consume raw materials.<br>2.&nbsp;From the Work Order, click Finish \u2192 Stock Entry (Manufacture).<br>3.&nbsp;In the Stock Entry:<br>&nbsp; &nbsp; .Raw materials are consumed from WIP Warehouse.<br>&nbsp; &nbsp; .&nbsp;Finished Goods are received in Target Warehouse.<br>4. Enter actual produced Quantity (can differ from BOM for yield tracking).<br>5. Save and Submit the Entry.\",\"col\":12}}]",
+ "creation": "2026-04-27 11:46:54.393325",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "organization",
+ "idx": 0,
+ "indicator_color": "green",
+ "is_hidden": 0,
+ "label": "Lab Manufacturing Process",
+ "links": [],
+ "modified": "2026-08-11 08:20:45.857993",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Lab Manufacturing Process",
+ "number_cards": [],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [
+  {
+   "role": "Manufacturing Manager"
+  },
+  {
+   "role": "Manufacturing User"
+  },
+  {
+   "role": "Workspace:Lab Manufacturing Process"
+  }
+ ],
+ "sequence_id": 52.0,
+ "shortcuts": [
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Job Card",
+   "link_to": "Job Card",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Material Transfer for Manufacture",
+   "link_to": "Stock Entry",
+   "stats_filter": "[[\"Stock Entry\",\"stock_entry_type\",\"=\",\"Material Transfer for Manufacture\",false]]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Bill of Materials (BOM)",
+   "link_to": "BOM Update Log",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Manufacturing Request",
+   "link_to": "Material Request",
+   "stats_filter": "[[\"Material Request\",\"material_request_type\",\"=\",\"Manufacture\",false]]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Work Order",
+   "link_to": "Work Order",
+   "stats_filter": "[]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Manufacture",
+   "link_to": "Stock Entry",
+   "stats_filter": "[[\"Stock Entry\",\"stock_entry_type\",\"=\",\"Manufacture\",false]]",
+   "type": "DocType"
+  }
+ ],
+ "title": "Lab Manufacturing Process"
+}
