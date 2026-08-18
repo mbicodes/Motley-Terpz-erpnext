@@ -472,14 +472,59 @@ def _customer_of(doc) -> str | None:
 
 
 def _is_exempt(doc) -> bool:
-	"""Samples never carry credit risk, so a hold does not stop them."""
-	if doc.doctype in ("Sales Order", "Delivery Note"):
-		return utils.resolve_order_type(doc) == utils.ORDER_TYPE_SAMPLE
+	"""Documents a hold does not stop, because they carry no credit risk.
+
+	Samples are free, and cash is paid on delivery — in neither case is the company
+	extending anything, so there is nothing for a hold to protect.
+	"""
+	if doc.doctype == "Sales Order":
+		return utils.resolve_order_type(doc) in (utils.ORDER_TYPE_SAMPLE, utils.ORDER_TYPE_COD)
+
+	if doc.doctype == "Delivery Note":
+		return _delivery_note_is_exempt(doc)
 
 	if doc.doctype == "Stock Entry":
 		return doc.get("purpose") not in PRODUCTION_STOCK_ENTRY_PURPOSES
 
 	return False
+
+
+def _delivery_note_is_exempt(doc) -> bool:
+	"""A Delivery Note inherits the exemption of the orders it is shipping.
+
+	Delivery Note has neither ``custom_mode_of_payment`` nor
+	``custom_sales_order_type`` — those fields exist only on Sales Order and Sales
+	Invoice. Calling ``resolve_order_type`` on the Delivery Note itself therefore
+	always fell through to "COD", which meant the sample exemption this function
+	claimed to implement never actually fired: sample deliveries were being blocked
+	by holds. Resolving through the source orders fixes that too.
+
+	A Delivery Note with no source Sales Order (raised directly) is **not** exempt.
+	Its terms are unknown, so the hold stands and a human has to release it.
+	"""
+	orders = sorted(
+		{
+			row.get("against_sales_order")
+			for row in (doc.get("items") or [])
+			if row.get("against_sales_order")
+		}
+	)
+	if not orders:
+		return False
+
+	rows = frappe.get_all(
+		"Sales Order",
+		filters={"name": ["in", orders]},
+		fields=["name", "custom_sales_order_type", "custom_mode_of_payment"],
+	)
+	# A source order we cannot read is treated as not exempt — fail closed.
+	if len(rows) != len(orders):
+		return False
+
+	return all(
+		utils.resolve_order_type(row) in (utils.ORDER_TYPE_SAMPLE, utils.ORDER_TYPE_COD)
+		for row in rows
+	)
 
 
 def enforce_hold(doc, method=None):

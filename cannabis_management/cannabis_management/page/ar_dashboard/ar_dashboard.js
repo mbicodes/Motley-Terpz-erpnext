@@ -424,12 +424,15 @@ function set_ar_mode(page, mode) {
         page.main.find('#ard-legacy-btn').addClass('ard-mode-active');
         page.main.find('#ard-new-btn').removeClass('ard-mode-active');
         page.main.find('#ard-all-btn').removeClass('ard-mode-active');
-        $date.attr('max', LEGACY_CUTOFF).removeAttr('min');
-        if ($date.val() > LEGACY_CUTOFF) {
-            $date.val(LEGACY_CUTOFF);
-            page.main.find('#ard-report-date-display').text(LEGACY_CUTOFF);
-        }
-        page.main.find('#ard-subtitle').html('Legacy AR &mdash; invoices up to May 31, 2026');
+        // Legacy aging is computed as of TODAY, not the May-31 cutover. The
+        // cutover only decides which invoices count as legacy (posting_date <=
+        // May 31); it must NOT clamp the aging date, or a May invoice wrongly
+        // shows as 0-30/30-60 instead of its true 60/90+ bucket. So default the
+        // picker to today and drop the old max=cutover clamp.
+        $date.removeAttr('min').removeAttr('max');
+        $date.val(today);
+        page.main.find('#ard-report-date-display').text(today);
+        page.main.find('#ard-subtitle').html('Legacy AR &mdash; invoices up to May 31, 2026 (aged to today)');
     } else if (mode === 'new') {
         page.main.find('#ard-new-btn').addClass('ard-mode-active');
         page.main.find('#ard-legacy-btn').removeClass('ard-mode-active');

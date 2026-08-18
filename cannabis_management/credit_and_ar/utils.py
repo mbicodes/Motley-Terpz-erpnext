@@ -135,6 +135,24 @@ def is_terms_order(doc) -> bool:
 	return resolve_order_type(doc) == ORDER_TYPE_TERMS
 
 
+def is_cash_order(doc) -> bool:
+	"""Mode of Payment = Cash On Delivery — the policy-free path.
+
+	A cash order carries no credit exposure: the money arrives with the product.
+	The Credit & AR policy therefore does not apply to it at all — no approval, no
+	credit line, no deposit, no print block, no hold — and ERPNext's own defaults
+	are left alone, including ``payment_terms_template``.
+
+	The one thing a cash order still owes is a workout paydown, kept deliberately:
+	without it a customer on a workout plan could move every order to cash and
+	never pay down the old balance. See the README decision log.
+
+	Note this returns True for an order with no Mode of Payment set, matching
+	``resolve_order_type`` — ``_default_payment_mode`` fills a blank with cash.
+	"""
+	return resolve_order_type(doc) == ORDER_TYPE_COD
+
+
 def is_sample_order(doc) -> bool:
 	return resolve_order_type(doc) == ORDER_TYPE_SAMPLE
 

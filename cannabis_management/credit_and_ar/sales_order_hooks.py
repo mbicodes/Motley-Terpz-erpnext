@@ -3,12 +3,21 @@
 Order type is not a new field: it is derived from the two that already existed
 on Sales Order (see ``utils.resolve_order_type``).
 
-  COD     → forced onto the COD template, no credit checks
+  Cash    → policy does not apply; ERPNext defaults are left alone, no hold block
   Sample  → forced to zero value, no credit checks, no hold block
   Terms   → the full gate, and blocked from submit *and print* until approved
 
 Per-order approval applies to every Terms order, every time — an approved credit
 line grants the *ability* to order on terms, not a standing approval.
+
+Cash orders were previously forced onto the "COD" payment terms template with the
+payment schedule wiped. They no longer are: a cash order carries no credit exposure,
+so the module leaves the document to ERPNext. Everything downstream that used to key
+off ``payment_terms_template == "COD"`` (finance_charge, metrics, payment_entry_hooks)
+already treats an empty template identically, so nothing else had to change.
+
+The single exception is the workout paydown, which still applies to cash — see
+``utils.is_cash_order`` and the README decision log.
 """
 
 import frappe
@@ -16,8 +25,6 @@ from frappe import _
 from frappe.utils import flt
 
 from cannabis_management.credit_and_ar import credit_engine, utils
-
-COD_TEMPLATE = "COD"
 
 
 # ── entry points ─────────────────────────────────────────────────────────────
@@ -34,13 +41,19 @@ def validate(doc, method=None):
 	_default_payment_mode(doc)
 
 	order_type = utils.resolve_order_type(doc)
+
+	if order_type == utils.ORDER_TYPE_COD:
+		# Short-circuit before the credit engine runs at all. A cash order needs no
+		# line summary, so there is no reason to compute one.
+		_apply_cash(doc)
+		_apply_workout_paydown(doc, order_type)
+		return
+
 	summary = credit_engine.get_line_summary(doc.customer, exclude_sales_order=doc.name)
 	doc.custom_customer_available_line = summary["available_line"]
 
 	if order_type == utils.ORDER_TYPE_SAMPLE:
 		_apply_sample(doc)
-	elif order_type == utils.ORDER_TYPE_COD:
-		_apply_cod(doc)
 	else:
 		_validate_terms(doc, summary)
 
@@ -91,7 +104,7 @@ def on_update(doc, method=None):
 		doc.db_set("custom_print_blocked", should_block, update_modified=False)
 
 
-# ── COD ──────────────────────────────────────────────────────────────────────
+# ── Cash ─────────────────────────────────────────────────────────────────────
 
 
 def _clear_credit_fields(doc):
@@ -115,17 +128,23 @@ def _default_payment_mode(doc):
 		doc.custom_mode_of_payment = utils.MODE_COD
 
 
-def _apply_cod(doc):
-	if frappe.db.exists("Payment Terms Template", COD_TEMPLATE):
-		doc.payment_terms_template = COD_TEMPLATE
-	else:
-		doc.payment_terms_template = None
-	doc.payment_schedule = []
+def _apply_cash(doc):
+	"""A cash order carries no credit state — and no credit behaviour.
 
+	This deliberately does **not** touch ``payment_terms_template`` or
+	``payment_schedule``. The module used to force both (template = "COD", schedule
+	emptied); it no longer does, because the money arrives with the product and
+	there is nothing for the policy to protect. Whatever ERPNext or the user puts
+	on the document stands.
+
+	Only the module's own fields are reset, so an order flipped from Terms to Cash
+	does not carry stale approval or deposit state.
+	"""
 	doc.custom_approval_status = utils.APPROVAL_NOT_REQUIRED
 	doc.custom_print_blocked = 0
 	doc.custom_required_deposit = 0
 	doc.custom_credit_application = None
+	doc.custom_customer_available_line = 0
 
 
 # ── Sample ───────────────────────────────────────────────────────────────────
