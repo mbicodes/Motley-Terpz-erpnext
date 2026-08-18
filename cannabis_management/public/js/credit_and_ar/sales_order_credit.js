@@ -128,15 +128,15 @@ function render_credit_banner(frm) {
 	frm.dashboard.clear_headline();
 
 	if (frm.doc.custom_print_blocked) {
-		const why =
-			frm.doc.custom_approval_status === REJECTED
-				? __("This Terms order was rejected: {0}", [
-						frappe.utils.escape_html(frm.doc.custom_terms_rejection_reason || ""),
-				  ])
-				: __(
-						"This Terms order is awaiting Managing Director approval. It cannot be submitted or printed until approved."
-				  );
-		frm.dashboard.set_headline(why, "red");
+		// The "awaiting Managing Director approval" banner is intentionally
+		// suppressed here — the underlying block (before_submit / print_guard)
+		// still applies, only this visual warning is hidden.
+		if (frm.doc.custom_approval_status === REJECTED) {
+			const why = __("This Terms order was rejected: {0}", [
+				frappe.utils.escape_html(frm.doc.custom_terms_rejection_reason || ""),
+			]);
+			frm.dashboard.set_headline(why, "red");
+		}
 		return;
 	}
 
