@@ -199,11 +199,15 @@ def check_lead_duplicate(doc, method=None):
         exclude=("CRM Lead", doc.name),
     )
     if matches:
-        frappe.throw(
+        # Warn only — do not block. Multiple distinct contacts can legitimately
+        # share the same organization; a shared org name alone is not proof of
+        # a true duplicate (same person re-entered).
+        frappe.msgprint(
             _("Possible duplicate account found:<br><br>{0}<br><br>"
               "This account may already exist. Please check with the assigned "
               "owner before creating a new record.").format(_describe(matches)),
             title=_("Possible Duplicate"),
+            indicator="orange",
         )
 
 
@@ -219,11 +223,12 @@ def check_organization_duplicate(doc, method=None):
         skip_converted_leads=True,
     )
     if matches:
-        frappe.throw(
+        frappe.msgprint(
             _("Possible duplicate organization found:<br><br>{0}<br><br>"
               "This account may already exist. Please check with the assigned "
               "owner before creating a new record.").format(_describe(matches)),
             title=_("Possible Duplicate"),
+            indicator="orange",
         )
 
 
