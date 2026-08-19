@@ -1,0 +1,245 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-08-04 07:41:17.980028",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "enabled",
+  "environment",
+  "cb_env",
+  "sandbox_base_url",
+  "production_base_url",
+  "sec_auth",
+  "integrator_key",
+  "connection_status",
+  "sec_fac",
+  "facilities",
+  "sec_uom",
+  "uom_map",
+  "sec_behav",
+  "push_enabled",
+  "dry_run",
+  "default_page_size",
+  "cb_behav",
+  "window_hours",
+  "max_retries",
+  "log_retention_days",
+  "alert_email",
+  "sec_autocreate",
+  "auto_create_items",
+  "auto_item_group",
+  "auto_item_uom",
+  "cb_autocreate",
+  "auto_item_is_stock_item",
+  "auto_item_has_batch",
+  "auto_create_tags"
+ ],
+ "fields": [
+  {
+   "default": "0",
+   "description": "Master switch. When off, no pull or push runs.",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled"
+  },
+  {
+   "default": "Sandbox",
+   "fieldname": "environment",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Environment",
+   "options": "Sandbox\nProduction",
+   "reqd": 1
+  },
+  {
+   "fieldname": "cb_env",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "https://sandbox-api-ca.metrc.com",
+   "fieldname": "sandbox_base_url",
+   "fieldtype": "Data",
+   "label": "Sandbox Base URL"
+  },
+  {
+   "default": "https://api-ca.metrc.com",
+   "fieldname": "production_base_url",
+   "fieldtype": "Data",
+   "label": "Production Base URL"
+  },
+  {
+   "fieldname": "sec_auth",
+   "fieldtype": "Section Break",
+   "label": "Credentials"
+  },
+  {
+   "description": "Vendor-wide key from Metrc Connect. Never share or commit this.",
+   "fieldname": "integrator_key",
+   "fieldtype": "Password",
+   "label": "Integrator (Software) API Key"
+  },
+  {
+   "fieldname": "connection_status",
+   "fieldtype": "HTML",
+   "label": "Connection Status"
+  },
+  {
+   "fieldname": "sec_fac",
+   "fieldtype": "Section Break",
+   "label": "Facilities"
+  },
+  {
+   "description": "One row per Metrc licence. Map each to the ERPNext Warehouse it represents.",
+   "fieldname": "facilities",
+   "fieldtype": "Table",
+   "label": "Facilities",
+   "options": "Metrc Facility"
+  },
+  {
+   "fieldname": "sec_uom",
+   "fieldtype": "Section Break",
+   "label": "UOM Mapping"
+  },
+  {
+   "description": "Metrc accepts only 11 units. Map every UOM used on tracked items.",
+   "fieldname": "uom_map",
+   "fieldtype": "Table",
+   "label": "UOM Map",
+   "options": "Metrc UOM Map"
+  },
+  {
+   "fieldname": "sec_behav",
+   "fieldtype": "Section Break",
+   "label": "Behaviour"
+  },
+  {
+   "default": "0",
+   "description": "Separate from Enabled, so you can run pull-only.",
+   "fieldname": "push_enabled",
+   "fieldtype": "Check",
+   "label": "Enable Push (write to Metrc)"
+  },
+  {
+   "default": "0",
+   "description": "Rehearse writes against real data without touching Metrc.",
+   "fieldname": "dry_run",
+   "fieldtype": "Check",
+   "label": "Dry Run (log payloads, do not transmit)"
+  },
+  {
+   "default": "20",
+   "fieldname": "default_page_size",
+   "fieldtype": "Int",
+   "label": "Page Size"
+  },
+  {
+   "fieldname": "cb_behav",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "24",
+   "fieldname": "window_hours",
+   "fieldtype": "Int",
+   "label": "Sync Window (hours)"
+  },
+  {
+   "default": "4",
+   "fieldname": "max_retries",
+   "fieldtype": "Int",
+   "label": "Max Retries"
+  },
+  {
+   "default": "120",
+   "fieldname": "log_retention_days",
+   "fieldtype": "Int",
+   "label": "Log Retention (days)"
+  },
+  {
+   "fieldname": "alert_email",
+   "fieldtype": "Data",
+   "label": "Alert Email"
+  },
+  {
+   "fieldname": "sec_autocreate",
+   "fieldtype": "Section Break",
+   "label": "Auto-Create Masters"
+  },
+  {
+   "default": "0",
+   "description": "Create an ERPNext Item when METRC has a product we do not carry. Created items are flagged for review and are NOT sales/purchase enabled until someone confirms them.",
+   "fieldname": "auto_create_items",
+   "fieldtype": "Check",
+   "label": "Auto-Create Items from METRC"
+  },
+  {
+   "depends_on": "auto_create_items",
+   "description": "Item Group assigned to auto-created items.",
+   "fieldname": "auto_item_group",
+   "fieldtype": "Link",
+   "label": "Default Item Group",
+   "options": "Item Group"
+  },
+  {
+   "depends_on": "auto_create_items",
+   "description": "Used only when the METRC unit has no mapping in the UOM Map.",
+   "fieldname": "auto_item_uom",
+   "fieldtype": "Link",
+   "label": "Fallback UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "cb_autocreate",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1",
+   "depends_on": "auto_create_items",
+   "fieldname": "auto_item_is_stock_item",
+   "fieldtype": "Check",
+   "label": "Create as Stock Item"
+  },
+  {
+   "default": "1",
+   "depends_on": "auto_create_items",
+   "description": "Required for METRC package tracking - a Batch is a METRC package.",
+   "fieldname": "auto_item_has_batch",
+   "fieldtype": "Check",
+   "label": "Enable Batch Tracking"
+  },
+  {
+   "default": "1",
+   "description": "Create Metric Tag records for tags and packages found in METRC.",
+   "fieldname": "auto_create_tags",
+   "fieldtype": "Check",
+   "label": "Auto-Create METRC Tags"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-08-04 21:38:34.762066",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Metrc Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
