@@ -767,22 +767,8 @@ fixtures = [
     {"dt": "DocType", "filters": [["name", "=", "Cash Account Mapping"]]},
     {"dt": "DocType", "filters": [["name", "=", "Cash Ledger Entry"]]},
     {"dt": "DocType", "filters": [["name", "=", "Expense Tracker Entry"]]},
-    # ── Sales Daily Sync dashboard objects (travel via git) ──ench
-    # Role that grants visibility into Nikki's cash/expense widgets
-    # + Company Records module roles
-    {"dt": "Role", "filters": [["name", "in", [
-        "Nikki Ledger",
-        "Accounting Team",
-        "Operations",
-        "ERP Dev Team",
-        "Director",
-        "Farm Manager",
-        # Credit & AR Control
-        "Credit Finance",
-        "Managing Director",
-        "Ops Manager",
-        "Collections Officer",
-    ]]]},
+    # NOTE: the Role fixture was removed on request — roles are no longer
+    # overwritten (reverted) on migrate. Manage roles directly on the site.
     # Credit & AR: the payment-terms ladder. Only the module's own templates
     # travel — the site's PAYMENT SCHEDULE BREAKDOWN template is left alone.
     {"dt": "Payment Terms Template", "filters": [["name", "in", [
@@ -821,7 +807,7 @@ fixtures = [
     # Credit & AR: dashboard cards and the §17 in-desk alerts
     {"dt": "Number Card", "filters": [["name", "like", "Credit \u2014 %"]]},
     {"dt": "Notification", "filters": [["module", "=", "Credit and AR"]]},
-    # The Home landing workspace
-    {"dt": "Workspace", "filters": [["name", "=", "Home"]]},
+    # NOTE: the Home landing workspace fixture was removed on request \u2014 Home is
+    # no longer re-created on migrate.
 ]
 
