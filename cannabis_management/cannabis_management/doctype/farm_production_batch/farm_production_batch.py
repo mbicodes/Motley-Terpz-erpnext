@@ -57,19 +57,6 @@ class FarmProductionBatch(Document):
                 )[0][0]
             )
 
-        teardown_costs = 0
-        if frappe.db.exists("DocType", "Teardown"):
-            teardown_costs = flt(
-                frappe.db.sql(
-                    """
-                    SELECT COALESCE(SUM(total_cost_transferred), 0)
-                    FROM `tabTeardown`
-                    WHERE linked_harvest = %s AND docstatus = 1
-                    """,
-                    (self.name,),
-                )[0][0]
-            )
-
         revenue_to_date = flt(
             frappe.db.sql(
                 """
@@ -83,7 +70,7 @@ class FarmProductionBatch(Document):
 
         self.propagation_cost = propagation_cost
         self.labor_cost = labor_cost
-        self.costs_to_date = propagation_cost + labor_cost + plant_batch_input_costs + teardown_costs
+        self.costs_to_date = propagation_cost + labor_cost + plant_batch_input_costs
         self.revenue_to_date = revenue_to_date
         self.gross_profit = revenue_to_date - self.costs_to_date
         self.net_to_date = self.gross_profit  # overhead TBD, defaults to 0

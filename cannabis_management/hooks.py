@@ -89,13 +89,10 @@ doctype_js = {
     # METRC only
     "Stock Reconciliation": "public/js/metrc/stock_reconciliation_metrc.js",
     "Work Order": "public/js/metrc/work_order_metrc.js",
-    "Batch": ["public/js/metrc/batch_metrc.js", "public/js/farm/batch_farm.js"],
 }
 doctype_list_js = {
     "Sales Invoice": "public/js/sales_invoice_list.js",
     "Sales Order": "public/js/sales_order_list.js",
-    # Farm bulk actions (Destroy / Record Waste) on the Metric Tag list
-    "Metric Tag": "public/js/farm/metric_tag_list.js",
 }
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
@@ -238,11 +235,6 @@ doc_events = {
     # ── Workstation Operating Cost validation ────────────────────────────────
     "Workstation": {
         "validate": "cannabis_management.cannabis_management.doctype.operating_component.operating_component.validate_workstation",
-    },
-
-    # ── Farm / Cultivation: Dynamic Link target + 48h immature-count lock ─────
-    "Batch": {
-        "validate": "cannabis_management.farm.batch_validate",
     },
 
     "Credit Application": {
