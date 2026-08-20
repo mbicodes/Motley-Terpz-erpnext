@@ -15,10 +15,10 @@
  "icon": "dashboard",
  "idx": 0,
  "indicator_color": "green",
- "is_hidden": 1,
+ "is_hidden": 0,
  "label": "Nikki",
  "links": [],
- "modified": "2026-08-11 08:52:58.433164",
+ "modified": "2026-08-20 10:28:05.587364",
  "modified_by": "Administrator",
  "module": "Cannabis Management",
  "name": "Nikki",
@@ -36,6 +36,9 @@
   },
   {
    "role": "Nikki Ledger"
+  },
+  {
+   "role": "Nikki M - Consolidated"
   }
  ],
  "sequence_id": 43.0,
