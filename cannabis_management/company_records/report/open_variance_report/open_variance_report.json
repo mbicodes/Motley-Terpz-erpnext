@@ -17,5 +17,9 @@
  "ref_doctype": "Reconciliation Record",
  "report_name": "Open Variance Report",
  "report_type": "Script Report",
- "roles": []
+ "roles": [
+  {
+   "role": "Accounts Manager"
+  }
+ ]
 }

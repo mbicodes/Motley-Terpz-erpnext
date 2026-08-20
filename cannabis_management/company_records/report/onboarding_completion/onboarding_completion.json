@@ -17,5 +17,9 @@
  "ref_doctype": "Onboarding Packet",
  "report_name": "Onboarding Completion",
  "report_type": "Script Report",
- "roles": []
+ "roles": [
+  {
+   "role": "Accounts Manager"
+  }
+ ]
 }
