@@ -4,13 +4,17 @@
  "docstatus": 0,
  "doctype": "Page",
  "idx": 0,
- "modified": "2026-05-21 08:54:55.396593",
+ "modified": "2026-08-20 13:07:49.379715",
  "modified_by": "Administrator",
  "module": "Cannabis Management",
  "name": "profit-and-loss-repo",
  "owner": "Administrator",
  "page_name": "profit-and-loss-repo",
- "roles": [],
+ "roles": [
+  {
+   "role": "Accounts Manager"
+  }
+ ],
  "script": null,
  "standard": "Yes",
  "style": null,
