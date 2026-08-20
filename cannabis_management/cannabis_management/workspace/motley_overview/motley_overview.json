@@ -1,10 +1,5 @@
 {
- "charts": [
-  {
-   "chart_name": "Monthly Sales (MT)",
-   "label": "Monthly Sales (MT)"
-  }
- ],
+ "charts": [],
  "content": "[{\"id\": \"3ea09eb41a\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Motley Terpz \\u2014 Overview</b></span>\", \"col\": 12}}, {\"id\": \"49845fb2a8\", \"type\": \"paragraph\", \"data\": {\"text\": \"Quick access to AR, cash and sales \\u2014 built entirely from native ERPNext workspace blocks.\", \"col\": 12}}, {\"id\": \"dc594bd616\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Shortcuts</b></span>\", \"col\": 12}}, {\"id\": \"fc6e44efcb\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"AR Summary\", \"col\": 3}}, {\"id\": \"2b715b4567\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Cash Tracking\", \"col\": 3}}, {\"id\": \"5c49357a9b\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Sales Invoice\", \"col\": 3}}, {\"id\": \"3587045186\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Customer\", \"col\": 3}}, {\"id\": \"51cb6ff32b\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Sales Order\", \"col\": 3}}, {\"id\": \"f3d5cac4c3\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"1394897698\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Key Numbers</b></span>\", \"col\": 12}}, {\"id\": \"984b95f54f\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"AR Outstanding\", \"col\": 4}}, {\"id\": \"1b531976a5\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Overdue Invoices\", \"col\": 4}}, {\"id\": \"2f0878b049\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Total Customers\", \"col\": 4}}, {\"id\": \"f51dabfb17\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"45fb1d596d\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Sales Trend</b></span>\", \"col\": 12}}, {\"id\": \"a2f57e75e5\", \"type\": \"chart\", \"data\": {\"chart_name\": \"Monthly Sales (MT)\", \"col\": 12}}, {\"id\": \"a0e6d8cf1d\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"d118b50617\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Recent Invoices & Links</b></span>\", \"col\": 12}}, {\"id\": \"9880dcc93c\", \"type\": \"quick_list\", \"data\": {\"quick_list_name\": \"Sales Invoice\", \"col\": 6}}, {\"id\": \"b6455387d5\", \"type\": \"card\", \"data\": {\"card_name\": \"Reports & Masters\", \"col\": 6}}]",
  "creation": "2026-08-07 09:41:26.150486",
  "custom_blocks": [],
@@ -57,24 +52,11 @@
    "type": "Link"
   }
  ],
- "modified": "2026-08-07 09:41:26.150486",
+ "modified": "2026-08-19 15:54:24.800118",
  "modified_by": "Administrator",
  "module": "Cannabis Management",
  "name": "Motley Overview",
- "number_cards": [
-  {
-   "label": "AR Outstanding",
-   "number_card_name": "AR Outstanding"
-  },
-  {
-   "label": "Overdue Invoices",
-   "number_card_name": "Overdue Invoices"
-  },
-  {
-   "label": "Total Customers",
-   "number_card_name": "Total Customers"
-  }
- ],
+ "number_cards": [],
  "owner": "Administrator",
  "public": 1,
  "quick_lists": [
@@ -84,7 +66,11 @@
    "quick_list_filter": "[]"
   }
  ],
- "roles": [],
+ "roles": [
+  {
+   "role": "System Manager"
+  }
+ ],
  "sequence_id": 99.0,
  "shortcuts": [
   {
