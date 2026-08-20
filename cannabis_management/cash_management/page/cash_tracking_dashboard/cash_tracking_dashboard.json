@@ -1,10 +1,10 @@
 {
  "content": null,
- "creation": "2026-07-22 10:00:00.000000",
+ "creation": "2026-07-22 10:00:00",
  "docstatus": 0,
  "doctype": "Page",
  "idx": 0,
- "modified": "2026-07-22 10:00:00.000000",
+ "modified": "2026-08-20 10:23:34.392792",
  "modified_by": "Administrator",
  "module": "Cash Management",
  "name": "cash-tracking-dashboard",
@@ -15,12 +15,6 @@
    "role": "Motley Cash Tracker"
   },
   {
-   "role": "Cash Tracking User"
-  },
-  {
-   "role": "Cash Tracker User"
-  },
-  {
    "role": "Finance Manager"
   },
   {
@@ -28,6 +22,15 @@
   },
   {
    "role": "System Manager"
+  },
+  {
+   "role": "Nikki M - Consolidated"
+  },
+  {
+   "role": "Cash Tracking User"
+  },
+  {
+   "role": "Cash Tracker User"
   }
  ],
  "script": null,
