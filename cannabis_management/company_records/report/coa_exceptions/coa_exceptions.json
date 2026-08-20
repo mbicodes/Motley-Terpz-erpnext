@@ -17,5 +17,9 @@
  "ref_doctype": "Certificate of Analysis",
  "report_name": "COA Exceptions",
  "report_type": "Script Report",
- "roles": []
+ "roles": [
+  {
+   "role": "Accounts Manager"
+  }
+ ]
 }

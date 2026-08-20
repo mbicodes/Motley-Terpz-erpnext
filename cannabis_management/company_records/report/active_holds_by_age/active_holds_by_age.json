@@ -17,5 +17,9 @@
  "ref_doctype": "LOI Product Hold Agreement",
  "report_name": "Active Holds by Age",
  "report_type": "Script Report",
- "roles": []
+ "roles": [
+  {
+   "role": "Accounts Manager"
+  }
+ ]
 }

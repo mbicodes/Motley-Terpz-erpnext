@@ -17,5 +17,9 @@
  "ref_doctype": "Company Contract",
  "report_name": "Contract and Agreement Expiry",
  "report_type": "Script Report",
- "roles": []
+ "roles": [
+  {
+   "role": "Accounts Manager"
+  }
+ ]
 }
