@@ -30,12 +30,6 @@
    "role": "Accounts User"
   },
   {
-   "role": "Sales User"
-  },
-  {
-   "role": "Purchase User"
-  },
-  {
    "role": "Employee Self Service"
   }
  ],
