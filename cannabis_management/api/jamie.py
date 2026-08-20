@@ -18,6 +18,10 @@ def _get_date_range(period):
 
 INTERNAL_CUSTOMERS = ('Motley Terpz', 'MT', 'MTPZ')  # legacy fallback only
 
+# Trading companies whose Sales/AR roll up into the dashboard KPIs (intercompany
+# excluded separately via _get_excluded_customers()).
+KPI_COMPANIES = ('Motley Terpz', 'TSBC Ranch', 'Master Touch Manufacturing')
+
 
 def _get_excluded_customers():
     """
@@ -121,8 +125,9 @@ def get_sales_by_period(period='monthly'):
     from_date, to_date = _get_date_range(period)
 
     excluded = _get_excluded_customers()
-    conditions = 'si.docstatus = 1 AND si.customer NOT IN %(internal_customers)s'
-    args = {'internal_customers': excluded}
+    conditions = ('si.docstatus = 1 AND si.customer NOT IN %(internal_customers)s '
+                  'AND si.company IN %(companies)s')
+    args = {'internal_customers': excluded, 'companies': KPI_COMPANIES}
 
     if from_date:
         conditions += ' AND si.posting_date >= %(from_date)s'
@@ -186,8 +191,12 @@ def get_ar_detail(period='overall'):
     if not frappe.has_permission('Sales Invoice', 'read'):
         frappe.throw('Not permitted', frappe.PermissionError)
     from_date, to_date = _get_date_range(period)
-    conditions = 'si.docstatus = 1 AND si.outstanding_amount > 0'
-    args = {}
+    # Restrict to the three trading companies and exclude intercompany
+    # (internal-customer) invoices.
+    conditions = ('si.docstatus = 1 AND si.outstanding_amount > 0 '
+                  'AND si.company IN %(companies)s '
+                  'AND si.customer NOT IN %(internal_customers)s')
+    args = {'companies': KPI_COMPANIES, 'internal_customers': _get_excluded_customers()}
     if from_date:
         conditions += ' AND si.posting_date >= %(from_date)s'
         args['from_date'] = from_date
@@ -282,8 +291,9 @@ def get_ap_by_supplier():
 
 @frappe.whitelist()
 def get_batches_in_production():
-    if not frappe.has_permission('Project', 'read'):
-        frappe.throw('Not permitted', frappe.PermissionError)
+    # Read-only aggregate for the dashboard KPI (count of active batches/projects).
+    # No hard Project-permission gate so dashboard users (e.g. Nikki) who don't
+    # hold Project read can still see the count.
     return frappe.db.sql("""
         SELECT p.name, p.project_name, p.company, p.status,
                p.expected_start_date, p.expected_end_date, p.percent_complete
@@ -333,7 +343,10 @@ def get_timesheets_by_period(period='monthly'):
 
 @frappe.whitelist()
 def get_sample_giveaway(period='monthly', month_offset=0):
-    if not frappe.has_permission('Sales Invoice', 'read'):
+    # Pull sample orders from SALES ORDERS where the order type is Samples or
+    # Marketing (custom_sales_order_type). Was previously reading Sales Invoices
+    # with custom_order_type='Samples' only.
+    if not frappe.has_permission('Sales Order', 'read'):
         frappe.throw('Not permitted', frappe.PermissionError)
     month_offset = cint(month_offset)
     if period == 'monthly' and month_offset != 0:
@@ -344,22 +357,22 @@ def get_sample_giveaway(period='monthly', month_offset=0):
     else:
         from_date, to_date = _get_date_range(period)
         label = None
-    conditions = "si.docstatus = 1 AND si.custom_order_type = 'Samples'"
+    conditions = "so.docstatus = 1 AND so.custom_sales_order_type IN ('Samples', 'Marketing')"
     args = {}
     if from_date:
-        conditions += ' AND si.posting_date >= %(from_date)s'
+        conditions += ' AND so.transaction_date >= %(from_date)s'
         args['from_date'] = str(from_date)
     if to_date:
-        conditions += ' AND si.posting_date <= %(to_date)s'
+        conditions += ' AND so.transaction_date <= %(to_date)s'
         args['to_date'] = str(to_date)
     rows = frappe.db.sql(f"""
-        SELECT si.posting_date AS given_on, si.customer_name AS given_to,
-               si.customer AS customer_id, si.name AS invoice_id, si.company,
-               sii.item_code, sii.item_name, sii.item_group, sii.qty, sii.uom
-        FROM `tabSales Invoice` si
-        INNER JOIN `tabSales Invoice Item` sii ON sii.parent = si.name
+        SELECT so.transaction_date AS given_on, so.customer_name AS given_to,
+               so.customer AS customer_id, so.name AS invoice_id, so.company,
+               soi.item_code, soi.item_name, soi.item_group, soi.qty, soi.uom
+        FROM `tabSales Order` so
+        INNER JOIN `tabSales Order Item` soi ON soi.parent = so.name
         WHERE {conditions}
-        ORDER BY si.posting_date DESC, si.customer_name ASC, sii.item_name ASC
+        ORDER BY so.transaction_date DESC, so.customer_name ASC, soi.item_name ASC
     """, args, as_dict=True)
     total_qty = sum(float(r.qty or 0) for r in rows)
     return {
