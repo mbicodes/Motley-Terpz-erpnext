@@ -25,15 +25,6 @@
   },
   {
    "role": "Accounts Manager"
-  },
-  {
-   "role": "Employee Self Service"
-  },
-  {
-   "role": "Sales User"
-  },
-  {
-   "role": "Logistic User"
   }
  ],
  "timeout": 0
