@@ -14,16 +14,30 @@ ORG_WIDE_VIEW_ROLES = ("Account Receivable", "System Manager", "CEO")
 
 
 @contextmanager
-def _org_wide_view():
-    """Temporarily elevate to Administrator so the AR report ignores
-    Company User Permissions for users holding an ORG_WIDE_VIEW_ROLES role.
+def _elevated_view():
+    """Temporarily elevate to Administrator for the whole report fetch.
+
+    Two reasons this is required:
+
+      1. Company User Permissions would otherwise silently zero out
+         non-permitted companies for ORG_WIDE_VIEW_ROLES holders.
+      2. ERPNext's Accounts Receivable report calls
+         frappe.get_list("Sales Invoice") and frappe.get_list("Journal Entry")
+         internally (accounts_receivable.py :: get_invoice_details), both of
+         which are permission-checked. Without elevation, opening this page
+         would require Journal Entry read — i.e. the Accounts User / Accounts
+         Manager / Auditor role — even though the page never shows a Journal
+         Entry. Page access alone must be enough to view this dashboard.
+
+    Because elevation bypasses Company User Permissions, every caller MUST
+    scope the query itself via _permitted_companies() — see get_ar_data.
 
     DO NOT REMOVE: get_ar_data must stay wrapped in this context manager.
-    Anything permission-sensitive for the real user (e.g. _can_edit_recon)
-    must be computed BEFORE entering it.
+    Anything permission-sensitive for the real user (e.g. _can_edit_recon,
+    _permitted_companies) must be computed BEFORE entering it.
     """
     user = frappe.session.user
-    if user == "Administrator" or not set(frappe.get_roles(user)).intersection(ORG_WIDE_VIEW_ROLES):
+    if user == "Administrator":
         yield
         return
     try:
@@ -31,6 +45,37 @@ def _org_wide_view():
         yield
     finally:
         frappe.set_user(user)
+
+
+def _permitted_companies():
+    """Which companies the current user may see AR for.
+
+    Returns None for "every company" (Administrator and ORG_WIDE_VIEW_ROLES
+    holders), otherwise the list of Company names the user is restricted to by
+    their Company User Permissions. Since _elevated_view() runs the report as
+    Administrator, this is what keeps a page-only user (no Accounts roles)
+    scoped to their own entities instead of suddenly seeing everything.
+
+    Must be called BEFORE entering _elevated_view().
+    """
+    user = frappe.session.user
+    if user == "Administrator" or set(frappe.get_roles(user)).intersection(ORG_WIDE_VIEW_ROLES):
+        return None
+
+    allowed = frappe.get_all(
+        "User Permission",
+        filters={"user": user, "allow": "Company"},
+        pluck="for_value",
+    )
+    # No Company User Permission at all = unrestricted, same as core Frappe.
+    return sorted(set(allowed)) or None
+
+
+def _scope_companies(companies, permitted):
+    """Intersect a company list with `permitted` (None = no restriction)."""
+    if permitted is None:
+        return list(companies)
+    return [c for c in companies if c in permitted]
 TMM_GROUP_COMPANIES = ["Motley Terpz", "TSBC Ranch"]
 LEGACY_CUTOFF       = "2026-05-31"
 NEW_AR_START        = "2026-06-01"
@@ -241,36 +286,56 @@ def _fetch_rows_for_company(company, report_date, customer, ageing_based_on, ran
 
 @frappe.whitelist()
 def init_page():
-    companies = frappe.get_all("Company", pluck="name", order_by="name")
-    if "TMM Group" not in companies:
+    permitted = _permitted_companies()
+
+    companies = _scope_companies(
+        frappe.get_all("Company", pluck="name", order_by="name"), permitted
+    )
+    # TMM Group is a virtual roll-up of TMM_GROUP_COMPANIES — offer it only when
+    # the user may see at least one of its member companies.
+    if "TMM Group" not in companies and _scope_companies(TMM_GROUP_COMPANIES, permitted):
         companies.append("TMM Group")
     companies.sort()
     return {
         "companies": companies,
         "can_edit_recon": _can_edit_recon(),
+        "org_wide": permitted is None,
     }
 
 
 @frappe.whitelist()
 def get_ar_data(company, report_date=None, customer=None, ageing_based_on="Due Date",
                 range_str="30, 60, 90, 120", ar_mode="legacy"):
-    """Whitelisted entry point. Computes user-specific flags first, then runs
-    the whole report fetch inside _org_wide_view() so dashboard-role users
-    (Matt/CEO etc.) always see the same org-wide numbers as Administrator.
+    """Whitelisted entry point. Computes user-specific flags and the user's
+    company scope FIRST, then runs the whole report fetch inside
+    _elevated_view() so dashboard-role users (Matt/CEO etc.) always see the
+    same org-wide numbers as Administrator, and so page-only users never need
+    Accounts / Journal Entry DocPerms just to read this dashboard.
 
     DO NOT edit report logic here — edit _get_ar_data below. This wrapper must
-    stay intact so future changes cannot accidentally drop the elevation.
+    stay intact so future changes cannot accidentally drop the elevation or the
+    company scoping that elevation makes necessary.
     """
     can_edit_recon = _can_edit_recon()
-    with _org_wide_view():
+    permitted = _permitted_companies()
+
+    if permitted is not None and company and company != "__ALL__":
+        requested = TMM_GROUP_COMPANIES if company == "TMM Group" else [company]
+        if not _scope_companies(requested, permitted):
+            frappe.throw(
+                f"You do not have access to receivables for {company}.",
+                frappe.PermissionError,
+            )
+
+    with _elevated_view():
         result = _get_ar_data(company, report_date, customer, ageing_based_on,
-                              range_str, ar_mode)
+                              range_str, ar_mode, permitted)
     result["can_edit_recon"] = can_edit_recon
     return result
 
 
 def _get_ar_data(company, report_date=None, customer=None, ageing_based_on="Due Date",
-                 range_str="30, 60, 90, 120", ar_mode="legacy"):
+                 range_str="30, 60, 90, 120", ar_mode="legacy", permitted=None):
     ranges = _build_ranges(range_str)
 
     # Aging "as of" date. Legacy aging is computed relative to TODAY (not clamped
@@ -288,7 +353,7 @@ def _get_ar_data(company, report_date=None, customer=None, ageing_based_on="Due 
 
     if company == "TMM Group":
         all_rows = []
-        for c in TMM_GROUP_COMPANIES:
+        for c in _scope_companies(TMM_GROUP_COMPANIES, permitted):
             try:
                 c_rows = _fetch_rows_for_company(
                     c, report_date, customer, ageing_based_on, range_str, ranges
@@ -465,15 +530,25 @@ def update_notebox(party, value):
     return {"party": party, "value": value or ""}
 
 
-def _company_condition(alias, company):
+def _company_condition(alias, company, permitted=None):
     """Build a (sql_fragment, extra_params) pair scoping `alias`.company to the
     selected filter, matching the page's existing All Entities / TMM Group /
-    single-company semantics. Returns ("", {}) for All Entities."""
+    single-company semantics, further narrowed to `permitted` (None = every
+    company). Returns ("", {}) only when the user may see every company and
+    All Entities is selected."""
     if not company or company == "__ALL__":
+        companies = None if permitted is None else list(permitted)
+    elif company == "TMM Group":
+        companies = _scope_companies(TMM_GROUP_COMPANIES, permitted)
+    else:
+        companies = _scope_companies([company], permitted)
+
+    if companies is None:
         return "", {}
-    if company == "TMM Group":
-        return f"AND {alias}.company IN %(tmm_companies)s", {"tmm_companies": tuple(TMM_GROUP_COMPANIES)}
-    return f"AND {alias}.company = %(company)s", {"company": company}
+    # Empty = nothing permitted; an impossible name keeps the query valid and empty.
+    return f"AND {alias}.company IN %(cc_companies)s", {
+        "cc_companies": tuple(companies) or ("__none__",)
+    }
 
 
 def _month_labels(start_month, end_month):
@@ -516,13 +591,15 @@ def _trailing_weekly_blocks_since(start_date, as_of, weeks=4):
 
 @frappe.whitelist()
 def get_monthly_ar_collection(company=None):
-    """Whitelisted entry point — see _get_ar_data's docstring for why this
-    must stay wrapped in _org_wide_view(). Do not edit report logic here."""
-    with _org_wide_view():
-        return _get_monthly_ar_collection(company)
+    """Whitelisted entry point — see get_ar_data's docstring for why this must
+    stay wrapped in _elevated_view() and why the company scope has to be
+    resolved before entering it. Do not edit report logic here."""
+    permitted = _permitted_companies()
+    with _elevated_view():
+        return _get_monthly_ar_collection(company, permitted)
 
 
-def _get_monthly_ar_collection(company=None):
+def _get_monthly_ar_collection(company=None, permitted=None):
     """Month-wise cash collected against Legacy AR (invoices posted on/before
     2026-05-31) vs New AR (invoices posted on/after 2026-06-01), split by
     Cash vs Bank (by the receiving account's account_type — same convention
@@ -538,7 +615,7 @@ def _get_monthly_ar_collection(company=None):
     internal = _internal_customer_names()
     internal_tuple = tuple(internal) if internal else ("__none__",)
 
-    company_cond, company_params = _company_condition("pe", company)
+    company_cond, company_params = _company_condition("pe", company, permitted)
     params = {
         "internal": internal_tuple,
         "legacy_cutoff": LEGACY_CUTOFF,
@@ -567,7 +644,7 @@ def _get_monthly_ar_collection(company=None):
     """, params, as_dict=True)
 
     # ── Legacy total invoiced (fixed) — anchor for the shrinking balance ──────
-    si_company_cond, si_company_params = _company_condition("si", company)
+    si_company_cond, si_company_params = _company_condition("si", company, permitted)
     si_params = {"internal": internal_tuple, "legacy_cutoff": LEGACY_CUTOFF, **si_company_params}
     legacy_total_invoiced = frappe.db.sql(f"""
         SELECT COALESCE(SUM(si.grand_total), 0)

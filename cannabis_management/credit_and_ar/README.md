@@ -17,7 +17,7 @@ policy document where the two disagree.
 |---|---|
 | 1 | **Every non-COD payment terms template** requires a written MD exception reason on the Credit Application. |
 | 2 | Finance charges apply to **all past-due terms invoices**, not NET30 only. |
-| 3 | 50%-down terms: the deposit must be **cleared** before production/staging. Only the deferred half counts against the credit line. |
+| 3 | 50%-down terms: the deposit must be **cleared** before production/staging. Only the deferred half counts against the credit line. *(First half superseded by decision 17 — the template leg no longer gates submit. The deferred-half credit measurement stands.)* |
 | 14 | **Cash orders are outside the policy** (2026-08-18). Mode of Payment = Cash On Delivery ⇒ no approval, no credit line, no deposit, no print block, **and no hold** — on the order and on Delivery Notes raised from it. ERPNext's own defaults stand, including `payment_terms_template`. Rationale: cash carries no exposure, and 109 customers sat on Hard Hold unable to trade even for cash. **Exception:** the workout paydown still applies to cash, so a workout customer cannot escape the paydown by switching every order to cash. |
 | 4 | Sample orders are zero-value but **stock still leaves inventory**. No reason code, no monthly cap, and **holds do not block samples**. |
 | 5 | **Per-order MD approval, always.** A live credit line does not auto-pass future Terms orders. |
@@ -32,6 +32,7 @@ policy document where the two disagree.
 | 14 | **Existing fields are reused, not duplicated** — see below. |
 | 15 | `policy_effective_date` ships **blank**; every scheduled job is inert until Finance sets it. |
 | 16 | CEO and Collections Officer routing slots ship blank; empty routes are skipped and logged, never thrown. |
+| 17 | **The template's up-front leg is no longer a deposit gate** (2026-08-18). A `50% down NETnn` term used to add its 50% to `custom_required_deposit`, so a $10,000 order refused to submit until $5,000 had cleared. Stock ERPNext treats a due-immediately payment-schedule row as a *due date*, not a submit gate, and the block was diverging from that. The ERPNext payment schedule is untouched and the money is still owed on day zero — it is now collected and chased like any other due amount. **The §4 over-limit deposit still blocks**, since nothing in ERPNext enforces a credit line. Supersedes decision 3's deposit half; the "only the deferred half counts against the credit line" half of decision 3 stands. |
 
 ### Why the cap is new-book only
 
@@ -321,14 +322,18 @@ consolidated error, not one at a time.
 
 ### Required deposit
 
-Two independent reasons to take money up front, **added together**:
+One reason only: **§4 over-limit** — the amount by which the order's *credit*
+exposure exceeds the available line. There is **no single-order exception at any
+amount**.
 
-1. the template's own up-front leg — the 50% of a `50% down NETnn` term;
-2. §4 over-limit — the amount by which the order's *credit* exposure exceeds the
-   available line.
+The template's own up-front leg is deliberately *not* a deposit requirement. A
+`50% down NETnn` term used to add its 50% here, gating submit on a cleared
+payment; it no longer does (decision 17). ERPNext's payment schedule still
+carries that leg as due on day zero — it is a due date, not a gate.
 
 Only the deferred portion of a 50%-down order is credit, so only that portion is
-measured against the line. There is **no single-order exception at any amount**.
+measured against the line. That is unchanged: it is an exposure measurement, not
+a deposit demand.
 
 ### On submit
 

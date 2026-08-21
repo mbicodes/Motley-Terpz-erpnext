@@ -2,7 +2,7 @@
    Accounts Receivable Dashboard — ar_dashboard.css
    ============================================================ */
 
-/* ── Palette ──────────────────────────────────────────────── */
+/* ── Palette ───────────────────────────_───────────────────── */
 :root {
 	--ard-font: "Inter", "Helvetica Neue", Arial, sans-serif;
 
@@ -18,6 +18,7 @@
 	--ard-60:         #ea580c;
 	--ard-60-lt:      #ffedd5;
 	--ard-60-bg:      #fff7ed;
+
 
 	--ard-90:         #dc2626;
 	--ard-90-lt:      #fee2e2;
