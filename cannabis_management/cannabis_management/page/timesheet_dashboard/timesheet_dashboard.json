@@ -10,7 +10,11 @@
  "name": "timesheet-dashboard",
  "owner": "Administrator",
  "page_name": "timesheet-dashboard",
- "roles": [],
+ "roles": [
+  {
+   "role": "Nikki M - Consolidated"
+  }
+ ],
  "script": null,
  "standard": "Yes",
  "style": null,
