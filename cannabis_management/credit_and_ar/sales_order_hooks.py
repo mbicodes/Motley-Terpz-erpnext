@@ -474,25 +474,30 @@ def _check_workout_paydown(doc):
 def _compute_required_deposit(doc, summary):
 	"""Total cleared deposit needed before this order can be submitted.
 
-	Two independent reasons to take money up front, added together:
+	One reason only: §4 over-limit — the amount by which the order's *credit*
+	exposure exceeds the available line. No single-order exception at any amount.
 
-	1. The template's own up-front leg — the 50% of a "50% down" term.
-	2. §4 over-limit — the amount by which the order's *credit* exposure
-	   exceeds the available line. No single-order exception at any amount.
+	The template's own up-front leg is deliberately **not** a deposit
+	requirement. A `50% down NETnn` term used to add its 50% here, which meant a
+	$10,000 order could not be submitted until $5,000 had cleared — a hard block
+	stock ERPNext does not have, where a due-immediately payment-schedule row is
+	a *due date*, not a gate on submitting the order. The schedule ERPNext builds
+	from the template still stands and the money is still owed on day zero; it is
+	simply collected and chased like any other due amount rather than held over
+	the order. See the decision log.
 
 	Only the deferred portion of a 50%-down order is credit, so only that
-	portion is measured against the line.
+	portion is measured against the line — that part is unchanged, because it is
+	an exposure measurement rather than a deposit demand.
 	"""
 	grand_total = flt(doc.grand_total)
 	credit_portion = utils.template_credit_portion(doc.payment_terms_template) / 100.0
-	upfront_portion = utils.template_upfront_portion(doc.payment_terms_template) / 100.0
 
-	template_deposit = grand_total * upfront_portion
 	order_credit_exposure = grand_total * credit_portion
 	available = flt(summary["available_line"])
 
 	over_limit = max(0.0, order_credit_exposure - available)
-	doc.custom_required_deposit = flt(template_deposit + over_limit)
+	doc.custom_required_deposit = flt(over_limit)
 
 	if over_limit > 0:
 		frappe.msgprint(

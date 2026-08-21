@@ -326,9 +326,19 @@ and **Against Sales Order** = the order. Submit.
 and approve a new application with Approved Terms = **`50% down NET30`** and a
 limit of 200,000. Then raise a Terms order for 20,000.
 
-> ✅ *Required Deposit* = **10,000** — the template's own up-front leg.
+> ✅ *Required Deposit* = **0** — the template's up-front leg is **not** a
+> deposit gate (decision 17). ERPNext's payment schedule still shows 10,000 due
+> on day zero; it is a due date, not a block.
 > ✅ Only the deferred 10,000 is charged against the available line, not the
 > full 20,000.
+> ✅ The order **submits with nothing paid** — no *Deposit Outstanding* refusal.
+
+**Do:** now raise a `50% down NET30` order for 500,000 against the same 200,000
+limit.
+
+> ✅ *Required Deposit* = **50,000** — the over-limit deposit still bites:
+> 250,000 of credit exposure against a 200,000 line. Submit is refused until it
+> clears.
 
 ---
 

@@ -13,6 +13,9 @@
  "roles": [
   {
    "role": "Account Receivable"
+  },
+  {
+   "role": "AR Dashboard Viewer"
   }
  ],
  "script": null,
