@@ -740,6 +740,7 @@ fixtures = [
         "Distribution Hub",
         "Company Records Hub",
         "Nikki",   # Nikki dashboard block — travels to live via git + migrate
+        "Jamie",   # Jamie dashboard block — travels to live via git + migrate
     ]]]},
     # Client-facing Extracts Live Menu page (JS: display-name aliases +
     # Tier group ordering). Git-managed so it deploys via bench update.
