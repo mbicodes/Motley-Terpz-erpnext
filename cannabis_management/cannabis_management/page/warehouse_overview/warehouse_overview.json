@@ -10,7 +10,11 @@
  "name": "warehouse-overview",
  "owner": "Administrator",
  "page_name": "warehouse-overview",
- "roles": [],
+ "roles": [
+  {
+   "role": "Stock User"
+  }
+ ],
  "script": null,
  "standard": "Yes",
  "style": null,
