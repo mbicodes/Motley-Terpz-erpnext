@@ -1,27 +1,121 @@
 {
  "actions": [],
  "allow_rename": 1,
- "autoname": "prompt",
+ "autoname": "field:licence_number",
  "creation": "2026-01-21 07:44:56.749567",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "section_break_wwzn"
+  "section_break_wwzn",
+  "licence_number",
+  "licence_name",
+  "column_break_details",
+  "licence_type",
+  "company",
+  "validity_section",
+  "valid_from",
+  "valid_upto",
+  "column_break_validity",
+  "adjust_window_hours",
+  "options_section",
+  "allow_total_weight_entry",
+  "is_active"
  ],
  "fields": [
   {
    "fieldname": "section_break_wwzn",
-   "fieldtype": "Section Break"
+   "fieldtype": "Section Break",
+   "label": "Licence Details"
+  },
+  {
+   "fieldname": "licence_number",
+   "fieldtype": "Data",
+   "label": "Licence Number",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "licence_name",
+   "fieldtype": "Data",
+   "label": "Licence Name",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "column_break_details",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "licence_type",
+   "fieldtype": "Select",
+   "label": "Licence Type",
+   "options": "\nCultivation\nNursery\nProcessor\nDistributor",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1,
+   "in_standard_filter": 1,
+   "description": "Ties licence to the accounting entity"
+  },
+  {
+   "fieldname": "validity_section",
+   "fieldtype": "Section Break",
+   "label": "Validity"
+  },
+  {
+   "fieldname": "valid_from",
+   "fieldtype": "Date",
+   "label": "Valid From"
+  },
+  {
+   "fieldname": "valid_upto",
+   "fieldtype": "Date",
+   "label": "Valid Upto"
+  },
+  {
+   "fieldname": "column_break_validity",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "adjust_window_hours",
+   "fieldtype": "Int",
+   "label": "Quantity Adjust Window (Hrs)",
+   "default": "48",
+   "description": "Jurisdiction-specific window in hours"
+  },
+  {
+   "fieldname": "options_section",
+   "fieldtype": "Section Break",
+   "label": "Options"
+  },
+  {
+   "fieldname": "allow_total_weight_entry",
+   "fieldtype": "Check",
+   "label": "Allow Combined Weight Entry",
+   "default": "0",
+   "description": "Gates the even-distribution weighing method"
+  },
+  {
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "Active",
+   "default": "1"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-03-26 07:59:45.065887",
+ "modified": "2026-08-25 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "Cannabis Management",
  "name": "License",
- "naming_rule": "Set by user",
+ "naming_rule": "By fieldname",
  "owner": "Administrator",
  "permissions": [
   {
@@ -39,7 +133,9 @@
  ],
  "row_format": "Dynamic",
  "rows_threshold_for_grid_search": 20,
+ "search_fields": "licence_name,company,licence_type",
  "sort_field": "modified",
  "sort_order": "DESC",
- "states": []
+ "states": [],
+ "title_field": "licence_name"
 }
