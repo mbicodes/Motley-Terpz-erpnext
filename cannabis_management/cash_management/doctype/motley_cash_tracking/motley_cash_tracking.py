@@ -13,11 +13,37 @@ INVOICE_REQUIRED_TYPES = (
 class MotleyCashTracking(Document):
     def validate(self):
         self.set_person_links()
+        self.validate_motley_allowed()
         validate_money_in_out(self)
         if self.transaction_type in INVOICE_REQUIRED_TYPES and not self.invoice_number:
             frappe.throw(
                 f"Invoice # (Sales Order) is required for '{self.transaction_type}' transactions."
             )
+
+    def validate_motley_allowed(self):
+        """Only people flagged "Allow For Motley" on their Cash Tracker Person may
+        file Motley entries. Checked against the person ON THE DOCUMENT, not the
+        session user, so an admin filing on someone's behalf still respects the
+        flag. Cash admins filing for themselves are covered by can_use_motley.
+        """
+        from cannabis_management.cash_management.permissions import (
+            can_use_motley,
+            person_allows_motley,
+        )
+
+        if person_allows_motley(self.cash_tracker_person):
+            return
+
+        if not self.cash_tracker_person and can_use_motley():
+            return
+
+        who = self.cash_tracker_person or frappe.session.user
+        frappe.throw(
+            f"{who} is not allowed to file Motley entries. "
+            "Tick <b>Allow For Motley</b> on their Cash Tracker Person record first.",
+            frappe.PermissionError,
+            title="Not allowed for Motley",
+        )
 
     def set_person_links(self):
         if not self.cash_tracker_person:

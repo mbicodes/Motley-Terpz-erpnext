@@ -53,6 +53,10 @@ app_include_js = [
     # Shared "Company" report filter carrying an All Company option — must load
     # before any report script that calls cannabis.reports.company_filter().
     "/assets/cannabis_management/js/company_filter.js",
+    # Shared behaviour for the Motley / Personal Cash Tracking forms: Open Sales
+    # Order button, post-submit Payment Entry / Journal Entry actions, and the
+    # currency-formatted Sales Order picker. Must load before those form scripts.
+    "/assets/cannabis_management/js/cash_tracking_actions.js",
     # Manufacturing Process Desk page logic (Work Order/BOM/Job Card trail).
     # Must load before the Desk page's thin shell. The portal at
     # /manufacturing-process is a separate, lighter Time Clock view now —

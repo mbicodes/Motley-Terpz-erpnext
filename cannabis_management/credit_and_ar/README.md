@@ -32,7 +32,8 @@ policy document where the two disagree.
 | 14 | **Existing fields are reused, not duplicated** — see below. |
 | 15 | `policy_effective_date` ships **blank**; every scheduled job is inert until Finance sets it. |
 | 16 | CEO and Collections Officer routing slots ship blank; empty routes are skipped and logged, never thrown. |
-| 17 | **The template's up-front leg is no longer a deposit gate** (2026-08-18). A `50% down NETnn` term used to add its 50% to `custom_required_deposit`, so a $10,000 order refused to submit until $5,000 had cleared. Stock ERPNext treats a due-immediately payment-schedule row as a *due date*, not a submit gate, and the block was diverging from that. The ERPNext payment schedule is untouched and the money is still owed on day zero — it is now collected and chased like any other due amount. **The §4 over-limit deposit still blocks**, since nothing in ERPNext enforces a credit line. Supersedes decision 3's deposit half; the "only the deferred half counts against the credit line" half of decision 3 stands. |
+| 17 | **The template's up-front leg is no longer a deposit gate** (2026-08-18). A `50% down NETnn` term used to add its 50% to `custom_required_deposit`, so a $10,000 order refused to submit until $5,000 had cleared. Stock ERPNext treats a due-immediately payment-schedule row as a *due date*, not a submit gate, and the block was diverging from that. The ERPNext payment schedule is untouched and the money is still owed on day zero — it is now collected and chased like any other due amount. **The §4 over-limit deposit still blocks**, since nothing in ERPNext enforces a credit line. Supersedes decision 3's deposit half; the "only the deferred half counts against the credit line" half of decision 3 stands. *(That surviving half is now superseded in turn by decision 18.)* |
+| 18 | **The whole order counts against the credit line** (2026-08-24). Reverses the last surviving half of decision 3. The deferred-half measurement was only safe while decision 17's up-front leg was actually collected before the order could proceed; once that gate was removed, a `50% down NETnn` order shipped with nothing collected, the **full** grand total became receivable, and half of it was invisible to the line. Observed live: SAL-ORD-2026-00493, a **$30,000** order, auto-approved and submitted against a **$20,000** limit because it was measured as $15,000 of credit. `utils.template_credit_portion` now returns 100% for every template — the single knob, read by the exposure engine, the Sales Order gate and the AR reports alike. The up-front leg remains a real due date on the ERPNext payment schedule and is chased like any other due amount; it simply no longer buys headroom on a line nothing forces the customer to fund. |
 
 ### Why the cap is new-book only
 
@@ -331,9 +332,14 @@ The template's own up-front leg is deliberately *not* a deposit requirement. A
 payment; it no longer does (decision 17). ERPNext's payment schedule still
 carries that leg as due on day zero — it is a due date, not a gate.
 
-Only the deferred portion of a 50%-down order is credit, so only that portion is
-measured against the line. That is unchanged: it is an exposure measurement, not
-a deposit demand.
+The **whole order** is measured against the line, every template alike
+(decision 18). The up-front leg does not reduce the measured exposure, because
+nothing forces it to be funded before the order ships.
+
+The over-limit check is recomputed **live at submit** — another order for the
+same credit group may have been submitted, or an invoice paid, since this
+document was written down — and it runs **before** the approval check, so an
+over-limit order reports the number it breached rather than "awaiting approval".
 
 ### On submit
 
@@ -721,8 +727,9 @@ operating company:
   book *and* legacy. Money owed is money owed; the Legacy split governs the
   company freeze and finance charges, not a customer's own line.
 * **Unbilled Terms orders** — submitted, not-fully-billed **Terms** Sales
-  Orders, at the credit portion only. A COD order is not credit until it becomes
-  an unpaid invoice, and the prepaid half of a 50%-down order was never at risk.
+  Orders, at their **full** unbilled value (decision 18). A COD order is not
+  credit until it becomes an unpaid invoice, but a 50%-down order is: nothing
+  gates its up-front leg, so the whole grand total is at risk.
 * Sample orders never count.
 
 `available_line = approved_limit − total exposure`, and may legitimately go

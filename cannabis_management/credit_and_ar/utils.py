@@ -185,15 +185,23 @@ def template_upfront_portion(template: str | None) -> float:
 
 
 def template_credit_portion(template: str | None) -> float:
-	"""Percentage of the order that is genuinely extended on credit.
+	"""Percentage of the order that counts against the customer's credit line.
 
-	A 50%-down template puts only the deferred half at risk, so only that half
-	is charged against the customer's available line.
+	**The whole order, always** — the single knob for this rule, read by the
+	exposure engine, the Sales Order gate and the AR reports alike.
+
+	This used to discount a `50% down NETnn` order to its deferred half, on the
+	reasoning that the prepaid half was never at risk (decision 3). That premise
+	died with decision 17, which stopped the up-front leg from gating submit: the
+	order now ships with nothing collected, the full grand total becomes
+	receivable, and half of it was invisible to the line. A $30,000 order was
+	therefore submitting against a $20,000 limit — measured as $15,000 of credit.
+
+	The up-front leg is still a real due date on the ERPNext payment schedule and
+	is still chased like any other due amount; it is simply no longer allowed to
+	buy headroom on the credit line that nothing forces the customer to fund.
 	"""
-	if not template:
-		return 100.0
-	upfront = template_upfront_portion(template)
-	return max(0.0, 100.0 - upfront)
+	return 100.0
 
 
 # ── UOM normalisation ────────────────────────────────────────────────────────

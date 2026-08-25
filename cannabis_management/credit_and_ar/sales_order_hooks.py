@@ -79,6 +79,12 @@ def before_submit(doc, method=None):
 	_assert_terms_allowed(doc)
 	_check_workout_paydown(doc)
 
+	# The credit line is checked *before* the approval status, deliberately. An
+	# over-limit order never auto-approves, so leaving this last meant the only
+	# error Sales ever saw was "awaiting approval" — true, but not the reason the
+	# order was stuck, and it sent them to the MD instead of to the number.
+	_check_deposit(doc)
+
 	if doc.custom_approval_status != utils.APPROVAL_APPROVED:
 		frappe.throw(
 			_(
@@ -87,8 +93,6 @@ def before_submit(doc, method=None):
 			),
 			title=_("Approval Required"),
 		)
-
-	_check_deposit(doc)
 
 
 def on_update(doc, method=None):
@@ -501,17 +505,43 @@ def _compute_required_deposit(doc, summary):
 
 	if over_limit > 0:
 		frappe.msgprint(
-			_(
-				"This order puts {0} of credit against an available line of {1}. "
-				"A cleared deposit of <b>{2}</b> is required before it can be submitted."
-			).format(
-				utils.fmt_currency(order_credit_exposure, doc.currency),
-				utils.fmt_currency(available, doc.currency),
-				utils.fmt_currency(doc.custom_required_deposit, doc.currency),
-			),
-			title=_("Over the Credit Line"),
+			_describe_over_limit(doc, summary, order_credit_exposure, over_limit),
+			title=_("Credit Limit Exceeded"),
 			indicator="orange",
 		)
+
+
+def _describe_over_limit(doc, summary, order_credit_exposure, over_limit) -> str:
+	"""The arithmetic, spelled out — approved limit, what is already committed,
+	what is left, what this order asks for, and the shortfall.
+
+	Sales' first question is always "over by how much?", so that figure leads and
+	is repeated at the bottom. The same text backs the orange warning at save and
+	the refusal at submit, so the two can never say different numbers.
+	"""
+	currency = doc.currency
+
+	def money(amount):
+		return utils.fmt_currency(amount, currency)
+
+	return _(
+		"This order exceeds {customer}'s credit limit by <b>{over}</b>."
+		"<ul style='margin:8px 0 0 16px;padding:0'>"
+		"<li>Approved credit limit: <b>{limit}</b></li>"
+		"<li>Already committed (unpaid invoices + open Terms orders): <b>{used}</b></li>"
+		"<li>Available line: <b>{available}</b></li>"
+		"<li>This order: <b>{order}</b></li>"
+		"</ul>"
+		"<br>Reduce the order to <b>{available}</b> or less, or record a cleared "
+		"deposit of <b>{over}</b> against it."
+	).format(
+		customer=doc.customer,
+		over=money(over_limit),
+		limit=money(summary["approved_limit"]),
+		used=money(summary["total"]),
+		available=money(max(0.0, flt(summary["available_line"]))),
+		order=money(order_credit_exposure),
+	)
 
 
 # ── deposits ─────────────────────────────────────────────────────────────────
@@ -553,24 +583,35 @@ def _is_cleared(row) -> bool:
 
 
 def _check_deposit(doc):
-	required = flt(doc.custom_required_deposit)
-	if required <= 0:
+	"""§4 — an order may not commit exposure past the approved line.
+
+	Recomputed live rather than trusted from the save: another order for the same
+	credit group may have been submitted, or an invoice paid, since this document
+	was written down. The refusal leads with the limit breach — that is what
+	actually stopped the order — and offers the cleared deposit as the way through
+	rather than presenting itself as a paperwork problem.
+	"""
+	summary = credit_engine.get_line_summary(doc.customer, exclude_sales_order=doc.name)
+	credit_portion = utils.template_credit_portion(doc.payment_terms_template) / 100.0
+	order_credit_exposure = flt(doc.grand_total) * credit_portion
+
+	required = max(0.0, order_credit_exposure - flt(summary["available_line"]))
+	doc.custom_required_deposit = flt(required) if required > 0.005 else 0
+
+	if required <= 0.005:
 		return
 
 	received = get_cleared_deposits(doc.name)
 	doc.db_set("custom_deposit_received", received, update_modified=False)
-	doc.db_set("custom_deposit_cleared", int(received >= required), update_modified=False)
+	doc.db_set("custom_deposit_cleared", int(received + 0.005 >= required), update_modified=False)
 
 	if received + 0.005 < required:
 		frappe.throw(
-			_(
-				"A cleared deposit of <b>{0}</b> is required before this order can be "
-				"submitted; <b>{1}</b> has cleared.<br><br>Record a Payment Entry against "
-				"this Sales Order with Ledger = <b>Deposit</b>, and make sure it is "
-				"reconciled or paid by an instant method."
-			).format(
-				utils.fmt_currency(required, doc.currency),
-				utils.fmt_currency(received, doc.currency),
-			),
-			title=_("Deposit Outstanding"),
+			_describe_over_limit(doc, summary, order_credit_exposure, required)
+			+ _(
+				"<br><br>Cleared deposits so far: <b>{0}</b>. To deposit, record a Payment "
+				"Entry against this Sales Order with Ledger = <b>Deposit</b>, reconciled or "
+				"paid by an instant method."
+			).format(utils.fmt_currency(received, doc.currency)),
+			title=_("Credit Limit Exceeded"),
 		)

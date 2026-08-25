@@ -7,7 +7,7 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 
 	wrapper.page = page;
 	var state = {
-		tracker: 'all',
+		tracker: 'personal',   // 'motley' requires Allow For Motley on the person
 		person: '',       // '' = all (admins only)
 		is_admin: false,
 		from_date: '',
@@ -21,10 +21,10 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 			<div class="ctd-header">
 				<div>
 					<h2 class="ctd-title">Cash Tracking</h2>
-					<p class="ctd-subtitle" id="ctd-subtitle">Motley &amp; Personal cash entries</p>
+					<p class="ctd-subtitle" id="ctd-subtitle">Cash entries</p>
 				</div>
 				<div class="ctd-actions">
-					<button class="ctd-refresh ctd-new" id="ctd-new-motley" title="New Motley Cash Tracking">
+					<button class="ctd-refresh ctd-new" id="ctd-new-motley" title="New Motley Cash Tracking" style="display:none;">
 						<span class="ctd-refresh-icon">&#43;</span> Motley Cash
 					</button>
 					<button class="ctd-refresh ctd-new" id="ctd-new-personal" title="New Personal Cash Tracking">
@@ -40,9 +40,8 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 				<div class="ctd-filter-group">
 					<label class="ctd-label">Tracker</label>
 					<div class="ctd-toggle" id="ctd-tracker-toggle">
-						<button class="ctd-toggle-btn ctd-active" data-val="all">All</button>
-						<button class="ctd-toggle-btn" data-val="motley">Motley</button>
-						<button class="ctd-toggle-btn" data-val="personal">Personal</button>
+						<button class="ctd-toggle-btn" data-val="motley" id="ctd-toggle-motley" style="display:none;">Motley</button>
+						<button class="ctd-toggle-btn ctd-active" data-val="personal">Personal</button>
 					</div>
 				</div>
 				<div class="ctd-filter-group" id="ctd-person-group">
@@ -123,12 +122,32 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 		return '<span class="' + cls + '">' + esc(t) + '</span>';
 	}
 
+	// "Allow For Motley" on the Cash Tracker Person decides whether the Motley
+	// half of this page exists at all for the current user. The server enforces
+	// it in get_entries; this only keeps the UI from offering a dead option.
+	function show_motley(allowed) {
+		$('#ctd-toggle-motley').toggle(!!allowed);
+		$('#ctd-new-motley').toggle(!!allowed);
+		if (!allowed && state.tracker === 'motley') {
+			select_tracker('personal');
+		}
+	}
+
+	function select_tracker(val) {
+		state.tracker = val;
+		$('#ctd-tracker-toggle .ctd-toggle-btn').removeClass('ctd-active');
+		$('#ctd-tracker-toggle .ctd-toggle-btn[data-val="' + val + '"]').addClass('ctd-active');
+	}
+
 	function doctype_of(tracker) {
 		return tracker === 'Personal' ? 'Personal Cash Tracking' : 'Motley Cash Tracking';
 	}
 
 	// ---- rendering -----------------------------------------------------
 	function render(result) {
+		if (result.tracker && result.tracker !== state.tracker) {
+			select_tracker(result.tracker);   // server refused Motley
+		}
 		state.rows = result.rows || [];
 		var t = result.totals || {};
 		$('#ctd-total-in').text(fmt_money(t.money_in));
@@ -186,6 +205,8 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 			callback: function (r) {
 				var data = r.message || {};
 				state.is_admin = !!data.is_admin;
+				state.allow_motley = !!data.allow_motley;
+				show_motley(state.allow_motley);
 				var $sel = $('#ctd-person').empty();
 				if (state.is_admin) {
 					$sel.append('<option value="">All Users</option>');
@@ -203,7 +224,7 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 					$sel.prop('disabled', true);
 					$('#ctd-subtitle').text('Your cash entries');
 				} else {
-					$('#ctd-subtitle').text('All users — Motley & Personal cash entries');
+					$('#ctd-subtitle').text('All users — cash entries');
 				}
 				load();
 			}
@@ -211,9 +232,9 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 	}
 
 	$('#ctd-tracker-toggle').on('click', '.ctd-toggle-btn', function () {
-		$('#ctd-tracker-toggle .ctd-toggle-btn').removeClass('ctd-active');
-		$(this).addClass('ctd-active');
-		state.tracker = $(this).data('val');
+		var val = $(this).data('val');
+		if (val === 'motley' && !state.allow_motley) { return; }
+		select_tracker(val);
 		load();
 	});
 
@@ -233,12 +254,11 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 	function apply_route_options() {
 		var opts = frappe.route_options || {};
 		frappe.route_options = null;
-		if (opts.tracker) { state.tracker = opts.tracker; }
+		if (opts.tracker && opts.tracker !== 'all') { state.tracker = opts.tracker; }
 		if (opts.from_date) { state.from_date = opts.from_date; }
 		if (opts.to_date) { state.to_date = opts.to_date; }
 
-		$('#ctd-tracker-toggle .ctd-toggle-btn').removeClass('ctd-active');
-		$('#ctd-tracker-toggle .ctd-toggle-btn[data-val="' + state.tracker + '"]').addClass('ctd-active');
+		select_tracker(state.tracker);
 		$('#ctd-from').val(state.from_date || '');
 		$('#ctd-to').val(state.to_date || '');
 	}

@@ -9,7 +9,7 @@ Scoping rules (enforced server-side, never trust the client):
 
 import frappe
 
-from cannabis_management.cash_management.permissions import is_cash_admin
+from cannabis_management.cash_management.permissions import can_use_motley, is_cash_admin
 
 # docstatus -> label
 STATUS_MAP = {0: "Draft", 1: "Submitted", 2: "Cancelled"}
@@ -39,7 +39,12 @@ def get_persons():
             fields=["name", "full_name", "user"],
             order_by="full_name asc",
         )
-        return {"is_admin": True, "persons": persons, "own": _own_person()}
+        return {
+            "is_admin": True,
+            "persons": persons,
+            "own": _own_person(),
+            "allow_motley": True,
+        }
 
     own = _own_person()
     persons = []
@@ -49,31 +54,56 @@ def get_persons():
                 "Cash Tracker Person", own, ["name", "full_name", "user"], as_dict=True
             )
         ]
-    return {"is_admin": False, "persons": persons, "own": own}
+    return {
+        "is_admin": False,
+        "persons": persons,
+        "own": own,
+        # Drives the Motley toggle + "New Motley Cash" button in the page.
+        # get_entries re-checks this, so hiding it is convenience, not security.
+        "allow_motley": can_use_motley(),
+    }
 
 
 @frappe.whitelist()
-def get_entries(tracker="all", person=None, from_date=None, to_date=None):
-    """Return unified cash-tracking rows + totals, scoped to the caller."""
+def get_entries(tracker="personal", person=None, from_date=None, to_date=None):
+    """Return cash-tracking rows + totals, scoped to the caller.
+
+    tracker is "motley" or "personal" — the old "all" mode is gone, because
+    Motley visibility is now a per-person right ("Allow For Motley") rather than
+    something everyone shares. A user without that right asking for Motley data
+    is served their Personal entries instead, never an error and never Motley.
+    """
     is_admin = _is_full_view()
+    if tracker == "motley" and not can_use_motley():
+        tracker = "personal"
 
     if not is_admin:
         # Force own person regardless of what the client sent.
         own = _own_person()
         if not own:
-            return {"rows": [], "totals": _empty_totals(), "is_admin": False}
+            return {
+                "rows": [], "totals": _empty_totals(),
+                "is_admin": False, "tracker": tracker,
+            }
         person = own
 
     person = person or None  # empty string -> all (admin only)
 
     rows = []
-    if tracker in ("all", "motley"):
+    if tracker == "motley":
         rows += _fetch_motley(person, from_date, to_date)
-    if tracker in ("all", "personal"):
+    else:
         rows += _fetch_personal(person, from_date, to_date)
 
     rows.sort(key=lambda r: (r.get("date") or "", r.get("name") or ""), reverse=True)
-    return {"rows": rows, "totals": _compute_totals(rows), "is_admin": is_admin}
+    return {
+        "rows": rows,
+        "totals": _compute_totals(rows),
+        "is_admin": is_admin,
+        # Echo back what was actually served, so the page can correct its toggle
+        # if it asked for Motley without the right.
+        "tracker": tracker,
+    }
 
 
 def _base_filters(person, from_date, to_date):
