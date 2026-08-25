@@ -12,9 +12,10 @@ What counts as exposure
   legacy alike. Money owed is money owed; the Legacy/New Book split governs the
   company-wide freeze and finance charges, not a customer's own line.
 * Submitted, not-yet-fully-billed **Terms** Sales Orders, at the portion of the
-  order actually extended on credit. A COD order is not credit until it becomes
-  an unpaid invoice, and the paid-up-front half of a 50%-down order was never at
-  risk.
+  order actually extended on credit — which, since README decision 18, is the
+  whole of it. A COD order is not credit until it becomes an unpaid invoice, but
+  a 50%-down order is too: nothing gates its up-front leg before the order
+  ships, so the whole grand total is at risk.
 * Sample orders never count — they are zero-value by construction.
 """
 

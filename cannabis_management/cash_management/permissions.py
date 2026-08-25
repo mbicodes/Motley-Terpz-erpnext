@@ -24,6 +24,33 @@ def _is_finance_or_above(user=None):
     return bool(FINANCE_ROLES.intersection(set(frappe.get_roles(user))))
 
 
+# ── Motley eligibility ────────────────────────────────────────────────────────
+# "Allow For Motley" on Cash Tracker Person is the single switch deciding who may
+# file Motley entries at all. It gates three things, all from this one helper:
+#   1. creating / saving a Motley Cash Tracking document (motley_cash_tracking.py)
+#   2. the doc-level permission check below
+#   3. the Motley filter + "New Motley Cash" button on the Cash Tracking page
+# Personal Cash Tracking is deliberately untouched by it.
+
+def can_use_motley(user=None):
+    """True if this user may file Motley entries. Cash admins always may."""
+    user = user or frappe.session.user
+    if is_cash_admin(user):
+        return True
+    return bool(frappe.db.get_value(
+        "Cash Tracker Person",
+        {"user": user, "is_active": 1, "allow_for_motley": 1},
+        "name",
+    ))
+
+
+def person_allows_motley(person):
+    """True if a given Cash Tracker Person is flagged for Motley entries."""
+    if not person:
+        return False
+    return bool(frappe.db.get_value("Cash Tracker Person", person, "allow_for_motley"))
+
+
 # ── List-view filtering ────────────────────────────────────────────────────────
 
 def cash_ledger_entry_query(user):
@@ -130,11 +157,18 @@ def motley_cash_tracking_query(user):
 
 def motley_cash_tracking_has_permission(doc, ptype="read", user=None):
     """Document-level gate: cash admins have full access; everyone else may only
-    touch their own records and can never cancel."""
+    touch their own records and can never cancel.
+
+    Writing also requires "Allow For Motley" on the user's Cash Tracker Person.
+    Reading is left open to the owner so someone whose flag is later revoked can
+    still see the entries they already filed.
+    """
     user = user or frappe.session.user
     if is_cash_admin(user):
         return True
     if ptype == "cancel":
+        return False
+    if ptype in ("create", "write", "submit", "amend") and not can_use_motley(user):
         return False
     if doc is None or isinstance(doc, str):
         return True  # doctype-level access is decided by role permissions

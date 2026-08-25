@@ -15,6 +15,7 @@
   "money_out",
   "column_break_1",
   "transaction_type",
+  "invoice_number",
   "business",
   "section_reason",
   "receipt",
@@ -25,7 +26,7 @@
  ],
  "fields": [
   {
-   "description": "Pick the tracker person \u2014 User and Employee fill in automatically.",
+   "description": "Pick the tracker person — User and Employee fill in automatically.",
    "fieldname": "cash_tracker_person",
    "fieldtype": "Link",
    "in_list_view": 1,
@@ -92,6 +93,14 @@
    "label": "Transaction Type",
    "options": "\nMotley - Hardware\nClient - Hardware\nClient Payment Towards Invoice\nFresh Frozen Procurement\nTolling Partner Payment\nMotley - Packaging\nLab Testing\nPayroll\nLab Consumables\nMarketing\nSeeds/Clones for Farm\nRent\nLab Setup\nLab Supplies\nCollecting OLD AR\nReimbursement\nOther",
    "reqd": 1
+  },
+  {
+   "description": "Optional — link the Sales Order this cash relates to.",
+   "fieldname": "invoice_number",
+   "fieldtype": "Link",
+   "label": "Invoice # (Sales Order)",
+   "ignore_user_permissions": 1,
+   "options": "Sales Order"
   },
   {
    "description": "Which company was this for? If unsure — contact Jamie.",

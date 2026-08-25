@@ -46,6 +46,7 @@ frappe.ui.form.on('Personal Cash Tracking', {
 		frm.set_query('cash_tracker_person', function () {
 			return { filters: { is_active: 1 } };
 		});
+		cannabis.cash_tracking.setup(frm);
 	},
 
 	onload: function (frm) {
@@ -72,10 +73,15 @@ frappe.ui.form.on('Personal Cash Tracking', {
 		}
 		toggle_money_fields(frm);
 		render_receipt_preview(frm);
+		cannabis.cash_tracking.refresh(frm);
 	},
 
 	receipt: function (frm) {
 		render_receipt_preview(frm);
+	},
+
+	invoice_number: function (frm) {
+		cannabis.cash_tracking.invoice_number(frm);
 	},
 
 	money_in: function (frm) {

@@ -43,15 +43,18 @@ function toggle_money_fields(frm) {
 
 frappe.ui.form.on('Motley Cash Tracking', {
 	setup: function (frm) {
+		// Only people ticked "Allow For Motley" can be picked here — the server
+		// enforces the same rule in MotleyCashTracking.validate_motley_allowed.
 		frm.set_query('cash_tracker_person', function () {
-			return { filters: { is_active: 1 } };
+			return { filters: { is_active: 1, allow_for_motley: 1 } };
 		});
+		cannabis.cash_tracking.setup(frm);
 	},
 
 	onload: function (frm) {
 		if (frm.is_new() && !frm.doc.cash_tracker_person) {
 			frappe.db.get_value('Cash Tracker Person',
-				{ user: frappe.session.user, is_active: 1 }, 'name')
+				{ user: frappe.session.user, is_active: 1, allow_for_motley: 1 }, 'name')
 				.then(function (r) {
 					if (r.message && r.message.name) {
 						frm.set_value('cash_tracker_person', r.message.name);
@@ -69,10 +72,15 @@ frappe.ui.form.on('Motley Cash Tracking', {
 		}
 		toggle_money_fields(frm);
 		render_receipt_preview(frm);
+		cannabis.cash_tracking.refresh(frm);
 	},
 
 	receipt: function (frm) {
 		render_receipt_preview(frm);
+	},
+
+	invoice_number: function (frm) {
+		cannabis.cash_tracking.invoice_number(frm);
 	},
 
 	money_in: function (frm) {
