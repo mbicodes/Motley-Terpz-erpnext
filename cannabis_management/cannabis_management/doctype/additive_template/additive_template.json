@@ -1,0 +1,161 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:template_name",
+ "creation": "2026-08-26 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "details_section",
+  "template_name",
+  "additive_type",
+  "application_device",
+  "column_break_details",
+  "product_trade_name",
+  "product_supplier",
+  "epa_registration_number",
+  "safety_section",
+  "restrictive_entry_interval_hours",
+  "note",
+  "ingredients_section",
+  "active_ingredients",
+  "sync_section",
+  "metrc_sync_status"
+ ],
+ "fields": [
+  {
+   "fieldname": "details_section",
+   "fieldtype": "Section Break",
+   "label": "Product"
+  },
+  {
+   "fieldname": "template_name",
+   "fieldtype": "Data",
+   "label": "Template Name",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "additive_type",
+   "fieldtype": "Select",
+   "label": "Additive Type",
+   "options": "\nFertilizer\nPesticide\nFungicide\nNutrient\nGrowth Regulator\nOther",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "application_device",
+   "fieldtype": "Data",
+   "label": "Application Device",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_details",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "product_trade_name",
+   "fieldtype": "Data",
+   "label": "Product Trade Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "product_supplier",
+   "fieldtype": "Link",
+   "label": "Product Supplier",
+   "options": "Supplier",
+   "reqd": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "epa_registration_number",
+   "fieldtype": "Data",
+   "label": "EPA Registration No.",
+   "reqd": 1
+  },
+  {
+   "fieldname": "safety_section",
+   "fieldtype": "Section Break",
+   "label": "Safety"
+  },
+  {
+   "fieldname": "restrictive_entry_interval_hours",
+   "fieldtype": "Int",
+   "label": "Restrictive Entry Interval (Hrs)",
+   "reqd": 1,
+   "description": "Blocks room entry tasks until this many hours have elapsed after application"
+  },
+  {
+   "fieldname": "note",
+   "fieldtype": "Small Text",
+   "label": "Note"
+  },
+  {
+   "fieldname": "ingredients_section",
+   "fieldtype": "Section Break",
+   "label": "Active Ingredients"
+  },
+  {
+   "fieldname": "active_ingredients",
+   "fieldtype": "Table",
+   "label": "Active Ingredients",
+   "options": "Additive Ingredient",
+   "reqd": 1
+  },
+  {
+   "fieldname": "sync_section",
+   "fieldtype": "Section Break",
+   "label": "METRC"
+  },
+  {
+   "fieldname": "metrc_sync_status",
+   "fieldtype": "Select",
+   "label": "METRC Sync",
+   "options": "Pending\nSynced\nFailed",
+   "default": "Pending",
+   "read_only": 1,
+   "in_standard_filter": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-08-26 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Additive Template",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Stock Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
