@@ -1,0 +1,152 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:strain_name",
+ "creation": "2026-08-26 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "details_section",
+  "strain_name",
+  "metrc_strain_name",
+  "genetics_type",
+  "column_break_details",
+  "lineage",
+  "is_active",
+  "benchmarks_section",
+  "expected_flower_days",
+  "target_yield_per_plant",
+  "stock_items_section",
+  "default_wet_item",
+  "column_break_items",
+  "default_dry_item"
+ ],
+ "fields": [
+  {
+   "fieldname": "details_section",
+   "fieldtype": "Section Break",
+   "label": "Strain"
+  },
+  {
+   "fieldname": "strain_name",
+   "fieldtype": "Data",
+   "label": "Strain Name",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "metrc_strain_name",
+   "fieldtype": "Data",
+   "label": "METRC Strain Name",
+   "description": "Exact string as registered in METRC; defaults to Strain Name"
+  },
+  {
+   "fieldname": "genetics_type",
+   "fieldtype": "Select",
+   "label": "Genetics",
+   "options": "\nIndica\nSativa\nHybrid\nCBD\nRuderalis",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "column_break_details",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "lineage",
+   "fieldtype": "Small Text",
+   "label": "Lineage",
+   "description": "Parent genetics, free text"
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "label": "Active",
+   "in_standard_filter": 1,
+   "description": "Inactive strains are hidden from new batches"
+  },
+  {
+   "fieldname": "benchmarks_section",
+   "fieldtype": "Section Break",
+   "label": "Cultivation Benchmarks"
+  },
+  {
+   "fieldname": "expected_flower_days",
+   "fieldtype": "Int",
+   "label": "Expected Flower Days",
+   "description": "Drives the flowering-overdue indicator on Plant"
+  },
+  {
+   "fieldname": "target_yield_per_plant",
+   "fieldtype": "Float",
+   "label": "Target Yield / Plant",
+   "description": "Benchmark for harvest variance reporting"
+  },
+  {
+   "fieldname": "stock_items_section",
+   "fieldtype": "Section Break",
+   "label": "Stock Items"
+  },
+  {
+   "fieldname": "default_wet_item",
+   "fieldtype": "Link",
+   "label": "Default Wet Item",
+   "options": "Item",
+   "reqd": 1,
+   "description": "Item received at teardown finalization"
+  },
+  {
+   "fieldname": "column_break_items",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "default_dry_item",
+   "fieldtype": "Link",
+   "label": "Default Dry Item",
+   "options": "Item",
+   "reqd": 1,
+   "description": "Item produced by the drying repack"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-08-26 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Strain",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Stock Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
