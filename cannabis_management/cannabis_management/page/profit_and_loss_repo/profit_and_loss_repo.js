@@ -497,6 +497,13 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
                 font-size: 13px; border-bottom: 1px solid #e8edf4;
             }
 
+            /* ── Row: Stock Quantity (Opening/Inward/Outward/Closing) ── */
+            .row-qty td {
+                background: linear-gradient(90deg, #ecfeff 0%, #f0f9ff 100%) !important;
+                font-weight: 600; color: #0e7490;
+                font-size: 13px; border-bottom: 1px solid #cffafe;
+            }
+
             /* ── Row: Total (Total Income / Total Expense) ── */
             .row-total td {
                 background: linear-gradient(90deg, #1e293b, #0f172a) !important;
@@ -982,6 +989,7 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
             var isNetProfit = accountName.includes("Profit for the year") || accountName.includes("Profit / Loss");
             var isGroup = row.is_group === 1;
             var isSection = !row.parent_account && !row.parent_section && !isTotal && !isNetProfit && isGroup;
+            var isQtyRow = row.is_qty_row === 1;
             var isBlank = !accountName;
             var indent = parseInt(row.indent) || 0;
 
@@ -989,7 +997,7 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
             if (search && accountName.toLowerCase().indexOf(search) === -1) continue;
 
             // Visibility based on expand state — walk up the full ancestor chain
-            if (!isNetProfit && !isTotal && !isSection) {
+            if (!isNetProfit && !isTotal && !isSection && !isQtyRow && !isBlank) {
                 var parentKey = row.parent_account || row.parent_section || "";
                 if (!parentKey) continue; // safety: non-section with no parent, skip
                 // Hide if ANY ancestor is collapsed
@@ -1012,6 +1020,7 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
             var rowClass = "";
             if (isNetProfit) rowClass = "row-net-profit";
             else if (isTotal) rowClass = "row-total";
+            else if (isQtyRow) rowClass = "row-qty";
             else if (isSection) rowClass = "row-section-header";
             else if (isGroup) rowClass = "row-group-header";
 
@@ -1059,7 +1068,15 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
                 var formatted = "";
                 var numClass = "";
 
-                if (col.fieldtype === "Currency") {
+                if (isQtyRow) {
+                    // Stock quantities, not money — always shown as plain
+                    // numbers regardless of the Report/Growth/Margin view
+                    // toggle (the backend never rewrites these rows for
+                    // Growth/Margin, so their values are always absolute).
+                    var qn = parseFloat(val) || 0;
+                    formatted = fmt_number(qn);
+                    numClass = qn > 0 ? "num-positive" : qn < 0 ? "num-negative" : "num-zero";
+                } else if (col.fieldtype === "Currency") {
                     var n = parseFloat(val) || 0;
                     if (state.selected_view === "Report") {
                         formatted = fmt_currency(n, currency);
