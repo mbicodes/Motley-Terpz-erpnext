@@ -96,10 +96,12 @@ def execute(filters=None):
 	if filters.get("selected_view") == "Margin":
 		compute_margin_view_data(data, period_list, filters.accumulated_values)
 
-	# Stock quantity roll-forward (Opening/Inward/Outward/Closing Qty), sourced
-	# directly from Stock Ledger Entry (not GL Entry). Appended after the
-	# Growth/Margin transforms above so these rows always show absolute
-	# quantities, regardless of the selected view.
+	# Stock quantity roll-forward (Opening / Inward broken out into Purchases,
+	# Harvest, Inventory Gain, Other / Outward broken out into Sales, Inventory
+	# Loss, Other / Closing), sourced directly from Stock Ledger Entry and Stock
+	# Reconciliation Item (not GL Entry). Appended after the Growth/Margin
+	# transforms above so these rows always show absolute quantities,
+	# regardless of the selected view.
 	data.extend(get_stock_quantity_rows(filters, period_list, currency))
 
 	for row in data:
@@ -291,22 +293,51 @@ def get_indirect_recap_section(rows, account_type, section_label, heading_label,
 
 
 def get_stock_quantity_rows(filters, period_list, currency):
-	"""Opening/Inward/Outward/Closing Quantity, one column per report period,
-	built straight off Stock Ledger Entry (actual_qty) - a physical stock
-	roll-forward, independent of the accounting (GL Entry) figures the rest
-	of this report is built from.
+	"""Stock quantity roll-forward, one column per report period, built straight
+	off Stock Ledger Entry / Stock Reconciliation Item - a physical stock
+	movement statement, independent of the accounting (GL Entry) figures the
+	rest of this report is built from.
 
-	Opening Quantity(period) = total actual_qty posted before period.from_date
-	Inward Quantity(period)  = sum of positive actual_qty within the period
-	Outward Quantity(period) = sum of |negative actual_qty| within the period
-	Closing Quantity(period) = Opening + Inward - Outward
+	Inward and Outward are broken out by *what caused the movement* instead of
+	being shown as two lump sums:
+
+	  Inward   Purchases      -> voucher_type = "Purchase Receipt"
+	           Harvest        -> any other inward carrying the Project
+	                             accounting dimension (harvest / farm output is
+	                             tagged with the grow Project)
+	           Inventory Gain -> positive quantity_difference on a submitted
+	                             Stock Reconciliation
+	           Other Inward   -> everything else (Stock Entry receipts, repacks,
+	                             transfers in, sales returns, ...)
+
+	  Outward  Sales          -> voucher_type = "Delivery Note"
+	           Inventory Loss -> negative quantity_difference on a submitted
+	                             Stock Reconciliation
+	           Other Outward  -> everything else (Stock Entry issues, repack
+	                             consumption, transfers out, POS / update-stock
+	                             Sales Invoices, purchase returns, ...)
+
+	A movement is counted exactly once: Purchase Receipt wins over Harvest, so a
+	Purchase Receipt that happens to carry a Project is a purchase, not a
+	harvest.
+
+	Stock Reconciliation posts its Stock Ledger Entries with actual_qty = 0 and
+	an absolute qty_after_transaction, so reconciliations are invisible in
+	actual_qty. Gain/Loss (and the opening balance) therefore read the real
+	delta from Stock Reconciliation Item.quantity_difference.
+
+	Opening Quantity(period) = net movement posted before period.from_date
+	Closing Quantity(period) = Opening + Total Inward - Total Outward
 	"""
 	company = filters.company
 
 	def qty_before(date):
+		"""Net stock movement strictly before `date`: actual_qty from the ledger
+		plus the reconciliation deltas the ledger does not carry."""
 		if not date:
 			return 0.0
-		result = frappe.db.sql(
+
+		ledger = frappe.db.sql(
 			"""
 			select sum(actual_qty) as qty
 			from `tabStock Ledger Entry`
@@ -316,66 +347,174 @@ def get_stock_quantity_rows(filters, period_list, currency):
 			""",
 			{"company": company, "date": date},
 		)
-		return flt(result[0][0]) if result and result[0][0] else 0.0
+		reco = frappe.db.sql(
+			"""
+			select sum(sri.quantity_difference) as qty
+			from `tabStock Reconciliation Item` sri
+			inner join `tabStock Reconciliation` sr on sr.name = sri.parent
+			where sr.docstatus = 1
+				and sr.company = %(company)s
+				and sr.posting_date < %(date)s
+			""",
+			{"company": company, "date": date},
+		)
+		opening = flt(ledger[0][0]) if ledger and ledger[0][0] else 0.0
+		opening += flt(reco[0][0]) if reco and reco[0][0] else 0.0
+		return opening
 
-	def qty_in_range(from_date, to_date, inward):
-		operator = ">" if inward else "<"
-		aggregate = "sum(actual_qty)" if inward else "sum(abs(actual_qty))"
-		result = frappe.db.sql(
+	def ledger_split_in_range(from_date, to_date, inward):
+		"""Ledger movement in the period, bucketed by cause. Returns a dict of
+		{bucket: qty}, quantities always positive."""
+		if inward:
+			bucket = """
+				case
+					when voucher_type = 'Purchase Receipt' then 'purchases'
+					when ifnull(project, '') != '' then 'harvest'
+					else 'other'
+				end
+			"""
+			condition, aggregate = "actual_qty > 0", "sum(actual_qty)"
+		else:
+			bucket = """
+				case
+					when voucher_type = 'Delivery Note' then 'sales'
+					else 'other'
+				end
+			"""
+			condition, aggregate = "actual_qty < 0", "sum(abs(actual_qty))"
+
+		rows = frappe.db.sql(
 			f"""
-			select {aggregate} as qty
+			select {bucket} as bucket, {aggregate} as qty
 			from `tabStock Ledger Entry`
 			where company = %(company)s
 				and is_cancelled = 0
 				and posting_date between %(from_date)s and %(to_date)s
-				and actual_qty {operator} 0
+				and {condition}
+			group by bucket
 			""",
 			{"company": company, "from_date": from_date, "to_date": to_date},
+			as_dict=True,
 		)
-		return flt(result[0][0]) if result and result[0][0] else 0.0
+		return {d.bucket: flt(d.qty) for d in rows}
 
-	def make_row(label):
+	def reco_split_in_range(from_date, to_date):
+		"""Stock Reconciliation gain / loss in the period, both positive."""
+		row = frappe.db.sql(
+			"""
+			select
+				sum(case when sri.quantity_difference > 0 then sri.quantity_difference else 0 end) as gain,
+				sum(case when sri.quantity_difference < 0 then -sri.quantity_difference else 0 end) as loss
+			from `tabStock Reconciliation Item` sri
+			inner join `tabStock Reconciliation` sr on sr.name = sri.parent
+			where sr.docstatus = 1
+				and sr.company = %(company)s
+				and sr.posting_date between %(from_date)s and %(to_date)s
+			""",
+			{"company": company, "from_date": from_date, "to_date": to_date},
+			as_dict=True,
+		)
+		gain = flt(row[0].gain) if row and row[0].gain else 0.0
+		loss = flt(row[0].loss) if row and row[0].loss else 0.0
+		return gain, loss
+
+	def make_row(label, indent=0, is_total=0):
 		return frappe._dict(
 			{
 				"account_name": _(label),
 				"account": "'" + _(label) + "'",
 				"currency": currency,
 				"is_group": 0,
-				"indent": 0,
+				"indent": indent,
 				"is_qty_row": 1,
+				# rendered with extra emphasis by the Profit & Loss Report page
+				"is_qty_total": is_total,
 			}
 		)
 
 	opening_row = make_row("Opening Quantity")
-	inward_row = make_row("Inward Quantity")
-	outward_row = make_row("Outward Quantity")
+	purchase_row = make_row("Purchases", indent=1)
+	harvest_row = make_row("Harvest", indent=1)
+	gain_row = make_row("Inventory Gain", indent=1)
+	other_in_row = make_row("Other Inward", indent=1)
+	inward_row = make_row("Total Inward Quantity", is_total=1)
+	sales_row = make_row("Sales (Delivery Note)", indent=1)
+	loss_row = make_row("Inventory Loss", indent=1)
+	other_out_row = make_row("Other Outward", indent=1)
+	outward_row = make_row("Total Outward Quantity", is_total=1)
 	closing_row = make_row("Closing Quantity")
 
-	inward_total, outward_total = 0.0, 0.0
+	flow_rows = [
+		purchase_row,
+		harvest_row,
+		gain_row,
+		other_in_row,
+		inward_row,
+		sales_row,
+		loss_row,
+		other_out_row,
+		outward_row,
+	]
+	totals = {id(row): 0.0 for row in flow_rows}
 
 	for period in period_list:
 		opening_qty = qty_before(period.from_date)
-		inward_qty = qty_in_range(period.from_date, period.to_date, inward=True)
-		outward_qty = qty_in_range(period.from_date, period.to_date, inward=False)
-		closing_qty = opening_qty + inward_qty - outward_qty
+		inward = ledger_split_in_range(period.from_date, period.to_date, inward=True)
+		outward = ledger_split_in_range(period.from_date, period.to_date, inward=False)
+		gain_qty, loss_qty = reco_split_in_range(period.from_date, period.to_date)
+
+		period_values = {
+			id(purchase_row): inward.get("purchases", 0.0),
+			id(harvest_row): inward.get("harvest", 0.0),
+			id(gain_row): gain_qty,
+			id(other_in_row): inward.get("other", 0.0),
+			id(sales_row): outward.get("sales", 0.0),
+			id(loss_row): loss_qty,
+			id(other_out_row): outward.get("other", 0.0),
+		}
+		period_values[id(inward_row)] = (
+			period_values[id(purchase_row)]
+			+ period_values[id(harvest_row)]
+			+ period_values[id(gain_row)]
+			+ period_values[id(other_in_row)]
+		)
+		period_values[id(outward_row)] = (
+			period_values[id(sales_row)]
+			+ period_values[id(loss_row)]
+			+ period_values[id(other_out_row)]
+		)
+
+		closing_qty = opening_qty + period_values[id(inward_row)] - period_values[id(outward_row)]
 
 		opening_row[period.key] = flt(opening_qty, 3)
-		inward_row[period.key] = flt(inward_qty, 3)
-		outward_row[period.key] = flt(outward_qty, 3)
 		closing_row[period.key] = flt(closing_qty, 3)
-
-		inward_total += inward_qty
-		outward_total += outward_qty
+		for row in flow_rows:
+			qty = period_values[id(row)]
+			row[period.key] = flt(qty, 3)
+			totals[id(row)] += qty
 
 	# Balance-type rows (Opening/Closing) show the balance at the very start /
 	# very end of the whole reporting range in the "Total" column; flow-type
-	# rows (Inward/Outward) show the sum of the flow across every period.
+	# rows show the sum of the flow across every period.
 	opening_row["total"] = opening_row.get(period_list[0].key, 0.0)
 	closing_row["total"] = closing_row.get(period_list[-1].key, 0.0)
-	inward_row["total"] = flt(inward_total, 3)
-	outward_row["total"] = flt(outward_total, 3)
+	for row in flow_rows:
+		row["total"] = flt(totals[id(row)], 3)
 
-	return [{}, opening_row, inward_row, outward_row, closing_row]
+	return [
+		{},
+		opening_row,
+		purchase_row,
+		harvest_row,
+		gain_row,
+		other_in_row,
+		inward_row,
+		sales_row,
+		loss_row,
+		other_out_row,
+		outward_row,
+		closing_row,
+	]
 
 
 def get_chart_data(filters, columns, income, expense, net_profit_loss, currency):

@@ -497,11 +497,19 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
                 font-size: 13px; border-bottom: 1px solid #e8edf4;
             }
 
-            /* ── Row: Stock Quantity (Opening/Inward/Outward/Closing) ── */
+            /* ── Row: Stock Quantity (Opening / inward & outward breakdown / Closing) ── */
             .row-qty td {
                 background: linear-gradient(90deg, #ecfeff 0%, #f0f9ff 100%) !important;
                 font-weight: 600; color: #0e7490;
                 font-size: 13px; border-bottom: 1px solid #cffafe;
+            }
+
+            /* ── Row: Stock Quantity subtotal (Total Inward / Total Outward) ── */
+            .row-qty-total td {
+                background: linear-gradient(90deg, #cffafe 0%, #e0f2fe 100%) !important;
+                font-weight: 800; color: #155e75;
+                border-top: 1px solid #a5f3fc;
+                border-bottom: 1px solid #a5f3fc;
             }
 
             /* ── Row: Total (Total Income / Total Expense) ── */
@@ -985,11 +993,14 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
             if (!row) continue;
 
             var accountName = row.account_name || row.section_name || "";
-            var isTotal = accountName.includes("Total") || accountName.includes("total");
+            var isQtyRow = row.is_qty_row === 1;
+            // Stock quantity rows carry their own labels ("Total Inward
+            // Quantity", ...) — they must never be picked up as P&L total /
+            // section rows, or they'd render in the dark total band.
+            var isTotal = !isQtyRow && (accountName.includes("Total") || accountName.includes("total"));
             var isNetProfit = accountName.includes("Profit for the year") || accountName.includes("Profit / Loss");
             var isGroup = row.is_group === 1;
             var isSection = !row.parent_account && !row.parent_section && !isTotal && !isNetProfit && isGroup;
-            var isQtyRow = row.is_qty_row === 1;
             var isBlank = !accountName;
             var indent = parseInt(row.indent) || 0;
 
@@ -1020,7 +1031,7 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
             var rowClass = "";
             if (isNetProfit) rowClass = "row-net-profit";
             else if (isTotal) rowClass = "row-total";
-            else if (isQtyRow) rowClass = "row-qty";
+            else if (isQtyRow) rowClass = "row-qty" + (row.is_qty_total === 1 ? " row-qty-total" : "");
             else if (isSection) rowClass = "row-section-header";
             else if (isGroup) rowClass = "row-group-header";
 
