@@ -16,11 +16,6 @@ frappe.ui.form.on("Plant Batch", {
 		recalc(frm);
 	},
 
-	location(frm) {
-		// Licence is scoped to the company that owns the selected room.
-		set_licence_query(frm);
-	},
-
 	plant_count(frm) {
 		recalc(frm);
 	}
@@ -55,18 +50,8 @@ function set_scoping_queries(frm) {
 	frm.set_query("location", () => ({ filters: { is_cultivation_room: 1 } }));
 	// Source Plant: mother plants only.
 	frm.set_query("source_plant", () => ({ filters: { is_mother: 1 } }));
-	set_licence_query(frm);
-}
-
-function set_licence_query(frm) {
-	if (frm.doc.location) {
-		frappe.db.get_value("Warehouse", frm.doc.location, "company").then((r) => {
-			const company = r && r.message && r.message.company;
-			frm.set_query("licence", () => (company ? { filters: { company } } : {}));
-		});
-	} else {
-		frm.set_query("licence", () => ({}));
-	}
+	// Licence: active licences only.
+	frm.set_query("licence", () => ({ filters: { is_active: 1 } }));
 }
 
 function recalc(frm) {
