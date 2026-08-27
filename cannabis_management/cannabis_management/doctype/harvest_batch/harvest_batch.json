@@ -1,0 +1,257 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "HB-.YYYY.-.####",
+ "creation": "2026-08-28 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "identity_section",
+  "harvest_batch_name",
+  "teardown",
+  "strain",
+  "harvest_date",
+  "column_break_identity",
+  "licence",
+  "dry_room",
+  "weight_uom",
+  "status",
+  "weights_section",
+  "plant_count",
+  "wet_weight",
+  "dry_weight",
+  "moisture_loss_pct",
+  "column_break_weights",
+  "waste_weight",
+  "packaged_weight",
+  "unaccounted_weight",
+  "yield_per_plant",
+  "cost_stock_section",
+  "carried_cost",
+  "wet_stock_entry",
+  "column_break_stock",
+  "dry_stock_entry",
+  "metrc_harvest_id"
+ ],
+ "fields": [
+  {
+   "fieldname": "identity_section",
+   "fieldtype": "Section Break",
+   "label": "Harvest Batch"
+  },
+  {
+   "fieldname": "harvest_batch_name",
+   "fieldtype": "Data",
+   "label": "Harvest Batch Name",
+   "reqd": 1,
+   "in_list_view": 1,
+   "description": "Editable at review; defaults {strain} {harvest_date}"
+  },
+  {
+   "fieldname": "teardown",
+   "fieldtype": "Link",
+   "label": "Teardown",
+   "options": "Teardown",
+   "reqd": 1,
+   "read_only": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "strain",
+   "fieldtype": "Link",
+   "label": "Strain",
+   "options": "Strain",
+   "reqd": 1,
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "description": "One strain per harvest batch — non-negotiable in METRC"
+  },
+  {
+   "fieldname": "harvest_date",
+   "fieldtype": "Date",
+   "label": "Harvest Date",
+   "reqd": 1,
+   "description": "= teardown date"
+  },
+  {
+   "fieldname": "column_break_identity",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "licence",
+   "fieldtype": "Link",
+   "label": "Licence",
+   "options": "License",
+   "read_only": 1,
+   "description": "Fetched from the teardown"
+  },
+  {
+   "fieldname": "dry_room",
+   "fieldtype": "Link",
+   "label": "Dry Room",
+   "options": "Warehouse",
+   "read_only": 1,
+   "fetch_from": "teardown.dry_room"
+  },
+  {
+   "fieldname": "weight_uom",
+   "fieldtype": "Link",
+   "label": "Weight UOM",
+   "options": "UOM",
+   "read_only": 1,
+   "description": "Inherited from the teardown"
+  },
+  {
+   "default": "Drying",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Drying\nDried\nPartially Packaged\nFinished",
+   "read_only": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "weights_section",
+   "fieldtype": "Section Break",
+   "label": "Weights"
+  },
+  {
+   "fieldname": "plant_count",
+   "fieldtype": "Int",
+   "label": "Plant Count",
+   "read_only": 1,
+   "description": "Plants of this strain in the teardown"
+  },
+  {
+   "fieldname": "wet_weight",
+   "fieldtype": "Float",
+   "label": "Wet Weight",
+   "read_only": 1,
+   "description": "Sum of teardown weight rows for this strain"
+  },
+  {
+   "fieldname": "dry_weight",
+   "fieldtype": "Float",
+   "label": "Dry Weight",
+   "description": "User-entered after drying"
+  },
+  {
+   "fieldname": "moisture_loss_pct",
+   "fieldtype": "Percent",
+   "label": "Moisture Loss %",
+   "read_only": 1,
+   "description": "(wet - dry) / wet x 100. Null until dry weight exists"
+  },
+  {
+   "fieldname": "column_break_weights",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "waste_weight",
+   "fieldtype": "Float",
+   "label": "Waste Weight",
+   "read_only": 1,
+   "description": "Sum of harvest-stage waste events"
+  },
+  {
+   "fieldname": "packaged_weight",
+   "fieldtype": "Float",
+   "label": "Packaged Weight",
+   "read_only": 1,
+   "description": "Sum of packages created from this batch"
+  },
+  {
+   "fieldname": "unaccounted_weight",
+   "fieldtype": "Float",
+   "label": "Unaccounted Weight",
+   "read_only": 1,
+   "description": "dry - packaged - waste. Must reach ~0 to finish"
+  },
+  {
+   "fieldname": "yield_per_plant",
+   "fieldtype": "Float",
+   "label": "Yield per Plant",
+   "read_only": 1,
+   "description": "dry_weight / plant_count. Compare to strain.target_yield_per_plant"
+  },
+  {
+   "fieldname": "cost_stock_section",
+   "fieldtype": "Section Break",
+   "label": "Cost & Stock"
+  },
+  {
+   "fieldname": "carried_cost",
+   "fieldtype": "Currency",
+   "label": "Carried Cost",
+   "read_only": 1,
+   "description": "From the teardown's cost transfer"
+  },
+  {
+   "fieldname": "wet_stock_entry",
+   "fieldtype": "Link",
+   "label": "Wet Stock Entry",
+   "options": "Stock Entry",
+   "read_only": 1,
+   "description": "The receipt"
+  },
+  {
+   "fieldname": "column_break_stock",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "dry_stock_entry",
+   "fieldtype": "Link",
+   "label": "Dry Stock Entry",
+   "options": "Stock Entry",
+   "read_only": 1,
+   "description": "The drying repack"
+  },
+  {
+   "fieldname": "metrc_harvest_id",
+   "fieldtype": "Data",
+   "label": "METRC Harvest ID",
+   "read_only": 1,
+   "description": "Returned by METRC on successful sync — its presence is the sync proof"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-08-28 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Harvest Batch",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Stock Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "harvest_batch_name"
+}
