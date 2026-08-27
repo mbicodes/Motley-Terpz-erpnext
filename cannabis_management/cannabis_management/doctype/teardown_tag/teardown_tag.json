@@ -7,7 +7,10 @@
  "field_order": [
   "plant",
   "strain",
+  "weight_source",
   "weight",
+  "weighed_at",
+  "reweigh_count",
   "cost_pct_transferred"
  ],
  "fields": [
@@ -15,25 +18,52 @@
    "fieldname": "plant",
    "fieldtype": "Link",
    "in_list_view": 1,
-   "columns": 4,
+   "columns": 3,
    "label": "Plant",
    "options": "Plant",
    "reqd": 1
   },
   {
    "fieldname": "strain",
-   "fieldtype": "Data",
+   "fieldtype": "Link",
    "in_list_view": 1,
-   "columns": 3,
+   "columns": 2,
    "label": "Strain",
+   "options": "Strain",
+   "fetch_from": "plant.strain",
    "read_only": 1
+  },
+  {
+   "fieldname": "weight_source",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "columns": 1,
+   "label": "Weight Source",
+   "options": "Scale\nManual",
+   "default": "Scale",
+   "reqd": 1
   },
   {
    "fieldname": "weight",
    "fieldtype": "Float",
    "in_list_view": 1,
    "columns": 2,
-   "label": "Weight"
+   "label": "Weight",
+   "reqd": 1
+  },
+  {
+   "fieldname": "weighed_at",
+   "fieldtype": "Datetime",
+   "columns": 2,
+   "label": "Weighed At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "reweigh_count",
+   "fieldtype": "Int",
+   "label": "Reweigh Count",
+   "default": "0",
+   "read_only": 1
   },
   {
    "fieldname": "cost_pct_transferred",
@@ -46,7 +76,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-08-26 00:00:00.000000",
+ "modified": "2026-08-28 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "Cannabis Management",
  "name": "Teardown Tag",

@@ -20,15 +20,8 @@ from frappe.utils import flt
 
 class Teardown(Document):
 	def validate(self):
-		self._backfill_strains()
 		self._reject_non_flowering()
 		self._claim_open_teardown()
-
-	def _backfill_strains(self):
-		"""Show the strain per row for the review summary."""
-		for row in self.get("teardown_tags") or []:
-			if row.plant and not row.strain:
-				row.strain = frappe.db.get_value("Plant", row.plant, "strain") or ""
 
 	def _reject_non_flowering(self):
 		"""A plant may only be torn down from the Flowering phase."""
