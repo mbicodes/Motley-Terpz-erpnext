@@ -1,0 +1,58 @@
+{
+ "actions": [],
+ "creation": "2026-08-11 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "plant",
+  "strain",
+  "weight",
+  "cost_pct_transferred"
+ ],
+ "fields": [
+  {
+   "fieldname": "plant",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "columns": 4,
+   "label": "Plant",
+   "options": "Plant",
+   "reqd": 1
+  },
+  {
+   "fieldname": "strain",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "columns": 3,
+   "label": "Strain",
+   "read_only": 1
+  },
+  {
+   "fieldname": "weight",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "columns": 2,
+   "label": "Weight"
+  },
+  {
+   "fieldname": "cost_pct_transferred",
+   "fieldtype": "Percent",
+   "in_list_view": 1,
+   "columns": 2,
+   "label": "Cost % Transferred"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-08-26 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Teardown Tag",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
