@@ -59,7 +59,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Strain",
-   "options": "Item",
+   "options": "Strain",
    "reqd": 1
   },
   {
