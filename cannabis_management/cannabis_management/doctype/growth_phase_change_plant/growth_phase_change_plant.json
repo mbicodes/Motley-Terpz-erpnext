@@ -1,0 +1,54 @@
+{
+ "actions": [],
+ "creation": "2026-08-26 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "plant",
+  "plant_strain",
+  "plant_phase"
+ ],
+ "fields": [
+  {
+   "fieldname": "plant",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "columns": 5,
+   "label": "Plant",
+   "options": "Plant",
+   "reqd": 1
+  },
+  {
+   "fieldname": "plant_strain",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "columns": 4,
+   "label": "Strain",
+   "options": "Strain",
+   "read_only": 1,
+   "fetch_from": "plant.strain"
+  },
+  {
+   "fieldname": "plant_phase",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "columns": 3,
+   "label": "Current Phase",
+   "read_only": 1,
+   "fetch_from": "plant.growth_phase"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-08-26 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Growth Phase Change Plant",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
