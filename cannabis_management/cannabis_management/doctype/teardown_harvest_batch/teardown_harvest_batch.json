@@ -1,0 +1,82 @@
+{
+ "actions": [],
+ "creation": "2026-08-27 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "strain",
+  "harvest_batch",
+  "wet_weight",
+  "plant_count",
+  "harvest_batch_name",
+  "sync_status"
+ ],
+ "fields": [
+  {
+   "fieldname": "strain",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "columns": 2,
+   "label": "Strain",
+   "options": "Strain",
+   "reqd": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "harvest_batch",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "columns": 2,
+   "label": "Harvest Batch",
+   "options": "Harvest Batch",
+   "read_only": 1
+  },
+  {
+   "fieldname": "wet_weight",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "columns": 1,
+   "label": "Wet Weight",
+   "read_only": 1
+  },
+  {
+   "fieldname": "plant_count",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "columns": 1,
+   "label": "Plants",
+   "read_only": 1
+  },
+  {
+   "fieldname": "harvest_batch_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "columns": 3,
+   "label": "Batch Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "sync_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "columns": 2,
+   "label": "Sync",
+   "options": "Pending\nSynced\nFailed",
+   "default": "Pending",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-08-27 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Teardown Harvest Batch",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
