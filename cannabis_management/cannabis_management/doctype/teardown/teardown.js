@@ -16,14 +16,24 @@ frappe.ui.form.on("Teardown Tag", {
 	plant(frm, cdt, cdn) {
 		const row = locals[cdt][cdn];
 		if (!row.plant) return;
-		frappe.db.get_value("Plant", row.plant, ["strain", "growth_phase"]).then((r) => {
-			const v = r.message || {};
-			frappe.model.set_value(cdt, cdn, "strain", v.strain || "");
-			if (v.growth_phase !== "Flowering") {
+		// strain auto-fetches via fetch_from; just warn on non-Flowering plants.
+		frappe.db.get_value("Plant", row.plant, "growth_phase").then((r) => {
+			const phase = (r.message || {}).growth_phase;
+			if (phase !== "Flowering") {
 				frappe.msgprint(__("Warning: plant {0} is '{1}', not Flowering — it will be rejected on submit.",
-					[row.plant, v.growth_phase || __("unset")]));
+					[row.plant, phase || __("unset")]));
 			}
 		});
+	},
+
+	weight(frm, cdt, cdn) {
+		const row = locals[cdt][cdn];
+		if (row.weight === undefined || row.weight === null || row.weight === "") return;
+		// Stamp the weigh time; count each re-weigh after the first.
+		if (row.weighed_at) {
+			frappe.model.set_value(cdt, cdn, "reweigh_count", cint(row.reweigh_count) + 1);
+		}
+		frappe.model.set_value(cdt, cdn, "weighed_at", frappe.datetime.now_datetime());
 	},
 });
 
