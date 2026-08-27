@@ -18,7 +18,8 @@
   "total_cost_transferred",
   "sb1",
   "teardown_tags",
-  "amended_from",
+  "harvest_batches_section",
+  "harvest_batches",
   "amended_from"
  ],
  "fields": [
@@ -94,13 +95,15 @@
    "options": "Teardown Tag"
   },
   {
-   "fieldname": "amended_from",
-   "fieldtype": "Link",
-   "label": "Amended From",
-   "no_copy": 1,
-   "options": "Teardown",
-   "print_hide": 1,
-   "read_only": 1
+   "fieldname": "harvest_batches_section",
+   "fieldtype": "Section Break",
+   "label": "Harvest Batches"
+  },
+  {
+   "fieldname": "harvest_batches",
+   "fieldtype": "Table",
+   "label": "Harvest Batches",
+   "options": "Teardown Harvest Batch"
   },
   {
    "fieldname": "amended_from",
