@@ -1,0 +1,212 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "GPC-.YYYY.-.#####",
+ "creation": "2026-08-26 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "details_section",
+  "change_type",
+  "change_date",
+  "column_break_details",
+  "output_location",
+  "metrc_sync_status",
+  "promote_section",
+  "source_plant_batch",
+  "qty_to_promote",
+  "tag_allocation",
+  "column_break_promote",
+  "starting_tag",
+  "ending_tag",
+  "tag_sequence_verified",
+  "phase_section",
+  "target_phase",
+  "plants_section",
+  "plants",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "fieldname": "details_section",
+   "fieldtype": "Section Break",
+   "label": "Details"
+  },
+  {
+   "fieldname": "change_type",
+   "fieldtype": "Select",
+   "label": "Change Type",
+   "options": "\nPromote Batch to Plants\nChange Plant Phase",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "change_date",
+   "fieldtype": "Date",
+   "label": "Change Date",
+   "reqd": 1,
+   "default": "Today"
+  },
+  {
+   "fieldname": "column_break_details",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "output_location",
+   "fieldtype": "Link",
+   "label": "Output Location",
+   "options": "Warehouse",
+   "reqd": 1,
+   "description": "Same licence as the source"
+  },
+  {
+   "default": "Pending",
+   "fieldname": "metrc_sync_status",
+   "fieldtype": "Select",
+   "label": "METRC Sync",
+   "options": "Pending\nSynced\nFailed",
+   "read_only": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "promote_section",
+   "fieldtype": "Section Break",
+   "label": "Promotion",
+   "depends_on": "eval:doc.change_type=='Promote Batch to Plants'"
+  },
+  {
+   "fieldname": "source_plant_batch",
+   "fieldtype": "Link",
+   "label": "Source Plant Batch",
+   "options": "Plant Batch",
+   "depends_on": "eval:doc.change_type=='Promote Batch to Plants'",
+   "mandatory_depends_on": "eval:doc.change_type=='Promote Batch to Plants'",
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "qty_to_promote",
+   "fieldtype": "Int",
+   "label": "Qty to Promote",
+   "depends_on": "eval:doc.change_type=='Promote Batch to Plants'",
+   "mandatory_depends_on": "eval:doc.change_type=='Promote Batch to Plants'"
+  },
+  {
+   "fieldname": "tag_allocation",
+   "fieldtype": "Link",
+   "label": "Tag Allocation",
+   "options": "METRC Tag Allocation",
+   "depends_on": "eval:doc.change_type=='Promote Batch to Plants'",
+   "mandatory_depends_on": "eval:doc.change_type=='Promote Batch to Plants'"
+  },
+  {
+   "fieldname": "column_break_promote",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "starting_tag",
+   "fieldtype": "Data",
+   "label": "Starting Tag",
+   "read_only": 1,
+   "depends_on": "eval:doc.change_type=='Promote Batch to Plants'",
+   "description": "tag_allocation.next_available_tag"
+  },
+  {
+   "fieldname": "ending_tag",
+   "fieldtype": "Data",
+   "label": "Ending Tag",
+   "read_only": 1,
+   "depends_on": "eval:doc.change_type=='Promote Batch to Plants'",
+   "description": "The qty_to_promote-th available tag from the start — computed, never typed"
+  },
+  {
+   "default": "0",
+   "fieldname": "tag_sequence_verified",
+   "fieldtype": "Check",
+   "label": "Tag Sequence Verified",
+   "depends_on": "eval:doc.change_type=='Promote Batch to Plants'",
+   "description": "Operator confirms printed tags match the computed range (required to submit)"
+  },
+  {
+   "fieldname": "phase_section",
+   "fieldtype": "Section Break",
+   "label": "Phase Change",
+   "depends_on": "eval:doc.change_type=='Change Plant Phase'"
+  },
+  {
+   "fieldname": "target_phase",
+   "fieldtype": "Select",
+   "label": "Target Phase",
+   "options": "\nFlowering\nMother",
+   "depends_on": "eval:doc.change_type=='Change Plant Phase'",
+   "mandatory_depends_on": "eval:doc.change_type=='Change Plant Phase'"
+  },
+  {
+   "fieldname": "plants_section",
+   "fieldtype": "Section Break",
+   "label": "Plants"
+  },
+  {
+   "fieldname": "plants",
+   "fieldtype": "Table",
+   "label": "Plants",
+   "options": "Growth Phase Change Plant",
+   "description": "Targets for a phase change, or the plants created by a promotion"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Growth Phase Change",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-08-26 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Growth Phase Change",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Stock Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
