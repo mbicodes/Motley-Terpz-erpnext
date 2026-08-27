@@ -621,7 +621,7 @@
    "name": "Sales Order-custom_sales_order_type",
    "no_copy": 0,
    "non_negative": 0,
-   "options": "\nSales\nSamples\nEvents\nTesting\nInfluencers\nConsignment\nTolling",
+   "options": "\nSales\nSamples\nEvents\nTesting\nInfluencers\nConsignment\nTolling\nPresale",
    "owner": "Administrator",
    "permlevel": 0,
    "placeholder": null,
