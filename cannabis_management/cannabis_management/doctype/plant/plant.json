@@ -1,0 +1,231 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "field:plant_tag",
+ "creation": "2026-08-26 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "identity_section",
+  "plant_tag",
+  "source_plant_batch",
+  "strain",
+  "licence",
+  "column_break_identity",
+  "location",
+  "growth_phase",
+  "is_mother",
+  "status",
+  "lifecycle_section",
+  "promoted_on",
+  "flowering_date",
+  "days_in_flower",
+  "column_break_lifecycle",
+  "total_age_days",
+  "harvested_weight",
+  "open_teardown",
+  "cost_sync_section",
+  "accumulated_cost",
+  "column_break_cost",
+  "metrc_sync_status"
+ ],
+ "fields": [
+  {
+   "fieldname": "identity_section",
+   "fieldtype": "Section Break",
+   "label": "Identity"
+  },
+  {
+   "fieldname": "plant_tag",
+   "fieldtype": "Data",
+   "label": "Plant Tag",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1,
+   "description": "METRC plant tag — the document name. Sourced from Tag Allocation, never typed."
+  },
+  {
+   "fieldname": "source_plant_batch",
+   "fieldtype": "Link",
+   "label": "Source Plant Batch",
+   "options": "Plant Batch",
+   "reqd": 1,
+   "read_only": 1,
+   "in_standard_filter": 1,
+   "description": "Lineage anchor and the source of age"
+  },
+  {
+   "fieldname": "strain",
+   "fieldtype": "Link",
+   "label": "Strain",
+   "options": "Strain",
+   "read_only": 1,
+   "fetch_from": "source_plant_batch.strain",
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "licence",
+   "fieldtype": "Link",
+   "label": "Licence",
+   "options": "License",
+   "read_only": 1,
+   "fetch_from": "source_plant_batch.licence",
+   "description": "Fetched. Bounds movement."
+  },
+  {
+   "fieldname": "column_break_identity",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "location",
+   "fieldtype": "Link",
+   "label": "Location",
+   "options": "Warehouse",
+   "reqd": 1,
+   "description": "Mutable only via a Movement event"
+  },
+  {
+   "default": "Vegetative",
+   "fieldname": "growth_phase",
+   "fieldtype": "Select",
+   "label": "Growth Phase",
+   "options": "Vegetative\nFlowering",
+   "reqd": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "is_mother",
+   "fieldtype": "Check",
+   "label": "Is Mother",
+   "in_standard_filter": 1,
+   "description": "A flag, not a phase — a mother plant is still physiologically vegetative"
+  },
+  {
+   "default": "Active",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Active\nHarvested\nDestroyed",
+   "read_only": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "lifecycle_section",
+   "fieldtype": "Section Break",
+   "label": "Lifecycle"
+  },
+  {
+   "fieldname": "promoted_on",
+   "fieldtype": "Date",
+   "label": "Promoted On",
+   "read_only": 1,
+   "description": "The Growth Phase Change date that created this plant"
+  },
+  {
+   "fieldname": "flowering_date",
+   "fieldtype": "Date",
+   "label": "Flowering Date",
+   "read_only": 1,
+   "description": "Stamped when phase moves to Flowering; null while vegetative"
+  },
+  {
+   "fieldname": "days_in_flower",
+   "fieldtype": "Int",
+   "label": "Days in Flower",
+   "read_only": 1,
+   "description": "Today − flowering date; compare to strain.expected_flower_days for overdue"
+  },
+  {
+   "fieldname": "column_break_lifecycle",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "total_age_days",
+   "fieldtype": "Int",
+   "label": "Total Age (Days)",
+   "read_only": 1,
+   "description": "Today − source batch planting date (a plant has no planting date of its own)"
+  },
+  {
+   "fieldname": "harvested_weight",
+   "fieldtype": "Float",
+   "label": "Harvested Weight",
+   "read_only": 1,
+   "description": "Cumulative usable weight across teardowns"
+  },
+  {
+   "fieldname": "open_teardown",
+   "fieldtype": "Link",
+   "label": "Open Teardown",
+   "options": "Teardown",
+   "read_only": 1,
+   "description": "Enforces one open teardown per plant; cleared on finalization"
+  },
+  {
+   "fieldname": "cost_sync_section",
+   "fieldtype": "Section Break",
+   "label": "Cost & Sync"
+  },
+  {
+   "fieldname": "accumulated_cost",
+   "fieldtype": "Currency",
+   "label": "Accumulated Cost",
+   "read_only": 1,
+   "description": "Per-plant share at promotion, plus plant-level applications, minus transfers out"
+  },
+  {
+   "fieldname": "column_break_cost",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Pending",
+   "fieldname": "metrc_sync_status",
+   "fieldtype": "Select",
+   "label": "METRC Sync",
+   "options": "Pending\nSynced\nFailed",
+   "read_only": 1,
+   "in_standard_filter": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-08-26 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Plant",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Stock Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "plant_tag",
+ "track_changes": 1
+}
