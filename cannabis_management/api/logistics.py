@@ -66,6 +66,71 @@ def get_pending_sales_orders(page=1, page_size=10, company="Motley Terpz", filte
 
 
 @frappe.whitelist()
+def get_presale_sales_orders(page=1, page_size=10, company="TSBC Ranch", filters=None):
+    page = int(page)
+    page_size = int(page_size)
+    offset = (page - 1) * page_size
+
+    if isinstance(filters, str):
+        filters = frappe.parse_json(filters)
+    if not filters:
+        filters = {}
+
+    base_filters = {
+        "docstatus": ["<", 2],
+        "company": company,
+        "custom_sales_order_type": "Presale",
+    }
+
+    if filters.get("invoice"):
+        base_filters["name"] = ["like", "%{}%".format(filters["invoice"])]
+    if filters.get("bill_to"):
+        base_filters["customer_name"] = ["like", "%{}%".format(filters["bill_to"])]
+    if filters.get("pickup_dropoff"):
+        base_filters["custom_pickup_or_dropoff"] = filters["pickup_dropoff"]
+
+    total_count = frappe.db.count("Sales Order", filters=base_filters)
+
+    sales_orders = frappe.get_all(
+        "Sales Order",
+        filters=base_filters,
+        fields=[
+            "name",
+            "customer",
+            "customer_name",
+            "total_qty",
+            "transaction_date",
+            "status",
+            "custom_pickup_or_dropoff",
+            "custom_notes_for_logistics"
+        ],
+        order_by="creation desc",
+        start=offset,
+        page_length=page_size
+    )
+
+    for order in sales_orders:
+        sales_team = frappe.get_all(
+            "Sales Team",
+            filters={"parent": order["name"], "parenttype": "Sales Order"},
+            fields=["sales_person"],
+            order_by="idx asc",
+            limit=1
+        )
+        order["sales_person"] = sales_team[0].sales_person if sales_team else ""
+
+    total_pages = (total_count + page_size - 1) // page_size
+
+    return {
+        "data": sales_orders,
+        "total_count": total_count,
+        "total_pages": total_pages,
+        "current_page": page,
+        "page_size": page_size
+    }
+
+
+@frappe.whitelist()
 def get_orders_at_lab(page=1, page_size=10, company="Motley Terpz", filters=None):
     page = int(page)
     page_size = int(page_size)
