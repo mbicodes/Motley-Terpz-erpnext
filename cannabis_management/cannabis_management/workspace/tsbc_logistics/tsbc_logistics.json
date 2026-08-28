@@ -1,6 +1,6 @@
 {
  "charts": [],
- "content": "[{\"id\":\"9Im47KpQ-0\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Pending Sales Orders TSBC\",\"col\":12}},{\"id\":\"POWL9Io1lu\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Order @ Distro TSBC\",\"col\":12}},{\"id\":\"TvnZxnzXEC\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Orders @ Distro\",\"col\":12}},{\"id\":\"pe7PVY79Se\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Order Preparing TSBC\",\"col\":12}},{\"id\":\"gbVIZYRUch\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Order Prepared TSBC\",\"col\":12}},{\"id\":\"8nOyj__gGi\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Order Staged TSBC\",\"col\":12}},{\"id\":\"SVz44gNVZm\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Orders Need to Schedule TSBC\",\"col\":12}}]",
+ "content": "[{\"id\": \"9Im47KpQ-0\", \"type\": \"custom_block\", \"data\": {\"custom_block_name\": \"Pending Sales Orders TSBC\", \"col\": 12}}, {\"id\": \"POWL9Io1lu\", \"type\": \"custom_block\", \"data\": {\"custom_block_name\": \"Order @ Distro TSBC\", \"col\": 12}}, {\"id\": \"TvnZxnzXEC\", \"type\": \"custom_block\", \"data\": {\"custom_block_name\": \"Orders @ Distro\", \"col\": 12}}, {\"id\": \"pe7PVY79Se\", \"type\": \"custom_block\", \"data\": {\"custom_block_name\": \"Order Preparing TSBC\", \"col\": 12}}, {\"id\": \"gbVIZYRUch\", \"type\": \"custom_block\", \"data\": {\"custom_block_name\": \"Order Prepared TSBC\", \"col\": 12}}, {\"id\": \"8nOyj__gGi\", \"type\": \"custom_block\", \"data\": {\"custom_block_name\": \"Order Staged TSBC\", \"col\": 12}}, {\"id\": \"SVz44gNVZm\", \"type\": \"custom_block\", \"data\": {\"custom_block_name\": \"Orders Need to Schedule TSBC\", \"col\": 12}}, {\"id\": \"0c540de274\", \"type\": \"custom_block\", \"data\": {\"custom_block_name\": \"Presale TSBC\", \"col\": 12}}]",
  "creation": "2026-02-05 13:09:29.690256",
  "custom_blocks": [
   {
@@ -37,7 +37,7 @@
  "for_user": "",
  "hide_custom": 0,
  "icon": "map",
- "idx": 1,
+ "idx": 0,
  "indicator_color": "green",
  "is_hidden": 0,
  "label": "TSBC Logistics",
@@ -104,7 +104,7 @@
    "type": "Link"
   }
  ],
- "modified": "2026-08-19 14:42:54.517745",
+ "modified": "2026-08-28 10:20:21.348204",
  "modified_by": "Administrator",
  "module": "Cannabis Management",
  "name": "TSBC Logistics",
@@ -122,15 +122,9 @@
   },
   {
    "role": "Workspace:TSBC Logistics"
-  },
-  {
-   "role": "Sean Carter - Consolidated"
-  },
-  {
-   "role": "Nikki M - Consolidated"
   }
  ],
- "sequence_id": 2.0,
+ "sequence_id": 39.0,
  "shortcuts": [],
  "title": "TSBC Logistics"
 }
