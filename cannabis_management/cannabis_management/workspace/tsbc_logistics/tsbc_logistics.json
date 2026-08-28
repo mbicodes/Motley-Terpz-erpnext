@@ -30,6 +30,10 @@
   {
    "custom_block_name": "Order Staged TSBC",
    "label": "Order Staged TSBC"
+  },
+  {
+   "custom_block_name": "Presale TSBC",
+   "label": "Presale TSBC"
   }
  ],
  "docstatus": 0,
@@ -104,7 +108,7 @@
    "type": "Link"
   }
  ],
- "modified": "2026-08-28 10:25:43.572422",
+ "modified": "2026-08-28 10:37:45.093395",
  "modified_by": "Administrator",
  "module": "Cannabis Management",
  "name": "TSBC Logistics",

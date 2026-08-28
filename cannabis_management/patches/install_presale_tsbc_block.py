@@ -53,9 +53,9 @@ def _ensure_block():
 def _ensure_in_workspace():
 	ws = frappe.get_doc("Workspace", WORKSPACE)
 
+	# 1. Content JSON — where the block appears in the page layout.
 	content = json.loads(ws.content or "[]")
-	present = any((b.get("data") or {}).get("custom_block_name") == BLOCK for b in content)
-	if not present:
+	if not any((b.get("data") or {}).get("custom_block_name") == BLOCK for b in content):
 		content.append(
 			{
 				"id": frappe.generate_hash(length=10),
@@ -64,6 +64,12 @@ def _ensure_in_workspace():
 			}
 		)
 		ws.content = json.dumps(content)
+
+	# 2. custom_blocks child table — REQUIRED. The desk builds the list of
+	#    renderable blocks from this table (self.doc.custom_blocks); a block in
+	#    the content but missing here is silently skipped on the client.
+	if BLOCK not in [cb.custom_block_name for cb in ws.custom_blocks]:
+		ws.append("custom_blocks", {"custom_block_name": BLOCK, "label": BLOCK})
 
 	# Drop orphaned roles (referencing deleted Role records) so save() validates.
 	ws.roles = [r for r in ws.roles if frappe.db.exists("Role", r.role)]
