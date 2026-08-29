@@ -141,15 +141,14 @@ def _fetch_personal(person, from_date, to_date):
         filters=_base_filters(person, from_date, to_date),
         fields=[
             "name", "transaction_date as date", "cash_tracker_person as person",
-            "user", "reason as category", "money_in", "money_out",
-            "docstatus",
+            "user", "transaction_type as category", "reason as notes",
+            "money_in", "money_out", "docstatus",
         ],
         order_by="transaction_date desc",
     )
     for r in recs:
         r["tracker"] = "Personal"
         r["business"] = ""
-        r["notes"] = r.get("category")
         r["status"] = STATUS_MAP.get(r.pop("docstatus"), "")
     return recs
 
