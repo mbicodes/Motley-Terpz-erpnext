@@ -18,7 +18,7 @@
  "is_hidden": 0,
  "label": "Conversion",
  "links": [],
- "modified": "2026-08-11 08:20:28.148384",
+ "modified": "2026-08-29 06:12:45.904963",
  "modified_by": "Administrator",
  "module": "Cannabis Management",
  "name": "Conversion",
@@ -29,16 +29,13 @@
  "quick_lists": [],
  "roles": [
   {
-   "role": "Wolf Workspace"
-  },
-  {
    "role": "Manufacturing Manager"
   },
   {
-   "role": "Workspace:Conversion"
+   "role": "Fulfilment"
   },
   {
-   "role": "Fulfilment"
+   "role": "Wolf - Consolidated"
   }
  ],
  "sequence_id": 55.0,
