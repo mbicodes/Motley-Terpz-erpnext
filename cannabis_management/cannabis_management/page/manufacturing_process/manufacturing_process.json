@@ -5,16 +5,22 @@
  "doctype": "Page",
  "icon": "fa fa-sitemap",
  "idx": 0,
- "modified": "2026-08-07 00:00:00",
+ "modified": "2026-08-29 06:12:45.813833",
  "modified_by": "Administrator",
  "module": "Cannabis Management",
  "name": "manufacturing-process",
  "owner": "Administrator",
  "page_name": "manufacturing-process",
  "roles": [
-  {"role": "System Manager"},
-  {"role": "Manufacturing Manager"},
-  {"role": "Manufacturing User"}
+  {
+   "role": "Manufacturing Manager"
+  },
+  {
+   "role": "Manufacturing User"
+  },
+  {
+   "role": "Wolf - Consolidated"
+  }
  ],
  "script": null,
  "standard": "Yes",

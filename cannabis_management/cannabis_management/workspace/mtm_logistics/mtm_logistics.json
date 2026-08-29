@@ -41,7 +41,7 @@
  "is_hidden": 0,
  "label": "MTM Logistics",
  "links": [],
- "modified": "2026-08-20 13:04:50.719414",
+ "modified": "2026-08-29 06:12:45.998343",
  "modified_by": "Administrator",
  "module": "Cannabis Management",
  "name": "MTM Logistics",
@@ -55,6 +55,9 @@
   },
   {
    "role": "Nikki M - Consolidated"
+  },
+  {
+   "role": "Wolf - Consolidated"
   }
  ],
  "sequence_id": 1.0,
