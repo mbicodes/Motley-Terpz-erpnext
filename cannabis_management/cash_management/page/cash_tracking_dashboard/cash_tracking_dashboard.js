@@ -85,7 +85,8 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 							<th>ID</th>
 							<th>Tracker</th>
 							<th class="ctd-col-user">User</th>
-							<th>Type / Reason</th>
+							<th>Type</th>
+							<th>Transaction Notes</th>
 							<th>Business</th>
 							<th class="ctd-num">Money In</th>
 							<th class="ctd-num">Money Out</th>
@@ -172,7 +173,8 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 					<td><a href="${link}" class="ctd-link">${esc(r.name)}</a></td>
 					<td>${tracker_badge(r.tracker)}</td>
 					<td class="ctd-col-user">${esc(r.person || r.user || '')}</td>
-					<td class="ctd-cat" title="${esc(r.notes || r.category || '')}">${esc(r.category || '')}</td>
+					<td class="ctd-cat">${esc(r.category || '')}</td>
+					<td class="ctd-notes" title="${esc(r.notes || '')}">${esc(r.notes || '')}</td>
 					<td>${esc(r.business || '')}</td>
 					<td class="ctd-num ctd-in">${r.money_in ? fmt_money(r.money_in) : ''}</td>
 					<td class="ctd-num ctd-out">${r.money_out ? fmt_money(r.money_out) : ''}</td>
