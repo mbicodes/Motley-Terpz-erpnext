@@ -191,6 +191,8 @@ permission_query_conditions = {
 }
 
 has_permission = {
+    # Sharing a Cash Tracker Person is Administrator-only — see the docstring.
+    "Cash Tracker Person": "cannabis_management.cash_management.permissions.cash_tracker_person_has_permission",
     "Customer":      "cannabis_management.permissions.customer_has_permission",
     "Sales Invoice": "cannabis_management.permissions.sales_invoice_has_permission",
     "Personal Cash Tracking": "cannabis_management.cash_management.permissions.personal_cash_tracking_has_permission",
@@ -236,6 +238,13 @@ doc_events = {
 
     "Credit Application": {
         "before_insert": "cannabis_management.credit_and_ar.web_form_intake.before_insert",
+    },
+    # Sharing a Cash Tracker Person hands over that person's cash history on the
+    # Cash Tracking page, so it is Administrator-only — and a share can never
+    # carry the right to re-share. See the docstring for why the DocPerm alone
+    # does not hold.
+    "DocShare": {
+        "validate": "cannabis_management.cash_management.permissions.docshare_validate",
     },
     # -----------------------------------------------------------------------
     # Cash Management Module

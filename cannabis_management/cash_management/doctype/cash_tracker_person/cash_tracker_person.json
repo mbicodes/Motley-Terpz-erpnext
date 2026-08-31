@@ -112,7 +112,7 @@
    "print": 1,
    "report": 1,
    "email": 1,
-   "share": 1
+   "share": 0
   },
   {
    "role": "Finance Manager",
