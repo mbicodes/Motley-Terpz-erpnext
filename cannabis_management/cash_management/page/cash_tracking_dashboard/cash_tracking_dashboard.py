@@ -24,8 +24,13 @@ STATUS_MAP = {0: "Draft", 1: "Submitted", 2: "Cancelled"}
 
 
 def _is_full_view(user=None):
-    """Only cash admins (Administrator / MBI) see every person's data."""
-    return is_cash_admin(user)
+    """Full-view users see every person's data and may switch between people via
+    the dashboard filter: cash admins (Administrator / MBI) and anyone holding
+    the Accounts Manager role. Everyone else is scoped to their own person."""
+    user = user or frappe.session.user
+    if is_cash_admin(user):
+        return True
+    return "Accounts Manager" in frappe.get_roles(user)
 
 
 def _own_person(user=None):
@@ -136,9 +141,10 @@ def get_entries(tracker="personal", person=None, from_date=None, to_date=None):
             tracker = "personal"
         person = person if person in visible else (visible if not person else visible[0])
     else:
-        if tracker == "motley" and not can_use_motley():
-            tracker = "personal"
-        person = person or None  # empty string -> all (admin only)
+        # Full-view users (cash admins / Accounts Manager) may view any person's
+        # entries in either tracker. Creating a Motley entry still requires
+        # can_use_motley, which is enforced separately on the doctype.
+        person = person or None  # empty string -> all (full-view only)
 
     rows = []
     if tracker == "motley":
