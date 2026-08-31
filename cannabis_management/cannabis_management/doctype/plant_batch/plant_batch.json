@@ -10,7 +10,6 @@
   "batch_name",
   "strain",
   "batch_type",
-  "stage",
   "plant_count",
   "planting_date",
   "column_break_lifecycle",
@@ -69,16 +68,6 @@
    "in_standard_filter": 1,
    "label": "Batch Type",
    "options": "\nClone\nSeed",
-   "reqd": 1
-  },
-  {
-   "default": "Immature",
-   "fieldname": "stage",
-   "fieldtype": "Select",
-   "in_list_view": 1,
-   "in_standard_filter": 1,
-   "label": "Stage",
-   "options": "Immature\nVegetative\nFlower\nHarvested",
    "reqd": 1
   },
   {
