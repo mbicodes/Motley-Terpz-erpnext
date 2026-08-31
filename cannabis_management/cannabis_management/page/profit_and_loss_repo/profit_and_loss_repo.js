@@ -984,11 +984,54 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
         return html;
     }
 
+    // The backend (custom_profit_and_loss_statement.py) deliberately blanks
+    // out every group/section row's own Currency values — its accumulated
+    // total is only meant to be read off the child rows sitting visibly
+    // beneath it. When the user collapses that group those child rows
+    // disappear, so there's nothing left showing where its money went. This
+    // re-derives the rolled-up total on the client by summing every leaf
+    // descendant for a given column, recursing through any nested subgroups
+    // so a multi-level collapse still adds up correctly.
+    function sumCollapsedGroupValue(accountKey, fieldname, childrenByParent) {
+        var children = childrenByParent[accountKey] || [];
+        var total = 0;
+        for (var i = 0; i < children.length; i++) {
+            var child = children[i];
+            if (child.is_group === 1) {
+                total += sumCollapsedGroupValue(child.account || child.section, fieldname, childrenByParent);
+            } else {
+                var v = parseFloat(child[fieldname]);
+                if (!isNaN(v)) total += v;
+            }
+        }
+        return total;
+    }
+
+    // Growth-view period columns hold a period-over-period % that is NOT
+    // meaningfully additive across sibling accounts (each is computed against
+    // its own previous-period value, a different base per account) — see
+    // erpnext's compute_growth_view_data. Report-view currency and
+    // Margin-view % (both expressed against one common base) sum correctly.
+    function canSumForCollapse(fieldname) {
+        if (state.selected_view === "Growth") return fieldname === "total";
+        return true;
+    }
+
     function buildTableRows(currency, searchText) {
         var rows = state.data || [];
         var cols = getVisibleColumns();
         var html = "";
         var search = (searchText || "").toLowerCase();
+
+        var childrenByParent = {};
+        for (var pci = 0; pci < rows.length; pci++) {
+            var pcr = rows[pci];
+            var pKey = pcr && (pcr.parent_account || pcr.parent_section);
+            if (pKey) {
+                if (!childrenByParent[pKey]) childrenByParent[pKey] = [];
+                childrenByParent[pKey].push(pcr);
+            }
+        }
 
         for (var i = 0; i < rows.length; i++) {
             var row = rows[i];
@@ -1077,10 +1120,18 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
                 '</div></td>';
 
             // Value cells
+            var accountKeyForSum = isGroup ? (row.account || row.section || accountName) : null;
+            var isCollapsedGroup = accountKeyForSum && state.expanded[accountKeyForSum] === false;
+
             for (var j = 1; j < cols.length; j++) {
                 var col = cols[j];
                 var fn = col.fieldname;
                 var val = row[fn];
+
+                if (isCollapsedGroup && !isTotal && !isNetProfit && !isQtyRow &&
+                    (val === "" || val === null || val === undefined) && canSumForCollapse(fn)) {
+                    val = sumCollapsedGroupValue(accountKeyForSum, fn, childrenByParent);
+                }
 
                 if (val === "" || val === null || val === undefined) {
                     html += '<td class="num"></td>';
