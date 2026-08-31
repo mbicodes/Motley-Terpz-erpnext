@@ -27,6 +27,14 @@ def is_cash_full_view(user=None):
     return is_cash_admin(user) or is_accounts_manager(user)
 
 
+def _my_persons(user=None):
+    """Every Cash Tracker Person linked to this user. An entry belongs to a
+    person, so the person must see it even when a colleague entered it (owner
+    != them)."""
+    user = user or frappe.session.user
+    return frappe.get_all("Cash Tracker Person", filters={"user": user}, pluck="name")
+
+
 def _get_person_for_user(user=None):
     """Return the Cash Tracker Person name linked to this ERPNext user, or None."""
     user = user or frappe.session.user
@@ -140,17 +148,23 @@ def expense_tracker_entry_has_permission(doc, ptype="read", user=None):
 
 def personal_cash_tracking_query(user):
     """List-level filter: full-view users (cash admins / Accounts Manager) see
-    all; everyone else only their own."""
+    all; everyone else sees records they own OR that belong to their own Cash
+    Tracker Person (entered on their behalf)."""
     user = user or frappe.session.user
     if is_cash_full_view(user):
         return ""
-    return f"`tabPersonal Cash Tracking`.owner = {frappe.db.escape(user)}"
+    conds = [f"`tabPersonal Cash Tracking`.owner = {frappe.db.escape(user)}"]
+    persons = _my_persons(user)
+    if persons:
+        plist = ", ".join(frappe.db.escape(p) for p in persons)
+        conds.append(f"`tabPersonal Cash Tracking`.cash_tracker_person IN ({plist})")
+    return "(" + " OR ".join(conds) + ")"
 
 
 def personal_cash_tracking_has_permission(doc, ptype="read", user=None):
     """Document-level gate: cash admins have full access; Accounts Manager gets
-    read-only access to everyone's; everyone else may only touch their own and
-    can never cancel."""
+    read-only access to everyone's; everyone else may touch their own records and
+    read those belonging to their Cash Tracker Person; nobody else can cancel."""
     user = user or frappe.session.user
     if is_cash_admin(user):
         return True
@@ -160,18 +174,30 @@ def personal_cash_tracking_has_permission(doc, ptype="read", user=None):
         return False
     if doc is None or isinstance(doc, str):
         return True  # doctype-level access is decided by role permissions
-    return (doc.get("owner") or user) == user
+    if (doc.get("owner") or user) == user:
+        return True
+    # The cash tracking person may READ their own entries even if a colleague
+    # entered them (owner != them).
+    if ptype == "read" and doc.get("cash_tracker_person") in _my_persons(user):
+        return True
+    return False
 
 
 # ── Motley Cash Tracking — strictly own records ─────────────────────────────
 
 def motley_cash_tracking_query(user):
     """List-level filter: full-view users (cash admins / Accounts Manager) see
-    all; everyone else only their own."""
+    all; everyone else sees records they own OR that belong to their own Cash
+    Tracker Person (entered on their behalf)."""
     user = user or frappe.session.user
     if is_cash_full_view(user):
         return ""
-    return f"`tabMotley Cash Tracking`.owner = {frappe.db.escape(user)}"
+    conds = [f"`tabMotley Cash Tracking`.owner = {frappe.db.escape(user)}"]
+    persons = _my_persons(user)
+    if persons:
+        plist = ", ".join(frappe.db.escape(p) for p in persons)
+        conds.append(f"`tabMotley Cash Tracking`.cash_tracker_person IN ({plist})")
+    return "(" + " OR ".join(conds) + ")"
 
 
 def motley_cash_tracking_has_permission(doc, ptype="read", user=None):
@@ -193,7 +219,13 @@ def motley_cash_tracking_has_permission(doc, ptype="read", user=None):
         return False
     if doc is None or isinstance(doc, str):
         return True  # doctype-level access is decided by role permissions
-    return (doc.get("owner") or user) == user
+    if (doc.get("owner") or user) == user:
+        return True
+    # The cash tracking person may READ their own entries even if a colleague
+    # entered them (owner != them).
+    if ptype == "read" and doc.get("cash_tracker_person") in _my_persons(user):
+        return True
+    return False
 
 
 # ── Cash Tracker Person — sharing is Administrator-only ───────────────────────
