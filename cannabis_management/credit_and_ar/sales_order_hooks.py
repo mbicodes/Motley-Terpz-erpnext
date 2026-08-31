@@ -24,7 +24,7 @@ import frappe
 from frappe import _
 from frappe.utils import flt
 
-from cannabis_management.credit_and_ar import credit_engine, utils
+from cannabis_management.credit_and_ar import ar_cap, credit_engine, utils
 
 
 # ── entry points ─────────────────────────────────────────────────────────────
@@ -61,10 +61,15 @@ def validate(doc, method=None):
 
 
 def before_submit(doc, method=None):
+	order_type = utils.resolve_order_type(doc)
+
+	# The AR cap runs before the exemption check, and before everything else:
+	# it is the one rule a deposit, an approval or an exemption cannot buy past.
+	if order_type == utils.ORDER_TYPE_TERMS:
+		ar_cap.assert_under_cap(doc, ar_cap.order_credit_amount(doc), noun="order")
+
 	if utils.is_policy_exempt(doc.customer):
 		return
-
-	order_type = utils.resolve_order_type(doc)
 
 	if order_type == utils.ORDER_TYPE_SAMPLE:
 		_assert_zero_value(doc)
@@ -511,7 +516,17 @@ def _compute_required_deposit(doc, summary):
 		)
 
 
-def _describe_over_limit(doc, summary, order_credit_exposure, over_limit) -> str:
+def _ar_source_label() -> str:
+	"""Name the receivable measure in the message, so nobody has to guess whether
+	the figure came from the ledger or from the invoice list."""
+	from cannabis_management.credit_and_ar import credit_engine
+
+	if credit_engine.get_ar_source() == credit_engine.AR_SOURCE_INVOICES:
+		return "unpaid invoices"
+	return "ledger balance"
+
+
+def _describe_over_limit(doc, summary, order_credit_exposure, over_limit, noun: str = "order") -> str:
 	"""The arithmetic, spelled out — approved limit, what is already committed,
 	what is left, what this order asks for, and the shortfall.
 
@@ -525,17 +540,19 @@ def _describe_over_limit(doc, summary, order_credit_exposure, over_limit) -> str
 		return utils.fmt_currency(amount, currency)
 
 	return _(
-		"This order exceeds {customer}'s credit limit by <b>{over}</b>."
+		"This {noun} exceeds {customer}'s credit limit by <b>{over}</b>."
 		"<ul style='margin:8px 0 0 16px;padding:0'>"
 		"<li>Approved credit limit: <b>{limit}</b></li>"
-		"<li>Already committed (unpaid invoices + open Terms orders): <b>{used}</b></li>"
+		"<li>Already committed ({ar_source_label} + open Terms orders): <b>{used}</b></li>"
 		"<li>Available line: <b>{available}</b></li>"
-		"<li>This order: <b>{order}</b></li>"
+		"<li>This {noun}: <b>{order}</b></li>"
 		"</ul>"
-		"<br>Reduce the order to <b>{available}</b> or less, or record a cleared "
+		"<br>Reduce the {noun} to <b>{available}</b> or less, or record a cleared "
 		"deposit of <b>{over}</b> against it."
 	).format(
+		noun=noun,
 		customer=doc.customer,
+		ar_source_label=_ar_source_label(),
 		over=money(over_limit),
 		limit=money(summary["approved_limit"]),
 		used=money(summary["total"]),

@@ -8,9 +8,18 @@ three entities.
 
 What counts as exposure
 -----------------------
-* **Every** submitted Sales Invoice with an outstanding balance — new book and
-  legacy alike. Money owed is money owed; the Legacy/New Book split governs the
-  company-wide freeze and finance charges, not a customer's own line.
+* The customer's **net receivable balance in the General Ledger** — every posting
+  to a Receivable account for that party, new book and legacy alike. Money owed
+  is money owed; the Legacy/New Book split governs the company-wide freeze and
+  finance charges, not a customer's own line.
+
+  Reading the ledger rather than summing unpaid invoices matters on this site:
+  payments and journal credits are routinely posted against a customer without
+  being allocated to a specific invoice, which leaves si.outstanding_amount high
+  long after the money arrived. Charging a customer for an invoice they have
+  already paid — merely because nobody clicked allocate — blocks real orders.
+  Credit Policy Settings -> "AR Source for Credit Checks" switches this back to
+  the invoice-only measure if that is ever wanted.
 * Submitted, not-yet-fully-billed **Terms** Sales Orders, at the portion of the
   order actually extended on credit — which, since README decision 18, is the
   whole of it. A COD order is not credit until it becomes an unpaid invoice, but
@@ -80,10 +89,71 @@ def get_credit_group_members(customer: str) -> list[str]:
 # ── Exposure ─────────────────────────────────────────────────────────────────
 
 
-def get_invoice_outstanding(customers: list[str]) -> float:
-	"""Outstanding on submitted Sales Invoices, in company currency."""
+AR_SOURCE_GL = "General Ledger"
+AR_SOURCE_INVOICES = "Sales Invoice Outstanding"
+
+
+def get_ar_source() -> str:
+	"""Which receivable measure the credit checks run on. Defaults to the ledger.
+
+	Tolerates the field not existing: get_single_value throws on an unknown
+	fieldname, and code reaches a server a moment before `bench migrate` adds the
+	column. A credit check must not explode in that window.
+	"""
+	try:
+		source = frappe.db.get_single_value("Credit Policy Settings", "ar_source")
+	except Exception:
+		source = None
+	return source or AR_SOURCE_GL
+
+
+def get_ledger_outstanding(customers: list[str]) -> float:
+	"""Net receivable balance in the GL for these parties, in company currency.
+
+	Sums debit - credit over every non-cancelled GL Entry on a Receivable account
+	for the party, so unallocated payments, journal credits and credit notes all
+	count against what the customer owes — which is the whole point of reading the
+	ledger instead of the invoice list. debit/credit are already company currency,
+	so nothing is converted here.
+
+	Floored at zero per group: a customer sitting on an on-account credit consumes
+	none of their line, but that credit must not silently *extend* the line beyond
+	the approved limit. Granting more than the approved figure is Finance's
+	decision, not an arithmetic side effect.
+	"""
 	if not customers:
 		return 0.0
+
+	gle = frappe.qb.DocType("GL Entry")
+	account = frappe.qb.DocType("Account")
+	rows = (
+		frappe.qb.from_(gle)
+		.join(account)
+		.on(account.name == gle.account)
+		.select(Sum(gle.debit - gle.credit).as_("balance"))
+		.where(
+			(gle.party_type == "Customer")
+			& (gle.party.isin(customers))
+			& (gle.is_cancelled == 0)
+			& (account.account_type == "Receivable")
+		)
+	).run(as_dict=True)
+
+	balance = flt(rows[0].balance) if rows else 0.0
+	return max(0.0, balance)
+
+
+def get_invoice_outstanding(customers: list[str]) -> float:
+	"""Receivable exposure for these customers, per the configured AR source.
+
+	Name kept for its callers and the decision log; the ledger is the default
+	measure now — see get_ledger_outstanding.
+	"""
+	if not customers:
+		return 0.0
+
+	if get_ar_source() != AR_SOURCE_INVOICES:
+		return get_ledger_outstanding(customers)
 
 	si = frappe.qb.DocType("Sales Invoice")
 	rows = (
@@ -99,7 +169,9 @@ def get_invoice_outstanding(customers: list[str]) -> float:
 	return flt(sum(flt(row.outstanding_amount) * flt(row.conversion_rate or 1) for row in rows))
 
 
-def get_unbilled_terms_exposure(customers: list[str], exclude_sales_order: str | None = None) -> float:
+def get_unbilled_terms_exposure(
+	customers: list[str], exclude_sales_order: str | list[str] | None = None
+) -> float:
 	"""Credit portion of submitted Terms Sales Orders not yet fully invoiced."""
 	if not customers:
 		return 0.0
@@ -124,7 +196,15 @@ def get_unbilled_terms_exposure(customers: list[str], exclude_sales_order: str |
 		)
 	)
 	if exclude_sales_order:
-		query = query.where(so.name != exclude_sales_order)
+		# Accepts one order or several: an invoice can bill more than one, and
+		# each of those orders stops being unbilled exposure the moment it does.
+		excluded = (
+			[exclude_sales_order]
+			if isinstance(exclude_sales_order, str)
+			else list(exclude_sales_order)
+		)
+		if excluded:
+			query = query.where(so.name.notin(excluded))
 
 	total = 0.0
 	for row in query.run(as_dict=True):
@@ -137,7 +217,62 @@ def get_unbilled_terms_exposure(customers: list[str], exclude_sales_order: str |
 	return flt(total)
 
 
-def get_exposure(customer: str, exclude_sales_order: str | None = None) -> dict:
+DEFAULT_CUSTOMER_AR_CAP = 400_000.0
+
+
+def get_customer_ar_cap() -> float:
+	"""The per-customer AR ceiling. An explicit 0 switches the cap off.
+
+	Read from the raw Singles row rather than through get_single_value, which
+	casts a Currency field to 0.0 when nothing is stored — making "never
+	configured" indistinguishable from "deliberately disabled". Defaulting a
+	safety cap to off because nobody had opened the settings form is exactly the
+	wrong way round, so: no row means not configured, and the default applies;
+	only a row holding 0 turns the cap off.
+	"""
+	# Raw SQL, not get_value: tabSingles has no `modified` column and get_value
+	# appends ORDER BY modified, so it raises on that table.
+	rows = frappe.db.sql(
+		"SELECT value FROM tabSingles WHERE doctype = %s AND field = %s",
+		("Credit Policy Settings", "customer_ar_cap"),
+	)
+	stored = rows[0][0] if rows else None
+
+	if stored is None or str(stored).strip() == "":
+		return DEFAULT_CUSTOMER_AR_CAP
+	return flt(stored)
+
+
+def is_internal_customer(customer: str | None) -> bool:
+	"""Is this "customer" really one of our own entities?
+
+	Intercompany billing runs through Customer records that stand for a Company
+	(Motley Terpz, TSBC Ranch, MT...). Their receivable balances are large by
+	construction — Motley Terpz alone carries seven figures — and they are not
+	credit risk, so the per-customer AR cap must not treat them as a delinquent
+	buyer and stop internal work. Same three tests the AR dashboard uses.
+	"""
+	if not customer:
+		return False
+	if frappe.db.exists("Company", customer):
+		return True
+	row = frappe.db.get_value(
+		"Customer", customer, ["is_internal_customer", "represents_company"], as_dict=True
+	)
+	if not row:
+		return False
+	return bool(row.is_internal_customer or row.represents_company)
+
+
+def get_customer_ar(customer: str) -> float:
+	"""Receivables owed by this customer's credit group, per the configured AR
+	source. Open orders are deliberately excluded: this is AR, not exposure."""
+	if not customer:
+		return 0.0
+	return flt(get_invoice_outstanding(get_credit_group_members(customer)))
+
+
+def get_exposure(customer: str, exclude_sales_order: str | list[str] | None = None) -> dict:
 	"""Full group exposure breakdown for a customer."""
 	members = get_credit_group_members(customer)
 	invoice_outstanding = get_invoice_outstanding(members)
@@ -153,7 +288,7 @@ def get_exposure(customer: str, exclude_sales_order: str | None = None) -> dict:
 	}
 
 
-def get_current_exposure(customer: str, exclude_sales_order: str | None = None) -> float:
+def get_current_exposure(customer: str, exclude_sales_order: str | list[str] | None = None) -> float:
 	return get_exposure(customer, exclude_sales_order=exclude_sales_order)["total"]
 
 
@@ -168,7 +303,7 @@ def get_approved_limit(customer: str) -> float:
 	return flt(frappe.db.get_value("Customer", root, "custom_approved_credit_limit"))
 
 
-def get_available_line(customer: str, exclude_sales_order: str | None = None) -> float:
+def get_available_line(customer: str, exclude_sales_order: str | list[str] | None = None) -> float:
 	"""Approved limit less group exposure. May legitimately go negative."""
 	return flt(
 		get_approved_limit(customer)
@@ -176,7 +311,7 @@ def get_available_line(customer: str, exclude_sales_order: str | None = None) ->
 	)
 
 
-def get_line_summary(customer: str, exclude_sales_order: str | None = None) -> dict:
+def get_line_summary(customer: str, exclude_sales_order: str | list[str] | None = None) -> dict:
 	"""Everything the Sales Order gate and the approval email need, in one read."""
 	exposure = get_exposure(customer, exclude_sales_order=exclude_sales_order)
 	limit = get_approved_limit(customer)

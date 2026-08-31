@@ -209,24 +209,42 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 				state.is_admin = !!data.is_admin;
 				state.allow_motley = !!data.allow_motley;
 				show_motley(state.allow_motley);
+
+				var persons = data.persons || [];
+				var shared = data.shared || [];
 				var $sel = $('#ctd-person').empty();
+
 				if (state.is_admin) {
 					$sel.append('<option value="">All Users</option>');
+				} else if (shared.length) {
+					// Records shared through the Share panel on Cash Tracker Person.
+					// "All" here means this user's own plus those — never everyone.
+					$sel.append('<option value="">Mine + shared</option>');
 				}
-				(data.persons || []).forEach(function (p) {
+
+				persons.forEach(function (p) {
+					var is_shared = shared.indexOf(p.name) !== -1;
 					$sel.append('<option value="' + esc(p.name) + '">' +
-						esc(p.full_name || p.name) + '</option>');
+						esc(p.full_name || p.name) + (is_shared ? ' (shared)' : '') + '</option>');
 				});
-				// Non-admins: lock to their own person, no "All".
-				if (!state.is_admin) {
-					if (data.persons && data.persons.length) {
-						state.person = data.persons[0].name;
+
+				if (state.is_admin) {
+					$('#ctd-subtitle').text('All users — cash entries');
+				} else if (shared.length) {
+					// More than one person to look at, so the filter is live.
+					$sel.prop('disabled', false);
+					state.person = '';
+					$sel.val('');
+					$('#ctd-subtitle').text('Your cash entries, plus ' + shared.length +
+						' shared with you');
+				} else {
+					// Exactly one person: lock the filter, as before.
+					if (persons.length) {
+						state.person = persons[0].name;
 						$sel.val(state.person);
 					}
 					$sel.prop('disabled', true);
 					$('#ctd-subtitle').text('Your cash entries');
-				} else {
-					$('#ctd-subtitle').text('All users — cash entries');
 				}
 				load();
 			}
@@ -241,7 +259,9 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 	});
 
 	$('#ctd-person').on('change', function () {
-		if (!state.is_admin) { return; }   // hard guard; server enforces too
+		// Disabled for a user with only their own record, so reaching here means
+		// there is something to switch to. The server re-derives the set anyway.
+		if ($(this).prop('disabled')) { return; }
 		state.person = $(this).val();
 		load();
 	});

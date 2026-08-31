@@ -9,6 +9,9 @@
   "policy_effective_date",
   "cb_policy_dates",
   "policy_dates_help",
+  "sb_exposure",
+  "ar_source",
+  "customer_ar_cap",
   "sb_thresholds",
   "total_ar_cap",
   "dso_target_days",
@@ -91,6 +94,26 @@
    "fieldname": "policy_dates_help",
    "fieldtype": "HTML",
    "options": "<p class=\"text-muted small\">Set this once, at go-live. Changing it later re-classifies historical invoices between the Legacy and New Book ledgers.</p>"
+  },
+  {
+   "fieldname": "sb_exposure",
+   "fieldtype": "Section Break",
+   "label": "Exposure Measurement"
+  },
+  {
+   "fieldname": "ar_source",
+   "fieldtype": "Select",
+   "label": "AR Source for Credit Checks",
+   "options": "General Ledger\nSales Invoice Outstanding",
+   "default": "General Ledger",
+   "description": "Where the receivable half of a customer's exposure is read from. <b>General Ledger</b> is the net party balance on Receivable accounts, so payments and journal credits posted against the customer count even when nobody allocated them to an invoice. <b>Sales Invoice Outstanding</b> sums unpaid invoices only, and therefore ignores unapplied payments."
+  },
+  {
+   "fieldname": "customer_ar_cap",
+   "fieldtype": "Currency",
+   "label": "Per-Customer AR Cap (hard block)",
+   "default": "400000",
+   "description": "A customer whose AR would pass this figure cannot have any Terms Sales Order or Sales Invoice submitted — no deposit, approval or policy exemption gets through it. Set to 0 to switch the cap off. This is per customer; the company-wide cap under Thresholds is a separate, warning-only check."
   },
   {
    "fieldname": "sb_thresholds",
