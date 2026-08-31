@@ -173,3 +173,68 @@ def motley_cash_tracking_has_permission(doc, ptype="read", user=None):
     if doc is None or isinstance(doc, str):
         return True  # doctype-level access is decided by role permissions
     return (doc.get("owner") or user) == user
+
+
+# ── Cash Tracker Person — sharing is Administrator-only ───────────────────────
+
+def cash_tracker_person_has_permission(doc, ptype="read", user=None):
+    """Only the Administrator may share a Cash Tracker Person.
+
+    Sharing one of these records hands over a person's cash history on the Cash
+    Tracking page, so who may grant that is not something to leave to whoever
+    happens to hold System Manager on this site.
+
+    Two layers, because the DocPerm alone is not enough: the role's `share` right
+    is off in the doctype, which hides the Share button, and this check refuses
+    the action itself. It has to be here as well because Frappe also grants the
+    share right to anyone holding a DocShare row with `share = 1` — so a single
+    share ticked "Can Share" would otherwise let it spread on its own. Frappe
+    short-circuits every permission check for the Administrator before reaching
+    controllers, so they are unaffected.
+
+    Nothing else about the record is touched: controllers can only deny, never
+    grant, so returning True here leaves read/write to the role permissions.
+    """
+    if ptype != "share":
+        return True
+    return (user or frappe.session.user) == "Administrator"
+
+
+def docshare_validate(doc, method=None):
+    """Only the Administrator may share a Cash Tracker Person, by any route.
+
+    The DocPerm and the controller check above are not sufficient on their own.
+    frappe.has_permission falls back to the share table: if a DocShare row grants
+    a right, the user has that right regardless of what roles and controllers
+    said. So a single share ticked "Can Share" hands the recipient the ability to
+    share it onward, and sharing spreads without an administrator ever being
+    involved — which is exactly what had happened here.
+
+    This closes it at the source: every DocShare row on Cash Tracker Person must
+    be written by the Administrator, and none of them may carry the share right,
+    so read access can never turn into the ability to hand out read access.
+
+    Note this also stops a non-admin *assigning* a Cash Tracker Person to someone
+    who cannot already read it, since Frappe auto-shares in that case. That is
+    the intended reading of "only Administrator can share".
+    """
+    if doc.share_doctype != "Cash Tracker Person":
+        return
+
+    if frappe.session.user != "Administrator":
+        frappe.throw(
+            frappe._("Only the Administrator can share a Cash Tracker Person."),
+            frappe.PermissionError,
+            title=frappe._("Sharing Restricted"),
+        )
+
+    if doc.share:
+        doc.share = 0
+        frappe.msgprint(
+            frappe._(
+                "\"Can Share\" was not granted: the right to share a Cash Tracker "
+                "Person stays with the Administrator."
+            ),
+            indicator="orange",
+            alert=True,
+        )
