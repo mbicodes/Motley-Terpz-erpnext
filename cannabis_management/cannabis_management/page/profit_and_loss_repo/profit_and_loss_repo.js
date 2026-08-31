@@ -114,10 +114,6 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
                 font-size: 22px; font-weight: 800; letter-spacing: -0.5px; margin: 0;
                 color: #fff;
             }
-            .pnl-subtitle {
-                font-size: 12.5px; color: rgba(255,255,255,0.5);
-                margin: 3px 0 0; letter-spacing: 0.1px;
-            }
             /* Header stat chips */
             .pnl-header-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 2px; }
             .pnl-chip {
@@ -655,7 +651,6 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
                     <div class="pnl-logo-icon">📊</div>
                     <div>
                         <div class="pnl-main-title">Profit &amp; Loss Statement</div>
-                        <div class="pnl-subtitle" id="pnl-header-sub">Select filters and run the report</div>
                     </div>
                 </div>
                 <button class="pnl-run-btn" id="pnl-run-btn">
@@ -1378,7 +1373,7 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
 
     // ── Bind filter controls ──────────────────────────────────────────────────
     function bindControls() {
-        $("#pnl-company").on("change", function() { state.company = $(this).val(); updateHeaderSub(); scheduleRun(); });
+        $("#pnl-company").on("change", function() { state.company = $(this).val(); scheduleRun(); });
         $("#pnl-filter-based-on").on("change", function() {
             state.filter_based_on = $(this).val();
             toggleDateFyFields();
@@ -1411,14 +1406,6 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
             $("#pnl-fy-from-wrap, #pnl-fy-to-wrap").hide();
             $("#pnl-date-from-wrap, #pnl-date-to-wrap").show();
         }
-    }
-
-    function updateHeaderSub() {
-        var sub = state.company ? state.company + " · " : "";
-        sub += state.from_fiscal_year || "";
-        if (state.to_fiscal_year && state.to_fiscal_year !== state.from_fiscal_year) sub += " – " + state.to_fiscal_year;
-        if (!sub) sub = "Select filters and run the report";
-        $("#pnl-header-sub").text(sub);
     }
 
     // ── Run Report ────────────────────────────────────────────────────────────
@@ -1474,7 +1461,6 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
                     state.summary = msg.report_summary || [];
                     state.chart_data = msg.chart || null;
 
-                    updateHeaderSub();
                     renderResults();
                 } else {
                     frappe.msgprint("No data returned. Please check your filters.");

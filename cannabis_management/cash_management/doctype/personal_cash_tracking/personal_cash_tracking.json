@@ -1,11 +1,9 @@
 {
+ "actions": [],
  "autoname": "format:PCT-{YYYY}-{#####}",
- "creation": "2026-07-15 14:00:00.000000",
- "custom": 0,
- "docstatus": 0,
+ "creation": "2026-07-15 14:00:00",
  "doctype": "DocType",
  "engine": "InnoDB",
- "is_submittable": 1,
  "field_order": [
   "cash_tracker_person",
   "user",
@@ -26,13 +24,13 @@
  ],
  "fields": [
   {
-   "description": "Pick the tracker person — User and Employee fill in automatically.",
+   "description": "Pick the tracker person \u2014 User and Employee fill in automatically.",
    "fieldname": "cash_tracker_person",
    "fieldtype": "Link",
+   "ignore_user_permissions": 1,
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Cash Tracker Person",
-   "ignore_user_permissions": 1,
    "options": "Cash Tracker Person",
    "reqd": 1
   },
@@ -51,10 +49,10 @@
    "fetch_from": "cash_tracker_person.user",
    "fieldname": "user",
    "fieldtype": "Link",
+   "ignore_user_permissions": 1,
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "User",
-   "ignore_user_permissions": 1,
    "options": "User",
    "read_only": 1
   },
@@ -62,8 +60,8 @@
    "fetch_from": "cash_tracker_person.employee",
    "fieldname": "employee",
    "fieldtype": "Link",
-   "label": "Employee",
    "ignore_user_permissions": 1,
+   "label": "Employee",
    "options": "Employee",
    "read_only": 1
   },
@@ -95,20 +93,20 @@
    "reqd": 1
   },
   {
-   "description": "Optional — link the Sales Order this cash relates to.",
+   "description": "Optional \u2014 link the Sales Order this cash relates to.",
    "fieldname": "invoice_number",
    "fieldtype": "Link",
-   "label": "Invoice # (Sales Order)",
    "ignore_user_permissions": 1,
+   "label": "Invoice # (Sales Order)",
    "options": "Sales Order"
   },
   {
-   "description": "Which company was this for? If unsure — contact Jamie.",
+   "description": "Which company was this for? If unsure \u2014 contact MBI.",
    "fieldname": "business",
    "fieldtype": "Link",
+   "ignore_user_permissions": 1,
    "in_standard_filter": 1,
    "label": "Business",
-   "ignore_user_permissions": 1,
    "options": "Company",
    "reqd": 1
   },
@@ -142,18 +140,19 @@
    "fieldname": "amended_from",
    "fieldtype": "Link",
    "label": "Amended From",
+   "no_copy": 1,
    "options": "Personal Cash Tracking",
-   "read_only": 1,
    "print_hide": 1,
-   "no_copy": 1
+   "read_only": 1
   }
  ],
- "idx": 0,
- "modified": "2026-07-16 10:00:00.000000",
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-08-31 11:48:03.655543",
  "modified_by": "Administrator",
  "module": "Cash Management",
  "name": "Personal Cash Tracking",
- "naming_rule": "Expression",
+ "naming_rule": "Expression (old style)",
  "owner": "Administrator",
  "permissions": [
   {
@@ -172,10 +171,7 @@
    "write": 1
   },
   {
-   "amend": 0,
-   "cancel": 0,
    "create": 1,
-   "delete": 0,
    "email": 1,
    "export": 1,
    "print": 1,
@@ -186,7 +182,9 @@
    "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "transaction_date",
  "sort_order": "DESC",
+ "states": [],
  "track_changes": 1
 }
