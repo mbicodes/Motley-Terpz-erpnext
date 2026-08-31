@@ -3,8 +3,16 @@
 Scoping rules (enforced server-side, never trust the client):
   * Full-view users (Administrator or any System Manager) see every person's
     entries and may switch between people via the filter.
-  * Everyone else is locked to their own Cash Tracker Person — both the data
-    they receive and the single option in their person filter.
+  * Everyone else sees their own Cash Tracker Person, plus any Cash Tracker
+    Person **shared** with them through Frappe's standard Share panel on that
+    record. Sharing is the one lever a manager has here that needs no code and
+    no role change: share the person, and its entries appear in the filter.
+  * The person filter never offers, and get_entries never returns, anybody
+    outside that set — whatever the client asks for is re-derived here.
+
+A share grants *visibility*, never rights: it can let you read someone's Motley
+entries, but never file one. Creating stays with permissions.can_use_motley and
+the "Allow For Motley" tick on your own record.
 """
 
 import frappe
@@ -24,6 +32,42 @@ def _own_person(user=None):
     """The Cash Tracker Person linked to this user, if any."""
     user = user or frappe.session.user
     return frappe.db.get_value("Cash Tracker Person", {"user": user}, "name")
+
+
+def _shared_persons(user=None):
+    """Cash Tracker Person records shared with this user via the Share panel."""
+    user = user or frappe.session.user
+    return frappe.share.get_shared("Cash Tracker Person", user=user, rights=["read"]) or []
+
+
+def _visible_persons(user=None):
+    """Every person this user may look at: their own first, then anything shared.
+
+    Own first so that a user who suddenly has records shared with them still
+    lands on their own entries by default.
+    """
+    user = user or frappe.session.user
+    visible = []
+    own = _own_person(user)
+    if own:
+        visible.append(own)
+    for name in _shared_persons(user):
+        if name not in visible:
+            visible.append(name)
+    return visible
+
+
+def _can_view_motley(persons):
+    """Motley rows are viewable when any person in view is flagged for Motley.
+
+    A share hands over that person's view, Motley included — but only to look
+    at. Filing a Motley entry still needs the viewer's own record ticked.
+    """
+    if not persons:
+        return False
+    return bool(
+        frappe.db.exists("Cash Tracker Person", {"name": ["in", persons], "allow_for_motley": 1})
+    )
 
 
 @frappe.whitelist()
@@ -47,20 +91,24 @@ def get_persons():
         }
 
     own = _own_person()
-    persons = []
-    if own:
-        persons = [
-            frappe.db.get_value(
-                "Cash Tracker Person", own, ["name", "full_name", "user"], as_dict=True
-            )
-        ]
+    visible = _visible_persons()
+    persons = [
+        frappe.db.get_value(
+            "Cash Tracker Person", name, ["name", "full_name", "user"], as_dict=True
+        )
+        for name in visible
+    ]
     return {
         "is_admin": False,
-        "persons": persons,
+        "persons": [p for p in persons if p],
         "own": own,
+        # Anything past the first entry arrived through the Share panel; the page
+        # uses this to unlock the filter and label the shared options.
+        "shared": [p for p in visible if p != own],
         # Drives the Motley toggle + "New Motley Cash" button in the page.
-        # get_entries re-checks this, so hiding it is convenience, not security.
-        "allow_motley": can_use_motley(),
+        # Viewing follows the people in view; creating follows can_use_motley.
+        "allow_motley": _can_view_motley(visible),
+        "can_create_motley": can_use_motley(),
     }
 
 
@@ -74,20 +122,23 @@ def get_entries(tracker="personal", person=None, from_date=None, to_date=None):
     is served their Personal entries instead, never an error and never Motley.
     """
     is_admin = _is_full_view()
-    if tracker == "motley" and not can_use_motley():
-        tracker = "personal"
 
     if not is_admin:
-        # Force own person regardless of what the client sent.
-        own = _own_person()
-        if not own:
+        # Re-derive what this user may see; never trust the person the client
+        # sent. An unknown or unshared person silently collapses to their own.
+        visible = _visible_persons()
+        if not visible:
             return {
                 "rows": [], "totals": _empty_totals(),
-                "is_admin": False, "tracker": tracker,
+                "is_admin": False, "tracker": "personal",
             }
-        person = own
-
-    person = person or None  # empty string -> all (admin only)
+        if tracker == "motley" and not _can_view_motley(visible):
+            tracker = "personal"
+        person = person if person in visible else (visible if not person else visible[0])
+    else:
+        if tracker == "motley" and not can_use_motley():
+            tracker = "personal"
+        person = person or None  # empty string -> all (admin only)
 
     rows = []
     if tracker == "motley":
@@ -110,7 +161,12 @@ def _base_filters(person, from_date, to_date):
     # Only submitted entries are shown on the dashboard (never Draft/Cancelled).
     filters = [["docstatus", "=", 1]]
     if person:
-        filters.append(["cash_tracker_person", "=", person])
+        # A list arrives when a user with shared records views "All" — their own
+        # person plus everything shared with them, and nothing else.
+        if isinstance(person, (list, tuple, set)):
+            filters.append(["cash_tracker_person", "in", list(person)])
+        else:
+            filters.append(["cash_tracker_person", "=", person])
     if from_date:
         filters.append(["transaction_date", ">=", from_date])
     if to_date:

@@ -295,7 +295,14 @@ doc_events = {
         "before_validate": "cannabis_management.doc_hooks.sales_invoice.before_validate",
         # Legacy / New Book / Plan classification, written as the invoice is saved
         "validate": "cannabis_management.credit_and_ar.payment_entry_hooks.stamp_invoice_ledger",
-        "before_submit": "cannabis_management.doc_hooks.sales_invoice.before_submit",
+        "before_submit": [
+            "cannabis_management.doc_hooks.sales_invoice.before_submit",
+            # Credit gate. The Sales Order gate alone is bypassable by invoicing
+            # a customer directly, so the un-ordered portion of an invoice is
+            # measured against the same line here. Order-backed invoices pass —
+            # they were gated at the order and the goods have shipped.
+            "cannabis_management.credit_and_ar.sales_invoice_hooks.before_submit",
+        ],
         "on_submit": [
             "cannabis_management.doc_hooks.sales_invoice.on_submit",
             # §7 limit breach → immediate hold
@@ -621,7 +628,9 @@ override_whitelisted_methods = {
 # generated from the base implementation of the doctype dashboard,
 # along with any modifications made in other Frappe apps
 override_doctype_dashboards = {
-	"Sales Order": "cannabis_management.overrides.sales_order_dashboard.get_data"
+	"Sales Order": "cannabis_management.overrides.sales_order_dashboard.get_data",
+	# Credit Application on the Customer Connections tab.
+	"Customer": "cannabis_management.overrides.customer_dashboard.get_data",
 }
 
 # exempt linked doctypes from being automatically cancelled
