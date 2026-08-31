@@ -13,6 +13,20 @@ def is_cash_admin(user=None):
     return (user or frappe.session.user) in CASH_ADMIN_USERS
 
 
+def is_accounts_manager(user=None):
+    """Accounts Manager role holders get read-only, cross-person visibility into
+    the cash-tracking lists — the same full view as the Cash Tracking dashboard."""
+    user = user or frappe.session.user
+    return "Accounts Manager" in frappe.get_roles(user)
+
+
+def is_cash_full_view(user=None):
+    """Full READ visibility across every person's cash-tracking records: cash
+    admins (who also write/cancel) and Accounts Manager (read-only)."""
+    user = user or frappe.session.user
+    return is_cash_admin(user) or is_accounts_manager(user)
+
+
 def _get_person_for_user(user=None):
     """Return the Cash Tracker Person name linked to this ERPNext user, or None."""
     user = user or frappe.session.user
@@ -125,18 +139,22 @@ def expense_tracker_entry_has_permission(doc, ptype="read", user=None):
 # ── Personal Cash Tracking — strictly own records ──────────────────────────
 
 def personal_cash_tracking_query(user):
-    """List-level filter: cash admins see all; everyone else only their own."""
+    """List-level filter: full-view users (cash admins / Accounts Manager) see
+    all; everyone else only their own."""
     user = user or frappe.session.user
-    if is_cash_admin(user):
+    if is_cash_full_view(user):
         return ""
     return f"`tabPersonal Cash Tracking`.owner = {frappe.db.escape(user)}"
 
 
 def personal_cash_tracking_has_permission(doc, ptype="read", user=None):
-    """Document-level gate: cash admins have full access; everyone else may only
-    touch their own records and can never cancel."""
+    """Document-level gate: cash admins have full access; Accounts Manager gets
+    read-only access to everyone's; everyone else may only touch their own and
+    can never cancel."""
     user = user or frappe.session.user
     if is_cash_admin(user):
+        return True
+    if ptype == "read" and is_accounts_manager(user):
         return True
     if ptype == "cancel":
         return False
@@ -148,9 +166,10 @@ def personal_cash_tracking_has_permission(doc, ptype="read", user=None):
 # ── Motley Cash Tracking — strictly own records ─────────────────────────────
 
 def motley_cash_tracking_query(user):
-    """List-level filter: cash admins see all; everyone else only their own."""
+    """List-level filter: full-view users (cash admins / Accounts Manager) see
+    all; everyone else only their own."""
     user = user or frappe.session.user
-    if is_cash_admin(user):
+    if is_cash_full_view(user):
         return ""
     return f"`tabMotley Cash Tracking`.owner = {frappe.db.escape(user)}"
 
@@ -165,6 +184,8 @@ def motley_cash_tracking_has_permission(doc, ptype="read", user=None):
     """
     user = user or frappe.session.user
     if is_cash_admin(user):
+        return True
+    if ptype == "read" and is_accounts_manager(user):
         return True
     if ptype == "cancel":
         return False
