@@ -550,6 +550,8 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
             .pnl-toggle:hover { background: #e0e7ff; color: #6366f1; }
             .pnl-toggle.open { transform: rotate(90deg); color: #6366f1; }
             .pnl-toggle-spacer { width: 23px; display: inline-block; flex-shrink: 0; }
+            .pnl-account-link { cursor: pointer; }
+            .pnl-account-link:hover { color: #4338ca; text-decoration: underline; }
             .pnl-acct-icon {
                 width: 24px; height: 24px; border-radius: 7px;
                 display: inline-flex; align-items: center; justify-content: center;
@@ -1037,12 +1039,21 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
 
             if (isBlank) { html += '<tr><td colspan="' + (cols.length) + '" style="padding:4px"></td></tr>'; continue; }
 
-            html += '<tr class="' + rowClass + '" data-account="' + escHtml(accountName) + '">';
+            html += '<tr class="' + rowClass + '" data-account="' + escHtml(accountName) + '" data-row-idx="' + i + '">';
 
             // Account name cell
             var indentPx = indent * 18;
             var toggleHtml = "";
             var iconHtml = "";
+            // Real ledger accounts (leaf or group) carry a `.account` value.
+            // Synthetic summary rows (Total Income/Expense, Net Profit) instead
+            // have it quoted (e.g. "'Total Income (Credit)'") — see
+            // financial_statements.py's get_net_profit_loss/get_data totals —
+            // so those are excluded from GL drill-through, matching how
+            // erpnext's own financial_statements.js formatter decides whether
+            // to wire up `open_general_ledger`.
+            var isClickableAccount = !!(row.account && typeof row.account === "string" && row.account.charAt(0) !== "'");
+            var nameSpanClass = isClickableAccount ? " class=\"pnl-account-link\"" : "";
 
             if (isGroup && !isTotal && !isNetProfit) {
                 var accountKey = row.account || row.section || accountName;
@@ -1062,7 +1073,7 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
             html += '<td><div class="pnl-account-cell">' +
                 '<span class="pnl-indent" style="min-width:' + indentPx + 'px"></span>' +
                 toggleHtml + iconHtml +
-                '<span>' + escHtml(accountName) + '</span>' +
+                '<span' + nameSpanClass + '>' + escHtml(accountName) + '</span>' +
                 '</div></td>';
 
             // Value cells
@@ -1120,6 +1131,40 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
         return html;
     }
 
+    // ── Drill through to General Ledger with the currently selected filters ───
+    // Mirrors erpnext.financial_statements.open_general_ledger (financial_statements.js)
+    // so the behaviour matches the standard Profit and Loss Statement report.
+    function openGeneralLedger(row) {
+        if (!row || !row.account) return;
+
+        frappe.route_options = {
+            account: row.account,
+            company: state.company,
+            from_date: row.from_date || row.year_start_date,
+            to_date: row.to_date || row.year_end_date,
+        };
+        if (state.cost_center && state.cost_center.length) frappe.route_options.cost_center = state.cost_center;
+        if (state.project && state.project.length) frappe.route_options.project = state.project;
+        if (state.finance_book) frappe.route_options.finance_book = state.finance_book;
+
+        var report = "General Ledger";
+        if (["Payable", "Receivable"].includes(row.account_type)) {
+            report = row.account_type === "Payable" ? "Accounts Payable" : "Accounts Receivable";
+            frappe.route_options.party_account = row.account;
+            frappe.route_options.report_date = row.year_end_date;
+        }
+
+        frappe.set_route("query-report", report);
+    }
+
+    function bindAccountLinkClick() {
+        $("#pnl-tbody").off("click", ".pnl-account-link").on("click", ".pnl-account-link", function(e) {
+            e.stopPropagation();
+            var idx = parseInt($(this).closest("tr").attr("data-row-idx"), 10);
+            openGeneralLedger((state.data || [])[idx]);
+        });
+    }
+
     // ── Table event binding ───────────────────────────────────────────────────
     function bindTableEvents() {
         // Toggle expand/collapse
@@ -1133,6 +1178,7 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
             }
             rebuildTableBody(getCurrency());
         });
+        bindAccountLinkClick();
 
         // Search
         $("#pnl-search").off("input").on("input", function() {
@@ -1185,6 +1231,7 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
             state.expanded[acct] = state.expanded[acct] === false ? true : false;
             rebuildTableBody(getCurrency(), $("#pnl-search").val());
         });
+        bindAccountLinkClick();
     }
 
     // ── CSV Export ────────────────────────────────────────────────────────────
