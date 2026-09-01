@@ -190,6 +190,7 @@ frappe.ui.form.on('Conversion Entry Item', {
 	raw_material_7: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'raw_material_7', 'rm_7_item_group'); },
 	finished_good_1: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'finished_good_1', 'fg_1_item_group'); },
 	finished_good_2: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'finished_good_2', 'fg_2_item_group'); },
+	finished_good_3: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'finished_good_3', 'fg_3_item_group'); },
 });
 
 
@@ -264,8 +265,12 @@ function clear_hidden_fields_for_row(frm, cdt, cdn) {
 		frappe.model.set_value(cdt, cdn, 'raw_material_7', '');
 		frappe.model.set_value(cdt, cdn, 'qty_rm_7', 0);
 	}
-	if (!['1 to 2', '2 to 2'].includes(ct)) {
+	if (!['1 to 2', '2 to 2', '1 to 3'].includes(ct)) {
 		frappe.model.set_value(cdt, cdn, 'finished_good_2', '');
 		frappe.model.set_value(cdt, cdn, 'qty_fg_2', 0);
+	}
+	if (ct !== '1 to 3') {
+		frappe.model.set_value(cdt, cdn, 'finished_good_3', '');
+		frappe.model.set_value(cdt, cdn, 'qty_fg_3', 0);
 	}
 }

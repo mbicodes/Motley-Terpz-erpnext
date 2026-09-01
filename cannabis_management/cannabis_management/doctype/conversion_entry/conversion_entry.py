@@ -28,6 +28,7 @@ _RM_FIELDS = [
 _FG_FIELDS = [
 	("finished_good_1", "fg_1_item_group"),
 	("finished_good_2", "fg_2_item_group"),
+	("finished_good_3", "fg_3_item_group"),
 ]
 
 
@@ -138,9 +139,13 @@ class ConversionEntry(Document):
 				if not row.raw_material_7 or flt(row.qty_rm_7) <= 0:
 					frappe.throw(_("Row {0}: Raw Material 7 and its Qty are required for {1} conversion.").format(idx, row.conversion_type))
 
-			if row.conversion_type in ["1 to 2", "2 to 2"]:
+			if row.conversion_type in ["1 to 2", "2 to 2", "1 to 3"]:
 				if not row.finished_good_2 or flt(row.qty_fg_2) <= 0:
-					frappe.throw(_("Row {0}: Finished Good 2 and its Qty are required for 1 to 2 conversion.").format(idx))
+					frappe.throw(_("Row {0}: Finished Good 2 and its Qty are required for {1} conversion.").format(idx, row.conversion_type))
+
+			if row.conversion_type == "1 to 3":
+				if not row.finished_good_3 or flt(row.qty_fg_3) <= 0:
+					frappe.throw(_("Row {0}: Finished Good 3 and its Qty are required for 1 to 3 conversion.").format(idx))
 
 	def _populate_item_groups(self):
 		for row in self.items:
@@ -243,7 +248,11 @@ class ConversionEntry(Document):
 				has_items = True
 
 		# ── Finished (incoming) items — distribute source value by qty ratio ──
-		fg_pairs = [(row.finished_good_1, row.qty_fg_1), (row.finished_good_2, row.qty_fg_2)]
+		fg_pairs = [
+			(row.finished_good_1, row.qty_fg_1),
+			(row.finished_good_2, row.qty_fg_2),
+			(row.finished_good_3, row.qty_fg_3),
+		]
 		total_fg_qty = sum(flt(qty) for _, qty in fg_pairs if qty and flt(qty) > 0)
 
 		for item_code, qty in fg_pairs:
