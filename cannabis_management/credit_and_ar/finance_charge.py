@@ -3,13 +3,10 @@
 Simple, non-compounding, pro-rated by day from the day *after* the due date, at
 the lower of the policy rate and any statutory ceiling.
 
-Two hard exclusions, both of them legal rather than arithmetic:
+One hard exclusion, legal rather than arithmetic:
 
 * **Legacy invoices are never charged.** §12 — pre-policy balances are collected
   on their original terms, with no retroactive fees.
-* **No charge under an agreement missing the counsel-approved clause.** If the
-  signed Credit Agreement does not carry the California counsel-approved
-  language, there is nothing to charge under.
 
 Finance charge invoices are excluded from DSO, CEI and the payment score: a late
 fee is a consequence of poor payment, not evidence of it.
@@ -74,7 +71,7 @@ def _effective_monthly_rate(settings) -> float:
 
 
 def _eligible_customers(settings) -> list[str]:
-	customers = frappe.get_all(
+	return frappe.get_all(
 		"Customer",
 		filters={
 			"disabled": 0,
@@ -83,23 +80,6 @@ def _eligible_customers(settings) -> list[str]:
 		},
 		pluck="name",
 	)
-
-	if not settings.require_counsel_approved_clause:
-		return customers
-
-	# No charge is assessed under an agreement lacking the counsel-approved clause.
-	allowed = []
-	for customer in customers:
-		if _has_counsel_clause(customer):
-			allowed.append(customer)
-	return allowed
-
-
-def _has_counsel_clause(customer: str) -> bool:
-	from cannabis_management.credit_and_ar import credit_engine
-
-	application = credit_engine.get_active_credit_application(customer)
-	return bool(application and application.get("counsel_approved_clause"))
 
 
 def _template_qualifies(settings, template: str | None) -> bool:

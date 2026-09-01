@@ -70,11 +70,6 @@
   "credit_agreement_signed",
   "credit_agreement_document",
   "agreement_signed_date",
-  "cb_agreement",
-  "finance_charge_clause_included",
-  "collection_cost_clause_included",
-  "counsel_approved_clause",
-  "reconciliation_clause_acknowledged",
   "sec_onboarding",
   "onboarding_form_complete",
   "onboarding_form_document",
@@ -467,36 +462,6 @@
    "fieldtype": "Date",
    "label": "Agreement Signed Date",
    "allow_on_submit": 1
-  },
-  {
-   "fieldname": "cb_agreement",
-   "fieldtype": "Column Break"
-  },
-  {
-   "default": "0",
-   "fieldname": "finance_charge_clause_included",
-   "fieldtype": "Check",
-   "label": "Finance Charge Clause Included"
-  },
-  {
-   "default": "0",
-   "fieldname": "collection_cost_clause_included",
-   "fieldtype": "Check",
-   "label": "Collection Cost Clause Included"
-  },
-  {
-   "default": "0",
-   "description": "Approved by California counsel. Finance charges cannot be assessed without it.",
-   "fieldname": "counsel_approved_clause",
-   "fieldtype": "Check",
-   "label": "Counsel-Approved Clause"
-  },
-  {
-   "default": "0",
-   "description": "The customer accepts that we may request their ledger any time a balance is open; refusal suspends terms.",
-   "fieldname": "reconciliation_clause_acknowledged",
-   "fieldtype": "Check",
-   "label": "Reconciliation Clause Acknowledged"
   },
   {
    "fieldname": "sec_onboarding",

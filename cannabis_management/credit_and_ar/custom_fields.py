@@ -171,7 +171,6 @@ CUSTOMER_FIELDS = [
 		"fieldtype": "Check",
 		"label": "On Hold",
 		"default": "0",
-		"read_only": 1,
 		"in_standard_filter": 1,
 		"insert_after": "custom_hold_section",
 	},

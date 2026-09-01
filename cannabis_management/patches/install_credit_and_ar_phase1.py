@@ -43,7 +43,6 @@ def _seed_settings(finance_charge_item: str | None):
 		"max_terms_days": 30,
 		"monthly_rate": 1.5,
 		"apply_to": "All Terms Invoices",
-		"require_counsel_approved_clause": 1,
 		"auto_submit_finance_charges": 0,
 		"default_paydown_mode": "Percent of Order Value",
 		"default_paydown_percent": 15,

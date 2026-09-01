@@ -276,27 +276,6 @@ class CreditApplication(Document):
 				)
 			)
 
-		# These three clauses become mandatory the moment Finance recommends —
-		# they carry through (and stay enforced) at MD approval too, since
-		# `_validate_state_requirements` runs this same check at STATE_APPROVED.
-		clause_checks = [
-			(
-				self.finance_charge_clause_included,
-				_("The finance charge clause is not confirmed as included."),
-			),
-			(
-				self.collection_cost_clause_included,
-				_("The collection cost clause is not confirmed as included."),
-			),
-			(
-				self.reconciliation_clause_acknowledged,
-				_("The reconciliation clause has not been acknowledged by the customer."),
-			),
-		]
-		for value, message in clause_checks:
-			if not value:
-				problems.append(message)
-
 		utils.throw_consolidated(problems, "Cannot Recommend — Credit File Incomplete")
 
 	def _validate_approval(self):
@@ -309,11 +288,8 @@ class CreditApplication(Document):
 		# (see `on_submit`); an outstanding signature only triggers a paperwork
 		# reminder (`_notify_agreement_outstanding`), it no longer blocks anything.
 		# The AP contact is collected from the applicant at Finance Review, not
-		# demanded again at approval. The finance charge, collection cost and
-		# reconciliation clauses are checked in `_validate_recommendation` —
-		# mandatory from the moment Finance recommends, and still enforced here
-		# because that same method runs again at STATE_APPROVED. The onboarding
-		# form completeness is no longer a condition of approval.
+		# demanded again at approval. The onboarding form completeness is no
+		# longer a condition of approval.
 
 		if flt(self.approved_limit) <= 0:
 			problems.append(_("Approved limit must be greater than zero."))
