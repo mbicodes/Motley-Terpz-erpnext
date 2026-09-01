@@ -172,14 +172,13 @@ Review**, then **Recommend**.
 ### 4.4 Try to approve without the paperwork
 **Do:** click **Approve**.
 
-> ✅ **Must happen** — a consolidated error listing the four clauses, the
-> onboarding form, and the approved limit/terms. The signed agreement is **not**
-> on that list any more.
+> ✅ **Must happen** — a consolidated error listing the approved limit/terms.
+> The signed agreement is **not** on that list any more. Neither are the
+> finance charge, collection cost, counsel-approved, or reconciliation
+> clauses — those checkboxes have been removed entirely.
 
-**Do:** tick **Finance Charge Clause**, **Collection Cost Clause**,
-**Counsel-Approved Clause**, **Reconciliation Clause Acknowledged**,
-**Onboarding Form Complete**. Set Approved Limit `50000` and Approved Terms
-`NET15`. Save. **Approve**.
+**Do:** Set Approved Limit `50000` and Approved Terms `NET15`. Save.
+**Approve**.
 
 *(Leave the Credit Agreement unsigned and unattached — approval no longer waits
 on it.)*
@@ -616,9 +615,8 @@ Ask me to run the scoring job, or wait for the daily run.
 Rate `1.5`, set the **Finance Charge Income Account**, leave **Auto-Submit** off.
 Ask me to run the monthly job.
 
-> ✅ Customers whose approved Credit Application **lacks the counsel-approved
-> clause** are skipped entirely — no charge is assessed under an agreement that
-> doesn't carry the language.
+> ✅ The counsel-approved clause gate has been removed — it no longer excludes
+> any customer from finance charges.
 > ✅ For those that qualify: one **Draft** Sales Invoice per customer, one line
 > per past-due invoice, each line reading *"Finance charge on ACC-SINV-… — $X at
 > 1.5%/month for N day(s)"*.
@@ -654,7 +652,7 @@ workspace.
 | Report | Look for |
 |---|---|
 | **Customer Credit Scorecard** | Score coloured by band; a customer with no score shows **—**, not 0. Negative "Avg Days to Pay" (pays early) shows green. Filter by band or credit status. |
-| **Terms and Credit Line Register** | Days-to-Expiry coloured (red past due, orange ≤15). The **Agreement** column is a clickable attachment. A ✗ in *Counsel Clause* means no finance charges can be assessed on that account. |
+| **Terms and Credit Line Register** | Days-to-Expiry coloured (red past due, orange ≤15). The **Agreement** column is a clickable attachment. |
 | **Red List** | Status column colour-coded HOLD / PLAN / WORKOUT / PAST DUE. The header line carries the **Plan Book** totals — plan balance, due this week, received this week. |
 | **Legacy Recovery Register** | Header states the legacy balance and that it does not count toward the cap. Every row's *Finance Charges* column reads **"Never — original terms"**. |
 

@@ -357,7 +357,6 @@ def get_active_credit_application(customer: str) -> dict | None:
 			"customer",
 			"approved_limit",
 			"approved_terms",
-			"counsel_approved_clause",
 			"credit_agreement_signed",
 			"credit_agreement_document",
 		],

@@ -192,10 +192,11 @@ company is still needed — mirroring the native `Customer Credit Limit` row,
 stamping an AR Case — it is derived from the customer's own trading history via
 `utils.company_of()` rather than asked for again.
 
-**Approve** requires all four clauses confirmed (finance charge, collection
-cost, counsel-approved, reconciliation), the onboarding form, a positive
-approved limit, terms within `max_terms_days`, and a written exception reason —
-which, per decision ①, means **every non-COD term**.
+**Approve** requires a positive approved limit, terms within `max_terms_days`,
+and a written exception reason — which, per decision ①, means **every non-COD
+term**. The finance charge, collection cost, counsel-approved and
+reconciliation clause checkboxes have been removed; approval no longer waits
+on them.
 
 It does **not** require the signed agreement. The MD approves the *decision*;
 the countersigned agreement is a separate condition precedent (below).
@@ -601,13 +602,10 @@ constraint. Read it with `metrics.get_metrics_history()`.
 Monthly, on the 1st at 06:00 UTC. Simple, non-compounding, pro-rated by day from
 the **day after** the due date, at `min(monthly_rate, max_lawful_rate)`.
 
-Two exclusions that are legal rather than arithmetic:
+One exclusion that is legal rather than arithmetic:
 
 * **Legacy invoices are never charged** — §12, collected on original terms with
   no retroactive fees.
-* **No charge under an agreement missing the counsel-approved clause.** With
-  `require_counsel_approved_clause` on, a customer whose approved Credit
-  Application lacks `counsel_approved_clause` is skipped entirely.
 
 One invoice per customer per run, one line per underlying invoice, each line
 naming the source invoice, the principal, the rate and the days. Every source
@@ -662,7 +660,7 @@ but not across 250 customers on a report refresh.
 | Report | What it answers |
 |---|---|
 | **Customer Credit Scorecard** | The MD's single source of truth for approving a line: score and band, signed avg days to pay, on-time %, weekly volume in lbs *and* grams, current AR, past due, approved limit, available line, utilisation, terms and expiry. Charted as a score distribution. |
-| **Terms and Credit Line Register** | Every live line with the paperwork behind it — agreement and onboarding attachments as clickable links, reconciliation and counsel clauses, AP contact, approver, next review. Flags lines expiring within 15 days and any line **without the counsel clause** (no finance charges can be assessed on those). |
+| **Terms and Credit Line Register** | Every live line with the paperwork behind it — agreement and onboarding attachments as clickable links, AP contact, approver, next review. Flags lines expiring within 15 days. |
 | **Red List** | Every past-due account flagged `HOLD` / `PLAN` / `WORKOUT` / `PAST DUE`, with promise-to-pay, last contact, next action and owner. The **Plan Book** totals — balance under plan, due vs. received this week — sit in the report message, with workout starting balance and recovery to date. |
 | **Legacy Recovery Register** | Everything invoiced before the policy date, with recovered-this-week from the ledger. Every row states plainly that **no finance charges apply**, and the header repeats that legacy does not count toward the new-book cap. |
 

@@ -39,10 +39,6 @@ def get_data(filters):
 			"credit_agreement_document",
 			"onboarding_form_document",
 			"onboarding_form_complete",
-			"reconciliation_clause_acknowledged",
-			"counsel_approved_clause",
-			"finance_charge_clause_included",
-			"collection_cost_clause_included",
 			"ap_contact_name",
 			"ap_contact_phone",
 			"ap_contact_email",
@@ -82,8 +78,6 @@ def get_data(filters):
 					app.onboarding_form_document, _("Form")
 				)
 				or (_("Confirmed") if app.onboarding_form_complete else ""),
-				"reconciliation_ack": app.reconciliation_clause_acknowledged,
-				"counsel_clause": app.counsel_approved_clause,
 				"ap_contact_name": app.ap_contact_name,
 				"ap_contact_phone": app.ap_contact_phone,
 				"ap_contact_email": app.ap_contact_email,
@@ -107,20 +101,12 @@ def get_message(data):
 
 	total_limit = sum(row["approved_limit"] for row in data)
 	total_exposure = sum(row["exposure"] for row in data)
-	missing_counsel = len([row for row in data if not row["counsel_clause"]])
 
 	parts = [
 		_("<b>{0}</b> live credit line(s)").format(len(data)),
 		_("total approved <b>{0}</b>").format(utils.fmt_currency(total_limit)),
 		_("drawn <b>{0}</b>").format(utils.fmt_currency(total_exposure)),
 	]
-	if missing_counsel:
-		parts.append(
-			_(
-				"<span style='color:#d97706'><b>{0}</b> without the counsel-approved clause "
-				"(no finance charges can be assessed)</span>"
-			).format(missing_counsel)
-		)
 
 	return " &nbsp;·&nbsp; ".join(parts)
 
@@ -162,10 +148,6 @@ def get_columns():
 		 "width": 110},
 		{"label": _("Agreement"), "fieldname": "agreement", "fieldtype": "HTML", "width": 100},
 		{"label": _("Onboarding"), "fieldname": "onboarding", "fieldtype": "HTML", "width": 110},
-		{"label": _("Recon Ack"), "fieldname": "reconciliation_ack", "fieldtype": "Check",
-		 "width": 90},
-		{"label": _("Counsel Clause"), "fieldname": "counsel_clause", "fieldtype": "Check",
-		 "width": 120},
 		{"label": _("AP Contact"), "fieldname": "ap_contact_name", "fieldtype": "Data",
 		 "width": 150},
 		{"label": _("AP Direct Line"), "fieldname": "ap_contact_phone", "fieldtype": "Data",

@@ -41,7 +41,6 @@
   "cb_finance_charge",
   "finance_charge_item",
   "finance_charge_income_account",
-  "require_counsel_approved_clause",
   "auto_submit_finance_charges",
   "sb_workout",
   "default_paydown_mode",
@@ -289,14 +288,6 @@
    "fieldtype": "Link",
    "label": "Finance Charge Income Account",
    "options": "Account"
-  },
-  {
-   "default": "1",
-   "depends_on": "finance_charge_enabled",
-   "description": "No charge is assessed under a credit agreement missing the California counsel-approved clause.",
-   "fieldname": "require_counsel_approved_clause",
-   "fieldtype": "Check",
-   "label": "Require Counsel-Approved Clause"
   },
   {
    "default": "0",
