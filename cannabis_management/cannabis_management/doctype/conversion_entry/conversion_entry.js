@@ -241,11 +241,11 @@ function clear_hidden_fields_for_row(frm, cdt, cdn) {
 	let ct  = row.conversion_type;
 	if (!ct) return;
 
-	if (!['2 to 1', '2 to 2', '3 to 1', '4 to 1', '5 to 1', '6 to 1', '7 to 1'].includes(ct)) {
+	if (!['2 to 1', '2 to 2', '3 to 1', '3 to 2', '3 to 3', '4 to 1', '5 to 1', '6 to 1', '7 to 1'].includes(ct)) {
 		frappe.model.set_value(cdt, cdn, 'raw_material_2', '');
 		frappe.model.set_value(cdt, cdn, 'qty_rm_2', 0);
 	}
-	if (!['3 to 1', '4 to 1', '5 to 1', '6 to 1', '7 to 1'].includes(ct)) {
+	if (!['3 to 1', '3 to 2', '3 to 3', '4 to 1', '5 to 1', '6 to 1', '7 to 1'].includes(ct)) {
 		frappe.model.set_value(cdt, cdn, 'raw_material_3', '');
 		frappe.model.set_value(cdt, cdn, 'qty_rm_3', 0);
 	}
@@ -265,11 +265,11 @@ function clear_hidden_fields_for_row(frm, cdt, cdn) {
 		frappe.model.set_value(cdt, cdn, 'raw_material_7', '');
 		frappe.model.set_value(cdt, cdn, 'qty_rm_7', 0);
 	}
-	if (!['1 to 2', '2 to 2', '1 to 3'].includes(ct)) {
+	if (!['1 to 2', '2 to 2', '1 to 3', '3 to 2', '3 to 3'].includes(ct)) {
 		frappe.model.set_value(cdt, cdn, 'finished_good_2', '');
 		frappe.model.set_value(cdt, cdn, 'qty_fg_2', 0);
 	}
-	if (ct !== '1 to 3') {
+	if (!['1 to 3', '3 to 3'].includes(ct)) {
 		frappe.model.set_value(cdt, cdn, 'finished_good_3', '');
 		frappe.model.set_value(cdt, cdn, 'qty_fg_3', 0);
 	}

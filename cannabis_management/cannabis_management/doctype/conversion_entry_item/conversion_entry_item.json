@@ -47,7 +47,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Conversion Type",
-   "options": "\n1 to 1\n1 to 2\n1 to 3\n2 to 1\n2 to 2\n3 to 1\n4 to 1\n5 to 1\n6 to 1\n7 to 1",
+   "options": "\n1 to 1\n1 to 2\n1 to 3\n2 to 1\n2 to 2\n3 to 1\n3 to 2\n3 to 3\n4 to 1\n5 to 1\n6 to 1\n7 to 1",
    "reqd": 1
   },
   {
@@ -82,34 +82,38 @@
    "reqd": 1
   },
   {
-   "depends_on": "eval:in_list([\"2 to 1\", \"2 to 2\", \"3 to 1\", \"4 to 1\", \"5 to 1\", \"6 to 1\", \"7 to 1\"], doc.conversion_type)",
+   "depends_on": "eval:in_list([\"2 to 1\", \"2 to 2\", \"3 to 1\", \"3 to 2\", \"3 to 3\", \"4 to 1\", \"5 to 1\", \"6 to 1\", \"7 to 1\"], doc.conversion_type)",
    "fieldname": "raw_material_2",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Raw Material 2",
+   "mandatory_depends_on": "eval:in_list([\"2 to 1\", \"2 to 2\", \"3 to 1\", \"3 to 2\", \"3 to 3\", \"4 to 1\", \"5 to 1\", \"6 to 1\", \"7 to 1\"], doc.conversion_type)",
    "options": "Item"
   },
   {
-   "depends_on": "eval:in_list([\"2 to 1\", \"2 to 2\", \"3 to 1\", \"4 to 1\", \"5 to 1\", \"6 to 1\", \"7 to 1\"], doc.conversion_type)",
+   "depends_on": "eval:in_list([\"2 to 1\", \"2 to 2\", \"3 to 1\", \"3 to 2\", \"3 to 3\", \"4 to 1\", \"5 to 1\", \"6 to 1\", \"7 to 1\"], doc.conversion_type)",
    "fieldname": "qty_rm_2",
    "fieldtype": "Float",
    "in_list_view": 1,
-   "label": "Qty (RM 2)"
+   "label": "Qty (RM 2)",
+   "mandatory_depends_on": "eval:in_list([\"2 to 1\", \"2 to 2\", \"3 to 1\", \"3 to 2\", \"3 to 3\", \"4 to 1\", \"5 to 1\", \"6 to 1\", \"7 to 1\"], doc.conversion_type)"
   },
   {
-   "depends_on": "eval:in_list([\"3 to 1\", \"4 to 1\", \"5 to 1\", \"6 to 1\", \"7 to 1\"], doc.conversion_type)",
+   "depends_on": "eval:in_list([\"3 to 1\", \"3 to 2\", \"3 to 3\", \"4 to 1\", \"5 to 1\", \"6 to 1\", \"7 to 1\"], doc.conversion_type)",
    "fieldname": "raw_material_3",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Raw Material 3",
+   "mandatory_depends_on": "eval:in_list([\"3 to 1\", \"3 to 2\", \"3 to 3\", \"4 to 1\", \"5 to 1\", \"6 to 1\", \"7 to 1\"], doc.conversion_type)",
    "options": "Item"
   },
   {
-   "depends_on": "eval:in_list([\"3 to 1\", \"4 to 1\", \"5 to 1\", \"6 to 1\", \"7 to 1\"], doc.conversion_type)",
+   "depends_on": "eval:in_list([\"3 to 1\", \"3 to 2\", \"3 to 3\", \"4 to 1\", \"5 to 1\", \"6 to 1\", \"7 to 1\"], doc.conversion_type)",
    "fieldname": "qty_rm_3",
    "fieldtype": "Float",
    "in_list_view": 1,
-   "label": "Qty (RM 3)"
+   "label": "Qty (RM 3)",
+   "mandatory_depends_on": "eval:in_list([\"3 to 1\", \"3 to 2\", \"3 to 3\", \"4 to 1\", \"5 to 1\", \"6 to 1\", \"7 to 1\"], doc.conversion_type)"
   },
   {
    "depends_on": "eval:in_list([\"4 to 1\", \"5 to 1\", \"6 to 1\", \"7 to 1\"], doc.conversion_type)",
@@ -117,6 +121,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Raw Material 4",
+   "mandatory_depends_on": "eval:in_list([\"4 to 1\", \"5 to 1\", \"6 to 1\", \"7 to 1\"], doc.conversion_type)",
    "options": "Item"
   },
   {
@@ -124,7 +129,8 @@
    "fieldname": "qty_rm_4",
    "fieldtype": "Float",
    "in_list_view": 1,
-   "label": "Qty (RM 4)"
+   "label": "Qty (RM 4)",
+   "mandatory_depends_on": "eval:in_list([\"4 to 1\", \"5 to 1\", \"6 to 1\", \"7 to 1\"], doc.conversion_type)"
   },
   {
    "depends_on": "eval:in_list([\"5 to 1\", \"6 to 1\", \"7 to 1\"], doc.conversion_type)",
@@ -132,6 +138,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Raw Material 5",
+   "mandatory_depends_on": "eval:in_list([\"5 to 1\", \"6 to 1\", \"7 to 1\"], doc.conversion_type)",
    "options": "Item"
   },
   {
@@ -139,7 +146,8 @@
    "fieldname": "qty_rm_5",
    "fieldtype": "Float",
    "in_list_view": 1,
-   "label": "Qty (RM 5)"
+   "label": "Qty (RM 5)",
+   "mandatory_depends_on": "eval:in_list([\"5 to 1\", \"6 to 1\", \"7 to 1\"], doc.conversion_type)"
   },
   {
    "depends_on": "eval:in_list([\"6 to 1\", \"7 to 1\"], doc.conversion_type)",
@@ -147,6 +155,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Raw Material 6",
+   "mandatory_depends_on": "eval:in_list([\"6 to 1\", \"7 to 1\"], doc.conversion_type)",
    "options": "Item"
   },
   {
@@ -154,7 +163,8 @@
    "fieldname": "qty_rm_6",
    "fieldtype": "Float",
    "in_list_view": 1,
-   "label": "Qty (RM 6)"
+   "label": "Qty (RM 6)",
+   "mandatory_depends_on": "eval:in_list([\"6 to 1\", \"7 to 1\"], doc.conversion_type)"
   },
   {
    "depends_on": "eval:doc.conversion_type == \"7 to 1\"",
@@ -162,6 +172,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Raw Material 7",
+   "mandatory_depends_on": "eval:doc.conversion_type == \"7 to 1\"",
    "options": "Item"
   },
   {
@@ -169,7 +180,8 @@
    "fieldname": "qty_rm_7",
    "fieldtype": "Float",
    "in_list_view": 1,
-   "label": "Qty (RM 7)"
+   "label": "Qty (RM 7)",
+   "mandatory_depends_on": "eval:doc.conversion_type == \"7 to 1\""
   },
   {
    "fieldname": "column_break_fg",
@@ -197,34 +209,38 @@
    "reqd": 1
   },
   {
-   "depends_on": "eval:in_list([\"1 to 2\", \"2 to 2\", \"1 to 3\"], doc.conversion_type)",
+   "depends_on": "eval:in_list([\"1 to 2\", \"2 to 2\", \"1 to 3\", \"3 to 2\", \"3 to 3\"], doc.conversion_type)",
    "fieldname": "finished_good_2",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Finished Good 2",
+   "mandatory_depends_on": "eval:in_list([\"1 to 2\", \"2 to 2\", \"1 to 3\", \"3 to 2\", \"3 to 3\"], doc.conversion_type)",
    "options": "Item"
   },
   {
-   "depends_on": "eval:in_list([\"1 to 2\", \"2 to 2\", \"1 to 3\"], doc.conversion_type)",
+   "depends_on": "eval:in_list([\"1 to 2\", \"2 to 2\", \"1 to 3\", \"3 to 2\", \"3 to 3\"], doc.conversion_type)",
    "fieldname": "qty_fg_2",
    "fieldtype": "Float",
    "in_list_view": 1,
-   "label": "Qty (FG 2)"
+   "label": "Qty (FG 2)",
+   "mandatory_depends_on": "eval:in_list([\"1 to 2\", \"2 to 2\", \"1 to 3\", \"3 to 2\", \"3 to 3\"], doc.conversion_type)"
   },
   {
-   "depends_on": "eval:in_list([\"1 to 3\"], doc.conversion_type)",
+   "depends_on": "eval:in_list([\"1 to 3\", \"3 to 3\"], doc.conversion_type)",
    "fieldname": "finished_good_3",
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Finished Good 3",
+   "mandatory_depends_on": "eval:in_list([\"1 to 3\", \"3 to 3\"], doc.conversion_type)",
    "options": "Item"
   },
   {
-   "depends_on": "eval:in_list([\"1 to 3\"], doc.conversion_type)",
+   "depends_on": "eval:in_list([\"1 to 3\", \"3 to 3\"], doc.conversion_type)",
    "fieldname": "qty_fg_3",
    "fieldtype": "Float",
    "in_list_view": 1,
-   "label": "Qty (FG 3)"
+   "label": "Qty (FG 3)",
+   "mandatory_depends_on": "eval:in_list([\"1 to 3\", \"3 to 3\"], doc.conversion_type)"
   },
   {
    "fieldname": "rm_1_item_group",
