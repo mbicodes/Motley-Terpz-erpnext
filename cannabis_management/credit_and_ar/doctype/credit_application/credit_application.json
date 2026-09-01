@@ -70,6 +70,8 @@
   "credit_agreement_signed",
   "credit_agreement_document",
   "agreement_signed_date",
+  "agreement_date",
+  "late_fee_percent",
   "sec_onboarding",
   "onboarding_form_complete",
   "onboarding_form_document",
@@ -87,7 +89,18 @@
   "approved_on",
   "md_approval_notes",
   "sec_correspondence",
-  "subject"
+  "subject",
+  "sec_web_signatures",
+  "cb_client_signature",
+  "client_signature",
+  "client_signer_name",
+  "client_signer_title",
+  "client_signed_date",
+  "cb_company_signature",
+  "company_signature",
+  "company_signer_name",
+  "company_signer_title",
+  "company_signed_date"
  ],
  "fields": [
   {
@@ -464,6 +477,21 @@
    "allow_on_submit": 1
   },
   {
+   "default": "Today",
+   "description": "Date the Credit Agreement document was prepared.",
+   "fieldname": "agreement_date",
+   "fieldtype": "Date",
+   "label": "Agreement Date"
+  },
+  {
+   "default": "1.5",
+   "description": "Standard late fee per Credit Policy Settings. Not editable per application.",
+   "fieldname": "late_fee_percent",
+   "fieldtype": "Percent",
+   "label": "Late Fee (% / month)",
+   "read_only": 1
+  },
+  {
    "fieldname": "sec_onboarding",
    "fieldtype": "Section Break",
    "label": "Onboarding &amp; AP Contact"
@@ -560,6 +588,61 @@
    "fieldname": "subject",
    "fieldtype": "Data",
    "label": "Subject"
+  },
+  {
+   "fieldname": "sec_web_signatures",
+   "fieldtype": "Section Break",
+   "label": "Signatures"
+  },
+  {
+   "fieldname": "cb_client_signature",
+   "fieldtype": "Column Break",
+   "label": "Client Signature"
+  },
+  {
+   "fieldname": "client_signature",
+   "fieldtype": "Signature",
+   "label": "Signature"
+  },
+  {
+   "fieldname": "client_signer_name",
+   "fieldtype": "Data",
+   "label": "Name"
+  },
+  {
+   "fieldname": "client_signer_title",
+   "fieldtype": "Data",
+   "label": "Title"
+  },
+  {
+   "fieldname": "client_signed_date",
+   "fieldtype": "Date",
+   "label": "Date"
+  },
+  {
+   "fieldname": "cb_company_signature",
+   "fieldtype": "Column Break",
+   "label": "Company Authorization"
+  },
+  {
+   "fieldname": "company_signature",
+   "fieldtype": "Signature",
+   "label": "Signature"
+  },
+  {
+   "fieldname": "company_signer_name",
+   "fieldtype": "Data",
+   "label": "Name"
+  },
+  {
+   "fieldname": "company_signer_title",
+   "fieldtype": "Data",
+   "label": "Title"
+  },
+  {
+   "fieldname": "company_signed_date",
+   "fieldtype": "Date",
+   "label": "Date"
   }
  ],
  "index_web_pages_for_search": 1,
