@@ -17,7 +17,11 @@ the "Allow For Motley" tick on your own record.
 
 import frappe
 
-from cannabis_management.cash_management.permissions import can_use_motley, is_cash_admin
+from cannabis_management.cash_management.permissions import (
+    can_use_motley,
+    can_use_tsbc,
+    is_cash_admin,
+)
 
 # docstatus -> label
 STATUS_MAP = {0: "Draft", 1: "Submitted", 2: "Cancelled"}
@@ -75,6 +79,16 @@ def _can_view_motley(persons):
     )
 
 
+def _can_view_tsbc(persons):
+    """TSBC rows are viewable when any person in view is flagged for TSBC — the
+    mirror of _can_view_motley."""
+    if not persons:
+        return False
+    return bool(
+        frappe.db.exists("Cash Tracker Person", {"name": ["in", persons], "allow_for_tsbc": 1})
+    )
+
+
 @frappe.whitelist()
 def get_persons():
     """Options for the person filter.
@@ -93,6 +107,7 @@ def get_persons():
             "persons": persons,
             "own": _own_person(),
             "allow_motley": True,
+            "allow_tsbc": True,
         }
 
     own = _own_person()
@@ -114,6 +129,9 @@ def get_persons():
         # Viewing follows the people in view; creating follows can_use_motley.
         "allow_motley": _can_view_motley(visible),
         "can_create_motley": can_use_motley(),
+        # Same pair for the TSBC ledger.
+        "allow_tsbc": _can_view_tsbc(visible),
+        "can_create_tsbc": can_use_tsbc(),
     }
 
 
@@ -139,6 +157,8 @@ def get_entries(tracker="personal", person=None, from_date=None, to_date=None):
             }
         if tracker == "motley" and not _can_view_motley(visible):
             tracker = "personal"
+        if tracker == "tsbc" and not _can_view_tsbc(visible):
+            tracker = "personal"
         person = person if person in visible else (visible if not person else visible[0])
     else:
         # Full-view users (cash admins / Accounts Manager) may view any person's
@@ -149,6 +169,8 @@ def get_entries(tracker="personal", person=None, from_date=None, to_date=None):
     rows = []
     if tracker == "motley":
         rows += _fetch_motley(person, from_date, to_date)
+    elif tracker == "tsbc":
+        rows += _fetch_tsbc(person, from_date, to_date)
     else:
         rows += _fetch_personal(person, from_date, to_date)
 
@@ -193,6 +215,23 @@ def _fetch_motley(person, from_date, to_date):
     )
     for r in recs:
         r["tracker"] = "Motley"
+        r["status"] = STATUS_MAP.get(r.pop("docstatus"), "")
+    return recs
+
+
+def _fetch_tsbc(person, from_date, to_date):
+    recs = frappe.get_all(
+        "TSBC Cash Tracking",
+        filters=_base_filters(person, from_date, to_date),
+        fields=[
+            "name", "transaction_date as date", "cash_tracker_person as person",
+            "user", "transaction_type as category", "business",
+            "money_in", "money_out", "docstatus", "transaction_notes as notes",
+        ],
+        order_by="transaction_date desc",
+    )
+    for r in recs:
+        r["tracker"] = "TSBC"
         r["status"] = STATUS_MAP.get(r.pop("docstatus"), "")
     return recs
 

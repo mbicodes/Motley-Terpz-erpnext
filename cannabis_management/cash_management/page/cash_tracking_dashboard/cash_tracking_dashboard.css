@@ -209,6 +209,7 @@
 .ctd-badge-submitted { background: #dcfce7; color: #166534; }
 .ctd-badge-cancelled { background: #fee2e2; color: #991b1b; text-decoration: line-through; }
 .ctd-tag-motley { background: #ede9fe; color: #5b21b6; }
+.ctd-tag-tsbc { background: #dcfce7; color: #166534; }
 .ctd-tag-personal { background: #e0f2fe; color: #075985; }
 
 /* ---- empty state ---- */
@@ -225,6 +226,7 @@
 [data-theme="dark"] .ctd-badge-submitted { background: #143a24; color: #86efac; }
 [data-theme="dark"] .ctd-badge-cancelled { background: #45201f; color: #fca5a5; }
 [data-theme="dark"] .ctd-tag-motley { background: #2e2454; color: #c4b5fd; }
+[data-theme="dark"] .ctd-tag-tsbc { background: #14351f; color: #86efac; }
 [data-theme="dark"] .ctd-tag-personal { background: #0b3247; color: #7dd3fc; }
 [data-theme="dark"] .ctd-table thead th { background: var(--subtle-fg, #1c2126); }
 

@@ -1,0 +1,189 @@
+{
+ "actions": [],
+ "autoname": "format:TCT-{YYYY}-{#####}",
+ "creation": "2026-09-02 10:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "cash_tracker_person",
+  "user",
+  "employee",
+  "transaction_date",
+  "money_in",
+  "money_out",
+  "column_break_1",
+  "transaction_type",
+  "invoice_number",
+  "business",
+  "section_receipt",
+  "receipt",
+  "column_break_receipt",
+  "receipt_preview",
+  "transaction_notes",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "description": "Pick the tracker person — User and Employee fill in automatically.",
+   "fieldname": "cash_tracker_person",
+   "fieldtype": "Link",
+   "ignore_user_permissions": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Cash Tracker Person",
+   "options": "Cash Tracker Person",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "cash_tracker_person.user",
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "ignore_user_permissions": 1,
+   "label": "User",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "cash_tracker_person.employee",
+   "fieldname": "employee",
+   "fieldtype": "Link",
+   "ignore_user_permissions": 1,
+   "label": "Employee",
+   "options": "Employee",
+   "read_only": 1
+  },
+  {
+   "default": "Today",
+   "description": "Date on the receipt, invoice, or cash ledger. If none of these, the date the transaction took place.",
+   "fieldname": "transaction_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Transaction Date",
+   "reqd": 1
+  },
+  {
+   "description": "ONLY fill this out if you collected money. Put the amount collected.",
+   "fieldname": "money_in",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Money In"
+  },
+  {
+   "description": "ONLY fill this out if you spent money. Put the amount spent.",
+   "fieldname": "money_out",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Money Out"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "transaction_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Transaction Type",
+   "options": "\nMotley - Hardware\nClient - Hardware\nClient Payment Towards Invoice\nFresh Frozen Procurement\nTolling Partner Payment\nMotley - Packaging\nLab Testing\nPayroll\nLab Consumables\nMarketing\nSeeds/Clones for Farm\nRent\nLab Setup\nLab Supplies\nCollecting OLD AR\nReimbursement\nOther",
+   "reqd": 1
+  },
+  {
+   "description": "Required for Hardware and Client Payment Towards Invoice transactions.",
+   "fieldname": "invoice_number",
+   "fieldtype": "Link",
+   "ignore_user_permissions": 1,
+   "label": "Invoice # (Sales Order)",
+   "mandatory_depends_on": "eval:[\"Motley - Hardware\", \"Client - Hardware\", \"Client Payment Towards Invoice\"].includes(doc.transaction_type)",
+   "options": "Sales Order"
+  },
+  {
+   "default": "TSBC Ranch",
+   "description": "Which company was this for? If unsure — contact MBI.",
+   "fieldname": "business",
+   "fieldtype": "Link",
+   "ignore_user_permissions": 1,
+   "in_standard_filter": 1,
+   "label": "Business",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_receipt",
+   "fieldtype": "Section Break"
+  },
+  {
+   "description": "Upload the receipt, cash form, etc.",
+   "fieldname": "receipt",
+   "fieldtype": "Attach",
+   "label": "Receipt"
+  },
+  {
+   "fieldname": "column_break_receipt",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "receipt_preview",
+   "fieldtype": "HTML",
+   "label": "Receipt Preview"
+  },
+  {
+   "description": "Add any additional notes here.",
+   "fieldname": "transaction_notes",
+   "fieldtype": "Small Text",
+   "label": "Transaction Notes",
+   "reqd": 1
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "TSBC Cash Tracking",
+   "print_hide": 1,
+   "read_only": 1
+  }
+ ],
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-09-02 10:00:00",
+ "modified_by": "Administrator",
+ "module": "Cash Management",
+ "name": "TSBC Cash Tracking",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "TSBC Cash Tracker",
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "transaction_date",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
