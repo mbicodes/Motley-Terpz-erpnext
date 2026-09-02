@@ -140,10 +140,11 @@ after_migrate = [
     # run once as a patch: create_custom_fields is idempotent, and patches.txt is
     # root-owned on this bench so it cannot be appended to as the bench user.
     "cannabis_management.manufacturing_portal.custom_fields.install",
-    # Customer form rules that the app's Custom Field fixture would otherwise
-    # undo. after_migrate runs AFTER sync_fixtures, so this gets the last word —
-    # which is how these are kept without editing any fixture.
-    "cannabis_management.credit_and_ar.customer_layout.enforce",
+    # NOTE: an entry for "cannabis_management.credit_and_ar.customer_layout.enforce"
+    # used to sit here — Customer form rules re-asserted after sync_fixtures — but
+    # the customer_layout module it points at was never committed (see 11c3fa2), so
+    # every `bench migrate` died with ModuleNotFoundError. Re-add the line together
+    # with the module.
 ]
 
 # Installation
@@ -244,7 +245,9 @@ doc_events = {
 
     "Credit Application": {
         "before_insert": "cannabis_management.credit_and_ar.web_form_intake.before_insert",
-        "after_insert": "cannabis_management.credit_and_ar.web_form_intake.after_insert",
+        # "after_insert" was wired to web_form_intake.after_insert in 11c3fa2, but
+        # that function was never committed — every Credit Application insert (public
+        # web form included) raised AttributeError. Re-add it with the function.
     },
     # Sharing a Cash Tracker Person hands over that person's cash history on the
     # Cash Tracking page, so it is Administrator-only — and a share can never
