@@ -13,7 +13,7 @@ deliberate — accounts and amounts are theirs to confirm.
 import frappe
 from frappe.utils import flt
 
-SOURCE_DOCTYPES = ("Motley Cash Tracking", "Personal Cash Tracking")
+SOURCE_DOCTYPES = ("Motley Cash Tracking", "TSBC Cash Tracking", "Personal Cash Tracking")
 
 
 def _get_source(source_doctype, source_name):

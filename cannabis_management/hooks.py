@@ -140,6 +140,10 @@ after_migrate = [
     # run once as a patch: create_custom_fields is idempotent, and patches.txt is
     # root-owned on this bench so it cannot be appended to as the bench user.
     "cannabis_management.manufacturing_portal.custom_fields.install",
+    # Customer form rules that the app's Custom Field fixture would otherwise
+    # undo. after_migrate runs AFTER sync_fixtures, so this gets the last word —
+    # which is how these are kept without editing any fixture.
+    "cannabis_management.credit_and_ar.customer_layout.enforce",
 ]
 
 # Installation
@@ -188,6 +192,7 @@ permission_query_conditions = {
     "Expense Tracker Entry":  "cannabis_management.cash_management.permissions.expense_tracker_entry_query",
     "Personal Cash Tracking": "cannabis_management.cash_management.permissions.personal_cash_tracking_query",
     "Motley Cash Tracking":   "cannabis_management.cash_management.permissions.motley_cash_tracking_query",
+    "TSBC Cash Tracking":     "cannabis_management.cash_management.permissions.tsbc_cash_tracking_query",
 }
 
 has_permission = {
@@ -197,6 +202,7 @@ has_permission = {
     "Sales Invoice": "cannabis_management.permissions.sales_invoice_has_permission",
     "Personal Cash Tracking": "cannabis_management.cash_management.permissions.personal_cash_tracking_has_permission",
     "Motley Cash Tracking":   "cannabis_management.cash_management.permissions.motley_cash_tracking_has_permission",
+    "TSBC Cash Tracking":     "cannabis_management.cash_management.permissions.tsbc_cash_tracking_has_permission",
 }
 
 
@@ -238,6 +244,7 @@ doc_events = {
 
     "Credit Application": {
         "before_insert": "cannabis_management.credit_and_ar.web_form_intake.before_insert",
+        "after_insert": "cannabis_management.credit_and_ar.web_form_intake.after_insert",
     },
     # Sharing a Cash Tracker Person hands over that person's cash history on the
     # Cash Tracking page, so it is Administrator-only — and a share can never
@@ -282,6 +289,9 @@ doc_events = {
     # Cash tracking capture forms — submittable; cancellation is restricted to
     # the Administrator / MBI (see cash_utils.restrict_cancel).
     "Motley Cash Tracking": {
+        "before_cancel": "cannabis_management.cash_management.utils.cash_utils.restrict_cancel",
+    },
+    "TSBC Cash Tracking": {
         "before_cancel": "cannabis_management.cash_management.utils.cash_utils.restrict_cancel",
     },
     "Personal Cash Tracking": {

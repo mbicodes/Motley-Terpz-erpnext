@@ -27,6 +27,9 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 					<button class="ctd-refresh ctd-new" id="ctd-new-motley" title="New Motley Cash Tracking" style="display:none;">
 						<span class="ctd-refresh-icon">&#43;</span> Motley Cash
 					</button>
+					<button class="ctd-refresh ctd-new" id="ctd-new-tsbc" title="New TSBC Cash Tracking" style="display:none;">
+						<span class="ctd-refresh-icon">&#43;</span> TSBC Cash
+					</button>
 					<button class="ctd-refresh ctd-new" id="ctd-new-personal" title="New Personal Cash Tracking">
 						<span class="ctd-refresh-icon">&#43;</span> Personal Cash
 					</button>
@@ -41,6 +44,7 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 					<label class="ctd-label">Tracker</label>
 					<div class="ctd-toggle" id="ctd-tracker-toggle">
 						<button class="ctd-toggle-btn" data-val="motley" id="ctd-toggle-motley" style="display:none;">Motley</button>
+						<button class="ctd-toggle-btn" data-val="tsbc" id="ctd-toggle-tsbc" style="display:none;">TSBC</button>
 						<button class="ctd-toggle-btn ctd-active" data-val="personal">Personal</button>
 					</div>
 				</div>
@@ -134,6 +138,15 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 		}
 	}
 
+	// Mirror of show_motley for the TSBC ledger.
+	function show_tsbc(allowed) {
+		$('#ctd-toggle-tsbc').toggle(!!allowed);
+		$('#ctd-new-tsbc').toggle(!!allowed);
+		if (!allowed && state.tracker === 'tsbc') {
+			select_tracker('personal');
+		}
+	}
+
 	function select_tracker(val) {
 		state.tracker = val;
 		$('#ctd-tracker-toggle .ctd-toggle-btn').removeClass('ctd-active');
@@ -141,7 +154,9 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 	}
 
 	function doctype_of(tracker) {
-		return tracker === 'Personal' ? 'Personal Cash Tracking' : 'Motley Cash Tracking';
+		if (tracker === 'Personal') return 'Personal Cash Tracking';
+		if (tracker === 'TSBC') return 'TSBC Cash Tracking';
+		return 'Motley Cash Tracking';
 	}
 
 	// ---- rendering -----------------------------------------------------
@@ -209,6 +224,8 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 				state.is_admin = !!data.is_admin;
 				state.allow_motley = !!data.allow_motley;
 				show_motley(state.allow_motley);
+				state.allow_tsbc = !!data.allow_tsbc;
+				show_tsbc(state.allow_tsbc);
 
 				var persons = data.persons || [];
 				var shared = data.shared || [];
@@ -254,6 +271,7 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 	$('#ctd-tracker-toggle').on('click', '.ctd-toggle-btn', function () {
 		var val = $(this).data('val');
 		if (val === 'motley' && !state.allow_motley) { return; }
+		if (val === 'tsbc' && !state.allow_tsbc) { return; }
 		select_tracker(val);
 		load();
 	});
@@ -270,6 +288,7 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 	$('#ctd-to').on('change', function () { state.to_date = $(this).val(); load(); });
 	$('#ctd-refresh').on('click', function () { load(); });
 	$('#ctd-new-motley').on('click', function () { frappe.new_doc('Motley Cash Tracking'); });
+	$('#ctd-new-tsbc').on('click', function () { frappe.new_doc('TSBC Cash Tracking'); });
 	$('#ctd-new-personal').on('click', function () { frappe.new_doc('Personal Cash Tracking'); });
 // Apply options passed in from the Motley / Personal form buttons
 	// (tracker to preselect + a from/to date range), then reflect them in the UI.
