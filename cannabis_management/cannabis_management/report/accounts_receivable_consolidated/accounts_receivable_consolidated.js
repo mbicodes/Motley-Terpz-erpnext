@@ -23,6 +23,18 @@ frappe.query_reports["Accounts Receivable Consolidated"] = {
 			default: frappe.datetime.get_today(),
 		},
 		{
+			// Not part of the core report: limits rows to invoices whose posting
+			// date falls in [From Date, To Date]. Either bound may be left blank.
+			fieldname: "from_date",
+			label: __("From Date"),
+			fieldtype: "Date",
+		},
+		{
+			fieldname: "to_date",
+			label: __("To Date"),
+			fieldtype: "Date",
+		},
+		{
 			fieldname: "finance_book",
 			label: __("Finance Book"),
 			fieldtype: "Link",
