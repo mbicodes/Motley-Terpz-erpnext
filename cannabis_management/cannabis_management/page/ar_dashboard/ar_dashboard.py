@@ -305,7 +305,7 @@ def init_page():
 
 @frappe.whitelist()
 def get_ar_data(company, report_date=None, customer=None, ageing_based_on="Due Date",
-                range_str="7, 30, 60, 90, 120", ar_mode="legacy"):
+                range_str="7, 15, 21, 30, 60, 90, 120", ar_mode="legacy"):
     """Whitelisted entry point. Computes user-specific flags and the user's
     company scope FIRST, then runs the whole report fetch inside
     _elevated_view() so dashboard-role users (Matt/CEO etc.) always see the
@@ -335,7 +335,7 @@ def get_ar_data(company, report_date=None, customer=None, ageing_based_on="Due D
 
 
 def _get_ar_data(company, report_date=None, customer=None, ageing_based_on="Due Date",
-                 range_str="7, 30, 60, 90, 120", ar_mode="legacy", permitted=None):
+                 range_str="7, 15, 21, 30, 60, 90, 120", ar_mode="legacy", permitted=None):
     ranges = _build_ranges(range_str)
 
     # Aging "as of" date. Legacy aging is computed relative to TODAY (not clamped

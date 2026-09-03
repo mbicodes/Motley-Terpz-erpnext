@@ -733,7 +733,7 @@ function load_ar_data(page) {
             report_date: date,
             customer: customer || null,
             ageing_based_on: ageing_on,
-            range_str: "7, 30, 60, 90, 120",
+            range_str: "7, 15, 21, 30, 60, 90, 120",
             ar_mode: page._ard_ar_mode,
         },
         callback: function (r) {
@@ -1456,7 +1456,7 @@ function load_all_entities(page) {
                 report_date: date,
                 customer: customer || null,
                 ageing_based_on: ageing_on,
-                range_str: "7, 30, 60, 90, 120",
+                range_str: "7, 15, 21, 30, 60, 90, 120",
                 ar_mode: page._ard_ar_mode,
             },
             callback: function (r) {
