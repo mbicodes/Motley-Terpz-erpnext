@@ -16,6 +16,7 @@ inherited, and only the company fan-out is ours.
 """
 
 import frappe
+from frappe.utils import getdate
 
 from erpnext.accounts.report.accounts_receivable.accounts_receivable import (
     execute as ar_execute,
@@ -26,11 +27,25 @@ def execute(filters=None):
     filters = frappe._dict(filters or {})
     company = filters.get("company")
 
-    # Not a group company (or none chosen) → behave exactly like core AR.
-    if not (company and frappe.get_cached_value("Company", company, "is_group")):
-        return ar_execute(filters)
+    if company and frappe.get_cached_value("Company", company, "is_group"):
+        result = _run_consolidated(filters)
+    else:
+        # Not a group company (or none chosen) → behave exactly like core AR.
+        result = ar_execute(filters)
 
-    children = _descendant_companies(company)
+    # Optional From/To posting-date range, applied on top of whatever ran. The
+    # core report has no such filter, so we drop rows whose posting_date falls
+    # outside the range here; the report's grand-total row (add_total_row = 1)
+    # then re-sums only the rows that remain.
+    result = list(result)
+    result[1] = _apply_date_range(result[1], filters.get("from_date"), filters.get("to_date"))
+    return tuple(result)
+
+
+def _run_consolidated(filters):
+    """Run core AR for every non-group company under the selected group and
+    concatenate the rows."""
+    children = _descendant_companies(filters.get("company"))
     if not children:
         # A group with no subsidiaries — nothing to roll up; run it as-is.
         return ar_execute(filters)
@@ -50,9 +65,27 @@ def execute(filters=None):
         merged.extend(data or [])
 
     # No chart on the consolidated view: the core chart is per-company and would
-    # only reflect the last subsidiary. The report's own grand-total row (the
-    # report has add_total_row = 1) sums every subsidiary's rows together.
+    # only reflect the last subsidiary.
     return columns, merged, None, None, None, skip_total_row
+
+
+def _apply_date_range(data, from_date, to_date):
+    """Keep only rows whose posting_date is within [from_date, to_date]. Either
+    bound may be omitted. Rows without a posting_date (e.g. structural rows) are
+    left untouched."""
+    if not (from_date or to_date) or not data:
+        return data
+    fd = getdate(from_date) if from_date else None
+    td = getdate(to_date) if to_date else None
+    kept = []
+    for row in data:
+        posting = row.get("posting_date")
+        if posting:
+            posting = getdate(posting)
+            if (fd and posting < fd) or (td and posting > td):
+                continue
+        kept.append(row)
+    return kept
 
 
 def _descendant_companies(group_company):
