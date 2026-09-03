@@ -802,6 +802,21 @@ function compute_view_totals(display_rows, ranges) {
     return view_totals;
 }
 
+// Share of outstanding AR that is past its due date (report date - due date > 0),
+// the same "bad standing" test classify_ar_row uses. Rows with no due date, or
+// due today/in the future, count toward the total but not the overdue amount.
+function compute_overdue(rows, report_date) {
+    let total = 0, overdue = 0;
+    (rows || []).forEach(function (row) {
+        let amt = row.outstanding || 0;
+        if (amt <= 0) return;
+        total += amt;
+        let past = diff_days(report_date, row.due_date); // report - due; > 0 = overdue
+        if (past !== null && past > 0) overdue += amt;
+    });
+    return { overdue: overdue, total: total, pct: total > 0 ? (overdue / total) * 100 : 0 };
+}
+
 // ─── Rendering ────────────────────────────────────────────────────────────────
 
 // Walk up from `el` to the first ancestor that actually scrolls, falling back to
@@ -863,7 +878,8 @@ function render_view(page) {
     let new_rows = display_rows.filter(function (r) { return !r.is_legacy; });
     let summary_totals = compute_view_totals(new_rows, ranges);
     let table_totals = compute_view_totals(display_rows, ranges);
-    render_summary_cards(page, ranges, summary_totals);
+    let overdue = compute_overdue(new_rows, page._ard_result.report_date);
+    render_summary_cards(page, ranges, summary_totals, overdue);
     page.main.find('#ard-projection-section').html(
         build_projection_html(new_rows, page._ard_result.report_date)
     );
@@ -942,7 +958,7 @@ function build_projection_html(display_rows, anchor_date) {
 	`;
 }
 
-function build_summary_html(page, ranges, view_totals) {
+function build_summary_html(page, ranges, view_totals, overdue) {
     let range_totals_html = ranges.map(function (r, idx) {
         let cls = range_status_class(idx);
         return `
@@ -955,6 +971,19 @@ function build_summary_html(page, ranges, view_totals) {
 
     let mode_label = page._ard_ar_mode === 'legacy' ? 'Legacy AR' : (page._ard_ar_mode === 'new' ? 'New AR' : 'Legacy + New');
     let mode_cls   = page._ard_ar_mode === 'legacy' ? 'ard-mode-chip-legacy' : (page._ard_ar_mode === 'new' ? 'ard-mode-chip-new' : 'ard-mode-chip-all');
+
+    // % of outstanding AR that is past due. Highlighted red once it crosses 50%.
+    let overdue_html = "";
+    if (overdue) {
+        let pct_cls = overdue.pct >= 50 ? "ard-overdue-high" : (overdue.pct >= 25 ? "ard-overdue-mid" : "");
+        overdue_html = `
+			<div class="ard-card ard-card-overdue ${pct_cls}">
+				<div class="ard-card-label">% of AR Overdue</div>
+				<div class="ard-card-value">${overdue.pct.toFixed(1)}%</div>
+				<div class="ard-card-sub">${fmt_cur(overdue.overdue)} past due</div>
+			</div>
+		`;
+    }
 
     let html = `
 		<div class="ard-summary-row">
@@ -970,6 +999,7 @@ function build_summary_html(page, ranges, view_totals) {
 				<div class="ard-card-label">Total Paid</div>
 				<div class="ard-card-value">${fmt_cur(view_totals.paid)}</div>
 			</div>
+			${overdue_html}
 			${range_totals_html}
 		</div>
 	`;
@@ -977,8 +1007,8 @@ function build_summary_html(page, ranges, view_totals) {
     return html;
 }
 
-function render_summary_cards(page, ranges, view_totals) {
-    page.main.find('#ard-summary-section').html(build_summary_html(page, ranges, view_totals));
+function render_summary_cards(page, ranges, view_totals, overdue) {
+    page.main.find('#ard-summary-section').html(build_summary_html(page, ranges, view_totals, overdue));
 }
 
 function build_aging_html(page, ranges, view_totals) {
@@ -1506,11 +1536,12 @@ function render_all_entities(page) {
     let new_rows = display_rows.filter(function (r) { return !r.is_legacy; });
     let summary_totals = compute_view_totals(new_rows, ranges);
     let table_totals = compute_view_totals(display_rows, ranges);
+    let overdue = compute_overdue(new_rows, result.report_date);
 
     // Recon cells are read-only here (inline editing targets the single-company
     // result); the final true enables the Entity column.
     area.html(`
-        <div id="ard-summary-section">${build_summary_html(page, ranges, summary_totals)}</div>
+        <div id="ard-summary-section">${build_summary_html(page, ranges, summary_totals, overdue)}</div>
         <div id="ard-projection-section">${build_projection_html(new_rows, result.report_date)}</div>
         <div id="ard-aging-section">${build_aging_html(page, ranges, summary_totals)}</div>
         <div id="ard-table-section">${build_table_html(page, ranges, "All Entities", display_rows, table_totals, true, true)}</div>
