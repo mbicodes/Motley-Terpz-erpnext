@@ -5,3 +5,4 @@ Company Records
 Credit and AR
 Time Clock
 Manufacturing Portal
+Manufacturing Timesheet Kiosk
