@@ -8,7 +8,7 @@
 		* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Arial, sans-serif; }
 
 		html, body {
-			height: 100%;
+			min-height: 100%;
 			background: radial-gradient(circle at top, #2b3a55 0%, #10141f 70%);
 			color: #eef1f7;
 		}
@@ -16,20 +16,39 @@
 		body {
 			min-height: 100vh;
 			display: flex;
-			justify-content: center;
-			align-items: center;
+			/* margin:auto on .layout (not align-items/justify-content here) centers it
+			   without the well-known flex bug where a centered item taller than the
+			   viewport gets clipped at the top with no way to scroll to it. */
 			padding: 20px;
+			overflow-y: auto;
 		}
 
 		.layout {
+			margin: auto;
 			display: flex;
 			align-items: flex-start;
 			gap: 20px;
+			max-width: 100%;
+		}
+
+		@media (max-width: 700px) {
+			.layout {
+				flex-direction: column;
+				align-items: center;
+			}
+
+			.history-panel {
+				width: 100%;
+				max-width: 380px;
+				order: 2;
+			}
+
+			.card { order: 1; }
 		}
 
 		.history-panel {
 			width: 240px;
-			max-width: 40vw;
+			max-width: 100%;
 			background: rgba(255, 255, 255, 0.06);
 			border: 1px solid rgba(255, 255, 255, 0.12);
 			backdrop-filter: blur(10px);
@@ -509,19 +528,24 @@
 
 		// ---- Verification photo (disclosed: visible preview + on-screen notice,
 		// never a hidden/silent capture) ----
+		// Every function here is null-safe on videoEl/statusEl on purpose: if the
+		// camera-box markup for a screen is ever removed, these must degrade to
+		// "no photo" quietly rather than throwing inside the Save button's click
+		// handler and blocking the actual start/end call.
 		function startCamera(videoEl, statusEl, streamKey) {
+			if (!videoEl) return;
 			if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-				statusEl.textContent = "Camera not available on this device.";
+				if (statusEl) statusEl.textContent = "Camera not available on this device.";
 				return;
 			}
 			navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false })
 				.then(function (stream) {
 					state[streamKey] = stream;
 					videoEl.srcObject = stream;
-					statusEl.textContent = "Camera ready.";
+					if (statusEl) statusEl.textContent = "Camera ready.";
 				})
 				.catch(function () {
-					statusEl.textContent = "Camera permission denied — continuing without a photo.";
+					if (statusEl) statusEl.textContent = "Camera permission denied — continuing without a photo.";
 				});
 		}
 
@@ -535,7 +559,7 @@
 
 		function capturePhoto(videoEl, streamKey) {
 			var stream = state[streamKey];
-			if (!stream || !videoEl.videoWidth) return null;
+			if (!videoEl || !stream || !videoEl.videoWidth) return null;
 			var canvas = document.createElement("canvas");
 			canvas.width = videoEl.videoWidth;
 			canvas.height = videoEl.videoHeight;
