@@ -11,9 +11,19 @@ talks to its own two doctypes plus `Timesheet`.
 ```
 /manufacturing-timesheet
   lock screen → api.verify_access_code(code) → 5-minute one-time token
+                                              → also returns recent_timesheets
   no open session → Start screen → api.start_session(token, activity_type, start_time)
-  open session    → End screen   → api.end_session(token, end_time) → Timesheet created
+  open session    → End screen   → api.end_session(token, end_time) → Timesheet submitted
 ```
+
+There is no separate "session" doctype. An open clock-in is just a **Draft Timesheet**
+whose single Timesheet Detail row has `from_time` set and `to_time`/`completed` empty -
+the exact shape Desk's own "Start Timer" button leaves behind (see
+`erpnext/public/js/projects/timer.js`). ERPNext only enforces "hours must be > 0" at
+*submit* time (`Timesheet.validate_mandatory_fields` runs from `on_submit`, not
+`validate`), so a Draft can sit half-filled indefinitely - `start_session` leans on
+that instead of tracking state anywhere of its own. `end_session` fills in
+`to_time`/`hours`, marks the row `completed`, and submits.
 
 ## Files
 
@@ -22,7 +32,6 @@ talks to its own two doctypes plus `Timesheet`.
 | `api.py` | The whitelisted endpoints. All security lives here. |
 | `custom_fields.py` | `custom_kiosk_access_code` (Data) on Employee. |
 | `employee_hooks.py` | Code uniqueness validation on Employee. |
-| `doctype/kiosk_timesheet_session/` | One open/closed clock-in session. |
 | `doctype/kiosk_access_log/` | Append-only audit trail - every attempt, success or failure. |
 | `../www/manufacturing-timesheet.html` | The portal page (lock/start/end screens, no Desk controls needed). |
 
@@ -33,8 +42,8 @@ talks to its own two doctypes plus `Timesheet`.
   decrypt-and-compare loop over every employee. Same reasoning as Manufacturing
   Portal's `custom_process_code` - see that module's README for the fuller
   writeup. An administrator can read a worker's code back off the Employee form.
-- **One open session per employee**, enforced in `api.start_session` and again in the
-  doctype's own `validate()` as a safety net.
+- **One open session per employee**, enforced in `api.start_session` by checking for
+  an existing incomplete Draft Timesheet row before creating another.
 - **Token, not employee id, past the lock screen.** `verify_access_code` returns a
   short-lived one-time token instead of the client passing its own employee id to
   start/end session - so a guest can't skip the code check. The token is only consumed

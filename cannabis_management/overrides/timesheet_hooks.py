@@ -16,6 +16,7 @@ Replace "your_app" with your actual app name (e.g. motley_terpz, cannabis_mgmt, 
 
 import frappe
 from frappe import _
+from frappe.utils import flt
 
 
 def auto_submit_timesheet(doc, method=None):
@@ -29,6 +30,16 @@ def auto_submit_timesheet(doc, method=None):
     try:
         # Avoid re-submitting if already submitted (docstatus 1)
         if doc.docstatus == 1:
+            return
+
+        # A row with no to_time / zero hours is a still-running timer (Desk's own
+        # "Start Timer" button leaves a Timesheet in exactly this shape, and so does
+        # the Manufacturing Timesheet Kiosk). Submitting would fail validation
+        # anyway ("Hours value must be greater than zero") — skip quietly instead of
+        # trying and logging an error every time someone starts a timer. Whoever
+        # completes the row later (Desk's "Stop Timer", or the kiosk's end_session)
+        # submits it themselves.
+        if any(not row.to_time or flt(row.hours) == 0.0 for row in doc.time_logs):
             return
 
         # Only submit if docstatus is 0 (Draft)
@@ -47,6 +58,15 @@ def auto_submit_timesheet(doc, method=None):
             )
 
     except Exception as e:
+        # doc.submit() (above) sets doc._action = "submit" as a side effect before
+        # failing. If we don't reset it, the *outer* Document.insert() call — still
+        # unwinding after this after_insert hook returns — runs its own
+        # run_post_save_methods() and sees _action == "submit", so it retries
+        # on_submit() a second time, uncaught, and the original insert() blows up
+        # even though this hook meant to swallow the error. Put it back so insert()
+        # falls through as a plain save instead.
+        doc._action = "save"
+
         frappe.log_error(
             title=f"Auto-Submit Failed: {doc.name}",
             message=frappe.get_traceback(),
