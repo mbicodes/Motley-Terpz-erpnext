@@ -21,6 +21,42 @@
 			padding: 20px;
 		}
 
+		.layout {
+			display: flex;
+			align-items: flex-start;
+			gap: 20px;
+		}
+
+		.history-panel {
+			width: 240px;
+			max-width: 40vw;
+			background: rgba(255, 255, 255, 0.06);
+			border: 1px solid rgba(255, 255, 255, 0.12);
+			backdrop-filter: blur(10px);
+			border-radius: 18px;
+			padding: 20px 18px;
+			box-shadow: 0 20px 45px rgba(0, 0, 0, 0.45);
+		}
+
+		.history-panel h2 {
+			font-size: 13px;
+			text-transform: uppercase;
+			letter-spacing: .06em;
+			color: #9aa4bd;
+			margin-bottom: 14px;
+		}
+
+		.history-group + .history-group { margin-top: 16px; }
+
+		.history-group-label {
+			font-size: 11px;
+			font-weight: 600;
+			color: #7fa6ff;
+			text-transform: uppercase;
+			letter-spacing: .05em;
+			margin-bottom: 6px;
+		}
+
 		.card {
 			width: 380px;
 			max-width: 100%;
@@ -153,19 +189,6 @@
 
 		.employee-banner b { color: #fff; }
 
-		.history {
-			margin-bottom: 20px;
-		}
-
-		.history summary {
-			cursor: pointer;
-			font-size: 12px;
-			text-transform: uppercase;
-			letter-spacing: .06em;
-			color: #9aa4bd;
-			margin-bottom: 8px;
-		}
-
 		.history-row {
 			display: flex;
 			justify-content: space-between;
@@ -175,10 +198,9 @@
 			border-bottom: 1px solid rgba(255,255,255,0.06);
 		}
 
-		.history-row:last-child { border-bottom: none; }
+		.history-group:last-child .history-row:last-child { border-bottom: none; }
 
-		.history-row .h-date { color: #c7cde0; white-space: nowrap; }
-		.history-row .h-activity { color: #9aa4bd; flex: 1; text-align: left; padding: 0 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+		.history-row .h-activity { color: #c7cde0; flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 		.history-row .h-hours { color: #fff; font-weight: 600; white-space: nowrap; }
 
 		.history-empty { font-size: 12.5px; color: #6f7891; }
@@ -249,6 +271,13 @@
 </head>
 <body>
 
+	<div class="layout">
+
+		<div class="history-panel" id="history-panel" hidden>
+			<h2>Your recent timesheets</h2>
+			<div id="history-list"></div>
+		</div>
+
 	<div class="card" id="kiosk-card">
 
 		<!-- LOCK SCREEN -->
@@ -282,19 +311,14 @@
 			<h1>Start Timesheet</h1>
 			<p class="employee-banner">Welcome, <b id="start-employee-name">-</b></p>
 
-			<!-- <div class="camera-box" id="start-camera-box">
+			<div class="camera-box" id="start-camera-box">
 				<div class="cam-notice">
 					<svg viewBox="0 0 24 24"><path d="M4 5h3l1.5-2h7L17 5h3a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zm8 3a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0 2a3 3 0 1 1 0 6 3 3 0 0 1 0-6z"/></svg>
 					A verification photo will be taken when you start
 				</div>
 				<video id="start-camera-video" autoplay playsinline muted></video>
 				<div class="cam-status" id="start-camera-status">Requesting camera…</div>
-			</div> -->
-
-			<details class="history" id="start-history" open>
-				<summary>Your recent timesheets</summary>
-				<div id="start-history-list"></div>
-			</details>
+			</div>
 
 			<div class="field">
 				<label for="start-activity-type">Activity Type</label>
@@ -317,19 +341,14 @@
 			<h1>End Timesheet</h1>
 			<p class="employee-banner">Welcome back, <b id="end-employee-name">-</b></p>
 
-			<!-- <div class="camera-box" id="end-camera-box">
+			<div class="camera-box" id="end-camera-box">
 				<div class="cam-notice">
 					<svg viewBox="0 0 24 24"><path d="M4 5h3l1.5-2h7L17 5h3a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zm8 3a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0 2a3 3 0 1 1 0 6 3 3 0 0 1 0-6z"/></svg>
 					A verification photo will be taken when you end
 				</div>
 				<video id="end-camera-video" autoplay playsinline muted></video>
 				<div class="cam-status" id="end-camera-status">Requesting camera…</div>
-			</div> -->
-
-			<details class="history" id="end-history">
-				<summary>Your recent timesheets</summary>
-				<div id="end-history-list"></div>
-			</details>
+			</div>
 
 			<div class="summary-box">
 				<div class="row"><span>Activity Type</span><span id="end-activity-type">-</span></div>
@@ -357,6 +376,8 @@
 
 	</div>
 
+	</div>
+
 	<script>
 	(function () {
 		"use strict";
@@ -377,10 +398,12 @@
 			lockError: document.getElementById("lock-error"),
 			unlockBtn: document.getElementById("unlock-btn"),
 
+			historyPanel: document.getElementById("history-panel"),
+			historyList: document.getElementById("history-list"),
+
 			startEmployeeName: document.getElementById("start-employee-name"),
 			startCameraVideo: document.getElementById("start-camera-video"),
 			startCameraStatus: document.getElementById("start-camera-status"),
-			startHistoryList: document.getElementById("start-history-list"),
 			startActivityType: document.getElementById("start-activity-type"),
 			startTime: document.getElementById("start-time"),
 			startError: document.getElementById("start-error"),
@@ -390,7 +413,6 @@
 			endEmployeeName: document.getElementById("end-employee-name"),
 			endCameraVideo: document.getElementById("end-camera-video"),
 			endCameraStatus: document.getElementById("end-camera-status"),
-			endHistoryList: document.getElementById("end-history-list"),
 			endActivityType: document.getElementById("end-activity-type"),
 			endStartTime: document.getElementById("end-start-time"),
 			endTime: document.getElementById("end-time"),
@@ -420,9 +442,31 @@
 			return d.toLocaleString();
 		}
 
-		function formatDateOnly(date) {
-			var d = new Date(date);
-			return d.toLocaleDateString();
+		// Frappe sends start_date as a plain "YYYY-MM-DD" string with no time/zone.
+		// `new Date("YYYY-MM-DD")` parses that as UTC midnight, which - once read back
+		// via local get*() accessors - lands on the *previous* calendar day for any
+		// timezone behind UTC, making "today's" own timesheet show up as "Yesterday".
+		// Parse the components directly into a local-time Date instead.
+		function parseLocalDate(date) {
+			if (date instanceof Date) return date;
+			var parts = String(date).split(/[-T ]/).map(Number);
+			return new Date(parts[0], parts[1] - 1, parts[2]);
+		}
+
+		function dateKey(date) {
+			var d = parseLocalDate(date);
+			return d.getFullYear() + "-" + d.getMonth() + "-" + d.getDate();
+		}
+
+		function bucketLabel(startDate) {
+			var today = new Date();
+			var yesterday = new Date();
+			yesterday.setDate(today.getDate() - 1);
+
+			var key = dateKey(startDate);
+			if (key === dateKey(today)) return "Today";
+			if (key === dateKey(yesterday)) return "Yesterday";
+			return parseLocalDate(startDate).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 		}
 
 		function renderHistory(listEl, timesheets) {
@@ -434,37 +478,50 @@
 				listEl.appendChild(empty);
 				return;
 			}
+
+			// Group consecutive rows under Today / Yesterday / a specific older date -
+			// the server already orders these most-recent-first, so a running "current
+			// bucket" label is enough without re-sorting.
+			var currentLabel = null;
+			var group = null;
+
 			timesheets.forEach(function (ts) {
+				var label = bucketLabel(ts.start_date);
+				if (label !== currentLabel) {
+					currentLabel = label;
+					group = document.createElement("div");
+					group.className = "history-group";
+					var heading = document.createElement("div");
+					heading.className = "history-group-label";
+					heading.textContent = label;
+					group.appendChild(heading);
+					listEl.appendChild(group);
+				}
+
 				var row = document.createElement("div");
 				row.className = "history-row";
 				row.innerHTML =
-					"<span class='h-date'>" + formatDateOnly(ts.start_date) + "</span>" +
 					"<span class='h-activity'>" + (ts.activity_types || "-") + "</span>" +
 					"<span class='h-hours'>" + (ts.total_hours || 0).toFixed(2) + "h</span>";
-				listEl.appendChild(row);
+				group.appendChild(row);
 			});
 		}
 
 		// ---- Verification photo (disclosed: visible preview + on-screen notice,
 		// never a hidden/silent capture) ----
-		// Every function here is null-safe on videoEl/statusEl on purpose: if the
-		// camera-box markup for a screen is ever removed or commented out, these
-		// must degrade to "no photo" quietly rather than throwing inside the Save
-		// button's click handler and blocking the actual start/end call.
 		function startCamera(videoEl, statusEl, streamKey) {
-			if (!videoEl) return;
 			if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-				if (statusEl) statusEl.textContent = "Camera not available on this device.";
+				statusEl.textContent = "Camera not available on this device.";
 				return;
 			}
 			navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false })
 				.then(function (stream) {
 					state[streamKey] = stream;
 					videoEl.srcObject = stream;
-					if (statusEl) statusEl.textContent = "Camera ready.";
+					statusEl.textContent = "Camera ready.";
 				})
 				.catch(function () {
-					if (statusEl) statusEl.textContent = "Camera permission denied — continuing without a photo.";
+					statusEl.textContent = "Camera permission denied — continuing without a photo.";
 				});
 		}
 
@@ -478,7 +535,7 @@
 
 		function capturePhoto(videoEl, streamKey) {
 			var stream = state[streamKey];
-			if (!videoEl || !stream || !videoEl.videoWidth) return null;
+			if (!stream || !videoEl.videoWidth) return null;
 			var canvas = document.createElement("canvas");
 			canvas.width = videoEl.videoWidth;
 			canvas.height = videoEl.videoHeight;
@@ -494,6 +551,7 @@
 			els.lockError.textContent = "";
 			els.startError.textContent = "";
 			els.endError.textContent = "";
+			els.historyPanel.hidden = true;
 			showScreen("lock");
 			els.accessCode.focus();
 		}
@@ -534,19 +592,19 @@
 			call("verify_access_code", { access_code: code })
 				.then(function (result) {
 					state.token = result.token;
+					renderHistory(els.historyList, result.recent_timesheets);
+					els.historyPanel.hidden = false;
 
 					if (result.open_session) {
 						els.endEmployeeName.textContent = result.employee_name;
 						els.endActivityType.textContent = result.open_session.activity_type;
 						els.endStartTime.textContent = formatDisplay(result.open_session.start_time);
 						els.endTime.value = toLocalInputValue();
-						renderHistory(els.endHistoryList, result.recent_timesheets);
 						showScreen("end");
 						startCamera(els.endCameraVideo, els.endCameraStatus, "endStream");
 					} else {
 						els.startEmployeeName.textContent = result.employee_name;
 						els.startTime.value = toLocalInputValue();
-						renderHistory(els.startHistoryList, result.recent_timesheets);
 						loadActivityTypes();
 						showScreen("start");
 						startCamera(els.startCameraVideo, els.startCameraStatus, "startStream");
