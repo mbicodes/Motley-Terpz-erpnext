@@ -40,13 +40,16 @@ def before_submit(doc, method=None):
 	if doc.get("is_return") or doc.get("is_pos"):
 		return
 
-	# The AR cap first — see ar_cap: it deliberately outranks the policy
-	# exemption, so it is checked before the exemption can end this function.
-	if ar_cap.is_terms_invoice(doc):
-		ar_cap.assert_under_cap(doc, _invoice_credit_amount(doc), noun="invoice")
-
+	# Policy-exempt accounts are outside the module entirely — the AR cap
+	# included. Changed on request: the cap used to be checked before this and
+	# deliberately outranked the exemption, which blocked an exempt customer's
+	# invoice once the company was over the $400k line even though their Sales
+	# Orders sailed through. Exemption now means exemption for the invoice too.
 	if utils.is_policy_exempt(doc.customer):
 		return
+
+	if ar_cap.is_terms_invoice(doc):
+		ar_cap.assert_under_cap(doc, _invoice_credit_amount(doc), noun="invoice")
 
 	uncovered, orders = _uncovered_credit(doc)
 	if uncovered <= 0.005:
