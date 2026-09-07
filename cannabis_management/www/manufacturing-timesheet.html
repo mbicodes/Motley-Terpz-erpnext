@@ -183,6 +183,41 @@
 
 		.history-empty { font-size: 12.5px; color: #6f7891; }
 
+		.camera-box {
+			margin-bottom: 18px;
+			padding: 12px;
+			border-radius: 12px;
+			background: rgba(255,255,255,0.05);
+			border: 1px solid rgba(255,255,255,0.1);
+			text-align: center;
+		}
+
+		.camera-box .cam-notice {
+			font-size: 11.5px;
+			color: #ffcf8f;
+			margin-bottom: 8px;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			gap: 6px;
+		}
+
+		.camera-box .cam-notice svg { width: 13px; height: 13px; fill: #ffcf8f; flex-shrink: 0; }
+
+		.camera-box video {
+			width: 100%;
+			max-width: 220px;
+			border-radius: 10px;
+			background: #000;
+			transform: scaleX(-1); /* mirror, like a mirror/selfie view */
+		}
+
+		.camera-box .cam-status {
+			font-size: 11px;
+			color: #6f7891;
+			margin-top: 6px;
+		}
+
 		.footer-note {
 			margin-top: 22px;
 			font-size: 11.5px;
@@ -247,6 +282,15 @@
 			<h1>Start Timesheet</h1>
 			<p class="employee-banner">Welcome, <b id="start-employee-name">-</b></p>
 
+			<!-- <div class="camera-box" id="start-camera-box">
+				<div class="cam-notice">
+					<svg viewBox="0 0 24 24"><path d="M4 5h3l1.5-2h7L17 5h3a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zm8 3a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0 2a3 3 0 1 1 0 6 3 3 0 0 1 0-6z"/></svg>
+					A verification photo will be taken when you start
+				</div>
+				<video id="start-camera-video" autoplay playsinline muted></video>
+				<div class="cam-status" id="start-camera-status">Requesting camera…</div>
+			</div> -->
+
 			<details class="history" id="start-history" open>
 				<summary>Your recent timesheets</summary>
 				<div id="start-history-list"></div>
@@ -272,6 +316,15 @@
 			</div>
 			<h1>End Timesheet</h1>
 			<p class="employee-banner">Welcome back, <b id="end-employee-name">-</b></p>
+
+			<!-- <div class="camera-box" id="end-camera-box">
+				<div class="cam-notice">
+					<svg viewBox="0 0 24 24"><path d="M4 5h3l1.5-2h7L17 5h3a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zm8 3a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0 2a3 3 0 1 1 0 6 3 3 0 0 1 0-6z"/></svg>
+					A verification photo will be taken when you end
+				</div>
+				<video id="end-camera-video" autoplay playsinline muted></video>
+				<div class="cam-status" id="end-camera-status">Requesting camera…</div>
+			</div> -->
 
 			<details class="history" id="end-history">
 				<summary>Your recent timesheets</summary>
@@ -309,7 +362,7 @@
 		"use strict";
 
 		var API = "/api/method/cannabis_management.manufacturing_timesheet_kiosk.api.";
-		var state = { token: null };
+		var state = { token: null, startStream: null, endStream: null };
 
 		var els = {
 			card: document.getElementById("kiosk-card"),
@@ -325,6 +378,8 @@
 			unlockBtn: document.getElementById("unlock-btn"),
 
 			startEmployeeName: document.getElementById("start-employee-name"),
+			startCameraVideo: document.getElementById("start-camera-video"),
+			startCameraStatus: document.getElementById("start-camera-status"),
 			startHistoryList: document.getElementById("start-history-list"),
 			startActivityType: document.getElementById("start-activity-type"),
 			startTime: document.getElementById("start-time"),
@@ -333,6 +388,8 @@
 			startCancelBtn: document.getElementById("start-cancel-btn"),
 
 			endEmployeeName: document.getElementById("end-employee-name"),
+			endCameraVideo: document.getElementById("end-camera-video"),
+			endCameraStatus: document.getElementById("end-camera-status"),
 			endHistoryList: document.getElementById("end-history-list"),
 			endActivityType: document.getElementById("end-activity-type"),
 			endStartTime: document.getElementById("end-start-time"),
@@ -388,8 +445,51 @@
 			});
 		}
 
+		// ---- Verification photo (disclosed: visible preview + on-screen notice,
+		// never a hidden/silent capture) ----
+		// Every function here is null-safe on videoEl/statusEl on purpose: if the
+		// camera-box markup for a screen is ever removed or commented out, these
+		// must degrade to "no photo" quietly rather than throwing inside the Save
+		// button's click handler and blocking the actual start/end call.
+		function startCamera(videoEl, statusEl, streamKey) {
+			if (!videoEl) return;
+			if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+				if (statusEl) statusEl.textContent = "Camera not available on this device.";
+				return;
+			}
+			navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false })
+				.then(function (stream) {
+					state[streamKey] = stream;
+					videoEl.srcObject = stream;
+					if (statusEl) statusEl.textContent = "Camera ready.";
+				})
+				.catch(function () {
+					if (statusEl) statusEl.textContent = "Camera permission denied — continuing without a photo.";
+				});
+		}
+
+		function stopCamera(streamKey) {
+			var stream = state[streamKey];
+			if (stream) {
+				stream.getTracks().forEach(function (track) { track.stop(); });
+				state[streamKey] = null;
+			}
+		}
+
+		function capturePhoto(videoEl, streamKey) {
+			var stream = state[streamKey];
+			if (!videoEl || !stream || !videoEl.videoWidth) return null;
+			var canvas = document.createElement("canvas");
+			canvas.width = videoEl.videoWidth;
+			canvas.height = videoEl.videoHeight;
+			canvas.getContext("2d").drawImage(videoEl, 0, 0);
+			return canvas.toDataURL("image/jpeg", 0.85);
+		}
+
 		function resetToLock() {
 			state.token = null;
+			stopCamera("startStream");
+			stopCamera("endStream");
 			els.accessCode.value = "";
 			els.lockError.textContent = "";
 			els.startError.textContent = "";
@@ -442,12 +542,14 @@
 						els.endTime.value = toLocalInputValue();
 						renderHistory(els.endHistoryList, result.recent_timesheets);
 						showScreen("end");
+						startCamera(els.endCameraVideo, els.endCameraStatus, "endStream");
 					} else {
 						els.startEmployeeName.textContent = result.employee_name;
 						els.startTime.value = toLocalInputValue();
 						renderHistory(els.startHistoryList, result.recent_timesheets);
 						loadActivityTypes();
 						showScreen("start");
+						startCamera(els.startCameraVideo, els.startCameraStatus, "startStream");
 					}
 				})
 				.catch(function (err) {
@@ -494,7 +596,10 @@
 			els.startSaveBtn.disabled = true;
 			els.startSaveBtn.textContent = "Saving…";
 
-			call("start_session", { token: state.token, activity_type: activityType, start_time: startTime.replace("T", " ") })
+			var startPhoto = capturePhoto(els.startCameraVideo, "startStream");
+			stopCamera("startStream");
+
+			call("start_session", { token: state.token, activity_type: activityType, start_time: startTime.replace("T", " "), photo: startPhoto })
 				.then(function () {
 					els.doneTitle.textContent = "Timesheet started";
 					els.doneMessage.textContent = "Have a productive shift!";
@@ -520,7 +625,10 @@
 			els.endSaveBtn.disabled = true;
 			els.endSaveBtn.textContent = "Saving…";
 
-			call("end_session", { token: state.token, end_time: endTime.replace("T", " ") })
+			var endPhoto = capturePhoto(els.endCameraVideo, "endStream");
+			stopCamera("endStream");
+
+			call("end_session", { token: state.token, end_time: endTime.replace("T", " "), photo: endPhoto })
 				.then(function (result) {
 					els.doneTitle.textContent = "Timesheet completed";
 					els.doneMessage.textContent = result.hours + " hour(s) logged for " + result.activity_type;

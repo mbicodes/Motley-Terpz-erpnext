@@ -26,11 +26,18 @@ erpnext/public/js/projects/timer.js). ERPNext only enforces "hours must be > 0" 
 *submit* time (Timesheet.validate_mandatory_fields runs from on_submit, not validate),
 so a Draft can sit half-filled indefinitely. Ending the session fills in to_time/hours
 and submits it.
+
+Optional verification photo: start_session/end_session both accept a ``photo``
+(base64 data URL from the kiosk page's camera capture) and attach it as a *private*
+File on the Timesheet - see _save_photo. The kiosk page shows an on-screen notice and
+a live camera preview before capturing; there is no undisclosed/hidden capture path
+here on purpose.
 """
 
 import frappe
 from frappe import _
 from frappe.utils import flt, get_datetime, now_datetime
+from frappe.utils.file_manager import save_file
 
 from cannabis_management.manufacturing_timesheet_kiosk.custom_fields import (
 	EMPLOYEE_FIELDS,
@@ -118,6 +125,28 @@ def _get_open_timesheet(employee):
 	return row[0] if row else None
 
 
+def _save_photo(photo, filename, timesheet_name):
+	"""Attach a base64 verification photo to the Timesheet as a private File.
+
+	Never blocks the actual start/end action - a camera glitch or a browser that
+	denied permission shouldn't stop someone from clocking in/out, so failures here
+	are logged and swallowed rather than raised.
+	"""
+	if not photo:
+		return
+	try:
+		save_file(
+			filename,
+			photo,
+			"Timesheet",
+			timesheet_name,
+			decode=True,
+			is_private=1,
+		)
+	except Exception:
+		frappe.log_error(title=f"Kiosk verification photo failed for {timesheet_name}")
+
+
 def _get_recent_timesheets(employee, limit=5):
 	"""Last few *submitted* Timesheets for this employee, most recent first.
 
@@ -190,7 +219,7 @@ def verify_access_code(access_code):
 
 
 @frappe.whitelist(allow_guest=True)
-def start_session(token, activity_type, start_time=None):
+def start_session(token, activity_type, start_time=None, photo=None):
 	employee = _resolve_token(token)
 
 	if not activity_type:
@@ -221,6 +250,7 @@ def start_session(token, activity_type, start_time=None):
 		}
 	)
 	doc.insert(ignore_permissions=True)
+	_save_photo(photo, "kiosk-start-photo.jpg", doc.name)
 	frappe.db.commit()
 	frappe.cache().delete_value(f"kiosk_token:{token}")
 
@@ -228,7 +258,7 @@ def start_session(token, activity_type, start_time=None):
 
 
 @frappe.whitelist(allow_guest=True)
-def end_session(token, end_time=None):
+def end_session(token, end_time=None, photo=None):
 	employee = _resolve_token(token)
 
 	open_ts = _get_open_timesheet(employee)
@@ -254,6 +284,7 @@ def end_session(token, end_time=None):
 	row.hours = hours
 	row.completed = 1
 	timesheet.save(ignore_permissions=True)
+	_save_photo(photo, "kiosk-end-photo.jpg", timesheet.name)
 	timesheet.submit()
 
 	frappe.db.commit()
