@@ -140,6 +140,8 @@ after_migrate = [
     # run once as a patch: create_custom_fields is idempotent, and patches.txt is
     # root-owned on this bench so it cannot be appended to as the bench user.
     "cannabis_management.manufacturing_portal.custom_fields.install",
+    # Manufacturing Timesheet Kiosk access code field on Employee. Same reasoning.
+    "cannabis_management.manufacturing_timesheet_kiosk.custom_fields.install",
     # NOTE: an entry for "cannabis_management.credit_and_ar.customer_layout.enforce"
     # used to sit here — Customer form rules re-asserted after sync_fixtures — but
     # the customer_layout module it points at was never committed (see 11c3fa2), so
@@ -236,6 +238,11 @@ doc_events = {
     # ── Manufacturing Portal access code: uniqueness + strength ──────────────
     "User": {
         "validate": "cannabis_management.manufacturing_portal.user_hooks.validate",
+    },
+
+    # ── Manufacturing Timesheet Kiosk access code: uniqueness ─────────────────
+    "Employee": {
+        "validate": "cannabis_management.manufacturing_timesheet_kiosk.employee_hooks.validate",
     },
 
     # ── Workstation Operating Cost validation ────────────────────────────────
