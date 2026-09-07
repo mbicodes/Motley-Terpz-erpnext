@@ -153,6 +153,36 @@
 
 		.employee-banner b { color: #fff; }
 
+		.history {
+			margin-bottom: 20px;
+		}
+
+		.history summary {
+			cursor: pointer;
+			font-size: 12px;
+			text-transform: uppercase;
+			letter-spacing: .06em;
+			color: #9aa4bd;
+			margin-bottom: 8px;
+		}
+
+		.history-row {
+			display: flex;
+			justify-content: space-between;
+			gap: 10px;
+			font-size: 12.5px;
+			padding: 6px 0;
+			border-bottom: 1px solid rgba(255,255,255,0.06);
+		}
+
+		.history-row:last-child { border-bottom: none; }
+
+		.history-row .h-date { color: #c7cde0; white-space: nowrap; }
+		.history-row .h-activity { color: #9aa4bd; flex: 1; text-align: left; padding: 0 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+		.history-row .h-hours { color: #fff; font-weight: 600; white-space: nowrap; }
+
+		.history-empty { font-size: 12.5px; color: #6f7891; }
+
 		.footer-note {
 			margin-top: 22px;
 			font-size: 11.5px;
@@ -217,6 +247,11 @@
 			<h1>Start Timesheet</h1>
 			<p class="employee-banner">Welcome, <b id="start-employee-name">-</b></p>
 
+			<details class="history" id="start-history" open>
+				<summary>Your recent timesheets</summary>
+				<div id="start-history-list"></div>
+			</details>
+
 			<div class="field">
 				<label for="start-activity-type">Activity Type</label>
 				<select id="start-activity-type" required></select>
@@ -237,6 +272,11 @@
 			</div>
 			<h1>End Timesheet</h1>
 			<p class="employee-banner">Welcome back, <b id="end-employee-name">-</b></p>
+
+			<details class="history" id="end-history">
+				<summary>Your recent timesheets</summary>
+				<div id="end-history-list"></div>
+			</details>
 
 			<div class="summary-box">
 				<div class="row"><span>Activity Type</span><span id="end-activity-type">-</span></div>
@@ -285,6 +325,7 @@
 			unlockBtn: document.getElementById("unlock-btn"),
 
 			startEmployeeName: document.getElementById("start-employee-name"),
+			startHistoryList: document.getElementById("start-history-list"),
 			startActivityType: document.getElementById("start-activity-type"),
 			startTime: document.getElementById("start-time"),
 			startError: document.getElementById("start-error"),
@@ -292,6 +333,7 @@
 			startCancelBtn: document.getElementById("start-cancel-btn"),
 
 			endEmployeeName: document.getElementById("end-employee-name"),
+			endHistoryList: document.getElementById("end-history-list"),
 			endActivityType: document.getElementById("end-activity-type"),
 			endStartTime: document.getElementById("end-start-time"),
 			endTime: document.getElementById("end-time"),
@@ -319,6 +361,31 @@
 		function formatDisplay(date) {
 			var d = new Date(date);
 			return d.toLocaleString();
+		}
+
+		function formatDateOnly(date) {
+			var d = new Date(date);
+			return d.toLocaleDateString();
+		}
+
+		function renderHistory(listEl, timesheets) {
+			listEl.innerHTML = "";
+			if (!timesheets || !timesheets.length) {
+				var empty = document.createElement("div");
+				empty.className = "history-empty";
+				empty.textContent = "No past timesheets yet.";
+				listEl.appendChild(empty);
+				return;
+			}
+			timesheets.forEach(function (ts) {
+				var row = document.createElement("div");
+				row.className = "history-row";
+				row.innerHTML =
+					"<span class='h-date'>" + formatDateOnly(ts.start_date) + "</span>" +
+					"<span class='h-activity'>" + (ts.activity_types || "-") + "</span>" +
+					"<span class='h-hours'>" + (ts.total_hours || 0).toFixed(2) + "h</span>";
+				listEl.appendChild(row);
+			});
 		}
 
 		function resetToLock() {
@@ -373,10 +440,12 @@
 						els.endActivityType.textContent = result.open_session.activity_type;
 						els.endStartTime.textContent = formatDisplay(result.open_session.start_time);
 						els.endTime.value = toLocalInputValue();
+						renderHistory(els.endHistoryList, result.recent_timesheets);
 						showScreen("end");
 					} else {
 						els.startEmployeeName.textContent = result.employee_name;
 						els.startTime.value = toLocalInputValue();
+						renderHistory(els.startHistoryList, result.recent_timesheets);
 						loadActivityTypes();
 						showScreen("start");
 					}

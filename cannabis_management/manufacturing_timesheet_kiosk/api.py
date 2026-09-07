@@ -5,7 +5,8 @@
 API endpoints for the Manufacturing Timesheet Kiosk (``/manufacturing-timesheet``).
 
 Flow:
-	1. verify_access_code(access_code) -> {token, employee, employee_name, open_session}
+	1. verify_access_code(access_code) ->
+		{token, employee, employee_name, open_session, recent_timesheets}
 	2. start_session(token, activity_type, start_time) -> {name}
 	   OR
 	   end_session(token, end_time) -> {timesheet, hours}
@@ -17,6 +18,14 @@ session without first passing the access-code check.
 
 The access code itself lives in a plain Data field (see custom_fields.py) so this
 lookup is a single indexed query rather than a decrypt-and-compare loop.
+
+No separate "session" doctype: an open clock-in is just a Draft Timesheet whose single
+Timesheet Detail row has ``from_time`` set and ``to_time``/``completed`` empty - the
+same shape the Desk "Start Timer" button creates (see
+erpnext/public/js/projects/timer.js). ERPNext only enforces "hours must be > 0" at
+*submit* time (Timesheet.validate_mandatory_fields runs from on_submit, not validate),
+so a Draft can sit half-filled indefinitely. Ending the session fills in to_time/hours
+and submits it.
 """
 
 import frappe
@@ -84,15 +93,55 @@ def _resolve_token(token):
 	return employee
 
 
-def _get_open_session(employee):
-	rows = frappe.get_all(
-		"Kiosk Timesheet Session",
-		filters={"employee": employee, "status": "Running"},
-		fields=["name", "activity_type", "start_time"],
-		order_by="creation desc",
-		limit_page_length=1,
+def _get_open_timesheet(employee):
+	"""The employee's Draft Timesheet with a not-yet-completed time log row, if any.
+
+	Returns a dict with the Timesheet name plus that row's activity_type/from_time, or
+	None. Kiosk-started Timesheets only ever carry one row, but this also recognises a
+	Timesheet started from Desk (Start Timer) so the two never disagree.
+	"""
+	row = frappe.db.sql(
+		"""
+		select ts.name as timesheet, tsd.name as row_name, tsd.activity_type, tsd.from_time
+		from `tabTimesheet Detail` tsd
+		inner join `tabTimesheet` ts on ts.name = tsd.parent
+		where ts.employee = %s
+			and ts.docstatus = 0
+			and tsd.from_time is not null
+			and tsd.completed = 0
+		order by tsd.creation desc
+		limit 1
+		""",
+		employee,
+		as_dict=True,
 	)
-	return rows[0] if rows else None
+	return row[0] if row else None
+
+
+def _get_recent_timesheets(employee, limit=5):
+	"""Last few *submitted* Timesheets for this employee, most recent first.
+
+	Reads straight from `Timesheet`/`Timesheet Detail` so this also picks up any
+	Timesheet entered outside the kiosk (e.g. from Desk).
+	"""
+	timesheets = frappe.get_all(
+		"Timesheet",
+		filters={"employee": employee, "docstatus": 1},
+		fields=["name", "start_date", "total_hours"],
+		order_by="start_date desc, creation desc",
+		limit_page_length=limit,
+	)
+
+	for ts in timesheets:
+		activity_types = frappe.get_all(
+			"Timesheet Detail",
+			filters={"parent": ts.name},
+			fields=["activity_type"],
+			pluck="activity_type",
+		)
+		ts["activity_types"] = ", ".join(dict.fromkeys(a for a in activity_types if a))
+
+	return timesheets
 
 
 @frappe.whitelist(allow_guest=True)
@@ -125,11 +174,18 @@ def verify_access_code(access_code):
 
 	_log_attempt(matched.name, "Success")
 
+	open_ts = _get_open_timesheet(matched.name)
+
 	return {
 		"token": _make_token(matched.name),
 		"employee": matched.name,
 		"employee_name": matched.employee_name,
-		"open_session": _get_open_session(matched.name),
+		"open_session": (
+			{"activity_type": open_ts.activity_type, "start_time": open_ts.from_time}
+			if open_ts
+			else None
+		),
+		"recent_timesheets": _get_recent_timesheets(matched.name),
 	}
 
 
@@ -140,36 +196,46 @@ def start_session(token, activity_type, start_time=None):
 	if not activity_type:
 		frappe.throw(_("Please select an Activity Type"))
 
-	if _get_open_session(employee):
+	if _get_open_timesheet(employee):
 		frappe.throw(_("This employee already has an open kiosk session."))
 
 	start_dt = get_datetime(start_time) if start_time else now_datetime()
+	company = frappe.db.get_value("Employee", employee, "company")
 
+	# Draft, one incomplete row - the same shape Desk's "Start Timer" leaves behind.
+	# The site's Timesheet after_insert hook will try to auto-submit this and fail
+	# (hours is 0 until the row is completed); that failure is caught there and only
+	# logs/msgprints, so the insert itself is unaffected and the Timesheet stays Draft.
 	doc = frappe.get_doc(
 		{
-			"doctype": "Kiosk Timesheet Session",
+			"doctype": "Timesheet",
 			"employee": employee,
-			"activity_type": activity_type,
-			"start_time": start_dt,
-			"status": "Running",
+			"company": company,
+			"time_logs": [
+				{
+					"activity_type": activity_type,
+					"from_time": start_dt,
+					"completed": 0,
+				}
+			],
 		}
 	)
 	doc.insert(ignore_permissions=True)
 	frappe.db.commit()
 	frappe.cache().delete_value(f"kiosk_token:{token}")
 
-	return {"name": doc.name, "activity_type": doc.activity_type, "start_time": doc.start_time}
+	return {"name": doc.name, "activity_type": activity_type, "start_time": start_dt}
 
 
 @frappe.whitelist(allow_guest=True)
 def end_session(token, end_time=None):
 	employee = _resolve_token(token)
 
-	session = _get_open_session(employee)
-	if not session:
+	open_ts = _get_open_timesheet(employee)
+	if not open_ts:
 		frappe.throw(_("No open kiosk session found for this employee."))
 
-	start_dt = get_datetime(session.start_time)
+	start_dt = get_datetime(open_ts.from_time)
 	end_dt = get_datetime(end_time) if end_time else now_datetime()
 
 	if end_dt <= start_dt:
@@ -178,33 +244,17 @@ def end_session(token, end_time=None):
 	# Rounded to the nearest hundredth of an hour (~36 seconds) for the kiosk
 	# receipt/display. The Timesheet Detail row itself is recalculated by ERPNext's
 	# own Timesheet.calculate_hours() from from_time/to_time (same formula used
-	# everywhere else in ERPNext), so the two stay consistent.
+	# everywhere else in ERPNext) when the doc is saved below, so the two stay
+	# consistent.
 	hours = flt((end_dt - start_dt).total_seconds() / 3600.0, 2)
 
-	company = frappe.db.get_value("Employee", employee, "company")
-
-	timesheet = frappe.get_doc(
-		{
-			"doctype": "Timesheet",
-			"employee": employee,
-			"company": company,
-			"time_logs": [
-				{
-					"activity_type": session.activity_type,
-					"from_time": start_dt,
-					"to_time": end_dt,
-					"hours": hours,
-				}
-			],
-		}
-	)
-	timesheet.insert(ignore_permissions=True)
-
-	session_doc = frappe.get_doc("Kiosk Timesheet Session", session.name)
-	session_doc.end_time = end_dt
-	session_doc.status = "Completed"
-	session_doc.timesheet = timesheet.name
-	session_doc.save(ignore_permissions=True)
+	timesheet = frappe.get_doc("Timesheet", open_ts.timesheet)
+	row = timesheet.get("time_logs", {"name": open_ts.row_name})[0]
+	row.to_time = end_dt
+	row.hours = hours
+	row.completed = 1
+	timesheet.save(ignore_permissions=True)
+	timesheet.submit()
 
 	frappe.db.commit()
 	frappe.cache().delete_value(f"kiosk_token:{token}")
@@ -212,5 +262,5 @@ def end_session(token, end_time=None):
 	return {
 		"timesheet": timesheet.name,
 		"hours": hours,
-		"activity_type": session.activity_type,
+		"activity_type": open_ts.activity_type,
 	}
