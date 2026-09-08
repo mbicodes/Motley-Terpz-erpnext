@@ -34,35 +34,39 @@ EMPLOYEE_FIELDS = [
 # would hand them write on these too) with no role granted *write* at that level:
 # nobody can clear or edit these through the Desk form, not even System Manager.
 #
-# Storing the photo as plain base64 text - not an Attach/Attach Image field - is
-# what actually matters for "nobody can delete it" though: an Attach field is just
-# a pointer to a File document, and File documents can always be removed
-# independently of the field that points at them (the little (x) on the
-# attachment, or the Desk File list). A Long Text field holding the data itself has
-# nothing separate left to delete - removing it means editing/deleting the
-# Timesheet row itself, same as any other field on the document.
+# These are Attach Image fields holding a private file URL, so the photo shows as a
+# picture on the Timesheet and opens by clicking it - no base64 to copy out and
+# decode by hand.
+#
+# That does mean the photo is a File document the field points at, and a File can
+# normally be deleted independently of whatever points at it - the little (x) on the
+# attachment, or the Desk File list. Field permissions cannot stop that, because the
+# deletion never touches this field. What stops it is a pair of document guards, in
+# timesheet_hooks.py: one refuses to delete a Timesheet carrying a photo, the other
+# refuses to delete a File that is one. The guards are the protection here, not the
+# storage shape - see that module's docstring.
 PHOTO_PERMLEVEL = 2
 
 TIMESHEET_FIELDS = [
 	{
 		"fieldname": "custom_start_verification_photo",
-		"fieldtype": "Long Text",
+		"fieldtype": "Attach Image",
 		"label": "Start Verification Photo",
 		"insert_after": "time_logs",
 		"no_copy": 1,
 		"read_only": 1,
 		"permlevel": PHOTO_PERMLEVEL,
-		"description": "Captured by the kiosk when this employee started - not an attachment, so it cannot be removed independently of the Timesheet itself.",
+		"description": "Captured by the kiosk when this employee started. Neither this file nor the Timesheet holding it can be deleted by anyone - cancel the Timesheet instead.",
 	},
 	{
 		"fieldname": "custom_end_verification_photo",
-		"fieldtype": "Long Text",
+		"fieldtype": "Attach Image",
 		"label": "End Verification Photo",
 		"insert_after": "custom_start_verification_photo",
 		"no_copy": 1,
 		"read_only": 1,
 		"permlevel": PHOTO_PERMLEVEL,
-		"description": "Captured by the kiosk when this employee ended - not an attachment, so it cannot be removed independently of the Timesheet itself.",
+		"description": "Captured by the kiosk when this employee ended. Neither this file nor the Timesheet holding it can be deleted by anyone - cancel the Timesheet instead.",
 	},
 ]
 

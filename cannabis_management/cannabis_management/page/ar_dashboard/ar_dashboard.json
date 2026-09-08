@@ -3,8 +3,8 @@
  "creation": "2026-06-01 10:32:42.328057",
  "docstatus": 0,
  "doctype": "Page",
- "idx": 0,
- "modified": "2026-06-01 10:55:31.787914",
+ "idx": 1,
+ "modified": "2026-08-21 06:32:45.771838",
  "modified_by": "Administrator",
  "module": "Cannabis Management",
  "name": "ar-dashboard",
@@ -29,5 +29,4 @@
  "style": null,
  "system_page": 0,
  "title": "Accounts Receivable"
- 
 }

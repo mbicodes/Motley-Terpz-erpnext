@@ -78,7 +78,7 @@ def execute(filters=None):
 	data.append({})
 	data.extend(
 		get_indirect_recap_section(
-			expense or [], "Indirect Expense", _("Indirect Expense"), _("Indirect Expense Type"), currency, period_list
+			expense or [], "Indirect Expense", _("Indirect Expense"), _("Indirect Expense"), currency, period_list
 		)
 	)
 
@@ -213,7 +213,10 @@ def get_indirect_recap_section(rows, account_type, section_label, heading_label,
 	Rows are given their own synthetic account keys (suffixed "::recap") so
 	this section is a fully independent subtree in the frontend's
 	expand/collapse and search logic - it never shares state with the same
-	account's row up in the main Income/Expense tree above.
+	account's row up in the main Income/Expense tree above. Because that key
+	is not a real Account name, each leaf also carries `gl_account` with the
+	unsuffixed account so the frontend can still drill through to the
+	General Ledger.
 	"""
 	if not rows:
 		return []
@@ -280,6 +283,9 @@ def get_indirect_recap_section(rows, account_type, section_label, heading_label,
 	for leaf in matched:
 		leaf_row = frappe._dict(dict(leaf))
 		leaf_row["account"] = leaf.get("account") + "::recap"
+		# `account` is a synthetic tree key here, not a real Account name, so
+		# carry the real one separately for General Ledger drill-through.
+		leaf_row["gl_account"] = leaf.get("account")
 		leaf_row["parent_account"] = section_key
 		leaf_row["indent"] = 1
 		out.append(leaf_row)

@@ -12,6 +12,15 @@ frappe.query_reports["Custom Profit and Loss Statement"].formatter = function(va
 			return value;
 		}
 	}
+	// The Indirect Income / Indirect Expense recap rows carry a synthetic tree
+	// key in `account` ("<account>::recap") so they form an independent
+	// subtree, and the real Account name in `gl_account`. erpnext's formatter
+	// serialises `data` straight into the cell's General Ledger link_onclick,
+	// so hand it the real account or the drill-through opens on an account
+	// that does not exist.
+	if (data && data.gl_account) {
+		data = Object.assign({}, data, { account: data.gl_account });
+	}
 	if (pnl_base_formatter) {
 		return pnl_base_formatter.call(this, value, row, column, data, default_formatter, filter);
 	}

@@ -1,20 +1,35 @@
 # Copyright (c) 2026, Cannabis Management and contributors
 # For license information, please see license.txt
 
-"""Timesheet document guards for the Manufacturing Timesheet Kiosk.
+"""Document guards that make the kiosk's verification photos permanent.
 
-The kiosk's verification photos live in Long Text fields on the Timesheet itself
-rather than as File attachments, precisely so there is nothing to detach
-independently of the document (see custom_fields.py for the fuller reasoning). That
-storage choice, plus permlevel PHOTO_PERMLEVEL with write granted to no role at all,
-read_only=1 and allow_on_submit=0, already means nobody can *clear* a photo through
-Desk, a bulk edit, a Data Import or the REST API.
+The photos are private Files attached to the Timesheet, with the Timesheet's Attach
+Image fields holding their URLs - so a photo shows as a picture and opens by clicking
+it (see custom_fields.py). Being files, they are separate documents from the fields
+pointing at them, and that is exactly what these guards exist to cover.
 
-It leaves exactly one way to lose one: delete the whole Timesheet. Eleven roles hold
-`delete` on Timesheet on this site - HR User, Manufacturing User, CEO, Accounts User,
-Projects User, Employee Self Service and several per-person roles - so trimming
-permissions is not a durable answer; the next role someone adds would reopen it. The
-on_trash guard below closes it for everyone instead, whoever is asking.
+Field permissions alone are not enough. permlevel PHOTO_PERMLEVEL grants *write* to no
+role at all, plus read_only=1 and allow_on_submit=0, so nobody can repoint or clear
+one of these fields through Desk, a bulk edit, a Data Import or the REST API. But
+deleting the file the field points at never touches the field, and deleting the whole
+Timesheet takes its attachments with it - neither is a field write, so neither is
+blocked by any of that.
+
+Nor is trimming roles a durable answer: eleven roles hold `delete` on Timesheet on
+this site (HR User, Manufacturing User, CEO, Accounts User, Projects User, Employee
+Self Service and several per-person roles), and the next role someone adds would
+reopen the hole. So both paths are closed here instead, for everyone, whoever is
+asking:
+
+	on_trash          - refuses to delete a Timesheet that carries a photo
+	on_trash_file     - refuses to delete a File that *is* one
+
+frappe.model.delete_doc runs on_trash before its link checks, so the Desk button, the
+list view's bulk delete, the attachment (x), frappe.client.delete and the REST API all
+hit these. ``force=True`` only skips the link checks. (``ignore_on_trash=True`` does
+skip them, but it is a Python-only argument that no UI or HTTP route can pass -
+reaching it already means server console access, where raw SQL is available anyway and
+no document hook could help.)
 """
 
 import frappe
@@ -39,13 +54,8 @@ PHOTO_FIELDS = tuple(
 def on_trash(doc, method=None):
 	"""Refuse to delete a Timesheet that carries a kiosk verification photo.
 
-	This runs for *every* delete path, not just the Desk button: the list view's
-	bulk delete, `frappe.client.delete`, and the REST API all go through
-	frappe.model.delete_doc, which calls on_trash before it checks links.
-	``force=True`` only skips those link checks, so it does not get around this.
-	(``ignore_on_trash=True`` does, but it is a Python-only argument - no UI or HTTP
-	route can pass it, so reaching it already means server console access, at which
-	point raw SQL is available anyway and no document hook could help.)
+	Deleting a document takes its attachments with it, so this covers the photo files
+	too - on_trash_file below only has to cover someone going at a file directly.
 
 	Cancelling is deliberately still allowed. A cancelled Timesheet stops counting
 	towards hours but keeps its row - and its photos - on record, which is the
@@ -66,5 +76,34 @@ def on_trash(doc, method=None):
 			"cannot be deleted by anyone. Cancel the Timesheet instead - a cancelled "
 			"Timesheet stops counting towards hours but keeps its photo on record."
 		).format(doc.name),
+		title=_("Verification photo on record"),
+	)
+
+
+def on_trash_file(doc, method=None):
+	"""Refuse to delete a File that is a kiosk verification photo.
+
+	Recognised by what the File says it is attached to, which _store_photo sets when
+	it creates the file: a Timesheet, and one of the photo fields. That is also what
+	makes Desk render it as the picture in that field, so a file this guard protects
+	and a file the Timesheet displays are always the same set.
+
+	This is the path field permissions cannot reach - the attachment (x) on the form,
+	or a row in the Desk File list. Neither touches the Timesheet field, so neither is
+	a field write, so permlevel 2 has nothing to say about them.
+	"""
+	if doc.doctype != "File":
+		return
+
+	if doc.attached_to_doctype != "Timesheet":
+		return
+	if doc.attached_to_field not in PHOTO_FIELDS:
+		return
+
+	frappe.throw(
+		_(
+			"This is a kiosk verification photo for {0}, which is a permanent record "
+			"and cannot be deleted by anyone."
+		).format(doc.attached_to_name or _("a Timesheet")),
 		title=_("Verification photo on record"),
 	)
