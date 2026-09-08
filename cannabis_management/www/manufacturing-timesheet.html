@@ -16,12 +16,140 @@
 		body {
 			min-height: 100vh;
 			display: flex;
-			/* margin:auto on .layout (not align-items/justify-content here) centers it
-			   without the well-known flex bug where a centered item taller than the
-			   viewport gets clipped at the top with no way to scroll to it. */
 			padding: 20px;
 			overflow-y: auto;
 		}
+
+		[hidden] { display: none !important; }
+
+		/* ---------------------------------------------------------------- */
+		/* Board (default view: one job card per kiosk-enabled employee)     */
+		/* ---------------------------------------------------------------- */
+
+		#screen-board {
+			width: 100%;
+			max-width: 1100px;
+			margin: auto;
+		}
+
+		.board-header {
+			text-align: center;
+			margin-bottom: 26px;
+		}
+
+		.board-header h1 {
+			font-size: 22px;
+			font-weight: 600;
+			margin-bottom: 6px;
+		}
+
+		.board-header p {
+			font-size: 13px;
+			color: #aab3c8;
+		}
+
+		.board-grid {
+			display: grid;
+			grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+			gap: 16px;
+		}
+
+		.board-empty {
+			text-align: center;
+			color: #7f8aa3;
+			font-size: 14px;
+			padding: 40px 0;
+		}
+
+		.job-card {
+			background: rgba(255, 255, 255, 0.06);
+			border: 1px solid rgba(255, 255, 255, 0.12);
+			backdrop-filter: blur(10px);
+			border-radius: 16px;
+			padding: 18px;
+			box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+			display: flex;
+			flex-direction: column;
+			gap: 10px;
+		}
+
+		.job-card .jc-name {
+			font-size: 15px;
+			font-weight: 600;
+			color: #fff;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+
+		.job-card .jc-status {
+			display: flex;
+			align-items: center;
+			gap: 6px;
+			font-size: 12px;
+			color: #9aa4bd;
+		}
+
+		.job-card .jc-dot {
+			width: 8px;
+			height: 8px;
+			border-radius: 50%;
+			background: #5a6478;
+			flex-shrink: 0;
+		}
+
+		.job-card.running .jc-dot {
+			background: #4ade80;
+			box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.18);
+		}
+
+		.job-card .jc-timer {
+			font-size: 22px;
+			font-weight: 700;
+			font-variant-numeric: tabular-nums;
+			letter-spacing: .5px;
+			color: #8fe3a3;
+		}
+
+		.job-card:not(.running) .jc-timer {
+			color: #5a6478;
+			font-size: 14px;
+			font-weight: 500;
+		}
+
+		.job-card .jc-activity {
+			font-size: 11.5px;
+			color: #7f8aa3;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+
+		.job-card .jc-btn {
+			margin-top: 4px;
+			width: 100%;
+			padding: 11px;
+			border: none;
+			border-radius: 10px;
+			font-size: 14px;
+			font-weight: 600;
+			cursor: pointer;
+			color: #fff;
+		}
+
+		.job-card .jc-btn.jc-start { background: linear-gradient(145deg, #4a63ff, #2c3ea8); }
+		.job-card .jc-btn.jc-end { background: linear-gradient(145deg, #ff7a4a, #b8452c); }
+
+		.board-footer-note {
+			margin-top: 26px;
+			text-align: center;
+			font-size: 11.5px;
+			color: #6f7891;
+		}
+
+		/* ---------------------------------------------------------------- */
+		/* Shared card-style layout for code/start/end/done screens          */
+		/* ---------------------------------------------------------------- */
 
 		.layout {
 			margin: auto;
@@ -126,6 +254,8 @@
 			margin-bottom: 6px;
 		}
 
+		.field .required-mark { color: #ff8b8b; }
+
 		.field input, .field select {
 			width: 100%;
 			padding: 12px 14px;
@@ -165,12 +295,20 @@
 
 		.btn:hover { filter: brightness(1.08); }
 		.btn:active { transform: scale(.99); }
-		.btn:disabled { opacity: .6; cursor: not-allowed; }
+		.btn:disabled { opacity: .45; cursor: not-allowed; }
 
 		.btn.secondary {
 			background: rgba(255,255,255,0.08);
 			margin-top: 10px;
 			font-weight: 500;
+		}
+
+		.btn-hint {
+			font-size: 11px;
+			color: #ffcf8f;
+			margin-top: -10px;
+			margin-bottom: 14px;
+			min-height: 14px;
 		}
 
 		.error-msg {
@@ -284,116 +422,123 @@
 			30%, 50%, 70% { transform: translateX(-4px); }
 			40%, 60% { transform: translateX(4px); }
 		}
-
-		[hidden] { display: none !important; }
 	</style>
 </head>
 <body>
 
-	<div class="layout">
+	<!-- BOARD SCREEN (default: every kiosk-enabled employee as a job card) -->
+	<div id="screen-board">
+		<div class="board-header">
+			<h1>Manufacturing Timesheet</h1>
+			<p>Tap your card to clock in or out</p>
+		</div>
+		<div class="board-grid" id="board-grid"></div>
+		<div class="board-footer-note">Every attempt is recorded.</div>
+	</div>
+
+	<!-- CODE / START / END / DONE — one central card, shown after a job-card tap -->
+	<div class="layout" id="flow-layout" hidden>
 
 		<div class="history-panel" id="history-panel" hidden>
 			<h2>Your recent timesheets</h2>
 			<div id="history-list"></div>
 		</div>
 
-	<div class="card" id="kiosk-card">
+		<div class="card" id="kiosk-card">
 
-		<!-- LOCK SCREEN -->
-		<section id="screen-lock">
-			<div class="icon-badge">
-				<svg viewBox="0 0 24 24"><path d="M12 1a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V11a2 2 0 0 0-2-2h-1V6a5 5 0 0 0-5-5zm-3 8V6a3 3 0 0 1 6 0v3zm3 5a2 2 0 0 1 1 3.73V19a1 1 0 1 1-2 0v-1.27A2 2 0 0 1 12 14z"/></svg>
-			</div>
-			<h1>Manufacturing Timesheet</h1>
-			<p class="subtitle">Enter your personal access code to clock in or out</p>
+			<!-- CODE ENTRY -->
+			<section id="screen-code">
+				<div class="icon-badge">
+					<svg viewBox="0 0 24 24"><path d="M12 1a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V11a2 2 0 0 0-2-2h-1V6a5 5 0 0 0-5-5zm-3 8V6a3 3 0 0 1 6 0v3zm3 5a2 2 0 0 1 1 3.73V19a1 1 0 1 1-2 0v-1.27A2 2 0 0 1 12 14z"/></svg>
+				</div>
+				<h1>Enter your access code</h1>
+				<p class="subtitle" id="code-employee-name">-</p>
 
-			<form id="lock-form" autocomplete="off">
+				<form id="code-form" autocomplete="off">
+					<div class="field">
+						<label for="access-code">Access code</label>
+						<input type="password" id="access-code" placeholder="••••••" inputmode="numeric" autofocus required>
+					</div>
+					<div class="error-msg" id="code-error"></div>
+					<button type="submit" class="btn" id="unlock-btn">Unlock</button>
+					<button type="button" class="btn secondary" id="code-cancel-btn">Back</button>
+				</form>
+			</section>
+
+			<!-- START SCREEN -->
+			<section id="screen-start" hidden>
+				<div class="icon-badge">
+					<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+				</div>
+				<h1>Start Timesheet</h1>
+				<p class="employee-banner">Welcome, <b id="start-employee-name">-</b></p>
+
+				<div class="camera-box" id="start-camera-box">
+					<div class="cam-notice">
+						<svg viewBox="0 0 24 24"><path d="M4 5h3l1.5-2h7L17 5h3a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zm8 3a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0 2a3 3 0 1 1 0 6 3 3 0 0 1 0-6z"/></svg>
+						A verification photo will be taken when you start
+					</div>
+					<video id="start-camera-video" autoplay playsinline muted></video>
+					<div class="cam-status" id="start-camera-status">Requesting camera…</div>
+				</div>
+
 				<div class="field">
-					<label for="access-code">Access code</label>
-					<input type="password" id="access-code" placeholder="••••••" inputmode="numeric" autofocus required>
+					<label for="start-activity-type">Activity Type <span class="required-mark">*</span></label>
+					<select id="start-activity-type" required></select>
 				</div>
-				<div class="error-msg" id="lock-error"></div>
-				<button type="submit" class="btn" id="unlock-btn">Unlock</button>
-			</form>
-
-			<div class="footer-note">
-				<svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-2h2zm0-4h-2V7h2z"/></svg>
-				Every attempt is recorded.
-			</div>
-		</section>
-
-		<!-- START SCREEN -->
-		<section id="screen-start" hidden>
-			<div class="icon-badge">
-				<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-			</div>
-			<h1>Start Timesheet</h1>
-			<p class="employee-banner">Welcome, <b id="start-employee-name">-</b></p>
-
-			<div class="camera-box" id="start-camera-box">
-				<div class="cam-notice">
-					<svg viewBox="0 0 24 24"><path d="M4 5h3l1.5-2h7L17 5h3a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zm8 3a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0 2a3 3 0 1 1 0 6 3 3 0 0 1 0-6z"/></svg>
-					A verification photo will be taken when you start
+				<div class="field">
+					<label for="start-time">Start Time <span class="required-mark">*</span></label>
+					<input type="datetime-local" id="start-time" required>
 				</div>
-				<video id="start-camera-video" autoplay playsinline muted></video>
-				<div class="cam-status" id="start-camera-status">Requesting camera…</div>
-			</div>
+				<div class="error-msg" id="start-error"></div>
+				<div class="btn-hint" id="start-btn-hint"></div>
+				<button type="button" class="btn" id="start-save-btn" disabled>Save &amp; Start</button>
+				<button type="button" class="btn secondary" id="start-cancel-btn">Cancel</button>
+			</section>
 
-			<div class="field">
-				<label for="start-activity-type">Activity Type</label>
-				<select id="start-activity-type" required></select>
-			</div>
-			<div class="field">
-				<label for="start-time">Start Time</label>
-				<input type="datetime-local" id="start-time" required>
-			</div>
-			<div class="error-msg" id="start-error"></div>
-			<button type="button" class="btn" id="start-save-btn">Save &amp; Start</button>
-			<button type="button" class="btn secondary" id="start-cancel-btn">Cancel</button>
-		</section>
-
-		<!-- END SCREEN -->
-		<section id="screen-end" hidden>
-			<div class="icon-badge">
-				<svg viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg>
-			</div>
-			<h1>End Timesheet</h1>
-			<p class="employee-banner">Welcome back, <b id="end-employee-name">-</b></p>
-
-			<div class="camera-box" id="end-camera-box">
-				<div class="cam-notice">
-					<svg viewBox="0 0 24 24"><path d="M4 5h3l1.5-2h7L17 5h3a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zm8 3a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0 2a3 3 0 1 1 0 6 3 3 0 0 1 0-6z"/></svg>
-					A verification photo will be taken when you end
+			<!-- END SCREEN -->
+			<section id="screen-end" hidden>
+				<div class="icon-badge">
+					<svg viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg>
 				</div>
-				<video id="end-camera-video" autoplay playsinline muted></video>
-				<div class="cam-status" id="end-camera-status">Requesting camera…</div>
-			</div>
+				<h1>End Timesheet</h1>
+				<p class="employee-banner">Welcome back, <b id="end-employee-name">-</b></p>
 
-			<div class="summary-box">
-				<div class="row"><span>Activity Type</span><span id="end-activity-type">-</span></div>
-				<div class="row"><span>Start Time</span><span id="end-start-time">-</span></div>
-			</div>
+				<div class="camera-box" id="end-camera-box">
+					<div class="cam-notice">
+						<svg viewBox="0 0 24 24"><path d="M4 5h3l1.5-2h7L17 5h3a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zm8 3a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0 2a3 3 0 1 1 0 6 3 3 0 0 1 0-6z"/></svg>
+						A verification photo will be taken when you end
+					</div>
+					<video id="end-camera-video" autoplay playsinline muted></video>
+					<div class="cam-status" id="end-camera-status">Requesting camera…</div>
+				</div>
 
-			<div class="field">
-				<label for="end-time">End Time</label>
-				<input type="datetime-local" id="end-time" required>
-			</div>
-			<div class="error-msg" id="end-error"></div>
-			<button type="button" class="btn" id="end-save-btn">Save &amp; End</button>
-			<button type="button" class="btn secondary" id="end-cancel-btn">Cancel</button>
-		</section>
+				<div class="summary-box">
+					<div class="row"><span>Activity Type</span><span id="end-activity-type">-</span></div>
+					<div class="row"><span>Start Time</span><span id="end-start-time">-</span></div>
+				</div>
 
-		<!-- DONE SCREEN -->
-		<section id="screen-done" hidden>
-			<div class="icon-badge">
-				<svg viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>
-			</div>
-			<h1 id="done-title">All set</h1>
-			<p class="status-msg" id="done-message"></p>
-			<p class="subtitle">Returning to the access screen…</p>
-		</section>
+				<div class="field">
+					<label for="end-time">End Time <span class="required-mark">*</span></label>
+					<input type="datetime-local" id="end-time" required>
+				</div>
+				<div class="error-msg" id="end-error"></div>
+				<div class="btn-hint" id="end-btn-hint"></div>
+				<button type="button" class="btn" id="end-save-btn" disabled>Save &amp; End</button>
+				<button type="button" class="btn secondary" id="end-cancel-btn">Cancel</button>
+			</section>
 
-	</div>
+			<!-- DONE SCREEN -->
+			<section id="screen-done" hidden>
+				<div class="icon-badge">
+					<svg viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>
+				</div>
+				<h1 id="done-title">All set</h1>
+				<p class="status-msg" id="done-message"></p>
+				<p class="subtitle">Returning to the board…</p>
+			</section>
+
+		</div>
 
 	</div>
 
@@ -402,20 +547,36 @@
 		"use strict";
 
 		var API = "/api/method/cannabis_management.manufacturing_timesheet_kiosk.api.";
-		var state = { token: null, startStream: null, endStream: null };
+		var state = {
+			token: null,
+			startStream: null,
+			endStream: null,
+			cardEmployee: null,
+			cardAction: null,
+			startPhotoReady: false,
+			endPhotoReady: false,
+		};
+		var boardTimerHandle = null;
+		var boardRefreshHandle = null;
 
 		var els = {
+			boardScreen: document.getElementById("screen-board"),
+			boardGrid: document.getElementById("board-grid"),
+			flowLayout: document.getElementById("flow-layout"),
 			card: document.getElementById("kiosk-card"),
 			screens: {
-				lock: document.getElementById("screen-lock"),
+				code: document.getElementById("screen-code"),
 				start: document.getElementById("screen-start"),
 				end: document.getElementById("screen-end"),
 				done: document.getElementById("screen-done"),
 			},
-			lockForm: document.getElementById("lock-form"),
+
+			codeForm: document.getElementById("code-form"),
+			codeEmployeeName: document.getElementById("code-employee-name"),
 			accessCode: document.getElementById("access-code"),
-			lockError: document.getElementById("lock-error"),
+			codeError: document.getElementById("code-error"),
 			unlockBtn: document.getElementById("unlock-btn"),
+			codeCancelBtn: document.getElementById("code-cancel-btn"),
 
 			historyPanel: document.getElementById("history-panel"),
 			historyList: document.getElementById("history-list"),
@@ -426,6 +587,7 @@
 			startActivityType: document.getElementById("start-activity-type"),
 			startTime: document.getElementById("start-time"),
 			startError: document.getElementById("start-error"),
+			startBtnHint: document.getElementById("start-btn-hint"),
 			startSaveBtn: document.getElementById("start-save-btn"),
 			startCancelBtn: document.getElementById("start-cancel-btn"),
 
@@ -436,6 +598,7 @@
 			endStartTime: document.getElementById("end-start-time"),
 			endTime: document.getElementById("end-time"),
 			endError: document.getElementById("end-error"),
+			endBtnHint: document.getElementById("end-btn-hint"),
 			endSaveBtn: document.getElementById("end-save-btn"),
 			endCancelBtn: document.getElementById("end-cancel-btn"),
 
@@ -443,7 +606,7 @@
 			doneMessage: document.getElementById("done-message"),
 		};
 
-		function showScreen(name) {
+		function showFlowScreen(name) {
 			Object.keys(els.screens).forEach(function (key) {
 				els.screens[key].hidden = key !== name;
 			});
@@ -461,15 +624,14 @@
 			return d.toLocaleString();
 		}
 
-		// Frappe sends start_date as a plain "YYYY-MM-DD" string with no time/zone.
-		// `new Date("YYYY-MM-DD")` parses that as UTC midnight, which - once read back
-		// via local get*() accessors - lands on the *previous* calendar day for any
-		// timezone behind UTC, making "today's" own timesheet show up as "Yesterday".
-		// Parse the components directly into a local-time Date instead.
+		// Frappe sends dates as plain "YYYY-MM-DD[ HH:MM:SS]" strings with no
+		// time/zone. `new Date(str)` parses that as UTC, which - once read back via
+		// local get*() accessors - lands on the wrong side of midnight for any
+		// timezone behind UTC. Parse the components into a local-time Date instead.
 		function parseLocalDate(date) {
 			if (date instanceof Date) return date;
-			var parts = String(date).split(/[-T ]/).map(Number);
-			return new Date(parts[0], parts[1] - 1, parts[2]);
+			var parts = String(date).split(/[-T :.]/).map(Number);
+			return new Date(parts[0], parts[1] - 1, parts[2], parts[3] || 0, parts[4] || 0, parts[5] || 0);
 		}
 
 		function dateKey(date) {
@@ -488,7 +650,8 @@
 			return parseLocalDate(startDate).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 		}
 
-		function renderHistory(listEl, timesheets) {
+		function renderHistory(timesheets) {
+			var listEl = els.historyList;
 			listEl.innerHTML = "";
 			if (!timesheets || !timesheets.length) {
 				var empty = document.createElement("div");
@@ -498,9 +661,6 @@
 				return;
 			}
 
-			// Group consecutive rows under Today / Yesterday / a specific older date -
-			// the server already orders these most-recent-first, so a running "current
-			// bucket" label is enough without re-sorting.
 			var currentLabel = null;
 			var group = null;
 
@@ -527,25 +687,27 @@
 		}
 
 		// ---- Verification photo (disclosed: visible preview + on-screen notice,
-		// never a hidden/silent capture) ----
-		// Every function here is null-safe on videoEl/statusEl on purpose: if the
-		// camera-box markup for a screen is ever removed, these must degrade to
-		// "no photo" quietly rather than throwing inside the Save button's click
-		// handler and blocking the actual start/end call.
-		function startCamera(videoEl, statusEl, streamKey) {
+		// never a hidden/silent capture). Camera is mandatory now - Save stays
+		// disabled until a frame is actually capturable. ----
+		function startCamera(videoEl, statusEl, streamKey, onReadyChange) {
 			if (!videoEl) return;
 			if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-				if (statusEl) statusEl.textContent = "Camera not available on this device.";
+				if (statusEl) statusEl.textContent = "Camera not available on this device — cannot continue.";
+				onReadyChange(false);
 				return;
 			}
 			navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false })
 				.then(function (stream) {
 					state[streamKey] = stream;
 					videoEl.srcObject = stream;
-					if (statusEl) statusEl.textContent = "Camera ready.";
+					videoEl.addEventListener("loadedmetadata", function () {
+						if (statusEl) statusEl.textContent = "Camera ready.";
+						onReadyChange(true);
+					}, { once: true });
 				})
 				.catch(function () {
-					if (statusEl) statusEl.textContent = "Camera permission denied — continuing without a photo.";
+					if (statusEl) statusEl.textContent = "Camera permission denied — a photo is required to continue.";
+					onReadyChange(false);
 				});
 		}
 
@@ -565,19 +727,6 @@
 			canvas.height = videoEl.videoHeight;
 			canvas.getContext("2d").drawImage(videoEl, 0, 0);
 			return canvas.toDataURL("image/jpeg", 0.85);
-		}
-
-		function resetToLock() {
-			state.token = null;
-			stopCamera("startStream");
-			stopCamera("endStream");
-			els.accessCode.value = "";
-			els.lockError.textContent = "";
-			els.startError.textContent = "";
-			els.endError.textContent = "";
-			els.historyPanel.hidden = true;
-			showScreen("lock");
-			els.accessCode.focus();
 		}
 
 		function call(method, args) {
@@ -603,20 +752,124 @@
 			});
 		}
 
-		// ---- Lock screen ----
-		els.lockForm.addEventListener("submit", function (event) {
+		// ---- Board ----
+		function formatElapsed(startTime) {
+			var start = parseLocalDate(startTime).getTime();
+			var elapsed = Math.max(0, Date.now() - start);
+			var totalSeconds = Math.floor(elapsed / 1000);
+			var h = Math.floor(totalSeconds / 3600);
+			var m = Math.floor((totalSeconds % 3600) / 60);
+			var s = totalSeconds % 60;
+			var pad = function (n) { return String(n).padStart(2, "0"); };
+			return pad(h) + ":" + pad(m) + ":" + pad(s);
+		}
+
+		function renderBoard(board) {
+			els.boardGrid.innerHTML = "";
+
+			if (!board || !board.length) {
+				var empty = document.createElement("div");
+				empty.className = "board-empty";
+				empty.textContent = "No employees are set up for kiosk access yet.";
+				els.boardGrid.appendChild(empty);
+				return;
+			}
+
+			board.forEach(function (emp) {
+				var card = document.createElement("div");
+				card.className = "job-card" + (emp.running ? " running" : "");
+
+				var name = document.createElement("div");
+				name.className = "jc-name";
+				name.textContent = emp.employee_name;
+				card.appendChild(name);
+
+				var status = document.createElement("div");
+				status.className = "jc-status";
+				status.innerHTML = "<span class='jc-dot'></span><span>" + (emp.running ? "Running" : "Not started") + "</span>";
+				card.appendChild(status);
+
+				var timer = document.createElement("div");
+				timer.className = "jc-timer";
+				if (emp.running) {
+					timer.dataset.startTime = emp.start_time;
+					timer.textContent = formatElapsed(emp.start_time);
+				} else {
+					timer.textContent = "—";
+				}
+				card.appendChild(timer);
+
+				if (emp.running && emp.activity_type) {
+					var activity = document.createElement("div");
+					activity.className = "jc-activity";
+					activity.textContent = emp.activity_type;
+					card.appendChild(activity);
+				}
+
+				var btn = document.createElement("button");
+				btn.type = "button";
+				btn.className = "jc-btn " + (emp.running ? "jc-end" : "jc-start");
+				btn.textContent = emp.running ? "End" : "Start";
+				btn.addEventListener("click", function () {
+					openCodeScreen(emp.employee, emp.employee_name, emp.running ? "end" : "start");
+				});
+				card.appendChild(btn);
+
+				els.boardGrid.appendChild(card);
+			});
+		}
+
+		function tickBoardTimers() {
+			document.querySelectorAll(".jc-timer[data-start-time]").forEach(function (el) {
+				el.textContent = formatElapsed(el.dataset.startTime);
+			});
+		}
+
+		function loadBoard() {
+			return call("get_employee_board").then(renderBoard).catch(function () {
+				els.boardGrid.innerHTML = "<div class='board-empty'>Could not load the board. Retrying…</div>";
+			});
+		}
+
+		function showBoard() {
+			state.token = null;
+			state.cardEmployee = null;
+			state.cardAction = null;
+			stopCamera("startStream");
+			stopCamera("endStream");
+			els.flowLayout.hidden = true;
+			els.boardScreen.hidden = false;
+			loadBoard();
+		}
+
+		function openCodeScreen(employee, employeeName, action) {
+			state.cardEmployee = employee;
+			state.cardAction = action;
+			els.codeEmployeeName.textContent = "For " + employeeName;
+			els.accessCode.value = "";
+			els.codeError.textContent = "";
+			els.boardScreen.hidden = true;
+			els.flowLayout.hidden = false;
+			showFlowScreen("code");
+			els.accessCode.focus();
+		}
+
+		// ---- Code entry ----
+		els.codeCancelBtn.addEventListener("click", showBoard);
+
+		els.codeForm.addEventListener("submit", function (event) {
 			event.preventDefault();
 			var code = els.accessCode.value.trim();
 			if (!code) return;
 
-			els.lockError.textContent = "";
+			els.codeError.textContent = "";
 			els.unlockBtn.disabled = true;
 			els.unlockBtn.textContent = "Checking…";
 
-			call("verify_access_code", { access_code: code })
+			call("verify_access_code", { access_code: code, employee: state.cardEmployee })
 				.then(function (result) {
 					state.token = result.token;
-					renderHistory(els.historyList, result.recent_timesheets);
+					renderHistory(result.recent_timesheets);
 					els.historyPanel.hidden = false;
 
 					if (result.open_session) {
@@ -624,18 +877,28 @@
 						els.endActivityType.textContent = result.open_session.activity_type;
 						els.endStartTime.textContent = formatDisplay(result.open_session.start_time);
 						els.endTime.value = toLocalInputValue();
-						showScreen("end");
-						startCamera(els.endCameraVideo, els.endCameraStatus, "endStream");
+						showFlowScreen("end");
+						state.endPhotoReady = false;
+						updateEndSaveState();
+						startCamera(els.endCameraVideo, els.endCameraStatus, "endStream", function (ready) {
+							state.endPhotoReady = ready;
+							updateEndSaveState();
+						});
 					} else {
 						els.startEmployeeName.textContent = result.employee_name;
 						els.startTime.value = toLocalInputValue();
 						loadActivityTypes();
-						showScreen("start");
-						startCamera(els.startCameraVideo, els.startCameraStatus, "startStream");
+						showFlowScreen("start");
+						state.startPhotoReady = false;
+						updateStartSaveState();
+						startCamera(els.startCameraVideo, els.startCameraStatus, "startStream", function (ready) {
+							state.startPhotoReady = ready;
+							updateStartSaveState();
+						});
 					}
 				})
 				.catch(function (err) {
-					els.lockError.textContent = err.message || "Invalid access code";
+					els.codeError.textContent = err.message || "Invalid access code";
 					els.card.classList.add("shake");
 					setTimeout(function () { els.card.classList.remove("shake"); }, 400);
 					els.accessCode.value = "";
@@ -648,9 +911,8 @@
 		});
 
 		function loadActivityTypes() {
-			els.startActivityType.innerHTML = "<option>Loading…</option>";
+			els.startActivityType.innerHTML = "<option value=''>Select…</option>";
 			call("get_activity_types").then(function (types) {
-				els.startActivityType.innerHTML = "";
 				(types || []).forEach(function (t) {
 					var opt = document.createElement("option");
 					opt.value = t;
@@ -662,71 +924,103 @@
 			});
 		}
 
+		// ---- Mandatory-field gating: Camera, Activity Type and Start Time all
+		// have to be satisfied before Save & Start/End can be pressed at all. ----
+		function updateStartSaveState() {
+			var ready = state.startPhotoReady && !!els.startActivityType.value && !!els.startTime.value;
+			els.startSaveBtn.disabled = !ready;
+			els.startBtnHint.textContent = ready ? "" :
+				!state.startPhotoReady ? "Waiting for camera…" :
+				!els.startActivityType.value ? "Select an Activity Type to continue." :
+				"Start Time is required.";
+		}
+
+		function updateEndSaveState() {
+			var ready = state.endPhotoReady && !!els.endTime.value;
+			els.endSaveBtn.disabled = !ready;
+			els.endBtnHint.textContent = ready ? "" :
+				!state.endPhotoReady ? "Waiting for camera…" :
+				"End Time is required.";
+		}
+
+		els.startActivityType.addEventListener("change", updateStartSaveState);
+		els.startTime.addEventListener("input", updateStartSaveState);
+		els.endTime.addEventListener("input", updateEndSaveState);
+
 		// ---- Start screen ----
-		els.startCancelBtn.addEventListener("click", resetToLock);
+		els.startCancelBtn.addEventListener("click", showBoard);
 
 		els.startSaveBtn.addEventListener("click", function () {
 			els.startError.textContent = "";
 			var activityType = els.startActivityType.value;
 			var startTime = els.startTime.value;
 
-			if (!activityType) {
-				els.startError.textContent = "Please select an Activity Type";
+			var startPhoto = capturePhoto(els.startCameraVideo, "startStream");
+			if (!startPhoto) {
+				els.startError.textContent = "Could not capture a verification photo. Please try again.";
 				return;
 			}
+			stopCamera("startStream");
 
 			els.startSaveBtn.disabled = true;
 			els.startSaveBtn.textContent = "Saving…";
 
-			var startPhoto = capturePhoto(els.startCameraVideo, "startStream");
-			stopCamera("startStream");
-
-			call("start_session", { token: state.token, activity_type: activityType, start_time: startTime.replace("T", " "), photo: startPhoto })
+			call("start_session", {
+				token: state.token,
+				activity_type: activityType,
+				start_time: startTime.replace("T", " "),
+				photo: startPhoto,
+			})
 				.then(function () {
-					els.doneTitle.textContent = "Timesheet started";
+					els.doneTitle.textContent = "Your Time is Start Now";
 					els.doneMessage.textContent = "Have a productive shift!";
-					showScreen("done");
-					setTimeout(resetToLock, 2200);
+					showFlowScreen("done");
+					setTimeout(showBoard, 2200);
 				})
 				.catch(function (err) {
 					els.startError.textContent = err.message || "Could not start session";
-				})
-				.finally(function () {
 					els.startSaveBtn.disabled = false;
 					els.startSaveBtn.textContent = "Save & Start";
 				});
 		});
 
 		// ---- End screen ----
-		els.endCancelBtn.addEventListener("click", resetToLock);
+		els.endCancelBtn.addEventListener("click", showBoard);
 
 		els.endSaveBtn.addEventListener("click", function () {
 			els.endError.textContent = "";
 			var endTime = els.endTime.value;
 
+			var endPhoto = capturePhoto(els.endCameraVideo, "endStream");
+			if (!endPhoto) {
+				els.endError.textContent = "Could not capture a verification photo. Please try again.";
+				return;
+			}
+			stopCamera("endStream");
+
 			els.endSaveBtn.disabled = true;
 			els.endSaveBtn.textContent = "Saving…";
-
-			var endPhoto = capturePhoto(els.endCameraVideo, "endStream");
-			stopCamera("endStream");
 
 			call("end_session", { token: state.token, end_time: endTime.replace("T", " "), photo: endPhoto })
 				.then(function (result) {
 					els.doneTitle.textContent = "Timesheet completed";
 					els.doneMessage.textContent = result.hours + " hour(s) logged for " + result.activity_type;
-					showScreen("done");
-					setTimeout(resetToLock, 2800);
+					showFlowScreen("done");
+					setTimeout(showBoard, 2800);
 				})
 				.catch(function (err) {
 					els.endError.textContent = err.message || "Could not end session";
-				})
-				.finally(function () {
 					els.endSaveBtn.disabled = false;
 					els.endSaveBtn.textContent = "Save & End";
 				});
 		});
 
-		resetToLock();
+		boardTimerHandle = setInterval(tickBoardTimers, 1000);
+		boardRefreshHandle = setInterval(function () {
+			if (!els.boardScreen.hidden) loadBoard();
+		}, 30000);
+
+		showBoard();
 	})();
 	</script>
 </body>

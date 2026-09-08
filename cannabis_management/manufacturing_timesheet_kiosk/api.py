@@ -5,11 +5,17 @@
 API endpoints for the Manufacturing Timesheet Kiosk (``/manufacturing-timesheet``).
 
 Flow:
-	1. verify_access_code(access_code) ->
-		{token, employee, employee_name, open_session, recent_timesheets}
-	2. start_session(token, activity_type, start_time) -> {name}
+	1. get_employee_board() -> every kiosk-enabled employee, with their running
+	   timer if any. This is the page the kiosk sits on with nobody logged in -
+	   allow_guest, no code needed yet.
+	2. Employee taps their own card's Start/End button -> the page asks for their
+	   code -> verify_access_code(access_code, employee) ->
+	   {token, employee, employee_name, open_session, recent_timesheets}. Passing
+	   `employee` (the card that was tapped) makes sure the code that was typed
+	   actually belongs to *that* card, not just *some* employee.
+	3. start_session(token, activity_type, start_time, photo) -> {name}
 	   OR
-	   end_session(token, end_time) -> {timesheet, hours}
+	   end_session(token, end_time, photo) -> {timesheet, hours}
 
 `token` is a short-lived (5 minute), single-use handle returned by
 verify_access_code. It stands in for the employee for the rest of the flow so the
@@ -27,17 +33,17 @@ erpnext/public/js/projects/timer.js). ERPNext only enforces "hours must be > 0" 
 so a Draft can sit half-filled indefinitely. Ending the session fills in to_time/hours
 and submits it.
 
-Optional verification photo: start_session/end_session both accept a ``photo``
-(base64 data URL from the kiosk page's camera capture) and attach it as a *private*
-File on the Timesheet - see _save_photo. The kiosk page shows an on-screen notice and
-a live camera preview before capturing; there is no undisclosed/hidden capture path
-here on purpose.
+Verification photo: start_session/end_session both *require* a `photo` (base64 data
+URL from the kiosk page's camera capture) - Camera, Activity Type and Start Time are
+all mandatory now, matching what the kiosk UI enforces client-side. The photo is
+written straight into a Long Text field on the Timesheet (see custom_fields.py) rather
+than saved as a File attachment - deliberately, so there is nothing for anyone to
+detach/delete independently of the Timesheet row itself.
 """
 
 import frappe
 from frappe import _
 from frappe.utils import flt, get_datetime, now_datetime
-from frappe.utils.file_manager import save_file
 
 from cannabis_management.manufacturing_timesheet_kiosk.custom_fields import (
 	EMPLOYEE_FIELDS,
@@ -125,28 +131,6 @@ def _get_open_timesheet(employee):
 	return row[0] if row else None
 
 
-def _save_photo(photo, filename, timesheet_name):
-	"""Attach a base64 verification photo to the Timesheet as a private File.
-
-	Never blocks the actual start/end action - a camera glitch or a browser that
-	denied permission shouldn't stop someone from clocking in/out, so failures here
-	are logged and swallowed rather than raised.
-	"""
-	if not photo:
-		return
-	try:
-		save_file(
-			filename,
-			photo,
-			"Timesheet",
-			timesheet_name,
-			decode=True,
-			is_private=1,
-		)
-	except Exception:
-		frappe.log_error(title=f"Kiosk verification photo failed for {timesheet_name}")
-
-
 def _get_recent_timesheets(employee, limit=5):
 	"""Last few *submitted* Timesheets for this employee, most recent first.
 
@@ -174,6 +158,36 @@ def _get_recent_timesheets(employee, limit=5):
 
 
 @frappe.whitelist(allow_guest=True)
+def get_employee_board():
+	"""Every kiosk-enabled employee plus their running timer, if any.
+
+	This is what the kiosk shows before anyone has entered a code - one "job card"
+	per employee with a Start or End button on it. Tapping a card is what triggers
+	the code prompt (see verify_access_code's `employee` argument), not this call.
+	"""
+	employees = frappe.get_all(
+		"Employee",
+		filters={"status": "Active", CODE_FIELD: ["is", "set"]},
+		fields=["name", "employee_name"],
+		order_by="employee_name asc",
+	)
+
+	board = []
+	for emp in employees:
+		open_ts = _get_open_timesheet(emp.name)
+		board.append(
+			{
+				"employee": emp.name,
+				"employee_name": emp.employee_name,
+				"running": bool(open_ts),
+				"activity_type": open_ts.activity_type if open_ts else None,
+				"start_time": open_ts.from_time if open_ts else None,
+			}
+		)
+	return board
+
+
+@frappe.whitelist(allow_guest=True)
 def get_activity_types():
 	return frappe.get_all(
 		"Activity Type",
@@ -185,7 +199,7 @@ def get_activity_types():
 
 
 @frappe.whitelist(allow_guest=True)
-def verify_access_code(access_code):
+def verify_access_code(access_code, employee=None):
 	access_code = (access_code or "").strip()
 	if not access_code:
 		frappe.throw(_("Please enter your access code"))
@@ -197,8 +211,11 @@ def verify_access_code(access_code):
 		as_dict=True,
 	)
 
-	if not matched:
-		_log_attempt(None, "Failed", "Invalid access code")
+	# Same message either way - whether the code is wrong outright, or is a real
+	# code that just belongs to someone else's card - so failed attempts can't be
+	# used to probe whose code is whose.
+	if not matched or (employee and matched.name != employee):
+		_log_attempt(matched.name if matched else None, "Failed", "Invalid access code")
 		frappe.throw(_("Invalid access code"))
 
 	_log_attempt(matched.name, "Success")
@@ -222,13 +239,19 @@ def verify_access_code(access_code):
 def start_session(token, activity_type, start_time=None, photo=None):
 	employee = _resolve_token(token)
 
+	# Camera, Activity Type and Start Time are all mandatory - none of these are
+	# optional extras the kiosk can silently skip.
 	if not activity_type:
 		frappe.throw(_("Please select an Activity Type"))
+	if not photo:
+		frappe.throw(_("A verification photo is required to start."))
+	if not start_time:
+		start_time = now_datetime()
 
 	if _get_open_timesheet(employee):
 		frappe.throw(_("This employee already has an open kiosk session."))
 
-	start_dt = get_datetime(start_time) if start_time else now_datetime()
+	start_dt = get_datetime(start_time)
 	company = frappe.db.get_value("Employee", employee, "company")
 
 	# Draft, one incomplete row - the same shape Desk's "Start Timer" leaves behind.
@@ -240,6 +263,7 @@ def start_session(token, activity_type, start_time=None, photo=None):
 			"doctype": "Timesheet",
 			"employee": employee,
 			"company": company,
+			"custom_start_verification_photo": photo,
 			"time_logs": [
 				{
 					"activity_type": activity_type,
@@ -250,7 +274,6 @@ def start_session(token, activity_type, start_time=None, photo=None):
 		}
 	)
 	doc.insert(ignore_permissions=True)
-	_save_photo(photo, "kiosk-start-photo.jpg", doc.name)
 	frappe.db.commit()
 	frappe.cache().delete_value(f"kiosk_token:{token}")
 
@@ -260,6 +283,9 @@ def start_session(token, activity_type, start_time=None, photo=None):
 @frappe.whitelist(allow_guest=True)
 def end_session(token, end_time=None, photo=None):
 	employee = _resolve_token(token)
+
+	if not photo:
+		frappe.throw(_("A verification photo is required to end."))
 
 	open_ts = _get_open_timesheet(employee)
 	if not open_ts:
@@ -283,8 +309,8 @@ def end_session(token, end_time=None, photo=None):
 	row.to_time = end_dt
 	row.hours = hours
 	row.completed = 1
+	timesheet.custom_end_verification_photo = photo
 	timesheet.save(ignore_permissions=True)
-	_save_photo(photo, "kiosk-end-photo.jpg", timesheet.name)
 	timesheet.submit()
 
 	frappe.db.commit()
