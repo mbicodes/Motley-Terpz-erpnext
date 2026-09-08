@@ -437,6 +437,10 @@ doc_events = {
     },
     "Timesheet": {
         "after_insert": "cannabis_management.overrides.timesheet_hooks.auto_submit_timesheet",
+        # A Timesheet holding a kiosk verification photo cannot be deleted by
+        # anyone - the photo is the record. Cancel it instead. See that module's
+        # docstring for why this is a document guard and not a permission tweak.
+        "on_trash": "cannabis_management.manufacturing_timesheet_kiosk.timesheet_hooks.on_trash",
     },
     "Customer": {
         # Credit & AR policy exemption: keep the displayed state honest when the
