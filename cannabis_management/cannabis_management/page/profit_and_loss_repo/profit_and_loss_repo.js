@@ -1181,10 +1181,16 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
     // Mirrors erpnext.financial_statements.open_general_ledger (financial_statements.js)
     // so the behaviour matches the standard Profit and Loss Statement report.
     function openGeneralLedger(row) {
-        if (!row || !row.account) return;
+        if (!row) return;
+
+        // Rows in the Indirect Income / Indirect Expense recap sections carry
+        // a synthetic tree key in `account` ("<account>::recap") and the real
+        // Account name in `gl_account` — drill through on the real one.
+        var account = row.gl_account || row.account;
+        if (!account) return;
 
         frappe.route_options = {
-            account: row.account,
+            account: account,
             company: state.company,
             from_date: row.from_date || row.year_start_date,
             to_date: row.to_date || row.year_end_date,
@@ -1196,7 +1202,7 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
         var report = "General Ledger";
         if (["Payable", "Receivable"].includes(row.account_type)) {
             report = row.account_type === "Payable" ? "Accounts Payable" : "Accounts Receivable";
-            frappe.route_options.party_account = row.account;
+            frappe.route_options.party_account = account;
             frappe.route_options.report_date = row.year_end_date;
         }
 

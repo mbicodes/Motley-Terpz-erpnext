@@ -442,6 +442,11 @@ doc_events = {
         # docstring for why this is a document guard and not a permission tweak.
         "on_trash": "cannabis_management.manufacturing_timesheet_kiosk.timesheet_hooks.on_trash",
     },
+    "File": {
+        # ...and neither can the photo file itself, which is a separate document the
+        # Timesheet field only points at - see that module's docstring.
+        "on_trash": "cannabis_management.manufacturing_timesheet_kiosk.timesheet_hooks.on_trash_file",
+    },
     "Customer": {
         # Credit & AR policy exemption: keep the displayed state honest when the
         # flag is toggled. The engines read the flag live, so nothing migrates.

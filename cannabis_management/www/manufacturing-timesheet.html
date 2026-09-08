@@ -629,15 +629,16 @@
 		}
 
 		function toLocalInputValue(date) {
-			var d = date ? new Date(date) : new Date();
+			// Default to *site* now: whatever is typed here is stored verbatim as a
+			// bare `from_time`, which the rest of the system reads on the site's clock.
+			var d = date ? new Date(date) : new Date(siteNowMs());
 			var pad = function (n) { return String(n).padStart(2, "0"); };
 			return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) +
 				"T" + pad(d.getHours()) + ":" + pad(d.getMinutes());
 		}
 
 		function formatDisplay(date) {
-			var d = new Date(date);
-			return d.toLocaleString();
+			return parseLocalDate(date).toLocaleString();
 		}
 
 		// Frappe sends dates as plain "YYYY-MM-DD[ HH:MM:SS]" strings with no
@@ -745,6 +746,19 @@
 			return canvas.toDataURL("image/jpeg", 0.85);
 		}
 
+		// How far this browser's clock sits from the server's, learned from the `Date`
+		// header every response carries. Applied before any time is read, so a tablet
+		// whose clock has drifted - or was never set - still shows the same figures as
+		// every other screen. Stays 0 until the first response, which is the board load.
+		var serverSkewMs = 0;
+
+		function noteServerTime(res) {
+			var header = res.headers.get("Date");
+			if (!header) return;
+			var serverMs = new Date(header).getTime();
+			if (!isNaN(serverMs)) serverSkewMs = serverMs - Date.now();
+		}
+
 		function call(method, args) {
 			return fetch(API + method, {
 				method: "POST",
@@ -754,6 +768,7 @@
 				},
 				body: JSON.stringify(args || {}),
 			}).then(function (res) {
+				noteServerTime(res);
 				return res.json().then(function (data) {
 					if (!res.ok) {
 						var msg = (data && data._server_messages) || (data && data.exception) || "Something went wrong";
@@ -769,15 +784,66 @@
 		}
 
 		// ---- Board ----
-		function formatElapsed(startTime) {
-			var start = parseLocalDate(startTime).getTime();
-			var elapsed = Math.max(0, Date.now() - start);
-			var totalSeconds = Math.floor(elapsed / 1000);
+		// Elapsed comes from the server (`elapsed_seconds`) and is only ticked forward
+		// locally between refreshes, so the tablet's timezone never enters the sum -
+		// a kiosk set to the wrong zone used to read hours off the true elapsed time.
+		function formatElapsed(totalSeconds) {
+			totalSeconds = Math.max(0, Math.floor(totalSeconds || 0));
 			var h = Math.floor(totalSeconds / 3600);
 			var m = Math.floor((totalSeconds % 3600) / 60);
 			var s = totalSeconds % 60;
 			var pad = function (n) { return String(n).padStart(2, "0"); };
 			return pad(h) + ":" + pad(m) + ":" + pad(s);
+		}
+
+		function timerSeconds(el) {
+			var drift = (Date.now() - Number(el.dataset.clientBase)) / 1000;
+			return Number(el.dataset.elapsedBase) + drift;
+		}
+
+		// `from_time` is a bare wall-clock string read off the plant's clock, so it can
+		// only be subtracted from a reading of that same clock. A tablet elsewhere that
+		// subtracts its own `Date.now()` folds the whole offset into every timer - a
+		// UTC+5 tablet showed 14:34 for a 34-minute session. Nothing local is trusted:
+		// the instant comes from the server (see serverSkewMs) and is then re-expressed
+		// on the plant's clock, so changing the viewer's timezone changes nothing here.
+		// Keep this in step with KIOSK_TIMEZONE in manufacturing_timesheet_kiosk/api.py.
+		var KIOSK_TZ = "America/Los_Angeles";
+		var siteClock = null;
+		try {
+			siteClock = new Intl.DateTimeFormat("en-US", {
+				timeZone: KIOSK_TZ,
+				hour12: false,
+				year: "numeric", month: "2-digit", day: "2-digit",
+				hour: "2-digit", minute: "2-digit", second: "2-digit",
+			});
+		} catch (e) {
+			siteClock = null;
+		}
+
+		function siteNowMs() {
+			// The server's instant, not the tablet's, re-expressed on the plant's clock.
+			var instant = new Date(Date.now() + serverSkewMs);
+			if (!siteClock) return instant.getTime();
+			var p = {};
+			siteClock.formatToParts(instant).forEach(function (part) { p[part.type] = part.value; });
+			// Built the same way parseLocalDate() builds `from_time`, so both land on
+			// one clock and their difference is the true elapsed time. `% 24` because
+			// some engines render midnight as hour "24" under hour12:false.
+			return new Date(
+				Number(p.year), Number(p.month) - 1, Number(p.day),
+				Number(p.hour) % 24, Number(p.minute), Number(p.second)
+			).getTime();
+		}
+
+		// How long this employee has been running, as of the moment the board loaded.
+		// `elapsed_seconds` is the server's own measurement and is preferred when the
+		// app worker is new enough to send it; otherwise measure it here, on the site's
+		// clock, rather than leaving the card stuck at 00:00:00.
+		function runningSeconds(emp) {
+			if (emp.elapsed_seconds != null) return Math.max(0, Number(emp.elapsed_seconds));
+			if (!emp.start_time) return 0;
+			return Math.max(0, (siteNowMs() - parseLocalDate(emp.start_time).getTime()) / 1000);
 		}
 
 		function buildJobCard(emp) {
@@ -797,8 +863,9 @@
 			var timer = document.createElement("div");
 			timer.className = "jc-timer";
 			if (emp.running) {
-				timer.dataset.startTime = emp.start_time;
-				timer.textContent = formatElapsed(emp.start_time);
+				timer.dataset.elapsedBase = runningSeconds(emp);
+				timer.dataset.clientBase = Date.now();
+				timer.textContent = formatElapsed(Number(timer.dataset.elapsedBase));
 			} else {
 				timer.textContent = "—";
 			}
@@ -865,8 +932,8 @@
 		}
 
 		function tickBoardTimers() {
-			document.querySelectorAll(".jc-timer[data-start-time]").forEach(function (el) {
-				el.textContent = formatElapsed(el.dataset.startTime);
+			document.querySelectorAll(".jc-timer[data-elapsed-base]").forEach(function (el) {
+				el.textContent = formatElapsed(timerSeconds(el));
 			});
 		}
 

@@ -35,15 +35,25 @@ and submits it.
 
 Verification photo: start_session/end_session both *require* a `photo` (base64 data
 URL from the kiosk page's camera capture) - Camera, Activity Type and Start Time are
-all mandatory now, matching what the kiosk UI enforces client-side. The photo is
-written straight into a Long Text field on the Timesheet (see custom_fields.py) rather
-than saved as a File attachment - deliberately, so there is nothing for anyone to
-detach/delete independently of the Timesheet row itself.
+all mandatory now, matching what the kiosk UI enforces client-side. The data URL is
+decoded once, here, and stored as a private File attached to the Timesheet; the
+Timesheet's Attach Image field then holds that file's URL (see custom_fields.py). So
+the photo shows as a picture on the Timesheet and opens by clicking it - nobody has to
+copy base64 out of a text box and decode it by hand.
+
+Neither the file nor the Timesheet can be deleted, by anyone: see the two guards in
+timesheet_hooks.py. Those guards are what makes the photo permanent - not the storage
+shape - because a File is inherently a separate document from the field pointing at it.
 """
+
+import base64
+import binascii
+import datetime
+import re
 
 import frappe
 from frappe import _
-from frappe.utils import flt, get_datetime, now_datetime
+from frappe.utils import convert_utc_to_timezone, flt, get_datetime
 
 from cannabis_management.manufacturing_timesheet_kiosk.custom_fields import (
 	EMPLOYEE_FIELDS,
@@ -75,6 +85,7 @@ BOARD_GROUPS = [
 			"HR-EMP-00014",  # Tori Sutliff
 			"HR-EMP-00007",  # Wolf
 			"HR-EMP-00023",  # Leo
+			"HR-EMP-00024",  # Brian
 		],
 	},
 	{
@@ -108,7 +119,7 @@ def _log_attempt(employee, status, reason=None):
 				"status": status,
 				"reason": reason,
 				"ip_address": _client_ip(),
-				"attempted_at": now_datetime(),
+				"attempted_at": _kiosk_now(),
 			}
 		).insert(ignore_permissions=True)
 		frappe.db.commit()  # nosemgrep - audit log must persist even if caller rolls back
@@ -138,6 +149,30 @@ def _resolve_token(token):
 		frappe.throw(_("Your session has expired. Please enter your access code again."))
 
 	return employee
+
+
+#: The plant floor's own timezone. Every ``from_time`` the kiosk writes is a wall
+#: clock reading taken here, so every comparison against one has to be made on this
+#: same clock. This deliberately does not follow System Settings, whose timezone is
+#: America/Adak - two hours behind the plant - which made every running timer read
+#: two hours short and pushed freshly entered start times into the future.
+#: Correcting System Settings to match is the real fix; until then this keeps the
+#: kiosk self-consistent, and it stays correct once that is done too.
+KIOSK_TIMEZONE = "America/Los_Angeles"
+
+
+def _kiosk_now():
+	"""Current time on the plant's clock, as a naive datetime."""
+	utc_now = datetime.datetime.now(datetime.timezone.utc)
+	return convert_utc_to_timezone(utc_now, KIOSK_TIMEZONE).replace(tzinfo=None)
+
+
+def _elapsed_seconds(from_time, now=None):
+	"""Whole seconds between ``from_time`` and now, both on the plant's clock."""
+	if not from_time:
+		return None
+	now = now or _kiosk_now()
+	return max(0, int((now - get_datetime(from_time)).total_seconds()))
 
 
 def _get_open_timesheet(employee):
@@ -218,6 +253,11 @@ def get_employee_board():
 		)
 	}
 
+	# Elapsed is measured here rather than in the browser: the kiosk tablet's own
+	# clock and timezone then stop mattering, so a card can no longer read hours out
+	# just because the tablet is set to a different zone than System Settings.
+	now = _kiosk_now()
+
 	board = []
 	for group in BOARD_GROUPS:
 		cards = []
@@ -232,6 +272,7 @@ def get_employee_board():
 					"running": bool(open_ts),
 					"activity_type": open_ts.activity_type if open_ts else None,
 					"start_time": open_ts.from_time if open_ts else None,
+					"elapsed_seconds": _elapsed_seconds(open_ts.from_time, now) if open_ts else None,
 				}
 			)
 		if cards:
@@ -288,6 +329,59 @@ def verify_access_code(access_code, employee=None):
 	}
 
 
+# What the page's canvas.toDataURL() produces. Kept strict on purpose: this is a
+# guest endpoint, and the only thing that should ever reach it is an image the kiosk
+# just captured.
+_DATA_URL = re.compile(r"^data:image/(jpeg|jpg|png|webp);base64,(?P<payload>[A-Za-z0-9+/=\s]+)$")
+
+# A generous ceiling for one captured frame - the kiosk's own captures run ~55KB at
+# 640x480. Not a tuning knob: it is here so a guest cannot post an arbitrarily large
+# body and have it land on disk.
+MAX_PHOTO_BYTES = 8 * 1024 * 1024
+
+
+def _store_photo(timesheet, fieldname, data_url, label):
+	"""Decode a captured data URL onto disk and return the private file's URL.
+
+	The File is attached to the Timesheet and to `fieldname`, which is what makes it
+	show up as the picture in that Attach Image field rather than as a loose
+	attachment, and what lets the guard in timesheet_hooks.py recognise it later.
+
+	Private (is_private=1): a verification photo of a worker should not be readable
+	by URL alone. Frappe gates private files on read permission for the document they
+	are attached to, so this inherits Timesheet's permissions.
+	"""
+	match = _DATA_URL.match((data_url or "").strip())
+	if not match:
+		frappe.throw(_("The verification photo was not in a format the kiosk recognises."))
+
+	try:
+		content = base64.b64decode(match.group("payload"), validate=False)
+	except (binascii.Error, ValueError):
+		frappe.throw(_("The verification photo could not be read. Please try again."))
+
+	if not content:
+		frappe.throw(_("The verification photo was empty. Please try again."))
+	if len(content) > MAX_PHOTO_BYTES:
+		frappe.throw(_("The verification photo is too large."))
+
+	extension = "jpg" if match.group(1) in ("jpeg", "jpg") else match.group(1)
+
+	file_doc = frappe.get_doc(
+		{
+			"doctype": "File",
+			"file_name": f"{timesheet}-{label}.{extension}",
+			"attached_to_doctype": "Timesheet",
+			"attached_to_name": timesheet,
+			"attached_to_field": fieldname,
+			"is_private": 1,
+			"content": content,
+		}
+	)
+	file_doc.insert(ignore_permissions=True)
+	return file_doc.file_url
+
+
 @frappe.whitelist(allow_guest=True)
 def start_session(token, activity_type, start_time=None, photo=None):
 	employee = _resolve_token(token)
@@ -298,13 +392,13 @@ def start_session(token, activity_type, start_time=None, photo=None):
 		frappe.throw(_("Please select an Activity Type"))
 	if not photo:
 		frappe.throw(_("A verification photo is required to start."))
-	if not start_time:
-		start_time = now_datetime()
+	# The kiosk sends this already expressed on the site's clock (it converts through
+	# System Settings' timezone before filling the picker), so it is stored verbatim.
+	start_dt = get_datetime(start_time) if start_time else _kiosk_now()
 
 	if _get_open_timesheet(employee):
 		frappe.throw(_("This employee already has an open kiosk session."))
 
-	start_dt = get_datetime(start_time)
 	company = frappe.db.get_value("Employee", employee, "company")
 
 	# Draft, one incomplete row - the same shape Desk's "Start Timer" leaves behind.
@@ -316,7 +410,6 @@ def start_session(token, activity_type, start_time=None, photo=None):
 			"doctype": "Timesheet",
 			"employee": employee,
 			"company": company,
-			"custom_start_verification_photo": photo,
 			"time_logs": [
 				{
 					"activity_type": activity_type,
@@ -327,6 +420,16 @@ def start_session(token, activity_type, start_time=None, photo=None):
 		}
 	)
 	doc.insert(ignore_permissions=True)
+
+	# After the insert, not before: a File has to name the document it is attached to,
+	# and the Timesheet has no name until it exists. db_set rather than another save so
+	# this writes the one field without re-running validation on a Draft that ERPNext
+	# already considers half-finished.
+	doc.db_set(
+		"custom_start_verification_photo",
+		_store_photo(doc.name, "custom_start_verification_photo", photo, "start"),
+		update_modified=False,
+	)
 	frappe.db.commit()
 	frappe.cache().delete_value(f"kiosk_token:{token}")
 
@@ -345,7 +448,7 @@ def end_session(token, end_time=None, photo=None):
 		frappe.throw(_("No open kiosk session found for this employee."))
 
 	start_dt = get_datetime(open_ts.from_time)
-	end_dt = get_datetime(end_time) if end_time else now_datetime()
+	end_dt = get_datetime(end_time) if end_time else _kiosk_now()
 
 	if end_dt <= start_dt:
 		frappe.throw(_("End time must be after the start time."))
@@ -362,7 +465,9 @@ def end_session(token, end_time=None, photo=None):
 	row.to_time = end_dt
 	row.hours = hours
 	row.completed = 1
-	timesheet.custom_end_verification_photo = photo
+	timesheet.custom_end_verification_photo = _store_photo(
+		timesheet.name, "custom_end_verification_photo", photo, "end"
+	)
 	timesheet.save(ignore_permissions=True)
 	timesheet.submit()
 
