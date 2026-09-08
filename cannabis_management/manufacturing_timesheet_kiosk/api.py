@@ -5,9 +5,9 @@
 API endpoints for the Manufacturing Timesheet Kiosk (``/manufacturing-timesheet``).
 
 Flow:
-	1. get_employee_board() -> every kiosk-enabled employee, with their running
-	   timer if any. This is the page the kiosk sits on with nobody logged in -
-	   allow_guest, no code needed yet.
+	1. get_employee_board() -> this kiosk's rostered employees (see BOARD_GROUPS),
+	   grouped, with their running timer if any. This is the page the kiosk sits on
+	   with nobody logged in - allow_guest, no code needed yet.
 	2. Employee taps their own card's Start/End button -> the page asks for their
 	   code -> verify_access_code(access_code, employee) ->
 	   {token, employee, employee_name, open_session, recent_timesheets}. Passing
@@ -51,6 +51,40 @@ from cannabis_management.manufacturing_timesheet_kiosk.custom_fields import (
 
 CODE_FIELD = EMPLOYEE_FIELDS[0]["fieldname"]
 TOKEN_TTL_SECONDS = 300
+
+# Which employees this kiosk's board shows, and under which heading.
+#
+# Holding a Kiosk Access Code is what lets someone clock in; it is *not* on its own
+# a reason to put their card on this board. This kiosk sits on the Master Touch floor,
+# so it lists only the people who clock in here - staff at the other sites keep their
+# codes for their own kiosk without cluttering this screen.
+#
+# Keyed by Employee id, not employee_name: names are editable and not unique, ids are.
+# Order here is the order the cards appear in - not alphabetical.
+#
+# A group with title None renders with no heading of its own; it sits directly under
+# the page header (see the <h1> in manufacturing-timesheet.html), which already names
+# the site. Give a group a title to break it out under its own heading.
+BOARD_GROUPS = [
+	{
+		"title": None,
+		"employees": [
+			"HR-EMP-00020",  # Kayley B
+			"HR-EMP-00022",  # Conner
+			"HR-EMP-00021",  # Israel
+			"HR-EMP-00014",  # Tori Sutliff
+			"HR-EMP-00007",  # Wolf
+			"HR-EMP-00023",  # Leo
+		],
+	},
+	{
+		"title": "Hemet Distro",
+		"employees": [
+			"HR-EMP-00008",  # Manny
+			"HR-EMP-00006",  # Sean Carter
+		],
+	},
+]
 
 
 def _client_ip():
@@ -159,31 +193,50 @@ def _get_recent_timesheets(employee, limit=5):
 
 @frappe.whitelist(allow_guest=True)
 def get_employee_board():
-	"""Every kiosk-enabled employee plus their running timer, if any.
+	"""The kiosk's rostered employees, grouped, each with their running timer if any.
 
 	This is what the kiosk shows before anyone has entered a code - one "job card"
-	per employee with a Start or End button on it. Tapping a card is what triggers
+	per rostered employee, under its group's heading. Tapping a card is what triggers
 	the code prompt (see verify_access_code's `employee` argument), not this call.
+
+	Returns ``[{"title": str | None, "employees": [card, ...]}, ...]`` in BOARD_GROUPS
+	order. Only employees named in BOARD_GROUPS appear, and only while they are Active
+	with a code set: a card whose owner has no code would be a dead end, since
+	verify_access_code could never match it. An empty group is dropped rather than
+	rendered as a bare heading.
 	"""
-	employees = frappe.get_all(
-		"Employee",
-		filters={"status": "Active", CODE_FIELD: ["is", "set"]},
-		fields=["name", "employee_name"],
-		order_by="employee_name asc",
-	)
+	rostered = [employee for group in BOARD_GROUPS for employee in group["employees"]]
+	if not rostered:
+		return []
+
+	eligible = {
+		row.name: row.employee_name
+		for row in frappe.get_all(
+			"Employee",
+			filters={"name": ["in", rostered], "status": "Active", CODE_FIELD: ["is", "set"]},
+			fields=["name", "employee_name"],
+		)
+	}
 
 	board = []
-	for emp in employees:
-		open_ts = _get_open_timesheet(emp.name)
-		board.append(
-			{
-				"employee": emp.name,
-				"employee_name": emp.employee_name,
-				"running": bool(open_ts),
-				"activity_type": open_ts.activity_type if open_ts else None,
-				"start_time": open_ts.from_time if open_ts else None,
-			}
-		)
+	for group in BOARD_GROUPS:
+		cards = []
+		for employee in group["employees"]:
+			if employee not in eligible:
+				continue
+			open_ts = _get_open_timesheet(employee)
+			cards.append(
+				{
+					"employee": employee,
+					"employee_name": eligible[employee],
+					"running": bool(open_ts),
+					"activity_type": open_ts.activity_type if open_ts else None,
+					"start_time": open_ts.from_time if open_ts else None,
+				}
+			)
+		if cards:
+			board.append({"title": group["title"], "employees": cards})
+
 	return board
 
 

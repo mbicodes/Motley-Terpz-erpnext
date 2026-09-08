@@ -23,7 +23,7 @@
 		[hidden] { display: none !important; }
 
 		/* ---------------------------------------------------------------- */
-		/* Board (default view: one job card per kiosk-enabled employee)     */
+		/* Board (default view: one job card per rostered employee)          */
 		/* ---------------------------------------------------------------- */
 
 		#screen-board {
@@ -46,6 +46,22 @@
 		.board-header p {
 			font-size: 13px;
 			color: #aab3c8;
+		}
+
+		/* One section per board group; a group with no title has no heading. */
+		.board-group + .board-group {
+			margin-top: 30px;
+		}
+
+		.board-group-title {
+			font-size: 14px;
+			font-weight: 600;
+			letter-spacing: 0.06em;
+			text-transform: uppercase;
+			color: #aab3c8;
+			margin-bottom: 14px;
+			padding-bottom: 8px;
+			border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 		}
 
 		.board-grid {
@@ -426,13 +442,13 @@
 </head>
 <body>
 
-	<!-- BOARD SCREEN (default: every kiosk-enabled employee as a job card) -->
+	<!-- BOARD SCREEN (default: this kiosk's rostered employees as job cards) -->
 	<div id="screen-board">
 		<div class="board-header">
-			<h1>Manufacturing Timesheet</h1>
+			<h1>Master Touch Manufacturing</h1>
 			<p>Tap your card to clock in or out</p>
 		</div>
-		<div class="board-grid" id="board-grid"></div>
+		<div id="board-groups"></div>
 		<div class="board-footer-note">Every attempt is recorded.</div>
 	</div>
 
@@ -561,7 +577,7 @@
 
 		var els = {
 			boardScreen: document.getElementById("screen-board"),
-			boardGrid: document.getElementById("board-grid"),
+			boardGroups: document.getElementById("board-groups"),
 			flowLayout: document.getElementById("flow-layout"),
 			card: document.getElementById("kiosk-card"),
 			screens: {
@@ -764,58 +780,87 @@
 			return pad(h) + ":" + pad(m) + ":" + pad(s);
 		}
 
-		function renderBoard(board) {
-			els.boardGrid.innerHTML = "";
+		function buildJobCard(emp) {
+			var card = document.createElement("div");
+			card.className = "job-card" + (emp.running ? " running" : "");
 
-			if (!board || !board.length) {
+			var name = document.createElement("div");
+			name.className = "jc-name";
+			name.textContent = emp.employee_name;
+			card.appendChild(name);
+
+			var status = document.createElement("div");
+			status.className = "jc-status";
+			status.innerHTML = "<span class='jc-dot'></span><span>" + (emp.running ? "Running" : "Not started") + "</span>";
+			card.appendChild(status);
+
+			var timer = document.createElement("div");
+			timer.className = "jc-timer";
+			if (emp.running) {
+				timer.dataset.startTime = emp.start_time;
+				timer.textContent = formatElapsed(emp.start_time);
+			} else {
+				timer.textContent = "—";
+			}
+			card.appendChild(timer);
+
+			if (emp.running && emp.activity_type) {
+				var activity = document.createElement("div");
+				activity.className = "jc-activity";
+				activity.textContent = emp.activity_type;
+				card.appendChild(activity);
+			}
+
+			var btn = document.createElement("button");
+			btn.type = "button";
+			btn.className = "jc-btn " + (emp.running ? "jc-end" : "jc-start");
+			btn.textContent = emp.running ? "End" : "Start";
+			btn.addEventListener("click", function () {
+				openCodeScreen(emp.employee, emp.employee_name, emp.running ? "end" : "start");
+			});
+			card.appendChild(btn);
+
+			return card;
+		}
+
+		// `groups` is get_employee_board()'s reply: [{title, employees: [...]}, ...].
+		// A group with no title gets no heading - it sits under the page header.
+		function renderBoard(groups) {
+			els.boardGroups.innerHTML = "";
+
+			var total = (groups || []).reduce(function (n, group) {
+				return n + ((group.employees || []).length);
+			}, 0);
+
+			if (!total) {
 				var empty = document.createElement("div");
 				empty.className = "board-empty";
 				empty.textContent = "No employees are set up for kiosk access yet.";
-				els.boardGrid.appendChild(empty);
+				els.boardGroups.appendChild(empty);
 				return;
 			}
 
-			board.forEach(function (emp) {
-				var card = document.createElement("div");
-				card.className = "job-card" + (emp.running ? " running" : "");
+			groups.forEach(function (group) {
+				if (!group.employees || !group.employees.length) return;
 
-				var name = document.createElement("div");
-				name.className = "jc-name";
-				name.textContent = emp.employee_name;
-				card.appendChild(name);
+				var section = document.createElement("div");
+				section.className = "board-group";
 
-				var status = document.createElement("div");
-				status.className = "jc-status";
-				status.innerHTML = "<span class='jc-dot'></span><span>" + (emp.running ? "Running" : "Not started") + "</span>";
-				card.appendChild(status);
-
-				var timer = document.createElement("div");
-				timer.className = "jc-timer";
-				if (emp.running) {
-					timer.dataset.startTime = emp.start_time;
-					timer.textContent = formatElapsed(emp.start_time);
-				} else {
-					timer.textContent = "—";
-				}
-				card.appendChild(timer);
-
-				if (emp.running && emp.activity_type) {
-					var activity = document.createElement("div");
-					activity.className = "jc-activity";
-					activity.textContent = emp.activity_type;
-					card.appendChild(activity);
+				if (group.title) {
+					var title = document.createElement("h2");
+					title.className = "board-group-title";
+					title.textContent = group.title;
+					section.appendChild(title);
 				}
 
-				var btn = document.createElement("button");
-				btn.type = "button";
-				btn.className = "jc-btn " + (emp.running ? "jc-end" : "jc-start");
-				btn.textContent = emp.running ? "End" : "Start";
-				btn.addEventListener("click", function () {
-					openCodeScreen(emp.employee, emp.employee_name, emp.running ? "end" : "start");
+				var grid = document.createElement("div");
+				grid.className = "board-grid";
+				group.employees.forEach(function (emp) {
+					grid.appendChild(buildJobCard(emp));
 				});
-				card.appendChild(btn);
+				section.appendChild(grid);
 
-				els.boardGrid.appendChild(card);
+				els.boardGroups.appendChild(section);
 			});
 		}
 
@@ -827,7 +872,7 @@
 
 		function loadBoard() {
 			return call("get_employee_board").then(renderBoard).catch(function () {
-				els.boardGrid.innerHTML = "<div class='board-empty'>Could not load the board. Retrying…</div>";
+				els.boardGroups.innerHTML = "<div class='board-empty'>Could not load the board. Retrying…</div>";
 			});
 		}
 
