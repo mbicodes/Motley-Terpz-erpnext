@@ -20,11 +20,15 @@
   "column_break_receipt",
   "receipt_preview",
   "transaction_notes",
+  "processed_section",
+  "processed",
+  "processed_by",
+  "processed_on",
   "amended_from"
  ],
  "fields": [
   {
-   "description": "Pick the tracker person \u2014 User and Employee fill in automatically.",
+   "description": "Pick the tracker person — User and Employee fill in automatically.",
    "fieldname": "cash_tracker_person",
    "fieldtype": "Link",
    "ignore_user_permissions": 1,
@@ -99,7 +103,7 @@
    "options": "Sales Order"
   },
   {
-   "description": "Which company was this for? If unsure \u2014 contact MBI.",
+   "description": "Which company was this for? If unsure — contact MBI.",
    "fieldname": "business",
    "fieldtype": "Link",
    "ignore_user_permissions": 1,
@@ -142,6 +146,38 @@
    "options": "Motley Cash Tracking",
    "print_hide": 1,
    "read_only": 1
+  },
+  {
+   "fieldname": "processed_section",
+   "fieldtype": "Section Break",
+   "label": "Finance",
+   "permlevel": 1
+  },
+  {
+   "fieldname": "processed",
+   "fieldtype": "Check",
+   "label": "Processed",
+   "default": "0",
+   "permlevel": 1,
+   "allow_on_submit": 1,
+   "description": "Ticked by Finance once a Journal Entry or Payment Entry has been raised for this transaction."
+  },
+  {
+   "fieldname": "processed_by",
+   "fieldtype": "Link",
+   "options": "User",
+   "label": "Processed By",
+   "read_only": 1,
+   "permlevel": 1,
+   "allow_on_submit": 1
+  },
+  {
+   "fieldname": "processed_on",
+   "fieldtype": "Datetime",
+   "label": "Processed On",
+   "read_only": 1,
+   "permlevel": 1,
+   "allow_on_submit": 1
   }
  ],
  "is_submittable": 1,
@@ -177,6 +213,18 @@
    "role": "System Manager",
    "share": 1,
    "submit": 1,
+   "write": 1
+  },
+  {
+   "role": "Finance Manager",
+   "permlevel": 1,
+   "read": 1,
+   "write": 1
+  },
+  {
+   "role": "Accounts Manager",
+   "permlevel": 1,
+   "read": 1,
    "write": 1
   }
  ],

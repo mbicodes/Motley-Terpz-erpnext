@@ -9,6 +9,21 @@ FINANCE_ROLES = {"Finance Manager", "Accounts Manager", "System Manager", "Admin
 CASH_ADMIN_USERS = {"Administrator", "mbi@alltechvirtual.com"}
 
 
+# Who may mark a cash entry as processed, and who can even see the tick.
+# Deliberately narrower than FINANCE_ROLES above, which includes System Manager —
+# a role plenty of people hold on this site. "Processed" is a statement that the
+# money has been posted, so it stays with the people who post it.
+FINANCE_TEAM_ROLES = {"Finance Manager", "Accounts Manager"}
+
+
+def can_mark_processed(user=None):
+	"""True for the finance team (and the Administrator)."""
+	user = user or frappe.session.user
+	if user == "Administrator":
+		return True
+	return bool(FINANCE_TEAM_ROLES.intersection(set(frappe.get_roles(user))))
+
+
 def is_cash_admin(user=None):
     return (user or frappe.session.user) in CASH_ADMIN_USERS
 
