@@ -3,7 +3,18 @@
 
 frappe.query_reports["Gross Profit Stock Items"] = {
 	filters: [
-		cannabis.reports.company_filter({ reqd: 1 }),
+		{
+			// Real Link to Company (not the shared cannabis.reports.company_filter
+			// Select-with-"All Company" widget) so this is a normal, permission-
+			// aware company filter — the report data (see execute() in the .py)
+			// is already scoped to whichever company is selected here.
+			fieldname: "company",
+			label: __("Company"),
+			fieldtype: "Link",
+			options: "Company",
+			reqd: 1,
+			default: frappe.defaults.get_user_default("Company") || frappe.defaults.get_default("company"),
+		},
 		{
 			fieldname: "from_date",
 			label: __("From Date"),
@@ -23,6 +34,12 @@ frappe.query_reports["Gross Profit Stock Items"] = {
 			label: __("Sales Invoice"),
 			fieldtype: "Link",
 			options: "Sales Invoice",
+			get_query: function () {
+				var company = frappe.query_report.get_filter_value("company");
+				return {
+					filters: [["Sales Invoice", "company", "=", company]],
+				};
+			},
 		},
 		{
 			fieldname: "group_by",
