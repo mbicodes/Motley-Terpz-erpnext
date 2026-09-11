@@ -18,6 +18,7 @@ the "Allow For Motley" tick on your own record.
 import frappe
 
 from cannabis_management.cash_management.permissions import (
+    can_mark_processed,
     can_use_motley,
     can_use_tsbc,
     is_cash_admin,
@@ -154,6 +155,7 @@ def get_entries(tracker="personal", person=None, from_date=None, to_date=None):
             return {
                 "rows": [], "totals": _empty_totals(),
                 "is_admin": False, "tracker": "personal",
+                "can_mark_processed": can_mark_processed(),
             }
         if tracker == "motley" and not _can_view_motley(visible):
             tracker = "personal"
@@ -182,6 +184,9 @@ def get_entries(tracker="personal", person=None, from_date=None, to_date=None):
         # Echo back what was actually served, so the page can correct its toggle
         # if it asked for Motley without the right.
         "tracker": tracker,
+        # Finance-only column; the page hides it for everyone else and
+        # set_processed re-checks, so hiding it is convenience, not security.
+        "can_mark_processed": can_mark_processed(),
     }
 
 
@@ -210,6 +215,7 @@ def _fetch_motley(person, from_date, to_date):
             "name", "transaction_date as date", "cash_tracker_person as person",
             "user", "transaction_type as category", "business",
             "money_in", "money_out", "docstatus", "transaction_notes as notes",
+            "processed", "processed_by", "processed_on",
         ],
         order_by="transaction_date desc",
     )
@@ -227,6 +233,7 @@ def _fetch_tsbc(person, from_date, to_date):
             "name", "transaction_date as date", "cash_tracker_person as person",
             "user", "transaction_type as category", "business",
             "money_in", "money_out", "docstatus", "transaction_notes as notes",
+            "processed", "processed_by", "processed_on",
         ],
         order_by="transaction_date desc",
     )
@@ -244,6 +251,7 @@ def _fetch_personal(person, from_date, to_date):
             "name", "transaction_date as date", "cash_tracker_person as person",
             "user", "transaction_type as category", "reason as notes",
             "money_in", "money_out", "docstatus",
+            "processed", "processed_by", "processed_on",
         ],
         order_by="transaction_date desc",
     )
@@ -266,4 +274,40 @@ def _compute_totals(rows):
         "money_out": money_out,
         "net": money_in - money_out,
         "count": len(rows),
+    }
+
+
+@frappe.whitelist()
+def set_processed(tracker, name, processed):
+    """Mark a cash entry as posted to the ledger. Finance only.
+
+    Stamps who and when alongside the tick, so "processed" is answerable later
+    rather than being an anonymous checkbox. Written with db.set_value because
+    these documents are submitted — the fields carry allow_on_submit.
+    """
+    if not can_mark_processed():
+        frappe.throw(
+            "Only the finance team can mark an entry as processed.",
+            frappe.PermissionError,
+        )
+
+    doctype = "Motley Cash Tracking" if tracker == "motley" else "Personal Cash Tracking"
+    if not frappe.db.exists(doctype, name):
+        frappe.throw(f"{doctype} {name} not found")
+
+    processed = int(frappe.parse_json(processed) if isinstance(processed, str) else processed)
+    frappe.db.set_value(
+        doctype,
+        name,
+        {
+            "processed": processed,
+            "processed_by": frappe.session.user if processed else None,
+            "processed_on": frappe.utils.now_datetime() if processed else None,
+        },
+        update_modified=False,
+    )
+    return {
+        "name": name,
+        "processed": processed,
+        "processed_by": frappe.session.user if processed else None,
     }

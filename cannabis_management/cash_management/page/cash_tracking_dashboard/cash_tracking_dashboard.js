@@ -10,6 +10,7 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 		tracker: 'personal',   // 'motley' requires Allow For Motley on the person
 		person: '',       // '' = all (admins only)
 		is_admin: false,
+		can_mark_processed: false,   // Finance only; the server decides
 		from_date: '',
 		to_date: '',
 		rows: []
@@ -95,6 +96,7 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 							<th class="ctd-num">Money In</th>
 							<th class="ctd-num">Money Out</th>
 							<th>Status</th>
+							<th class="ctd-col-processed">Processed</th>
 						</tr>
 					</thead>
 					<tbody id="ctd-tbody"></tbody>
@@ -153,6 +155,25 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 		$('#ctd-tracker-toggle .ctd-toggle-btn[data-val="' + val + '"]').addClass('ctd-active');
 	}
 
+	// Only Finance sees this column at all. A submitted entry can be ticked once
+	// the Journal Entry or Payment Entry behind it exists; the tooltip carries
+	// who ticked it and when, so it is answerable later.
+	function processed_cell(r) {
+		if (!state.can_mark_processed) return '';
+		var checked = r.processed ? ' checked' : '';
+		var title = r.processed && r.processed_by
+			? esc(r.processed_by) + (r.processed_on ? ' · ' + esc(frappe.datetime.str_to_user(r.processed_on)) : '')
+			: __('Mark as processed');
+		return '<label class="ctd-processed" title="' + title + '">' +
+			'<input type="checkbox" class="ctd-processed-box" data-name="' + esc(r.name) +
+			'" data-tracker="' + esc(r.tracker.toLowerCase()) + '"' + checked + '>' +
+			'</label>';
+	}
+
+	function apply_processed_visibility() {
+		$('.ctd-col-processed').toggle(!!state.can_mark_processed);
+	}
+
 	function doctype_of(tracker) {
 		if (tracker === 'Personal') return 'Personal Cash Tracking';
 		if (tracker === 'TSBC') return 'TSBC Cash Tracking';
@@ -161,6 +182,9 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 
 	// ---- rendering -----------------------------------------------------
 	function render(result) {
+		if (typeof result.can_mark_processed !== 'undefined') {
+			state.can_mark_processed = !!result.can_mark_processed;
+		}
 		if (result.tracker && result.tracker !== state.tracker) {
 			select_tracker(result.tracker);   // server refused Motley
 		}
@@ -194,9 +218,11 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 					<td class="ctd-num ctd-in">${r.money_in ? fmt_money(r.money_in) : ''}</td>
 					<td class="ctd-num ctd-out">${r.money_out ? fmt_money(r.money_out) : ''}</td>
 					<td>${status_badge(r.status)}</td>
+					<td class="ctd-col-processed">${processed_cell(r)}</td>
 				</tr>`;
 			$body.append(tr);
 		});
+		apply_processed_visibility();
 	}
 
 	function load() {
@@ -286,6 +312,35 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 
 	$('#ctd-from').on('change', function () { state.from_date = $(this).val(); load(); });
 	$('#ctd-to').on('change', function () { state.to_date = $(this).val(); load(); });
+	page.main.on('change', '.ctd-processed-box', function () {
+		var $box = $(this);
+		var name = $box.data('name');
+		var tracker = $box.data('tracker');
+		var value = $box.is(':checked') ? 1 : 0;
+		var row = state.rows.find(function (r) { return r.name === name; });
+
+		$box.prop('disabled', true);
+		frappe.call({
+			method: 'cannabis_management.cash_management.page.cash_tracking_dashboard.cash_tracking_dashboard.set_processed',
+			args: { tracker: tracker, name: name, processed: value },
+			callback: function (r) {
+				$box.prop('disabled', false);
+				if (row) {
+					row.processed = value;
+					row.processed_by = r.message ? r.message.processed_by : null;
+				}
+				frappe.show_alert({
+					message: value ? __('{0} marked processed', [name]) : __('{0} unmarked', [name]),
+					indicator: value ? 'green' : 'orange'
+				}, 3);
+			},
+			error: function () {
+				// server refused — put the box back where it was
+				$box.prop('disabled', false).prop('checked', !value);
+			}
+		});
+	});
+
 	$('#ctd-refresh').on('click', function () { load(); });
 	$('#ctd-new-motley').on('click', function () { frappe.new_doc('Motley Cash Tracking'); });
 	$('#ctd-new-tsbc').on('click', function () { frappe.new_doc('TSBC Cash Tracking'); });

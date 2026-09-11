@@ -76,6 +76,22 @@ def _account_mapping(doc):
     return cash_account, contra_account
 
 
+def _stamp_source(target, doc):
+    """Point the new document back at the cash entry it came from.
+
+    A remark naming the source is not enough to act on: the Post / Unpost buttons
+    on the finished Payment Entry or Journal Entry need to find the cash entry
+    again in order to tick it. Written only where the fields exist, so a site
+    that has not synced the customization yet still gets a working document.
+    """
+    for fieldname, value in (
+        ("custom_cash_tracking_doctype", doc.doctype),
+        ("custom_cash_tracking_entry", doc.name),
+    ):
+        if target.meta.get_field(fieldname):
+            target.set(fieldname, value)
+
+
 # ── Payment Entry ─────────────────────────────────────────────────────────────
 
 def _payment_reference(doc):
@@ -175,6 +191,7 @@ def make_payment_entry(source_doctype, source_name):
     if mode:
         pe.mode_of_payment = mode
     pe.remarks = _remark(doc)
+    _stamp_source(pe, doc)
     return pe.as_dict()
 
 
@@ -222,6 +239,7 @@ def make_journal_entry(source_doctype, source_name):
         row.debit_in_account_currency = debit
         row.credit_in_account_currency = credit
 
+    _stamp_source(je, doc)
     return je.as_dict()
 
 
@@ -277,3 +295,77 @@ def sales_order_query(doctype, txt, searchfield, start, page_len, filters):
         ]
         for o in orders
     ]
+
+
+# ── Post / Unpost ─────────────────────────────────────────────────────────────
+
+@frappe.whitelist()
+def get_post_state(voucher_doctype, voucher_name):
+    """What the Post / Unpost buttons on a voucher should show.
+
+    Returns the linked cash entry, whether it is already marked processed, and
+    whether this user may change that — so the form can hide the buttons from
+    everyone outside Finance rather than offering an action that gets refused.
+    """
+    from cannabis_management.cash_management.permissions import can_mark_processed
+
+    if voucher_doctype not in ("Payment Entry", "Journal Entry"):
+        return {}
+
+    source = frappe.db.get_value(
+        voucher_doctype,
+        voucher_name,
+        ["custom_cash_tracking_doctype", "custom_cash_tracking_entry", "docstatus"],
+        as_dict=True,
+    )
+    if not source or not source.custom_cash_tracking_entry:
+        return {}
+
+    return {
+        "source_doctype": source.custom_cash_tracking_doctype,
+        "source_name": source.custom_cash_tracking_entry,
+        "submitted": source.docstatus == 1,
+        "processed": int(
+            frappe.db.get_value(
+                source.custom_cash_tracking_doctype, source.custom_cash_tracking_entry, "processed"
+            )
+            or 0
+        ),
+        "can_post": can_mark_processed(),
+    }
+
+
+@frappe.whitelist()
+def set_posted(voucher_doctype, voucher_name, posted):
+    """Post / Unpost — tick the linked cash entry from the voucher itself.
+
+    The same tick the Cash Tracking page offers, reached from the other end: once
+    the Payment Entry or Journal Entry is submitted, Finance marks the cash entry
+    posted without going looking for it.
+    """
+    from cannabis_management.cash_management.permissions import can_mark_processed
+
+    if not can_mark_processed():
+        frappe.throw(
+            "Only the finance team can post a cash tracking entry.",
+            frappe.PermissionError,
+        )
+
+    state = get_post_state(voucher_doctype, voucher_name)
+    if not state:
+        frappe.throw("This document is not linked to a cash tracking entry.")
+    if not state["submitted"]:
+        frappe.throw(f"Submit the {voucher_doctype} before posting.")
+
+    posted = int(frappe.parse_json(posted) if isinstance(posted, str) else posted)
+    frappe.db.set_value(
+        state["source_doctype"],
+        state["source_name"],
+        {
+            "processed": posted,
+            "processed_by": frappe.session.user if posted else None,
+            "processed_on": frappe.utils.now_datetime() if posted else None,
+        },
+        update_modified=False,
+    )
+    return {"source": state["source_name"], "processed": posted}

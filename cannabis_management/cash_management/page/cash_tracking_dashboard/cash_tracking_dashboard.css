@@ -240,3 +240,20 @@
 	.ctd-filter-group { flex: 1 1 auto; }
 	.ctd-select, .ctd-input { min-width: 0; width: 100%; }
 }
+
+/* ── Processed (Finance only) ──────────────────────────────────────────────
+   Hidden entirely for everyone else — the column is removed from the DOM flow
+   rather than greyed out, so a non-finance user sees no trace of it. */
+.ctd-col-processed { text-align: center; white-space: nowrap; }
+
+.ctd-processed {
+	display: inline-flex; align-items: center; justify-content: center;
+	cursor: pointer; padding: 3px; border-radius: 6px;
+	transition: background .15s ease;
+}
+.ctd-processed:hover { background: rgba(109, 40, 217, .08); }
+
+.ctd-processed-box {
+	width: 15px; height: 15px; cursor: pointer; accent-color: #16a34a; margin: 0;
+}
+.ctd-processed-box:disabled { cursor: wait; opacity: .5; }
