@@ -291,7 +291,10 @@ def set_processed(tracker, name, processed):
             frappe.PermissionError,
         )
 
-    doctype = "Motley Cash Tracking" if tracker == "motley" else "Personal Cash Tracking"
+    doctype = {
+        "motley": "Motley Cash Tracking",
+        "tsbc": "TSBC Cash Tracking",
+    }.get(tracker, "Personal Cash Tracking")
     if not frappe.db.exists(doctype, name):
         frappe.throw(f"{doctype} {name} not found")
 
