@@ -52,32 +52,31 @@ PHOTO_FIELDS = tuple(
 
 
 def on_trash(doc, method=None):
-	"""Refuse to delete a Timesheet that carries a kiosk verification photo.
+	"""Deleting a Timesheet now also deletes its kiosk verification photo(s).
 
-	Deleting a document takes its attachments with it, so this covers the photo files
-	too - on_trash_file below only has to cover someone going at a file directly.
-
-	Cancelling is deliberately still allowed. A cancelled Timesheet stops counting
-	towards hours but keeps its row - and its photos - on record, which is the
-	correction path this guard points people at. The amended copy carries no photo
-	(the fields are no_copy), so the only Timesheet holding a given photo is always
-	the one the kiosk actually wrote it to.
+	Changed on request: this used to *refuse* the delete (the photos were treated as
+	a permanent record; the correction path was Cancel). It now removes the photo
+	File(s) the Timesheet carries so the delete goes through cleanly and leaves no
+	orphan File rows behind. on_trash_file below is correspondingly no longer a
+	blocker. NOTE: this drops the previous anti-tamper guarantee — a verification
+	photo is no longer permanent; anyone with delete on Timesheet can remove it.
 	"""
 	if doc.doctype != "Timesheet":
 		return
 
-	on_record = [field for field in PHOTO_FIELDS if doc.get(field)]
-	if not on_record:
-		return
-
-	frappe.throw(
-		_(
-			"{0} carries a kiosk verification photo, which is a permanent record and "
-			"cannot be deleted by anyone. Cancel the Timesheet instead - a cancelled "
-			"Timesheet stops counting towards hours but keeps its photo on record."
-		).format(doc.name),
-		title=_("Verification photo on record"),
-	)
+	for field in PHOTO_FIELDS:
+		if not doc.get(field):
+			continue
+		for name in frappe.get_all(
+			"File",
+			filters={
+				"attached_to_doctype": "Timesheet",
+				"attached_to_name": doc.name,
+				"attached_to_field": field,
+			},
+			pluck="name",
+		):
+			frappe.delete_doc("File", name, ignore_permissions=True, force=True)
 
 
 def on_trash_file(doc, method=None):
@@ -92,18 +91,9 @@ def on_trash_file(doc, method=None):
 	or a row in the Desk File list. Neither touches the Timesheet field, so neither is
 	a field write, so permlevel 2 has nothing to say about them.
 	"""
-	if doc.doctype != "File":
-		return
-
-	if doc.attached_to_doctype != "Timesheet":
-		return
-	if doc.attached_to_field not in PHOTO_FIELDS:
-		return
-
-	frappe.throw(
-		_(
-			"This is a kiosk verification photo for {0}, which is a permanent record "
-			"and cannot be deleted by anyone."
-		).format(doc.attached_to_name or _("a Timesheet")),
-		title=_("Verification photo on record"),
-	)
+	# Changed on request (see on_trash above): kiosk verification photo Files are no
+	# longer permanent. This guard used to refuse deleting one; it now allows it, so
+	# a photo can be removed both as part of deleting its Timesheet and on its own.
+	# Left as a no-op hook (rather than unwired) to keep the change visible and easy
+	# to reinstate.
+	return
