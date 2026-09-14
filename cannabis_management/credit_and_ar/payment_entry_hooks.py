@@ -13,11 +13,11 @@ import frappe
 from frappe import _
 from frappe.utils import flt, getdate, nowdate
 
-from cannabis_management.credit_and_ar import utils
+from cannabis_management.credit_and_ar import credit_engine, utils
 from cannabis_management.credit_and_ar.doctype.ar_case.ar_case import (
-	INACTIVE_STATUSES,
-	TYPE_PAYMENT_PLAN,
-	TYPE_WORKOUT,
+	RESOLUTION_PAYMENT_PLAN,
+	RESOLUTION_WORKOUT,
+	STATUS_ACTIVE,
 )
 
 # Which invoice ledgers each receipt ledger is allowed to touch.
@@ -44,6 +44,17 @@ def validate(doc, method=None):
 
 
 def on_submit(doc, method=None):
+	if doc.party_type == "Customer" and doc.party:
+		# The GL balance moves the moment this posts, whether it is a receipt
+		# or a refund — keep Current Exposure / Available Line live for it.
+		credit_engine.refresh_customer_exposure(doc.party)
+
+		# §9 step 8 — a payment against an old/overdue invoice should move a
+		# workout's Current Balance right away, not wait for the nightly sweep.
+		from cannabis_management.credit_and_ar import plan_workout
+
+		plan_workout.refresh_workout_balance(doc.party)
+
 	if not _is_customer_receipt(doc):
 		return
 	if utils.is_policy_exempt(doc.party):
@@ -54,6 +65,13 @@ def on_submit(doc, method=None):
 
 
 def on_cancel(doc, method=None):
+	if doc.party_type == "Customer" and doc.party:
+		credit_engine.refresh_customer_exposure(doc.party)
+
+		from cannabis_management.credit_and_ar import plan_workout
+
+		plan_workout.refresh_workout_balance(doc.party)
+
 	if not _is_customer_receipt(doc):
 		return
 
@@ -101,15 +119,15 @@ def _validate_case_link(doc):
 		return
 
 	if not doc.get("custom_ar_case"):
-		case_type = (
-			TYPE_PAYMENT_PLAN if doc.custom_ledger == utils.LEDGER_PLAN else TYPE_WORKOUT
+		resolution = (
+			RESOLUTION_PAYMENT_PLAN if doc.custom_ledger == utils.LEDGER_PLAN else RESOLUTION_WORKOUT
 		)
 		found = frappe.get_all(
 			"AR Case",
 			filters={
 				"customer": doc.party,
-				"case_type": case_type,
-				"status": ("not in", INACTIVE_STATUSES),
+				"resolution": resolution,
+				"status": STATUS_ACTIVE,
 			},
 			pluck="name",
 			limit=1,
@@ -117,7 +135,7 @@ def _validate_case_link(doc):
 		if not found:
 			frappe.throw(
 				_("{0} has no active {1} case, so this receipt cannot be booked to that ledger.").format(
-					frappe.bold(doc.party), case_type
+					frappe.bold(doc.party), resolution
 				),
 				title=_("No Case"),
 			)
@@ -359,8 +377,8 @@ def get_plan_context(customer: str):
 		"AR Case",
 		filters={
 			"customer": customer,
-			"case_type": TYPE_PAYMENT_PLAN,
-			"status": ("not in", INACTIVE_STATUSES),
+			"resolution": RESOLUTION_PAYMENT_PLAN,
+			"status": STATUS_ACTIVE,
 		},
 		fields=["name", "md_ratified", "missed_installments"],
 		limit=1,
