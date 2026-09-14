@@ -10,11 +10,15 @@ on Sales Order (see ``utils.resolve_order_type``).
 Per-order approval applies to every Terms order, every time — an approved credit
 line grants the *ability* to order on terms, not a standing approval.
 
-Cash orders were previously forced onto the "COD" payment terms template with the
-payment schedule wiped. They no longer are: a cash order carries no credit exposure,
-so the module leaves the document to ERPNext. Everything downstream that used to key
-off ``payment_terms_template == "COD"`` (finance_charge, metrics, payment_entry_hooks)
+Cash orders were previously forced onto the "COD" payment terms template. They no
+longer are: a cash order carries no credit exposure, so the module leaves
+``payment_terms_template`` to ERPNext. Everything downstream that used to key off
+``payment_terms_template == "COD"`` (finance_charge, metrics, payment_entry_hooks)
 already treats an empty template identically, so nothing else had to change.
+
+``payment_schedule`` is still wiped for a cash order, though — see
+``_apply_cash`` — because a due-date schedule has nothing to track when the
+money arrives with the product.
 
 The single exception is the workout paydown, which still applies to cash — see
 ``utils.is_cash_order`` and the README decision log.
@@ -71,6 +75,11 @@ def before_submit(doc, method=None):
 	if utils.is_policy_exempt(doc.customer):
 		return
 
+	# Available Line, enforced on every payment mode including Cash on Delivery.
+	# Runs before the order-type split below precisely because COD used to walk
+	# straight past everything here.
+	_assert_within_available_line(doc)
+
 	if order_type == utils.ORDER_TYPE_SAMPLE:
 		_assert_zero_value(doc)
 		return
@@ -101,7 +110,15 @@ def before_submit(doc, method=None):
 
 
 def on_update(doc, method=None):
-	"""Keep the print block honest even if the status is changed elsewhere."""
+	"""Keep the print block honest even if the status is changed elsewhere, and
+	keep the cached exposure figures live as billing percentage shifts."""
+	if doc.docstatus == 1 and doc.customer:
+		# per_billed moves as invoices are raised or cancelled against a
+		# submitted order — the unbilled credit portion (and so Current
+		# Exposure / Available Line on the Customer) shifts with it, even
+		# though the order itself is never re-submitted.
+		credit_engine.refresh_customer_exposure(doc.customer)
+
 	if doc.docstatus != 0 or utils.is_policy_exempt(doc.customer):
 		return
 
@@ -111,6 +128,28 @@ def on_update(doc, method=None):
 	)
 	if int(doc.custom_print_blocked or 0) != should_block:
 		doc.db_set("custom_print_blocked", should_block, update_modified=False)
+
+
+def on_submit(doc, method=None):
+	"""A submitted Terms order's unbilled portion now counts as exposure —
+	refresh the cached Current Exposure / Available Line on the Customer."""
+	if doc.customer:
+		credit_engine.refresh_customer_exposure(doc.customer)
+
+	if doc.custom_ar_case:
+		# §9 step 7 — the Previous Balance baseline for this customer's *next*
+		# workout order.
+		doc.db_set(
+			"custom_workout_balance_at_order",
+			credit_engine.get_current_exposure(doc.customer),
+			update_modified=False,
+		)
+
+
+def on_cancel(doc, method=None):
+	"""Mirror of on_submit — a cancelled order drops back out of exposure."""
+	if doc.customer:
+		credit_engine.refresh_customer_exposure(doc.customer)
 
 
 # ── Cash ─────────────────────────────────────────────────────────────────────
@@ -140,20 +179,25 @@ def _default_payment_mode(doc):
 def _apply_cash(doc):
 	"""A cash order carries no credit state — and no credit behaviour.
 
-	This deliberately does **not** touch ``payment_terms_template`` or
-	``payment_schedule``. The module used to force both (template = "COD", schedule
-	emptied); it no longer does, because the money arrives with the product and
-	there is nothing for the policy to protect. Whatever ERPNext or the user puts
-	on the document stands.
+	This deliberately does **not** touch ``payment_terms_template``. Whatever
+	ERPNext or the user puts there stands.
 
-	Only the module's own fields are reset, so an order flipped from Terms to Cash
-	does not carry stale approval or deposit state.
+	``payment_schedule`` is the one exception: money on a Cash On Delivery order
+	arrives with the product, so there is nothing for a due-date schedule to
+	track. ERPNext's core ``validate`` (which runs before this hook) still builds
+	one from the Payment Terms Template whenever it's set or the order total
+	changes, so it is wiped again here on every save and submit rather than only
+	once — leaving it blank for as long as the order stays Cash On Delivery.
+
+	Only the module's own fields are reset otherwise, so an order flipped from
+	Terms to Cash does not carry stale approval or deposit state.
 	"""
 	doc.custom_approval_status = utils.APPROVAL_NOT_REQUIRED
 	doc.custom_print_blocked = 0
 	doc.custom_required_deposit = 0
 	doc.custom_credit_application = None
 	doc.custom_customer_available_line = 0
+	doc.payment_schedule = []
 
 
 # ── Sample ───────────────────────────────────────────────────────────────────
@@ -186,6 +230,52 @@ def _apply_sample(doc):
 	doc.custom_credit_application = None
 
 	_assert_zero_value(doc)
+
+
+def _assert_within_available_line(doc):
+	"""Refuse an order worth more than the customer's remaining line.
+
+	Applies to the statuses in utils.LINE_ENFORCED_STATUSES and to **every**
+	payment mode — Cash on Delivery included. Account Manager is the only way
+	through, which is also what unlocks printing (see print_guard).
+
+	The line is read live rather than from custom_available_line: that field is a
+	cached mirror refreshed by refresh_customer_exposure, and an order raised
+	between refreshes would otherwise be measured against a stale figure.
+	"""
+	status = frappe.db.get_value("Customer", doc.customer, "custom_credit_status")
+	if status not in utils.LINE_ENFORCED_STATUSES:
+		return
+
+	available = flt(credit_engine.get_available_line(doc.customer, exclude_sales_order=doc.name))
+	amount = flt(doc.grand_total)
+	if amount <= available:
+		return
+
+	if utils.can_override_line():
+		return
+
+	frappe.throw(
+		_(
+			"This order is worth <b>{amount}</b> but {customer} has only <b>{available}</b> "
+			"left on their credit line."
+			"<ul style='margin:8px 0 0 16px;padding:0'>"
+			"<li>Credit status: <b>{status}</b></li>"
+			"<li>Available line: <b>{available}</b></li>"
+			"<li>This order: <b>{amount}</b></li>"
+			"</ul>"
+			"<br>The limit applies to every payment mode, Cash on Delivery included. "
+			"Reduce the order to <b>{available}</b> or less, collect against the "
+			"outstanding balance, or ask an <b>{role}</b> to raise it."
+		).format(
+			amount=utils.fmt_currency(amount, doc.currency),
+			customer=frappe.bold(doc.customer),
+			available=utils.fmt_currency(max(0.0, available), doc.currency),
+			status=status,
+			role=utils.LINE_OVERRIDE_ROLE,
+		),
+		title=_("Over Available Line"),
+	)
 
 
 def _assert_zero_value(doc):
@@ -390,7 +480,9 @@ def _problem_payment_plan(doc) -> list[str]:
 
 def _problem_hold(doc) -> str | None:
 	"""A hard or immediate hold refuses. A warning only warns."""
-	hold_type = frappe.db.get_value("Customer", doc.customer, "custom_hold_type")
+	from cannabis_management.credit_and_ar.doctype.ar_case.ar_case import get_hold_type
+
+	hold_type = get_hold_type(doc.customer)
 
 	if hold_type in utils.BLOCKING_HOLDS:
 		return _("{0} is on {1}. No new terms work until Finance releases the hold.").format(
@@ -424,7 +516,18 @@ def _problem_freeze() -> str | None:
 
 
 def _apply_workout_paydown(doc, order_type):
-	"""§9 — every order for a workout account carries a paydown."""
+	"""§9 — every order for a workout account carries a paydown.
+
+	Required Paydown:
+	  Fixed   = the case's Paydown Amount
+	  Percent = this order's Net Total × Paydown %
+
+	Previous Balance is the workout's Starting Balance for the first order
+	submitted since it began, otherwise the Workout Balance at Order snapshot
+	saved on the customer's last submitted order against this same case.
+	Paydown Made is how far the AR Case's live Current Balance has dropped
+	below that.
+	"""
 	from cannabis_management.credit_and_ar import plan_workout
 
 	if order_type == utils.ORDER_TYPE_SAMPLE:
@@ -438,43 +541,50 @@ def _apply_workout_paydown(doc, order_type):
 		return
 
 	doc.custom_ar_case = workout["name"]
-	doc.custom_workout_paydown_required = plan_workout.required_paydown(
-		workout, flt(doc.grand_total)
-	)
+	doc.custom_workout_paydown_required = plan_workout.required_paydown(workout, flt(doc.net_total))
 
-	if doc.custom_workout_paydown_required:
+	previous_balance = plan_workout.get_previous_workout_balance(workout)
+	current_balance = credit_engine.get_current_exposure(doc.customer)
+	doc.custom_workout_paydown_received = max(0.0, flt(previous_balance) - current_balance)
+
+	required = flt(doc.custom_workout_paydown_required)
+	made = flt(doc.custom_workout_paydown_received)
+	if required and made + 0.005 < required:
 		frappe.msgprint(
 			_(
-				"{0} is on a workout. A cleared paydown of <b>{1}</b> is required against "
-				"this order before it can be submitted. No paydown, no product."
+				"{0} is a workout account.<br>Required paydown: {1}<br>Paid down: {2}"
+				"<br>Remaining: {3}"
 			).format(
 				frappe.bold(doc.customer),
-				utils.fmt_currency(doc.custom_workout_paydown_required, doc.currency),
+				utils.fmt_currency(required, doc.currency),
+				utils.fmt_currency(made, doc.currency),
+				utils.fmt_currency(required - made, doc.currency),
 			),
-			title=_("Workout Paydown"),
+			title=_("Workout Paydown Outstanding"),
 			indicator="orange",
 		)
 
 
 def _check_workout_paydown(doc):
+	"""Submit time — re-verified live, exactly like every other workout figure."""
 	from cannabis_management.credit_and_ar import plan_workout
 
 	required = flt(doc.custom_workout_paydown_required)
 	if required <= 0:
 		return
 
-	received = plan_workout.get_cleared_paydowns(doc.name)
-	doc.db_set("custom_workout_paydown_received", received, update_modified=False)
+	workout = plan_workout.get_active_workout(doc.customer)
+	previous_balance = plan_workout.get_previous_workout_balance(workout)
+	current_balance = credit_engine.get_current_exposure(doc.customer)
+	made = max(0.0, flt(previous_balance) - current_balance)
+	doc.db_set("custom_workout_paydown_received", made, update_modified=False)
 
-	if received + 0.005 < required:
+	if made + 0.005 < required:
 		frappe.throw(
-			_(
-				"<b>No paydown, no product.</b><br><br>A cleared paydown of {0} is required "
-				"against this order; {1} has cleared.<br><br>Record a Payment Entry with "
-				"Ledger = <b>Workout Paydown</b> against this Sales Order."
-			).format(
+			_("Required paydown: {0}<br>Paid down: {1}<br>Remaining: {2}").format(
 				utils.fmt_currency(required, doc.currency),
-				utils.fmt_currency(received, doc.currency),
+				utils.fmt_currency(made, doc.currency),
+				utils.fmt_currency(required - made, doc.currency),
 			),
 			title=_("Workout Paydown Outstanding"),
 		)

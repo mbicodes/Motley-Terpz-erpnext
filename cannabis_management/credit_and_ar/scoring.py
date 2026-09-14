@@ -84,7 +84,7 @@ def update_customer_payment_scores():
 		filters={
 			"disabled": 0,
 			"custom_is_intercompany": 0,
-			"custom_credit_policy_exempt": 0,
+			"custom_credit_status": ("!=", utils.STATUS_EXEMPT),
 		},
 		pluck="name",
 	)
@@ -316,7 +316,9 @@ def _tenure_and_volume(customer: str, weekly_volume_g: float) -> float:
 
 
 def _standing(customer: str) -> int:
-	hold_type = frappe.db.get_value("Customer", customer, "custom_hold_type")
+	from cannabis_management.credit_and_ar.doctype.ar_case.ar_case import get_hold_type
+
+	hold_type = get_hold_type(customer)
 	if hold_type in utils.BLOCKING_HOLDS:
 		return STANDING_HOLD
 	if hold_type == utils.HOLD_WARNING:
@@ -344,7 +346,6 @@ def _penalties(customer: str) -> float:
 		"AR Case",
 		{
 			"customer": customer,
-			"case_type": ("in", ["Hard Hold", "Immediate Hold"]),
 			"opened_on": (">=", six_months_ago),
 		},
 	)

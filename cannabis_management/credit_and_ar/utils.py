@@ -41,6 +41,11 @@ APPROVAL_APPROVED = "Approved"
 APPROVAL_REJECTED = "Rejected"
 
 # Ledger vocabulary — shared by Sales Invoice and Payment Entry.
+# The Legacy / New AR cut-over. Everything invoiced on or before 2026-05-31 is
+# the legacy book — worked through separately (see the AR Legacy page) and
+# deliberately outside the $400k ceiling. New AR starts 2026-06-01.
+NEW_AR_START = "2026-06-01"
+
 LEDGER_NEW_BOOK = "New Book"
 LEDGER_LEGACY = "Legacy"
 LEDGER_PLAN = "Plan"
@@ -56,6 +61,141 @@ STATUS_HARD_HOLD = "Hard Hold"
 STATUS_PAYMENT_PLAN = "Payment Plan"
 STATUS_WORKOUT = "Workout"
 STATUS_BLOCKED = "Blocked"
+
+
+# Statuses where the Available Line is enforced on every Sales Order, whatever
+# the payment mode. COD is included deliberately: cash carries no credit risk in
+# principle, but an account already at its ceiling should not keep taking work on
+# any terms until the balance comes down.
+LINE_ENFORCED_STATUSES = (
+	STATUS_TERMS_APPROVED,
+	STATUS_WARNING,
+	STATUS_HARD_HOLD,
+	STATUS_BLOCKED,
+)
+
+# The one role that may raise — and print — an order above the line.
+LINE_OVERRIDE_ROLE = "Account Manager"
+
+
+def can_override_line(user=None):
+	user = user or frappe.session.user
+	if user == "Administrator":
+		return True
+	return LINE_OVERRIDE_ROLE in frappe.get_roles(user)
+
+
+# Statuses that come from a live AR Case rather than the account's own standing.
+# A Payment Plan or Workout is a *resolution* on the hold case: the account is
+# still under Finance's control even though it is no longer stopped.
+CASE_DRIVEN_STATUSES = (STATUS_HARD_HOLD, STATUS_PAYMENT_PLAN, STATUS_WORKOUT)
+
+
+# ── Payment plan installment status ──────────────────────────────────────────
+# AR Case Installment.status is always derived, never hand-set — Finance cannot
+# type "Paid" onto a row, even for a Custom-frequency plan. See README §6.
+INSTALLMENT_PENDING = "Pending"
+INSTALLMENT_PAID = "Paid"
+INSTALLMENT_PARTIALLY_PAID = "Partially Paid"
+INSTALLMENT_MISSED = "Missed"
+
+
+def installment_status(amount, paid_amount, due_date, today=None) -> str:
+	"""The one place an installment's status is decided.
+
+	Paid              full installment amount has been paid.
+	Missed            due date has passed and the required amount is still
+	                  outstanding — outranks Partially Paid, since a partial
+	                  payment on an overdue installment is still a default.
+	Partially Paid    some amount paid, not yet overdue, not yet full.
+	Pending           nothing paid (or not enough), due date not yet passed.
+	"""
+	amount = flt(amount)
+	paid_amount = flt(paid_amount)
+	today = today or getdate()
+
+	if amount > 0 and paid_amount + 0.005 >= amount:
+		return INSTALLMENT_PAID
+	if due_date and getdate(due_date) < today:
+		return INSTALLMENT_MISSED
+	if paid_amount > 0.005:
+		return INSTALLMENT_PARTIALLY_PAID
+	return INSTALLMENT_PENDING
+
+
+def ar_cap_enabled() -> bool:
+	"""Is the $400,000 AR ceiling switched on? Selling Settings -> Enforce $400,000 AR Cap.
+
+	Read from the raw Singles row rather than through get_single_value, which
+	casts an unset Check to 0 and would make "nobody has opened the settings
+	form" indistinguishable from "deliberately switched off". A safety ceiling
+	must not fall away just because a site has never saved that form, so no row
+	means enabled; only an explicit 0 disables it.
+	"""
+	rows = frappe.db.sql(
+		"SELECT value FROM tabSingles WHERE doctype = %s AND field = %s",
+		("Selling Settings", "custom_enforce_ar_cap"),
+	)
+	stored = rows[0][0] if rows else None
+	if stored is None or str(stored).strip() == "":
+		return True
+	return bool(int(stored))
+
+
+def is_on_hold(customer: str | None) -> bool:
+	"""Is this account stopped? Credit Status = "Hard Hold".
+
+	Replaces the separate custom_on_hold checkbox: two fields describing the same
+	thing could disagree, and the status is the one people actually read. A
+	Payment Plan or Workout is deliberately NOT a hold — that is the agreed way
+	back to trading, not a stop-work order.
+	"""
+	if not customer:
+		return False
+	return frappe.get_cached_value("Customer", customer, "custom_credit_status") == STATUS_HARD_HOLD
+
+
+# ── Hold reasons ─────────────────────────────────────────────────────────────
+# Why an account is on Hard Hold, in the language Finance uses. Shown on the
+# Customer (custom_hold_reason) and only while the account is on Hard Hold.
+#
+# Promise to Pay broken, License expired and Credit limit breached are stamped
+# by the engines from the AR Case that raised the hold; Payment Returned/Bounced,
+# Fraud suspected and Insolvency signs are for a human to select — nothing sets
+# them on its own. (The "(Auto)"/"(Manual)" suffixes that used to mark this in
+# the option text itself were removed — that was only ever a mapping aid, not
+# something Finance needed to see.)
+HOLD_REASON_PROMISE = "Promise to Pay broken"
+HOLD_REASON_RETURNED = "Payment Returned/Bounced"
+HOLD_REASON_LICENSE = "License expired"
+HOLD_REASON_FRAUD = "Fraud suspected"
+HOLD_REASON_INSOLVENCY = "Insolvency signs"
+HOLD_REASON_LIMIT = "Credit limit breached"
+
+HOLD_REASON_OPTIONS = "\n".join([
+	"",
+	HOLD_REASON_PROMISE,
+	HOLD_REASON_RETURNED,
+	HOLD_REASON_LICENSE,
+	HOLD_REASON_FRAUD,
+	HOLD_REASON_INSOLVENCY,
+	HOLD_REASON_LIMIT,
+])
+
+# AR Case.trigger_reason -> the reason shown on the Customer. Anything missing
+# here (notably "Manual") leaves the field alone for a human to fill in.
+HOLD_REASON_BY_TRIGGER = {
+	"Past Due Days": HOLD_REASON_PROMISE,
+	"Past Due Amount": HOLD_REASON_PROMISE,
+	"Broken Promise to Pay": HOLD_REASON_PROMISE,
+	"Plan Default": HOLD_REASON_PROMISE,
+	"Returned Payment": HOLD_REASON_RETURNED,
+	"Expired License": HOLD_REASON_LICENSE,
+	"Suspected Fraud": HOLD_REASON_FRAUD,
+	"Insolvency Signs": HOLD_REASON_INSOLVENCY,
+	"Limit Breach": HOLD_REASON_LIMIT,
+	"AR Threshold Breach": HOLD_REASON_LIMIT,
+}
 
 HOLD_NONE = "None"
 HOLD_WARNING = "Warning"
@@ -298,7 +438,9 @@ def users_with_role(role: str | None) -> list[str]:
 def is_policy_exempt(customer: str | None) -> bool:
 	"""Is this customer carved out of the Credit & AR policy entirely?
 
-	The single switch every engine checks. When on, nothing in this module
+	The single switch every engine checks — Credit Status set to "Policy Exempt".
+	It used to be a separate checkbox; the status now carries it, so there is one
+	field describing where an account stands rather than two that could disagree. When on, nothing in this module
 	touches the account: no Sales Order gate, no holds, no AR Cases, no ledger
 	enforcement, no finance charges, no scoring. The account behaves exactly as
 	it did before the module existed.
@@ -310,7 +452,7 @@ def is_policy_exempt(customer: str | None) -> bool:
 	"""
 	if not customer:
 		return False
-	return bool(frappe.get_cached_value("Customer", customer, "custom_credit_policy_exempt"))
+	return frappe.get_cached_value("Customer", customer, "custom_credit_status") == STATUS_EXEMPT
 
 
 def company_of(customer: str | None) -> str | None:
@@ -348,7 +490,7 @@ def company_of(customer: str | None) -> str | None:
 def exempt_customers() -> list[str]:
 	"""Every account carved out of the policy — for bulk filters in the engines."""
 	return frappe.get_all(
-		"Customer", filters={"custom_credit_policy_exempt": 1}, pluck="name"
+		"Customer", filters={"custom_credit_status": STATUS_EXEMPT}, pluck="name"
 	)
 
 
@@ -427,3 +569,13 @@ def throw_consolidated(problems: list[str], title: str):
 		return
 	items = "".join(f"<li>{problem}</li>" for problem in problems)
 	frappe.throw(f"<ul style='margin:0 0 0 16px;padding:0'>{items}</ul>", title=_(title))
+
+
+def new_ar_start_date():
+	"""First day of the new book, as a date.
+
+	Prefers Credit Policy Settings.policy_effective_date where Finance has set
+	one, so the module keeps a single cut-over; falls back to NEW_AR_START, which
+	is the date the business actually drew the line.
+	"""
+	return getdate(policy_effective_date() or NEW_AR_START)

@@ -1,14 +1,24 @@
-"""Stop Work — warning, hard hold, immediate hold, and release.
+"""Stop Work — one Hard Hold case per customer, opened automatically.
 
 Two clocks run here:
 
-* a **daily sweep** that raises warnings and hard holds from the age and size of
-  past-due balances, and cures cases once the customer is current;
-* **event-driven immediate holds** for returned payments, broken promises,
-  expired licenses and limit breaches, which cannot wait for tomorrow.
+* a **daily sweep** that opens, refreshes and clears the customer's one AR
+  Case from the age and size of past-due balances;
+* **event-driven triggers** — returned payments, broken promises, expired
+  licenses, limit breaches — which cannot wait for tomorrow. These fold into
+  the same one case rather than raising a case of their own: they only ever
+  open a case if none is already open, and just refresh the existing one
+  otherwise.
 
-The daily sweep only ever moves cases it could have created itself. A case a
-human released or defaulted is never quietly reopened or cured by a scheduler.
+An AR Case exists only for Hard Hold. A customer merely past due under the
+hard-hold threshold is a Warning — a Credit Status on the Customer record,
+never a case. Payment Plan and Workout are not separate cases either; they
+are a ``resolution`` recorded on the one case, applied once Finance decides.
+
+The daily sweep only ever closes a case it could have opened itself — one
+still waiting on Finance's decision (``resolution`` blank). A case already
+under a Payment Plan or Workout, or already closed by a human, is never
+quietly touched.
 """
 
 import frappe
@@ -17,18 +27,9 @@ from frappe.utils import add_days, flt, getdate, now_datetime, nowdate
 
 from cannabis_management.credit_and_ar import credit_engine, utils
 from cannabis_management.credit_and_ar.doctype.ar_case.ar_case import (
-	AUTO_MANAGED_STATUSES,
-	HOLDING_TYPES,
-	INACTIVE_STATUSES,
 	STATUS_ACTIVE,
-	STATUS_CURED,
-	STATUS_DEFAULTED,
-	STATUS_OPEN,
-	STATUS_RELEASED,
-	TYPE_HARD_HOLD,
-	TYPE_IMMEDIATE_HOLD,
-	TYPE_PAYMENT_PLAN,
-	TYPE_WARNING,
+	STATUS_CLOSED,
+	get_active_case,
 	sync_customer_from_cases,
 )
 
@@ -38,40 +39,48 @@ GATE_1_DOCTYPES = ("Sales Order", "Delivery Note", "Work Order", "Stock Entry")
 
 PRODUCTION_STOCK_ENTRY_PURPOSES = ("Material Transfer for Manufacture", "Manufacture")
 
-# Group-wide Accounts Receivable ceiling. Independent of the past-due checks
-# below: this fires on the *total* outstanding balance across the credit
-# group, even on invoices that are not yet due. Intercompany customers are
-# already excluded from the sweep entirely (see the "customers" filter in
+# Group-wide Accounts Receivable ceiling, counted across NEW AR only — invoices
+# posted on or after the cut-over (utils.new_ar_start_date, 2026-06-01). The
+# legacy book is worked through separately and neither puts an account on hold
+# nor eats its headroom. Independent of the past-due checks below: this fires on
+# the balance even when nothing is due yet. Intercompany customers are already
+# excluded from the sweep (see the "customers" filter in
 # `evaluate_customer_credit_status`).
 AR_HOLD_THRESHOLD = 400_000
+
+# Policy floors, used when Credit Policy Settings leaves them blank.
+DEFAULT_HARD_HOLD_DAYS = 5
+DEFAULT_HARD_HOLD_AMOUNT = 1_000
 
 
 # ── daily sweep ──────────────────────────────────────────────────────────────
 
 
 def evaluate_customer_credit_status():
-	"""Raise, upgrade and cure past-due cases across the whole customer book."""
+	"""Raise, refresh and clear the Hard Hold case across the whole customer book."""
 	if not utils.require_policy_live("evaluate_customer_credit_status"):
 		return
 
 	settings = utils.get_settings()
-	hard_hold_days = int(settings.hard_hold_days or 0)
-	hard_hold_amount = flt(settings.hard_hold_amount)
-	warning_enabled = int(settings.warning_enabled or 0)
+	# Policy: >5 calendar days overdue, or $1,000+ past due, is a hard hold. The
+	# settings still win where they are filled in; these are the floor so the
+	# rule holds on a site where nobody has opened the settings form.
+	hard_hold_days = int(settings.hard_hold_days or 0) or DEFAULT_HARD_HOLD_DAYS
+	hard_hold_amount = flt(settings.hard_hold_amount) or DEFAULT_HARD_HOLD_AMOUNT
 
 	customers = frappe.get_all(
 		"Customer",
 		filters={
 			"disabled": 0,
 			"custom_is_intercompany": 0,
-			"custom_credit_policy_exempt": 0,
+			"custom_credit_status": ("!=", utils.STATUS_EXEMPT),
 		},
 		pluck="name",
 	)
 
 	for customer in customers:
 		try:
-			_evaluate_one(customer, hard_hold_days, hard_hold_amount, warning_enabled)
+			_evaluate_one(customer, hard_hold_days, hard_hold_amount)
 		except Exception:
 			frappe.log_error(
 				frappe.get_traceback(), f"Credit status evaluation failed for {customer}"
@@ -80,101 +89,121 @@ def evaluate_customer_credit_status():
 	frappe.db.commit()
 
 
-def _evaluate_one(customer, hard_hold_days, hard_hold_amount, warning_enabled):
+def _evaluate_one(customer, hard_hold_days, hard_hold_amount):
 	snapshot = credit_engine.get_past_due_snapshot(customer)
 	past_due = flt(snapshot["past_due_amount"])
-	total_outstanding = flt(snapshot["total_outstanding"])
 	max_days = int(snapshot["max_days_past_due"])
 
-	case = _get_auto_case(customer)
-
-	# Whichever trigger comes first applies. The AR-total ceiling is checked
-	# regardless of past-due status — a customer can carry 400k+ in current,
-	# not-yet-due invoices and still be over the line.
+	# Whichever trigger comes first applies. The AR ceiling is checked regardless
+	# of past-due status — a customer can carry 400k+ in current, not-yet-due
+	# invoices and still be over the line.
 	breach_by_days = bool(hard_hold_days) and past_due > 0 and max_days > hard_hold_days
 	breach_by_amount = bool(hard_hold_amount) and past_due > 0 and past_due >= hard_hold_amount
-	breach_by_ar_total = total_outstanding >= AR_HOLD_THRESHOLD
+	# NEW AR only — invoiced on/after the cut-over. The legacy book is worked
+	# through separately and must not put anyone on hold or eat their headroom.
+	# Selling Settings -> "Enforce $400,000 AR Cap" switches this ceiling off
+	# wholesale. Past due and credit-limit holds are unaffected by it.
+	if utils.ar_cap_enabled():
+		new_ar = credit_engine.get_customer_new_ar(customer)
+		breach_by_ar_total = new_ar >= AR_HOLD_THRESHOLD
+	else:
+		new_ar = 0.0
+		breach_by_ar_total = False
+	# A line breach is a hold in its own right — it does not wait for an invoice
+	# to be raised, and it applies whether or not anything is past due yet.
+	available_line = credit_engine.get_available_line(customer)
+	# "Line exhausted" is zero or below — not merely negative. Guarded on the
+	# customer actually having an approved limit: without it, every COD account
+	# (limit 0, exposure 0 -> available 0) would be swept onto Hard Hold.
+	approved_limit = credit_engine.get_approved_limit(customer)
+	breach_by_limit = approved_limit > 0 and available_line <= 0
 
-	if breach_by_days or breach_by_amount or breach_by_ar_total:
+	if breach_by_days or breach_by_amount or breach_by_ar_total or breach_by_limit:
 		if breach_by_days:
-			reason = "Past Due Days"
-			details = _(
-				"{0} past due, oldest invoice {1} days overdue. Threshold: {2} days / {3}."
-			).format(
-				utils.fmt_currency(past_due), max_days, hard_hold_days, utils.fmt_currency(hard_hold_amount)
-			)
+			internal_reason = "Past Due Days"
 		elif breach_by_amount:
-			reason = "Past Due Amount"
-			details = _(
-				"{0} past due, oldest invoice {1} days overdue. Threshold: {2} days / {3}."
-			).format(
-				utils.fmt_currency(past_due), max_days, hard_hold_days, utils.fmt_currency(hard_hold_amount)
-			)
+			internal_reason = "Past Due Amount"
+		elif breach_by_ar_total:
+			internal_reason = "AR Threshold Breach"
 		else:
-			reason = "AR Threshold Breach"
-			details = _(
-				"{0} total accounts receivable across the credit group exceeds the {1} ceiling."
-			).format(utils.fmt_currency(total_outstanding), utils.fmt_currency(AR_HOLD_THRESHOLD))
-		_raise_or_upgrade(customer, TYPE_HARD_HOLD, reason, details, snapshot, case)
+			internal_reason = "Limit Breach"
+		details = _details_for_breach(
+			internal_reason, past_due, max_days, hard_hold_days, hard_hold_amount,
+			new_ar, available_line,
+		)
+		ensure_active_case(customer, internal_reason, details, snapshot)
+		return
+
+	case = get_active_case(customer)
+
+	if case:
+		# Still under the hard-hold threshold, or fully cured — but the clock
+		# never downgrades a hold, and only Finance closes one that is on a
+		# Payment Plan or Workout. It only closes a still-undecided case, and
+		# only once the past-due balance is actually back to zero.
+		if past_due <= 0 and not case.resolution:
+			_cure(case, snapshot)
+		else:
+			_refresh(case.name, snapshot, _details_for_still_past_due(past_due, max_days))
 		return
 
 	if past_due <= 0:
-		if case:
-			_cure(case, snapshot)
+		_clear_warning(customer)
 		return
 
-	if warning_enabled:
-		details = _("{0} past due, oldest invoice {1} days overdue.").format(
-			utils.fmt_currency(past_due), max_days
-		)
-		_raise_or_upgrade(customer, TYPE_WARNING, "Past Due Days", details, snapshot, case)
-
-
-def _get_auto_case(customer):
-	"""The live case the sweep is allowed to touch: one it could have raised."""
-	rows = frappe.get_all(
-		"AR Case",
-		filters={
-			"customer": customer,
-			"case_type": ("in", [TYPE_WARNING, TYPE_HARD_HOLD]),
-			"status": ("in", AUTO_MANAGED_STATUSES),
-		},
-		fields=["name", "case_type", "status"],
-		order_by="opened_on desc",
-		limit=1,
+	# Policy: any amount past due is a Warning. Deliberately not gated on the
+	# warning_enabled setting — "overdue > $0" is the rule, not an option. This
+	# is a Credit Status on the Customer, never an AR Case.
+	frappe.db.set_value(
+		"Customer", customer, "custom_credit_status", utils.STATUS_WARNING, update_modified=False
 	)
-	return rows[0] if rows else None
 
 
-def _raise_or_upgrade(customer, case_type, reason, details, snapshot, case):
-	if case and case.case_type == case_type:
-		_refresh(case.name, snapshot, details)
+def _details_for_breach(
+	internal_reason, past_due, max_days, hard_hold_days, hard_hold_amount, new_ar,
+	available_line,
+):
+	if internal_reason in ("Past Due Days", "Past Due Amount"):
+		return _(
+			"{0} — {1} past due, oldest invoice {2} days overdue. Threshold: {3} days / {4}."
+		).format(
+			internal_reason,
+			utils.fmt_currency(past_due),
+			max_days,
+			hard_hold_days,
+			utils.fmt_currency(hard_hold_amount),
+		)
+	if internal_reason == "AR Threshold Breach":
+		return _(
+			"AR Threshold Breach — {0} of new AR (invoiced {1} onward) across the credit "
+			"group exceeds the {2} ceiling. Legacy AR is excluded."
+		).format(
+			utils.fmt_currency(new_ar),
+			frappe.utils.formatdate(utils.new_ar_start_date()),
+			utils.fmt_currency(AR_HOLD_THRESHOLD),
+		)
+	return _("Limit Breach — exposure exceeds the approved credit line by {0}.").format(
+		utils.fmt_currency(abs(available_line))
+	)
+
+
+def _details_for_still_past_due(past_due, max_days):
+	return _("{0} past due, oldest invoice {1} days overdue.").format(
+		utils.fmt_currency(past_due), max_days
+	)
+
+
+def _clear_warning(customer):
+	current = frappe.db.get_value("Customer", customer, "custom_credit_status")
+	if current != utils.STATUS_WARNING:
 		return
-
-	if case and case.case_type == TYPE_WARNING and case_type == TYPE_HARD_HOLD:
-		doc = frappe.get_doc("AR Case", case.name)
-		doc.case_type = TYPE_HARD_HOLD
-		doc.status = STATUS_ACTIVE
-		doc.trigger_reason = reason
-		doc.trigger_details = details
-		doc.flags.ignore_role_guards = True
-		doc.save(ignore_permissions=True)
-		doc.add_comment("Info", _("Escalated from Warning to Hard Hold. {0}").format(details))
-		_notify_case(doc, escalated=True)
-		return
-
-	if case and case.case_type == TYPE_HARD_HOLD and case_type == TYPE_WARNING:
-		# Still past due, just under the hard-hold threshold now. Do not
-		# downgrade a hold automatically — Finance releases holds, not the clock.
-		_refresh(case.name, snapshot, details)
-		return
-
-	create_case(
-		customer=customer,
-		case_type=case_type,
-		trigger_reason=reason,
-		trigger_details=details,
-		snapshot=snapshot,
+	has_line = credit_engine.get_active_credit_application(customer)
+	frappe.db.set_value(
+		"Customer",
+		customer,
+		"custom_credit_status",
+		utils.STATUS_TERMS_APPROVED if has_line else utils.STATUS_COD,
+		update_modified=False,
 	)
 
 
@@ -194,48 +223,69 @@ def _refresh(case_name, snapshot, details):
 
 def _cure(case, snapshot):
 	doc = frappe.get_doc("AR Case", case.name)
-	doc.status = STATUS_CURED
+	doc.status = STATUS_CLOSED
 	doc.past_due_amount = 0
 	doc.total_outstanding = snapshot["total_outstanding"]
 	doc.max_days_past_due = 0
 	doc.flags.ignore_role_guards = True
 	doc.save(ignore_permissions=True)
-	doc.add_comment("Info", _("Past due cleared — case cured automatically."))
+	doc.add_comment("Info", _("Past due cleared — case closed automatically."))
 	sync_customer_from_cases(doc.customer)
 
 
 # ── case creation ────────────────────────────────────────────────────────────
 
 
-def create_case(
+def ensure_active_case(
 	customer: str,
-	case_type: str,
-	trigger_reason: str,
+	internal_reason: str,
 	trigger_details: str,
 	snapshot: dict | None = None,
-	company: str | None = None,
 	notify: bool = True,
+	trigger_reason: str | None = None,
 ):
-	"""Create an AR Case and push the resulting hold onto the customer.
+	"""The single choke point for every Hard Hold — daily sweep, event triggers,
+	a manual Credit Status edit and the manual endpoint all come through here, so
+	"one case per customer" and the exemption only have to be enforced once.
 
-	The single choke point for every case in the system — daily sweep, event
-	triggers and the manual endpoint all come through here, so the exemption
-	only has to be enforced once.
+	If the customer already has an Active case, this just refreshes it and
+	notes the new trigger — the case that is already open already covers it.
+	Otherwise a new case is opened and the trigger is captured onto it.
+
+	``trigger_reason`` overrides the usual internal_reason -> Trigger Reason
+	mapping — used when the caller already knows the exact Trigger Reason value
+	(e.g. Customer.custom_hold_reason, set by hand alongside the status).
 	"""
 	if utils.is_policy_exempt(customer):
 		frappe.logger("credit_and_ar").info(
-			f"{customer} is exempt from the Credit & AR policy — no {case_type} case raised."
+			f"{customer} is exempt from the Credit & AR policy — no case raised."
 		)
 		return None
 
 	snapshot = snapshot or credit_engine.get_past_due_snapshot(customer)
 
+	existing = get_active_case(customer)
+	if existing:
+		_refresh(existing.name, snapshot, trigger_details)
+		doc = frappe.get_doc("AR Case", existing.name)
+		doc.add_comment(
+			"Info", _("Additional trigger — {0}: {1}").format(internal_reason, trigger_details)
+		)
+		return doc
+
+	return _create_case(
+		customer, internal_reason, trigger_details, snapshot, notify=notify, trigger_reason=trigger_reason
+	)
+
+
+def _create_case(customer, internal_reason, trigger_details, snapshot, notify=True, trigger_reason=None):
 	doc = frappe.new_doc("AR Case")
 	doc.customer = customer
-	doc.company = company or _company_of(customer)
-	doc.case_type = case_type
-	doc.status = STATUS_ACTIVE if case_type in HOLDING_TYPES else STATUS_OPEN
-	doc.trigger_reason = trigger_reason
+	doc.status = STATUS_ACTIVE
+	doc.trigger_reason = (
+		trigger_reason if trigger_reason is not None
+		else utils.HOLD_REASON_BY_TRIGGER.get(internal_reason, "")
+	)
 	doc.trigger_details = trigger_details
 	doc.past_due_amount = snapshot["past_due_amount"]
 	doc.total_outstanding = snapshot["total_outstanding"]
@@ -249,48 +299,38 @@ def create_case(
 	return doc
 
 
-def _company_of(customer: str) -> str | None:
-	"""The company the customer most recently traded with."""
-	rows = frappe.get_all(
-		"Sales Invoice",
-		filters={"customer": customer, "docstatus": 1},
-		fields=["company"],
-		order_by="posting_date desc",
-		limit=1,
-	)
-	if rows:
-		return rows[0].company
-	return frappe.defaults.get_user_default("Company")
+def create_manual_case(customer: str, trigger_reason: str, trigger_details: str):
+	"""Finance or the MD opening a case by hand — suspected fraud, insolvency signs.
 
-
-def raise_immediate_hold(customer: str, trigger_reason: str, trigger_details: str, **kwargs):
-	"""An immediate hold, unless one is already standing for the same reason."""
+	Unlike the automatic triggers, ``trigger_reason`` here is picked directly
+	from the same options Trigger Reason offers, so it is stored as given.
+	"""
 	if utils.is_policy_exempt(customer):
+		frappe.logger("credit_and_ar").info(
+			f"{customer} is exempt from the Credit & AR policy — no case raised."
+		)
 		return None
 
-	existing = frappe.get_all(
-		"AR Case",
-		filters={
-			"customer": customer,
-			"case_type": TYPE_IMMEDIATE_HOLD,
-			"trigger_reason": trigger_reason,
-			"status": ("not in", INACTIVE_STATUSES),
-		},
-		pluck="name",
-	)
-	if existing:
-		frappe.db.set_value(
-			"AR Case", existing[0], "trigger_details", trigger_details, update_modified=False
-		)
-		return frappe.get_doc("AR Case", existing[0])
+	snapshot = credit_engine.get_past_due_snapshot(customer)
+	doc = frappe.new_doc("AR Case")
+	doc.customer = customer
+	doc.status = STATUS_ACTIVE
+	doc.trigger_reason = trigger_reason
+	doc.trigger_details = trigger_details
+	doc.past_due_amount = snapshot["past_due_amount"]
+	doc.total_outstanding = snapshot["total_outstanding"]
+	doc.max_days_past_due = snapshot["max_days_past_due"]
+	doc.flags.ignore_role_guards = True
+	doc.insert(ignore_permissions=True)
 
-	return create_case(
-		customer=customer,
-		case_type=TYPE_IMMEDIATE_HOLD,
-		trigger_reason=trigger_reason,
-		trigger_details=trigger_details,
-		**kwargs,
-	)
+	_notify_case(doc)
+	return doc
+
+
+def raise_immediate_hold(customer: str, trigger_reason: str, trigger_details: str):
+	"""An event-driven trigger — folds into the customer's one Active case,
+	opening it if none is already standing."""
+	return ensure_active_case(customer, trigger_reason, trigger_details)
 
 
 # ── event-driven triggers ────────────────────────────────────────────────────
@@ -326,7 +366,6 @@ def on_payment_entry_cancel(doc, method=None):
 			utils.fmt_currency(doc.paid_amount),
 			doc.get("custom_return_reason") or "",
 		),
-		company=doc.company,
 	)
 
 
@@ -351,7 +390,6 @@ def on_sales_invoice_submit(doc, method=None):
 		trigger_details=_("Group exposure {0} exceeds the approved limit {1} after {2}.").format(
 			utils.fmt_currency(exposure), utils.fmt_currency(limit), doc.name
 		),
-		company=doc.company,
 	)
 
 
@@ -366,7 +404,7 @@ def check_broken_promises():
 		filters={
 			"promise_to_pay_date": ("<", today),
 			"promise_kept": 0,
-			"status": ("not in", INACTIVE_STATUSES),
+			"status": STATUS_ACTIVE,
 		},
 		fields=["name", "customer", "promise_to_pay_date", "promise_to_pay_amount"],
 	)
@@ -414,7 +452,7 @@ def check_license_expiry():
 		"Customer",
 		filters={
 			"disabled": 0,
-			"custom_credit_policy_exempt": 0,
+			"custom_credit_status": ("!=", utils.STATUS_EXEMPT),
 			"custom_license_expiry": ("<", today),
 			"custom_credit_status": ("!=", utils.STATUS_COD),
 		},
@@ -435,7 +473,7 @@ def check_license_expiry():
 			"Customer",
 			filters={
 				"disabled": 0,
-				"custom_credit_policy_exempt": 0,
+				"custom_credit_status": ("!=", utils.STATUS_EXEMPT),
 				"custom_license_expiry": target,
 			},
 			fields=["name", "custom_license_expiry"],
@@ -543,7 +581,9 @@ def enforce_hold(doc, method=None):
 	if utils.is_policy_exempt(customer):
 		return
 
-	hold_type = frappe.db.get_value("Customer", customer, "custom_hold_type")
+	from cannabis_management.credit_and_ar.doctype.ar_case.ar_case import get_hold_type
+
+	hold_type = get_hold_type(customer)
 	if hold_type not in utils.BLOCKING_HOLDS:
 		return
 
@@ -565,6 +605,8 @@ def enforce_hold(doc, method=None):
 
 def release_case(case_name: str, release_basis: str, notes: str | None = None):
 	"""Lift a hold. Credit Finance only, and every basis is verified live."""
+	from cannabis_management.credit_and_ar.doctype.ar_case.ar_case import RESOLUTION_RELEASE
+
 	if not utils.has_any_role("Credit Finance", "System Manager"):
 		frappe.throw(
 			_("Only Credit Finance can release a hold."),
@@ -574,12 +616,13 @@ def release_case(case_name: str, release_basis: str, notes: str | None = None):
 
 	doc = frappe.get_doc("AR Case", case_name)
 
-	if doc.status in INACTIVE_STATUSES:
-		frappe.throw(_("{0} is already {1}.").format(case_name, doc.status))
+	if doc.status == STATUS_CLOSED:
+		frappe.throw(_("{0} is already Closed.").format(case_name))
 
 	_verify_release_basis(doc, release_basis, notes)
 
-	doc.status = STATUS_RELEASED
+	doc.status = STATUS_CLOSED
+	doc.resolution = RESOLUTION_RELEASE
 	doc.release_basis = release_basis
 	doc.release_notes = notes
 	doc.released_by = frappe.session.user
@@ -600,7 +643,7 @@ def release_case(case_name: str, release_basis: str, notes: str | None = None):
 	sync_customer_from_cases(doc.customer)
 	_notify_release(doc)
 
-	return {"status": STATUS_RELEASED, "customer_hold": _current_hold(doc.customer)}
+	return {"status": STATUS_CLOSED, "customer_hold": _current_hold(doc.customer)}
 
 
 def _verify_release_basis(doc, release_basis: str, notes: str | None):
@@ -616,38 +659,6 @@ def _verify_release_basis(doc, release_basis: str, notes: str | None):
 					utils.fmt_currency(snapshot["past_due_amount"]),
 				),
 				title=_("Still Past Due"),
-			)
-		return
-
-	if release_basis == "Current on Approved Plan":
-		plan = frappe.get_all(
-			"AR Case",
-			filters={
-				"customer": doc.customer,
-				"case_type": TYPE_PAYMENT_PLAN,
-				"status": ("not in", INACTIVE_STATUSES),
-			},
-			fields=["name", "md_ratified", "missed_installments"],
-			limit=1,
-		)
-		if not plan:
-			frappe.throw(
-				_("{0} has no active payment plan.").format(frappe.bold(doc.customer)),
-				title=_("No Plan"),
-			)
-		if not plan[0].md_ratified:
-			frappe.throw(
-				_("Payment plan {0} has not been ratified by the Managing Director.").format(
-					plan[0].name
-				),
-				title=_("Plan Not Ratified"),
-			)
-		if int(plan[0].missed_installments or 0) > 0:
-			frappe.throw(
-				_("Payment plan {0} has {1} missed installment(s) — the customer is not current.").format(
-					plan[0].name, plan[0].missed_installments
-				),
-				title=_("Plan In Default"),
 			)
 		return
 
@@ -683,7 +694,7 @@ def _log_md_exception(doc, notes: str):
 			_("MD exception used to release a hold — {0}").format(doc.customer),
 			_(
 				"<p><b>{0}</b> released the hold on <b>{1}</b> under an MD exception, "
-				"outside Paid in Full or Current on Approved Plan.</p><p>Reason: {2}</p><p>{3}</p>"
+				"outside Paid in Full.</p><p>Reason: {2}</p><p>{3}</p>"
 			).format(
 				frappe.utils.get_fullname(frappe.session.user),
 				frappe.utils.escape_html(doc.customer),
@@ -694,43 +705,34 @@ def _log_md_exception(doc, notes: str):
 
 
 def _current_hold(customer: str):
-	return frappe.db.get_value(
-		"Customer", customer, ["custom_hold_type", "custom_on_hold", "custom_credit_status"], as_dict=True
-	)
+	from cannabis_management.credit_and_ar.doctype.ar_case.ar_case import get_hold_type
+
+	data = frappe.db.get_value(
+		"Customer", customer, ["custom_credit_status"], as_dict=True
+	) or frappe._dict()
+	data["custom_hold_type"] = get_hold_type(customer)
+	return data
 
 
 # ── notifications ────────────────────────────────────────────────────────────
 
 
-def _notify_case(doc, escalated: bool = False):
+def _notify_case(doc):
 	sales_owner = _sales_owner(doc.customer)
 
-	if doc.case_type == TYPE_WARNING:
-		recipients = utils.dedupe_recipients(
-			utils.finance_recipients(), utils.routed_user("collections_officer")
-		)
-		subject = _("Warning raised — {0}").format(doc.customer)
-	elif doc.case_type == TYPE_HARD_HOLD:
-		recipients = utils.dedupe_recipients(
-			utils.finance_recipients(),
-			utils.routed_user("collections_officer"),
-			utils.routed_user("ops_manager"),
-			sales_owner,
-		)
-		subject = _("Hard hold — {0}").format(doc.customer)
-	else:
-		recipients = utils.dedupe_recipients(
-			utils.finance_recipients(), utils.routed_user("managing_director"), sales_owner
-		)
-		subject = _("Immediate hold — {0}").format(doc.customer)
-
+	recipients = utils.dedupe_recipients(
+		utils.finance_recipients(),
+		utils.routed_user("collections_officer"),
+		utils.routed_user("ops_manager"),
+		sales_owner,
+	)
 	if not recipients:
 		return
 
-	verb = _("escalated to") if escalated else _("raised:")
+	subject = _("Hard hold — {0}").format(doc.customer)
 	message = _(
 		"""
-		<p>Stop-work case {verb} <b>{case_type}</b> for <b>{customer}</b>.</p>
+		<p>Stop-work case raised for <b>{customer}</b>.</p>
 		<table style="font-size:14px;margin:8px 0;">
 			<tr><td style="padding:3px 14px 3px 0;color:#666;">Trigger</td><td><b>{reason}</b></td></tr>
 			<tr><td style="padding:3px 14px 3px 0;color:#666;">Detail</td><td>{details}</td></tr>
@@ -738,11 +740,11 @@ def _notify_case(doc, escalated: bool = False):
 			<tr><td style="padding:3px 14px 3px 0;color:#666;">Oldest Invoice</td><td>{days} days</td></tr>
 			<tr><td style="padding:3px 14px 3px 0;color:#666;">Total Outstanding</td><td>{total}</td></tr>
 		</table>
+		<p style='color:#b91c1c;'>No product moves and no production starts for this
+		customer until Credit Finance releases the hold.</p>
 		<p>{link}</p>
 		"""
 	).format(
-		verb=verb,
-		case_type=doc.case_type,
 		customer=frappe.utils.escape_html(doc.customer),
 		reason=frappe.utils.escape_html(doc.trigger_reason or ""),
 		details=frappe.utils.escape_html(doc.trigger_details or ""),
@@ -751,12 +753,6 @@ def _notify_case(doc, escalated: bool = False):
 		total=utils.fmt_currency(doc.total_outstanding),
 		link=utils.doc_link("AR Case", doc.name),
 	)
-
-	if doc.case_type in HOLDING_TYPES:
-		message += _(
-			"<p style='color:#b91c1c;'>No product moves and no production starts for this "
-			"customer until Credit Finance releases the hold.</p>"
-		)
 
 	_sendmail(recipients, subject, message, doc)
 

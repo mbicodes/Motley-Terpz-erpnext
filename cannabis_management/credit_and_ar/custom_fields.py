@@ -15,9 +15,8 @@ Customer and are reused as-is.
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 
 CREDIT_STATUS_OPTIONS = (
-	"COD\nTerms Approved\nWarning\nHard Hold\nPayment Plan\nWorkout\nBlocked\nPolicy Exempt"
+	"Terms Approved\nWarning\nHard Hold\nPayment Plan\nWorkout\nBlocked\nPolicy Exempt"
 )
-HOLD_TYPE_OPTIONS = "None\nWarning\nHard Hold\nImmediate Hold"
 SCORE_BAND_OPTIONS = "Insufficient History\nExcellent\nGood\nFair\nWatch\nCOD Only"
 
 
@@ -26,7 +25,10 @@ CUSTOMER_FIELDS = [
 		"fieldname": "custom_credit_control_tab",
 		"fieldtype": "Tab Break",
 		"label": "Credit Control",
-		"insert_after": "custom_notebox",
+		# Sit after the last of Customer's standard "More Information" fields so the
+		# stock Defaults / Internal Customer / More Information sections stay in the
+		# Details tab; this tab then contains only the Credit & AR sections.
+		"insert_after": "custom_link_supplier",
 	},
 	# ── Exemption ────────────────────────────────────────────────────────
 	# The escape hatch, deliberately first: anyone opening this tab should see
@@ -38,34 +40,17 @@ CUSTOMER_FIELDS = [
 		"insert_after": "custom_credit_control_tab",
 	},
 	{
-		"fieldname": "custom_credit_policy_exempt",
-		"fieldtype": "Check",
-		"label": "Exempt from Credit &amp; AR Policy",
-		"default": "0",
-		"permlevel": 1,
-		"in_standard_filter": 1,
-		"description": (
-			"Switches this module off for this account entirely: no Sales Order gate, "
-			"no holds, no AR Cases, no ledger enforcement, no finance charges, no scoring. "
-			"Their balance still counts toward the company AR cap, DSO and CEI. "
-			"Only Credit Finance and the Managing Director can set this."
-		),
-		"insert_after": "custom_credit_exemption_section",
-	},
-	{
-		"fieldname": "custom_credit_exemption_cb",
-		"fieldtype": "Column Break",
-		"insert_after": "custom_credit_policy_exempt",
-	},
-	{
 		"fieldname": "custom_credit_policy_exempt_reason",
 		"fieldtype": "Small Text",
 		"label": "Exemption Reason",
 		"permlevel": 1,
-		"depends_on": "custom_credit_policy_exempt",
-		"mandatory_depends_on": "custom_credit_policy_exempt",
+		# The exemption is the Credit Status now, so the reason follows it.
+		"depends_on": 'eval:doc.custom_credit_status=="Policy Exempt"',
+		"mandatory_depends_on": 'eval:doc.custom_credit_status=="Policy Exempt"',
 		"description": "Why this account is outside the policy, and who authorised it.",
-		"insert_after": "custom_credit_exemption_cb",
+		# Straight after the section: the column break that used to sit between
+		# this and the exempt checkbox went with the checkbox itself.
+		"insert_after": "custom_credit_exemption_section",
 	},
 	# ── Standing ─────────────────────────────────────────────────────────
 	{
@@ -79,11 +64,22 @@ CUSTOMER_FIELDS = [
 		"fieldtype": "Select",
 		"label": "Credit Status",
 		"options": CREDIT_STATUS_OPTIONS,
-		"default": "COD",
-		"read_only": 1,
+		# Set by the engines, changed only by Finance. permlevel 1 on Customer is
+		# already granted to Credit Finance / Managing Director / Accounts Manager
+		# / Sales Master Manager.
+		"permlevel": 1,
+		# Both explicitly blank: create_custom_fields only writes the keys it is
+		# given, so dropping them from this dict leaves the old values in place —
+		# and a stored default of "COD" is no longer one of the options, which
+		# makes Frappe refuse to save the field at all.
+		"default": "",
+		"description": "",
+		# Editable, not read-only: permlevel 1 already limits who can touch it, so
+		# the people who own credit decisions can set it by hand when the engines'
+		# view and reality disagree.
+		"read_only": 0,
 		"in_list_view": 1,
 		"in_standard_filter": 1,
-		"description": "Every customer is COD by default. Terms are granted only through an approved Credit Application.",
 		"insert_after": "custom_credit_standing_section",
 	},
 	{
@@ -167,26 +163,9 @@ CUSTOMER_FIELDS = [
 		"insert_after": "custom_is_intercompany",
 	},
 	{
-		"fieldname": "custom_on_hold",
-		"fieldtype": "Check",
-		"label": "On Hold",
-		"default": "0",
-		"in_standard_filter": 1,
-		"insert_after": "custom_hold_section",
-	},
-	{
-		"fieldname": "custom_hold_type",
-		"fieldtype": "Select",
-		"label": "Hold Type",
-		"options": HOLD_TYPE_OPTIONS,
-		"default": "None",
-		"read_only": 1,
-		"insert_after": "custom_on_hold",
-	},
-	{
 		"fieldname": "custom_hold_cb",
 		"fieldtype": "Column Break",
-		"insert_after": "custom_hold_type",
+		"insert_after": "custom_hold_section",
 	},
 	{
 		"fieldname": "custom_hold_since",
@@ -288,27 +267,9 @@ CUSTOMER_FIELDS = [
 		"insert_after": "custom_weekly_volume_lbs",
 	},
 	{
-		"fieldname": "custom_license_verified",
-		"fieldtype": "Check",
-		"label": "License Verified (Credit File)",
-		"default": "0",
-		"read_only": 1,
-		"description": "Verified as part of the credit file. Distinct from METRC license verification.",
-		"insert_after": "custom_credit_file_section",
-	},
-	{
-		"fieldname": "custom_reconciliation_clause_ack",
-		"fieldtype": "Check",
-		"label": "Reconciliation Clause Acknowledged",
-		"default": "0",
-		"read_only": 1,
-		"description": "The customer accepts that we may request their ledger any time a balance is open; refusal suspends terms.",
-		"insert_after": "custom_license_verified",
-	},
-	{
 		"fieldname": "custom_credit_file_cb",
 		"fieldtype": "Column Break",
-		"insert_after": "custom_reconciliation_clause_ack",
+		"insert_after": "custom_credit_file_section",
 	},
 	{
 		"fieldname": "custom_ap_contact_name",
@@ -459,14 +420,16 @@ SALES_ORDER_FIELDS = [
 		"label": "Workout Paydown Required",
 		"read_only": 1,
 		"depends_on": "custom_workout_paydown_required",
+		"description": "Fixed = the case's Paydown Amount. Percent = this order's Net Total × Paydown %.",
 		"insert_after": "custom_print_blocked",
 	},
 	{
 		"fieldname": "custom_workout_paydown_received",
 		"fieldtype": "Currency",
-		"label": "Workout Paydown Received",
+		"label": "Workout Paydown Made",
 		"read_only": 1,
 		"depends_on": "custom_workout_paydown_required",
+		"description": "Previous Balance minus the AR Case's live Current Balance — recomputed at save and re-verified at submit.",
 		"insert_after": "custom_workout_paydown_required",
 	},
 ]
@@ -621,12 +584,38 @@ PHASE_4_FIELDS = {
 }
 
 
+# ── Workout balance tracking ─────────────────────────────────────────────────
+# Required Paydown is measured against Net Total, and "paydown made" is now the
+# drop in the AR Case's live Current Balance since the customer's last
+# submitted workout order — this snapshot is that baseline.
+
+WORKOUT_BALANCE_FIELDS = {
+	"Sales Order": [
+		{
+			"fieldname": "custom_workout_balance_at_order",
+			"fieldtype": "Currency",
+			"label": "Workout Balance at Order",
+			"read_only": 1,
+			"description": (
+				"AR Case Current Balance at the moment this order was submitted — "
+				"the Previous Balance baseline for the customer's next workout order."
+			),
+			"insert_after": "custom_ar_case",
+		},
+	],
+}
+
+
 def install_phase_1_fields():
 	create_custom_fields(PHASE_1_FIELDS, update=True)
 
 
 def install_phase_4_fields():
 	create_custom_fields(PHASE_4_FIELDS, update=True)
+
+
+def install_workout_balance_field():
+	create_custom_fields(WORKOUT_BALANCE_FIELDS, update=True)
 
 
 def install_exemption_fields():

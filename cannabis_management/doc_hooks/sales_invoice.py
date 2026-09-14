@@ -38,7 +38,16 @@ def before_validate(doc, method=None):
 
 
 def before_submit(doc, method=None):
-    check_ar_policy(doc)
+    # AR policy notices are deliberately NOT raised here any more.
+    #
+    # Selling Settings -> "Sales Order Required" means an invoice cannot exist
+    # without an order behind it, and the order is where the credit decision is
+    # made — the gate, the hold and the AR cap all run there. Repeating any of it
+    # at the invoice only nags the person billing work that was already approved,
+    # and there is nothing useful they can do about it at that point.
+    #
+    # check_ar_policy() is kept for the Sales Order side to call if that is ever
+    # wanted; nothing calls it today.
     _check_cod_customer(doc)
 
 
@@ -52,8 +61,25 @@ def on_submit(doc, method=None):
 
 def check_ar_policy(doc):
     """Public — called by Sales Invoice and Sales Order before_submit."""
-    _check_total_ar_cap(doc)
+    if _ar_cap_enabled():
+        _check_total_ar_cap(doc)
     _warn_customer_overdue(doc)
+
+
+def _ar_cap_enabled():
+    """Selling Settings -> "Enforce $400,000 AR Cap" governs this notice too.
+
+    This is the company-wide cap, separate from the per-customer ceiling in
+    credit_and_ar — but both are "the $400,000 rule" to anyone reading the
+    message, so one switch turns off both. Imported lazily so this module keeps
+    working on a site without the credit module loaded.
+    """
+    try:
+        from cannabis_management.credit_and_ar.utils import ar_cap_enabled
+
+        return ar_cap_enabled()
+    except Exception:
+        return True
 
 
 # ── AR cap check (warning only — never blocks submission) ─────────────────────

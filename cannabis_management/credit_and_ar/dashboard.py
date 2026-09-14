@@ -42,7 +42,12 @@ def current_cei():
 def accounts_on_hold():
 	return {
 		"value": frappe.db.count(
-			"Customer", {"custom_on_hold": 1, "disabled": 0, "custom_is_intercompany": 0}
+			"Customer",
+			{
+				"custom_credit_status": utils.STATUS_HARD_HOLD,
+				"disabled": 0,
+				"custom_is_intercompany": 0,
+			},
 		),
 		"fieldtype": "Int",
 	}

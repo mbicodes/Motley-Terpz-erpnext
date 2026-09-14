@@ -46,13 +46,17 @@ def _dn_stub(against):
 
 
 def _find_held_customer():
+	from cannabis_management.credit_and_ar.doctype.ar_case.ar_case import get_hold_type
+
 	rows = frappe.get_all(
 		"Customer",
-		filters={"custom_hold_type": "Hard Hold", "custom_credit_policy_exempt": 0},
+		filters={"custom_credit_status": utils.STATUS_HARD_HOLD},
 		fields=["name"],
-		limit=1,
 	)
-	return rows[0].name if rows else None
+	for row in rows:
+		if get_hold_type(row.name) == "Hard Hold":
+			return row.name
+	return None
 
 
 def _sample_item():

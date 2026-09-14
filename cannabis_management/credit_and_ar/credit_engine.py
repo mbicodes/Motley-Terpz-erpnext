@@ -264,6 +264,40 @@ def is_internal_customer(customer: str | None) -> bool:
 	return bool(row.is_internal_customer or row.represents_company)
 
 
+def get_new_ar_outstanding(customers: list[str]) -> float:
+	"""Outstanding on NEW-book invoices only — posted on or after the cut-over.
+
+	Read from Sales Invoice rather than the ledger because this measure is
+	defined by invoice date: a GL balance cannot say which side of the cut-over a
+	payment belongs to once it has been applied. Legacy AR is excluded on
+	purpose — it is being worked through separately (see the AR Legacy page) and
+	must not consume a customer's new-book headroom.
+	"""
+	if not customers:
+		return 0.0
+
+	si = frappe.qb.DocType("Sales Invoice")
+	rows = (
+		frappe.qb.from_(si)
+		.select(Sum(si.outstanding_amount * si.conversion_rate))
+		.where(
+			(si.docstatus == 1)
+			& (si.customer.isin(customers))
+			& (si.outstanding_amount > 0)
+			& (si.posting_date >= utils.new_ar_start_date())
+		)
+	).run()
+
+	return flt(rows[0][0]) if rows and rows[0] else 0.0
+
+
+def get_customer_new_ar(customer: str) -> float:
+	"""New-book receivables owed by this customer's credit group."""
+	if not customer:
+		return 0.0
+	return get_new_ar_outstanding(get_credit_group_members(customer))
+
+
 def get_customer_ar(customer: str) -> float:
 	"""Receivables owed by this customer's credit group, per the configured AR
 	source. Open orders are deliberately excluded: this is AR, not exposure."""
@@ -414,17 +448,24 @@ def describe_line_blocker(customer: str) -> str | None:
 
 
 def refresh_customer_exposure(customer: str):
-	"""Write the cached exposure figures back onto the Customer record."""
+	"""Write the cached exposure figures back onto the Customer record — and
+	onto every other Customer sharing its credit group.
+
+	The line is group-wide (see the module docstring): one Sales Order against
+	one member changes what the *whole* group has available, so every member
+	must show the same Current Exposure / Available Line, not just the one
+	document that triggered the recompute.
+	"""
+	if not customer:
+		return None
+
 	summary = get_line_summary(customer)
-	frappe.db.set_value(
-		"Customer",
-		customer,
-		{
-			"custom_current_exposure": summary["total"],
-			"custom_available_line": summary["available_line"],
-		},
-		update_modified=False,
-	)
+	values = {
+		"custom_current_exposure": summary["total"],
+		"custom_available_line": summary["available_line"],
+	}
+	for member in summary["members"]:
+		frappe.db.set_value("Customer", member, values, update_modified=False)
 	return summary
 
 
