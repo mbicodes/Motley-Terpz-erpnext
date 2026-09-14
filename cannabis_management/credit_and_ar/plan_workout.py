@@ -1,25 +1,26 @@
-"""Payment plans (§8) and workout accounts (§9).
+"""Payment plans (§8) and workout accounts (§9) — resolutions on the one case.
 
 A **payment plan** splits a delinquent balance into a signed, ratified schedule.
-One missed payment is an immediate hard hold on all new work until cured — the
-plan engine and the ordinary past-due engine run independently, and neither
-suppresses the other.
+A missed installment is logged and notified, but it does not raise a second
+case — the one Active AR Case, already on Hard Hold, already stops new work.
 
 A **workout account** is prepaid only, forever, and its balance only moves down.
-A rising balance ends the workout.
+A rising balance — or one that never shrinks — ends the workout and hands the
+case back to Finance to decide again, rather than closing it and opening
+another; there is still only ever one case per customer.
 """
 
 import frappe
 from frappe import _
-from frappe.utils import add_days, add_months, flt, getdate, now_datetime, nowdate
+from frappe.utils import add_days, add_months, flt, getdate, nowdate
 
-from cannabis_management.credit_and_ar import credit_engine, hold_engine, utils
+from cannabis_management.credit_and_ar import credit_engine, utils
 from cannabis_management.credit_and_ar.doctype.ar_case.ar_case import (
-	INACTIVE_STATUSES,
-	STATUS_DEFAULTED,
-	TYPE_HARD_HOLD,
-	TYPE_PAYMENT_PLAN,
-	TYPE_WORKOUT,
+	RESOLUTION_PAYMENT_PLAN,
+	RESOLUTION_WORKOUT,
+	STATUS_ACTIVE,
+	STATUS_CLOSED,
+	get_active_case,
 	sync_customer_from_cases,
 )
 
@@ -27,13 +28,25 @@ TREND_SHRINKING = "Shrinking"
 TREND_FLAT = "Flat"
 TREND_RISING = "Rising"
 
+# Generate Plan — one due-date step per frequency. Custom is deliberately
+# absent: it has no step, since its dates are typed by hand (see
+# AR Case.installment_frequency).
+FREQUENCY_STEPS = {
+	"Weekly": lambda d: add_days(d, 7),
+	"Monthly": lambda d: add_months(d, 1),
+	"Bi-annually": lambda d: add_months(d, 6),
+}
+
+# A sane ceiling against a fat-fingered date range (e.g. Weekly over 20 years).
+MAX_GENERATED_INSTALLMENTS = 260
+
 
 # ── plan lifecycle ───────────────────────────────────────────────────────────
 
 
 def on_ar_case_update(doc, method=None):
 	"""Capture the invoices a plan covers, the moment the MD ratifies it."""
-	if doc.case_type != TYPE_PAYMENT_PLAN or not doc.md_ratified:
+	if doc.resolution != RESOLUTION_PAYMENT_PLAN or not doc.md_ratified:
 		return
 
 	previous = doc.get_doc_before_save()
@@ -43,27 +56,162 @@ def on_ar_case_update(doc, method=None):
 	_capture_plan_invoices(doc)
 
 
-def _capture_plan_invoices(case):
-	"""Ratification freezes which invoices belong to the plan.
+# ── Generate Plan ────────────────────────────────────────────────────────────
+#
+# Weekly / Monthly / Bi-annually only — a Custom-frequency plan is entered by
+# hand (due dates, invoices and amounts all typed in), never through here. See
+# the description on AR Case.installment_frequency.
 
-	Without this the two ledgers have no boundary — "plan money" would be a
-	label rather than a rule.
 
-	Only **past-due** invoices are captured: the plan exists to work off a
-	delinquent balance. An invoice that is merely open, and still inside its
-	terms, is current trading and stays on the new book.
+def _installment_dates(start_date, end_date, frequency) -> list:
+	"""Due dates from Plan Start Date to Plan End Date, one per frequency step."""
+	step = FREQUENCY_STEPS.get(frequency)
+	if not step:
+		frappe.throw(
+			_("{0} does not auto-generate a schedule — enter due dates by hand.").format(frequency)
+		)
+
+	start = getdate(start_date)
+	end = getdate(end_date)
+	if end < start:
+		frappe.throw(_("Plan End Date must be on or after Plan Start Date."))
+
+	dates = []
+	current = start
+	while current <= end:
+		dates.append(current)
+		if len(dates) > MAX_GENERATED_INSTALLMENTS:
+			frappe.throw(
+				_("That date range produces more than {0} installments at {1} frequency — narrow it down.").format(
+					MAX_GENERATED_INSTALLMENTS, frequency
+				)
+			)
+		current = step(current)
+
+	return dates or [end]
+
+
+@frappe.whitelist()
+def generate_schedule(
+	case_name: str,
+	resolution: str | None = None,
+	plan_start_date: str | None = None,
+	plan_end_date: str | None = None,
+	installment_frequency: str | None = None,
+):
+	"""§8 Generate Plan — compute the installment schedule from live invoices.
+
+	Pure computation, nothing is saved here: the client populates the Schedule
+	grid from the return value so Finance can review (and attach the signed
+	plan document) before hitting Save, which runs the usual validation.
+
+	``resolution`` / ``plan_start_date`` / ``plan_end_date`` /
+	``installment_frequency`` are taken from the caller (the open form) rather
+	than re-read from the database, since Finance may have just picked
+	"Payment Plan" and typed in the dates without saving yet — checking the
+	stale, already-saved case would refuse to generate a schedule for what is
+	plainly on screen. Each falls back to the saved case when omitted.
+
+	Due dates are Plan Start Date → Plan End Date stepped by Installment
+	Frequency. The customer's open, past-due invoices (oldest first — FIFO)
+	are drawn down evenly across those dates: an installment that outruns its
+	invoice keeps drawing from the next one on the list, so one installment
+	can straddle several invoices and one invoice can straddle several
+	installments.
 	"""
-	invoices = frappe.get_all(
+	case = frappe.get_doc("AR Case", case_name)
+	case.check_permission("write")
+
+	resolution = resolution or case.resolution
+	if resolution != RESOLUTION_PAYMENT_PLAN:
+		frappe.throw(_("{0} is not on a Payment Plan.").format(case_name))
+
+	# No Credit Finance / System Manager gate here — anyone with write access
+	# to the case (checked above) can generate the schedule. Saving it still
+	# runs the full ARCase validation (signed document, MD ratification, etc).
+
+	plan_start_date = plan_start_date or case.plan_start_date
+	plan_end_date = plan_end_date or case.plan_end_date
+	installment_frequency = installment_frequency or case.installment_frequency
+
+	if not plan_start_date or not plan_end_date:
+		frappe.throw(_("Set Plan Start Date and Plan End Date first."))
+
+	invoices = _open_plan_invoices(case.customer)
+	if not invoices:
+		frappe.throw(_("{0} has no open, past-due Sales Invoices to schedule.").format(case.customer))
+
+	dates = _installment_dates(plan_start_date, plan_end_date, installment_frequency)
+	total = flt(sum(flt(row.outstanding_amount) for row in invoices))
+
+	# Even split across installments, the last one absorbing the rounding
+	# remainder so the schedule always foots exactly to the total — see
+	# ARCase._validate_payment_plan, which enforces that match on Save.
+	count = len(dates)
+	share = flt(round(total / count, 2))
+	amounts = [share] * (count - 1) + [flt(total - share * (count - 1), 2)]
+
+	remaining = {row.name: flt(row.outstanding_amount) for row in invoices}
+	order = [row.name for row in invoices]
+	cursor = 0
+
+	installments = []
+	for due_date, amount in zip(dates, amounts):
+		row_invoices = []
+		needed = amount
+		while needed > 0.005 and cursor < len(order):
+			invoice = order[cursor]
+			available = remaining[invoice]
+			if available <= 0.005:
+				cursor += 1
+				continue
+			take = flt(min(available, needed), 2)
+			row_invoices.append({"sales_invoice": invoice, "allocated_amount": take})
+			remaining[invoice] -= take
+			needed -= take
+			if remaining[invoice] <= 0.005:
+				cursor += 1
+		installments.append(
+			{"due_date": due_date, "amount": amount, "invoices": row_invoices}
+		)
+
+	return {
+		"total": total,
+		"invoice_count": len(invoices),
+		"installments": installments,
+	}
+
+
+def _open_plan_invoices(customer: str) -> list:
+	"""This customer's open, past-due invoices, oldest due date first.
+
+	The one FIFO order both plan ratification (below) and Generate Plan
+	(``generate_schedule``) draw down against. Only **past-due** invoices
+	count: the plan exists to work off a delinquent balance. An invoice that
+	is merely open, and still inside its terms, is current trading and stays
+	on the new book.
+	"""
+	return frappe.get_all(
 		"Sales Invoice",
 		filters={
-			"customer": case.customer,
+			"customer": customer,
 			"docstatus": 1,
 			"outstanding_amount": (">", 0),
 			"custom_is_finance_charge": 0,
 			"due_date": ("<", getdate(nowdate())),
 		},
 		fields=["name", "outstanding_amount"],
+		order_by="due_date asc, posting_date asc, name asc",
 	)
+
+
+def _capture_plan_invoices(case):
+	"""Ratification freezes which invoices belong to the plan.
+
+	Without this the two ledgers have no boundary — "plan money" would be a
+	label rather than a rule.
+	"""
+	invoices = _open_plan_invoices(case.customer)
 	if not invoices:
 		case.add_comment(
 			"Info",
@@ -93,27 +241,11 @@ def _capture_plan_invoices(case):
 		"ledger. Total group exposure {2}."
 	).format(len(invoices), utils.fmt_currency(captured), utils.fmt_currency(exposure))
 
-	if abs(captured - flt(case.plan_principal)) > 0.01:
-		message += _(
-			"<br><b>Note:</b> the captured balance differs from the plan principal of {0}. "
-			"Confirm the schedule covers the intended debt."
-		).format(utils.fmt_currency(case.plan_principal))
-
 	case.add_comment("Info", message)
 
 
 def get_active_plan(customer: str) -> dict | None:
-	rows = frappe.get_all(
-		"AR Case",
-		filters={
-			"customer": customer,
-			"case_type": TYPE_PAYMENT_PLAN,
-			"status": ("not in", INACTIVE_STATUSES),
-		},
-		fields=["name", "md_ratified", "missed_installments", "new_line_credit_application"],
-		limit=1,
-	)
-	return rows[0] if rows else None
+	return get_active_case(customer, resolution=RESOLUTION_PAYMENT_PLAN)
 
 
 def plan_problems(customer: str) -> list[str]:
@@ -178,7 +310,11 @@ def assert_plan_allows_terms(customer: str):
 
 
 def check_plan_installments():
-	"""Daily — a missed installment is an immediate hold on all new work."""
+	"""Daily — a missed installment is logged and notified.
+
+	It does not raise a further hold: the case it belongs to is already on
+	Hard Hold and already stops new work.
+	"""
 	if not utils.require_policy_live("check_plan_installments"):
 		return
 
@@ -186,7 +322,7 @@ def check_plan_installments():
 
 	cases = frappe.get_all(
 		"AR Case",
-		filters={"case_type": TYPE_PAYMENT_PLAN, "status": ("not in", INACTIVE_STATUSES)},
+		filters={"resolution": RESOLUTION_PAYMENT_PLAN, "status": STATUS_ACTIVE},
 		pluck="name",
 	)
 
@@ -228,13 +364,6 @@ def _check_one_plan(case_name, today):
 	)
 	case.add_comment("Info", _("Plan default — {0}").format(detail))
 
-	hold_engine.raise_immediate_hold(
-		customer=case.customer,
-		trigger_reason="Plan Default",
-		trigger_details=detail,
-		company=case.company,
-	)
-
 	_notify_missed_installment(case, newly_missed)
 
 
@@ -260,7 +389,7 @@ def _notify_missed_installment(case, rows):
 		_("Plan installment missed — {0}").format(case.customer),
 		_(
 			"<p>Payment plan <b>{0}</b> for <b>{1}</b> has missed an installment. "
-			"All new work is on <b>immediate hold</b> until it is cured.</p><ul>{2}</ul>"
+			"All new work is on <b>hold</b> until it is cured.</p><ul>{2}</ul>"
 			"<p>Missed to date: <b>{3}</b></p><p>{4}</p>"
 		).format(
 			case.name,
@@ -277,24 +406,7 @@ def _notify_missed_installment(case, rows):
 
 
 def get_active_workout(customer: str) -> dict | None:
-	rows = frappe.get_all(
-		"AR Case",
-		filters={
-			"customer": customer,
-			"case_type": TYPE_WORKOUT,
-			"status": ("not in", INACTIVE_STATUSES),
-		},
-		fields=[
-			"name",
-			"paydown_mode",
-			"paydown_percent",
-			"paydown_amount",
-			"starting_balance",
-			"current_balance",
-		],
-		limit=1,
-	)
-	return rows[0] if rows else None
+	return get_active_case(customer, resolution=RESOLUTION_WORKOUT)
 
 
 def required_paydown(workout: dict, order_total: float) -> float:
@@ -303,6 +415,89 @@ def required_paydown(workout: dict, order_total: float) -> float:
 	if workout.get("paydown_mode") == "Fixed Amount per Order":
 		return flt(workout.get("paydown_amount"))
 	return flt(order_total) * flt(workout.get("paydown_percent")) / 100.0
+
+
+def get_previous_workout_balance(workout: dict | None) -> float:
+	"""§9 Previous Balance.
+
+	The workout's Starting Balance for the first order submitted since it
+	began; otherwise the "Workout Balance at Order" snapshot saved on the
+	customer's last *submitted* order against this same case.
+	"""
+	if not workout:
+		return 0.0
+
+	last_order = frappe.get_all(
+		"Sales Order",
+		filters={"custom_ar_case": workout["name"], "docstatus": 1},
+		fields=["custom_workout_balance_at_order"],
+		order_by="creation desc",
+		limit=1,
+	)
+	if not last_order:
+		return flt(workout.get("starting_balance"))
+	return flt(last_order[0].custom_workout_balance_at_order)
+
+
+def refresh_workout_balance(customer: str):
+	"""Recompute an active workout's Current Balance right away.
+
+	§9 step 8 — a payment against an old/overdue invoice should move the
+	balance immediately, not wait for the nightly ``review_workouts`` sweep.
+	Current Balance is simply live group exposure (exactly what the nightly
+	job also uses), so any receipt or refund that changes exposure is enough
+	reason to recompute here.
+
+	§9 step 9 — the moment the balance reaches zero this closes the case and
+	clears the customer's credit status outright. The nightly sweep never does
+	this on its own: it only ever *ends* a workout that is rising or stuck,
+	never closes one that has been paid off.
+	"""
+	if not customer or utils.is_policy_exempt(customer):
+		return
+
+	workout = get_active_workout(customer)
+	if not workout:
+		return
+
+	case = frappe.get_doc("AR Case", workout["name"])
+	current = credit_engine.get_current_exposure(customer)
+	starting = flt(case.starting_balance)
+	previous = flt(case.current_balance)
+
+	case.current_balance = current
+	case.recovered_to_date = max(0.0, starting - current)
+
+	if previous:
+		if current < previous - 0.01:
+			case.balance_trend = TREND_SHRINKING
+		elif current > previous + 0.01:
+			case.balance_trend = TREND_RISING
+		else:
+			case.balance_trend = TREND_FLAT
+
+	case.flags.ignore_role_guards = True
+
+	if current <= 0.005:
+		case.current_balance = 0.0
+		case.status = STATUS_CLOSED
+		case.save(ignore_permissions=True)
+
+		sync_customer_from_cases(case.customer)
+		# §9 step 9 — reaching zero clears the slate outright, not the usual
+		# Terms Approved / COD fallback sync_customer_from_cases would leave.
+		frappe.db.set_value(
+			"Customer", case.customer, "custom_credit_status", "", update_modified=False
+		)
+		frappe.clear_document_cache("Customer", case.customer)
+
+		case.add_comment(
+			"Info", _("Workout balance reached zero — case closed, credit status cleared.")
+		)
+		_notify_workout(case, _("Workout complete — balance paid to zero"))
+		return
+
+	case.save(ignore_permissions=True)
 
 
 def get_cleared_paydowns(sales_order: str) -> float:
@@ -323,7 +518,8 @@ def get_cleared_paydowns(sales_order: str) -> float:
 
 
 def review_workouts():
-	"""Daily — the balance only moves down. A rising balance ends the workout."""
+	"""Daily — the balance only moves down. A rising, or unmoving, balance ends
+	the workout and hands the case back to Finance."""
 	if not utils.require_policy_live("review_workouts"):
 		return
 
@@ -334,7 +530,7 @@ def review_workouts():
 
 	cases = frappe.get_all(
 		"AR Case",
-		filters={"case_type": TYPE_WORKOUT, "status": ("not in", INACTIVE_STATUSES)},
+		filters={"resolution": RESOLUTION_WORKOUT, "status": STATUS_ACTIVE},
 		pluck="name",
 	)
 
@@ -369,24 +565,18 @@ def _review_one_workout(case_name, today, no_shrink_days, review_days):
 
 	case.flags.ignore_role_guards = True
 
-	# The balance only moves down. Above where it started ends the workout.
+	# The balance only moves down. Above where it started ends the workout —
+	# back to Finance to decide the next step. The case itself stays Active
+	# and on hold throughout; there is no second case to raise.
 	if starting and current > starting + 0.01:
-		case.status = STATUS_DEFAULTED
+		case.resolution = ""
 		case.save(ignore_permissions=True)
 		case.add_comment(
 			"Info",
-			_("Workout ended — balance rose from {0} to {1}.").format(
-				utils.fmt_currency(starting), utils.fmt_currency(current)
-			),
-		)
-		hold_engine.create_case(
-			customer=case.customer,
-			case_type=TYPE_HARD_HOLD,
-			trigger_reason="Manual",
-			trigger_details=_("Workout {0} defaulted — balance rose above its starting point.").format(
-				case.name
-			),
-			company=case.company,
+			_(
+				"Workout ended — balance rose from {0} to {1}. Back with Finance to decide "
+				"the next step."
+			).format(utils.fmt_currency(starting), utils.fmt_currency(current)),
 		)
 		sync_customer_from_cases(case.customer)
 		_notify_workout(case, _("Workout ended — the balance is rising"))
@@ -399,11 +589,14 @@ def _review_one_workout(case_name, today, no_shrink_days, review_days):
 		and (today - opened).days >= no_shrink_days
 		and current >= starting - 0.01
 	):
-		case.status = STATUS_DEFAULTED
+		case.resolution = ""
 		case.save(ignore_permissions=True)
 		case.add_comment(
 			"Info",
-			_("Workout flagged for final demand — no reduction in {0} days.").format(no_shrink_days),
+			_(
+				"Workout flagged for final demand — no reduction in {0} days. Back with "
+				"Finance to decide the next step."
+			).format(no_shrink_days),
 		)
 		sync_customer_from_cases(case.customer)
 		_notify_workout(case, _("Workout has not shrunk in {0} days").format(no_shrink_days))
@@ -437,7 +630,7 @@ def _notify_workout(case, headline):
 				<tr><td style="padding:3px 14px 3px 0;color:#666;">Current Balance</td><td><b>{current}</b></td></tr>
 				<tr><td style="padding:3px 14px 3px 0;color:#666;">Recovered</td><td>{recovered}</td></tr>
 				<tr><td style="padding:3px 14px 3px 0;color:#666;">Trend</td><td>{trend}</td></tr>
-				<tr><td style="padding:3px 14px 3px 0;color:#666;">Status</td><td>{status}</td></tr>
+				<tr><td style="padding:3px 14px 3px 0;color:#666;">Resolution</td><td>{resolution}</td></tr>
 			</table>
 			<p>{link}</p>
 			"""
@@ -448,7 +641,7 @@ def _notify_workout(case, headline):
 			current=utils.fmt_currency(case.current_balance),
 			recovered=utils.fmt_currency(case.recovered_to_date),
 			trend=case.balance_trend or _("not yet established"),
-			status=case.status,
+			resolution=case.resolution or _("back with Finance"),
 			link=utils.doc_link("AR Case", case.name),
 		),
 		case,
