@@ -34,6 +34,11 @@ def assert_under_cap(doc, credit_amount: float, noun: str = "order"):
 	so the document that *crosses* the line is the one refused, rather than
 	sailing through and blocking the next one.
 	"""
+	# One switch for the whole $400,000 rule: Selling Settings -> "Enforce
+	# $400,000 AR Cap". Unticked, neither this gate nor the nightly hold applies.
+	if not utils.ar_cap_enabled():
+		return
+
 	cap = credit_engine.get_customer_ar_cap()
 	if cap <= 0:
 		return
@@ -42,7 +47,7 @@ def assert_under_cap(doc, credit_amount: float, noun: str = "order"):
 	if not customer or credit_engine.is_internal_customer(customer):
 		return
 
-	current_ar = credit_engine.get_customer_ar(customer)
+	current_ar = credit_engine.get_customer_new_ar(customer)
 	projected = current_ar + flt(credit_amount)
 	if projected <= cap:
 		return
@@ -55,9 +60,9 @@ def assert_under_cap(doc, credit_amount: float, noun: str = "order"):
 	frappe.throw(
 		_(
 			"<b>AR cap reached.</b> {customer} cannot take Terms work while their "
-			"receivables sit above <b>{cap}</b>."
+			"new-book receivables sit above <b>{cap}</b>. Legacy AR is excluded."
 			"<ul style='margin:8px 0 0 16px;padding:0'>"
-			"<li>AR today: <b>{current}</b></li>"
+			"<li>New AR today: <b>{current}</b></li>"
 			"<li>This {noun} adds: <b>{adds}</b></li>"
 			"<li>Would reach: <b>{projected}</b> against a cap of <b>{cap}</b></li>"
 			"</ul>"

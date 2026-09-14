@@ -18,7 +18,7 @@ CODE_HANDLED = {
 	"Credit Application approved": "credit_application._notify_approved",
 	"Credit Application rejected": "credit_application._notify_rejected",
 	"Credit line revoked / expired": "credit_application._notify_revoked",
-	"Warning / Hard Hold / Immediate Hold raised": "hold_engine._notify_case",
+	"Hard Hold raised": "hold_engine._notify_case",
 	"Hold released": "hold_engine._notify_release",
 	"MD exception used on release": "hold_engine._log_md_exception",
 	"License expiring T-30 / T-7": "hold_engine._notify_license_expiry",
@@ -87,10 +87,9 @@ NOTIFICATIONS = [
 		"name": "AR Case Opened",
 		"document_type": "AR Case",
 		"event": "New",
-		"condition": "doc.case_type in ('Warning', 'Hard Hold', 'Immediate Hold')",
-		"subject": "{{ doc.case_type }} — {{ doc.customer }}",
+		"subject": "Hard Hold — {{ doc.customer }}",
 		"message": (
-			"<p><b>{{ doc.customer }}</b> is on <b>{{ doc.case_type }}</b>.</p>"
+			"<p><b>{{ doc.customer }}</b> is on <b>Hard Hold</b>.</p>"
 			"<p>{{ doc.trigger_reason }} — {{ doc.trigger_details }}</p>"
 			"<p>Past due <b>{{ frappe.utils.fmt_money(doc.past_due_amount, currency='USD') }}</b>, "
 			"oldest invoice {{ doc.max_days_past_due }} days overdue.</p>"
@@ -108,13 +107,13 @@ NOTIFICATIONS = [
 		"event": "Days Before",
 		"date_changed": "promise_to_pay_date",
 		"days_in_advance": 1,
-		"condition": "doc.status in ('Open', 'Active')",
+		"condition": "doc.status == 'Active'",
 		"subject": "Promise to pay due tomorrow — {{ doc.customer }}",
 		"message": (
 			"<p><b>{{ doc.customer }}</b> promised "
 			"<b>{{ frappe.utils.fmt_money(doc.promise_to_pay_amount, currency='USD') }}</b> "
 			"by {{ doc.promise_to_pay_date }}.</p>"
-			"<p>A promise that passes without payment becomes an immediate hold.</p>"
+			"<p>A promise that passes without payment stays on the hold.</p>"
 		),
 		"recipients": [
 			{"receiver_by_document_field": "assigned_to"},
@@ -129,7 +128,7 @@ NOTIFICATIONS = [
 		"event": "Days Before",
 		"date_changed": "next_review_date",
 		"days_in_advance": 3,
-		"condition": "doc.case_type == 'Workout' and doc.status in ('Open', 'Active')",
+		"condition": "doc.resolution == 'Workout' and doc.status == 'Active'",
 		"subject": "Workout review due — {{ doc.customer }}",
 		"message": (
 			"<p>Workout review for <b>{{ doc.customer }}</b> is due "
@@ -146,8 +145,22 @@ NOTIFICATIONS = [
 
 
 def install_notifications():
+	"""Create the module's notifications, and keep their conditions correct.
+
+	Conditions are re-asserted on every run rather than only at creation. The app
+	ships these same records in fixtures/notification.json, and that fixture still
+	carries conditions written against AR Case.case_type — a field the single-case
+	refactor removed. A stale condition is not cosmetic: "AR Case Opened" fires on
+	insert, so evaluating it throws AttributeError and **no AR Case can be created
+	at all** — the nightly sweep, limit breaches, returned payments, broken
+	promises and licence expiry all fail silently into the error log.
+
+	Wired to after_migrate, which Frappe runs *after* sync_fixtures, so whatever
+	the fixture re-imports is corrected immediately afterwards.
+	"""
 	for spec in NOTIFICATIONS:
 		if frappe.db.exists("Notification", spec["name"]):
+			_sync_condition(spec)
 			continue
 
 		recipients = spec.pop("recipients", [])
@@ -166,3 +179,21 @@ def install_notifications():
 		doc.flags.ignore_permissions = True
 		doc.insert(ignore_permissions=True)
 		spec["recipients"] = recipients
+
+
+def _sync_condition(spec):
+	"""Point an existing Notification's condition back at the spec in this file.
+
+	A spec with no condition means "always fire"; the stored value is cleared to
+	match rather than left as whatever was there before.
+	"""
+	wanted = spec.get("condition") or ""
+	current = frappe.db.get_value("Notification", spec["name"], "condition") or ""
+	if current == wanted:
+		return
+
+	frappe.db.set_value("Notification", spec["name"], "condition", wanted, update_modified=False)
+	frappe.clear_document_cache("Notification", spec["name"])
+	frappe.logger("credit_and_ar").info(
+		"Notification %s condition reset to %r (was %r)" % (spec["name"], wanted, current)
+	)

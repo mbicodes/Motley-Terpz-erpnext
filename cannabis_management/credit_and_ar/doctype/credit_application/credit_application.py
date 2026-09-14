@@ -306,16 +306,6 @@ class CreditApplication(Document):
 					)
 				)
 
-			if self.approved_terms in utils.settings_list(
-				"terms_requiring_md_exception"
-			) and not self.terms_exception_reason:
-				problems.append(
-					_(
-						"{0} requires a written MD exception. Record the reason in "
-						"<b>Terms Exception Reason</b>."
-					).format(self.approved_terms)
-				)
-
 		if self.license_expiry_date and getdate(self.license_expiry_date) < getdate(nowdate()):
 			problems.append(_("The license has expired."))
 
@@ -416,27 +406,40 @@ class CreditApplication(Document):
 		Enforcement is our own group-wide engine; this row keeps ERPNext's own
 		credit-limit check consistent rather than silently looser.
 		"""
+		# An exempt account carries no native limit — writing one would hand
+		# ERPNext a figure to block the customer's invoices with, which is the
+		# opposite of being exempt. See customer_hooks._clear_native_credit_limit.
+		if utils.is_policy_exempt(self.customer):
+			return
+
 		_write_credit_limit(self.customer, utils.company_of(self.customer), flt(self.approved_limit))
 
 	def _update_customer(self, live: bool):
 		"""Push the approved line onto the Customer, and the limit onto the
 		group parent — the engine reads the limit from the parent."""
+		# An exempt account keeps its status: Policy Exempt is the status now, and
+		# stamping "Terms Approved" over it would quietly put the account back
+		# under the policy without anyone choosing that.
+		exempt = utils.is_policy_exempt(self.customer)
+
 		values = {
 			"custom_active_credit_application": self.name if live else None,
 			"custom_credit_terms_template": self.approved_terms if live else None,
 			"custom_terms_valid_until": None,
-			"custom_credit_status": utils.STATUS_TERMS_APPROVED if live else utils.STATUS_COD,
 			"custom_approved_credit_limit": flt(self.approved_limit) if live else 0,
 			"payment_terms": self.approved_terms if live else None,
 		}
 
+		if not exempt:
+			values["custom_credit_status"] = (
+				utils.STATUS_TERMS_APPROVED if live else utils.STATUS_COD
+			)
+
 		if live:
 			values.update(
 				{
-					"custom_reconciliation_clause_ack": 1,
 					"custom_license_number": self.license_number,
 					"custom_license_expiry": self.license_expiry_date,
-					"custom_license_verified": 1 if self.license_verified else 0,
 					"custom_ap_contact_name": self.ap_contact_name,
 					"custom_ap_contact_phone": self.ap_contact,
 					"custom_ap_contact_email": self.ap_contact_email,
@@ -445,10 +448,11 @@ class CreditApplication(Document):
 			if self.credit_group_parent:
 				values["custom_credit_group_parent"] = self.credit_group_parent
 
-		# A customer already on hold stays on hold; approving a line does not
-		# clear a stop-work order.
-		if live and frappe.db.get_value("Customer", self.customer, "custom_on_hold"):
-			values.pop("custom_credit_status")
+		# A customer under a live AR Case keeps that status: approving a line does
+		# not clear a stop-work order, nor a payment plan or workout.
+		current_status = frappe.db.get_value("Customer", self.customer, "custom_credit_status")
+		if live and current_status in utils.CASE_DRIVEN_STATUSES:
+			values.pop("custom_credit_status", None)
 
 		frappe.db.set_value("Customer", self.customer, values, update_modified=False)
 

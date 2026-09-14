@@ -62,6 +62,19 @@ def before_submit(doc, method=None):
 	_assert_not_on_hold(doc)
 
 
+def on_submit(doc, method=None):
+	"""A submitted invoice moves straight into GL exposure — refresh the
+	cached Current Exposure / Available Line on the Customer."""
+	if doc.customer:
+		credit_engine.refresh_customer_exposure(doc.customer)
+
+
+def on_cancel(doc, method=None):
+	"""Mirror of on_submit — a cancelled invoice drops back out of exposure."""
+	if doc.customer:
+		credit_engine.refresh_customer_exposure(doc.customer)
+
+
 def _invoice_credit_amount(doc) -> float:
 	"""What this invoice will still have outstanding once submitted.
 
@@ -110,7 +123,9 @@ def _uncovered_credit(doc):
 def _assert_not_on_hold(doc):
 	"""Same stop-work rule the Sales Order gate applies, limited to new credit
 	work — an ordered invoice is still billable while a customer is held."""
-	hold_type = frappe.db.get_value("Customer", doc.customer, "custom_hold_type")
+	from cannabis_management.credit_and_ar.doctype.ar_case.ar_case import get_hold_type
+
+	hold_type = get_hold_type(doc.customer)
 	if hold_type not in utils.BLOCKING_HOLDS:
 		return
 

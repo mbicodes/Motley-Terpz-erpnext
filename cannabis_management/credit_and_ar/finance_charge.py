@@ -76,7 +76,7 @@ def _eligible_customers(settings) -> list[str]:
 		filters={
 			"disabled": 0,
 			"custom_is_intercompany": 0,
-			"custom_credit_policy_exempt": 0,
+			"custom_credit_status": ("!=", utils.STATUS_EXEMPT),
 		},
 		pluck="name",
 	)

@@ -80,7 +80,11 @@ doctype_js = {
     "Delivery Note": "public/js/delivery_note.js",
     "Sales Invoice": "public/js/sales_invoice.js",
     "Sales Order": ["public/js/sales_order.js", "public/js/credit_and_ar/sales_order_credit.js"],
-    "Payment Entry": "public/js/credit_and_ar/payment_entry_credit.js",
+    "Payment Entry": [
+        "public/js/credit_and_ar/payment_entry_credit.js",
+        "public/js/cash_tracking_post.js",
+    ],
+    "Journal Entry": "public/js/cash_tracking_post.js",
     "Customer": "public/js/credit_and_ar/customer_credit.js",
     "Material Request": "public/js/material_request.js",
     "Item Group": "public/js/item_group_custom.js",
@@ -142,11 +146,16 @@ after_migrate = [
     "cannabis_management.manufacturing_portal.custom_fields.install",
     # Manufacturing Timesheet Kiosk access code field on Employee. Same reasoning.
     "cannabis_management.manufacturing_timesheet_kiosk.custom_fields.install",
-    # NOTE: an entry for "cannabis_management.credit_and_ar.customer_layout.enforce"
-    # used to sit here — Customer form rules re-asserted after sync_fixtures — but
-    # the customer_layout module it points at was never committed (see 11c3fa2), so
-    # every `bench migrate` died with ModuleNotFoundError. Re-add the line together
-    # with the module.
+    # Customer form rules re-asserted after sync_fixtures re-imports the app's
+    # unfiltered Custom Field fixture: re-anchors the Credit Control tab, resets
+    # custom_credit_status's options/permlevel, and drops the fields the fixture
+    # keeps bringing back. See customer_layout.py's module docstring. This used to
+    # be skipped because the module didn't exist yet (see 11c3fa2) — it does now.
+    "cannabis_management.credit_and_ar.customer_layout.enforce",
+    # Repairs the AR Case notification conditions that fixtures/notification.json
+    # re-imports against the removed case_type field. after_migrate runs after
+    # sync_fixtures, so this gets the last word — without editing the fixture.
+    "cannabis_management.credit_and_ar.notifications.install_notifications",
 ]
 
 # Installation
@@ -509,6 +518,20 @@ doc_events = {
 # Scheduled Tasks
 # ---------------
 scheduler_events = {
+    # Self-heal. These are the same idempotent enforcers wired to after_migrate,
+    # repeated hourly because after_migrate is not guaranteed to be reached:
+    # `bench migrate` applies fixtures (Custom Field, Property Setter) BEFORE it
+    # runs after_migrate, so a migrate that is interrupted — killed, timed out,
+    # lost with its terminal — leaves the site with the fixture's stale copies
+    # and no correction. On production that means the Credit Status field, the
+    # retired checkboxes and the Customer tab layout silently revert while people
+    # are working. Hourly bounds that window to an hour instead of "until someone
+    # notices". Both no-op when there is nothing to fix, so the cost is two cheap
+    # reads an hour.
+    "hourly": [
+        "cannabis_management.credit_and_ar.customer_layout.enforce",
+        "cannabis_management.credit_and_ar.notifications.install_notifications",
+    ],
     "cron": {
         # AR due-date reminders: every day at 7 AM UTC (daily, including weekends)
         "0 7 * * *": [
