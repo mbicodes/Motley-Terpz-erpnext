@@ -86,6 +86,7 @@ BOARD_GROUPS = [
 			"HR-EMP-00007",  # Wolf
 			"HR-EMP-00023",  # Leo
 			"HR-EMP-00024",  # Brian
+			"HR-EMP-00025",  # Julien
 		],
 	},
 	{
