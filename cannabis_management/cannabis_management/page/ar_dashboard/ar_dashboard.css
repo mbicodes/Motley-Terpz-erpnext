@@ -1125,8 +1125,13 @@
 .ard-sheet .ard-head-row th.ard-na-total     { background-color: #fff; color: #202124; }
 .ard-sheet .ard-head-row th.ard-na-good      { background-color: #fff; color: #38761d; }
 .ard-sheet .ard-head-row th.ard-na-bad       { background-color: #fff; color: #cc0000; }
-.ard-sheet .ard-head-row th.ard-term-red     { background-color: #fce8e6; color: #cc0000; }
-.ard-sheet .ard-head-row th.ard-term-amber   { background-color: #fff8e1; color: #b45309; }
+/* All three "New AR on Terms" buckets read green: an invoice inside its terms is
+   in good standing whether 2 or 28 days remain, so the traffic-light shading was
+   flagging healthy balances as a problem. The three classes are kept distinct —
+   the JS still assigns them per bucket — so the split can be restyled later
+   without touching the markup. */
+.ard-sheet .ard-head-row th.ard-term-red     { background-color: #d9ead3; color: #38761d; }
+.ard-sheet .ard-head-row th.ard-term-amber   { background-color: #d9ead3; color: #38761d; }
 .ard-sheet .ard-head-row th.ard-term-green   { background-color: #d9ead3; color: #38761d; }
 
 /* Overdue headers: graduated pinks, red labels */
@@ -1181,8 +1186,8 @@
 }
 
 /* On-terms columns: pink / cream / green fills */
-.ard-sheet td.ard-term-red   { background-color: #fce8e6 !important; color: #cc0000; font-weight: 600; }
-.ard-sheet td.ard-term-amber { background-color: #fff8e1 !important; color: #92400e; font-weight: 600; }
+.ard-sheet td.ard-term-red   { background-color: #d9ead3 !important; color: #38761d; font-weight: 600; }
+.ard-sheet td.ard-term-amber { background-color: #d9ead3 !important; color: #38761d; font-weight: 600; }
 .ard-sheet td.ard-term-green { background-color: #d9ead3 !important; color: #38761d; font-weight: 600; }
 
 /* Good / Bad standing value colors */
