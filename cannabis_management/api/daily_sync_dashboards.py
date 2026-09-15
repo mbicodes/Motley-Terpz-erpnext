@@ -495,7 +495,98 @@ def _stock_entry_yield_for_day(day):
     }
 
 
+# Item-group / item-code keyword sets mirroring the Production Log print format
+# (cannabis_management/print_format/production_log). Kept in sync manually —
+# that print format is the source of truth for how a conversion line is routed.
+_CE_K_FROZEN = ["fresh frozen", "frozen", "fresh-frozen", "ff "]
+_CE_K_ROSIN = ["rosin", "tier", "prime", "subprime", "full spec", "food grade", "t1", "t2", "t3", "static", "bubble"]
+_CE_K_VRR = ["vrr", "vape ready"]
+
+_CE_RM_SLOTS = range(1, 8)
+_CE_FG_SLOTS = range(1, 4)
+
+
+def _conversion_entry_yield_for_day(day):
+    """Current production tracking lives on Conversion Entry, not the legacy
+    Lab Batch Entry / Hash Recording / Rosin Recording doctypes those still
+    query — those stopped getting new records once the team moved to
+    Conversion Entry, which is why this dashboard went blank.
+
+    RM qty is pounds, FG qty is grams (matches the Production Log print
+    format's units; there's no explicit per-row UOM field on Conversion Entry
+    Item, so this follows the same convention).
+    """
+    lab = {"lbs_ran": 0.0, "hash_yield_pct": 0.0, "rosin_yield_pct": 0.0, "hash_out": 0.0, "rosin_out": 0.0}
+
+    if not _doctype_exists("Conversion Entry Item"):
+        return lab
+
+    fields = ["parent"]
+    for i in _CE_RM_SLOTS:
+        fields += [f"raw_material_{i}", f"qty_rm_{i}", f"rm_{i}_item_group"]
+    for i in _CE_FG_SLOTS:
+        fields += [f"finished_good_{i}", f"qty_fg_{i}", f"fg_{i}_item_group"]
+
+    rows = frappe.get_all(
+        "Conversion Entry Item",
+        filters={"parent": ["in", frappe.get_all(
+            "Conversion Entry",
+            filters={"docstatus": 1, "posting_date": str(day)},
+            pluck="name",
+        ) or [""]]},
+        fields=fields,
+    )
+
+    def _matches(item_group, item_code, keywords):
+        hay = f"{item_group or ''} {item_code or ''}".lower()
+        return any(k in hay for k in keywords)
+
+    lbs_ran = 0.0
+    hash_out = 0.0
+    rosin_input_g = 0.0
+    rosin_out = 0.0
+
+    for row in rows:
+        for i in _CE_RM_SLOTS:
+            code = row.get(f"raw_material_{i}")
+            if not code:
+                continue
+            qty = flt(row.get(f"qty_rm_{i}"))
+            grp = row.get(f"rm_{i}_item_group")
+            is_vrr = _matches(grp, code, _CE_K_VRR)
+            if _matches(grp, code, _CE_K_FROZEN):
+                lbs_ran += qty
+            elif is_vrr or _matches(grp, code, _CE_K_ROSIN):
+                # Rosin/VRR being further refined — grams, not pounds.
+                rosin_input_g += qty
+
+        for i in _CE_FG_SLOTS:
+            code = row.get(f"finished_good_{i}")
+            if not code:
+                continue
+            qty = flt(row.get(f"qty_fg_{i}"))
+            grp = row.get(f"fg_{i}_item_group")
+            if _matches(grp, code, _CE_K_VRR):
+                rosin_out += qty
+            elif _matches(grp, code, _CE_K_ROSIN):
+                hash_out += qty
+
+    lbs_ran_g = lbs_ran * 453.59237
+    lab["lbs_ran"] = lbs_ran
+    lab["hash_out"] = hash_out
+    lab["rosin_out"] = rosin_out
+    if lbs_ran_g:
+        lab["hash_yield_pct"] = hash_out / lbs_ran_g * 100
+    if rosin_input_g:
+        lab["rosin_yield_pct"] = rosin_out / rosin_input_g * 100
+
+    return lab
+
+
 def _production_yield_for_day(day):
+    current = _conversion_entry_yield_for_day(day)
+    if any(flt(current.get(key)) for key in ("lbs_ran", "hash_out", "rosin_out")):
+        return current
     native = _native_lab_yield_for_day(day)
     if any(flt(native.get(key)) for key in ("lbs_ran", "hash_out", "rosin_out")):
         return native
