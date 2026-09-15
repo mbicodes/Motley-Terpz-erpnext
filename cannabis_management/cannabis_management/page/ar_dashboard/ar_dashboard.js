@@ -1249,7 +1249,7 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
     }
 
     let html = `
-		<div class="ard-table-wrap ard-newar-table ard-sheet">
+		<div class="ard-table-wrap ard-newar-table ard-sheet${page._ard_ar_mode === 'new' ? ' ard-mode-new' : ''}">
 			<table class="ard-table">
 				<thead>
 					<tr class="ard-totals-row ard-top-totals">${totals_cells}
