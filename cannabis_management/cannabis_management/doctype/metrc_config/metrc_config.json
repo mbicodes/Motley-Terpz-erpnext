@@ -1,0 +1,74 @@
+{
+ "actions": [],
+ "creation": "2026-09-15 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "base_url",
+  "api_key",
+  "test_connection",
+  "connection_status",
+  "capabilities_section",
+  "functionality_overview"
+ ],
+ "fields": [
+  {
+   "fieldname": "base_url",
+   "fieldtype": "Data",
+   "label": "Base URL",
+   "reqd": 1,
+   "default": "https://sandbox-api-ca.metrc.com",
+   "description": "Metrc API base URL. CA Sandbox (test) = https://sandbox-api-ca.metrc.com  |  CA Production (live) = https://api-ca.metrc.com. Defaults to Sandbox — switch to Production deliberately on the live site only."
+  },
+  {
+   "fieldname": "api_key",
+   "fieldtype": "Password",
+   "label": "API Key (Integrator / Vendor)",
+   "reqd": 1,
+   "description": "The vendor / integrator key from Metrc Connect. Auth is HTTP Basic (this key : User API key). The User API key is read from Metrc Settings for the connection test."
+  },
+  {
+   "fieldname": "test_connection",
+   "fieldtype": "Button",
+   "label": "Test Connection"
+  },
+  {
+   "fieldname": "connection_status",
+   "fieldtype": "HTML",
+   "label": "Connection Status"
+  },
+  {
+   "fieldname": "capabilities_section",
+   "fieldtype": "Section Break",
+   "label": "Integration Capabilities"
+  },
+  {
+   "fieldname": "functionality_overview",
+   "fieldtype": "HTML",
+   "label": "What This Integration Can Do"
+  }
+ ],
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-09-15 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Metrc Config",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}
