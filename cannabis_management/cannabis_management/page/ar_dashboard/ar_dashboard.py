@@ -951,3 +951,71 @@ def setup_ar_custom_fields():
 
     frappe.db.commit()
     return {"status": "ok", "message": "AR custom fields created/updated successfully."}
+
+
+# ─── Emailed aging report ─────────────────────────────────────────────────────
+
+AR_REPORT_RECIPIENT = "nikki@motleyterpz.com"
+
+# Labels for the subject / filename / body, per AR Mode.
+_AR_MODE_LABELS = {
+    "legacy": "Legacy AR",
+    "new": "New AR",
+    "all": "Legacy + New AR",
+}
+
+
+@frappe.whitelist()
+def email_ar_pdf(html, mode, company=None, report_date=None):
+    """Render the sheet HTML the dashboard sends us into a PDF and email it.
+
+    The HTML is built client-side from the table already on screen (columns
+    trimmed to the agreed set, the spreadsheet letter/row decoration stripped,
+    stylesheets inlined) so the attachment is exactly what the operator is
+    looking at. Doing the layout here instead would mean a second renderer to
+    keep in step with the page for no gain.
+
+    Administrator only - the button is hidden for everyone else, but the check
+    has to live here too, since hiding a button is not a permission. It also
+    matters because wkhtmltopdf is handed caller-supplied markup.
+    """
+    if frappe.session.user != "Administrator":
+        frappe.throw(
+            frappe._("Only the Administrator can email the AR aging report."),
+            frappe.PermissionError,
+        )
+
+    label = _AR_MODE_LABELS.get(mode, "AR")
+    as_of = report_date or nowdate()
+    scope = company or "All Entities"
+
+    from frappe.utils.pdf import get_pdf
+
+    pdf = get_pdf(
+        html,
+        options={
+            "orientation": "Landscape",
+            "page-size": "A4",
+            "margin-top": "5mm",
+            "margin-bottom": "5mm",
+            "margin-left": "5mm",
+            "margin-right": "5mm",
+            "encoding": "UTF-8",
+        },
+    )
+
+    filename = "{0} Aging - {1} - {2}.pdf".format(label, scope, as_of)
+
+    frappe.sendmail(
+        recipients=[AR_REPORT_RECIPIENT],
+        subject="{0} Aging Report - {1} - as of {2}".format(label, scope, as_of),
+        message=(
+            "<p>Attached is the <b>{0}</b> aging report for <b>{1}</b>, as of {2}.</p>"
+            "<p>Sent from the AR Dashboard by {3}.</p>"
+        ).format(label, scope, as_of, frappe.session.user),
+        attachments=[{"fname": filename, "fcontent": pdf}],
+        reference_doctype="Page",
+        reference_name="ar-dashboard",
+    )
+
+    return {"recipient": AR_REPORT_RECIPIENT, "filename": filename, "bytes": len(pdf)}
