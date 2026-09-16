@@ -965,8 +965,26 @@ _AR_MODE_LABELS = {
 }
 
 
+def _render_ar_pdf(html):
+    """wkhtmltopdf render, shared by the preview and the send."""
+    from frappe.utils.pdf import get_pdf
+
+    return get_pdf(
+        html,
+        options={
+            "orientation": "Landscape",
+            "page-size": "A4",
+            "margin-top": "5mm",
+            "margin-bottom": "5mm",
+            "margin-left": "5mm",
+            "margin-right": "5mm",
+            "encoding": "UTF-8",
+        },
+    )
+
+
 @frappe.whitelist()
-def email_ar_pdf(html, mode, company=None, report_date=None):
+def email_ar_pdf(html, mode, company=None, report_date=None, preview=0):
     """Render the sheet HTML the dashboard sends us into a PDF and email it.
 
     The HTML is built client-side from the table already on screen (columns
@@ -974,6 +992,10 @@ def email_ar_pdf(html, mode, company=None, report_date=None):
     stylesheets inlined) so the attachment is exactly what the operator is
     looking at. Doing the layout here instead would mean a second renderer to
     keep in step with the page for no gain.
+
+    With ``preview`` set nothing is emailed: the same bytes that would have been
+    attached come back base64-encoded, so the report can be checked in the
+    browser before it goes to anyone.
 
     Administrator only - the button is hidden for everyone else, but the check
     has to live here too, since hiding a button is not a permission. It also
@@ -989,22 +1011,18 @@ def email_ar_pdf(html, mode, company=None, report_date=None):
     as_of = report_date or nowdate()
     scope = company or "All Entities"
 
-    from frappe.utils.pdf import get_pdf
-
-    pdf = get_pdf(
-        html,
-        options={
-            "orientation": "Landscape",
-            "page-size": "A4",
-            "margin-top": "5mm",
-            "margin-bottom": "5mm",
-            "margin-left": "5mm",
-            "margin-right": "5mm",
-            "encoding": "UTF-8",
-        },
-    )
-
+    pdf = _render_ar_pdf(html)
     filename = "{0} Aging - {1} - {2}.pdf".format(label, scope, as_of)
+
+    if frappe.utils.cint(preview):
+        import base64
+
+        return {
+            "preview": True,
+            "filename": filename,
+            "bytes": len(pdf),
+            "content": base64.b64encode(pdf).decode("ascii"),
+        }
 
     frappe.sendmail(
         recipients=[AR_REPORT_RECIPIENT],
