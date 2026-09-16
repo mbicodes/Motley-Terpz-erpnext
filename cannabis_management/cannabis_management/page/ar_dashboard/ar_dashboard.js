@@ -1972,28 +1972,6 @@ function ard_report_css() {
         '.ard-customer-group-name{font-size:7px!important;}';
 }
 
-// Turn the base64 the preview returns into a blob and open it. A blob URL is
-// used rather than a data: URI because Chrome refuses to navigate to large
-// data: URLs, and these run to hundreds of KB. If the popup is blocked the
-// same blob is offered as a download instead, so the preview is never a
-// dead end.
-function ard_open_pdf(msg) {
-    let bytes = atob(msg.content);
-    let buf = new Uint8Array(bytes.length);
-    for (let i = 0; i < bytes.length; i++) { buf[i] = bytes.charCodeAt(i); }
-    let url = URL.createObjectURL(new Blob([buf], { type: 'application/pdf' }));
-
-    let w = window.open(url, '_blank');
-    if (!w) {
-        let $a = $('<a>').attr({ href: url, download: msg.filename }).appendTo('body');
-        $a.get(0).click();
-        $a.remove();
-        frappe.show_alert({ message: 'Pop-up blocked — the PDF was downloaded instead.', indicator: 'orange' }, 7);
-    }
-    // Give the tab time to load before the URL is revoked.
-    setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
-}
-
 function email_ar_report(page, mode) {
     if (frappe.session.user !== 'Administrator') return;
 
@@ -2004,48 +1982,16 @@ function email_ar_report(page, mode) {
         return;
     }
 
-    // Preview is the PRIMARY action and sending is gated behind it. The first
-    // version of this dialog had Send as the primary with Preview beside it,
-    // and a report reached Nikki before anyone had looked at it - the one thing
-    // this dialog exists to prevent. Send stays disabled until a preview has
-    // actually rendered, so the safe button is also the obvious one.
-    let previewed = false;
-    let d = new frappe.ui.Dialog({
-        title: label + ' aging report',
-        fields: [{
-            fieldtype: 'HTML',
-            options: '<p>Press <b>Preview PDF</b> to open the exact attachment in a new tab. ' +
-                     'Nothing is emailed by previewing — sending unlocks once you have seen it.</p>' +
-                     '<p style="color:var(--text-muted);font-size:12px;">Recipient: <b>' +
-                     AR_REPORT_RECIPIENT + '</b></p>'
-        }],
-        primary_action_label: 'Preview PDF',
-        primary_action: function () {
-            ard_send_report(page, mode, label, $table, 1, function () {
-                previewed = true;
-                d.$wrapper.find('.ard-send-btn')
-                    .prop('disabled', false)
-                    .removeClass('btn-secondary')
-                    .addClass('btn-primary')
-                    .attr('title', '');
-            });
-        }
-    });
-
-    d.add_custom_action('Send to ' + AR_REPORT_RECIPIENT, function () {
-        if (!previewed) return;   // belt and braces; the button is disabled too
-        d.hide();
-        ard_send_report(page, mode, label, $table, 0);
-    }, 'ard-send-btn');
-
-    d.$wrapper.find('.ard-send-btn')
-        .prop('disabled', true)
-        .attr('title', 'Preview the PDF first');
-
-    d.show();
+    // Sends on a single click, at Ali's request (2026-09-17) once he had used
+    // the preview to confirm the layout. There is no confirmation step and no
+    // undo: the mail is queued the moment this returns. To put the
+    // preview-then-send dialog back, call ard_send_report with preview=1 first
+    // and gate the send on it - email_ar_pdf still takes the `preview` flag and
+    // returns the PDF base64-encoded instead of mailing it.
+    ard_send_report(page, mode, label, $table);
 }
 
-function ard_send_report(page, mode, label, $table, preview, on_previewed) {
+function ard_send_report(page, mode, label, $table) {
     // Inline <style> blocks only, no <link>: wkhtmltopdf would otherwise have to
     // fetch every desk bundle over the network just to style the sheet.
     let styles = "";
@@ -2068,26 +2014,18 @@ function ard_send_report(page, mode, label, $table, preview, on_previewed) {
             $table.prop('outerHTML') +
             '</div></div></div></body></html>';
 
-        frappe.dom.freeze(preview
-            ? 'Building the ' + label + ' PDF…'
-            : 'Building the ' + label + ' PDF and emailing it…');
+        frappe.dom.freeze('Building the ' + label + ' PDF and emailing it…');
         frappe.call({
             method: 'cannabis_management.cannabis_management.page.ar_dashboard.ar_dashboard.email_ar_pdf',
             args: {
                 html: html,
                 mode: mode,
                 company: page.main.find('#ard-company').val() || '',
-                report_date: get_report_date(page) || '',
-                preview: preview ? 1 : 0
+                report_date: get_report_date(page) || ''
             },
             always: function () { frappe.dom.unfreeze(); },
             callback: function (r) {
                 if (!r || !r.message) return;
-                if (r.message.preview) {
-                    ard_open_pdf(r.message);
-                    if (on_previewed) on_previewed();
-                    return;
-                }
                 frappe.show_alert({
                     message: label + ' report emailed to ' + r.message.recipient,
                     indicator: 'green'
