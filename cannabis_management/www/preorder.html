@@ -1,0 +1,194 @@
+{% extends "templates/web.html" %}
+
+{% block title %}{{ _("Preorder Entry") }}{% endblock %}
+
+{% block head_include %}
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+{% endblock %}
+
+{% block page_content %}
+
+<div class="po-wrap" id="poWrap">
+
+  <!-- HEADER -->
+  <div class="po-header">
+    <div class="po-header-left">
+      <div class="po-eyebrow">Cannabis Management</div>
+      <h1 class="po-title">Preorder Entry</h1>
+      <p class="po-subtitle">Submit packaged goods preorders &mdash; rep info, license details, and SKU selection.</p>
+    </div>
+    <div class="po-header-right">
+      <button class="po-btn po-btn-clear" id="poClearBtn" type="button">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+        Clear
+      </button>
+      <button class="po-btn po-btn-save" id="poSaveBtn" type="button">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        Save Preorder
+      </button>
+    </div>
+  </div>
+
+  <!-- REP + LICENSE (side by side) -->
+  <div class="po-two-col">
+    <div class="po-card">
+      <div class="po-card-title">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        Sales Rep
+      </div>
+      <div class="po-form-grid">
+        <div class="po-field">
+          <label>Rep Name</label>
+          <input type="text" id="poRepName" placeholder="Full name">
+        </div>
+        <div class="po-field">
+          <label>Rep Email</label>
+          <input type="email" id="poRepEmail" placeholder="email@example.com">
+        </div>
+        <div class="po-field">
+          <label>Rep Phone</label>
+          <input type="tel" id="poRepPhone" placeholder="(555) 000-0000">
+        </div>
+      </div>
+    </div>
+
+    <div class="po-card">
+      <div class="po-card-title">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+        Brand &amp; License
+      </div>
+      <div class="po-form-grid">
+        <div class="po-field">
+          <label>Brand Name</label>
+          <input type="text" id="poBrandName" placeholder="Brand">
+        </div>
+        <div class="po-field">
+          <label>License Name</label>
+          <input type="text" id="poLicenseName" placeholder="License holder name">
+        </div>
+        <div class="po-field">
+          <label>License Number</label>
+          <input type="text" id="poLicenseNumber" placeholder="e.g. C11-0000000-LIC">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADDRESS & ORDER DETAILS -->
+  <div class="po-card">
+    <div class="po-card-title">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 6-9 13-9 13S3 16 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+      Address &amp; Order Details
+    </div>
+    <div class="po-form-grid">
+      <div class="po-field po-field-span2">
+        <label>Primary Address</label>
+        <textarea id="poAddress" placeholder="Street, City, State ZIP" rows="2"></textarea>
+      </div>
+      <div class="po-field">
+        <label>Region <span class="po-region-auto" id="poRegionAuto">auto-detected</span></label>
+        <select id="poRegion">
+          <option value="">Select Region</option>
+          <option value="NorCal">NorCal</option>
+          <option value="Bay Area">Bay Area</option>
+          <option value="Central Valley">Central Valley</option>
+          <option value="LA">LA</option>
+          <option value="OC">OC</option>
+          <option value="IE">IE</option>
+          <option value="San Diego">San Diego</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="po-field">
+        <label>Order Date</label>
+        <input type="date" id="poOrderDate">
+      </div>
+      <div class="po-field">
+        <label>Requested Delivery Date</label>
+        <input type="date" id="poDeliveryDate">
+      </div>
+      <div class="po-field">
+        <label>Company</label>
+        <select id="poCompany">
+          <option value="">Select Company</option>
+          {% for c in companies %}
+          <option value="{{ c.name }}">{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- PACKAGED GOODS -->
+  <div class="po-card">
+    <div class="po-card-title">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+      Packaged Goods for Preorder
+    </div>
+
+    <!-- Link-field style picker -->
+    <div class="po-link-field" id="poLinkField">
+      <div class="po-link-input-wrap">
+        <input type="text" class="po-link-input" id="poItemInput" placeholder="Select an item..." autocomplete="off">
+        <button type="button" class="po-link-arrow" id="poLinkArrow" title="Show all items">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+      </div>
+      <div class="po-link-dropdown" id="poLinkDropdown"></div>
+    </div>
+
+    <!-- Selected items table -->
+    <table class="po-items-table" id="poItemsTable">
+      <thead>
+        <tr>
+          <th style="width:5%">#</th>
+          <th style="width:30%">Item</th>
+          <th>Group</th>
+          <th>Available</th>
+          <th style="width:90px">Qty</th>
+          <th style="width:36px"></th>
+        </tr>
+      </thead>
+      <tbody id="poItemsBody">
+        <tr class="po-empty-row"><td colspan="6" class="po-empty-items">No items added yet &mdash; click the field above to browse packaged goods</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- NOTES -->
+  <div class="po-card">
+    <div class="po-card-title">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      Notes
+    </div>
+    <div class="po-field po-field-wide">
+      <textarea id="poNotes" placeholder="Special instructions, delivery notes, etc." rows="3"></textarea>
+    </div>
+  </div>
+
+  <!-- RECENT PREORDERS -->
+  <div class="po-card">
+    <div class="po-card-title">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      Recent Preorders
+    </div>
+    <table class="po-recent-table" id="poRecentTable">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Rep</th>
+          <th>Brand</th>
+          <th>Region</th>
+          <th>Date</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="poRecentBody">
+        <tr><td colspan="6" class="po-empty-items">Loading&hellip;</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+{% endblock %}
