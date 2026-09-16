@@ -1972,6 +1972,28 @@ function ard_report_css() {
         '.ard-customer-group-name{font-size:7px!important;}';
 }
 
+// Turn the base64 the preview returns into a blob and open it. A blob URL is
+// used rather than a data: URI because Chrome refuses to navigate to large
+// data: URLs, and these run to hundreds of KB. If the popup is blocked the
+// same blob is offered as a download instead, so the preview is never a
+// dead end.
+function ard_open_pdf(msg) {
+    let bytes = atob(msg.content);
+    let buf = new Uint8Array(bytes.length);
+    for (let i = 0; i < bytes.length; i++) { buf[i] = bytes.charCodeAt(i); }
+    let url = URL.createObjectURL(new Blob([buf], { type: 'application/pdf' }));
+
+    let w = window.open(url, '_blank');
+    if (!w) {
+        let $a = $('<a>').attr({ href: url, download: msg.filename }).appendTo('body');
+        $a.get(0).click();
+        $a.remove();
+        frappe.show_alert({ message: 'Pop-up blocked — the PDF was downloaded instead.', indicator: 'orange' }, 7);
+    }
+    // Give the tab time to load before the URL is revoked.
+    setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
+}
+
 function email_ar_report(page, mode) {
     if (frappe.session.user !== 'Administrator') return;
 
@@ -1982,13 +2004,26 @@ function email_ar_report(page, mode) {
         return;
     }
 
-    frappe.confirm(
-        'Email the <b>' + label + '</b> aging report to <b>' + AR_REPORT_RECIPIENT + '</b>?',
-        function () { ard_send_report(page, mode, label, $table); }
-    );
+    // Preview first, send second - the report goes to someone outside this
+    // screen, so there is a look-at-it step before anything leaves.
+    let d = new frappe.ui.Dialog({
+        title: label + ' aging report',
+        fields: [{
+            fieldtype: 'HTML',
+            options: '<p>Preview opens the exact PDF that would be attached, in a new tab. ' +
+                     'Nothing is emailed until you press send.</p>' +
+                     '<p style="color:var(--text-muted);font-size:12px;">Recipient: <b>' +
+                     AR_REPORT_RECIPIENT + '</b></p>'
+        }],
+        primary_action_label: 'Send to ' + AR_REPORT_RECIPIENT,
+        primary_action: function () { d.hide(); ard_send_report(page, mode, label, $table, 0); },
+        secondary_action_label: 'Preview PDF',
+        secondary_action: function () { ard_send_report(page, mode, label, $table, 1); }
+    });
+    d.show();
 }
 
-function ard_send_report(page, mode, label, $table) {
+function ard_send_report(page, mode, label, $table, preview) {
     // Inline <style> blocks only, no <link>: wkhtmltopdf would otherwise have to
     // fetch every desk bundle over the network just to style the sheet.
     let styles = "";
@@ -2011,23 +2046,26 @@ function ard_send_report(page, mode, label, $table) {
             $table.prop('outerHTML') +
             '</div></div></div></body></html>';
 
-        frappe.dom.freeze('Building the ' + label + ' PDF and emailing it…');
+        frappe.dom.freeze(preview
+            ? 'Building the ' + label + ' PDF…'
+            : 'Building the ' + label + ' PDF and emailing it…');
         frappe.call({
             method: 'cannabis_management.cannabis_management.page.ar_dashboard.ar_dashboard.email_ar_pdf',
             args: {
                 html: html,
                 mode: mode,
                 company: page.main.find('#ard-company').val() || '',
-                report_date: get_report_date(page) || ''
+                report_date: get_report_date(page) || '',
+                preview: preview ? 1 : 0
             },
             always: function () { frappe.dom.unfreeze(); },
             callback: function (r) {
-                if (r && r.message) {
-                    frappe.show_alert({
-                        message: label + ' report emailed to ' + r.message.recipient,
-                        indicator: 'green'
-                    }, 7);
-                }
+                if (!r || !r.message) return;
+                if (r.message.preview) { ard_open_pdf(r.message); return; }
+                frappe.show_alert({
+                    message: label + ' report emailed to ' + r.message.recipient,
+                    indicator: 'green'
+                }, 7);
             }
         });
     });
