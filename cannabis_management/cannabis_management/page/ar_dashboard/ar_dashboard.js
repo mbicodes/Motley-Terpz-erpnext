@@ -85,6 +85,8 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
 							<button id="ard-export-all-btn" class="ard-export-item">&#8595; Export Excel (Whole Dashboard)</button>
 						</div>
 					</div>
+					<button id="ard-email-legacy-btn" class="ard-btn-secondary" style="display:none;">&#9993; Email Legacy AR to Nikki</button>
+					<button id="ard-email-new-btn"    class="ard-btn-secondary" style="display:none;">&#9993; Email New AR to Nikki</button>
 					<button id="ard-motley-btn" class="ard-btn-danger" style="display:none;">Remove Motley</button>
 				</div>
 			</div>
@@ -193,6 +195,14 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
 
     page.main.find('#ard-pdf-btn').on('click', function () {
         export_pdf(page);
+    });
+
+    page.main.find('#ard-email-legacy-btn').on('click', function () {
+        email_ar_report(page, 'legacy');
+    });
+
+    page.main.find('#ard-email-new-btn').on('click', function () {
+        email_ar_report(page, 'new');
     });
 
     // Per-customer copy (event delegation for dynamic rows)
@@ -1692,28 +1702,11 @@ function copy_all(page) {
     copy_to_clipboard(text, aggs.length + " customer(s) copied to clipboard");
 }
 
-// ─── PDF Export (prints the on-screen dashboard view) ───────────────────────────
-
-function export_pdf(page) {
-    let container = page.main.find('.ard-container').get(0);
-    if (!container) return;
-
-    let head = "";
-    document.querySelectorAll('link[rel="stylesheet"]').forEach(function (l) {
-        if (l.href) head += `<link rel="stylesheet" href="${l.href}">`;
-    });
-    document.querySelectorAll('style').forEach(function (st) { head += st.outerHTML; });
-
-    let w = window.open("", "_blank");
-    if (!w) {
-        frappe.msgprint("Please allow pop-ups for this site to export PDF.");
-        return;
-    }
-
-    // Print CSS: landscape, compact cells, sheet-only output — the PDF mirrors the
-    // recon Google Sheet: a purple logo banner, then the spreadsheet table, one row
-    // per customer (invoice rows collapsed), no summary cards / projection / aging bar.
-    let print_css =
+// Print/PDF stylesheet, shared by the on-screen PDF export and the emailed
+// report so both render identically: landscape, sheet only (summary cards,
+// projection and aging bar hidden), compact cells, column tints preserved.
+function ard_print_css() {
+    return (
         'body{padding:0;margin:0;background:#fff;}' +
         // Kill centering/max-width so content starts at the left edge of the page
         '.ard-container{max-width:none!important;margin:0!important;padding:4px 6px!important;}' +
@@ -1753,7 +1746,54 @@ function export_pdf(page) {
         '.ard-table thead th{position:static!important;left:auto!important;top:auto!important;box-shadow:none!important;}' +
         // Keep the sheet column tints in the printed PDF
         '*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}' +
-        '@page{size:landscape;margin:5mm;}';
+        '@page{size:landscape;margin:5mm;}'
+    );
+}
+
+// Convert the (same-origin) logo to a data URI via canvas and hand it to `cb`,
+// so the purple banner is guaranteed to render with no dependency on the
+// consumer resolving /files. Falls back to the plain URL, then to null - a
+// missing logo must never block the report.
+function ard_with_logo(cb) {
+    let img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = function () {
+        try {
+            let canvas = document.createElement("canvas");
+            canvas.width = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+            canvas.getContext("2d").drawImage(img, 0, 0);
+            cb(canvas.toDataURL("image/png"));
+        } catch (e) {
+            cb(window.location.origin + '/files/Motley-Terpz-Web-Logo.png');
+        }
+    };
+    img.onerror = function () { cb(null); };
+    img.src = window.location.origin + '/files/Motley-Terpz-Web-Logo.png';
+}
+
+// ─── PDF Export (prints the on-screen dashboard view) ───────────────────────────
+
+function export_pdf(page) {
+    let container = page.main.find('.ard-container').get(0);
+    if (!container) return;
+
+    let head = "";
+    document.querySelectorAll('link[rel="stylesheet"]').forEach(function (l) {
+        if (l.href) head += `<link rel="stylesheet" href="${l.href}">`;
+    });
+    document.querySelectorAll('style').forEach(function (st) { head += st.outerHTML; });
+
+    let w = window.open("", "_blank");
+    if (!w) {
+        frappe.msgprint("Please allow pop-ups for this site to export PDF.");
+        return;
+    }
+
+    // Print CSS: landscape, compact cells, sheet-only output — the PDF mirrors the
+    // recon Google Sheet: a purple logo banner, then the spreadsheet table, one row
+    // per customer (invoice rows collapsed), no summary cards / projection / aging bar.
+    let print_css = ard_print_css();
 
     // Measure the widest .ard-table directly (not the outer wrapper — the wrapper
     // may only report viewport width before zoom is applied), then zoom the body
@@ -1791,23 +1831,7 @@ function export_pdf(page) {
         w.focus();
     }
 
-    // Convert the (same-origin) logo to a data URI via canvas, then write. If it
-    // can't be loaded for any reason, still produce the PDF without the banner.
-    let img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = function () {
-        try {
-            let canvas = document.createElement("canvas");
-            canvas.width = img.naturalWidth;
-            canvas.height = img.naturalHeight;
-            canvas.getContext("2d").drawImage(img, 0, 0);
-            write_doc(canvas.toDataURL("image/png"));
-        } catch (e) {
-            write_doc(window.location.origin + '/files/Motley-Terpz-Web-Logo.png');
-        }
-    };
-    img.onerror = function () { write_doc(null); };
-    img.src = window.location.origin + '/files/Motley-Terpz-Web-Logo.png';
+    ard_with_logo(write_doc);
 }
 
 // Show/hide the export wrap based on whether data is on screen.
@@ -1815,6 +1839,19 @@ function export_pdf(page) {
 function show_export_buttons(page, has_rows) {
     page.main.find('#ard-export-dd, #ard-new-ar-only-btn').toggle(!!has_rows);
     if (!has_rows) page.main.find('#ard-export-menu').hide();
+    update_email_btn_visibility(page, has_rows);
+}
+
+// The "Email … to Nikki" buttons are Administrator-only, and only the one
+// matching the AR Mode on screen is shown - the PDF is built from that mode's
+// columns, so offering the other one here would just send the wrong layout.
+// Hidden with no rows too: there would be nothing to attach.
+// This is convenience only; email_ar_pdf re-checks the user server-side.
+function update_email_btn_visibility(page, has_rows) {
+    let is_admin = frappe.session.user === 'Administrator';
+    let mode = page._ard_ar_mode;
+    page.main.find('#ard-email-legacy-btn').toggle(!!(is_admin && has_rows && mode === 'legacy'));
+    page.main.find('#ard-email-new-btn').toggle(!!(is_admin && has_rows && mode === 'new'));
 }
 
 function update_hide_cols_btn(page) {
@@ -1828,6 +1865,172 @@ function update_hide_cols_btn(page) {
 
 function apply_col_visibility(page) {
     page.main.find('#ard-data-area').toggleClass('ard-detail-hidden', !!page._ard_cols_hidden);
+}
+
+// ─── Emailed aging report (Administrator only) ────────────────────────────────
+// Sends the mode's sheet to Nikki as a PDF laid out like the agreed recon sheet:
+// purple logo banner, then the table trimmed to the columns for that mode.
+//
+//   Legacy AR -> Customer | Invoiced | Paid | Outstanding | the 8 aging buckets
+//                (sheet columns A, E, F, G, H-O)
+//   New AR    -> Customer | New AR | Good standing | Bad standing
+//                | 0-10 / 10-20 / 20-30 on terms | the 8 overdue buckets
+//
+// The PDF is rendered server-side by wkhtmltopdf from markup built here, so the
+// attachment is exactly the table on screen rather than a second layout that
+// would have to be kept in step with this page.
+
+const AR_REPORT_RECIPIENT = "nikki@motleyterpz.com";
+
+// Keep-or-drop for one heading cell. Driven off the classes the header row
+// already carries rather than column positions, so inserting a column upstream
+// cannot silently shift the selection.
+function ard_keep_column($th, mode) {
+    // Trailing interactive columns are never part of the report.
+    if ($th.hasClass('ard-th-new-ar') || $th.hasClass('ard-th-notebox')) return false;
+    if ($th.hasClass('ard-th-sticky')) return true;   // Customer
+    if ($th.hasClass('ard-th-range')) return true;    // overdue / aging buckets
+    if (mode === 'legacy') {
+        // Recon Status, Onboarding and Company Made Contact are dropped; these
+        // three are the only other money columns Legacy mode renders.
+        return ['Invoiced', 'Paid', 'Outstanding'].indexOf($.trim($th.text())) !== -1;
+    }
+    // New AR: the New AR total, the two standing columns and the on-terms trio.
+    // Legacy AR and Total AR are deliberately left out.
+    return $th.hasClass('ard-na-new') || $th.hasClass('ard-na-good') || $th.hasClass('ard-na-bad')
+        || $th.hasClass('ard-term-red') || $th.hasClass('ard-term-amber') || $th.hasClass('ard-term-green');
+}
+
+// Clone the on-screen sheet and reduce it to that mode's columns.
+function ard_build_report_table(page, mode) {
+    let $src = page.main.find('#ard-data-area .ard-table').first();
+    if (!$src.length) return null;
+    let $t = $src.clone();
+
+    // Drop the spreadsheet decoration (A,B,C letter strip + row-number column) and
+    // the TOTALS row. All three are screen affordances; the recon sheet has none.
+    $t.find('tr.ard-grid-colrow').remove();
+    $t.find('.ard-grid-rownum, .ard-grid-corner').remove();
+    $t.find('tr.ard-top-totals').remove();
+
+    let $head = $t.find('thead tr.ard-head-row').first();
+    if (!$head.length) return null;
+
+    let keep = {};
+    let ncols = $head.children().length;
+    $head.children().each(function (i) {
+        if (ard_keep_column($(this), mode)) keep[i] = true;
+    });
+    if (!Object.keys(keep).length) return null;
+
+    // Every row is one cell per column except the band row ("New AR on Terms" /
+    // "OVERDUE NEW AR"), which uses colspans - so each banded cell is re-spanned
+    // to however many of the columns it covers actually survive, and dropped if
+    // none do. A row whose spans do not add up to the header width is left alone
+    // rather than mangled.
+    $t.find('tr').each(function () {
+        let $cells = $(this).children();
+        let spans = 0;
+        $cells.each(function () { spans += (parseInt($(this).attr('colspan'), 10) || 1); });
+        if (spans !== ncols) return;
+
+        let col = 0;
+        $cells.each(function () {
+            let $c = $(this);
+            let span = parseInt($c.attr('colspan'), 10) || 1;
+            let survivors = 0;
+            for (let k = col; k < col + span; k++) { if (keep[k]) survivors++; }
+            if (!survivors) $c.remove();
+            else if (span > 1) $c.attr('colspan', survivors);
+            col += span;
+        });
+    });
+
+    return $t;
+}
+
+// Extra rules layered over ard_print_css() for the emailed copy only.
+//
+// The on-screen PDF export fits wide sheets by zooming the body from a script it
+// injects into the print window. wkhtmltopdf renders the emailed copy instead, so
+// that trick is not available and the table has to be made to fit outright:
+// table-layout:fixed shares the page width across the columns and the cells wrap
+// instead of nowrap. Without this the last aging buckets run off the right edge
+// and are silently clipped.
+function ard_report_css() {
+    return '.ard-container{padding:0!important;margin:0!important;}' +
+        '.ard-pdf-logo-banner{text-align:center;}' +
+        '.ard-table{width:100%!important;table-layout:fixed!important;}' +
+        // Wrap at spaces only - word-break:break-word splits names mid-word
+        // ("CRFT Manufacturin g Inc."), which reads as a typo in a sent report.
+        '.ard-table th,.ard-table td{font-size:7px!important;white-space:normal!important;' +
+          'overflow:hidden;}' +
+        // Customer names are long, so that column gets the most room and drops to
+        // the same size as the rest (ard_print_css sets it to 9px for the browser
+        // export, which is too big once the width is shared out).
+        '.ard-table th.ard-th-sticky,.ard-table td.ard-td-sticky{width:21%!important;}' +
+        '.ard-customer-group-name{font-size:7px!important;}';
+}
+
+function email_ar_report(page, mode) {
+    if (frappe.session.user !== 'Administrator') return;
+
+    let label = mode === 'legacy' ? 'Legacy AR' : 'New AR';
+    let $table = ard_build_report_table(page, mode);
+    if (!$table) {
+        frappe.msgprint('There is nothing on screen to send yet — load the dashboard first.');
+        return;
+    }
+
+    frappe.confirm(
+        'Email the <b>' + label + '</b> aging report to <b>' + AR_REPORT_RECIPIENT + '</b>?',
+        function () { ard_send_report(page, mode, label, $table); }
+    );
+}
+
+function ard_send_report(page, mode, label, $table) {
+    // Inline <style> blocks only, no <link>: wkhtmltopdf would otherwise have to
+    // fetch every desk bundle over the network just to style the sheet.
+    let styles = "";
+    document.querySelectorAll('style').forEach(function (st) { styles += st.outerHTML; });
+
+    ard_with_logo(function (logo_src) {
+        let banner = logo_src
+            ? '<div class="ard-pdf-logo-banner"><img src="' + logo_src + '" alt="Motley Terpz"></div>'
+            : '';
+        // The table is re-wrapped in its usual ancestors, because every sheet rule
+        // is scoped under .ard-sheet - and .ard-mode-new is what turns the
+        // on-terms columns green in New AR mode.
+        let html =
+            '<!doctype html><html><head><meta charset="utf-8"><title>' + label + ' Aging Report</title>' +
+            styles +
+            '<style>' + ard_print_css() + ard_report_css() + '</style>' +
+            '</head><body><div id="ard-pdf-page">' + banner +
+            '<div class="ard-container"><div class="ard-table-wrap ard-newar-table ard-sheet' +
+            (mode === 'new' ? ' ard-mode-new' : '') + '">' +
+            $table.prop('outerHTML') +
+            '</div></div></div></body></html>';
+
+        frappe.dom.freeze('Building the ' + label + ' PDF and emailing it…');
+        frappe.call({
+            method: 'cannabis_management.cannabis_management.page.ar_dashboard.ar_dashboard.email_ar_pdf',
+            args: {
+                html: html,
+                mode: mode,
+                company: page.main.find('#ard-company').val() || '',
+                report_date: get_report_date(page) || ''
+            },
+            always: function () { frappe.dom.unfreeze(); },
+            callback: function (r) {
+                if (r && r.message) {
+                    frappe.show_alert({
+                        message: label + ' report emailed to ' + r.message.recipient,
+                        indicator: 'green'
+                    }, 7);
+                }
+            }
+        });
+    });
 }
 
 // ─── Excel Export ─────────────────────────────────────────────────────────────
