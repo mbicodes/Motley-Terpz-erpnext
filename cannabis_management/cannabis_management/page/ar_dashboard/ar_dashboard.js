@@ -1907,11 +1907,15 @@ function ard_build_report_table(page, mode) {
     if (!$src.length) return null;
     let $t = $src.clone();
 
-    // Drop the spreadsheet decoration (A,B,C letter strip + row-number column) and
-    // the TOTALS row. All three are screen affordances; the recon sheet has none.
+    // Drop the spreadsheet decoration (A,B,C letter strip + row-number column);
+    // both are screen affordances with no place in a sent report.
+    //
+    // The sheet's own TOTALS row is KEPT (Ali asked for a totals row at the top,
+    // 2026-09-17). It sits at the top of the thead, carries one cell per column
+    // so the trimming below handles it like any other row, and its figures are
+    // the page's own view totals - so they always agree with what is on screen.
     $t.find('tr.ard-grid-colrow').remove();
     $t.find('.ard-grid-rownum, .ard-grid-corner').remove();
-    $t.find('tr.ard-top-totals').remove();
 
     let $head = $t.find('thead tr.ard-head-row').first();
     if (!$head.length) return null;
