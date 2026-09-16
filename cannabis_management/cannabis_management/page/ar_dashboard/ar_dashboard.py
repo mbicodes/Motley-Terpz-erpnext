@@ -1009,7 +1009,9 @@ def email_ar_pdf(html, mode, company=None, report_date=None, preview=0):
 
     label = _AR_MODE_LABELS.get(mode, "AR")
     as_of = report_date or nowdate()
-    scope = company or "All Entities"
+    # "__ALL__" is the company filter's consolidated-view sentinel; it must not
+    # reach the subject line or the filename as raw text.
+    scope = "All Entities" if (not company or company == "__ALL__") else company
 
     pdf = _render_ar_pdf(html)
     filename = "{0} Aging - {1} - {2}.pdf".format(label, scope, as_of)

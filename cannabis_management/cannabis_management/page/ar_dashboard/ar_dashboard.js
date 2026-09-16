@@ -2004,26 +2004,48 @@ function email_ar_report(page, mode) {
         return;
     }
 
-    // Preview first, send second - the report goes to someone outside this
-    // screen, so there is a look-at-it step before anything leaves.
+    // Preview is the PRIMARY action and sending is gated behind it. The first
+    // version of this dialog had Send as the primary with Preview beside it,
+    // and a report reached Nikki before anyone had looked at it - the one thing
+    // this dialog exists to prevent. Send stays disabled until a preview has
+    // actually rendered, so the safe button is also the obvious one.
+    let previewed = false;
     let d = new frappe.ui.Dialog({
         title: label + ' aging report',
         fields: [{
             fieldtype: 'HTML',
-            options: '<p>Preview opens the exact PDF that would be attached, in a new tab. ' +
-                     'Nothing is emailed until you press send.</p>' +
+            options: '<p>Press <b>Preview PDF</b> to open the exact attachment in a new tab. ' +
+                     'Nothing is emailed by previewing — sending unlocks once you have seen it.</p>' +
                      '<p style="color:var(--text-muted);font-size:12px;">Recipient: <b>' +
                      AR_REPORT_RECIPIENT + '</b></p>'
         }],
-        primary_action_label: 'Send to ' + AR_REPORT_RECIPIENT,
-        primary_action: function () { d.hide(); ard_send_report(page, mode, label, $table, 0); },
-        secondary_action_label: 'Preview PDF',
-        secondary_action: function () { ard_send_report(page, mode, label, $table, 1); }
+        primary_action_label: 'Preview PDF',
+        primary_action: function () {
+            ard_send_report(page, mode, label, $table, 1, function () {
+                previewed = true;
+                d.$wrapper.find('.ard-send-btn')
+                    .prop('disabled', false)
+                    .removeClass('btn-secondary')
+                    .addClass('btn-primary')
+                    .attr('title', '');
+            });
+        }
     });
+
+    d.add_custom_action('Send to ' + AR_REPORT_RECIPIENT, function () {
+        if (!previewed) return;   // belt and braces; the button is disabled too
+        d.hide();
+        ard_send_report(page, mode, label, $table, 0);
+    }, 'ard-send-btn');
+
+    d.$wrapper.find('.ard-send-btn')
+        .prop('disabled', true)
+        .attr('title', 'Preview the PDF first');
+
     d.show();
 }
 
-function ard_send_report(page, mode, label, $table, preview) {
+function ard_send_report(page, mode, label, $table, preview, on_previewed) {
     // Inline <style> blocks only, no <link>: wkhtmltopdf would otherwise have to
     // fetch every desk bundle over the network just to style the sheet.
     let styles = "";
@@ -2061,7 +2083,11 @@ function ard_send_report(page, mode, label, $table, preview) {
             always: function () { frappe.dom.unfreeze(); },
             callback: function (r) {
                 if (!r || !r.message) return;
-                if (r.message.preview) { ard_open_pdf(r.message); return; }
+                if (r.message.preview) {
+                    ard_open_pdf(r.message);
+                    if (on_previewed) on_previewed();
+                    return;
+                }
                 frappe.show_alert({
                     message: label + ' report emailed to ' + r.message.recipient,
                     indicator: 'green'
