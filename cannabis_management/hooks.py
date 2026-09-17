@@ -420,12 +420,9 @@ doc_events = {
             "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
             # Source Tag / Target Tag on the Stock Ledger Entries this submit just wrote.
             "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_sle_source_target_tags",
-            # Package: turn each Stock Ledger Entry this submit just wrote into a Stock Movement.
-            "cannabis_management.cannabis_management.doctype.metrc_package.metrc_package.sync_package_movements",
         ],
         "on_cancel": [
             "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
-            "cannabis_management.cannabis_management.doctype.metrc_package.metrc_package.reverse_package_movements",
         ],
     },
     "Sales Order": {
@@ -470,13 +467,11 @@ doc_events = {
             "cannabis_management.overrides.delivery_note_hooks.update_sales_order_delivery_status",
             "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
             "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_sle_source_target_tags",
-            "cannabis_management.cannabis_management.doctype.metrc_package.metrc_package.sync_package_movements",
         ],
         "on_cancel": [
             "cannabis_management.overrides.delivery_note_hooks.update_sales_invoice_delivery_status",
             "cannabis_management.overrides.delivery_note_hooks.update_sales_order_delivery_status",
             "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
-            "cannabis_management.cannabis_management.doctype.metrc_package.metrc_package.reverse_package_movements",
         ],
         "validate": "cannabis_management.overrides.delivery_note_hooks.set_expense_head",
     },
@@ -486,11 +481,9 @@ doc_events = {
         "on_submit": [
             "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
             "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_sle_source_target_tags",
-            "cannabis_management.cannabis_management.doctype.metrc_package.metrc_package.sync_package_movements",
         ],
         "on_cancel": [
             "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
-            "cannabis_management.cannabis_management.doctype.metrc_package.metrc_package.reverse_package_movements",
         ],
     },
     "Stock Reconciliation": {
@@ -498,11 +491,9 @@ doc_events = {
         "on_submit": [
             "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
             "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_sle_source_target_tags",
-            "cannabis_management.cannabis_management.doctype.metrc_package.metrc_package.sync_package_movements",
         ],
         "on_cancel": [
             "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
-            "cannabis_management.cannabis_management.doctype.metrc_package.metrc_package.reverse_package_movements",
         ],
     },
     "Work Order": {
@@ -579,6 +570,25 @@ doc_events = {
         ],
     },
 }
+
+# Staging-only document hooks
+# ---------------------------
+# Some integrations are built and exercised on staging long before they are fit
+# to deploy — their code is deliberately kept out of git, so a production
+# checkout does not have the modules their hooks would name. Wiring them here
+# directly would make every save on the affected doctypes raise
+# ModuleNotFoundError on any site built from git alone.
+#
+# Instead, staging drops a `cannabis_management/metrc/local_hooks.py` (excluded
+# from the repo) that merges its own entries into `doc_events` at import time.
+# Where the file is absent — which is everywhere but staging — this is a no-op
+# and the hooks simply do not exist.
+try:
+    from cannabis_management.metrc import local_hooks as _local_hooks
+except ImportError:
+    pass
+else:
+    _local_hooks.extend_doc_events(doc_events)
 
 # Scheduled Tasks
 # ---------------
