@@ -64,13 +64,9 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
 				</div>
 				<div class="ard-filter-group">
 					<label class="ard-label">Status</label>
+					<!-- Options are filled from AR Recon Status on load; see init_page. -->
 					<select id="ard-recon-filter" class="ard-select">
 						<option value="">All</option>
-						<option value="Reconciled collecting money">Reconciled collecting money</option>
-						<option value="Reconciled trouble collecting money">Reconciled trouble collecting money</option>
-						<option value="Unreconciled">Unreconciled</option>
-						<option value="Dispute">Dispute</option>
-						<option value="Adjustment">Adjustment</option>
 					</select>
 				</div>
 				<div class="ard-filter-actions">
@@ -143,6 +139,7 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
             // Default selection on open: All Entities (consolidated view).
             sel.val(ALL_ENTITIES);
             page._ard_can_edit = !!r.message.can_edit_recon;
+            set_recon_statuses(page, r.message.recon_statuses);
             update_motley_btn_visibility(page);
             // Auto-load now that the filters are ready (no Apply button).
             apply_filters(page);
@@ -542,18 +539,36 @@ function handle_recon_change(page, $select) {
     });
 }
 
+// The original five are styled by name in ar_dashboard.css. Anything added
+// since is "custom": a neutral style, or the colour set on its record.
 function recon_cls_for(status) {
     if (status === 'Reconciled collecting money') return 'ard-recon-reconciled';
     if (status === 'Reconciled trouble collecting money') return 'ard-recon-trouble';
     if (status === 'Unreconciled') return 'ard-recon-unreconciled';
     if (status === 'Dispute') return 'ard-recon-dispute';
     if (status === 'Adjustment') return 'ard-recon-adjustment';
-    return 'ard-recon-empty';
+    if (!status) return 'ard-recon-empty';
+    return 'ard-recon-custom';
+}
+
+// Inline style for a status that carries a colour of its own. Returned as a
+// style attribute so it beats the class, and empty for the built-in five.
+function recon_style_for(status) {
+    let color = RECON_COLORS[status];
+    if (!color) return '';
+    return ' style="background-color:' + esc_attr(color) + '1f;color:' + esc_attr(color) +
+           ';border-color:' + esc_attr(color) + ';"';
 }
 
 function apply_recon_select_class($select, status) {
-    $select.removeClass('ard-recon-reconciled ard-recon-trouble ard-recon-unreconciled ard-recon-dispute ard-recon-adjustment ard-recon-empty');
+    $select.removeClass('ard-recon-reconciled ard-recon-trouble ard-recon-unreconciled ard-recon-dispute ard-recon-adjustment ard-recon-custom ard-recon-empty');
     $select.addClass(recon_cls_for(status));
+    let color = RECON_COLORS[status];
+    if (color) {
+        $select.css({ 'background-color': color + '1f', 'color': color, 'border-color': color });
+    } else {
+        $select.css({ 'background-color': '', 'color': '', 'border-color': '' });
+    }
 }
 
 // ─── New AR Available Toggle ──────────────────────────────────────────────────
@@ -1051,14 +1066,36 @@ function render_aging_bar(page, ranges, view_totals) {
     page.main.find('#ard-aging-section').html(build_aging_html(page, ranges, view_totals));
 }
 
-var RECON_OPTIONS = [
-    { value: "",                                    label: "—" },
-    { value: "Reconciled collecting money",         label: "Reconciled collecting money" },
-    { value: "Reconciled trouble collecting money", label: "Reconciled trouble collecting money" },
-    { value: "Unreconciled",                        label: "Unreconciled" },
-    { value: "Dispute",                             label: "Dispute" },
-    { value: "Adjustment",                          label: "Adjustment" },
-];
+// Filled from the AR Recon Status doctype by set_recon_statuses() on load, so a
+// status added there shows up here with no code change. The blank "not set"
+// entry is added here rather than being a record - it is how a status is
+// cleared, not a status.
+var RECON_OPTIONS = [{ value: "", label: "\u2014" }];
+
+// value -> colour, for statuses that set one. The original five set none and
+// keep their by-name styling in ar_dashboard.css.
+var RECON_COLORS = {};
+
+function set_recon_statuses(page, statuses) {
+    statuses = statuses || [];
+
+    RECON_OPTIONS = [{ value: "", label: "\u2014" }];
+    RECON_COLORS = {};
+    statuses.forEach(function (st) {
+        RECON_OPTIONS.push({ value: st.value, label: st.label || st.value });
+        if (st.color) RECON_COLORS[st.value] = st.color;
+    });
+
+    // Rebuild the Status filter, keeping whatever was selected if it survives.
+    let $filter = page.main.find('#ard-recon-filter');
+    let current = $filter.val() || "";
+    $filter.empty().append('<option value="">All</option>');
+    statuses.forEach(function (st) {
+        $filter.append($('<option>').attr('value', st.value).text(st.label || st.value));
+    });
+    $filter.val(current);
+    if ($filter.val() !== current) $filter.val("");
+}
 
 function build_recon_cell(page, party, status, readonly) {
     if (page._ard_can_edit) {
@@ -1069,7 +1106,7 @@ function build_recon_cell(page, party, status, readonly) {
         return `
 			<select class="${select_cls}"
 				data-party="${esc_attr(party)}"
-				data-current="${esc_attr(status)}">
+				data-current="${esc_attr(status)}"${recon_style_for(status)}>
 				${opts}
 			</select>
 		`;
@@ -1756,6 +1793,8 @@ function ard_print_css() {
 // so the purple banner is guaranteed to render with no dependency on the
 // consumer resolving /files. Falls back to the plain URL, then to null - a
 // missing logo must never block the report.
+// Current company logo. The hashed filename is what the File record points at;
+// replacing the logo means updating this path, not overwriting the file.
 function ard_with_logo(cb) {
     let img = new Image();
     img.crossOrigin = "anonymous";
@@ -1767,11 +1806,11 @@ function ard_with_logo(cb) {
             canvas.getContext("2d").drawImage(img, 0, 0);
             cb(canvas.toDataURL("image/png"));
         } catch (e) {
-            cb(window.location.origin + '/files/Motley-Terpz-Web-Logo.png');
+            cb(window.location.origin + '/files/FULL_LOGO295b72.png');
         }
     };
     img.onerror = function () { cb(null); };
-    img.src = window.location.origin + '/files/Motley-Terpz-Web-Logo.png';
+    img.src = window.location.origin + '/files/FULL_LOGO295b72.png';
 }
 
 // Show/hide the export wrap based on whether data is on screen.
