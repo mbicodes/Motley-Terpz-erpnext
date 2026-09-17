@@ -1,7 +1,6 @@
 import frappe
 from contextlib import contextmanager
 from frappe.utils import nowdate
-from frappe import _
 
 
 RECON_EDIT_ROLES    = ("Account Manager", "System Manager", "Administrator")
@@ -954,157 +953,89 @@ def setup_ar_custom_fields():
     return {"status": "ok", "message": "AR custom fields created/updated successfully."}
 
 
-# ─── Email the AR sheet as a PDF ──────────────────────────────────────────────
+# ─── Emailed aging report ─────────────────────────────────────────────────────
 
-# The one place the recipient is decided. It is NOT accepted from the client, so
-# a tampered request cannot redirect the report to another address.
-AR_EMAIL_RECIPIENT = "nikki@motleyterpz.com"
+AR_REPORT_RECIPIENT = "nikki@motleyterpz.com"
 
-AR_EMAIL_LOGO = "Motley-Terpz-Web-Logo.png"
-
-
-def _ar_email_logo_data_uri():
-    """Inline the banner logo as a data URI.
-
-    wkhtmltopdf runs headless with no session, so it cannot fetch /files/... from
-    the site (that request would 403 or 404). Embedding the bytes is the only
-    reliable way to get the logo into the PDF. Returns None if the file is gone —
-    the sheet still mails, just without the banner image.
-    """
-    import base64
-    import os
-
-    for folder in ("public", "private"):
-        path = frappe.get_site_path(folder, "files", AR_EMAIL_LOGO)
-        if os.path.exists(path):
-            try:
-                with open(path, "rb") as fh:
-                    return "data:image/png;base64," + base64.b64encode(fh.read()).decode()
-            except OSError:
-                frappe.log_error(f"Could not read {path}", "AR Dashboard email PDF")
-    return None
+# Labels for the subject / filename / body, per AR Mode.
+_AR_MODE_LABELS = {
+    "legacy": "Legacy AR",
+    "new": "New AR",
+    "all": "Legacy + New AR",
+}
 
 
-# Print CSS for the mailed sheet. Kept here rather than in ar_dashboard.css
-# because the PDF must render identically regardless of what the browser had
-# loaded — wkhtmltopdf gets this stylesheet and nothing else.
-_AR_EMAIL_CSS = """
-	* { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-	@page { size: A4 landscape; margin: 6mm; }
-	body { margin: 0; padding: 0; background: #fff;
-	       font-family: Arial, Helvetica, sans-serif; color: #202124; }
+def _render_ar_pdf(html):
+    """wkhtmltopdf render, shared by the preview and the send."""
+    from frappe.utils.pdf import get_pdf
 
-	.nk-banner { background: #5b1a9e; padding: 10px 16px; text-align: center; }
-	.nk-banner img { height: 58px; width: auto; }
-
-	.nk-meta { font-size: 8px; color: #5f6368; padding: 4px 2px 6px; }
-	.nk-meta strong { color: #202124; }
-
-	.nk-table { width: 100%; border-collapse: collapse; table-layout: auto; }
-	.nk-table th, .nk-table td {
-		border: 1px solid #d0d0d0; padding: 3px 5px;
-		font-size: 7.5px; white-space: nowrap; vertical-align: middle;
-	}
-
-	/* Grouping band above the column headers */
-	.nk-grp-row th { border: none; padding: 3px 5px; font-size: 9px; text-align: center; }
-	.nk-grp-blank { background: #fff; }
-	.nk-grp-terms { background: #e6f4ea; color: #137333; font-weight: 700; }
-	.nk-grp-od    { background: #fce8e6; color: #c5221f; font-weight: 700; }
-
-	.nk-head-row th { font-weight: 700; vertical-align: bottom; background: #fff; }
-	.nk-head-row small { font-weight: 400; font-size: 6.5px; }
-	.nk-th-cust  { text-align: left;  color: #202124; }
-	.nk-th-newar { text-align: right; color: #c5221f; font-size: 10px !important; }
-	.nk-th-good  { text-align: right; color: #137333; }
-	.nk-th-bad   { text-align: right; color: #c5221f; }
-	.nk-th-term  { text-align: right; color: #202124; background: #e6f4ea; }
-	.nk-th-od    { text-align: right; color: #c5221f; background: #fce8e6; }
-
-	/* Body cells — colour follows the column, so a dash reads as "nothing here
-	   in this column" rather than as a neutral blank. */
-	.nk-cust { text-align: left; font-weight: 700; color: #202124; white-space: normal; }
-	.nk-inv  { font-weight: 400; }
-	.nk-num  { text-align: right; }
-	.nk-newar { color: #c5221f; }
-	.nk-good  { color: #137333; }
-	.nk-bad   { color: #c5221f; }
-	.nk-term  { color: #137333; background: #f2f9f4; }
-	.nk-od    { color: #c5221f; background: #fdf2f1; }
-"""
-
-
-def _ar_email_document(table_html, company, report_date, row_count, customer_count=0):
-    """Wrap the client-built <table> in the banner + print CSS."""
-    logo = _ar_email_logo_data_uri()
-    banner = (
-        f'<div class="nk-banner"><img src="{logo}" alt="Motley Terpz"></div>'
-        if logo else '<div class="nk-banner"></div>'
-    )
-    meta = (
-        f'<div class="nk-meta">Legacy + New AR &mdash; <strong>{frappe.utils.escape_html(str(company or ""))}</strong>'
-        f' &nbsp;|&nbsp; as of <strong>{frappe.utils.escape_html(str(report_date or ""))}</strong>'
-        f' &nbsp;|&nbsp; {int(customer_count or 0)} customer(s), {int(row_count or 0)} invoice(s)</div>'
-    )
-    return (
-        '<!doctype html><html><head><meta charset="utf-8">'
-        f'<style>{_AR_EMAIL_CSS}</style></head><body>'
-        f'{banner}{meta}{table_html}'
-        '</body></html>'
+    return get_pdf(
+        html,
+        options={
+            "orientation": "Landscape",
+            "page-size": "A4",
+            "margin-top": "5mm",
+            "margin-bottom": "5mm",
+            "margin-left": "5mm",
+            "margin-right": "5mm",
+            "encoding": "UTF-8",
+        },
     )
 
 
 @frappe.whitelist()
-def email_ar_pdf(table_html, report_date=None, company=None, row_count=0, customer_count=0):
-    """Render the Legacy + New AR sheet to PDF and mail it to the AR contact.
+def email_ar_pdf(html, mode, company=None, report_date=None, preview=0):
+    """Render the sheet HTML the dashboard sends us into a PDF and email it.
 
-    Administrator-only: this accepts pre-built markup from the browser (so the
-    PDF is guaranteed to match the figures on screen) and hands it to
-    wkhtmltopdf, which can read local files. That is only safe because the caller
-    is already the one account that can run arbitrary code on this site.
+    The HTML is built client-side from the table already on screen (columns
+    trimmed to the agreed set, the spreadsheet letter/row decoration stripped,
+    stylesheets inlined) so the attachment is exactly what the operator is
+    looking at. Doing the layout here instead would mean a second renderer to
+    keep in step with the page for no gain.
+
+    With ``preview`` set nothing is emailed: the same bytes that would have been
+    attached come back base64-encoded, so the report can be checked in the
+    browser before it goes to anyone.
+
+    Administrator only - the button is hidden for everyone else, but the check
+    has to live here too, since hiding a button is not a permission. It also
+    matters because wkhtmltopdf is handed caller-supplied markup.
     """
     if frappe.session.user != "Administrator":
         frappe.throw(
-            _("Only the Administrator can email the AR report."),
+            frappe._("Only the Administrator can email the AR aging report."),
             frappe.PermissionError,
         )
 
-    if not table_html or "<table" not in table_html:
-        frappe.throw(_("Nothing to send — the report table was empty."))
+    label = _AR_MODE_LABELS.get(mode, "AR")
+    as_of = report_date or nowdate()
+    # "__ALL__" is the company filter's consolidated-view sentinel; it must not
+    # reach the subject line or the filename as raw text.
+    scope = "All Entities" if (not company or company == "__ALL__") else company
 
-    from frappe.utils.pdf import get_pdf
+    pdf = _render_ar_pdf(html)
+    filename = "{0} Aging - {1} - {2}.pdf".format(label, scope, as_of)
 
-    report_date = report_date or nowdate()
+    if frappe.utils.cint(preview):
+        import base64
 
-    html = _ar_email_document(table_html, company, report_date, row_count, customer_count)
-    pdf = get_pdf(html, options={
-        "orientation": "Landscape",
-        "page-size": "A4",
-        "margin-top": "6mm",
-        "margin-bottom": "6mm",
-        "margin-left": "6mm",
-        "margin-right": "6mm",
-    })
+        return {
+            "preview": True,
+            "filename": filename,
+            "bytes": len(pdf),
+            "content": base64.b64encode(pdf).decode("ascii"),
+        }
 
-    filename = "AR-Legacy-and-New-{0}.pdf".format(str(report_date).replace("-", ""))
-
-    subject = _("Accounts Receivable — Legacy + New AR (as of {0})").format(report_date)
-    message = (
-        "<p>Hi Nikki,</p>"
-        "<p>Attached is the Legacy + New AR sheet as of "
-        f"<strong>{frappe.utils.escape_html(str(report_date))}</strong>"
-        f" for <strong>{frappe.utils.escape_html(str(company or ''))}</strong>.</p>"
-        "<p>This report was generated from the Accounts Receivable dashboard.</p>"
-    )
-
-    # now=True so an SMTP failure surfaces to the person who clicked the button
-    # instead of dying quietly in the background queue.
     frappe.sendmail(
-        recipients=[AR_EMAIL_RECIPIENT],
-        subject=subject,
-        message=message,
+        recipients=[AR_REPORT_RECIPIENT],
+        subject="{0} Aging Report - {1} - as of {2}".format(label, scope, as_of),
+        message=(
+            "<p>Attached is the <b>{0}</b> aging report for <b>{1}</b>, as of {2}.</p>"
+            "<p>Sent from the AR Dashboard by {3}.</p>"
+        ).format(label, scope, as_of, frappe.session.user),
         attachments=[{"fname": filename, "fcontent": pdf}],
-        now=True,
+        reference_doctype="Page",
+        reference_name="ar-dashboard",
     )
 
-    return {"sent": True, "recipient": AR_EMAIL_RECIPIENT, "filename": filename}
+    return {"recipient": AR_REPORT_RECIPIENT, "filename": filename, "bytes": len(pdf)}
