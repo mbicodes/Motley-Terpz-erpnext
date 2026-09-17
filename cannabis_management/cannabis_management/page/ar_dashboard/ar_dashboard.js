@@ -85,8 +85,8 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
 							<button id="ard-export-all-btn" class="ard-export-item">&#8595; Export Excel (Whole Dashboard)</button>
 						</div>
 					</div>
-					<button id="ard-email-legacy-btn" class="ard-btn-secondary" style="display:none;">&#9993; Email Legacy AR to Nikki</button>
-					<button id="ard-email-new-btn"    class="ard-btn-secondary" style="display:none;">&#9993; Email New AR to Nikki</button>
+					<button id="ard-email-legacy-btn" class="ard-btn-secondary" style="display:none;">Email</button>
+					<button id="ard-email-new-btn"    class="ard-btn-secondary" style="display:none;">Email</button>
 					<button id="ard-motley-btn" class="ard-btn-danger" style="display:none;">Remove Motley</button>
 				</div>
 			</div>
@@ -1842,9 +1842,10 @@ function show_export_buttons(page, has_rows) {
     update_email_btn_visibility(page, has_rows);
 }
 
-// The "Email … to Nikki" buttons are Administrator-only, and only the one
-// matching the AR Mode on screen is shown - the PDF is built from that mode's
-// columns, so offering the other one here would just send the wrong layout.
+// The "Email" buttons are Administrator-only, and only the one matching the AR
+// Mode on screen is shown - the PDF is built from that mode's columns, so
+// offering the other one here would just send the wrong layout. Both carry the
+// same label because only ever one of them is visible.
 // Hidden with no rows too: there would be nothing to attach.
 // This is convenience only; email_ar_pdf re-checks the user server-side.
 function update_email_btn_visibility(page, has_rows) {
@@ -1880,7 +1881,22 @@ function apply_col_visibility(page) {
 // attachment is exactly the table on screen rather than a second layout that
 // would have to be kept in step with this page.
 
-const AR_REPORT_RECIPIENT = "nikki@motleyterpz.com";
+const AR_REPORT_RECIPIENT = "nikki@motleyterpz.com";   // pre-selected, not enforced
+
+// The picker's options, fetched once and reused: the list is the site's enabled
+// users and does not change while the page is open.
+let ard_recipient_cache = null;
+
+function ard_recipient_options(cb) {
+    if (ard_recipient_cache) { cb(ard_recipient_cache); return; }
+    frappe.call({
+        method: 'cannabis_management.cannabis_management.page.ar_dashboard.ar_dashboard.get_ar_email_recipients',
+        callback: function (r) {
+            ard_recipient_cache = r.message || [];
+            cb(ard_recipient_cache);
+        }
+    });
+}
 
 // Keep-or-drop for one heading cell. Driven off the classes the header row
 // already carries rather than column positions, so inserting a column upstream
@@ -1986,16 +2002,55 @@ function email_ar_report(page, mode) {
         return;
     }
 
-    // Sends on a single click, at Ali's request (2026-09-17) once he had used
-    // the preview to confirm the layout. There is no confirmation step and no
-    // undo: the mail is queued the moment this returns. To put the
-    // preview-then-send dialog back, call ard_send_report with preview=1 first
-    // and gate the send on it - email_ar_pdf still takes the `preview` flag and
-    // returns the PDF base64-encoded instead of mailing it.
-    ard_send_report(page, mode, label, $table);
+    // Pick the recipients, then send. Nikki is pre-selected because she is who
+    // this normally goes to, but anything on the site's user list can be chosen
+    // and several at once. email_ar_pdf re-validates the picks server-side.
+    ard_recipient_options(function (options) {
+        let d = new frappe.ui.Dialog({
+            title: 'Email ' + label + ' report',
+            fields: [
+                {
+                    fieldname: 'recipients',
+                    label: 'Send to',
+                    fieldtype: 'MultiSelectPills',
+                    reqd: 1,
+                    get_data: function (txt) {
+                        let q = (txt || '').toLowerCase();
+                        if (!q) return options;
+                        return options.filter(function (o) {
+                            return (o.value || '').toLowerCase().indexOf(q) !== -1
+                                || (o.description || '').toLowerCase().indexOf(q) !== -1;
+                        });
+                    }
+                },
+                {
+                    fieldtype: 'HTML',
+                    options: '<p style="color:var(--text-muted);font-size:12px;">' +
+                             'The attachment is the sheet on screen, trimmed to the <b>' + label +
+                             '</b> columns, with the totals row on top.</p>'
+                }
+            ],
+            primary_action_label: 'Send',
+            primary_action: function (values) {
+                let to = (values && values.recipients) || [];
+                if (!to.length) {
+                    frappe.msgprint('Pick at least one recipient.');
+                    return;
+                }
+                d.hide();
+                ard_send_report(page, mode, label, $table, to);
+            }
+        });
+
+        // set_value goes through set_formatted_input, which is what fills
+        // `rows` and draws the pills - assigning to the control directly would
+        // show nothing.
+        d.set_value('recipients', [AR_REPORT_RECIPIENT]);
+        d.show();
+    });
 }
 
-function ard_send_report(page, mode, label, $table) {
+function ard_send_report(page, mode, label, $table, recipients) {
     // Inline <style> blocks only, no <link>: wkhtmltopdf would otherwise have to
     // fetch every desk bundle over the network just to style the sheet.
     let styles = "";
@@ -2025,13 +2080,15 @@ function ard_send_report(page, mode, label, $table) {
                 html: html,
                 mode: mode,
                 company: page.main.find('#ard-company').val() || '',
-                report_date: get_report_date(page) || ''
+                report_date: get_report_date(page) || '',
+                recipients: JSON.stringify(recipients || [])
             },
             always: function () { frappe.dom.unfreeze(); },
             callback: function (r) {
                 if (!r || !r.message) return;
+                let to = r.message.recipients || [];
                 frappe.show_alert({
-                    message: label + ' report emailed to ' + r.message.recipient,
+                    message: label + ' report emailed to ' + to.join(', '),
                     indicator: 'green'
                 }, 7);
             }
