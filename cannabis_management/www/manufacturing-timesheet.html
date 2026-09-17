@@ -566,11 +566,20 @@
 		fetch("/api/method/logout", { method: "GET", credentials: "same-origin" }).catch(function () {});
 
 		// Neutral path (nginx rewrites it to the real whitelisted method server-side -
-		// see /etc/nginx/conf.d/frappe.conf's "location /kiosk-api/" block). Some
+		// see the "location /kiosk-api/" block in the bench's nginx conf). Some
 		// client-side WiFi/network content filters silently block any request whose
 		// URL contains "cannabis" (this app's name), which used to fail every board
 		// load/clock-in/out here even though the page itself loaded fine.
 		var API = "/kiosk-api/";
+
+		// That nginx block lives in a file `bench setup nginx` regenerates, so it
+		// goes missing every time the conf is rebuilt and the whole board used to
+		// blank out with "Could not load the board". Falling back to the real
+		// method path keeps the kiosk working on its own; the neutral path is
+		// still tried first, so the content-filter dodge applies wherever nginx
+		// is wired up. See routeMissing in post() for how the two are told apart.
+		var API_DIRECT = "/api/method/cannabis_management.manufacturing_timesheet_kiosk.api.";
+		var apiBase = API;
 
 		var state = {
 			token: null,
@@ -794,8 +803,8 @@
 			if (!isNaN(serverMs)) serverSkewMs = serverMs - Date.now();
 		}
 
-		function call(method, args) {
-			return fetch(API + method, {
+		function post(base, method, args) {
+			return fetch(base + method, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
@@ -804,17 +813,35 @@
 				body: JSON.stringify(args || {}),
 			}).then(function (res) {
 				noteServerTime(res);
-				return res.json().then(function (data) {
+				return res.text().then(function (text) {
+					var data = null;
+					try { data = JSON.parse(text); } catch (e) { /* not JSON */ }
 					if (!res.ok) {
-						var msg = (data && data._server_messages) || (data && data.exception) || "Something went wrong";
+						// An unrouted path answers with the site's HTML 404 page rather
+						// than a JSON error, which says this base path is not wired up -
+						// not that the call itself was rejected.
+						if (!data) {
+							var missing = new Error("Kiosk API unreachable (" + res.status + ")");
+							missing.routeMissing = true;
+							throw missing;
+						}
+						var msg = data._server_messages || data.exception || "Something went wrong";
 						try {
 							var parsed = JSON.parse(msg);
 							msg = JSON.parse(parsed[0]).message;
 						} catch (e) { /* keep raw msg */ }
 						throw new Error(msg);
 					}
-					return data.message;
+					return data ? data.message : null;
 				});
+			});
+		}
+
+		function call(method, args) {
+			return post(apiBase, method, args).catch(function (err) {
+				if (!err || !err.routeMissing || apiBase === API_DIRECT) throw err;
+				apiBase = API_DIRECT;
+				return post(apiBase, method, args);
 			});
 		}
 
