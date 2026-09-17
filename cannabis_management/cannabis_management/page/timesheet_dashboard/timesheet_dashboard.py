@@ -43,14 +43,26 @@ def get_employee_timesheet_details(employee):
 	return rows
 
 
+ACCESS_FIELD = "custom_timesheet_dashboard_access"
+
+
 @frappe.whitelist()
 def get_active_employees():
+	"""Active employees ticked for this dashboard.
+
+	The list is driven by "Timesheet Dashboard Access" on the Employee, so who
+	appears here is an HR decision rather than a code change. The field itself
+	ships as a doctype customization (custom/employee.json), applied by
+	sync_customizations on every migrate. Until it exists on a site the filter is
+	skipped, so the page keeps working rather than showing an empty sidebar.
 	"""
-	Returns all active employees for the sidebar list.
-	"""
+	filters = {"status": "Active"}
+	if frappe.db.has_column("Employee", ACCESS_FIELD):
+		filters[ACCESS_FIELD] = 1
+
 	return frappe.db.get_all(
 		"Employee",
-		filters={"status": "Active"},
+		filters=filters,
 		fields=["name", "employee_name"],
 		order_by="employee_name asc",
 		limit=200,

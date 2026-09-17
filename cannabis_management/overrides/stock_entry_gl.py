@@ -1,12 +1,20 @@
 import frappe
 from frappe import _
 from frappe.utils import flt
+from erpnext.stock import get_warehouse_account_map
 from erpnext.stock.doctype.stock_entry.stock_entry import StockEntry, FinishedGoodError
 from cannabis_management.overrides.warehouse_account_utils import apply_item_group_mapping
 
 
 class CMStockEntry(StockEntry):
-    def get_gl_entries(self, warehouse_account):
+    def get_gl_entries(self, warehouse_account=None):
+        # ERPNext's StockEntry.get_gl_entries() declares warehouse_account as a required
+        # positional arg, but Repost Accounting Ledger's preview (generate_preview_data)
+        # calls doc.get_gl_entries() with no arguments for every voucher type except
+        # Purchase Receipt -> TypeError. Default to None and let the map be resolved
+        # from the company, exactly as StockController.get_gl_entries() does.
+        if not warehouse_account:
+            warehouse_account = get_warehouse_account_map(self.company)
         gl_entries = super().get_gl_entries(warehouse_account)
         return apply_item_group_mapping(self, gl_entries, warehouse_account)
 

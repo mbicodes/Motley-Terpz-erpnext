@@ -25,6 +25,7 @@
         "section_break_timelogs",
         "time_logs",
         "section_break_items",
+        "scan_metric_tag",
         "items"
     ],
     "fields": [
@@ -150,6 +151,13 @@
             "label": "Conversion Items"
         },
         {
+            "fieldname": "scan_metric_tag",
+            "fieldtype": "Data",
+            "label": "Scan Metric Tag",
+            "no_copy": 1,
+            "description": "Type or scan a Metric Tag's Tag Code / MUID to auto-fill the next empty Raw Material slot below with an item + strain currently in stock under that tag."
+        },
+        {
             "allow_bulk_edit": 1,
             "fieldname": "items",
             "fieldtype": "Table",
@@ -167,7 +175,7 @@
             "link_fieldname": "custom_conversion_entry_reference"
         }
     ],
-    "modified": "2026-06-16 00:00:00.000000",
+    "modified": "2026-09-08 00:00:00.000000",
     "modified_by": "Administrator",
     "module": "Cannabis Management",
     "name": "Conversion Entry",

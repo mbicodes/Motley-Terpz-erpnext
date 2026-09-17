@@ -1,6 +1,10 @@
 var LEGACY_CUTOFF = "2026-05-31";
 var NEW_AR_START  = "2026-06-01";
 var ALL_ENTITIES  = "__ALL__"; // Company-filter value that triggers the consolidated cross-entity view
+// Shown in the confirm prompt only. The address the mail actually goes to is
+// fixed server-side in ar_dashboard.py (AR_EMAIL_RECIPIENT) and is not taken
+// from the client — change it there, and keep this copy in step.
+var AR_EMAIL_RECIPIENT = "nikki@motleyterpz.com";
 
 frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
     var page = frappe.ui.make_app_page({
@@ -85,6 +89,7 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
 							<button id="ard-export-all-btn" class="ard-export-item">&#8595; Export Excel (Whole Dashboard)</button>
 						</div>
 					</div>
+					<button id="ard-email-nikki-btn" class="ard-btn-secondary" style="display:none;">&#9993; Email to Nikki</button>
 					<button id="ard-motley-btn" class="ard-btn-danger" style="display:none;">Remove Motley</button>
 				</div>
 			</div>
@@ -193,6 +198,11 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
 
     page.main.find('#ard-pdf-btn').on('click', function () {
         export_pdf(page);
+    });
+
+    // Administrator-only: mail the Legacy + New sheet to the AR contact as a PDF.
+    page.main.find('#ard-email-nikki-btn').on('click', function () {
+        email_ar_sheet(page);
     });
 
     // Per-customer copy (event delegation for dynamic rows)
@@ -1248,6 +1258,11 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
 					</tr>`;
     }
 
+    // The on-terms columns are shown in both New AR and Legacy + New, but only
+    // New AR renders them all-green — tag the wrapper so the CSS can tell the
+    // two apart without the stylesheet needing to know about the filter.
+    let mode_cls = page._ard_ar_mode === 'new' ? ' ard-mode-new' : '';
+
     let html = `
 		<div class="ard-table-wrap ard-newar-table ard-sheet${page._ard_ar_mode === 'new' ? ' ard-mode-new' : ''}">
 			<table class="ard-table">
@@ -1815,6 +1830,16 @@ function export_pdf(page) {
 function show_export_buttons(page, has_rows) {
     page.main.find('#ard-export-dd, #ard-new-ar-only-btn').toggle(!!has_rows);
     if (!has_rows) page.main.find('#ard-export-menu').hide();
+    update_email_btn_visibility(page, has_rows);
+}
+
+// The "Email to Nikki" button is Administrator-only and, for now, only offered
+// on the Legacy + New view — that is the only mode the mailed sheet is laid out
+// for. Widening it to Legacy AR / New AR is a matter of relaxing this test and
+// giving build_email_sheet_html a mode-aware column set.
+function update_email_btn_visibility(page, has_rows) {
+    let allowed = frappe.session.user === "Administrator" && page._ard_ar_mode === 'all';
+    page.main.find('#ard-email-nikki-btn').toggle(!!has_rows && allowed);
 }
 
 function update_hide_cols_btn(page) {
@@ -2049,4 +2074,150 @@ function esc_attr(val) {
         .replace(/'/g, "&#39;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;");
+}
+
+
+// ─── Email the AR sheet as a PDF (Administrator only) ─────────────────────────
+//
+// This is deliberately NOT the same markup as export_pdf(). export_pdf prints
+// whatever is on screen; this builds the fixed recon-sheet layout the AR contact
+// expects: customer, the New AR totals, the on-terms split and the overdue
+// buckets — nothing else. Column *values* are taken from the very same helpers
+// the on-screen table uses (na_sum for the New AR block, the range keys for the
+// overdue buckets), so the mailed sheet can never disagree with the dashboard.
+//
+// Only the <table> is built here. The purple banner, the logo and the print CSS
+// are added server-side in email_ar_pdf() so the PDF does not depend on anything
+// the browser happened to have loaded.
+
+function build_email_sheet_html(page) {
+    let res = current_result(page);
+    if (!res) return null;
+
+    let display_rows = current_display_rows(page);
+    if (!display_rows.length) return null;
+
+    let ranges = res.ranges || [];
+    let anchor = get_report_date(page);
+
+    // Group by customer, preserving the on-screen ordering.
+    let order = [], groups = {};
+    display_rows.forEach(function (row) {
+        let key = row.party;
+        if (!groups[key]) {
+            groups[key] = { name: row.customer_name || row.party, rows: [] };
+            order.push(key);
+        }
+        groups[key].rows.push(row);
+    });
+
+    let sheet_invoices = 0, sheet_customers = 0;
+
+    function cell(val, cls) {
+        return `<td class="nk-num ${cls}">${val > 0 ? fmt_cur(val) : "\u2014"}</td>`;
+    }
+
+    let head = `
+		<tr class="nk-grp-row">
+			<th class="nk-grp-blank" colspan="4"></th>
+			<th class="nk-grp-terms" colspan="3">New AR on Terms</th>
+			<th class="nk-grp-od" colspan="${ranges.length}">OVERDUE NEW AR</th>
+		</tr>
+		<tr class="nk-head-row">
+			<th class="nk-th nk-th-cust">Customer</th>
+			<th class="nk-th nk-th-newar">New AR</th>
+			<th class="nk-th nk-th-good">Total New AR on Good standing</th>
+			<th class="nk-th nk-th-bad">Total New AR on Bad standing</th>
+			<th class="nk-th nk-th-term">0-10 Days<br><small>left in terms</small></th>
+			<th class="nk-th nk-th-term">10-20 Days<br><small>left in terms</small></th>
+			<th class="nk-th nk-th-term">20-30 Days<br><small>left in terms</small></th>
+			${ranges.map(function (r) {
+                return `<th class="nk-th nk-th-od">${esc(r.label)} Days</th>`;
+            }).join("")}
+		</tr>`;
+
+    let body = order.map(function (party) {
+        let g = groups[party];
+
+        // Every heading on this sheet says "New AR", so every column must mean
+        // it. In Legacy + New mode the raw rows still carry pre-June invoices,
+        // and the on-screen table shows those in its range columns (it also has
+        // separate Legacy AR / Total AR columns to explain the difference).
+        // This sheet drops those columns, so legacy invoices are filtered out
+        // here instead — otherwise "OVERDUE NEW AR" would silently include
+        // legacy balances and the row would not tie back to the New AR figure.
+        let new_rows = g.rows.filter(function (row) {
+            return !row.is_legacy && (row.posting_date || "") >= NEW_AR_START;
+        });
+
+        sheet_invoices += new_rows.length;
+        if (new_rows.length) sheet_customers += 1;
+
+        let s = na_sum(new_rows, anchor);
+        let od = ranges.map(function (r) {
+            return new_rows.reduce(function (a, row) { return a + (row[r.key] || 0); }, 0);
+        });
+        if (!new_rows.length) return "";
+
+        return `
+		<tr>
+			<td class="nk-cust">${esc(g.name)} <span class="nk-inv">${new_rows.length} invoice(s)</span></td>
+			${cell(s.new_ar, "nk-newar")}
+			${cell(s.good,   "nk-good")}
+			${cell(s.bad,    "nk-bad")}
+			${cell(s.g1,     "nk-term")}
+			${cell(s.g2,     "nk-term")}
+			${cell(s.g3,     "nk-term")}
+			${od.map(function (v) { return cell(v, "nk-od"); }).join("")}
+		</tr>`;
+    }).join("");
+
+    if (!sheet_invoices) return null; // nothing but legacy balances on screen
+
+    return {
+        html: `<table class="nk-table"><thead>${head}</thead><tbody>${body}</tbody></table>`,
+        invoices: sheet_invoices,
+        customers: sheet_customers
+    };
+}
+
+function email_ar_sheet(page) {
+    if (frappe.session.user !== "Administrator") return;
+
+    let sheet = build_email_sheet_html(page);
+    if (!sheet) {
+        frappe.show_alert({ message: __("No rows to email"), indicator: "orange" }, 3);
+        return;
+    }
+
+    let res = current_result(page);
+    let company = page._ard_all_mode ? "All Entities" : (res.company || "");
+    let report_date = get_report_date(page);
+
+    frappe.confirm(
+        __("Email the Legacy + New AR sheet as a PDF to {0}?", [AR_EMAIL_RECIPIENT.bold()]),
+        function () {
+            frappe.dom.freeze(__("Building PDF and sending&hellip;"));
+            frappe.call({
+                method: "cannabis_management.cannabis_management.page.ar_dashboard.ar_dashboard.email_ar_pdf",
+                args: {
+                    table_html: sheet.html,
+                    report_date: report_date,
+                    company: company,
+                    row_count: sheet.invoices,
+                    customer_count: sheet.customers
+                },
+                callback: function (r) {
+                    frappe.dom.unfreeze();
+                    if (r && r.message && r.message.sent) {
+                        frappe.show_alert({
+                            message: __("Sent to {0}", [r.message.recipient]),
+                            indicator: "green"
+                        }, 6);
+                    }
+                },
+                error: function () { frappe.dom.unfreeze(); }
+            });
+        }
+    );
 }

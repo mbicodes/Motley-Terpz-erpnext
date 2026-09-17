@@ -221,11 +221,13 @@ def _legacy_recovered_this_week(week) -> float:
 
 def _new_ar_section(week) -> str:
 	"""New AR extended this week — good-standing accounts only, per §13."""
+	from cannabis_management.credit_and_ar.doctype.ar_case.ar_case import get_hold_type
+
 	rows = frappe.db.sql(
 		"""
 		SELECT si.customer, si.base_grand_total, si.custom_mode_of_payment,
 		       si.custom_order_type, si.payment_terms_template,
-		       c.custom_hold_type, c.custom_credit_status
+		       c.custom_credit_status
 		FROM `tabSales Invoice` si
 		JOIN `tabCustomer` c ON c.name = si.customer
 		WHERE si.docstatus = 1 AND si.is_return = 0
@@ -245,7 +247,7 @@ def _new_ar_section(week) -> str:
 			continue
 		if not metrics.is_credit_sale(row):
 			continue
-		if (row.custom_hold_type or utils.HOLD_NONE) == utils.HOLD_NONE and row.custom_credit_status in (
+		if get_hold_type(row.customer) == utils.HOLD_NONE and row.custom_credit_status in (
 			utils.STATUS_TERMS_APPROVED,
 			utils.STATUS_COD,
 		):

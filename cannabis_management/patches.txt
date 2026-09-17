@@ -3,6 +3,8 @@
 # Read docs to understand patches: https://frappeframework.com/docs/v14/user/en/database-migrations
 # Credit & AR: Module Def and roles must exist before Credit Policy Settings syncs
 cannabis_management.patches.create_credit_and_ar_module
+# AR Case: read case_type/company before the DocType sync drops those columns
+cannabis_management.patches.migrate_ar_case_to_single_case_model
 
 [post_model_sync]
 # Patches added in this section will be executed after doctypes are migrated
@@ -20,6 +22,7 @@ cannabis_management.patches.install_credit_and_ar_phase2
 cannabis_management.patches.install_credit_and_ar_phase3
 cannabis_management.patches.install_credit_and_ar_phase4
 cannabis_management.patches.install_credit_and_ar_phase7
+cannabis_management.patches.install_credit_and_ar_workout_balance_field
 cannabis_management.patches.install_credit_and_ar_exemption
 cannabis_management.patches.install_credit_and_ar_guest_uploads
 cannabis_management.patches.install_home_hub

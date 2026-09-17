@@ -62,6 +62,23 @@ app_include_js = [
     # /manufacturing-process is a separate, lighter Time Clock view now —
     # see www/manufacturing-process.html — and does not use this file.
     "/assets/cannabis_management/js/manufacturing_process_app.js",
+    # Shared Muid (Metric Tag) Link-query filter, keyed off the row's
+    # warehouse License. Must load before the Stock Entry / Purchase
+    # Receipt / Purchase Invoice / Delivery Note / Sales Invoice form
+    # scripts, which call cannabis_management.metric_tag.filter_by_warehouse().
+    # NOTE: this path has no build-hash, so browsers/proxies can cache it
+    # indefinitely -- bump the ?v= query on every content change (same trick
+    # metric_tag_scan.js uses) or edits here silently won't reach users.
+    "/assets/cannabis_management/js/metric_tag_query.js?v=2",
+    # Scan-to-select for Metric Tag: patches erpnext's shared BarcodeScanner
+    # (used by Purchase Receipt / Delivery Note / Stock Entry / Stock
+    # Reconciliation) so scanning a Metric Tag's Tag Code/MUID into the item
+    # table's "Scan Barcode" field opens a picker of the items/strains in
+    # stock under that tag. See metric_tag.get_metric_tag_scan.
+    # NOTE: this path has no build-hash, so browsers/proxies can cache it
+    # indefinitely — bump the ?v= query on every content change (same trick
+    # infix_theme.js uses below) or edits here silently won't reach users.
+    "/assets/cannabis_management/js/metric_tag_scan.js?v=2",
 ]
 
 
@@ -90,6 +107,7 @@ doctype_js = {
     "Item Group": "public/js/item_group_custom.js",
     "Job Card": "public/js/job_card.js",
     "Quotation": "public/js/quotation.js",
+    "Warehouse": "public/js/warehouse.js",
 }
 doctype_list_js = {
     "Sales Invoice": "public/js/sales_invoice_list.js",
@@ -331,8 +349,14 @@ doc_events = {
     # AR Policy disabled — before_submit cap check removed
     "Sales Invoice": {
         "before_validate": "cannabis_management.doc_hooks.sales_invoice.before_validate",
-        # Legacy / New Book / Plan classification, written as the invoice is saved
-        "validate": "cannabis_management.credit_and_ar.payment_entry_hooks.stamp_invoice_ledger",
+        "validate": [
+            # Legacy / New Book / Plan classification, written as the invoice is saved
+            "cannabis_management.credit_and_ar.payment_entry_hooks.stamp_invoice_ledger",
+            # Same Expense Head Settings override as Delivery Note, so a Sales
+            # Order's custom_sales_order_type maps to the same expense account
+            # here too (was previously wired on Delivery Note only).
+            "cannabis_management.overrides.delivery_note_hooks.set_expense_head",
+        ],
         "before_submit": [
             "cannabis_management.doc_hooks.sales_invoice.before_submit",
             # Credit gate. The Sales Order gate alone is bypassable by invoicing
@@ -345,7 +369,10 @@ doc_events = {
             "cannabis_management.doc_hooks.sales_invoice.on_submit",
             # §7 limit breach → immediate hold
             "cannabis_management.credit_and_ar.hold_engine.on_sales_invoice_submit",
+            # Keep Customer.custom_current_exposure / custom_available_line live.
+            "cannabis_management.credit_and_ar.sales_invoice_hooks.on_submit",
         ],
+        "on_cancel": "cannabis_management.credit_and_ar.sales_invoice_hooks.on_cancel",
     },
     # Quotation approval — discount-threshold routing (Sales Manager / Finance)
     "Quotation": {
@@ -380,8 +407,15 @@ doc_events = {
         ],
         "on_submit": [
             "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
+            # Source Tag / Target Tag on the Stock Ledger Entries this submit just wrote.
+            "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_sle_source_target_tags",
+            # Package: turn each Stock Ledger Entry this submit just wrote into a Stock Movement.
+            "cannabis_management.cannabis_management.doctype.metrc_package.metrc_package.sync_package_movements",
         ],
-        "on_cancel": "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
+        "on_cancel": [
+            "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
+            "cannabis_management.cannabis_management.doctype.metrc_package.metrc_package.reverse_package_movements",
+        ],
     },
     "Sales Order": {
         "before_validate": "cannabis_management.doc_hooks.sales_invoice.before_validate",
@@ -390,7 +424,9 @@ doc_events = {
             # overrides.sales_order_restrictions.validate, which set the approval
             # status from a hard-coded rule and is no longer wired.
             "cannabis_management.credit_and_ar.sales_order_hooks.validate",
-            "cannabis_management.overrides.license_compliance.check_license",
+            # License-expiry compliance popup removed from Sales Order per
+            # Finance request — it fired on every save and got in the way.
+            # Still wired on Quotation.
         ],
         "on_update": "cannabis_management.credit_and_ar.sales_order_hooks.on_update",
         "before_submit": [
@@ -402,7 +438,10 @@ doc_events = {
             "cannabis_management.overrides.sales_order_restrictions.on_submit",
             "cannabis_management.overrides.sales_invoice_hooks.check_inventory_and_notify_slack",
             # "cannabis_management.overrides.payment_overdue_alert.on_sales_invoice_submit"  # AR Policy disabled
+            # Keep Customer.custom_current_exposure / custom_available_line live.
+            "cannabis_management.credit_and_ar.sales_order_hooks.on_submit",
         ],
+        "on_cancel": "cannabis_management.credit_and_ar.sales_order_hooks.on_cancel",
     },
     "Delivery Note": {
         "before_submit": [
@@ -419,26 +458,41 @@ doc_events = {
             "cannabis_management.overrides.delivery_note_hooks.update_sales_invoice_delivery_status",
             "cannabis_management.overrides.delivery_note_hooks.update_sales_order_delivery_status",
             "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
+            "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_sle_source_target_tags",
+            "cannabis_management.cannabis_management.doctype.metrc_package.metrc_package.sync_package_movements",
         ],
         "on_cancel": [
             "cannabis_management.overrides.delivery_note_hooks.update_sales_invoice_delivery_status",
             "cannabis_management.overrides.delivery_note_hooks.update_sales_order_delivery_status",
             "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
+            "cannabis_management.cannabis_management.doctype.metrc_package.metrc_package.reverse_package_movements",
         ],
         "validate": "cannabis_management.overrides.delivery_note_hooks.set_expense_head",
     },
     # Metric Tag status/qty lifecycle sync
     "Purchase Receipt": {
         "before_submit": "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.validate_metric_tag_status",
-        "on_submit": "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
-        "on_cancel": "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
+        "on_submit": [
+            "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
+            "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_sle_source_target_tags",
+            "cannabis_management.cannabis_management.doctype.metrc_package.metrc_package.sync_package_movements",
+        ],
+        "on_cancel": [
+            "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
+            "cannabis_management.cannabis_management.doctype.metrc_package.metrc_package.reverse_package_movements",
+        ],
     },
     "Stock Reconciliation": {
         "before_submit": "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.validate_metric_tag_status",
         "on_submit": [
             "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
+            "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_sle_source_target_tags",
+            "cannabis_management.cannabis_management.doctype.metrc_package.metrc_package.sync_package_movements",
         ],
-        "on_cancel": "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
+        "on_cancel": [
+            "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
+            "cannabis_management.cannabis_management.doctype.metrc_package.metrc_package.reverse_package_movements",
+        ],
     },
     "Work Order": {
         # Gate 1: no production starts for a held customer's order.
@@ -533,6 +587,13 @@ scheduler_events = {
         "cannabis_management.credit_and_ar.notifications.install_notifications",
     ],
     "cron": {
+        # Manufacturing Timesheet Kiosk: force-clock-out anyone still running past
+        # 8 hours (skips anyone exempted by an approved overtime request) and email
+        # them. Every minute so the cutoff lands close to the actual 8h mark instead
+        # of "sometime in the next hour". See manufacturing_timesheet_kiosk/api.py.
+        "* * * * *": [
+            "cannabis_management.manufacturing_timesheet_kiosk.api.auto_end_overtime_sessions",
+        ],
         # AR due-date reminders: every day at 7 AM UTC (daily, including weekends)
         "0 7 * * *": [
             "cannabis_management.api.ar_reminders.send_ar_reminders",
@@ -764,7 +825,31 @@ before_request = [
 # 	"Logging DocType Name": 30  # days to retain logs
 # }
 fixtures = [
-    "Custom Field",
+    {
+        # Excludes the orphaned Tier/Muid Inventory Dimension fields: those two
+        # dimensions were deleted, but this fixture is unfiltered by default, so
+        # `bench export-fixtures` kept re-capturing their leftover Custom Field
+        # rows straight off the DB, and the next `bench migrate` re-inserted them
+        # (import_fixtures applies no filter, it just replays whatever the file
+        # holds) - a resurrect loop with no dimension left to own the fields.
+        "dt": "Custom Field",
+        "filters": [
+            [
+                "fieldname",
+                "not in",
+                [
+                    "tier",
+                    "to_tier",
+                    "from_tier",
+                    "rejected_tier",
+                    "muid",
+                    "to_muid",
+                    "from_muid",
+                    "rejected_muid",
+                ],
+            ]
+        ],
+    },
     "Client Script",
     "Server Script",
     "Property Setter",

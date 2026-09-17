@@ -9,7 +9,7 @@
  "apply_document_permissions": 0,
  "button_label": "Submit application",
  "condition_json": "[]",
- "creation": "2026-08-10 16:08:20.816856",
+ "creation": "2026-08-14 09:53:23.499789",
  "custom_css": ".ca-logo {\n  display: block;\n  max-height: 56px;\n  width: auto;\n  margin: 0 auto 1.25rem;\n  object-fit: contain;\n}\n\n.web-form-container {\n  --ca-ink: #16211c;\n  --ca-ink-soft: #5c6b64;\n  --ca-line: #dfe4e0;\n  --ca-accent: #1f4034;\n  --ca-accent-soft: #eef2ef;\n  --ca-surface: #ffffff;\n  --ca-page: #f7f8f6;\n  max-width: 800px;\n  margin: 0 auto;\n  color: var(--ca-ink);\n}\n\n.web-form-container .web-form-header {\n  border-bottom: 1px solid var(--ca-line);\n  padding-bottom: 1.25rem;\n  margin-bottom: 2rem;\n}\n\n.web-form-container .web-form-head .title,\n.web-form-container h1 {\n  font-weight: 700;\n  font-size: 1.75rem;\n  letter-spacing: -0.02em;\n  color: var(--ca-ink);\n}\n\n.web-form-container .web-form-introduction p {\n  color: var(--ca-ink-soft);\n  font-size: 0.95rem;\n  line-height: 1.55;\n  margin-bottom: 0.4rem;\n}\n\n.web-form-wrapper {\n  counter-reset: ca-section;\n}\n\n.web-form-wrapper .section-head,\n.web-form-wrapper .form-section .section-head {\n  display: flex;\n  align-items: center;\n  gap: 0.6rem;\n  font-size: 0.8rem;\n  font-weight: 600;\n  text-transform: uppercase;\n  letter-spacing: 0.06em;\n  color: var(--ca-accent);\n  padding-bottom: 0.6rem;\n  margin-bottom: 1.1rem;\n  border-bottom: 1px solid var(--ca-line);\n}\n\n.web-form-wrapper .form-section {\n  counter-increment: ca-section;\n  background: var(--ca-surface);\n  border: 1px solid var(--ca-line);\n  border-radius: 10px;\n  padding: 1.6rem 1.6rem 0.85rem;\n  margin-bottom: 1.4rem;\n  box-shadow: 0 1px 2px rgba(22, 33, 28, 0.04);\n}\n\n.web-form-wrapper .section-head::before {\n  content: counter(ca-section);\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  width: 1.5rem;\n  height: 1.5rem;\n  flex: 0 0 auto;\n  border-radius: 50%;\n  background: var(--ca-accent);\n  color: #fff;\n  font-size: 0.7rem;\n  font-weight: 700;\n  letter-spacing: 0;\n  text-transform: none;\n}\n\n.web-form-wrapper .control-label {\n  font-weight: 500;\n  color: var(--ca-ink);\n}\n\n.web-form-wrapper .help-box,\n.web-form-wrapper .form-control + .help-box {\n  color: var(--ca-ink-soft);\n  font-size: 0.8125rem;\n  line-height: 1.45;\n}\n\n.web-form-wrapper .form-control {\n  border: 1px solid var(--ca-line);\n  border-radius: 6px;\n  background: var(--ca-page);\n  transition: border-color 0.15s ease, box-shadow 0.15s ease;\n}\n\n.web-form-wrapper .form-control:focus {\n  border-color: var(--ca-accent);\n  background: var(--ca-surface);\n  box-shadow: 0 0 0 3px var(--ca-accent-soft);\n  outline: none;\n}\n\n.web-form-footer {\n  border-top: 1px solid var(--ca-line);\n  padding-top: 1.25rem;\n  margin-top: 0.5rem;\n}\n\n.web-form-footer .submit-btn {\n  background: var(--ca-accent);\n  border-color: var(--ca-accent);\n  font-weight: 600;\n  padding: 0.6rem 1.6rem;\n  font-size: 0.9rem;\n  border-radius: 6px;\n}\n\n.web-form-footer .submit-btn:hover {\n  background: #163027;\n  border-color: #163027;\n}\n\n.web-form-footer .submit-btn:focus-visible {\n  outline: 2px solid var(--ca-accent);\n  outline-offset: 2px;\n}\n\n.web-form-footer .discard-btn {\n  border-radius: 6px;\n  font-weight: 500;\n  color: var(--ca-ink-soft);\n  border-color: var(--ca-line);\n}\n\n.ca-license-warning {\n  margin-top: 0.4rem;\n  font-size: 0.8125rem;\n  color: #8a5a00;\n}\n\n@media (max-width: 767px) {\n  .web-form-container {\n    max-width: 100%;\n  }\n  .web-form-wrapper .form-section {\n    padding: 1.1rem 1.1rem 0.4rem;\n  }\n}\n\n@media (prefers-reduced-motion: reduce) {\n  .web-form-wrapper .form-control {\n    transition: none;\n  }\n}\n\n/* Currency inputs show their symbol. Frappe only renders the symbol on\n   read-only/formatted values, never inside an editable input, so the $ on\n   these two Currency fields comes from here. */\n.web-form-wrapper .frappe-control[data-fieldname=\"requested_limit\"] .control-input,\n.web-form-wrapper .frappe-control[data-fieldname=\"expected_monthly_revenue\"] .control-input {\n  position: relative;\n}\n\n.web-form-wrapper .frappe-control[data-fieldname=\"requested_limit\"] .control-input::before,\n.web-form-wrapper .frappe-control[data-fieldname=\"expected_monthly_revenue\"] .control-input::before {\n  content: \"$\";\n  position: absolute;\n  top: 50%;\n  left: 14px;\n  transform: translateY(-50%);\n  line-height: 1;\n  color: var(--ca-ink-soft, #5c6b64);\n  pointer-events: none;\n  z-index: 2;\n}\n\n.web-form-wrapper .frappe-control[data-fieldname=\"requested_limit\"] .form-control,\n.web-form-wrapper .frappe-control[data-fieldname=\"expected_monthly_revenue\"] .form-control {\n  /* infix_portal.css forces `padding: 8px 14px !important` on .form-control,\n     .input-with-feedback and input[type=\"text\"], so making room for the symbol\n     has to outrank it. Without !important the $ lands on top of the digits. */\n  padding-left: 30px !important;\n}\n",
  "doc_type": "Credit Application",
  "docstatus": 0,
@@ -20,7 +20,7 @@
  "list_columns": [],
  "login_required": 0,
  "max_attachment_size": 0,
- "modified": "2026-08-12 15:47:25.787663",
+ "modified": "2026-09-04 06:34:11.569579",
  "modified_by": "Administrator",
  "module": "Credit and AR",
  "name": "credit-application",
@@ -108,7 +108,7 @@
   },
   {
    "allow_read_on_all_link_options": 0,
-   "description": "The entity that will be invoiced and that owes the money \u2014 not your DBA.",
+   "description": "",
    "fieldname": "exact_legal_buyer",
    "fieldtype": "Data",
    "hidden": 0,
@@ -145,7 +145,7 @@
   },
   {
    "allow_read_on_all_link_options": 0,
-   "description": "Leave blank if you trade under your legal name.",
+   "description": "",
    "fieldname": "dba_name",
    "fieldtype": "Data",
    "hidden": 0,
@@ -153,12 +153,12 @@
    "max_length": 140,
    "max_value": 0,
    "read_only": 0,
-   "reqd": 0,
+   "reqd": 1,
    "show_in_filter": 0
   },
   {
    "allow_read_on_all_link_options": 0,
-   "description": "Which of our companies are you buying from?",
+   "description": "",
    "fieldname": "company",
    "fieldtype": "Select",
    "hidden": 0,
@@ -191,7 +191,19 @@
    "max_length": 240,
    "max_value": 0,
    "read_only": 0,
-   "reqd": 0,
+   "reqd": 1,
+   "show_in_filter": 0
+  },
+  {
+   "allow_read_on_all_link_options": 0,
+   "fieldname": "state",
+   "fieldtype": "Data",
+   "hidden": 0,
+   "label": "State",
+   "max_length": 140,
+   "max_value": 0,
+   "read_only": 0,
+   "reqd": 1,
    "show_in_filter": 0
   },
   {
@@ -214,19 +226,7 @@
    "max_length": 140,
    "max_value": 0,
    "read_only": 0,
-   "reqd": 0,
-   "show_in_filter": 0
-  },
-  {
-   "allow_read_on_all_link_options": 0,
-   "fieldname": "state",
-   "fieldtype": "Data",
-   "hidden": 0,
-   "label": "State",
-   "max_length": 140,
-   "max_value": 0,
-   "read_only": 0,
-   "reqd": 0,
+   "reqd": 1,
    "show_in_filter": 0
   },
   {
@@ -238,7 +238,7 @@
    "max_length": 20,
    "max_value": 0,
    "read_only": 0,
-   "reqd": 0,
+   "reqd": 1,
    "show_in_filter": 0
   },
   {
@@ -255,15 +255,42 @@
   },
   {
    "allow_read_on_all_link_options": 0,
-   "description": "Exactly as it appears on the license. We verify it before terms are issued.",
+   "description": "",
    "fieldname": "license_number",
    "fieldtype": "Data",
    "hidden": 0,
-   "label": "License number",
+   "label": "License Number",
    "max_length": 60,
    "max_value": 0,
    "read_only": 0,
    "reqd": 1,
+   "show_in_filter": 0
+  },
+  {
+   "allow_read_on_all_link_options": 0,
+   "description": "",
+   "fieldname": "license_document",
+   "fieldtype": "Attach",
+   "hidden": 0,
+   "label": "License Attachment",
+   "max_length": 60,
+   "max_value": 0,
+   "precision": "",
+   "read_only": 0,
+   "reqd": 1,
+   "show_in_filter": 0
+  },
+  {
+   "allow_read_on_all_link_options": 0,
+   "description": "",
+   "fieldname": "cb_legal",
+   "fieldtype": "Column Break",
+   "hidden": 0,
+   "max_length": 60,
+   "max_value": 0,
+   "precision": "",
+   "read_only": 0,
+   "reqd": 0,
    "show_in_filter": 0
   },
   {
@@ -275,18 +302,7 @@
    "max_length": 60,
    "max_value": 0,
    "read_only": 0,
-   "reqd": 0,
-   "show_in_filter": 0
-  },
-  {
-   "allow_read_on_all_link_options": 0,
-   "fieldname": "cb_license",
-   "fieldtype": "Column Break",
-   "hidden": 0,
-   "max_length": 0,
-   "max_value": 0,
-   "read_only": 0,
-   "reqd": 0,
+   "reqd": 1,
    "show_in_filter": 0
   },
   {
@@ -324,12 +340,12 @@
    "max_value": 0,
    "options": "Grams\nLbs",
    "read_only": 0,
-   "reqd": 0,
+   "reqd": 1,
    "show_in_filter": 0
   },
   {
    "allow_read_on_all_link_options": 0,
-   "description": "A working estimate is fine \u2014 this sizes the line, it isn't a commitment.",
+   "description": "",
    "fieldname": "expected_weekly_volume",
    "fieldtype": "Float",
    "hidden": 0,
@@ -338,7 +354,7 @@
    "max_value": 0,
    "precision": "2",
    "read_only": 0,
-   "reqd": 0,
+   "reqd": 1,
    "show_in_filter": 0
   },
   {
@@ -361,7 +377,7 @@
    "max_length": 0,
    "max_value": 0,
    "read_only": 0,
-   "reqd": 0,
+   "reqd": 1,
    "show_in_filter": 0
   },
   {
@@ -378,11 +394,23 @@
   },
   {
    "allow_read_on_all_link_options": 0,
-   "description": "The maximum open balance you want to carry at any one time.",
+   "description": "",
    "fieldname": "requested_limit",
    "fieldtype": "Currency",
    "hidden": 0,
    "label": "Credit limit requested",
+   "max_length": 0,
+   "max_value": 0,
+   "read_only": 0,
+   "reqd": 1,
+   "show_in_filter": 0
+  },
+  {
+   "allow_read_on_all_link_options": 0,
+   "fieldname": "onboarding_form_document",
+   "fieldtype": "Attach",
+   "hidden": 0,
+   "label": "Onboarding Packet",
    "max_length": 0,
    "max_value": 0,
    "read_only": 0,
@@ -402,7 +430,7 @@
   },
   {
    "allow_read_on_all_link_options": 0,
-   "description": "Years in operation, other supplier references, seasonality, anything that helps us read your capacity to pay.",
+   "description": "",
    "fieldname": "financial_capacity_notes",
    "fieldtype": "Text",
    "hidden": 0,
@@ -435,7 +463,7 @@
    "max_length": 0,
    "max_value": 0,
    "read_only": 0,
-   "reqd": 0,
+   "reqd": 1,
    "show_in_filter": 0
   },
   {
@@ -447,7 +475,7 @@
    "max_length": 140,
    "max_value": 0,
    "read_only": 0,
-   "reqd": 0,
+   "reqd": 1,
    "show_in_filter": 0
   },
   {
@@ -463,7 +491,7 @@
   },
   {
    "allow_read_on_all_link_options": 0,
-   "description": "A named person, not a shared inbox. info@, ap@, billing@ and similar are rejected.",
+   "description": "",
    "fieldname": "ap_contact_email",
    "fieldtype": "Data",
    "hidden": 0,
@@ -472,19 +500,7 @@
    "max_value": 0,
    "options": "Email",
    "read_only": 0,
-   "reqd": 0,
-   "show_in_filter": 0
-  },
-  {
-   "allow_read_on_all_link_options": 0,
-   "fieldname": "onboarding_form_document",
-   "fieldtype": "Attach",
-   "hidden": 0,
-   "label": "Onboarding Packet",
-   "max_length": 0,
-   "max_value": 0,
-   "read_only": 0,
-   "reqd": 0,
+   "reqd": 1,
    "show_in_filter": 0
   }
  ]

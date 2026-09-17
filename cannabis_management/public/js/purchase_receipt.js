@@ -1,4 +1,12 @@
 frappe.ui.form.on("Purchase Receipt", {
+    refresh: function (frm) {
+        // Target/Rejected/Source Tags: only offer Metric Tags whose License
+        // matches the row's Warehouse/Rejected Warehouse/From Warehouse.
+        cannabis_management.metric_tag.filter_by_warehouse(frm, "tags", "warehouse");
+        cannabis_management.metric_tag.filter_by_warehouse(frm, "rejected_tags", "rejected_warehouse");
+        cannabis_management.metric_tag.filter_by_warehouse(frm, "from_tags", "from_warehouse");
+    },
+
     project: function (frm) {
         if (frm.doc.project) {
             $.each(frm.doc.items || [], function (i, item) {

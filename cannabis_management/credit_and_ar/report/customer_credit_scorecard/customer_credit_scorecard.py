@@ -49,7 +49,6 @@ def get_data(filters):
 			"custom_terms_valid_until",
 			"custom_active_credit_application",
 			"custom_credit_group_parent",
-			"custom_hold_type",
 		],
 		order_by="custom_payment_score desc, name asc",
 	)
@@ -68,6 +67,8 @@ def get_data(filters):
 	# TSBC reports in pounds; Motley and Master Touch in grams. With no company
 	# filter both columns are shown so the MD can compare like for like.
 	company = filters.get("company")
+
+	from cannabis_management.credit_and_ar.doctype.ar_case.ar_case import get_hold_type
 
 	rows = []
 	for customer in customers:
@@ -96,7 +97,7 @@ def get_data(filters):
 				"available_line": available,
 				"utilisation": flt(exposure / limit * 100) if limit else 0.0,
 				"credit_status": customer.custom_credit_status or utils.STATUS_COD,
-				"hold_type": customer.custom_hold_type or utils.HOLD_NONE,
+				"hold_type": get_hold_type(customer.name),
 				"terms": customer.custom_credit_terms_template,
 				"terms_valid_until": customer.custom_terms_valid_until,
 				"credit_application": customer.custom_active_credit_application,

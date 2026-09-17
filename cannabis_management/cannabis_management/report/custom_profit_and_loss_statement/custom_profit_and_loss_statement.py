@@ -308,20 +308,28 @@ def get_stock_quantity_rows(filters, period_list, currency):
 	being shown as two lump sums:
 
 	  Inward   Purchases      -> voucher_type = "Purchase Receipt"
-	           Harvest        -> any other inward carrying the Project
-	                             accounting dimension (harvest / farm output is
-	                             tagged with the grow Project)
+	           Harvest        -> any other inward carrying a Project, tagged
+	                             either on the Stock Ledger Entry itself or on
+	                             the originating voucher (Stock Entry, Purchase
+	                             Receipt/Invoice, Delivery Note, Sales Invoice)
+	                             - harvest / farm output is tagged with the
+	                             grow Project
 	           Inventory Gain -> positive quantity_difference on a submitted
 	                             Stock Reconciliation
 	           Other Inward   -> everything else (Stock Entry receipts, repacks,
 	                             transfers in, sales returns, ...)
 
-	  Outward  Sales          -> voucher_type = "Delivery Note"
+	  Outward  Sales          -> voucher_type in ("Delivery Note", "Sales
+	                             Invoice") - many of this company's sales never
+	                             go through a Delivery Note at all (direct,
+	                             stock-updating POS/dispensary Sales Invoices),
+	                             so Delivery Note alone under-counted real
+	                             sales outward heavily
 	           Inventory Loss -> negative quantity_difference on a submitted
 	                             Stock Reconciliation
 	           Other Outward  -> everything else (Stock Entry issues, repack
-	                             consumption, transfers out, POS / update-stock
-	                             Sales Invoices, purchase returns, ...)
+	                             consumption, transfers out, purchase
+	                             returns, ...)
 
 	A movement is counted exactly once: Purchase Receipt wins over Harvest, so a
 	Purchase Receipt that happens to carry a Project is a purchase, not a
@@ -368,38 +376,68 @@ def get_stock_quantity_rows(filters, period_list, currency):
 		opening += flt(reco[0][0]) if reco and reco[0][0] else 0.0
 		return opening
 
+	# Stock Ledger Entry.project is not reliable on its own for the Harvest
+	# split: ERPNext's Inventory Dimension framework (see
+	# get_evaluated_inventory_dimension / update_inventory_dimensions in
+	# erpnext/controllers/stock_controller.py) unconditionally overwrites
+	# sl_dict[dimension.target_fieldname] with the item row's own dimension
+	# value - down to blank - whenever a dimension targets that fieldname.
+	# This site's "Batch" Inventory Dimension targets "project", so a Stock
+	# Entry whose document-level Project *is* set can still post Stock Ledger
+	# Entries with project = NULL, simply because the row itself has no
+	# "batch" value. That silently dropped a large share of real harvest
+	# inward into "Other Inward". Falling back to the project recorded
+	# directly on the originating voucher (Stock Entry / Purchase Receipt /
+	# Purchase Invoice / Delivery Note / Sales Invoice) recovers those.
+	VOUCHER_PROJECT_UNION = """
+		select 'Stock Entry' as voucher_type, name as voucher_no, project from `tabStock Entry` where company = %(company)s
+		union all
+		select 'Purchase Receipt', name, project from `tabPurchase Receipt` where company = %(company)s
+		union all
+		select 'Purchase Invoice', name, project from `tabPurchase Invoice` where company = %(company)s
+		union all
+		select 'Delivery Note', name, project from `tabDelivery Note` where company = %(company)s
+		union all
+		select 'Sales Invoice', name, project from `tabSales Invoice` where company = %(company)s
+	"""
+
 	def ledger_split_in_range(from_date, to_date, inward):
 		"""Ledger movement in the period, bucketed by cause. Returns a dict of
 		{bucket: qty}, quantities always positive."""
+		params = {"company": company, "from_date": from_date, "to_date": to_date}
+
 		if inward:
 			bucket = """
 				case
-					when voucher_type = 'Purchase Receipt' then 'purchases'
-					when ifnull(project, '') != '' then 'harvest'
+					when sle.voucher_type = 'Purchase Receipt' then 'purchases'
+					when ifnull(sle.project, ifnull(vp.project, '')) != '' then 'harvest'
 					else 'other'
 				end
 			"""
-			condition, aggregate = "actual_qty > 0", "sum(actual_qty)"
+			condition, aggregate = "sle.actual_qty > 0", "sum(sle.actual_qty)"
+			join = f"left join ({VOUCHER_PROJECT_UNION}) vp on vp.voucher_type = sle.voucher_type and vp.voucher_no = sle.voucher_no"
 		else:
 			bucket = """
 				case
-					when voucher_type = 'Delivery Note' then 'sales'
+					when sle.voucher_type in ('Delivery Note', 'Sales Invoice') then 'sales'
 					else 'other'
 				end
 			"""
-			condition, aggregate = "actual_qty < 0", "sum(abs(actual_qty))"
+			condition, aggregate = "sle.actual_qty < 0", "sum(abs(sle.actual_qty))"
+			join = ""
 
 		rows = frappe.db.sql(
 			f"""
 			select {bucket} as bucket, {aggregate} as qty
-			from `tabStock Ledger Entry`
-			where company = %(company)s
-				and is_cancelled = 0
-				and posting_date between %(from_date)s and %(to_date)s
+			from `tabStock Ledger Entry` sle
+			{join}
+			where sle.company = %(company)s
+				and sle.is_cancelled = 0
+				and sle.posting_date between %(from_date)s and %(to_date)s
 				and {condition}
 			group by bucket
 			""",
-			{"company": company, "from_date": from_date, "to_date": to_date},
+			params,
 			as_dict=True,
 		)
 		return {d.bucket: flt(d.qty) for d in rows}
@@ -444,7 +482,7 @@ def get_stock_quantity_rows(filters, period_list, currency):
 	gain_row = make_row("Inventory Gain", indent=1)
 	other_in_row = make_row("Other Inward", indent=1)
 	inward_row = make_row("Total Inward Quantity", is_total=1)
-	sales_row = make_row("Sales (Delivery Note)", indent=1)
+	sales_row = make_row("Sales", indent=1)
 	loss_row = make_row("Inventory Loss", indent=1)
 	other_out_row = make_row("Other Outward", indent=1)
 	outward_row = make_row("Total Outward Quantity", is_total=1)

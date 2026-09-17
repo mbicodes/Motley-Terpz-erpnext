@@ -9,8 +9,8 @@
  "apply_document_permissions": 0,
  "button_label": "Submit Agreement",
  "condition_json": "[]",
- "creation": "2026-09-02 00:00:00",
- "custom_css": ".ca-companyname {\n  display: table;\n  font-size: 14px;\n  font-weight: 700;\n  letter-spacing: 0.06em;\n  text-transform: uppercase;\n  border: 1px solid #999;\n  padding: 4px 18px;\n  margin: 0 auto 14px;\n  color: var(--ca-ink, #1a1a1a);\n}\n\n.web-form-container {\n  --ca-ink: #1a1a1a;\n  --ca-ink-soft: #444;\n  --ca-line: #333;\n  --ca-line-soft: #ccc;\n  --ca-field-bg: #eef2f6;\n  --ca-field-border: #c7d1db;\n  --ca-label-w: 150px;\n  max-width: 760px;\n  margin: 0 auto;\n  color: var(--ca-ink);\n  font-family: Helvetica, Arial, sans-serif;\n  font-size: 12.5px;\n  line-height: 1.5;\n}\n\n.web-form-container .web-form-head {\n  text-align: center;\n}\n\n.web-form-container .web-form-header {\n  border-bottom: 1px solid var(--ca-line);\n  padding-bottom: 16px;\n  margin-bottom: 20px;\n}\n\n.web-form-container .web-form-head .title,\n.web-form-container h1 {\n  font-weight: 700;\n  font-size: 22px;\n  letter-spacing: normal;\n  text-align: center;\n  color: var(--ca-ink);\n  margin-bottom: 0;\n}\n\n.web-form-container .web-form-introduction {\n  display: none;\n}\n\n.web-form-wrapper .form-section {\n  background: transparent;\n  border: none;\n  border-radius: 0;\n  box-shadow: none;\n  padding: 0;\n  margin-bottom: 22px;\n}\n\n.web-form-wrapper .section-head,\n.web-form-wrapper .form-section .section-head {\n  display: block;\n  font-size: 12px;\n  font-weight: 700;\n  text-transform: uppercase;\n  letter-spacing: 0.05em;\n  color: var(--ca-ink);\n  padding-bottom: 4px;\n  margin-bottom: 14px;\n  border-bottom: 1px solid var(--ca-line-soft);\n}\n\n.web-form-wrapper .section-head::before {\n  content: none;\n}\n\n.web-form-wrapper .form-group {\n  display: flex !important;\n  flex-wrap: wrap !important;\n  align-items: center !important;\n  gap: 8px !important;\n  margin-bottom: 12px !important;\n}\n\n.web-form-wrapper .control-label {\n  flex: 0 0 var(--ca-label-w) !important;\n  max-width: var(--ca-label-w) !important;\n  width: var(--ca-label-w) !important;\n  font-weight: 700;\n  font-size: 12.5px;\n  color: var(--ca-ink);\n  margin-bottom: 0 !important;\n  white-space: normal;\n}\n\n.web-form-wrapper .control-input-wrapper {\n  flex: 1 1 auto !important;\n  min-width: 150px;\n  width: auto !important;\n}\n\n.web-form-wrapper .form-control {\n  border: 1px solid var(--ca-field-border);\n  border-radius: 4px;\n  background: var(--ca-field-bg);\n  min-height: 30px;\n}\n\n.web-form-wrapper textarea.form-control {\n  min-height: 56px;\n}\n\n.web-form-wrapper .form-control:focus {\n  border-color: #8fa5b8;\n  background: #fff;\n  box-shadow: 0 0 0 2px rgba(143, 165, 184, 0.25);\n  outline: none;\n}\n\n.web-form-wrapper .help-box {\n  flex: 1 1 100%;\n  color: var(--ca-ink-soft);\n  font-size: 0.75rem;\n  line-height: 1.4;\n  margin: 2px 0 0 calc(var(--ca-label-w) + 8px);\n}\n\n.web-form-wrapper .frappe-control[data-fieldname=\"late_fee_percent\"] .form-control[disabled],\n.web-form-wrapper .frappe-control[data-fieldname=\"late_fee_percent\"] .form-control:disabled {\n  background: var(--ca-line-soft);\n  color: var(--ca-ink-soft);\n  cursor: not-allowed;\n}\n\n.ca-legal h3 {\n  font-size: 12px;\n  font-weight: 700;\n  text-transform: uppercase;\n  letter-spacing: 0.05em;\n  color: var(--ca-ink);\n  margin: 14px 0 6px;\n}\n\n.ca-legal h3:first-child {\n  margin-top: 0;\n}\n\n.ca-legal p {\n  font-size: 12px;\n  line-height: 1.55;\n  color: var(--ca-ink-soft);\n  margin: 0 0 10px;\n}\n\n.web-form-footer {\n  border-top: 1px solid var(--ca-line-soft);\n  padding-top: 1.25rem;\n  margin-top: 0.5rem;\n}\n\n.web-form-footer .submit-btn {\n  background: var(--ca-ink);\n  border-color: var(--ca-ink);\n  font-weight: 600;\n  padding: 0.6rem 1.6rem;\n  font-size: 0.9rem;\n  border-radius: 4px;\n}\n\n.web-form-footer .submit-btn:hover {\n  background: #000;\n  border-color: #000;\n}\n\n.web-form-footer .discard-btn {\n  border-radius: 4px;\n  font-weight: 500;\n  color: var(--ca-ink-soft);\n  border-color: var(--ca-line-soft);\n}\n\n@media (max-width: 767px) {\n  .web-form-container {\n    max-width: 100%;\n  }\n  .web-form-wrapper .form-group {\n    flex-direction: column !important;\n    align-items: stretch !important;\n    gap: 4px !important;\n  }\n  .web-form-wrapper .control-label {\n    flex: none !important;\n    max-width: none !important;\n    width: auto !important;\n  }\n  .web-form-wrapper .help-box {\n    margin-left: 0;\n  }\n}\n\n/* Currency inputs show their symbol. Frappe only renders the symbol on\n   read-only/formatted values, never inside an editable input, so the $ on\n   this Currency field comes from here. */\n.web-form-wrapper .frappe-control[data-fieldname=\"approved_limit\"] .control-input {\n  position: relative;\n}\n\n.web-form-wrapper .frappe-control[data-fieldname=\"approved_limit\"] .control-input::before {\n  content: \"$\";\n  position: absolute;\n  top: 50%;\n  left: 10px;\n  transform: translateY(-50%);\n  line-height: 1;\n  color: var(--ca-ink-soft);\n  pointer-events: none;\n  z-index: 2;\n}\n\n.web-form-wrapper .frappe-control[data-fieldname=\"approved_limit\"] .form-control {\n  /* infix_portal.css forces `padding: 8px 14px !important` on .form-control,\n     .input-with-feedback and input[type=\"text\"], so making room for the symbol\n     has to outrank it. Without !important the $ lands on top of the digits. */\n  padding-left: 26px !important;\n}\n",
+ "creation": "2026-09-01 14:27:11.028251",
+ "custom_css": ".ca-companyname {\n  display: table;\n  font-size: 14px;\n  font-weight: 700;\n  letter-spacing: 0.06em;\n  text-transform: uppercase;\n  border: 1px solid #999;\n  padding: 4px 18px;\n  margin: 0 auto 14px;\n  color: var(--ca-ink, #1a1a1a);\n}\n\n.web-form-container {\n  --ca-ink: #1a1a1a;\n  --ca-ink-soft: #444;\n  --ca-line: #333;\n  --ca-line-soft: #ccc;\n  --ca-field-bg: #f7f4ee;\n  --ca-field-border: #c9a878;\n  --ca-label-w: 150px;\n  max-width: 760px;\n  margin: 0 auto;\n  color: var(--ca-ink);\n  font-family: Helvetica, Arial, sans-serif;\n  font-size: 12.5px;\n  line-height: 1.5;\n}\n\n.web-form-container .web-form-head {\n  text-align: center;\n}\n\n.web-form-container .web-form-header {\n  border-bottom: 1px solid var(--ca-line);\n  padding-bottom: 16px;\n  margin-bottom: 20px;\n}\n\n.web-form-container .web-form-head .title,\n.web-form-container h1 {\n  font-weight: 700;\n  font-size: 22px;\n  letter-spacing: normal;\n  text-align: center;\n  color: var(--ca-ink);\n  margin-bottom: 0;\n}\n\n.web-form-container .web-form-introduction {\n  display: none;\n}\n\n.web-form-wrapper .form-section {\n  background: transparent;\n  border: none;\n  border-radius: 0;\n  box-shadow: none;\n  padding: 0;\n  margin-bottom: 22px;\n}\n\n.web-form-wrapper .section-head,\n.web-form-wrapper .form-section .section-head {\n  display: block;\n  font-size: 12px;\n  font-weight: 700;\n  text-transform: uppercase;\n  letter-spacing: 0.05em;\n  color: var(--ca-ink);\n  padding-bottom: 4px;\n  margin-bottom: 14px;\n  border-bottom: 1px solid var(--ca-line-soft);\n}\n\n.web-form-wrapper .section-head::before {\n  content: none;\n}\n\n.web-form-wrapper .form-group {\n  display: flex !important;\n  flex-wrap: wrap !important;\n  align-items: center !important;\n  gap: 8px !important;\n  margin-bottom: 12px !important;\n}\n\n.web-form-wrapper .control-label {\n  flex: 0 0 var(--ca-label-w) !important;\n  max-width: var(--ca-label-w) !important;\n  width: var(--ca-label-w) !important;\n  font-weight: 700;\n  font-size: 12.5px;\n  color: var(--ca-ink);\n  margin-bottom: 0 !important;\n  white-space: normal;\n}\n\n.web-form-wrapper .control-input-wrapper {\n  flex: 1 1 auto !important;\n  min-width: 150px;\n  width: auto !important;\n}\n\n/* infix_portal.css forces background/border/radius/font/size/height on\n   .form-control (and input[type=...]) with !important. Our selector here\n   has higher specificity (.web-form-wrapper .form-control), which is what\n   lets !important on our side win instead of source order \u2014 so every\n   property infix also sets with !important has to be repeated here with\n   !important too, or infix's value shows through untouched. */\n.web-form-wrapper .form-control {\n  border: 1px solid var(--ca-field-border) !important;\n  border-radius: 2px !important;\n  background: var(--ca-field-bg) !important;\n  min-height: 26px !important;\n  padding: 4px 8px !important;\n  font-family: Helvetica, Arial, sans-serif !important;\n  font-size: 12.5px !important;\n  color: var(--ca-ink) !important;\n}\n\n.web-form-wrapper textarea.form-control {\n  min-height: 50px !important;\n}\n\n.web-form-wrapper .form-control:focus {\n  border-color: #a8763c !important;\n  background: #fffdf9 !important;\n  box-shadow: 0 0 0 2px rgba(168, 118, 60, 0.15) !important;\n  outline: none;\n}\n\n/* Colons after field labels (to match the printed agreement) are added in\n   credit_agreement.js as real text \u2014 not via ::after \u2014 because .reqd\n   already owns ::after for the red asterisk (see controls.scss) and only one\n   ::after can win. */\n\n.web-form-wrapper .help-box {\n  flex: 1 1 100%;\n  color: var(--ca-ink-soft);\n  font-size: 0.75rem;\n  line-height: 1.4;\n  margin: 2px 0 0 calc(var(--ca-label-w) + 8px);\n}\n\n.web-form-wrapper .frappe-control[data-fieldname=\"late_fee_percent\"] .form-control[disabled],\n.web-form-wrapper .frappe-control[data-fieldname=\"late_fee_percent\"] .form-control:disabled {\n  background: var(--ca-line-soft);\n  color: var(--ca-ink-soft);\n  cursor: not-allowed;\n}\n\n.ca-legal h3 {\n  font-size: 12px;\n  font-weight: 700;\n  text-transform: uppercase;\n  letter-spacing: 0.05em;\n  color: var(--ca-ink);\n  margin: 14px 0 6px;\n}\n\n.ca-legal h3:first-child {\n  margin-top: 0;\n}\n\n.ca-legal p {\n  font-size: 12px;\n  line-height: 1.55;\n  color: var(--ca-ink-soft);\n  margin: 0 0 10px;\n}\n\n.web-form-footer {\n  border-top: 1px solid var(--ca-line-soft);\n  padding-top: 1.25rem;\n  margin-top: 0.5rem;\n}\n\n.web-form-footer .submit-btn {\n  background: var(--ca-ink);\n  border-color: var(--ca-ink);\n  font-weight: 600;\n  padding: 0.6rem 1.6rem;\n  font-size: 0.9rem;\n  border-radius: 4px;\n}\n\n.web-form-footer .submit-btn:hover {\n  background: #000;\n  border-color: #000;\n}\n\n.web-form-footer .discard-btn {\n  border-radius: 4px;\n  font-weight: 500;\n  color: var(--ca-ink-soft);\n  border-color: var(--ca-line-soft);\n}\n\n@media (max-width: 767px) {\n  .web-form-container {\n    max-width: 100%;\n  }\n  .web-form-wrapper .form-group {\n    flex-direction: column !important;\n    align-items: stretch !important;\n    gap: 4px !important;\n  }\n  .web-form-wrapper .control-label {\n    flex: none !important;\n    max-width: none !important;\n    width: auto !important;\n  }\n  .web-form-wrapper .help-box {\n    margin-left: 0;\n  }\n}\n\n/* Currency inputs show their symbol. Frappe only renders the symbol on\n   read-only/formatted values, never inside an editable input, so the $ on\n   this Currency field comes from here. */\n.web-form-wrapper .frappe-control[data-fieldname=\"approved_limit\"] .control-input {\n  position: relative;\n}\n\n.web-form-wrapper .frappe-control[data-fieldname=\"approved_limit\"] .control-input::before {\n  content: \"$\";\n  position: absolute;\n  top: 50%;\n  left: 10px;\n  transform: translateY(-50%);\n  line-height: 1;\n  color: var(--ca-ink-soft);\n  pointer-events: none;\n  z-index: 2;\n}\n\n.web-form-wrapper .frappe-control[data-fieldname=\"approved_limit\"] .form-control {\n  /* infix_portal.css forces `padding: 8px 14px !important` on .form-control,\n     .input-with-feedback and input[type=\"text\"], so making room for the symbol\n     has to outrank it. Without !important the $ lands on top of the digits. */\n  padding-left: 26px !important;\n}\n\n.footer-powered {\n  display: none !important;\n}\n",
  "doc_type": "Credit Application",
  "docstatus": 0,
  "doctype": "Web Form",
@@ -20,7 +20,7 @@
  "list_columns": [],
  "login_required": 0,
  "max_attachment_size": 0,
- "modified": "2026-09-02 03:51:06.546963",
+ "modified": "2026-09-02 08:26:29.488074",
  "modified_by": "Administrator",
  "module": "Credit and AR",
  "name": "credit-agreement",
@@ -30,9 +30,91 @@
  "show_attachments": 0,
  "show_list": 0,
  "show_sidebar": 0,
- "success_message": "Thanks — the credit agreement has been recorded.",
+ "success_message": "Thanks \u2014 the credit agreement has been recorded.",
  "title": "Credit Agreement",
  "web_form_fields": [
+  {
+   "allow_read_on_all_link_options": 0,
+   "fieldname": "sec_intake_volume",
+   "fieldtype": "Section Break",
+   "hidden": 0,
+   "label": "Business Volume & Documents",
+   "max_length": 0,
+   "max_value": 0,
+   "read_only": 0,
+   "reqd": 0,
+   "show_in_filter": 0
+  },
+  {
+   "allow_read_on_all_link_options": 0,
+   "fieldname": "expected_weekly_volume",
+   "fieldtype": "Float",
+   "hidden": 0,
+   "label": "Expected Weekly Volume",
+   "max_length": 0,
+   "max_value": 0,
+   "read_only": 0,
+   "reqd": 1,
+   "show_in_filter": 0
+  },
+  {
+   "allow_read_on_all_link_options": 0,
+   "fieldname": "expected_monthly_revenue",
+   "fieldtype": "Currency",
+   "hidden": 0,
+   "label": "Expected Monthly Revenue",
+   "max_length": 0,
+   "max_value": 0,
+   "read_only": 0,
+   "reqd": 1,
+   "show_in_filter": 0
+  },
+  {
+   "allow_read_on_all_link_options": 0,
+   "fieldname": "cb_intake_volume",
+   "fieldtype": "Column Break",
+   "hidden": 0,
+   "max_length": 0,
+   "max_value": 0,
+   "read_only": 0,
+   "reqd": 0,
+   "show_in_filter": 0
+  },
+  {
+   "allow_read_on_all_link_options": 0,
+   "fieldname": "license_document",
+   "fieldtype": "Attach",
+   "hidden": 0,
+   "label": "License Document",
+   "max_length": 0,
+   "max_value": 0,
+   "read_only": 0,
+   "reqd": 1,
+   "show_in_filter": 0
+  },
+  {
+   "allow_read_on_all_link_options": 0,
+   "fieldname": "onboarding_form_document",
+   "fieldtype": "Attach",
+   "hidden": 0,
+   "label": "Onboarding Packet",
+   "max_length": 0,
+   "max_value": 0,
+   "read_only": 0,
+   "reqd": 1,
+   "show_in_filter": 0
+  },
+  {
+   "allow_read_on_all_link_options": 0,
+   "fieldname": "",
+   "fieldtype": "Page Break",
+   "hidden": 0,
+   "max_length": 0,
+   "max_value": 0,
+   "read_only": 0,
+   "reqd": 0,
+   "show_in_filter": 0
+  },
   {
    "allow_read_on_all_link_options": 0,
    "fieldname": "sec_account",
@@ -47,25 +129,36 @@
   },
   {
    "allow_read_on_all_link_options": 0,
-   "fieldname": "exact_legal_buyer",
-   "fieldtype": "Data",
+   "fieldname": "company",
+   "fieldtype": "Select",
    "hidden": 0,
-   "label": "Business Name",
-   "max_length": 140,
+   "label": "Product Type",
+   "max_length": 0,
    "max_value": 0,
+   "options": "\nFresh Frozen\nExtracts",
    "read_only": 0,
    "reqd": 1,
    "show_in_filter": 0
   },
   {
    "allow_read_on_all_link_options": 0,
-   "fieldname": "company",
-   "fieldtype": "Select",
+   "fieldname": "sec_account_row2",
+   "fieldtype": "Section Break",
    "hidden": 0,
-   "label": "Company",
    "max_length": 0,
    "max_value": 0,
-   "options": "\nFresh Frozen\nExtracts",
+   "read_only": 0,
+   "reqd": 0,
+   "show_in_filter": 0
+  },
+  {
+   "allow_read_on_all_link_options": 0,
+   "fieldname": "exact_legal_buyer",
+   "fieldtype": "Data",
+   "hidden": 0,
+   "label": "Business Name",
+   "max_length": 140,
+   "max_value": 0,
    "read_only": 0,
    "reqd": 1,
    "show_in_filter": 0
@@ -97,11 +190,11 @@
   },
   {
    "allow_read_on_all_link_options": 0,
-   "fieldname": "license_number",
+   "fieldname": "ap_contact_name",
    "fieldtype": "Data",
    "hidden": 0,
-   "label": "License #",
-   "max_length": 60,
+   "label": "AP Contact",
+   "max_length": 140,
    "max_value": 0,
    "read_only": 0,
    "reqd": 1,
@@ -127,7 +220,7 @@
    "max_length": 0,
    "max_value": 0,
    "read_only": 0,
-   "reqd": 0,
+   "reqd": 1,
    "show_in_filter": 0
   },
   {
@@ -144,14 +237,14 @@
   },
   {
    "allow_read_on_all_link_options": 0,
-   "fieldname": "ap_contact_name",
+   "fieldname": "license_number",
    "fieldtype": "Data",
    "hidden": 0,
-   "label": "AP Contact",
-   "max_length": 140,
+   "label": "License #",
+   "max_length": 60,
    "max_value": 0,
    "read_only": 0,
-   "reqd": 0,
+   "reqd": 1,
    "show_in_filter": 0
   },
   {
@@ -164,7 +257,7 @@
    "max_value": 0,
    "options": "Email",
    "read_only": 0,
-   "reqd": 0,
+   "reqd": 1,
    "show_in_filter": 0
   },
   {
@@ -187,6 +280,17 @@
    "max_length": 240,
    "max_value": 0,
    "read_only": 0,
+   "reqd": 1,
+   "show_in_filter": 0
+  },
+  {
+   "allow_read_on_all_link_options": 0,
+   "fieldname": "sec_city_row",
+   "fieldtype": "Section Break",
+   "hidden": 0,
+   "max_length": 0,
+   "max_value": 0,
+   "read_only": 0,
    "reqd": 0,
    "show_in_filter": 0
   },
@@ -199,12 +303,12 @@
    "max_length": 140,
    "max_value": 0,
    "read_only": 0,
-   "reqd": 0,
+   "reqd": 1,
    "show_in_filter": 0
   },
   {
    "allow_read_on_all_link_options": 0,
-   "fieldname": "cb_account_address",
+   "fieldname": "cb_city_state",
    "fieldtype": "Column Break",
    "hidden": 0,
    "max_length": 0,
@@ -222,6 +326,17 @@
    "max_length": 140,
    "max_value": 0,
    "read_only": 0,
+   "reqd": 1,
+   "show_in_filter": 0
+  },
+  {
+   "allow_read_on_all_link_options": 0,
+   "fieldname": "cb_state_zip",
+   "fieldtype": "Column Break",
+   "hidden": 0,
+   "max_length": 0,
+   "max_value": 0,
+   "read_only": 0,
    "reqd": 0,
    "show_in_filter": 0
   },
@@ -234,7 +349,7 @@
    "max_length": 20,
    "max_value": 0,
    "read_only": 0,
-   "reqd": 0,
+   "reqd": 1,
    "show_in_filter": 0
   },
   {
@@ -251,7 +366,6 @@
   },
   {
    "allow_read_on_all_link_options": 0,
-   "description": "The maximum open balance the client may carry at any one time.",
    "fieldname": "approved_limit",
    "fieldtype": "Currency",
    "hidden": 0,
@@ -264,7 +378,7 @@
   },
   {
    "allow_read_on_all_link_options": 0,
-   "description": "Standard late fee per Credit Policy Settings.",
+   "default": "1.5",
    "fieldname": "late_fee_percent",
    "fieldtype": "Percent",
    "hidden": 0,
@@ -272,9 +386,8 @@
    "max_length": 0,
    "max_value": 0,
    "read_only": 1,
-   "reqd": 0,
-   "show_in_filter": 0,
-   "default": "1.5"
+   "reqd": 1,
+   "show_in_filter": 0
   },
   {
    "allow_read_on_all_link_options": 0,
@@ -286,7 +399,7 @@
    "max_value": 0,
    "options": "Sales Person",
    "read_only": 0,
-   "reqd": 0,
+   "reqd": 1,
    "show_in_filter": 0
   },
   {
@@ -302,7 +415,6 @@
   },
   {
    "allow_read_on_all_link_options": 0,
-   "description": "e.g. Net 30.",
    "fieldname": "approved_terms",
    "fieldtype": "Link",
    "hidden": 0,
@@ -311,7 +423,7 @@
    "max_value": 0,
    "options": "Payment Terms Template",
    "read_only": 0,
-   "reqd": 0,
+   "reqd": 1,
    "show_in_filter": 0
   },
   {
@@ -323,7 +435,7 @@
    "max_length": 0,
    "max_value": 0,
    "read_only": 0,
-   "reqd": 0,
+   "reqd": 1,
    "show_in_filter": 0
   },
   {
@@ -382,7 +494,7 @@
    "max_length": 0,
    "max_value": 0,
    "read_only": 0,
-   "reqd": 0,
+   "reqd": 1,
    "show_in_filter": 0
   },
   {
@@ -394,7 +506,7 @@
    "max_length": 0,
    "max_value": 0,
    "read_only": 0,
-   "reqd": 0,
+   "reqd": 1,
    "show_in_filter": 0
   },
   {
@@ -406,7 +518,7 @@
    "max_length": 0,
    "max_value": 0,
    "read_only": 0,
-   "reqd": 0,
+   "reqd": 1,
    "show_in_filter": 0
   },
   {
@@ -418,7 +530,7 @@
    "max_length": 0,
    "max_value": 0,
    "read_only": 0,
-   "reqd": 0,
+   "reqd": 1,
    "show_in_filter": 0
   },
   {
@@ -442,7 +554,7 @@
    "max_length": 0,
    "max_value": 0,
    "read_only": 0,
-   "reqd": 0,
+   "reqd": 1,
    "show_in_filter": 0
   },
   {
@@ -454,7 +566,7 @@
    "max_length": 0,
    "max_value": 0,
    "read_only": 0,
-   "reqd": 0,
+   "reqd": 1,
    "show_in_filter": 0
   },
   {
@@ -466,7 +578,7 @@
    "max_length": 0,
    "max_value": 0,
    "read_only": 0,
-   "reqd": 0,
+   "reqd": 1,
    "show_in_filter": 0
   },
   {
@@ -478,7 +590,7 @@
    "max_length": 0,
    "max_value": 0,
    "read_only": 0,
-   "reqd": 0,
+   "reqd": 1,
    "show_in_filter": 0
   }
  ]

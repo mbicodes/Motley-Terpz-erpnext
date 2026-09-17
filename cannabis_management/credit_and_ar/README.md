@@ -444,7 +444,6 @@ verified live at the moment of release, not trusted from the form:
 | Basis | Verified |
 |---|---|
 | Paid in Full | Past due recomputed live; any remaining balance refuses the release |
-| Current on Approved Plan | An active plan must exist, be **MD-ratified**, and have zero missed installments |
 | MD Exception | Notes are mandatory; logged to the case as an exception-register comment and emailed to MD, CEO and Finance |
 
 Editing `status` to `Released` on the form throws — the release action is the

@@ -163,32 +163,51 @@ def backfill_delivery_note_created():
 
 
 def set_expense_head(doc, method):
+    """
+    Overrides each item's expense_account from Expense Head Settings, based on
+    the Sales Order Type of the Sales Order the item is raised against.
+
+    Wired on both Delivery Note (against_sales_order) and Sales Invoice
+    (sales_order) so the two behave the same way -- previously this only ran
+    on Delivery Note, and only ever looked at the first row's Sales Order,
+    silently leaving every other row (and any row from a different Sales
+    Order, e.g. on a consolidated document) on its item/company default
+    expense account instead of the configured one.
+    """
 
     if not doc.items:
         return
 
-    sales_order = doc.items[0].against_sales_order
+    so_fieldname = "against_sales_order" if doc.doctype == "Delivery Note" else "sales_order"
 
-    if not sales_order:
+    sales_orders = {item.get(so_fieldname) for item in doc.items if item.get(so_fieldname)}
+    if not sales_orders:
         return
 
-    sales_order_type = frappe.db.get_value(
-        "Sales Order",
-        sales_order,
-        "custom_sales_order_type"
-    )
+    so_type_by_name = {
+        d.name: d.custom_sales_order_type
+        for d in frappe.get_all(
+            "Sales Order",
+            filters={"name": ["in", list(sales_orders)]},
+            fields=["name", "custom_sales_order_type"],
+        )
+    }
 
     settings = frappe.get_single("Expense Head Settings")
 
-    expense_account = None
-
+    expense_account_by_type = {}
     for row in settings.expense_head:
-        if row.sales_order_type == sales_order_type:
-            expense_account = row.expense_account
-            break
+        if row.sales_order_type and row.expense_account:
+            expense_account_by_type.setdefault(row.sales_order_type, row.expense_account)
 
-    if not expense_account:
+    if not expense_account_by_type:
         return
 
     for item in doc.items:
-        item.expense_account = expense_account
+        sales_order = item.get(so_fieldname)
+        if not sales_order:
+            continue
+
+        expense_account = expense_account_by_type.get(so_type_by_name.get(sales_order))
+        if expense_account:
+            item.expense_account = expense_account

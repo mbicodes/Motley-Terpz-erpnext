@@ -7,6 +7,7 @@
  "field_order": [
   "due_date",
   "amount",
+  "invoices",
   "status",
   "paid_amount",
   "paid_on",
@@ -31,32 +32,45 @@
    "reqd": 1
   },
   {
+   "description": "The Sales Invoice(s) this installment is expected to settle, oldest first (FIFO). Filled by Generate Plan, or picked by hand for a Custom plan.",
+   "fieldname": "invoices",
+   "fieldtype": "Table",
+   "label": "Sales Invoices",
+   "options": "AR Case Installment Invoice"
+  },
+  {
    "columns": 2,
    "default": "Pending",
+   "description": "Auto-calculated — Paid, Partially Paid, Pending or Missed, from Paid Amount and Due Date.",
    "fieldname": "status",
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Status",
-   "options": "Pending\nPaid\nPartially Paid\nMissed"
+   "options": "Pending\nPaid\nPartially Paid\nMissed",
+   "read_only": 1
   },
   {
    "columns": 2,
+   "description": "Auto-calculated from the Payment Entries applied to this installment.",
    "fieldname": "paid_amount",
    "fieldtype": "Currency",
    "in_list_view": 1,
-   "label": "Paid Amount"
+   "label": "Paid Amount",
+   "read_only": 1
   },
   {
    "columns": 1,
    "fieldname": "paid_on",
    "fieldtype": "Date",
-   "label": "Paid On"
+   "label": "Paid On",
+   "read_only": 1
   },
   {
    "fieldname": "payment_entry",
    "fieldtype": "Link",
    "label": "Payment Entry",
-   "options": "Payment Entry"
+   "options": "Payment Entry",
+   "read_only": 1
   },
   {
    "fieldname": "notes",

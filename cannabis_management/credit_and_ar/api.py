@@ -150,15 +150,10 @@ def release_ar_case(case_name: str, release_basis: str, notes: str | None = None
 
 
 @frappe.whitelist()
-def raise_manual_case(
-	customer: str,
-	case_type: str,
-	trigger_reason: str,
-	trigger_details: str,
-	company: str | None = None,
-):
+def raise_manual_case(customer: str, trigger_reason: str, trigger_details: str):
 	"""Finance or the MD opening a case by hand — suspected fraud, insolvency signs."""
 	from cannabis_management.credit_and_ar import hold_engine
+	from cannabis_management.credit_and_ar.doctype.ar_case.ar_case import get_active_case
 
 	if not utils.has_any_role("Credit Finance", "Managing Director", "System Manager"):
 		frappe.throw(
@@ -167,14 +162,17 @@ def raise_manual_case(
 			title=_("Not Authorised"),
 		)
 
-	doc = hold_engine.create_case(
-		customer=customer,
-		case_type=case_type,
-		trigger_reason=trigger_reason,
-		trigger_details=trigger_details,
-		company=company,
+	existing = get_active_case(customer)
+	if existing:
+		frappe.throw(
+			_("{0} already has an active AR Case ({1}).").format(customer, existing.name),
+			title=_("Already Open"),
+		)
+
+	doc = hold_engine.create_manual_case(
+		customer=customer, trigger_reason=trigger_reason, trigger_details=trigger_details
 	)
-	return {"name": doc.name, "case_type": doc.case_type, "status": doc.status}
+	return {"name": doc.name, "status": doc.status}
 
 
 @frappe.whitelist()
@@ -210,7 +208,6 @@ def get_credit_summary(customer: str, sales_order: str | None = None):
 			customer,
 			[
 				"custom_credit_status",
-				"custom_hold_type",
 				"custom_payment_score",
 				"custom_score_band",
 				"custom_credit_terms_template",
@@ -220,10 +217,25 @@ def get_credit_summary(customer: str, sales_order: str | None = None):
 		)
 		or {}
 	)
+	from cannabis_management.credit_and_ar.doctype.ar_case.ar_case import get_hold_type
+
+	standing["custom_hold_type"] = get_hold_type(customer)
 	summary.update(standing)
 	summary["blocker"] = credit_engine.describe_line_blocker(customer)
 	summary["freeze_active"] = int(utils.get_settings().company_freeze_active or 0)
 	return summary
+
+
+@frappe.whitelist()
+def get_customer_hold_type(customer: str) -> str:
+	"""The customer's current hold type, derived from their active AR Case.
+
+	Replaces the removed ``custom_hold_type`` field for the Customer form banner,
+	which can no longer read the value straight off ``frm.doc``.
+	"""
+	from cannabis_management.credit_and_ar.doctype.ar_case.ar_case import get_hold_type
+
+	return get_hold_type(customer)
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────

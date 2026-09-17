@@ -1,5 +1,11 @@
 frappe.ui.form.on("Stock Entry", {
     refresh: function (frm) {
+        // Source/Target Tags: only offer Metric Tags whose License matches
+        // the row's Source/Target Warehouse.
+        cannabis_management.metric_tag.filter_by_warehouse(frm, "tags", "s_warehouse");
+        cannabis_management.metric_tag.filter_by_warehouse(frm, "to_tags", "t_warehouse");
+        toggle_tag_mandatory(frm);
+
         frm.fields_dict.items.grid.update_docfield_property("project", "reqd", 0);
         $.each(frm.doc.items || [], function (i, item) {
             if (item.custom_project_mandatory) {
@@ -13,6 +19,10 @@ frappe.ui.form.on("Stock Entry", {
             setTimeout(() => pin_rm_qty_from_wo(frm), 120);
             _fix_operating_cost_from_wo(frm);
         }
+    },
+
+    stock_entry_type: function (frm) {
+        toggle_tag_mandatory(frm);
     },
 
     project: function (frm) {
@@ -29,6 +39,7 @@ frappe.ui.form.on("Stock Entry", {
             frappe.model.set_value(cdt, cdn, "project", frm.doc.project);
             frappe.model.set_value(cdt, cdn, "batch", frm.doc.project);
         }
+        toggle_tag_mandatory(frm);
         calculate_total_quantity(frm);
     },
 
@@ -110,6 +121,11 @@ frappe.ui.form.on("Stock Entry Detail", {
         if (row.custom_project_mandatory && row.item_code && row.project && row.s_warehouse) {
             fetch_project_qty(frm, cdt, cdn, row);
         }
+        toggle_tag_mandatory(frm);
+    },
+
+    t_warehouse: function (frm) {
+        toggle_tag_mandatory(frm);
     },
 });
 
@@ -117,6 +133,25 @@ function toggle_project_mandatory(frm) {
     let any_mandatory = (frm.doc.items || []).some((item) => item.custom_project_mandatory);
     frm.fields_dict.items.grid.update_docfield_property("project", "reqd", any_mandatory ? 1 : 0);
     frm.refresh_fields();
+}
+
+// Repack only: Source/Target Tags become mandatory per row, based on which
+// warehouse that row actually uses -- a raw-material row (Source Warehouse
+// only) needs a Source Tag, a finished-good row (Target Warehouse only)
+// needs a Target Tag, and never both on the same row. Outside Repack, this
+// leaves the doctype's own defaults alone (Source Tags always required,
+// Target Tags optional) -- only Repack rows get this per-row treatment.
+// frm.set_df_property(..., row.name) scopes the change to that single grid
+// row instead of the whole "tags"/"to_tags" column, which is what makes
+// per-row (not per-column) mandatory possible here.
+function toggle_tag_mandatory(frm) {
+    let is_repack = frm.doc.stock_entry_type === "Repack";
+    (frm.doc.items || []).forEach(function (row) {
+        let tags_reqd = is_repack ? (row.s_warehouse ? 1 : 0) : 1;
+        let to_tags_reqd = is_repack ? (row.t_warehouse ? 1 : 0) : 0;
+        frm.set_df_property("items", "reqd", tags_reqd, frm.doc.name, "tags", row.name);
+        frm.set_df_property("items", "reqd", to_tags_reqd, frm.doc.name, "to_tags", row.name);
+    });
 }
 
 function fetch_project_qty(frm, cdt, cdn, row) {
