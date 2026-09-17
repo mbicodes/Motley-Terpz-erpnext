@@ -786,6 +786,10 @@ before_request = [
 	# forward straight to gunicorn) — see the module docstring for why. No-ops
 	# for every request that actually came through nginx.
 	"cannabis_management.manufacturing_portal.cookie_scheme_fix.fix_scheme_for_unproxied_requests",
+	# Serves the kiosk's neutral /kiosk-api/<method> path without any nginx
+	# config — see manufacturing_timesheet_kiosk/routing.py for why that alias
+	# cannot survive in the bench's nginx template. No-ops for every other path.
+	"cannabis_management.manufacturing_timesheet_kiosk.routing.route_kiosk_api",
 ]
 # after_request = ["cannabis_management.cannabis_management.utils.after_request"]
 
