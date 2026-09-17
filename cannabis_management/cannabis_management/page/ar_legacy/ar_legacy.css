@@ -4,6 +4,30 @@
 
 .arl { padding: 2px 0 48px; --arl-accent: #6d28d9; }
 
+/* ── AR Mode toggle ────────────────────────────────────────────────────────
+   Legacy / New AR. Legacy is pre-selected: this page was legacy-only before the
+   toggle, and that has to stay the view you land on. */
+.arl-modebar {
+	display: flex; align-items: center; gap: 12px;
+	margin: 0 0 14px;
+}
+.arl-mode-toggle {
+	display: inline-flex; border: 1px solid var(--border-color, #e5e7eb);
+	border-radius: 8px; overflow: hidden; background: var(--control-bg, #fff);
+}
+.arl-mode-btn {
+	appearance: none; border: 0; background: transparent; cursor: pointer;
+	padding: 6px 14px; font-size: 12.5px; font-weight: 600;
+	color: var(--text-muted, #6b7280);
+	transition: background .15s, color .15s;
+}
+.arl-mode-btn + .arl-mode-btn { border-left: 1px solid var(--border-color, #e5e7eb); }
+.arl-mode-btn:hover { background: color-mix(in srgb, var(--arl-accent) 8%, transparent); }
+.arl-mode-btn.is-active {
+	background: var(--arl-accent); color: #fff;
+}
+.arl-mode-note { font-size: 11.5px; color: var(--text-muted, #6b7280); }
+
 /* ── KPI cards ──────────────────────────────────────────────────────────── */
 .arl-cards {
 	display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));

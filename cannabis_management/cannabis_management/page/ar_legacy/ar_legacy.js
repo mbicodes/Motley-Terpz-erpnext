@@ -1,4 +1,9 @@
-// AR Legacy — legacy receivables filed by whose relationship the account is.
+// Categorized AR — receivables filed by whose relationship the account is.
+//
+// The AR Mode toggle switches which book is counted: Legacy (invoices up to the
+// cut-over) or New AR (from the day after). The segment itself lives on the
+// Customer and is NOT per-mode - toggling changes the money shown, not who owns
+// the relationship - so the same account keeps its segment in both views.
 //
 // Layout, in the order it is read:
 //   1. KPI cards — the size of the book, and how much of it is still unfiled.
@@ -12,14 +17,15 @@
 frappe.pages['ar-legacy'].on_page_load = function (wrapper) {
 	var page = frappe.ui.make_app_page({
 		parent: wrapper,
-		title: 'AR Legacy',
+		title: 'Categorized AR',
 		single_column: true
 	});
 
 	wrapper.page = page;
 
 	var state = {
-		rows: [], segments: [], companies: [], can_edit: false,
+		rows: [], segments: [], segment_colors: {}, companies: [], can_edit: false,
+		ar_mode: 'legacy',   // unchanged default: this page was legacy-only before the toggle
 		filters: { search: '', segment: '', company: '', age: '', min_amount: '', sort: 'outstanding' },
 		collapsed: {}
 	};
@@ -42,6 +48,15 @@ frappe.pages['ar-legacy'].on_page_load = function (wrapper) {
 
 	page.main.html(`
 		<div class="arl">
+			<div class="arl-modebar">
+				<span class="arl-label">AR Mode</span>
+				<div class="arl-mode-toggle">
+					<button class="arl-mode-btn is-active" data-mode="legacy">Legacy AR</button>
+					<button class="arl-mode-btn" data-mode="new">New AR</button>
+				</div>
+				<span class="arl-mode-note" id="arl-mode-note"></span>
+			</div>
+
 			<div class="arl-cards" id="arl-cards"></div>
 			<div class="arl-seg-cards" id="arl-seg-cards"></div>
 
@@ -89,6 +104,14 @@ frappe.pages['ar-legacy'].on_page_load = function (wrapper) {
 	}
 
 	function esc(s) { return frappe.utils.escape_html(s == null ? '' : String(s)); }
+
+	// Segments added as AR Segment records carry their own accent. Set as an
+	// inline custom property so it overrides the per-slug rules in ar_legacy.css
+	// and so a segment the stylesheet has never heard of is still coloured.
+	function accent_attr(seg) {
+		var color = state.segment_colors[seg || ''];
+		return color ? ' style="--arl-accent:' + esc(color) + '"' : '';
+	}
 	function slug(s) { return (s || 'unassigned').replace(/[^a-z0-9]+/gi, '-').toLowerCase(); }
 	function label_of(seg) { return seg || 'Unassigned'; }
 	function sum_of(rows) { return rows.reduce(function (a, r) { return a + (r.outstanding || 0); }, 0); }
@@ -167,7 +190,7 @@ frappe.pages['ar-legacy'].on_page_load = function (wrapper) {
 			var rows = base.filter(function (r) { return (r.segment || '') === seg; });
 			var is_active = active === key;
 			return `<button class="arl-seg-card arl-sec-${slug(seg)} ${is_active ? 'is-active' : ''}"
-						data-segment="${esc(key)}">
+						data-segment="${esc(key)}"${accent_attr(seg)}>
 						<span class="arl-seg-dot"></span>
 						<span class="arl-seg-name">${esc(label_of(seg))}</span>
 						<span class="arl-seg-count">${rows.length}</span>
@@ -216,7 +239,7 @@ frappe.pages['ar-legacy'].on_page_load = function (wrapper) {
 					<span class="arl-co">${esc(r.companies || '')}</span>
 				</td>
 				<td class="arl-seg">
-					<select class="arl-select arl-sec-${slug(r.segment)}" data-customer="${esc(r.customer)}"${disabled}>
+					<select class="arl-select arl-sec-${slug(r.segment)}" data-customer="${esc(r.customer)}"${disabled}${accent_attr(r.segment)}>
 						${options_html(r.segment || '')}
 					</select>
 				</td>
@@ -245,7 +268,7 @@ frappe.pages['ar-legacy'].on_page_load = function (wrapper) {
 			: '<div class="arl-empty">Nothing filed here yet.</div>';
 
 		return `
-			<section class="arl-section arl-sec-${id} ${collapsed ? 'is-collapsed' : ''}">
+			<section class="arl-section arl-sec-${id} ${collapsed ? 'is-collapsed' : ''}"${accent_attr(seg)}>
 				<header class="arl-sec-head" data-toggle="${esc(seg)}">
 					<span class="arl-caret">&#9662;</span>
 					<h3 class="arl-sec-title">${esc(label_of(seg))}</h3>
@@ -266,12 +289,16 @@ frappe.pages['ar-legacy'].on_page_load = function (wrapper) {
 
 	// ---- data ----------------------------------------------------------
 	function load() {
+		$('#arl-body').html('<div class="arl-loading"><div class="arl-spinner"></div><p>Loading ' +
+			(state.ar_mode === 'new' ? 'new AR' : 'legacy') + ' accounts…</p></div>');
 		frappe.call({
 			method: 'cannabis_management.cannabis_management.page.ar_legacy.ar_legacy.get_data',
+			args: { ar_mode: state.ar_mode },
 			callback: function (r) {
 				if (!r.message) return;
 				state.rows = r.message.rows || [];
 				state.segments = r.message.segments || [];
+				state.segment_colors = r.message.segment_colors || {};
 				state.companies = r.message.companies || [];
 				state.can_edit = !!r.message.can_edit;
 
@@ -280,6 +307,10 @@ frappe.pages['ar-legacy'].on_page_load = function (wrapper) {
 					$co.append('<option value="' + esc(c) + '">' + esc(c) + '</option>');
 				});
 				$co.val(state.filters.company);
+
+				$('#arl-mode-note').text(state.ar_mode === 'new'
+					? 'Invoices posted on or after ' + (NEW_AR_START_LABEL || 'the cut-over')
+					: 'Invoices posted up to ' + (r.message.cutoff || 'the cut-over'));
 
 				render();
 
@@ -296,7 +327,23 @@ frappe.pages['ar-legacy'].on_page_load = function (wrapper) {
 		});
 	}
 
+	// The day New AR starts, for the note under the toggle. Kept next to the
+	// toggle rather than fetched: get_data already returns the legacy cut-off and
+	// this is simply the day after it.
+	var NEW_AR_START_LABEL = '2026-06-01';
+
 	// ---- events --------------------------------------------------------
+	page.main.on('click', '.arl-mode-btn', function () {
+		var mode = $(this).data('mode');
+		if (mode === state.ar_mode) return;
+		state.ar_mode = mode;
+		page.main.find('.arl-mode-btn').removeClass('is-active');
+		$(this).addClass('is-active');
+		// The segment filter is a Customer attribute and survives the switch; the
+		// rows do not, so they are re-fetched for the new window.
+		load();
+	});
+
 	page.main.on('change', '.arl-select', function () {
 		var $sel = $(this);
 		var customer = $sel.data('customer');

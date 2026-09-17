@@ -20,11 +20,16 @@ from frappe.utils import date_diff, flt, getdate, nowdate
 
 from cannabis_management.cannabis_management.page.ar_dashboard.ar_dashboard import (
 	LEGACY_CUTOFF,
+	NEW_AR_START,
 	ORG_WIDE_VIEW_ROLES,
 	_internal_customer_names,
 	_permitted_companies,
 )
 
+# The original five. No longer the source of truth - that is the "AR Segment"
+# doctype, one record per segment - but kept as the seed for a fresh site and as
+# the fallback when the doctype is not installed, so the page cannot break
+# between deploying code and migrating.
 SEGMENTS = [
 	"Matt's Accounts",
 	"Matt has Relationships",
@@ -32,6 +37,83 @@ SEGMENTS = [
 	"Nikki's Accounts - Legit companies",
 	"Nikki's Accounts - Unknown companies",
 ]
+
+AR_SEGMENT_DOCTYPE = "AR Segment"
+
+# Which invoices each mode counts. The segment itself is a Customer attribute and
+# is NOT per-mode: switching modes changes the money on the page, not who owns
+# the relationship.
+AR_MODES = ("legacy", "new")
+
+
+def get_segments():
+	"""Segments offered on the page, in display order.
+
+	``[{"value": <segment>, "color": <hex or None>}]``. The blank "Unassigned"
+	entry is added by the front end; it is not a record.
+	"""
+	fallback = [{"value": s, "color": None} for s in SEGMENTS]
+
+	if not frappe.db.exists("DocType", AR_SEGMENT_DOCTYPE):
+		return fallback
+
+	rows = frappe.get_all(
+		AR_SEGMENT_DOCTYPE,
+		filters={"disabled": 0},
+		fields=["name", "color"],
+		order_by="display_order asc, creation asc",
+	)
+	if not rows:
+		# No segments at all is never what anyone wants - treat it as
+		# "not configured yet" and offer the originals.
+		return fallback
+
+	return [{"value": r["name"], "color": r.get("color") or None} for r in rows]
+
+
+def sync_segment_field_options(exclude=None):
+	"""Point the Customer form's own Select at the current segment list.
+
+	Called from the AR Segment controller so the Customer field and this page can
+	never disagree. ``exclude`` drops a record that is mid-delete and therefore
+	still readable.
+	"""
+	values = [s["value"] for s in get_segments() if s["value"] != exclude]
+
+	name = frappe.db.get_value(
+		"Custom Field", {"dt": "Customer", "fieldname": SEGMENT_FIELD}, "name"
+	)
+	if name:
+		frappe.db.set_value("Custom Field", name, "options", "\n" + "\n".join(values))
+		frappe.clear_cache(doctype="Customer")
+
+
+def seed_segments():
+	"""Create a record per original segment. Idempotent; safe to re-run.
+
+	Colours match what ar_legacy.css already hard-codes for these five, so the
+	page looks exactly as it did before they became records.
+	"""
+	if not frappe.db.exists("DocType", AR_SEGMENT_DOCTYPE):
+		return
+
+	colors = {
+		"Matt's Accounts": "#7c3aed",
+		"Matt has Relationships": "#2563eb",
+		"Nikki's Accounts - Matt knows them": "#0d9488",
+		"Nikki's Accounts - Legit companies": "#16a34a",
+		"Nikki's Accounts - Unknown companies": "#d97706",
+	}
+
+	for i, segment in enumerate(SEGMENTS):
+		if frappe.db.exists(AR_SEGMENT_DOCTYPE, segment):
+			continue
+		frappe.get_doc({
+			"doctype": AR_SEGMENT_DOCTYPE,
+			"segment_name": segment,
+			"color": colors.get(segment),
+			"display_order": (i + 1) * 10,
+		}).insert(ignore_permissions=True)
 
 UNASSIGNED = "Unassigned"
 
@@ -51,8 +133,8 @@ def _can_edit(user=None):
 
 
 @frappe.whitelist()
-def get_data():
-	"""Every legacy customer still owing money, with its segment and totals.
+def get_data(ar_mode="legacy"):
+	"""Every customer still owing money in the chosen book, with segment and totals.
 
 	Read with raw SQL rather than get_list: the figures are the same for everyone
 	who can open the page, and the page is role-gated already. Company scoping is
@@ -69,8 +151,19 @@ def get_data():
 	has_field = frappe.db.has_column("Customer", SEGMENT_FIELD)
 	segment_select = f"MAX(c.{SEGMENT_FIELD})" if has_field else "NULL"
 
-	conditions = ["si.docstatus = 1", "si.posting_date <= %(cutoff)s", "si.outstanding_amount > 0"]
-	params = {"cutoff": LEGACY_CUTOFF}
+	# Legacy is everything up to the cut-over, New AR everything from the day
+	# after it - the same two windows the AR dashboard uses, so the pages agree.
+	# Anything unrecognised falls back to legacy: that was the only behaviour
+	# before the toggle existed and it must stay the default.
+	ar_mode = ar_mode if ar_mode in AR_MODES else "legacy"
+
+	conditions = ["si.docstatus = 1", "si.outstanding_amount > 0"]
+	if ar_mode == "new":
+		conditions.append("si.posting_date >= %(start)s")
+		params = {"start": NEW_AR_START}
+	else:
+		conditions.append("si.posting_date <= %(cutoff)s")
+		params = {"cutoff": LEGACY_CUTOFF}
 
 	if internal:
 		conditions.append("si.customer NOT IN %(internal)s")
@@ -115,13 +208,17 @@ def get_data():
 			if company:
 				companies.add(company)
 
+	segments = get_segments()
+
 	return {
 		"rows": rows,
 		"companies": sorted(companies),
-		"segments": SEGMENTS,
+		"segments": [s["value"] for s in segments],
+		"segment_colors": {s["value"]: s["color"] for s in segments if s["color"]},
 		"unassigned_label": UNASSIGNED,
 		"can_edit": _can_edit() and has_field,
 		"cutoff": LEGACY_CUTOFF,
+		"ar_mode": ar_mode,
 		"field_missing": not has_field,
 	}
 
@@ -136,7 +233,8 @@ def set_segment(customer, segment):
 		)
 
 	segment = (segment or "").strip()
-	if segment and segment not in SEGMENTS:
+	# Checked against the live list, so a segment added today is accepted today.
+	if segment and segment not in [s["value"] for s in get_segments()]:
 		frappe.throw(f"Unknown segment: {segment}")
 
 	if not frappe.db.has_column("Customer", SEGMENT_FIELD):
@@ -170,7 +268,7 @@ def install_segment_field():
 					"fieldname": SEGMENT_FIELD,
 					"fieldtype": "Select",
 					"label": "AR Legacy Segment",
-					"options": "\n" + "\n".join(SEGMENTS),
+					"options": "\n" + "\n".join([s["value"] for s in get_segments()]),
 					"insert_after": "custom_reconciliation_status",
 					"in_standard_filter": 1,
 					"description": "Set from the AR Legacy page — whose relationship this legacy account is.",
