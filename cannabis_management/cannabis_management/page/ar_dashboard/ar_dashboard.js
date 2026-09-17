@@ -194,7 +194,7 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
     });
 
     page.main.find('#ard-pdf-btn').on('click', function () {
-        export_pdf(page);
+        ard_export_report(page);
     });
 
     page.main.find('#ard-email-legacy-btn').on('click', function () {
@@ -1702,9 +1702,11 @@ function copy_all(page) {
     copy_to_clipboard(text, aggs.length + " customer(s) copied to clipboard");
 }
 
-// Print/PDF stylesheet, shared by the on-screen PDF export and the emailed
-// report so both render identically: landscape, sheet only (summary cards,
-// projection and aging bar hidden), compact cells, column tints preserved.
+// Print/PDF stylesheet for the generated report, used by both the emailed copy
+// and the Export PDF download so the two are identical: landscape, sheet only
+// (summary cards, projection and aging bar hidden), compact cells, column tints
+// preserved. The old browser-print export that also used this was removed - it
+// produced a different, untrimmed document from the same page.
 function ard_print_css() {
     return (
         'body{padding:0;margin:0;background:#fff;}' +
@@ -1770,68 +1772,6 @@ function ard_with_logo(cb) {
     };
     img.onerror = function () { cb(null); };
     img.src = window.location.origin + '/files/Motley-Terpz-Web-Logo.png';
-}
-
-// ─── PDF Export (prints the on-screen dashboard view) ───────────────────────────
-
-function export_pdf(page) {
-    let container = page.main.find('.ard-container').get(0);
-    if (!container) return;
-
-    let head = "";
-    document.querySelectorAll('link[rel="stylesheet"]').forEach(function (l) {
-        if (l.href) head += `<link rel="stylesheet" href="${l.href}">`;
-    });
-    document.querySelectorAll('style').forEach(function (st) { head += st.outerHTML; });
-
-    let w = window.open("", "_blank");
-    if (!w) {
-        frappe.msgprint("Please allow pop-ups for this site to export PDF.");
-        return;
-    }
-
-    // Print CSS: landscape, compact cells, sheet-only output — the PDF mirrors the
-    // recon Google Sheet: a purple logo banner, then the spreadsheet table, one row
-    // per customer (invoice rows collapsed), no summary cards / projection / aging bar.
-    let print_css = ard_print_css();
-
-    // Measure the widest .ard-table directly (not the outer wrapper — the wrapper
-    // may only report viewport width before zoom is applied), then zoom the body
-    // to fit within the printable landscape width.
-    let fit_script =
-        'window.onload=function(){' +
-        '  try{' +
-        '    document.querySelectorAll(".ard-table-wrap").forEach(function(el){' +
-        '      el.style.overflow="visible";el.style.maxHeight="none";el.style.height="auto";' +
-        '    });' +
-        '    var maxW=0;' +
-        '    document.querySelectorAll(".ard-table").forEach(function(t){' +
-        '      if(t.scrollWidth>maxW)maxW=t.scrollWidth;' +
-        '    });' +
-        '    if(!maxW){var fb=document.getElementById("ard-pdf-page");maxW=fb?fb.scrollWidth:0;}' +
-        '    var pageW=1080;' + // A4 landscape (297mm − 12mm margins) ≈ 1080px at 96 dpi
-        '    if(maxW>pageW){document.body.style.zoom=(pageW/maxW);}' +
-        '  }catch(e){}' +
-        '  setTimeout(function(){window.print();},400);' +
-        '};';
-
-    // Write the print document once we have the logo (embedded as a data URI so it
-    // is guaranteed to render — no dependency on the blank window resolving /files).
-    function write_doc(logo_src) {
-        let logo_banner = logo_src
-            ? '<div class="ard-pdf-logo-banner"><img src="' + logo_src + '" alt="Motley Terpz"></div>'
-            : '';
-        w.document.write(
-            '<!doctype html><html><head><meta charset="utf-8"><title>AR Aging Report</title>' + head +
-            '<style>' + print_css + '</style>' +
-            '<scr' + 'ipt>' + fit_script + '</scr' + 'ipt>' +
-            '</head><body><div id="ard-pdf-page">' + logo_banner + container.outerHTML + '</div></body></html>'
-        );
-        w.document.close();
-        w.focus();
-    }
-
-    ard_with_logo(write_doc);
 }
 
 // Show/hide the export wrap based on whether data is on screen.
@@ -2050,28 +1990,86 @@ function email_ar_report(page, mode) {
     });
 }
 
-function ard_send_report(page, mode, label, $table, recipients) {
-    // Inline <style> blocks only, no <link>: wkhtmltopdf would otherwise have to
-    // fetch every desk bundle over the network just to style the sheet.
+// Friendly name for an AR Mode; matches _AR_MODE_LABELS in ar_dashboard.py.
+function ard_mode_label(mode) {
+    if (mode === 'legacy') return 'Legacy AR';
+    if (mode === 'new') return 'New AR';
+    return 'Legacy + New AR';
+}
+
+// The document handed to wkhtmltopdf. Shared by the emailed report and the
+// Export PDF download so a change to one can never drift from the other.
+//
+// Inline <style> blocks only, no <link>: wkhtmltopdf would otherwise have to
+// fetch every desk bundle over the network just to style the sheet. The table is
+// re-wrapped in its usual ancestors because every sheet rule is scoped under
+// .ard-sheet - and .ard-mode-new is what turns the on-terms columns green.
+function ard_report_document($table, mode, label, logo_src) {
     let styles = "";
     document.querySelectorAll('style').forEach(function (st) { styles += st.outerHTML; });
 
+    let banner = logo_src
+        ? '<div class="ard-pdf-logo-banner"><img src="' + logo_src + '" alt="Motley Terpz"></div>'
+        : '';
+
+    return '<!doctype html><html><head><meta charset="utf-8"><title>' + label + ' Aging Report</title>' +
+        styles +
+        '<style>' + ard_print_css() + ard_report_css() + '</style>' +
+        '</head><body><div id="ard-pdf-page">' + banner +
+        '<div class="ard-container"><div class="ard-table-wrap ard-newar-table ard-sheet' +
+        (mode === 'new' ? ' ard-mode-new' : '') + '">' +
+        $table.prop('outerHTML') +
+        '</div></div></div></body></html>';
+}
+
+// Download the PDF instead of mailing it: same render, preview=1 so the server
+// hands the bytes back rather than sending them anywhere.
+function ard_export_report(page) {
+    let mode = page._ard_ar_mode;
+    let label = ard_mode_label(mode);
+    let $table = ard_build_report_table(page, mode);
+    if (!$table) {
+        frappe.msgprint('There is nothing on screen to export yet — load the dashboard first.');
+        return;
+    }
+
     ard_with_logo(function (logo_src) {
-        let banner = logo_src
-            ? '<div class="ard-pdf-logo-banner"><img src="' + logo_src + '" alt="Motley Terpz"></div>'
-            : '';
-        // The table is re-wrapped in its usual ancestors, because every sheet rule
-        // is scoped under .ard-sheet - and .ard-mode-new is what turns the
-        // on-terms columns green in New AR mode.
-        let html =
-            '<!doctype html><html><head><meta charset="utf-8"><title>' + label + ' Aging Report</title>' +
-            styles +
-            '<style>' + ard_print_css() + ard_report_css() + '</style>' +
-            '</head><body><div id="ard-pdf-page">' + banner +
-            '<div class="ard-container"><div class="ard-table-wrap ard-newar-table ard-sheet' +
-            (mode === 'new' ? ' ard-mode-new' : '') + '">' +
-            $table.prop('outerHTML') +
-            '</div></div></div></body></html>';
+        frappe.dom.freeze('Building the ' + label + ' PDF…');
+        frappe.call({
+            method: 'cannabis_management.cannabis_management.page.ar_dashboard.ar_dashboard.email_ar_pdf',
+            args: {
+                html: ard_report_document($table, mode, label, logo_src),
+                mode: mode,
+                company: page.main.find('#ard-company').val() || '',
+                report_date: get_report_date(page) || '',
+                preview: 1
+            },
+            always: function () { frappe.dom.unfreeze(); },
+            callback: function (r) {
+                if (r && r.message) ard_download_pdf(r.message);
+            }
+        });
+    });
+}
+
+// Turn the base64 the server returns into a file the browser saves. A blob URL
+// is used rather than a data: URI because Chrome refuses to navigate to large
+// data: URLs, and these run to hundreds of KB.
+function ard_download_pdf(msg) {
+    let bytes = atob(msg.content);
+    let buf = new Uint8Array(bytes.length);
+    for (let i = 0; i < bytes.length; i++) { buf[i] = bytes.charCodeAt(i); }
+    let url = URL.createObjectURL(new Blob([buf], { type: 'application/pdf' }));
+
+    let $a = $('<a>').attr({ href: url, download: msg.filename }).appendTo('body');
+    $a.get(0).click();
+    $a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
+}
+
+function ard_send_report(page, mode, label, $table, recipients) {
+    ard_with_logo(function (logo_src) {
+        let html = ard_report_document($table, mode, label, logo_src);
 
         frappe.dom.freeze('Building the ' + label + ' PDF and emailing it…');
         frappe.call({
