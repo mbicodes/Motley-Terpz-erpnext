@@ -16,7 +16,7 @@ from frappe.utils import add_days, flt, get_first_day, getdate, nowdate
 
 from cannabis_management.credit_and_ar import utils
 from cannabis_management.credit_and_ar.report import report_utils
-from cannabis_management.credit_and_ar.doctype.ar_case.ar_case import INACTIVE_STATUSES
+from cannabis_management.credit_and_ar.doctype.ar_case.ar_case import STATUS_ACTIVE
 
 STATUS_HOLD = "HOLD"
 STATUS_PLAN = "PLAN"
@@ -52,12 +52,12 @@ def get_data(filters):
 
 		status = STATUS_PAST_DUE
 		if case:
-			if case["case_type"] in ("Hard Hold", "Immediate Hold", "Warning"):
-				status = STATUS_HOLD
-			elif case["case_type"] == "Payment Plan":
+			if case["resolution"] == "Payment Plan":
 				status = STATUS_PLAN
-			elif case["case_type"] == "Workout":
+			elif case["resolution"] == "Workout":
 				status = STATUS_WORKOUT
+			else:
+				status = STATUS_HOLD
 
 		if filters.get("status") and filters["status"] != status:
 			continue
@@ -66,7 +66,7 @@ def get_data(filters):
 			{
 				"customer": customer,
 				"status": status,
-				"case_type": case["case_type"] if case else None,
+				"resolution": case["resolution"] if case else None,
 				"balance": flt(bucket.get("outstanding")),
 				"past_due": flt(bucket.get("past_due")),
 				"max_days": bucket.get("max_days") or 0,
@@ -89,14 +89,18 @@ def get_data(filters):
 
 
 def _live_cases() -> dict:
-	"""The strongest live case per customer, with its collections detail."""
+	"""The one live case per customer, with its collections detail.
+
+	Only one AR Case can be Active for a customer at a time, so this is a
+	straight fetch rather than a pick-the-strongest merge.
+	"""
 	cases = frappe.get_all(
 		"AR Case",
-		filters={"status": ("not in", INACTIVE_STATUSES), "show_on_red_list": 1},
+		filters={"status": STATUS_ACTIVE, "show_on_red_list": 1},
 		fields=[
 			"name",
 			"customer",
-			"case_type",
+			"resolution",
 			"status",
 			"promise_to_pay_date",
 			"promise_to_pay_amount",
@@ -111,21 +115,7 @@ def _live_cases() -> dict:
 		],
 		order_by="opened_on asc",
 	)
-
-	priority = {
-		"Warning": 1,
-		"Payment Plan": 2,
-		"Workout": 3,
-		"Hard Hold": 4,
-		"Immediate Hold": 5,
-	}
-
-	best: dict[str, dict] = {}
-	for case in cases:
-		current = best.get(case.customer)
-		if not current or priority.get(case.case_type, 0) > priority.get(current["case_type"], 0):
-			best[case.customer] = case
-	return best
+	return {case.customer: case for case in cases}
 
 
 def get_message(data, filters):
@@ -183,11 +173,11 @@ def _plan_week():
 		SELECT i.amount, i.paid_amount
 		FROM `tabAR Case Installment` i
 		JOIN `tabAR Case` c ON c.name = i.parent
-		WHERE c.case_type = 'Payment Plan'
-		  AND c.status NOT IN %(inactive)s
+		WHERE c.resolution = 'Payment Plan'
+		  AND c.status = %(active)s
 		  AND i.due_date BETWEEN %(start)s AND %(end)s
 		""",
-		{"inactive": INACTIVE_STATUSES, "start": week_start, "end": week_end},
+		{"active": STATUS_ACTIVE, "start": week_start, "end": week_end},
 		as_dict=True,
 	)
 
@@ -223,7 +213,7 @@ def get_columns():
 		{"label": _("Customer"), "fieldname": "customer", "fieldtype": "Link",
 		 "options": "Customer", "width": 200},
 		{"label": _("Status"), "fieldname": "status", "fieldtype": "Data", "width": 100},
-		{"label": _("Case Type"), "fieldname": "case_type", "fieldtype": "Data", "width": 130},
+		{"label": _("Resolution"), "fieldname": "resolution", "fieldtype": "Data", "width": 130},
 		{"label": _("Balance"), "fieldname": "balance", "fieldtype": "Currency", "width": 130},
 		{"label": _("Past Due"), "fieldname": "past_due", "fieldtype": "Currency", "width": 130},
 		{"label": _("Max Days"), "fieldname": "max_days", "fieldtype": "Int", "width": 100},

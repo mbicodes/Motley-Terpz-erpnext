@@ -25,6 +25,31 @@ frappe.ui.form.on('Conversion Entry', {
 		});
 	},
 
+	// ── Scan-to-select Metric Tag ────────────────────────────────────────────
+	// Conversion Entry has no BarcodeScanner and its item table is a fixed
+	// set of Raw Material 1-7 / Finished Good 1-3 slots per row rather than
+	// one row per item, so it can't reuse metric_tag_scan.js's own
+	// apply_row — it reuses that file's lookup()/render_picker() and applies
+	// the pick itself. See metric_tag.get_metric_tag_scan.
+	scan_metric_tag: function (frm) {
+		const value = (frm.doc.scan_metric_tag || '').trim();
+		if (!value) return;
+		frm.set_value('scan_metric_tag', '');
+
+		cannabis_management.metric_tag_scan.lookup(value, 'Conversion Entry Item').then((data) => {
+			if (!data || !data.found) {
+				frappe.show_alert({
+					message: __('{0} is not a known Metric Tag.', [value]),
+					indicator: 'orange',
+				});
+				return;
+			}
+			cannabis_management.metric_tag_scan.render_picker(data, (row) =>
+				_apply_metric_tag_to_next_rm_slot(frm, data.tag_name, row)
+			);
+		});
+	},
+
 	// ── Timer ─────────────────────────────────────────────────────────────────
 
 	prepare_timer_buttons: function (frm) {
@@ -234,6 +259,69 @@ function _sync_item_group(cdt, cdn, item_field, group_field) {
 	frappe.db.get_value('Item', item, 'item_group', function (val) {
 		frappe.model.set_value(cdt, cdn, group_field, (val && val.item_group) || '');
 	});
+}
+
+// Fills the first empty Raw Material slot (1..7, but never past however many
+// this row's conversion_type actually calls for — e.g. "2 to 1" only ever
+// fills RM1/RM2) with the picked item, defaulting its qty to what's
+// available under the tag and recording the tag on that slot's hidden
+// rm_N_tag field for traceability. Starts a new Conversion Entry Item row
+// once the current last row's active slots are all full (or there is no row
+// yet); a fresh row always starts at RM1.
+function _apply_metric_tag_to_next_rm_slot(frm, tag_name, row) {
+	function rm_count_for(conversion_type) {
+		const match = /^(\d+) to \d+$/.exec(conversion_type || '');
+		return match ? Number(match[1]) : 1;
+	}
+
+	function first_empty_slot(item_row) {
+		const count = Math.min(7, Math.max(1, rm_count_for(item_row.conversion_type)));
+		for (let n = 1; n <= count; n++) {
+			if (!item_row['raw_material_' + n]) return n;
+		}
+		return null;
+	}
+
+	const items = frm.doc.items || [];
+	let target = items.length ? items[items.length - 1] : null;
+	let slot = target ? first_empty_slot(target) : null;
+
+	if (!target || slot === null) {
+		target = frappe.model.add_child(frm.doc, 'Conversion Entry Item', 'items');
+		frm.script_manager.trigger('items_add', target.doctype, target.name);
+		slot = 1;
+	}
+
+	const rm_field = 'raw_material_' + slot;
+	const qty_field = 'qty_rm_' + slot;
+	const tag_field = 'rm_' + slot + '_tag';
+
+	if (!row) {
+		// Tag resolved but has no stock yet (a fresh/just-registered tag) —
+		// nothing to look an item up from, so just record the tag on this
+		// slot and leave the item/qty for the user to fill in by hand.
+		frappe.model.set_value(target.doctype, target.name, tag_field, tag_name).then(() => {
+			frm.refresh_field('items');
+			frappe.show_alert({
+				message: __('Metric Tag {0} has no stock yet — row #{1}, RM {2} tagged; pick the item by hand.', [tag_name, target.idx, slot]),
+				indicator: 'blue',
+			});
+		});
+		return;
+	}
+
+	frappe.run_serially([
+		() => frappe.model.set_value(target.doctype, target.name, tag_field, tag_name),
+		() => frappe.model.set_value(target.doctype, target.name, qty_field, row.qty),
+		() => frappe.model.set_value(target.doctype, target.name, rm_field, row.item_code),
+		() => {
+			frm.refresh_field('items');
+			frappe.show_alert({
+				message: __('Row #{0}, RM {1}: {2} (qty {3}) set from Metric Tag {4}.', [target.idx, slot, row.item_code, row.qty, tag_name]),
+				indicator: 'green',
+			});
+		},
+	]);
 }
 
 function clear_hidden_fields_for_row(frm, cdt, cdn) {

@@ -141,6 +141,11 @@
 			white-space: nowrap;
 		}
 
+		.job-card .jc-note {
+			font-size: 11px;
+			color: #ffcf8f;
+		}
+
 		.job-card .jc-btn {
 			margin-top: 4px;
 			width: 100%;
@@ -155,6 +160,19 @@
 
 		.job-card .jc-btn.jc-start { background: linear-gradient(145deg, #4a63ff, #2c3ea8); }
 		.job-card .jc-btn.jc-end { background: linear-gradient(145deg, #ff7a4a, #b8452c); }
+		.job-card .jc-btn.jc-overtime { background: linear-gradient(145deg, #ef4444, #991b1b); }
+
+		/* Auto-ended at 8h, waiting on the employee to request overtime - loud on
+		   purpose (see playOvertimeAlarm), the card should be just as loud visually. */
+		.job-card.needs-overtime {
+			border-color: rgba(239, 68, 68, 0.7);
+			animation: needs-overtime-pulse 1.6s ease-in-out infinite;
+		}
+
+		@keyframes needs-overtime-pulse {
+			0%, 100% { box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35), 0 0 0 0 rgba(239, 68, 68, 0.55); }
+			50% { box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35), 0 0 0 8px rgba(239, 68, 68, 0); }
+		}
 
 		.board-footer-note {
 			margin-top: 26px;
@@ -164,7 +182,7 @@
 		}
 
 		/* ---------------------------------------------------------------- */
-		/* Shared card-style layout for code/start/end/done screens          */
+		/* Shared card-style layout for code/start/end/overtime/done screens */
 		/* ---------------------------------------------------------------- */
 
 		.layout {
@@ -242,6 +260,11 @@
 			align-items: center;
 			justify-content: center;
 			box-shadow: 0 8px 20px rgba(74, 99, 255, 0.45);
+		}
+
+		.icon-badge.alert {
+			background: linear-gradient(145deg, #ef4444, #991b1b);
+			box-shadow: 0 8px 20px rgba(239, 68, 68, 0.45);
 		}
 
 		.icon-badge svg { width: 28px; height: 28px; fill: #fff; }
@@ -378,41 +401,6 @@
 
 		.history-empty { font-size: 12.5px; color: #6f7891; }
 
-		.camera-box {
-			margin-bottom: 18px;
-			padding: 12px;
-			border-radius: 12px;
-			background: rgba(255,255,255,0.05);
-			border: 1px solid rgba(255,255,255,0.1);
-			text-align: center;
-		}
-
-		.camera-box .cam-notice {
-			font-size: 11.5px;
-			color: #ffcf8f;
-			margin-bottom: 8px;
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			gap: 6px;
-		}
-
-		.camera-box .cam-notice svg { width: 13px; height: 13px; fill: #ffcf8f; flex-shrink: 0; }
-
-		.camera-box video {
-			width: 100%;
-			max-width: 220px;
-			border-radius: 10px;
-			background: #000;
-			transform: scaleX(-1); /* mirror, like a mirror/selfie view */
-		}
-
-		.camera-box .cam-status {
-			font-size: 11px;
-			color: #6f7891;
-			margin-top: 6px;
-		}
-
 		.footer-note {
 			margin-top: 22px;
 			font-size: 11.5px;
@@ -452,7 +440,7 @@
 		<div class="board-footer-note">Every attempt is recorded.</div>
 	</div>
 
-	<!-- CODE / START / END / DONE — one central card, shown after a job-card tap -->
+	<!-- CODE / START / END / OVERTIME / DONE — one central card, shown after a job-card tap -->
 	<div class="layout" id="flow-layout" hidden>
 
 		<div class="history-panel" id="history-panel" hidden>
@@ -489,14 +477,7 @@
 				<h1>Start Timesheet</h1>
 				<p class="employee-banner">Welcome, <b id="start-employee-name">-</b></p>
 
-				<div class="camera-box" id="start-camera-box">
-					<div class="cam-notice">
-						<svg viewBox="0 0 24 24"><path d="M4 5h3l1.5-2h7L17 5h3a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zm8 3a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0 2a3 3 0 1 1 0 6 3 3 0 0 1 0-6z"/></svg>
-						A verification photo will be taken when you start
-					</div>
-					<video id="start-camera-video" autoplay playsinline muted></video>
-					<div class="cam-status" id="start-camera-status">Requesting camera…</div>
-				</div>
+				<p class="btn-hint" id="start-overtime-hint" hidden></p>
 
 				<div class="field">
 					<label for="start-activity-type">Activity Type <span class="required-mark">*</span></label>
@@ -507,7 +488,6 @@
 					<input type="datetime-local" id="start-time" required>
 				</div>
 				<div class="error-msg" id="start-error"></div>
-				<div class="btn-hint" id="start-btn-hint"></div>
 				<button type="button" class="btn" id="start-save-btn" disabled>Save &amp; Start</button>
 				<button type="button" class="btn secondary" id="start-cancel-btn">Cancel</button>
 			</section>
@@ -520,15 +500,6 @@
 				<h1>End Timesheet</h1>
 				<p class="employee-banner">Welcome back, <b id="end-employee-name">-</b></p>
 
-				<div class="camera-box" id="end-camera-box">
-					<div class="cam-notice">
-						<svg viewBox="0 0 24 24"><path d="M4 5h3l1.5-2h7L17 5h3a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zm8 3a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0 2a3 3 0 1 1 0 6 3 3 0 0 1 0-6z"/></svg>
-						A verification photo will be taken when you end
-					</div>
-					<video id="end-camera-video" autoplay playsinline muted></video>
-					<div class="cam-status" id="end-camera-status">Requesting camera…</div>
-				</div>
-
 				<div class="summary-box">
 					<div class="row"><span>Activity Type</span><span id="end-activity-type">-</span></div>
 					<div class="row"><span>Start Time</span><span id="end-start-time">-</span></div>
@@ -539,9 +510,30 @@
 					<input type="datetime-local" id="end-time" required>
 				</div>
 				<div class="error-msg" id="end-error"></div>
-				<div class="btn-hint" id="end-btn-hint"></div>
-				<button type="button" class="btn" id="end-save-btn" disabled>Save &amp; End</button>
+				<button type="button" class="btn" id="end-save-btn">Save &amp; End</button>
 				<button type="button" class="btn secondary" id="end-cancel-btn">Cancel</button>
+			</section>
+
+			<!-- OVERTIME REQUEST SCREEN (shown instead of Start once the kiosk has
+			     auto-ended this employee at 8 hours and they haven't asked yet) -->
+			<section id="screen-overtime" hidden>
+				<div class="icon-badge alert">
+					<svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-2h2zm0-4h-2V7h2z"/></svg>
+				</div>
+				<h1>Request Overtime</h1>
+				<p class="employee-banner">For <b id="overtime-employee-name">-</b></p>
+
+				<div class="summary-box">
+					<div class="row"><span>Status</span><span>8 hours complete</span></div>
+				</div>
+
+				<div class="field">
+					<label for="overtime-hours">How many extra hours? <span class="required-mark">*</span></label>
+					<input type="number" id="overtime-hours" placeholder="e.g. 2" min="0.5" max="16" step="0.5" inputmode="decimal" required>
+				</div>
+				<div class="error-msg" id="overtime-error"></div>
+				<button type="button" class="btn" id="overtime-submit-btn">Submit Request</button>
+				<button type="button" class="btn secondary" id="overtime-cancel-btn">Back</button>
 			</section>
 
 			<!-- DONE SCREEN -->
@@ -562,15 +554,28 @@
 	(function () {
 		"use strict";
 
-		var API = "/api/method/cannabis_management.manufacturing_timesheet_kiosk.api.";
+		// A kiosk tablet should never be sitting on a stray authenticated session -
+		// someone logging into Desk on it once (to set it up, say) is enough to leave
+		// one behind, and besides being a security smell on a public floor device, an
+		// authenticated session enforces CSRF on every POST this page makes, which
+		// this guest page never sends a token for (see call() below) - so a leftover
+		// login used to make every board load/clock-in/out fail here. GET only, so
+		// this itself can never be blocked by that same CSRF check (frappe/auth.py
+		// only checks unsafe methods). Fire-and-forget: if it fails we're either
+		// already Guest or offline, and everything below still runs regardless.
+		fetch("/api/method/logout", { method: "GET", credentials: "same-origin" }).catch(function () {});
+
+		// Neutral path (nginx rewrites it to the real whitelisted method server-side -
+		// see /etc/nginx/conf.d/frappe.conf's "location /kiosk-api/" block). Some
+		// client-side WiFi/network content filters silently block any request whose
+		// URL contains "cannabis" (this app's name), which used to fail every board
+		// load/clock-in/out here even though the page itself loaded fine.
+		var API = "/kiosk-api/";
+
 		var state = {
 			token: null,
-			startStream: null,
-			endStream: null,
 			cardEmployee: null,
 			cardAction: null,
-			startPhotoReady: false,
-			endPhotoReady: false,
 		};
 		var boardTimerHandle = null;
 		var boardRefreshHandle = null;
@@ -584,6 +589,7 @@
 				code: document.getElementById("screen-code"),
 				start: document.getElementById("screen-start"),
 				end: document.getElementById("screen-end"),
+				overtime: document.getElementById("screen-overtime"),
 				done: document.getElementById("screen-done"),
 			},
 
@@ -598,25 +604,26 @@
 			historyList: document.getElementById("history-list"),
 
 			startEmployeeName: document.getElementById("start-employee-name"),
-			startCameraVideo: document.getElementById("start-camera-video"),
-			startCameraStatus: document.getElementById("start-camera-status"),
+			startOvertimeHint: document.getElementById("start-overtime-hint"),
 			startActivityType: document.getElementById("start-activity-type"),
 			startTime: document.getElementById("start-time"),
 			startError: document.getElementById("start-error"),
-			startBtnHint: document.getElementById("start-btn-hint"),
 			startSaveBtn: document.getElementById("start-save-btn"),
 			startCancelBtn: document.getElementById("start-cancel-btn"),
 
 			endEmployeeName: document.getElementById("end-employee-name"),
-			endCameraVideo: document.getElementById("end-camera-video"),
-			endCameraStatus: document.getElementById("end-camera-status"),
 			endActivityType: document.getElementById("end-activity-type"),
 			endStartTime: document.getElementById("end-start-time"),
 			endTime: document.getElementById("end-time"),
 			endError: document.getElementById("end-error"),
-			endBtnHint: document.getElementById("end-btn-hint"),
 			endSaveBtn: document.getElementById("end-save-btn"),
 			endCancelBtn: document.getElementById("end-cancel-btn"),
+
+			overtimeEmployeeName: document.getElementById("overtime-employee-name"),
+			overtimeHours: document.getElementById("overtime-hours"),
+			overtimeError: document.getElementById("overtime-error"),
+			overtimeSubmitBtn: document.getElementById("overtime-submit-btn"),
+			overtimeCancelBtn: document.getElementById("overtime-cancel-btn"),
 
 			doneTitle: document.getElementById("done-title"),
 			doneMessage: document.getElementById("done-message"),
@@ -703,47 +710,75 @@
 			});
 		}
 
-		// ---- Verification photo (disclosed: visible preview + on-screen notice,
-		// never a hidden/silent capture). Camera is mandatory now - Save stays
-		// disabled until a frame is actually capturable. ----
-		function startCamera(videoEl, statusEl, streamKey, onReadyChange) {
-			if (!videoEl) return;
-			if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-				if (statusEl) statusEl.textContent = "Camera not available on this device — cannot continue.";
-				onReadyChange(false);
-				return;
+		// ---- Overtime alarm: a loud siren (Web Audio, no audio file needed) plus a
+		// spoken announcement naming the employee (Web Speech API), so it's heard
+		// even by someone not looking at the tablet. Re-fires on every board poll
+		// (30s) for as long as the employee stays unresolved (needs_request) - see
+		// announceOvertimeNeeded() below - by design, since the point is to keep
+		// making noise until someone acts, not to alert once and go quiet. ----
+		var audioCtx = null;
+
+		function playOvertimeAlarm(employeeNames) {
+			try {
+				if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+				if (audioCtx.state === "suspended") audioCtx.resume();
+
+				var ctx = audioCtx;
+				var now = ctx.currentTime;
+				var gain = ctx.createGain();
+				gain.connect(ctx.destination);
+				var osc = ctx.createOscillator();
+				osc.type = "square";
+				osc.connect(gain);
+
+				gain.gain.setValueAtTime(0, now);
+				gain.gain.linearRampToValueAtTime(0.9, now + 0.05);
+
+				// Three up/down siren sweeps, ~1s each.
+				var t = now;
+				for (var i = 0; i < 3; i++) {
+					osc.frequency.setValueAtTime(600, t);
+					osc.frequency.linearRampToValueAtTime(1100, t + 0.5);
+					osc.frequency.linearRampToValueAtTime(600, t + 1.0);
+					t += 1.0;
+				}
+				gain.gain.setValueAtTime(0.9, t - 0.05);
+				gain.gain.linearRampToValueAtTime(0, t);
+
+				osc.start(now);
+				osc.stop(t + 0.05);
+			} catch (e) {
+				// Web Audio unavailable - the pulsing red card is still visible.
 			}
-			navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false })
-				.then(function (stream) {
-					state[streamKey] = stream;
-					videoEl.srcObject = stream;
-					videoEl.addEventListener("loadedmetadata", function () {
-						if (statusEl) statusEl.textContent = "Camera ready.";
-						onReadyChange(true);
-					}, { once: true });
-				})
-				.catch(function () {
-					if (statusEl) statusEl.textContent = "Camera permission denied — a photo is required to continue.";
-					onReadyChange(false);
+
+			try {
+				if (window.speechSynthesis && employeeNames) {
+					var utter = new SpeechSynthesisUtterance(
+						employeeNames + ", your 8 hours are complete. Please request overtime."
+					);
+					utter.volume = 1;
+					utter.rate = 0.95;
+					// After the siren, not on top of it.
+					setTimeout(function () { speechSynthesis.speak(utter); }, 3300);
+				}
+			} catch (e) {
+				// Speech synthesis unavailable - nothing else to do here.
+			}
+		}
+
+		// Scans the just-rendered board for anyone still needing an overtime request
+		// and sounds the alarm once per loadBoard() call (immediate load, plus every
+		// 30s refresh) for as long as they remain unresolved.
+		function announceOvertimeNeeded(groups) {
+			var names = [];
+			(groups || []).forEach(function (group) {
+				(group.employees || []).forEach(function (emp) {
+					if (emp.overtime && emp.overtime.state === "needs_request") {
+						names.push(emp.employee_name);
+					}
 				});
-		}
-
-		function stopCamera(streamKey) {
-			var stream = state[streamKey];
-			if (stream) {
-				stream.getTracks().forEach(function (track) { track.stop(); });
-				state[streamKey] = null;
-			}
-		}
-
-		function capturePhoto(videoEl, streamKey) {
-			var stream = state[streamKey];
-			if (!videoEl || !stream || !videoEl.videoWidth) return null;
-			var canvas = document.createElement("canvas");
-			canvas.width = videoEl.videoWidth;
-			canvas.height = videoEl.videoHeight;
-			canvas.getContext("2d").drawImage(videoEl, 0, 0);
-			return canvas.toDataURL("image/jpeg", 0.85);
+			});
+			if (names.length) playOvertimeAlarm(names.join(", "));
 		}
 
 		// How far this browser's clock sits from the server's, learned from the `Date`
@@ -847,17 +882,25 @@
 		}
 
 		function buildJobCard(emp) {
+			var needsRequest = emp.overtime && emp.overtime.state === "needs_request";
+			var isPending = emp.overtime && emp.overtime.state === "pending";
+			var isApproved = emp.overtime && emp.overtime.state === "approved";
+
 			var card = document.createElement("div");
-			card.className = "job-card" + (emp.running ? " running" : "");
+			card.className = "job-card" + (emp.running ? " running" : "") + (needsRequest ? " needs-overtime" : "");
 
 			var name = document.createElement("div");
 			name.className = "jc-name";
 			name.textContent = emp.employee_name;
 			card.appendChild(name);
 
+			var statusText = emp.running ? (emp.is_overtime_session ? "Running (overtime)" : "Running") : "Not started";
+			if (needsRequest) statusText = "Overtime needed";
+			else if (isPending) statusText = "Overtime pending";
+
 			var status = document.createElement("div");
 			status.className = "jc-status";
-			status.innerHTML = "<span class='jc-dot'></span><span>" + (emp.running ? "Running" : "Not started") + "</span>";
+			status.innerHTML = "<span class='jc-dot'></span><span>" + statusText + "</span>";
 			card.appendChild(status);
 
 			var timer = document.createElement("div");
@@ -878,12 +921,22 @@
 				card.appendChild(activity);
 			}
 
+			if (!emp.running && (isPending || isApproved)) {
+				var note = document.createElement("div");
+				note.className = "jc-note";
+				note.textContent = isPending
+					? "Requested " + emp.overtime.requested_hours + "h — awaiting approval"
+					: "Approved: " + emp.overtime.requested_hours + "h overtime available";
+				card.appendChild(note);
+			}
+
+			var action = emp.running ? "end" : (needsRequest ? "overtime" : "start");
 			var btn = document.createElement("button");
 			btn.type = "button";
-			btn.className = "jc-btn " + (emp.running ? "jc-end" : "jc-start");
-			btn.textContent = emp.running ? "End" : "Start";
+			btn.className = "jc-btn " + (emp.running ? "jc-end" : (needsRequest ? "jc-overtime" : "jc-start"));
+			btn.textContent = emp.running ? "End" : (needsRequest ? "Request Overtime" : "Start");
 			btn.addEventListener("click", function () {
-				openCodeScreen(emp.employee, emp.employee_name, emp.running ? "end" : "start");
+				openCodeScreen(emp.employee, emp.employee_name, action);
 			});
 			card.appendChild(btn);
 
@@ -938,7 +991,10 @@
 		}
 
 		function loadBoard() {
-			return call("get_employee_board").then(renderBoard).catch(function () {
+			return call("get_employee_board").then(function (groups) {
+				renderBoard(groups);
+				announceOvertimeNeeded(groups);
+			}).catch(function () {
 				els.boardGroups.innerHTML = "<div class='board-empty'>Could not load the board. Retrying…</div>";
 			});
 		}
@@ -947,8 +1003,6 @@
 			state.token = null;
 			state.cardEmployee = null;
 			state.cardAction = null;
-			stopCamera("startStream");
-			stopCamera("endStream");
 			els.flowLayout.hidden = true;
 			els.boardScreen.hidden = false;
 			loadBoard();
@@ -964,6 +1018,40 @@
 			els.flowLayout.hidden = false;
 			showFlowScreen("code");
 			els.accessCode.focus();
+		}
+
+		function overtimeHintText(prompt) {
+			if (!prompt) return "";
+			if (prompt.state === "pending") return "Overtime request pending (" + prompt.requested_hours + "h) — awaiting approval.";
+			if (prompt.state === "approved") return "Overtime approved: " + prompt.requested_hours + "h available this session.";
+			return "";
+		}
+
+		function showStartScreen(result) {
+			els.startEmployeeName.textContent = result.employee_name;
+			els.startTime.value = toLocalInputValue();
+			var hint = overtimeHintText(result.overtime_prompt);
+			els.startOvertimeHint.textContent = hint;
+			els.startOvertimeHint.hidden = !hint;
+			loadActivityTypes();
+			showFlowScreen("start");
+			updateStartSaveState();
+		}
+
+		function showEndScreen(result) {
+			els.endEmployeeName.textContent = result.employee_name;
+			els.endActivityType.textContent = result.open_session.activity_type;
+			els.endStartTime.textContent = formatDisplay(result.open_session.start_time);
+			els.endTime.value = toLocalInputValue();
+			showFlowScreen("end");
+		}
+
+		function showOvertimeScreen(result) {
+			els.overtimeEmployeeName.textContent = result.employee_name;
+			els.overtimeHours.value = "";
+			els.overtimeError.textContent = "";
+			showFlowScreen("overtime");
+			els.overtimeHours.focus();
 		}
 
 		// ---- Code entry ----
@@ -984,29 +1072,15 @@
 					renderHistory(result.recent_timesheets);
 					els.historyPanel.hidden = false;
 
-					if (result.open_session) {
-						els.endEmployeeName.textContent = result.employee_name;
-						els.endActivityType.textContent = result.open_session.activity_type;
-						els.endStartTime.textContent = formatDisplay(result.open_session.start_time);
-						els.endTime.value = toLocalInputValue();
-						showFlowScreen("end");
-						state.endPhotoReady = false;
-						updateEndSaveState();
-						startCamera(els.endCameraVideo, els.endCameraStatus, "endStream", function (ready) {
-							state.endPhotoReady = ready;
-							updateEndSaveState();
-						});
+					// The server's own state wins regardless of which button was tapped:
+					// if an overtime request is still needed, that's what shows - an
+					// employee who taps Start on a stale board still gets routed here.
+					if (result.overtime_prompt && result.overtime_prompt.state === "needs_request") {
+						showOvertimeScreen(result);
+					} else if (result.open_session) {
+						showEndScreen(result);
 					} else {
-						els.startEmployeeName.textContent = result.employee_name;
-						els.startTime.value = toLocalInputValue();
-						loadActivityTypes();
-						showFlowScreen("start");
-						state.startPhotoReady = false;
-						updateStartSaveState();
-						startCamera(els.startCameraVideo, els.startCameraStatus, "startStream", function (ready) {
-							state.startPhotoReady = ready;
-							updateStartSaveState();
-						});
+						showStartScreen(result);
 					}
 				})
 				.catch(function (err) {
@@ -1036,52 +1110,26 @@
 			});
 		}
 
-		// ---- Mandatory-field gating: Camera, Activity Type and Start Time all
-		// have to be satisfied before Save & Start/End can be pressed at all. ----
 		function updateStartSaveState() {
-			var ready = state.startPhotoReady && !!els.startActivityType.value && !!els.startTime.value;
-			els.startSaveBtn.disabled = !ready;
-			els.startBtnHint.textContent = ready ? "" :
-				!state.startPhotoReady ? "Waiting for camera…" :
-				!els.startActivityType.value ? "Select an Activity Type to continue." :
-				"Start Time is required.";
-		}
-
-		function updateEndSaveState() {
-			var ready = state.endPhotoReady && !!els.endTime.value;
-			els.endSaveBtn.disabled = !ready;
-			els.endBtnHint.textContent = ready ? "" :
-				!state.endPhotoReady ? "Waiting for camera…" :
-				"End Time is required.";
+			els.startSaveBtn.disabled = !(els.startActivityType.value && els.startTime.value);
 		}
 
 		els.startActivityType.addEventListener("change", updateStartSaveState);
 		els.startTime.addEventListener("input", updateStartSaveState);
-		els.endTime.addEventListener("input", updateEndSaveState);
 
 		// ---- Start screen ----
 		els.startCancelBtn.addEventListener("click", showBoard);
 
 		els.startSaveBtn.addEventListener("click", function () {
 			els.startError.textContent = "";
-			var activityType = els.startActivityType.value;
-			var startTime = els.startTime.value;
-
-			var startPhoto = capturePhoto(els.startCameraVideo, "startStream");
-			if (!startPhoto) {
-				els.startError.textContent = "Could not capture a verification photo. Please try again.";
-				return;
-			}
-			stopCamera("startStream");
 
 			els.startSaveBtn.disabled = true;
 			els.startSaveBtn.textContent = "Saving…";
 
 			call("start_session", {
 				token: state.token,
-				activity_type: activityType,
-				start_time: startTime.replace("T", " "),
-				photo: startPhoto,
+				activity_type: els.startActivityType.value,
+				start_time: els.startTime.value.replace("T", " "),
 			})
 				.then(function () {
 					els.doneTitle.textContent = "Your Time is Start Now";
@@ -1101,19 +1149,11 @@
 
 		els.endSaveBtn.addEventListener("click", function () {
 			els.endError.textContent = "";
-			var endTime = els.endTime.value;
-
-			var endPhoto = capturePhoto(els.endCameraVideo, "endStream");
-			if (!endPhoto) {
-				els.endError.textContent = "Could not capture a verification photo. Please try again.";
-				return;
-			}
-			stopCamera("endStream");
 
 			els.endSaveBtn.disabled = true;
 			els.endSaveBtn.textContent = "Saving…";
 
-			call("end_session", { token: state.token, end_time: endTime.replace("T", " "), photo: endPhoto })
+			call("end_session", { token: state.token, end_time: els.endTime.value.replace("T", " ") })
 				.then(function (result) {
 					els.doneTitle.textContent = "Timesheet completed";
 					els.doneMessage.textContent = result.hours + " hour(s) logged for " + result.activity_type;
@@ -1124,6 +1164,36 @@
 					els.endError.textContent = err.message || "Could not end session";
 					els.endSaveBtn.disabled = false;
 					els.endSaveBtn.textContent = "Save & End";
+				});
+		});
+
+		// ---- Overtime request screen ----
+		els.overtimeCancelBtn.addEventListener("click", showBoard);
+
+		els.overtimeSubmitBtn.addEventListener("click", function () {
+			els.overtimeError.textContent = "";
+			var hours = parseFloat(els.overtimeHours.value);
+			if (!hours || hours <= 0) {
+				els.overtimeError.textContent = "Please enter how many hours.";
+				return;
+			}
+
+			els.overtimeSubmitBtn.disabled = true;
+			els.overtimeSubmitBtn.textContent = "Sending…";
+
+			call("submit_overtime_request", { token: state.token, requested_hours: hours })
+				.then(function () {
+					els.doneTitle.textContent = "Request Sent";
+					els.doneMessage.textContent = "Your request has been sent! You'll get a message once it's decided.";
+					showFlowScreen("done");
+					setTimeout(showBoard, 2800);
+				})
+				.catch(function (err) {
+					els.overtimeError.textContent = err.message || "Could not send the request";
+				})
+				.finally(function () {
+					els.overtimeSubmitBtn.disabled = false;
+					els.overtimeSubmitBtn.textContent = "Submit Request";
 				});
 		});
 

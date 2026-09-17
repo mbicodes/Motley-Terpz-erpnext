@@ -207,3 +207,161 @@ def validate_metric_tag_status(doc, method=None):
 					frappe.bold(tag_name)
 				)
 			)
+
+
+# ---------------------------------------------------------------------------
+# Source Tag / Target Tag on Stock Ledger Entry — mirrors each item row's own
+# Source/Target tag onto every Stock Ledger Entry that row produced, so a
+# ledger row always shows both ends of a same-transaction move (e.g. a Stock
+# Entry transfer row) instead of only the single "Source Tag" value ERPNext's
+# own Inventory Dimension framework copies in (leg-matched against whichever
+# warehouse that specific SLE belongs to — see get_stock_entry_legs above).
+# Registered in hooks.py on_submit, against the same four doctypes as
+# sync_metric_tags/sync_package_movements -- and must run before the latter,
+# since it reads the Source/Target Tag columns this writes.
+# ---------------------------------------------------------------------------
+
+# (source_fieldname, target_fieldname) on each item-row doctype. Purchase
+# Receipt Item reverses the usual pairing: its plain "muid" sits next to the
+# *receiving* warehouse field (this doc's primary warehouse is the target,
+# not the source), so "muid" holds the Target tag there and "from_muid"
+# (next to from_warehouse) holds the Source tag. Stock Reconciliation Item
+# only ever touches one warehouse, so it has no Target side.
+ROW_SOURCE_TARGET_FIELDS = {
+	"Stock Entry Detail": ("muid", "to_muid"),
+	"Delivery Note Item": ("muid", "to_muid"),
+	"Purchase Receipt Item": ("from_muid", "muid"),
+	"Stock Reconciliation Item": ("muid", None),
+}
+
+
+def _row_source_target_tags(voucher_doctype, row):
+	source_field, target_field = ROW_SOURCE_TARGET_FIELDS.get(row.doctype, (None, None))
+	source_value = row.get(source_field) if source_field else None
+	target_value = row.get(target_field) if target_field else None
+
+	if voucher_doctype == "Purchase Receipt" and not source_value and not target_value:
+		# Neither tag is linked yet — typically stock received from an
+		# external vendor whose packages aren't registered as Metric Tags
+		# here. Fall back to whatever the receiving clerk typed into Source
+		# Package, so the ledger still carries something to trace the lot to,
+		# even though it isn't a real Metric Tag reference.
+		source_value = row.get("custom_source_package") or None
+
+	return source_value, target_value
+
+
+def sync_sle_source_target_tags(doc, method=None):
+	"""on_submit hook — write each item row's Source/Target tag onto every
+	Stock Ledger Entry that row produced.
+
+	"Source Tag" is the Muid Inventory Dimension's own target_fieldname
+	("metric_tag" — see get_metric_tag_dimension_names), just relabelled;
+	"Target Tag" ("target_tag") is a plain field this app added alongside it.
+	"""
+	_, sle_source_fieldname = get_metric_tag_dimension_names()
+
+	for row in doc.get("items") or []:
+		source_value, target_value = _row_source_target_tags(doc.doctype, row)
+		if not source_value and not target_value:
+			continue
+		frappe.db.set_value(
+			"Stock Ledger Entry",
+			{
+				"voucher_type": doc.doctype,
+				"voucher_no": doc.name,
+				"voucher_detail_no": row.name,
+				"is_cancelled": 0,
+			},
+			{sle_source_fieldname: source_value, "target_tag": target_value},
+			update_modified=False,
+		)
+
+
+# ---------------------------------------------------------------------------
+# Scan-to-select — lets the standard "Scan Barcode" field on the item table of
+# any Metric-Tag-tracked transaction (see cannabis_management/public/js/
+# metric_tag_scan.js) accept a Metric Tag's Tag Code or MUID instead of a
+# barcode, and open a picker of what is currently in stock under that tag.
+# ---------------------------------------------------------------------------
+
+
+@frappe.whitelist()
+def get_metric_tag_scan(search_value, child_doctype=None):
+	"""Resolve `search_value` to a Metric Tag and list what is in stock under it.
+
+	A physical tag can be reused over its lifetime, so more than one
+	item/strain(batch) combination can legitimately come back for the same
+	tag — the caller is expected to let the user choose when there is more
+	than one row.
+
+	`child_doctype` (the caller's item-table row doctype, e.g. "Purchase
+	Receipt Item") is optional but lets the response carry the *actual*
+	fieldname to write the tag into on that row — see get_row_tag_fieldname's
+	docstring for why that can't just be assumed from the dimension name.
+	"""
+	search_value = (search_value or "").strip()
+	if not search_value:
+		return {"found": False}
+
+	# Deliberately no Metric Tag permission gate beyond the @frappe.whitelist()
+	# login requirement (matching erpnext.stock.utils.scan_barcode, which this
+	# sits alongside): staff who can create a Purchase Receipt/Delivery
+	# Note/etc. but don't hold the "Stock User" role that carries Metric Tag
+	# read access still need this to work on every scan — real users on this
+	# site (e.g. front-line receiving staff) hit exactly that gap. Throwing
+	# PermissionError here would silently break normal barcode scanning too,
+	# since the client falls through to it for every scan, not just tag ones.
+	tag_name = frappe.db.exists("Metric Tag", search_value) or frappe.db.get_value(
+		"Metric Tag", {"muid": search_value}
+	)
+	if not tag_name:
+		return {"found": False}
+
+	source_fieldname, dimension_field = get_metric_tag_dimension_names()
+	column = frappe.utils.sanitize_column(dimension_field)
+
+	rows = frappe.db.sql(
+		f"""
+		select item_code, warehouse, batch_no, stock_uom as uom, sum(actual_qty) as qty
+		from `tabStock Ledger Entry`
+		where {column} = %(tag)s and is_cancelled = 0
+		group by item_code, warehouse, batch_no
+		having sum(actual_qty) > 0.0000001
+		order by item_code, warehouse
+		""",  # nosemgrep
+		{"tag": tag_name},
+		as_dict=True,
+	)
+
+	if not rows:
+		# Nothing in the Stock Ledger yet under this dimension (e.g. the tag
+		# was just registered) — fall back to the cached snapshot on the tag.
+		cached = frappe.db.get_value(
+			"Metric Tag", tag_name, ["item_code", "warehouse", "current_qty", "uom"], as_dict=True
+		)
+		if cached and cached.item_code and flt(cached.current_qty) > 0:
+			rows = [
+				{
+					"item_code": cached.item_code,
+					"warehouse": cached.warehouse,
+					"batch_no": None,
+					"uom": cached.uom,
+					"qty": cached.current_qty,
+				}
+			]
+
+	for row in rows:
+		row["item_name"] = frappe.db.get_value("Item", row["item_code"], "item_name")
+		row["strain"] = (
+			frappe.db.get_value("Batch", row["batch_no"], "custom_strain_name") if row.get("batch_no") else None
+		)
+
+	return {
+		"found": True,
+		"tag_name": tag_name,
+		"dimension_fieldname": dimension_field,
+		"source_fieldname": source_fieldname,
+		"row_tag_fieldname": get_row_tag_fieldname(child_doctype) if child_doctype else None,
+		"rows": rows,
+	}

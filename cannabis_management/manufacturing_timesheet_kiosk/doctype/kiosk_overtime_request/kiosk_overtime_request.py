@@ -1,8 +1,8 @@
-# Copyright (c) 2026, alltechvirtual.com and contributors
+# Copyright (c) 2026, Cannabis Management and contributors
 # For license information, please see license.txt
 
 from frappe.model.document import Document
 
 
-class METRCTag(Document):
+class KioskOvertimeRequest(Document):
 	pass

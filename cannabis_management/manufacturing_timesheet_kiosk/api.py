@@ -8,14 +8,17 @@ Flow:
 	1. get_employee_board() -> this kiosk's rostered employees (see BOARD_GROUPS),
 	   grouped, with their running timer if any. This is the page the kiosk sits on
 	   with nobody logged in - allow_guest, no code needed yet.
-	2. Employee taps their own card's Start/End button -> the page asks for their
-	   code -> verify_access_code(access_code, employee) ->
-	   {token, employee, employee_name, open_session, recent_timesheets}. Passing
-	   `employee` (the card that was tapped) makes sure the code that was typed
-	   actually belongs to *that* card, not just *some* employee.
-	3. start_session(token, activity_type, start_time, photo) -> {name}
+	2. Employee taps their own card's Start/End/Request Overtime button -> the page
+	   asks for their code -> verify_access_code(access_code, employee) ->
+	   {token, employee, employee_name, open_session, overtime_prompt,
+	   recent_timesheets}. Passing `employee` (the card that was tapped) makes sure
+	   the code that was typed actually belongs to *that* card, not just *some*
+	   employee.
+	3. start_session(token, activity_type, start_time) -> {name}
 	   OR
-	   end_session(token, end_time, photo) -> {timesheet, hours}
+	   end_session(token, end_time) -> {timesheet, hours}
+	   OR
+	   submit_overtime_request(token, requested_hours) -> {name}
 
 `token` is a short-lived (5 minute), single-use handle returned by
 verify_access_code. It stands in for the employee for the rest of the flow so the
@@ -29,38 +32,72 @@ No separate "session" doctype: an open clock-in is just a Draft Timesheet whose 
 Timesheet Detail row has ``from_time`` set and ``to_time``/``completed`` empty - the
 same shape the Desk "Start Timer" button creates (see
 erpnext/public/js/projects/timer.js). ERPNext only enforces "hours must be > 0" at
-*submit* time (Timesheet.validate_mandatory_fields runs from on_submit, not validate),
-so a Draft can sit half-filled indefinitely. Ending the session fills in to_time/hours
-and submits it.
+*submit* time (Timesheet.validate_mandatory_fields runs from on_submit, not
+validate), so a Draft can sit half-filled indefinitely. Ending the session fills in
+to_time/hours and submits it.
 
-Verification photo: start_session/end_session both *require* a `photo` (base64 data
-URL from the kiosk page's camera capture) - Camera, Activity Type and Start Time are
-all mandatory now, matching what the kiosk UI enforces client-side. The data URL is
-decoded once, here, and stored as a private File attached to the Timesheet; the
-Timesheet's Attach Image field then holds that file's URL (see custom_fields.py). So
-the photo shows as a picture on the Timesheet and opens by clicking it - nobody has to
-copy base64 out of a text box and decode it by hand.
+No verification photo any more: the camera/face-detection step (capture on
+start/end, server-side face check) has been removed from the kiosk end to end - see
+the module's git history for the old ``_decode_photo``/face_detect.py-based version.
+custom_start_verification_photo/custom_end_verification_photo stay defined on
+Timesheet (custom_fields.py) purely so old Timesheets that already carry a photo
+keep displaying it; nothing writes to them any more.
 
-Neither the file nor the Timesheet can be deleted, by anyone: see the two guards in
-timesheet_hooks.py. Those guards are what makes the photo permanent - not the storage
-shape - because a File is inherently a separate document from the field pointing at it.
+8-hour auto-cutoff + overtime requests (new):
+	- A scheduled job, auto_end_overtime_sessions() (wired hourly->every minute in
+	  hooks.py's cron), force-ends any kiosk session that has been running at least
+	  REGULAR_HOURS_PER_SESSION hours - sets to_time to exactly the 8h mark,
+	  completes + submits the Timesheet, flags it custom_auto_ended, and emails the
+	  employee. It skips any session whose Timesheet already carries
+	  custom_overtime_request (see below) - that one is allowed to run long, same
+	  as before this feature existed.
+	- The board (get_employee_board) and verify_access_code both surface
+	  _overtime_prompt(employee): if the employee's most recent Timesheet was
+	  auto-ended and they have not yet requested overtime for it, the kiosk shows
+	  an alarm + "Request Overtime" prompt in place of their Start button.
+	- submit_overtime_request(token, requested_hours) records a Kiosk Overtime
+	  Request (Pending) against that Timesheet and emails OVERTIME_RECIPIENTS with
+	  one-click Approve/Reject links (decide_overtime_request, guest + a per-request
+	  action_token - no login needed to act on the email).
+	- Approving emails the employee back. Their *next* start_session then sees the
+	  Approved, not-yet-consumed request, links the new Timesheet to it via
+	  custom_overtime_request, and marks it consumed - exempting that one session
+	  from the auto-cutoff. end_session's existing 8-hour row-split (custom_overtime,
+	  untouched by any of this) takes it from there if that session also runs past
+	  8 hours.
 """
 
-import base64
-import binascii
 import datetime
-import re
 
 import frappe
 from frappe import _
-from frappe.utils import convert_utc_to_timezone, flt, get_datetime
+from frappe.utils import convert_utc_to_timezone, flt, get_datetime, get_url
 
 from cannabis_management.manufacturing_timesheet_kiosk.custom_fields import (
 	EMPLOYEE_FIELDS,
+	TIMESHEET_FIELDS,
 )
 
 CODE_FIELD = EMPLOYEE_FIELDS[0]["fieldname"]
 TOKEN_TTL_SECONDS = 300
+
+# Timesheet Detail row is split at REGULAR_HOURS_PER_SESSION on manual end (see
+# end_session) - untouched by the auto-cutoff feature below, which reads the same
+# constant to decide *when* to force-end a still-running session.
+REGULAR_HOURS_PER_SESSION = 8.0
+OVERTIME_FIELD = "custom_overtime"  # Timesheet Detail (Check) - set on the split row
+AUTO_ENDED_FIELD = TIMESHEET_FIELDS[2]["fieldname"]  # custom_auto_ended (Timesheet)
+OVERTIME_REQUEST_FIELD = TIMESHEET_FIELDS[3]["fieldname"]  # custom_overtime_request (Timesheet)
+
+# Who gets emailed when an employee requests overtime, and who their approval/
+# rejection email credits as "Decided By" (each gets their own Approve/Reject
+# links in a separately-sent copy of the request email - see
+# _send_overtime_request_email - purely so the audit trail on the request records
+# which of the two actually clicked, not just "someone with the link").
+OVERTIME_RECIPIENTS = [
+	{"email": "mbi@alltechvirtual.com", "label": "Muhammad"},
+	{"email": "jamie@motleyterpz.com", "label": "Jamie"},
+]
 
 # Which employees this kiosk's board shows, and under which heading.
 #
@@ -179,13 +216,15 @@ def _elapsed_seconds(from_time, now=None):
 def _get_open_timesheet(employee):
 	"""The employee's Draft Timesheet with a not-yet-completed time log row, if any.
 
-	Returns a dict with the Timesheet name plus that row's activity_type/from_time, or
-	None. Kiosk-started Timesheets only ever carry one row, but this also recognises a
-	Timesheet started from Desk (Start Timer) so the two never disagree.
+	Returns a dict with the Timesheet name plus that row's activity_type/from_time/
+	overtime_request, or None. Kiosk-started Timesheets only ever carry one open row,
+	but this also recognises a Timesheet started from Desk (Start Timer) so the two
+	never disagree.
 	"""
 	row = frappe.db.sql(
-		"""
-		select ts.name as timesheet, tsd.name as row_name, tsd.activity_type, tsd.from_time
+		f"""
+		select ts.name as timesheet, tsd.name as row_name, tsd.activity_type, tsd.from_time,
+			ts.{OVERTIME_REQUEST_FIELD} as overtime_request
 		from `tabTimesheet Detail` tsd
 		inner join `tabTimesheet` ts on ts.name = tsd.parent
 		where ts.employee = %s
@@ -227,9 +266,72 @@ def _get_recent_timesheets(employee, limit=5):
 	return timesheets
 
 
+def _eligible_employees():
+	"""Kiosk-eligible employees, keyed by id -> employee_name: Active status, a
+	code set, on this kiosk's own BOARD_GROUPS roster. Shared by get_employee_board
+	and the auto-cutoff cron so both agree on exactly who this kiosk covers."""
+	rostered = [employee for group in BOARD_GROUPS for employee in group["employees"]]
+	if not rostered:
+		return {}
+
+	return {
+		row.name: row.employee_name
+		for row in frappe.get_all(
+			"Employee",
+			filters={"name": ["in", rostered], "status": "Active", CODE_FIELD: ["is", "set"]},
+			fields=["name", "employee_name"],
+		)
+	}
+
+
+def _overtime_prompt(employee):
+	"""What (if anything) the board/code-entry screen should show this employee
+	about overtime, based on their most recent *submitted* Timesheet:
+
+	- None: nothing to show (last Timesheet was a normal manual end, or there
+	  isn't one yet, or they're currently running again).
+	- {"state": "needs_request", ...}: their last session was auto-ended at 8h and
+	  they have not requested overtime for it (or a prior request was Rejected) -
+	  the board should alarm + show "Request Overtime" in place of Start.
+	- {"state": "pending", ...}: a request is in for it, awaiting Muhammad/Jamie.
+	- {"state": "approved", ...}: approved and not yet used by a new session -
+	  informational hint only; start_session is what actually applies it.
+	"""
+	if _get_open_timesheet(employee):
+		# Running again already (e.g. the exempt overtime session itself) - no
+		# prompt makes sense while that's in progress.
+		return None
+
+	last_ts = frappe.db.get_value(
+		"Timesheet",
+		{"employee": employee, "docstatus": 1},
+		["name", AUTO_ENDED_FIELD],
+		order_by="creation desc",
+		as_dict=True,
+	)
+	if not last_ts or not last_ts.get(AUTO_ENDED_FIELD):
+		return None
+
+	req = frappe.db.get_value(
+		"Kiosk Overtime Request",
+		{"employee": employee, "timesheet": last_ts.name},
+		["name", "status", "requested_hours", "consumed"],
+		order_by="creation desc",
+		as_dict=True,
+	)
+	if not req or req.status == "Rejected":
+		return {"state": "needs_request", "timesheet": last_ts.name, "hours": REGULAR_HOURS_PER_SESSION}
+	if req.status == "Pending":
+		return {"state": "pending", "timesheet": last_ts.name, "requested_hours": req.requested_hours}
+	if req.status == "Approved" and not req.consumed:
+		return {"state": "approved", "timesheet": last_ts.name, "requested_hours": req.requested_hours}
+	return None
+
+
 @frappe.whitelist(allow_guest=True)
 def get_employee_board():
-	"""The kiosk's rostered employees, grouped, each with their running timer if any.
+	"""The kiosk's rostered employees, grouped, each with their running timer (and
+	any overtime prompt) if any.
 
 	This is what the kiosk shows before anyone has entered a code - one "job card"
 	per rostered employee, under its group's heading. Tapping a card is what triggers
@@ -241,18 +343,9 @@ def get_employee_board():
 	verify_access_code could never match it. An empty group is dropped rather than
 	rendered as a bare heading.
 	"""
-	rostered = [employee for group in BOARD_GROUPS for employee in group["employees"]]
-	if not rostered:
+	eligible = _eligible_employees()
+	if not eligible:
 		return []
-
-	eligible = {
-		row.name: row.employee_name
-		for row in frappe.get_all(
-			"Employee",
-			filters={"name": ["in", rostered], "status": "Active", CODE_FIELD: ["is", "set"]},
-			fields=["name", "employee_name"],
-		)
-	}
 
 	# Elapsed is measured here rather than in the browser: the kiosk tablet's own
 	# clock and timezone then stop mattering, so a card can no longer read hours out
@@ -274,6 +367,8 @@ def get_employee_board():
 					"activity_type": open_ts.activity_type if open_ts else None,
 					"start_time": open_ts.from_time if open_ts else None,
 					"elapsed_seconds": _elapsed_seconds(open_ts.from_time, now) if open_ts else None,
+					"is_overtime_session": bool(open_ts and open_ts.overtime_request) if open_ts else False,
+					"overtime": None if open_ts else _overtime_prompt(employee),
 				}
 			)
 		if cards:
@@ -326,73 +421,18 @@ def verify_access_code(access_code, employee=None):
 			if open_ts
 			else None
 		),
+		"overtime_prompt": None if open_ts else _overtime_prompt(matched.name),
 		"recent_timesheets": _get_recent_timesheets(matched.name),
 	}
 
 
-# What the page's canvas.toDataURL() produces. Kept strict on purpose: this is a
-# guest endpoint, and the only thing that should ever reach it is an image the kiosk
-# just captured.
-_DATA_URL = re.compile(r"^data:image/(jpeg|jpg|png|webp);base64,(?P<payload>[A-Za-z0-9+/=\s]+)$")
-
-# A generous ceiling for one captured frame - the kiosk's own captures run ~55KB at
-# 640x480. Not a tuning knob: it is here so a guest cannot post an arbitrarily large
-# body and have it land on disk.
-MAX_PHOTO_BYTES = 8 * 1024 * 1024
-
-
-def _store_photo(timesheet, fieldname, data_url, label):
-	"""Decode a captured data URL onto disk and return the private file's URL.
-
-	The File is attached to the Timesheet and to `fieldname`, which is what makes it
-	show up as the picture in that Attach Image field rather than as a loose
-	attachment, and what lets the guard in timesheet_hooks.py recognise it later.
-
-	Private (is_private=1): a verification photo of a worker should not be readable
-	by URL alone. Frappe gates private files on read permission for the document they
-	are attached to, so this inherits Timesheet's permissions.
-	"""
-	match = _DATA_URL.match((data_url or "").strip())
-	if not match:
-		frappe.throw(_("The verification photo was not in a format the kiosk recognises."))
-
-	try:
-		content = base64.b64decode(match.group("payload"), validate=False)
-	except (binascii.Error, ValueError):
-		frappe.throw(_("The verification photo could not be read. Please try again."))
-
-	if not content:
-		frappe.throw(_("The verification photo was empty. Please try again."))
-	if len(content) > MAX_PHOTO_BYTES:
-		frappe.throw(_("The verification photo is too large."))
-
-	extension = "jpg" if match.group(1) in ("jpeg", "jpg") else match.group(1)
-
-	file_doc = frappe.get_doc(
-		{
-			"doctype": "File",
-			"file_name": f"{timesheet}-{label}.{extension}",
-			"attached_to_doctype": "Timesheet",
-			"attached_to_name": timesheet,
-			"attached_to_field": fieldname,
-			"is_private": 1,
-			"content": content,
-		}
-	)
-	file_doc.insert(ignore_permissions=True)
-	return file_doc.file_url
-
-
 @frappe.whitelist(allow_guest=True)
-def start_session(token, activity_type, start_time=None, photo=None):
+def start_session(token, activity_type, start_time=None):
 	employee = _resolve_token(token)
 
-	# Camera, Activity Type and Start Time are all mandatory - none of these are
-	# optional extras the kiosk can silently skip.
 	if not activity_type:
 		frappe.throw(_("Please select an Activity Type"))
-	if not photo:
-		frappe.throw(_("A verification photo is required to start."))
+
 	# The kiosk sends this already expressed on the site's clock (it converts through
 	# System Settings' timezone before filling the picker), so it is stored verbatim.
 	start_dt = get_datetime(start_time) if start_time else _kiosk_now()
@@ -402,7 +442,27 @@ def start_session(token, activity_type, start_time=None, photo=None):
 
 	company = frappe.db.get_value("Employee", employee, "company")
 
-	# Draft, one incomplete row - the same shape Desk's "Start Timer" leaves behind.
+	# An Approved, not-yet-used overtime request exempts *this* session from the
+	# 8-hour auto-cutoff (auto_end_overtime_sessions skips any Timesheet carrying
+	# OVERTIME_REQUEST_FIELD) - picked up and marked consumed right away so a second
+	# new session started later can't also claim the same approval.
+	overtime_request = frappe.db.get_value(
+		"Kiosk Overtime Request",
+		{"employee": employee, "status": "Approved", "consumed": 0},
+		["name"],
+		order_by="modified desc",
+	)
+
+	# Draft, one incomplete row - the same shape Desk's "Start Timer" leaves behind
+	# (see erpnext/public/js/projects/timer.js), *including* to_time = from_time as
+	# a placeholder. That last part matters, not just cosmetic: Timesheet's own
+	# overlap check (validate_overlap_for in timesheet.py) reads a null to_time via
+	# get_datetime(None), which returns *now* rather than "open-ended" - so a truly
+	# empty to_time gets compared as if the row already ran from from_time to this
+	# instant, and can spuriously collide with an earlier session of this same
+	# employee's from earlier today (exactly the case this feature introduces: an
+	# 8h-auto-ended session, then a second approved-overtime one later the same
+	# day). Mirroring Desk's own placeholder avoids that false OverlapError.
 	# The site's Timesheet after_insert hook will try to auto-submit this and fail
 	# (hours is 0 until the row is completed); that failure is caught there and only
 	# logs/msgprints, so the insert itself is unaffected and the Timesheet stays Draft.
@@ -411,10 +471,12 @@ def start_session(token, activity_type, start_time=None, photo=None):
 			"doctype": "Timesheet",
 			"employee": employee,
 			"company": company,
+			OVERTIME_REQUEST_FIELD: overtime_request,
 			"time_logs": [
 				{
 					"activity_type": activity_type,
 					"from_time": start_dt,
+					"to_time": start_dt,
 					"completed": 0,
 				}
 			],
@@ -422,15 +484,9 @@ def start_session(token, activity_type, start_time=None, photo=None):
 	)
 	doc.insert(ignore_permissions=True)
 
-	# After the insert, not before: a File has to name the document it is attached to,
-	# and the Timesheet has no name until it exists. db_set rather than another save so
-	# this writes the one field without re-running validation on a Draft that ERPNext
-	# already considers half-finished.
-	doc.db_set(
-		"custom_start_verification_photo",
-		_store_photo(doc.name, "custom_start_verification_photo", photo, "start"),
-		update_modified=False,
-	)
+	if overtime_request:
+		frappe.db.set_value("Kiosk Overtime Request", overtime_request, "consumed", 1)
+
 	frappe.db.commit()
 	frappe.cache().delete_value(f"kiosk_token:{token}")
 
@@ -438,11 +494,8 @@ def start_session(token, activity_type, start_time=None, photo=None):
 
 
 @frappe.whitelist(allow_guest=True)
-def end_session(token, end_time=None, photo=None):
+def end_session(token, end_time=None):
 	employee = _resolve_token(token)
-
-	if not photo:
-		frappe.throw(_("A verification photo is required to end."))
 
 	open_ts = _get_open_timesheet(employee)
 	if not open_ts:
@@ -455,20 +508,39 @@ def end_session(token, end_time=None, photo=None):
 		frappe.throw(_("End time must be after the start time."))
 
 	# Rounded to the nearest hundredth of an hour (~36 seconds) for the kiosk
-	# receipt/display. The Timesheet Detail row itself is recalculated by ERPNext's
-	# own Timesheet.calculate_hours() from from_time/to_time (same formula used
-	# everywhere else in ERPNext) when the doc is saved below, so the two stay
-	# consistent.
+	# receipt/display. Each Timesheet Detail row's own `hours` is recalculated by
+	# ERPNext's own Timesheet.calculate_hours() from from_time/to_time (same formula
+	# used everywhere else in ERPNext) when the doc is saved below, so the two stay
+	# consistent - that's true of both rows below, not just a single one.
 	hours = flt((end_dt - start_dt).total_seconds() / 3600.0, 2)
 
 	timesheet = frappe.get_doc("Timesheet", open_ts.timesheet)
 	row = timesheet.get("time_logs", {"name": open_ts.row_name})[0]
-	row.to_time = end_dt
-	row.hours = hours
 	row.completed = 1
-	timesheet.custom_end_verification_photo = _store_photo(
-		timesheet.name, "custom_end_verification_photo", photo, "end"
-	)
+
+	if hours > REGULAR_HOURS_PER_SESSION:
+		# Split automatically at the REGULAR_HOURS_PER_SESSION mark: this row keeps
+		# the regular hours, and a second row - appended here, Overtime checked -
+		# picks up everything past it. No separate action for anyone to take; the
+		# employee just taps End same as always. In practice this only fires for an
+		# overtime-exempt session (see start_session/OVERTIME_REQUEST_FIELD) - a
+		# normal session never gets here because auto_end_overtime_sessions force-
+		# ends it at the 8h mark first.
+		split_at = start_dt + datetime.timedelta(hours=REGULAR_HOURS_PER_SESSION)
+		row.to_time = split_at
+		timesheet.append(
+			"time_logs",
+			{
+				"activity_type": open_ts.activity_type,
+				"from_time": split_at,
+				"to_time": end_dt,
+				"completed": 1,
+				OVERTIME_FIELD: 1,
+			},
+		)
+	else:
+		row.to_time = end_dt
+
 	timesheet.save(ignore_permissions=True)
 	timesheet.submit()
 
@@ -480,3 +552,268 @@ def end_session(token, end_time=None, photo=None):
 		"hours": hours,
 		"activity_type": open_ts.activity_type,
 	}
+
+
+# ── 8-hour auto-cutoff (scheduled) ───────────────────────────────────────────────
+
+
+def auto_end_overtime_sessions():
+	"""Scheduled every minute (see hooks.py's cron). Force-ends any kiosk session
+	that has been running at least REGULAR_HOURS_PER_SESSION hours, skipping any
+	Timesheet already exempted by an approved overtime request (OVERTIME_REQUEST_FIELD
+	- see start_session). Does *not* touch the overtime-request loop itself - that
+	only starts once the employee taps Request Overtime on the board.
+	"""
+	eligible = _eligible_employees()
+	if not eligible:
+		return
+
+	cutoff = _kiosk_now() - datetime.timedelta(hours=REGULAR_HOURS_PER_SESSION)
+	placeholders = ", ".join(["%s"] * len(eligible))
+
+	rows = frappe.db.sql(
+		f"""
+		select ts.name as timesheet, ts.employee, tsd.name as row_name, tsd.from_time
+		from `tabTimesheet Detail` tsd
+		inner join `tabTimesheet` ts on ts.name = tsd.parent
+		where ts.docstatus = 0
+			and tsd.from_time is not null
+			and tsd.completed = 0
+			and tsd.from_time <= %s
+			and ts.employee in ({placeholders})
+			and (ts.{OVERTIME_REQUEST_FIELD} is null or ts.{OVERTIME_REQUEST_FIELD} = '')
+		""",
+		[cutoff, *eligible.keys()],
+		as_dict=True,
+	)
+
+	for row in rows:
+		_force_end_session(row)
+
+
+def _force_end_session(row):
+	"""Force-end one open Timesheet Detail row at exactly the 8-hour mark - same
+	shape as a normal end_session, minus any input from the employee - then email
+	them. Any failure here must not crash the scheduler tick for the rest of `rows`,
+	so it's caught, logged, and skipped; the next tick (a minute later) retries it."""
+	try:
+		timesheet = frappe.get_doc("Timesheet", row.timesheet)
+		time_row = timesheet.get("time_logs", {"name": row.row_name})[0]
+		time_row.completed = 1
+		time_row.to_time = get_datetime(row.from_time) + datetime.timedelta(hours=REGULAR_HOURS_PER_SESSION)
+		timesheet.set(AUTO_ENDED_FIELD, 1)
+		timesheet.save(ignore_permissions=True)
+		timesheet.submit()
+		frappe.db.commit()
+	except Exception:
+		frappe.db.rollback()
+		frappe.log_error(title="Kiosk auto-end failed", message=frappe.get_traceback())
+		return
+
+	_send_hours_complete_email(row.employee, timesheet.name)
+
+
+# ── Overtime requests ────────────────────────────────────────────────────────────
+
+
+@frappe.whitelist(allow_guest=True)
+def submit_overtime_request(token, requested_hours):
+	employee = _resolve_token(token)
+	requested_hours = flt(requested_hours)
+	if requested_hours <= 0:
+		frappe.throw(_("Please enter how many hours of overtime you'd like to request."))
+	if requested_hours > 16:
+		frappe.throw(_("That's more overtime than one request can cover - please enter a smaller number."))
+
+	prompt = _overtime_prompt(employee)
+	if not prompt or prompt["state"] != "needs_request":
+		frappe.throw(_("There is no overtime request needed for this employee right now."))
+
+	employee_name = frappe.db.get_value("Employee", employee, "employee_name")
+
+	doc = frappe.get_doc(
+		{
+			"doctype": "Kiosk Overtime Request",
+			"employee": employee,
+			"employee_name": employee_name,
+			"timesheet": prompt["timesheet"],
+			"requested_hours": requested_hours,
+			"status": "Pending",
+			"requested_at": _kiosk_now(),
+			"action_token": frappe.generate_hash(length=32),
+		}
+	)
+	doc.insert(ignore_permissions=True)
+	frappe.db.commit()
+	frappe.cache().delete_value(f"kiosk_token:{token}")
+
+	_send_overtime_request_email(doc)
+
+	return {"name": doc.name}
+
+
+@frappe.whitelist(allow_guest=True)
+def decide_overtime_request(request, token, decision, by=None):
+	"""Landed on directly from the Approve/Reject links in the request email - a
+	guest endpoint on purpose (Muhammad/Jamie shouldn't need to log into Desk from
+	their phone to act on it), gated by the per-request action_token instead of a
+	session. Returns a plain confirmation page, not JSON, since a browser opens
+	this straight from the email."""
+	decision = (decision or "").strip().capitalize()
+	if decision not in ("Approved", "Rejected"):
+		frappe.throw(_("Invalid decision"))
+
+	doc = frappe.get_doc("Kiosk Overtime Request", request)
+
+	if not token or doc.action_token != token:
+		frappe.respond_as_web_page(
+			_("Link not valid"),
+			_("This approval link is not valid."),
+			indicator_color="red",
+		)
+		return
+
+	if doc.status != "Pending":
+		frappe.respond_as_web_page(
+			_("Already decided"),
+			_("{0}'s overtime request was already marked {1}.").format(doc.employee_name, doc.status),
+			indicator_color="blue",
+		)
+		return
+
+	doc.status = decision
+	doc.decided_by = by or "Unknown"
+	doc.decided_at = _kiosk_now()
+	doc.save(ignore_permissions=True)
+	frappe.db.commit()
+
+	if decision == "Approved":
+		_send_overtime_decision_email(doc)
+
+	frappe.respond_as_web_page(
+		_("Overtime request {0}").format(decision.lower()),
+		_("{0}'s request for {1} hour(s) of overtime has been {2}.").format(
+			doc.employee_name, doc.requested_hours, decision.lower()
+		),
+		indicator_color="green" if decision == "Approved" else "orange",
+	)
+
+
+# ── Email ─────────────────────────────────────────────────────────────────────────
+
+
+def _employee_email(employee):
+	row = frappe.db.get_value(
+		"Employee",
+		employee,
+		["employee_name", "user_id", "personal_email", "company_email", "prefered_email"],
+		as_dict=True,
+	)
+	if not row:
+		return None, None
+	return (row.user_id or row.personal_email or row.company_email or row.prefered_email), row.employee_name
+
+
+_EMAIL_WRAP = """<!DOCTYPE html><html><head><meta charset="UTF-8"></head>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f1f5f9;color:#0f172a;margin:0;padding:20px;">
+<div style="max-width:520px;margin:0 auto;">
+  <div style="background:{gradient};border-radius:14px;padding:24px 30px;margin-bottom:16px;text-align:center;">
+    <div style="font-size:20px;font-weight:800;color:#fff;">{heading}</div>
+    <div style="color:rgba(255,255,255,.85);font-size:13px;margin-top:6px;">Master Touch Manufacturing · Timesheet Kiosk</div>
+  </div>
+  <div style="background:#fff;border-radius:10px;padding:20px 22px;border:1px solid #e2e8f0;font-size:14px;line-height:1.6;color:#334155;">
+    {body}
+  </div>
+  <div style="text-align:center;color:#94a3b8;font-size:11px;margin-top:16px;">Automated message from the Manufacturing Timesheet Kiosk · Do not reply.</div>
+</div></body></html>"""
+
+
+def _send_hours_complete_email(employee, timesheet_name):
+	email, employee_name = _employee_email(employee)
+	if not email:
+		frappe.log_error(
+			title="Kiosk: no email on file for auto-ended employee",
+			message=f"employee={employee} timesheet={timesheet_name}",
+		)
+		return
+
+	body = f"""
+	<p>Hi {employee_name},</p>
+	<p>You've hit your <b>8 hours</b> for today, so the kiosk has clocked you out automatically
+	   (Timesheet <b>{timesheet_name}</b>).</p>
+	<p style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:12px 14px;color:#9a3412;">
+	   Want to keep working? Tap your card on the kiosk board and choose
+	   <b>Request Overtime</b> to ask for more time.</p>
+	<p>Thanks for a solid shift!</p>
+	"""
+	html = _EMAIL_WRAP.format(
+		gradient="linear-gradient(135deg,#1e293b,#334155)",
+		heading="Your 8 Hours Are Complete",
+		body=body,
+	)
+	try:
+		frappe.sendmail(recipients=[email], subject="Your 8 hours are complete", message=html, delayed=False)
+	except Exception:
+		frappe.log_error(title="Kiosk hours-complete email failed", message=frappe.get_traceback())
+
+
+def _send_overtime_request_email(doc):
+	base_url = get_url()
+	for person in OVERTIME_RECIPIENTS:
+		approve_url = (
+			f"{base_url}/kiosk-api/decide_overtime_request"
+			f"?request={doc.name}&token={doc.action_token}&decision=Approved&by={person['email']}"
+		)
+		reject_url = (
+			f"{base_url}/kiosk-api/decide_overtime_request"
+			f"?request={doc.name}&token={doc.action_token}&decision=Rejected&by={person['email']}"
+		)
+		body = f"""
+		<p>Hi {person['label']},</p>
+		<p><b>{doc.employee_name}</b> has already worked 8 hours today and is requesting
+		   <b>{doc.requested_hours} hour(s)</b> of overtime.</p>
+		<p style="text-align:center;margin:24px 0;">
+		  <a href="{approve_url}" style="display:inline-block;background:#16a34a;color:#fff;text-decoration:none;
+		     font-weight:700;padding:12px 26px;border-radius:8px;margin:0 6px;">Approve</a>
+		  <a href="{reject_url}" style="display:inline-block;background:#dc2626;color:#fff;text-decoration:none;
+		     font-weight:700;padding:12px 26px;border-radius:8px;margin:0 6px;">Reject</a>
+		</p>
+		<p style="color:#64748b;font-size:12.5px;">One tap, no login needed. Timesheet: {doc.timesheet}</p>
+		"""
+		html = _EMAIL_WRAP.format(
+			gradient="linear-gradient(135deg,#7c2d12,#c2410c)",
+			heading="Overtime Request",
+			body=body,
+		)
+		try:
+			frappe.sendmail(
+				recipients=[person["email"]],
+				subject=f"Overtime request — {doc.employee_name} ({doc.requested_hours}h)",
+				message=html,
+				delayed=False,
+			)
+		except Exception:
+			frappe.log_error(title="Kiosk overtime request email failed", message=frappe.get_traceback())
+
+
+def _send_overtime_decision_email(doc):
+	email, employee_name = _employee_email(doc.employee)
+	if not email:
+		return
+
+	body = f"""
+	<p>Hi {employee_name},</p>
+	<p style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px 14px;color:#166534;">
+	   Your overtime request has been <b>approved</b> for <b>{doc.requested_hours} hour(s)</b>.</p>
+	<p>You can work up to {doc.requested_hours} extra hour(s) next time you clock in - just tap
+	   <b>Start</b> on the kiosk board as usual.</p>
+	"""
+	html = _EMAIL_WRAP.format(
+		gradient="linear-gradient(135deg,#14532d,#16a34a)",
+		heading="Overtime Approved",
+		body=body,
+	)
+	try:
+		frappe.sendmail(recipients=[email], subject="Your overtime request was approved", message=html, delayed=False)
+	except Exception:
+		frappe.log_error(title="Kiosk overtime decision email failed", message=frappe.get_traceback())

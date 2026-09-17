@@ -106,11 +106,15 @@ def _reset_customers_to_cod():
 		""",
 		("COD",),
 	)
-	frappe.db.sql(
-		"""
-		UPDATE `tabCustomer`
-		SET custom_hold_type = %s
-		WHERE custom_hold_type IS NULL OR custom_hold_type = ''
-		""",
-		("None",),
-	)
+	# custom_hold_type has since been removed from Customer (hold type is now
+	# derived on demand from the active AR Case). Only backfill it on sites old
+	# enough to still carry the column, so a fresh install does not error here.
+	if "custom_hold_type" in frappe.db.get_table_columns("Customer"):
+		frappe.db.sql(
+			"""
+			UPDATE `tabCustomer`
+			SET custom_hold_type = %s
+			WHERE custom_hold_type IS NULL OR custom_hold_type = ''
+			""",
+			("None",),
+		)

@@ -9,10 +9,9 @@
  "field_order": [
   "naming_series",
   "customer",
-  "company",
-  "case_type",
   "cb_header",
   "status",
+  "resolution",
   "opened_on",
   "opened_by",
   "show_on_red_list",
@@ -34,7 +33,6 @@
   "next_action",
   "next_action_date",
   "sec_plan",
-  "plan_principal",
   "plan_start_date",
   "plan_end_date",
   "installment_frequency",
@@ -100,37 +98,32 @@
    "search_index": 1
   },
   {
-   "fieldname": "company",
-   "fieldtype": "Link",
-   "in_standard_filter": 1,
-   "label": "Company",
-   "options": "Company"
-  },
-  {
-   "fieldname": "case_type",
-   "fieldtype": "Select",
-   "in_list_view": 1,
-   "in_standard_filter": 1,
-   "label": "Case Type",
-   "options": "Warning\nHard Hold\nImmediate Hold\nPayment Plan\nWorkout",
-   "reqd": 1
-  },
-  {
    "fieldname": "cb_header",
    "fieldtype": "Column Break"
   },
   {
-   "default": "Open",
+   "default": "Active",
    "fieldname": "status",
    "fieldtype": "Select",
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Status",
-   "options": "Open\nActive\nCured\nReleased\nDefaulted\nClosed"
+   "options": "Active\nClosed",
+   "read_only": 1
+  },
+  {
+   "default": "",
+   "description": "How this case is being worked. Blank while Finance is still deciding.",
+   "fieldname": "resolution",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Resolution",
+   "options": "\nRelease\nPayment Plan\nWorkout"
   },
   {
    "fieldname": "opened_on",
-   "fieldtype": "Date",
+   "fieldtype": "Datetime",
    "label": "Opened On",
    "read_only": 1
   },
@@ -153,10 +146,12 @@
    "label": "Trigger"
   },
   {
+   "description": "Captured automatically from what put the customer on Hard Hold — same options as Customer > Hold Reason.",
    "fieldname": "trigger_reason",
    "fieldtype": "Select",
    "label": "Trigger Reason",
-   "options": "Past Due Days\nPast Due Amount\nAR Threshold Breach\nReturned Payment\nBroken Promise to Pay\nExpired License\nSuspected Fraud\nInsolvency Signs\nLimit Breach\nPlan Default\nManual"
+   "options": "\nPromise to Pay broken\nPayment Returned/Bounced\nLicense expired\nFraud suspected\nInsolvency signs\nCredit limit breached",
+   "read_only": 1
   },
   {
    "fieldname": "trigger_details",
@@ -240,15 +235,10 @@
    "label": "Next Action Date"
   },
   {
-   "depends_on": "eval:doc.case_type=='Payment Plan'",
+   "depends_on": "eval:doc.resolution=='Payment Plan'",
    "fieldname": "sec_plan",
    "fieldtype": "Section Break",
    "label": "Payment Plan"
-  },
-  {
-   "fieldname": "plan_principal",
-   "fieldtype": "Currency",
-   "label": "Plan Principal"
   },
   {
    "fieldname": "plan_start_date",
@@ -262,10 +252,11 @@
   },
   {
    "default": "Monthly",
+   "description": "Custom disables the Generate Plan button — due dates, invoices and amounts are entered by hand.",
    "fieldname": "installment_frequency",
    "fieldtype": "Select",
    "label": "Installment Frequency",
-   "options": "Weekly\nBi-Weekly\nMonthly"
+   "options": "Weekly\nBi-annually\nMonthly\nCustom"
   },
   {
    "fieldname": "cb_plan",
@@ -295,7 +286,7 @@
    "read_only": 1
   },
   {
-   "depends_on": "eval:doc.case_type=='Payment Plan'",
+   "depends_on": "eval:doc.resolution=='Payment Plan'",
    "fieldname": "sec_plan_ratify",
    "fieldtype": "Section Break",
    "label": "Ratification &amp; New Line"
@@ -345,7 +336,7 @@
    "read_only": 1
   },
   {
-   "depends_on": "eval:doc.case_type=='Payment Plan'",
+   "depends_on": "eval:doc.resolution=='Payment Plan'",
    "fieldname": "sec_schedule",
    "fieldtype": "Section Break",
    "label": "Schedule"
@@ -357,7 +348,7 @@
    "options": "AR Case Installment"
   },
   {
-   "depends_on": "eval:doc.case_type=='Workout'",
+   "depends_on": "eval:doc.resolution=='Workout'",
    "fieldname": "sec_workout",
    "fieldtype": "Section Break",
    "label": "Workout"
@@ -380,7 +371,7 @@
    "fieldname": "workout_reason",
    "fieldtype": "Text",
    "label": "Workout Reason",
-   "mandatory_depends_on": "eval:doc.case_type=='Workout'"
+   "mandatory_depends_on": "eval:doc.resolution=='Workout'"
   },
   {
    "fieldname": "cb_workout",
@@ -406,7 +397,7 @@
    "label": "Paydown Amount"
   },
   {
-   "depends_on": "eval:doc.case_type=='Workout'",
+   "depends_on": "eval:doc.resolution=='Workout'",
    "fieldname": "sec_workout_progress",
    "fieldtype": "Section Break",
    "label": "Recovery"
@@ -463,11 +454,12 @@
    "label": "Release Requested On"
   },
   {
-   "description": "Release is a Credit Finance action. Each basis is verified live before the hold lifts.",
+   "depends_on": "eval:doc.status=='Closed' && doc.resolution=='Release'",
    "fieldname": "release_basis",
    "fieldtype": "Select",
    "label": "Release Basis",
-   "options": "\nPaid in Full\nCurrent on Approved Plan\nMD Exception"
+   "options": "\nPaid in Full\nMD Exception",
+   "read_only": 1
   },
   {
    "fieldname": "cb_release",
@@ -494,7 +486,7 @@
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-08-06 00:00:00.000000",
+ "modified": "2026-09-02 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "Credit and AR",
  "name": "AR Case",
@@ -558,7 +550,7 @@
    "role": "Sales User"
   }
  ],
- "search_fields": "customer,case_type,status",
+ "search_fields": "customer,status,resolution",
  "show_name_in_global_search": 1,
  "sort_field": "modified",
  "sort_order": "DESC",

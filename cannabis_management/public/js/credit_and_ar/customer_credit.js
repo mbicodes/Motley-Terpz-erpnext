@@ -41,10 +41,19 @@ function render_exemption_banner(frm) {
 		return;
 	}
 
-	if (frm.doc.custom_on_hold) {
-		frm.dashboard.set_headline(
-			__("STOP WORK — this account is on {0}.", [frm.doc.custom_hold_type]),
-			"red"
-		);
+	// "On Hold" is Credit Status = Hard Hold now; the checkbox it used to read is gone.
+	if (frm.doc.custom_credit_status === "Hard Hold") {
+		// Hold Type is no longer stored on the Customer; ask the server for the
+		// value derived from the active AR Case.
+		frappe.call({
+			method: "cannabis_management.credit_and_ar.api.get_customer_hold_type",
+			args: { customer: frm.doc.name },
+			callback(r) {
+				frm.dashboard.set_headline(
+					__("STOP WORK — this account is on {0}.", [r.message || __("hold")]),
+					"red"
+				);
+			},
+		});
 	}
 }

@@ -83,7 +83,6 @@
   "md_approved",
   "approved_limit",
   "approved_terms",
-  "terms_exception_reason",
   "cb_md_approval",
   "approved_by",
   "approved_on",
@@ -456,25 +455,25 @@
    "label": "Before Terms Go Live"
   },
   {
+   "allow_on_submit": 1,
    "default": "0",
    "fieldname": "credit_agreement_signed",
    "fieldtype": "Check",
-   "label": "Credit Agreement Signed",
-   "allow_on_submit": 1
+   "label": "Credit Agreement Signed"
   },
   {
+   "allow_on_submit": 1,
    "fieldname": "credit_agreement_document",
    "fieldtype": "Attach",
    "label": "Credit Agreement Document",
-   "mandatory_depends_on": "credit_agreement_signed",
-   "allow_on_submit": 1
+   "mandatory_depends_on": "credit_agreement_signed"
   },
   {
+   "allow_on_submit": 1,
    "depends_on": "credit_agreement_signed",
    "fieldname": "agreement_signed_date",
    "fieldtype": "Date",
-   "label": "Agreement Signed Date",
-   "allow_on_submit": 1
+   "label": "Agreement Signed Date"
   },
   {
    "default": "Today",
@@ -552,12 +551,6 @@
    "options": "Payment Terms Template"
   },
   {
-   "description": "Required for every non-COD term. Records the written MD exception.",
-   "fieldname": "terms_exception_reason",
-   "fieldtype": "Small Text",
-   "label": "Terms Exception Reason"
-  },
-  {
    "fieldname": "cb_md_approval",
    "fieldtype": "Column Break"
   },
@@ -592,6 +585,7 @@
   {
    "fieldname": "sec_web_signatures",
    "fieldtype": "Section Break",
+   "hidden": 1,
    "label": "Signatures"
   },
   {
@@ -648,7 +642,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-08-11 17:12:57.372447",
+ "modified": "2026-09-07 08:37:58.151945",
  "modified_by": "Administrator",
  "module": "Credit and AR",
  "name": "Credit Application",

@@ -12,9 +12,9 @@ def test_connection():
 	"""Test the configured Base URL + API Key against Metrc.
 
 	Metrc auth is HTTP Basic (vendor/integrator key : user key). This doctype
-	holds the vendor key; the User API key is taken from the existing Metrc
-	Settings (the first active facility) so the button works with just Base URL
-	and API Key here.
+	holds the vendor key and, optionally, a user key of its own; if the user
+	key field here is blank, falls back to the existing Metrc Settings (the
+	first active facility), when that doctype is present.
 
 	The test is a single GET /facilities/v2 — read-only, so it is safe to run
 	even against the production endpoint (it never writes anything to Metrc).
@@ -27,7 +27,7 @@ def test_connection():
 	if not base or not vendor:
 		frappe.throw("Set Base URL and API Key first, then save.")
 
-	user = _existing_user_key()
+	user = cfg.get_password("user_key", raise_exception=False) or _existing_user_key()
 
 	try:
 		resp = requests.get(f"{base}/facilities/v2", auth=(vendor, user or ""), timeout=30)

@@ -393,7 +393,6 @@ Open the AR Case. The **Release Hold** button only appears for Credit Finance.
 |---|---|
 | Release as a Sales User | ❌ *"Only Credit Finance can release a hold."* |
 | **Paid in Full** while still past due | ❌ *"…still shows $50.00 past due…"* |
-| **Current on Approved Plan** with no plan | ❌ *"…has no active payment plan."* |
 | **MD Exception** with the notes box empty | ❌ *"An MD exception must record the reason and who approved it."* |
 | Edit **Status** to `Released` on the form directly | ❌ *"A hold is not released by editing this field. Use the Release Hold button…"* |
 | **MD Exception** with notes | ✅ released, logged as an exception, MD + CEO + Finance emailed |

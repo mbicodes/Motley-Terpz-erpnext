@@ -21,47 +21,47 @@
  ],
  "fields": [
   {
+   "description": "Full 13\u201315 digit physical METRC tag code. Primary key / Link target used throughout the system, including as the Inventory Dimension value.",
    "fieldname": "tag_code",
    "fieldtype": "Data",
-   "label": "Tag Code",
-   "reqd": 1,
-   "unique": 1,
    "in_list_view": 1,
    "in_standard_filter": 1,
-   "description": "Full 13–15 digit physical METRC tag code. Primary key / Link target used throughout the system, including as the Inventory Dimension value."
+   "label": "Tag Code",
+   "reqd": 1,
+   "unique": 1
   },
   {
+   "description": "Last digits of Tag Code. Auto-derived on save.",
    "fieldname": "muid",
    "fieldtype": "Data",
-   "label": "MUID",
-   "read_only": 1,
    "in_list_view": 1,
-   "description": "Last digits of Tag Code. Auto-derived on save."
+   "label": "MUID",
+   "read_only": 1
   },
   {
    "default": "Unused",
    "fieldname": "status",
    "fieldtype": "Select",
-   "label": "Status",
-   "options": "Unused\nActive\nEmpty",
    "in_list_view": 1,
-   "in_standard_filter": 1
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Unused\nActive\nEmpty"
   },
   {
    "fieldname": "item_code",
    "fieldtype": "Link",
-   "label": "Item Code",
-   "options": "Item",
    "in_list_view": 1,
-   "in_standard_filter": 1
+   "in_standard_filter": 1,
+   "label": "Item Code",
+   "options": "Item"
   },
   {
+   "description": "Cached display value kept in sync with the Stock Ledger balance for this tag. Stock Ledger Entry remains the source of truth.",
    "fieldname": "current_qty",
    "fieldtype": "Float",
-   "label": "Current Qty",
-   "read_only": 1,
    "in_list_view": 1,
-   "description": "Cached display value kept in sync with the Stock Ledger balance for this tag. Stock Ledger Entry remains the source of truth."
+   "label": "Current Qty",
+   "read_only": 1
   },
   {
    "fieldname": "uom",
@@ -76,23 +76,22 @@
   {
    "fieldname": "warehouse",
    "fieldtype": "Link",
-   "label": "Warehouse",
-   "options": "Warehouse",
    "in_list_view": 1,
-   "in_standard_filter": 1
+   "in_standard_filter": 1,
+   "label": "Warehouse",
+   "options": "Warehouse"
   },
   {
+   "description": "DocType name of the most recent transaction touching this tag.",
    "fieldname": "last_transaction_type",
    "fieldtype": "Data",
    "label": "Last Transaction Type",
-   "read_only": 1,
-   "description": "DocType name of the most recent transaction touching this tag."
+   "read_only": 1
   },
   {
    "fieldname": "last_transaction_id",
-   "fieldtype": "Dynamic Link",
+   "fieldtype": "Data",
    "label": "Last Transaction ID",
-   "options": "last_transaction_type",
    "read_only": 1
   },
   {
@@ -105,7 +104,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-07-28 22:04:45.404156",
+ "modified": "2026-09-14 11:54:50.969338",
  "modified_by": "Administrator",
  "module": "Cannabis Management",
  "name": "Metric Tag",

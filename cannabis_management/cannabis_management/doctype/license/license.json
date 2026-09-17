@@ -20,7 +20,8 @@
   "links",
   "options_section",
   "allow_total_weight_entry",
-  "is_active"
+  "is_active",
+  "is_company_license"
  ],
  "fields": [
   {
@@ -109,6 +110,13 @@
    "fieldtype": "Check",
    "label": "Active",
    "default": "1"
+  },
+  {
+   "fieldname": "is_company_license",
+   "fieldtype": "Check",
+   "label": "Is Company License",
+   "default": "0",
+   "description": "Checked for one of our own facility licenses (used on Warehouse / Metric Tag), unchecked for a customer's or other third party's license."
   }
  ],
  "grid_page_length": 50,

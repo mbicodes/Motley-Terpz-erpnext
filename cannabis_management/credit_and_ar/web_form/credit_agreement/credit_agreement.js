@@ -21,125 +21,30 @@ frappe.ready(function () {
 		frappe.web_form.set_value("agreement_date", frappe.datetime.get_today());
 	}
 
-	// --- Attach a PDF of the filled-in agreement to the Credit Application
-	// record the customer just created. --------------------------------------
-	//
-	// Neither html2canvas (captures the page) nor jsPDF (wraps that capture
-	// in a PDF page) are part of the core asset bundle, so both are fetched
-	// from this web form's own vendor folder the first time they're needed,
-	// then reused for the rest of the page's life.
-	var HTML2CANVAS_URL = "/assets/cannabis_management/js/vendor/html2canvas.min.js";
-	var JSPDF_URL = "/assets/cannabis_management/js/vendor/jspdf.umd.min.js";
+	// Sales Rep and Payment Terms are excluded/filtered server-side, in
+	// credit_agreement.py's get_context — NOT here. Web forms turn every
+	// Link field into an "Autocomplete" backed by a static, pre-baked
+	// option list (see WebForm.load_form_data / get_link_options); setting
+	// df.get_query on that control makes it call a server *method* instead
+	// (df.get_query = {query, params}, not Desk's {filters: {...}}), so a
+	// Link-style filters object here just empties the list — it doesn't
+	// narrow it. Filtering the baked-in options string before render is
+	// the only thing that actually works for this fieldtype.
 
-	function load_script(url, get_global) {
-		var existing = get_global();
-		if (existing) return Promise.resolve(existing);
-		return new Promise(function (resolve, reject) {
-			var script = document.createElement("script");
-			script.src = url;
-			script.onload = function () {
-				resolve(get_global());
-			};
-			script.onerror = reject;
-			document.head.appendChild(script);
-		});
-	}
-
-	function load_html2canvas() {
-		return load_script(HTML2CANVAS_URL, function () {
-			return window.html2canvas;
-		});
-	}
-
-	function load_jspdf() {
-		return load_script(JSPDF_URL, function () {
-			return window.jspdf && window.jspdf.jsPDF;
-		});
-	}
-
-	// Warm both libraries up front so the actual submit isn't blocked on the
-	// network fetch — by the time the customer clicks Submit, they're already
-	// cached.
-	Promise.all([load_html2canvas(), load_jspdf()]).catch(function () {
-		/* if this fails we'll just retry (and no-op on failure) at submit time */
+	// Match the printed agreement's "Label:" style. This has to be real text
+	// appended after the label, not a CSS ::after — Frappe already puts the
+	// red required-asterisk on .control-label via ::after (controls.scss),
+	// and only one ::after can win per element.
+	$(".web-form-wrapper .control-label").each(function () {
+		var $label = $(this);
+		if (!/:\s*$/.test($label.text())) {
+			$label.append(":");
+		}
 	});
 
-	function canvas_to_pdf_blob(canvas) {
-		var jsPDF = window.jspdf.jsPDF;
-		// Page sized to exactly match the captured form (in mm, at 96dpi) so
-		// the whole thing lands on one page with no cropping or scaling.
-		var mm_per_px = 25.4 / 96;
-		var width_mm = canvas.width * mm_per_px;
-		var height_mm = canvas.height * mm_per_px;
-		var pdf = new jsPDF({
-			orientation: width_mm > height_mm ? "landscape" : "portrait",
-			unit: "mm",
-			format: [width_mm, height_mm],
-		});
-		// JPEG at 0.85 quality keeps the PDF a reasonable size — the form is
-		// mostly flat white/gray with text, so the quality loss isn't visible,
-		// and it avoids multi-MB PDFs from an uncompressed PNG embed.
-		pdf.addImage(canvas.toDataURL("image/jpeg", 0.85), "JPEG", 0, 0, width_mm, height_mm);
-		return pdf.output("blob");
-	}
-
-	function upload_pdf(blob, doctype, docname) {
-		return new Promise(function (resolve, reject) {
-			var xhr = new XMLHttpRequest();
-			xhr.open("POST", "/api/method/upload_file", true);
-			xhr.setRequestHeader("Accept", "application/json");
-			xhr.setRequestHeader("X-Frappe-CSRF-Token", frappe.csrf_token);
-			xhr.onreadystatechange = function () {
-				if (xhr.readyState === XMLHttpRequest.DONE) {
-					xhr.status === 200 ? resolve(xhr) : reject(new Error(xhr.status));
-				}
-			};
-
-			var form_data = new FormData();
-			form_data.append("file", blob, "credit-agreement-" + docname + ".pdf");
-			form_data.append("is_private", 1);
-			form_data.append("folder", "Home");
-			form_data.append("doctype", doctype);
-			form_data.append("docname", docname);
-			xhr.send(form_data);
-		});
-	}
-
-	function capture_and_attach(doc) {
-		var target = document.querySelector(".web-form-container");
-		if (!target || !doc || !doc.name) return Promise.resolve();
-
-		return Promise.all([load_html2canvas(), load_jspdf()])
-			.then(function (libs) {
-				return libs[0](target, {
-					backgroundColor: "#ffffff",
-					useCORS: true,
-					scale: 1,
-					logging: false,
-				});
-			})
-			.then(function (canvas) {
-				return upload_pdf(canvas_to_pdf_blob(canvas), doc.doctype || "Credit Application", doc.name);
-			})
-			.catch(function (err) {
-				// The application itself has already been saved successfully —
-				// a failed PDF attach should never surface as an error to the
-				// customer, just a quiet console note for us.
-				console.warn("Credit Agreement PDF attach failed:", err);
-			});
-	}
-
-	// Wait for the WebForm controller to exist, then wrap handle_success so
-	// we capture the form while it is still on screen. handle_success hides
-	// the form and swaps in the success page, so the capture has to be
-	// awaited (not just started) before letting that hide happen — otherwise
-	// html2canvas clones a display:none, zero-size container.
-	if (frappe.web_form && typeof frappe.web_form.handle_success === "function") {
-		var original_handle_success = frappe.web_form.handle_success.bind(frappe.web_form);
-		frappe.web_form.handle_success = function (data) {
-			capture_and_attach(data).then(function () {
-				original_handle_success(data);
-			});
-		};
-	}
+	// The PDF attached to the record on submit is rendered server-side from
+	// the "Credit Agreement" Print Format (see
+	// cannabis_management.credit_and_ar.web_form_intake.after_insert) — a
+	// clean copy of the printed agreement filled with the values the client
+	// just submitted, not a screenshot of this web page. Nothing to do here.
 });
