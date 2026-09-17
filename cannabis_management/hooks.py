@@ -181,6 +181,10 @@ after_migrate = [
     # re-imports against the removed case_type field. after_migrate runs after
     # sync_fixtures, so this gets the last word — without editing the fixture.
     "cannabis_management.credit_and_ar.notifications.install_notifications",
+    # Job Card's custom_material_request field, plus a backfill for cards that
+    # predate it — submitted cards are never re-saved, so the fetch_from would
+    # never fire for them. Idempotent, same reasoning as the entries above.
+    "cannabis_management.overrides.material_request_dashboard.install",
 ]
 
 # Installation
@@ -760,6 +764,9 @@ override_doctype_dashboards = {
 	"Sales Order": "cannabis_management.overrides.sales_order_dashboard.get_data",
 	# Credit Application on the Customer Connections tab.
 	"Customer": "cannabis_management.overrides.customer_dashboard.get_data",
+	# Job Card on the Material Request Connections tab, counted through the
+	# fetched custom_material_request field — see that module's docstring.
+	"Material Request": "cannabis_management.overrides.material_request_dashboard.get_data",
 }
 
 # exempt linked doctypes from being automatically cancelled
