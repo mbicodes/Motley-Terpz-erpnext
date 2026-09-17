@@ -59,19 +59,26 @@ keep displaying it; nothing writes to them any more.
 	  Request (Pending) against that Timesheet and emails OVERTIME_RECIPIENTS with
 	  one-click Approve/Reject links (decide_overtime_request, guest + a per-request
 	  action_token - no login needed to act on the email).
-	- Approving emails the employee back. Their *next* start_session then sees the
-	  Approved, not-yet-consumed request, links the new Timesheet to it via
-	  custom_overtime_request, and marks it consumed - exempting that one session
-	  from the auto-cutoff. end_session's existing 8-hour row-split (custom_overtime,
-	  untouched by any of this) takes it from there if that session also runs past
-	  8 hours.
+	- Approving starts the overtime session right there and then
+	  (_auto_start_overtime_session): the employee does not have to walk back to the
+	  kiosk and tap Start, and the new Timesheet's clock is backdated to the moment
+	  they submitted the request (_overtime_start_time) rather than the moment the
+	  approver got round to the email - they kept working through that wait, so that
+	  time is theirs. The new Timesheet carries custom_overtime_request, exempting it
+	  from the auto-cutoff, and the request is marked consumed.
+	- If auto-start can't run (the employee already has an open session, or the
+	  insert fails), the request is left Approved + unconsumed and the old path still
+	  works: their next start_session picks it up, links it, marks it consumed, and
+	  backdates the same way. end_session's existing 8-hour row-split
+	  (custom_overtime, untouched by any of this) takes it from there if that session
+	  also runs past 8 hours.
 """
 
 import datetime
 
 import frappe
 from frappe import _
-from frappe.utils import convert_utc_to_timezone, flt, get_datetime, get_url
+from frappe.utils import convert_utc_to_timezone, flt, format_datetime, get_datetime, get_url
 
 from cannabis_management.manufacturing_timesheet_kiosk.custom_fields import (
 	EMPLOYEE_FIELDS,
@@ -315,16 +322,28 @@ def _overtime_prompt(employee):
 	req = frappe.db.get_value(
 		"Kiosk Overtime Request",
 		{"employee": employee, "timesheet": last_ts.name},
-		["name", "status", "requested_hours", "consumed"],
+		["name", "status", "requested_hours", "consumed", "requested_at"],
 		order_by="creation desc",
 		as_dict=True,
 	)
 	if not req or req.status == "Rejected":
 		return {"state": "needs_request", "timesheet": last_ts.name, "hours": REGULAR_HOURS_PER_SESSION}
 	if req.status == "Pending":
-		return {"state": "pending", "timesheet": last_ts.name, "requested_hours": req.requested_hours}
+		return {
+			"state": "pending",
+			"timesheet": last_ts.name,
+			"requested_hours": req.requested_hours,
+			"requested_at": str(req.requested_at) if req.requested_at else None,
+		}
 	if req.status == "Approved" and not req.consumed:
-		return {"state": "approved", "timesheet": last_ts.name, "requested_hours": req.requested_hours}
+		# requested_at rides along so the start screen can show - and pre-fill - the
+		# backdated clock-in the session will actually get (see _overtime_start_time).
+		return {
+			"state": "approved",
+			"timesheet": last_ts.name,
+			"requested_hours": req.requested_hours,
+			"requested_at": str(_overtime_start_time(req)) if req.requested_at else None,
+		}
 	return None
 
 
@@ -426,6 +445,92 @@ def verify_access_code(access_code, employee=None):
 	}
 
 
+def _overtime_start_time(req, now=None):
+	"""Where an approved-overtime session's clock starts: the moment the employee
+	submitted the request, not the moment approval came through or the moment they
+	got back to the kiosk. They carried on working through that wait, so that time
+	is theirs.
+
+	Clamped at both ends, because a backdate that lands in the wrong place would
+	produce a Timesheet that cannot be saved at all:
+	  - never before the end of the auto-ended session the request belongs to,
+	    which would overlap it and trip Timesheet's own validate_overlap_for;
+	  - never into the future, in case a clock somewhere is off.
+	"""
+	now = now or _kiosk_now()
+	start = get_datetime(req.get("requested_at"))
+
+	timesheet = req.get("timesheet")
+	if timesheet:
+		last_row = frappe.get_all(
+			"Timesheet Detail",
+			filters={"parent": timesheet, "parenttype": "Timesheet"},
+			fields=["to_time"],
+			order_by="to_time desc",
+			limit=1,
+		)
+		if last_row and last_row[0].to_time:
+			prev_end = get_datetime(last_row[0].to_time)
+			if start < prev_end:
+				# One second clear of the previous row, so the two never touch.
+				start = prev_end + datetime.timedelta(seconds=1)
+
+	return min(start, now)
+
+
+def _auto_start_overtime_session(req):
+	"""Opens the overtime session the moment the request is approved, so the
+	employee doesn't have to come back to the kiosk and tap Start to have their
+	clock running. Continues whatever activity the auto-ended session was on, since
+	this is the same work carrying past 8 hours.
+
+	Returns the new Timesheet's name, or None when auto-start doesn't apply - an
+	employee who is already running keeps their open session, and the request simply
+	stays Approved + unconsumed for start_session to pick up as before.
+	"""
+	if _get_open_timesheet(req.employee):
+		return None
+
+	activity_type = None
+	if req.timesheet:
+		last_row = frappe.get_all(
+			"Timesheet Detail",
+			filters={"parent": req.timesheet, "parenttype": "Timesheet"},
+			fields=["activity_type"],
+			order_by="to_time desc",
+			limit=1,
+		)
+		if last_row:
+			activity_type = last_row[0].activity_type
+	if not activity_type:
+		return None
+
+	start_dt = _overtime_start_time(req)
+
+	# Same Draft/placeholder shape start_session builds - see the long note there on
+	# why to_time is seeded with from_time rather than left null.
+	doc = frappe.get_doc(
+		{
+			"doctype": "Timesheet",
+			"employee": req.employee,
+			"company": frappe.db.get_value("Employee", req.employee, "company"),
+			OVERTIME_REQUEST_FIELD: req.name,
+			"time_logs": [
+				{
+					"activity_type": activity_type,
+					"from_time": start_dt,
+					"to_time": start_dt,
+					"completed": 0,
+				}
+			],
+		}
+	)
+	doc.insert(ignore_permissions=True)
+	frappe.db.set_value("Kiosk Overtime Request", req.name, "consumed", 1)
+
+	return doc.name
+
+
 @frappe.whitelist(allow_guest=True)
 def start_session(token, activity_type, start_time=None):
 	employee = _resolve_token(token)
@@ -446,12 +551,22 @@ def start_session(token, activity_type, start_time=None):
 	# 8-hour auto-cutoff (auto_end_overtime_sessions skips any Timesheet carrying
 	# OVERTIME_REQUEST_FIELD) - picked up and marked consumed right away so a second
 	# new session started later can't also claim the same approval.
-	overtime_request = frappe.db.get_value(
+	overtime_req = frappe.db.get_value(
 		"Kiosk Overtime Request",
 		{"employee": employee, "status": "Approved", "consumed": 0},
-		["name"],
+		["name", "timesheet", "requested_at"],
 		order_by="modified desc",
+		as_dict=True,
 	)
+	overtime_request = overtime_req.name if overtime_req else None
+
+	# An approved request's session is clocked from when it was asked for, whatever
+	# the kiosk sent up - the picker only ever offers "now", and taking it would quietly
+	# drop the hours worked between the request and this tap. Normally auto-start has
+	# already opened this session at approval time and we never get here; this covers
+	# the cases where it couldn't (see _auto_start_overtime_session).
+	if overtime_req and overtime_req.requested_at:
+		start_dt = _overtime_start_time(overtime_req)
 
 	# Draft, one incomplete row - the same shape Desk's "Start Timer" leaves behind
 	# (see erpnext/public/js/projects/timer.js), *including* to_time = from_time as
@@ -687,14 +802,35 @@ def decide_overtime_request(request, token, decision, by=None):
 	doc.save(ignore_permissions=True)
 	frappe.db.commit()
 
+	started_timesheet = None
 	if decision == "Approved":
-		_send_overtime_decision_email(doc)
+		# The approval itself puts them back on the clock. Never at the cost of the
+		# decision: if this fails the request stays Approved + unconsumed and their
+		# next Start picks it up, so the worst case is the old behaviour.
+		try:
+			started_timesheet = _auto_start_overtime_session(doc)
+			frappe.db.commit()
+		except Exception:
+			frappe.db.rollback()
+			started_timesheet = None
+			frappe.log_error(
+				title="Kiosk overtime auto-start failed",
+				message=frappe.get_traceback(),
+			)
+
+		_send_overtime_decision_email(doc, started_timesheet)
+
+	message = _("{0}'s request for {1} hour(s) of overtime has been {2}.").format(
+		doc.employee_name, doc.requested_hours, decision.lower()
+	)
+	if started_timesheet:
+		message += " " + _("Their timer is running from {0}, when they asked.").format(
+			format_datetime(_overtime_start_time(doc), "d MMM, h:mm a")
+		)
 
 	frappe.respond_as_web_page(
 		_("Overtime request {0}").format(decision.lower()),
-		_("{0}'s request for {1} hour(s) of overtime has been {2}.").format(
-			doc.employee_name, doc.requested_hours, decision.lower()
-		),
+		message,
 		indicator_color="green" if decision == "Approved" else "orange",
 	)
 
@@ -796,17 +932,29 @@ def _send_overtime_request_email(doc):
 			frappe.log_error(title="Kiosk overtime request email failed", message=frappe.get_traceback())
 
 
-def _send_overtime_decision_email(doc):
+def _send_overtime_decision_email(doc, started_timesheet=None):
 	email, employee_name = _employee_email(doc.employee)
 	if not email:
 		return
+
+	if started_timesheet:
+		started_from = format_datetime(_overtime_start_time(doc), "d MMM, h:mm a")
+		next_step = (
+			f"<p>Your timer is <b>already running</b> - it was started for you from "
+			f"<b>{started_from}</b>, when you sent the request, so the time you worked "
+			f"while waiting counts. Just tap <b>End</b> on the kiosk when you finish.</p>"
+		)
+	else:
+		next_step = (
+			f"<p>You can work up to {doc.requested_hours} extra hour(s) next time you clock in - "
+			f"just tap <b>Start</b> on the kiosk board as usual.</p>"
+		)
 
 	body = f"""
 	<p>Hi {employee_name},</p>
 	<p style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px 14px;color:#166534;">
 	   Your overtime request has been <b>approved</b> for <b>{doc.requested_hours} hour(s)</b>.</p>
-	<p>You can work up to {doc.requested_hours} extra hour(s) next time you clock in - just tap
-	   <b>Start</b> on the kiosk board as usual.</p>
+	{next_step}
 	"""
 	html = _EMAIL_WRAP.format(
 		gradient="linear-gradient(135deg,#14532d,#16a34a)",
