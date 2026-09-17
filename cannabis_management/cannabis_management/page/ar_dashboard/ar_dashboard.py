@@ -965,6 +965,73 @@ _AR_MODE_LABELS = {
 }
 
 
+@frappe.whitelist()
+def get_ar_email_recipients():
+    """Enabled users with a usable email address, for the report dialog's picker.
+
+    Returns ``[{"value": <email>, "description": <full name>}]``. The email is
+    used rather than the User's name because a User can be named something that
+    is not an address at all ("Administrator"), and it is the address the mail
+    actually needs.
+    """
+    if frappe.session.user != "Administrator":
+        frappe.throw(
+            frappe._("Only the Administrator can email the AR aging report."),
+            frappe.PermissionError,
+        )
+
+    rows = frappe.get_all(
+        "User",
+        filters={"enabled": 1},
+        fields=["name", "email", "full_name"],
+        order_by="full_name asc",
+    )
+
+    seen, out = set(), []
+    for row in rows:
+        email = (row.get("email") or "").strip()
+        if row.get("name") == "Guest" or "@" not in email or email in seen:
+            continue
+        seen.add(email)
+        out.append({"value": email, "description": row.get("full_name") or row.get("name")})
+
+    return out
+
+
+def _resolve_recipients(recipients):
+    """The addresses to send to, validated against this site's users.
+
+    The picker only offers real users, and this re-checks it: the endpoint is
+    Administrator-only but it should still not be usable to mail an arbitrary
+    address. An empty pick keeps the historical default so an API caller that
+    predates the picker behaves as it always did.
+    """
+    if isinstance(recipients, str):
+        recipients = (
+            frappe.parse_json(recipients)
+            if recipients.strip().startswith("[")
+            else [recipients]
+        )
+
+    picked = [str(r).strip() for r in (recipients or []) if str(r).strip()]
+    if not picked:
+        return [AR_REPORT_RECIPIENT]
+
+    allowed = {row["value"] for row in get_ar_email_recipients()}
+    unknown = [r for r in picked if r not in allowed]
+    if unknown:
+        frappe.throw(
+            frappe._("Not an enabled user on this site: {0}").format(", ".join(unknown))
+        )
+
+    seen, out = set(), []
+    for r in picked:
+        if r not in seen:
+            seen.add(r)
+            out.append(r)
+    return out
+
+
 def _render_ar_pdf(html):
     """wkhtmltopdf render, shared by the preview and the send."""
     from frappe.utils.pdf import get_pdf
@@ -984,7 +1051,7 @@ def _render_ar_pdf(html):
 
 
 @frappe.whitelist()
-def email_ar_pdf(html, mode, company=None, report_date=None, preview=0):
+def email_ar_pdf(html, mode, company=None, report_date=None, recipients=None, preview=0):
     """Render the sheet HTML the dashboard sends us into a PDF and email it.
 
     The HTML is built client-side from the table already on screen (columns
@@ -1026,8 +1093,10 @@ def email_ar_pdf(html, mode, company=None, report_date=None, preview=0):
             "content": base64.b64encode(pdf).decode("ascii"),
         }
 
+    to = _resolve_recipients(recipients)
+
     frappe.sendmail(
-        recipients=[AR_REPORT_RECIPIENT],
+        recipients=to,
         subject="{0} Aging Report - {1} - as of {2}".format(label, scope, as_of),
         message=(
             "<p>Attached is the <b>{0}</b> aging report for <b>{1}</b>, as of {2}.</p>"
@@ -1038,4 +1107,4 @@ def email_ar_pdf(html, mode, company=None, report_date=None, preview=0):
         reference_name="ar-dashboard",
     )
 
-    return {"recipient": AR_REPORT_RECIPIENT, "filename": filename, "bytes": len(pdf)}
+    return {"recipients": to, "filename": filename, "bytes": len(pdf)}
