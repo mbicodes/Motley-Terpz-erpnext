@@ -81,6 +81,10 @@ LEGACY_CUTOFF       = "2026-05-31"
 NEW_AR_START        = "2026-06-01"
 
 
+# The original five. These are no longer the source of truth - that is the
+# "AR Recon Status" doctype, one record per status - but they remain as the seed
+# for a fresh site and as the fallback if the doctype is not installed yet, so
+# the dashboard cannot break in the window between deploying code and migrating.
 ALLOWED_RECON_STATUSES = (
     "",
     "Reconciled collecting money",
@@ -89,6 +93,73 @@ ALLOWED_RECON_STATUSES = (
     "Dispute",
     "Adjustment",
 )
+
+RECON_STATUS_DOCTYPE = "AR Recon Status"
+
+
+def get_recon_statuses():
+    """Statuses offered in the dashboard dropdown, in display order.
+
+    ``[{"value": <status>, "label": <status>, "color": <hex or None>}]``. The
+    blank "not set" option is added by the front end; it is not a record.
+    """
+    fallback = [{"value": s, "label": s, "color": None} for s in ALLOWED_RECON_STATUSES[1:]]
+
+    if not frappe.db.exists("DocType", RECON_STATUS_DOCTYPE):
+        return fallback
+
+    rows = frappe.get_all(
+        RECON_STATUS_DOCTYPE,
+        filters={"disabled": 0},
+        fields=["name", "color"],
+        order_by="display_order asc, creation asc",
+    )
+    if not rows:
+        # An empty list would leave the dashboard with no statuses at all, which
+        # is never what someone wants - treat it as "not configured".
+        return fallback
+
+    return [{"value": r["name"], "label": r["name"], "color": r.get("color") or None} for r in rows]
+
+
+def sync_recon_status_options(exclude=None):
+    """Point the Customer form's own Select at the current status list.
+
+    Called from the AR Recon Status controller so the Customer field and the
+    dashboard dropdown can never disagree. ``exclude`` drops a record that is
+    mid-delete and so still readable.
+    """
+    values = [s["value"] for s in get_recon_statuses() if s["value"] != exclude]
+    options = "\n".join([""] + values)
+
+    name = frappe.db.get_value(
+        "Custom Field",
+        {"dt": "Customer", "fieldname": "custom_reconciliation_status"},
+        "name",
+    )
+    if name:
+        frappe.db.set_value("Custom Field", name, "options", options)
+        frappe.clear_cache(doctype="Customer")
+
+
+def seed_recon_statuses():
+    """Create a record per original status. Idempotent; safe to re-run.
+
+    Colour is deliberately left blank: the dashboard already styles these five
+    by name, and setting a colour here would override that styling and change
+    how they look.
+    """
+    if not frappe.db.exists("DocType", RECON_STATUS_DOCTYPE):
+        return
+
+    for i, status in enumerate(ALLOWED_RECON_STATUSES[1:]):
+        if frappe.db.exists(RECON_STATUS_DOCTYPE, status):
+            continue
+        frappe.get_doc({
+            "doctype": RECON_STATUS_DOCTYPE,
+            "status_name": status,
+            "display_order": (i + 1) * 10,
+        }).insert(ignore_permissions=True)
 
 # Yes/No columns edited inline on the dashboard. Key = the name the row payload
 # and the front-end use; value = the Customer custom field it is stored in.
@@ -300,6 +371,7 @@ def init_page():
         "companies": companies,
         "can_edit_recon": _can_edit_recon(),
         "org_wide": permitted is None,
+        "recon_statuses": get_recon_statuses(),
     }
 
 
@@ -480,7 +552,10 @@ def update_recon_status(party, status):
             frappe.PermissionError,
         )
 
-    if status not in ALLOWED_RECON_STATUSES:
+    # Validated against the live list, so a status added today is accepted today.
+    # "" is always allowed - it is how a status is cleared.
+    allowed = {""} | {s["value"] for s in get_recon_statuses()}
+    if status not in allowed:
         frappe.throw("Invalid reconciliation status")
 
     if not frappe.db.exists("Customer", party):
@@ -883,7 +958,7 @@ def setup_ar_custom_fields():
     if not _can_edit_recon():
         frappe.throw("Administrator access required.", frappe.PermissionError)
 
-    recon_options = "\n".join([""] + list(ALLOWED_RECON_STATUSES[1:]))
+    recon_options = "\n".join([""] + [s["value"] for s in get_recon_statuses()])
 
     # Update existing reconciliation status field options
     existing = frappe.db.get_value(

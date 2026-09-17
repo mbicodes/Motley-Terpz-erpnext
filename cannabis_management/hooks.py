@@ -164,6 +164,11 @@ after_migrate = [
     "cannabis_management.manufacturing_portal.custom_fields.install",
     # Manufacturing Timesheet Kiosk access code field on Employee. Same reasoning.
     "cannabis_management.manufacturing_timesheet_kiosk.custom_fields.install",
+    # One AR Recon Status record per original reconciliation status, so the AR
+    # Dashboard dropdown is populated on a site that has never had them. Also
+    # idempotent — it skips any status that already exists, so an added or
+    # renamed status is never clobbered.
+    "cannabis_management.cannabis_management.page.ar_dashboard.ar_dashboard.seed_recon_statuses",
     # Customer form rules re-asserted after sync_fixtures re-imports the app's
     # unfiltered Custom Field fixture: re-anchors the Credit Control tab, resets
     # custom_credit_status's options/permlevel, and drops the fields the fixture

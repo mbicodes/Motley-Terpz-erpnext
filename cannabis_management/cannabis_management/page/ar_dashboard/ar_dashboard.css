@@ -976,6 +976,16 @@
 	border-color: #3b82f6;
 }
 
+/* Statuses added since the original five (AR Recon Status records). Neutral by
+   default so a new one looks deliberate rather than unstyled; if its record
+   sets a Colour, an inline style overrides this. */
+.ard-recon-select.ard-recon-custom,
+.ard-recon-readonly.ard-recon-custom {
+	background-color: #f1f5f9;
+	color: #334155;
+	border-color: #94a3b8;
+}
+
 /* ── Export dropdown ──────────────────────────────────────────── */
 .ard-export-dd {
 	position: relative;
