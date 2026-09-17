@@ -12,6 +12,8 @@
   "column_break_qty",
   "qty",
   "uom",
+  "rate",
+  "amount",
   "notes"
  ],
  "fields": [
@@ -56,6 +58,19 @@
    "in_list_view": 1,
    "label": "UOM",
    "options": "UOM",
+   "read_only": 1
+  },
+  {
+   "fieldname": "rate",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Rate"
+  },
+  {
+   "fieldname": "amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Amount",
    "read_only": 1
   },
   {
