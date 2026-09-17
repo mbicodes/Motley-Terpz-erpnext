@@ -403,202 +403,264 @@ def _native_lab_yield_for_day(day):
     return lab
 
 
-def _stock_entry_yield_for_day(day):
-    raw_lbs = _sum_sql(
-        """
-        SELECT COALESCE(SUM(
-            CASE
-                WHEN LOWER(COALESCE(sed.uom, '')) IN ('lb', 'lbs', 'pound', 'pounds') THEN sed.qty
-                WHEN LOWER(COALESCE(sed.uom, '')) IN ('kg', 'kilogram', 'kilograms') THEN sed.qty * 2.2046226218
-                WHEN LOWER(COALESCE(sed.uom, '')) IN ('g', 'gram', 'grams') THEN sed.qty / 453.59237
-                ELSE sed.qty
-            END
-        ), 0) AS value
-        FROM `tabStock Entry Detail` sed
-        JOIN `tabStock Entry` se ON se.name = sed.parent
-        LEFT JOIN `tabItem` i ON i.name = sed.item_code
-        WHERE se.docstatus = 1 AND se.purpose = 'Manufacture'
-          AND se.posting_date = %(day)s
-          AND COALESCE(sed.s_warehouse, '') != ''
-          AND COALESCE(sed.t_warehouse, '') = ''
-          AND (LOWER(COALESCE(i.item_group, '')) LIKE '%%raw%%' OR LOWER(COALESCE(i.item_group, '')) LIKE '%%flower%%' OR LOWER(COALESCE(sed.item_name, sed.item_code)) LIKE '%%fresh%%')
-        """,
-        {"day": str(day)},
-    )
-    finished_hash_g = _sum_sql(
-        """
-        SELECT COALESCE(SUM(
-            CASE
-                WHEN LOWER(COALESCE(sed.uom, '')) IN ('lb', 'lbs', 'pound', 'pounds') THEN sed.qty * 453.59237
-                WHEN LOWER(COALESCE(sed.uom, '')) IN ('kg', 'kilogram', 'kilograms') THEN sed.qty * 1000
-                ELSE sed.qty
-            END
-        ), 0) AS value
-        FROM `tabStock Entry Detail` sed
-        JOIN `tabStock Entry` se ON se.name = sed.parent
-        LEFT JOIN `tabItem` i ON i.name = sed.item_code
-        WHERE se.docstatus = 1 AND se.purpose = 'Manufacture'
-          AND se.posting_date = %(day)s
-          AND COALESCE(sed.t_warehouse, '') != ''
-          AND COALESCE(sed.s_warehouse, '') = ''
-          AND LOWER(CONCAT(COALESCE(i.item_group, ''), ' ', COALESCE(sed.item_name, sed.item_code))) LIKE '%%hash%%'
-        """,
-        {"day": str(day)},
-    )
-    rosin_g = _sum_sql(
-        """
-        SELECT COALESCE(SUM(
-            CASE
-                WHEN LOWER(COALESCE(sed.uom, '')) IN ('lb', 'lbs', 'pound', 'pounds') THEN sed.qty * 453.59237
-                WHEN LOWER(COALESCE(sed.uom, '')) IN ('kg', 'kilogram', 'kilograms') THEN sed.qty * 1000
-                ELSE sed.qty
-            END
-        ), 0) AS value
-        FROM `tabStock Entry Detail` sed
-        JOIN `tabStock Entry` se ON se.name = sed.parent
-        LEFT JOIN `tabItem` i ON i.name = sed.item_code
-        WHERE se.docstatus = 1 AND se.purpose = 'Manufacture'
-          AND se.posting_date = %(day)s
-          AND COALESCE(sed.t_warehouse, '') != ''
-          AND COALESCE(sed.s_warehouse, '') = ''
-          AND LOWER(CONCAT(COALESCE(i.item_group, ''), ' ', COALESCE(sed.item_name, sed.item_code))) LIKE '%%rosin%%'
-        """,
-        {"day": str(day)},
-    )
-    hash_input_g = _sum_sql(
-        """
-        SELECT COALESCE(SUM(
-            CASE
-                WHEN LOWER(COALESCE(sed.uom, '')) IN ('lb', 'lbs', 'pound', 'pounds') THEN sed.qty * 453.59237
-                WHEN LOWER(COALESCE(sed.uom, '')) IN ('kg', 'kilogram', 'kilograms') THEN sed.qty * 1000
-                ELSE sed.qty
-            END
-        ), 0) AS value
-        FROM `tabStock Entry Detail` sed
-        JOIN `tabStock Entry` se ON se.name = sed.parent
-        LEFT JOIN `tabItem` i ON i.name = sed.item_code
-        WHERE se.docstatus = 1 AND se.purpose = 'Manufacture'
-          AND se.posting_date = %(day)s
-          AND COALESCE(sed.s_warehouse, '') != ''
-          AND COALESCE(sed.t_warehouse, '') = ''
-          AND LOWER(CONCAT(COALESCE(i.item_group, ''), ' ', COALESCE(sed.item_name, sed.item_code))) LIKE '%%hash%%'
-        """,
-        {"day": str(day)},
-    )
-    raw_g = raw_lbs * 453.59237
-    return {
-        "lbs_ran": raw_lbs,
-        "hash_yield_pct": (finished_hash_g / raw_g * 100) if raw_g else 0,
-        "rosin_yield_pct": (rosin_g / hash_input_g * 100) if hash_input_g else 0,
-        "hash_out": finished_hash_g,
-        "rosin_out": rosin_g,
-    }
-
-
-# Item-group / item-code keyword sets mirroring the Production Log print format
-# (cannabis_management/print_format/production_log). Kept in sync manually —
-# that print format is the source of truth for how a conversion line is routed.
+# ---------------------------------------------------------------------------
+# Conversion Entry production metrics.
+#
+# Routing mirrors the Production Log print format
+# (cannabis_management/print_format/production_log) line for line — that print
+# format is the source of truth for how a conversion line is classified, and
+# for the expected yield it prints against each stage:
+#
+#   FROZEN     Fresh Frozen (LBS) -> hash / rosin (Grams)   expected 3%
+#   ROSIN_VRR  rosin (Grams)      -> VRR (Grams)            expected 90%
+#   VAPES      VRR                -> vapes (Each)           expected 95%
+#   BLEND      rosin              -> rosin                  expected 90%
+#   GUMMIES    any                -> gummies (Each)         expected 95%
+#
+# Only FROZEN and ROSIN_VRR lines feed the yield KPIs. Everything else — a
+# "Primes -> Tier 1" re-grade, a "Fresh Frozen - SHO -> Fresh Frozen - BHO"
+# re-designation, packaging — moves material without consuming it, and rolling
+# those into the totals is what made the old numbers meaningless (a 335 lb
+# warehouse transfer showed up as 335 lbs "ran").
+# ---------------------------------------------------------------------------
 _CE_K_FROZEN = ["fresh frozen", "frozen", "fresh-frozen", "ff "]
 _CE_K_ROSIN = ["rosin", "tier", "prime", "subprime", "full spec", "food grade", "t1", "t2", "t3", "static", "bubble"]
 _CE_K_VRR = ["vrr", "vape ready"]
+_CE_K_VAPE = ["vape", "hardware", "cart", "o2", "packaged"]
+_CE_K_GUMMY = ["gumm"]
 
 _CE_RM_SLOTS = range(1, 8)
 _CE_FG_SLOTS = range(1, 4)
 
+GRAMS_PER_LB = 453.59237
 
-def _conversion_entry_yield_for_day(day):
-    """Current production tracking lives on Conversion Entry, not the legacy
-    Lab Batch Entry / Hash Recording / Rosin Recording doctypes those still
-    query — those stopped getting new records once the team moved to
-    Conversion Entry, which is why this dashboard went blank.
+# Expected yields as printed on the Production Log.
+FROZEN_YIELD_BENCHMARK = 3.0
+ROSIN_VRR_YIELD_BENCHMARK = 90.0
+BLEND_YIELD_BENCHMARK = 90.0
 
-    RM qty is pounds, FG qty is grams (matches the Production Log print
-    format's units; there's no explicit per-row UOM field on Conversion Entry
-    Item, so this follows the same convention).
+_CE_STAGE_LABELS = {
+    "FROZEN": "Frozen → Rosin",
+    "ROSIN_VRR": "Rosin → VRR",
+    "VAPES": "VRR → Vapes",
+    "BLEND": "Blend",
+    "GUMMIES": "Gummies",
+    "GENERIC": "Transfer / Re-grade",
+}
+
+
+def _empty_yield():
+    return {
+        "lbs_ran": 0.0,
+        "hash_out": 0.0,
+        "hash_yield_pct": 0.0,
+        "rosin_in": 0.0,
+        "rosin_out": 0.0,
+        "rosin_yield_pct": 0.0,
+        "runs": 0,
+    }
+
+
+def _has_production(metrics):
+    return any(flt((metrics or {}).get(key)) for key in ("lbs_ran", "hash_out", "rosin_out"))
+
+
+def _ce_item_meta(codes):
+    """item_code -> (item_group, item_name).
+
+    The denormalised `rm_*_item_group` / `fg_*_item_group` columns are blank on
+    a chunk of the rows, so fall back to the Item master the same way the
+    Production Log print format does.
     """
-    lab = {"lbs_ran": 0.0, "hash_yield_pct": 0.0, "rosin_yield_pct": 0.0, "hash_out": 0.0, "rosin_out": 0.0}
-
-    if not _doctype_exists("Conversion Entry Item"):
-        return lab
-
-    fields = ["parent"]
-    for i in _CE_RM_SLOTS:
-        fields += [f"raw_material_{i}", f"qty_rm_{i}", f"rm_{i}_item_group"]
-    for i in _CE_FG_SLOTS:
-        fields += [f"finished_good_{i}", f"qty_fg_{i}", f"fg_{i}_item_group"]
-
+    codes = sorted({c for c in codes if c})
+    if not codes:
+        return {}
+    # ignore_permissions: this is an aggregate read, and lab users who can see
+    # the dashboard do not necessarily hold Item read permission.
     rows = frappe.get_all(
-        "Conversion Entry Item",
-        filters={"parent": ["in", frappe.get_all(
-            "Conversion Entry",
-            filters={"docstatus": 1, "posting_date": str(day)},
-            pluck="name",
-        ) or [""]]},
-        fields=fields,
+        "Item",
+        filters={"name": ["in", codes]},
+        fields=["name", "item_group", "item_name"],
+        ignore_permissions=True,
     )
+    return {r.name: (r.item_group or "", r.item_name or "") for r in rows}
 
-    def _matches(item_group, item_code, keywords):
-        hay = f"{item_group or ''} {item_code or ''}".lower()
+
+def _ce_flags(row_group, code, meta):
+    group, item_name = meta.get(code, ("", ""))
+    hay = f"{row_group or group or ''} {code or ''} {item_name or ''}".lower()
+
+    def has(keywords):
         return any(k in hay for k in keywords)
 
-    lbs_ran = 0.0
-    hash_out = 0.0
-    rosin_input_g = 0.0
-    rosin_out = 0.0
+    return {
+        "frozen": has(_CE_K_FROZEN),
+        "rosin": has(_CE_K_ROSIN),
+        "vrr": has(_CE_K_VRR),
+        "vape": has(_CE_K_VAPE),
+        "gummy": has(_CE_K_GUMMY),
+    }
 
+
+def _ce_route(row, meta):
+    """Classify one Conversion Entry Item line -> (stage_key, rms, fgs)."""
+    rms = []
+    for i in _CE_RM_SLOTS:
+        code = row.get(f"raw_material_{i}")
+        if not code:
+            continue
+        rms.append({"qty": flt(row.get(f"qty_rm_{i}")), "flags": _ce_flags(row.get(f"rm_{i}_item_group"), code, meta)})
+
+    fgs = []
+    for i in _CE_FG_SLOTS:
+        code = row.get(f"finished_good_{i}")
+        if not code:
+            continue
+        fgs.append({"qty": flt(row.get(f"qty_fg_{i}")), "flags": _ce_flags(row.get(f"fg_{i}_item_group"), code, meta)})
+
+    src_vrr = any(r["flags"]["vrr"] for r in rms)
+    src_frozen = any(r["flags"]["frozen"] for r in rms)
+    # VRR wins over the generic rosin flag, same precedence as the print format.
+    src_rosin = any(r["flags"]["rosin"] for r in rms) and not src_vrr
+
+    fg_gummy = any(f["flags"]["gummy"] for f in fgs)
+    fg_vrr = any(f["flags"]["vrr"] for f in fgs)
+    fg_rosin = any(f["flags"]["rosin"] for f in fgs) and not fg_vrr
+    fg_vape = any(f["flags"]["vape"] for f in fgs) and not fg_gummy
+
+    if fg_gummy:
+        key = "GUMMIES"
+    elif src_frozen and (fg_rosin or fg_vrr):
+        key = "FROZEN"
+    elif src_vrr and fg_vape:
+        key = "VAPES"
+    elif (src_rosin or src_vrr) and fg_vrr:
+        key = "ROSIN_VRR"
+    elif src_rosin and fg_rosin:
+        key = "BLEND"
+    else:
+        key = "GENERIC"
+    return key, rms, fgs
+
+
+def _conversion_rows(start_date, end_date):
+    if not _doctype_exists("Conversion Entry Item"):
+        return []
+    columns = ["ce.name AS entry", "ce.posting_date AS posting_date", "ce.owner AS owner", "ce.reasons AS reasons"]
+    for i in _CE_RM_SLOTS:
+        columns += [f"ci.raw_material_{i}", f"ci.qty_rm_{i}", f"ci.rm_{i}_item_group"]
+    for i in _CE_FG_SLOTS:
+        columns += [f"ci.finished_good_{i}", f"ci.qty_fg_{i}", f"ci.fg_{i}_item_group"]
+    return _safe_sql(
+        f"""
+        SELECT {", ".join(columns)}
+        FROM `tabConversion Entry Item` ci
+        JOIN `tabConversion Entry` ce ON ce.name = ci.parent
+        WHERE ce.docstatus = 1 AND ce.posting_date BETWEEN %(from_date)s AND %(to_date)s
+        ORDER BY ce.posting_date, ce.creation, ci.idx
+        """,
+        {"from_date": str(start_date), "to_date": str(end_date)},
+    )
+
+
+def _conversion_yield_by_day(start_date, end_date):
+    rows = _conversion_rows(start_date, end_date)
+    codes = []
     for row in rows:
-        for i in _CE_RM_SLOTS:
-            code = row.get(f"raw_material_{i}")
-            if not code:
+        codes += [row.get(f"raw_material_{i}") for i in _CE_RM_SLOTS]
+        codes += [row.get(f"finished_good_{i}") for i in _CE_FG_SLOTS]
+    meta = _ce_item_meta(codes)
+
+    by_day = {}
+    runs_seen = {}
+    for row in rows:
+        day = str(row.get("posting_date"))
+        bucket = by_day.setdefault(day, _empty_yield())
+        stage, rms, fgs = _ce_route(row, meta)
+        if stage == "FROZEN":
+            bucket["lbs_ran"] += sum(r["qty"] for r in rms if r["flags"]["frozen"])
+            bucket["hash_out"] += sum(f["qty"] for f in fgs if f["flags"]["rosin"] or f["flags"]["vrr"])
+        elif stage == "ROSIN_VRR":
+            # Only a genuine rosin -> VRR press counts. A VRR -> VRR line is a
+            # repack (input == output), and folding those in pins the yield at
+            # a meaningless 100%.
+            press_in = sum(r["qty"] for r in rms if r["flags"]["rosin"] and not r["flags"]["vrr"])
+            if not press_in:
                 continue
-            qty = flt(row.get(f"qty_rm_{i}"))
-            grp = row.get(f"rm_{i}_item_group")
-            is_vrr = _matches(grp, code, _CE_K_VRR)
-            if _matches(grp, code, _CE_K_FROZEN):
-                lbs_ran += qty
-            elif is_vrr or _matches(grp, code, _CE_K_ROSIN):
-                # Rosin/VRR being further refined — grams, not pounds.
-                rosin_input_g += qty
+            bucket["rosin_in"] += press_in
+            bucket["rosin_out"] += sum(f["qty"] for f in fgs if f["flags"]["vrr"])
+        else:
+            continue
+        seen = runs_seen.setdefault(day, set())
+        if row.get("entry") not in seen:
+            seen.add(row.get("entry"))
+            bucket["runs"] += 1
 
-        for i in _CE_FG_SLOTS:
-            code = row.get(f"finished_good_{i}")
-            if not code:
+    for bucket in by_day.values():
+        input_grams = bucket["lbs_ran"] * GRAMS_PER_LB
+        bucket["hash_yield_pct"] = (bucket["hash_out"] / input_grams * 100) if input_grams else 0.0
+        bucket["rosin_yield_pct"] = (bucket["rosin_out"] / bucket["rosin_in"] * 100) if bucket["rosin_in"] else 0.0
+    return by_day
+
+
+def _legacy_lab_days(start_date, end_date):
+    """Days still covered only by the pre-Conversion Entry lab doctypes."""
+    days = set()
+    for child, parent in (
+        ("Lab Batch Entry Child", "Lab Batch Entry"),
+        ("Hash Recording Child", "Hash Recording"),
+        ("Lab Tolling Data", "Rosin Recording"),
+    ):
+        if not _doctype_exists(child):
+            continue
+        rows = _safe_sql(
+            f"""
+            SELECT DISTINCT child.date_transferred AS dt
+            FROM `tab{child}` child
+            JOIN `tab{parent}` parent ON parent.name = child.parent
+            WHERE parent.docstatus != 2
+              AND child.date_transferred BETWEEN %(from_date)s AND %(to_date)s
+            """,
+            {"from_date": str(start_date), "to_date": str(end_date)},
+        )
+        days |= {str(r.get("dt")) for r in rows if r.get("dt")}
+    return days
+
+
+def _lab_yield_by_day(start_date, end_date):
+    """date string -> production metrics, for every day in the range."""
+    by_day = _conversion_yield_by_day(start_date, end_date)
+    legacy_days = _legacy_lab_days(start_date, end_date)
+
+    out = {}
+    for day in _days_between(start_date, end_date):
+        key = str(day)
+        metrics = by_day.get(key)
+        if _has_production(metrics):
+            out[key] = metrics
+            continue
+        # Conversion Entry replaced Lab Batch Entry / Hash Recording / Rosin
+        # Recording in Aug 2026; older days only exist on the legacy doctypes.
+        if key in legacy_days:
+            legacy = _native_lab_yield_for_day(day)
+            if _has_production(legacy):
+                # Rosin Recording on those days mirrors the hash total into the
+                # rosin column, so its "rosin yield" is always 100% — keep the
+                # wash figures only.
+                out[key] = {
+                    **_empty_yield(),
+                    "lbs_ran": flt(legacy.get("lbs_ran")),
+                    "hash_out": flt(legacy.get("hash_out")),
+                    "hash_yield_pct": flt(legacy.get("hash_yield_pct")),
+                }
                 continue
-            qty = flt(row.get(f"qty_fg_{i}"))
-            grp = row.get(f"fg_{i}_item_group")
-            if _matches(grp, code, _CE_K_VRR):
-                rosin_out += qty
-            elif _matches(grp, code, _CE_K_ROSIN):
-                hash_out += qty
-
-    lbs_ran_g = lbs_ran * 453.59237
-    lab["lbs_ran"] = lbs_ran
-    lab["hash_out"] = hash_out
-    lab["rosin_out"] = rosin_out
-    if lbs_ran_g:
-        lab["hash_yield_pct"] = hash_out / lbs_ran_g * 100
-    if rosin_input_g:
-        lab["rosin_yield_pct"] = rosin_out / rosin_input_g * 100
-
-    return lab
+        out[key] = metrics or _empty_yield()
+    return out
 
 
 def _production_yield_for_day(day):
-    current = _conversion_entry_yield_for_day(day)
-    if any(flt(current.get(key)) for key in ("lbs_ran", "hash_out", "rosin_out")):
-        return current
-    native = _native_lab_yield_for_day(day)
-    if any(flt(native.get(key)) for key in ("lbs_ran", "hash_out", "rosin_out")):
-        return native
-    return _stock_entry_yield_for_day(day)
+    return _lab_yield_by_day(day, day).get(str(day)) or _empty_yield()
 
-
-def _lab_trends(start_date, end_date):
-    rows = []
-    for day in _days_between(start_date, end_date):
-        y = _production_yield_for_day(day)
-        rows.append({"date": str(day), **y})
-    return rows
 
 def _delivery_notes_yesterday(yesterday):
     if not _doctype_exists("Delivery Note"):
@@ -618,6 +680,22 @@ def _delivery_notes_yesterday(yesterday):
     )
     return [{"name": r.name, "customer": r.customer_name or r.customer, "items": int(r.item_count or 0), "qty": flt(r.total_qty), "value": flt(r.grand_total)} for r in rows]
 
+
+
+def _latest_delivery_notes(yesterday, lookback_days=120):
+    """Shipments for yesterday, falling back to the last day anything shipped."""
+    rows = _safe_sql(
+        """
+        SELECT MAX(posting_date) AS dt
+        FROM `tabDelivery Note`
+        WHERE docstatus = 1 AND posting_date BETWEEN %(from_date)s AND %(to_date)s
+        """,
+        {"from_date": str(getdate(yesterday) - datetime.timedelta(days=lookback_days)), "to_date": str(yesterday)},
+    )
+    day = rows[0].get("dt") if rows else None
+    if not day:
+        return str(yesterday), []
+    return str(day), _delivery_notes_yesterday(day)
 
 def _shipments_trend(start_date, end_date):
     return _trend_rows(
@@ -661,49 +739,130 @@ def _discrepancies():
     return {"doctype": None, "open_count": 0, "rows": []}
 
 
-def _eod_rows(yesterday):
-    if _doctype_exists("Lab Batch Entry Child"):
-        rows = _safe_sql(
-            """
-            SELECT child.parent AS run, parent.owner AS operator,
-                   child.pounds_ran AS input_lbs,
-                   child.amount_ran_grams AS amount_ran_grams,
-                   child.strain_name,
-                   child.run_for
-            FROM `tabLab Batch Entry Child` child
-            JOIN `tabLab Batch Entry` parent ON parent.name = child.parent
-            WHERE parent.docstatus != 2 AND child.date_transferred = %(day)s
-            ORDER BY parent.modified DESC
-            LIMIT 8
-            """,
-            {"day": str(yesterday)},
-        )
-        out = []
-        for r in rows:
-            hash_pct = 0.0
-            if _doctype_exists("Hash Recording Child"):
-                hash_rows = _safe_sql(
-                    """
-                    SELECT COALESCE(SUM(total_hash), 0) AS total_hash
-                    FROM `tabHash Recording Child`
-                    WHERE parent IN (SELECT name FROM `tabHash Recording` WHERE docstatus != 2)
-                      AND date_transferred = %(day)s
-                      AND strain_name = %(strain)s
-                    """,
-                    {"day": str(yesterday), "strain": r.strain_name},
-                )
-                total_hash = flt(hash_rows[0].total_hash) if hash_rows else 0
-                amount_ran_grams = flt(r.amount_ran_grams)
-                hash_pct = (total_hash / amount_ran_grams * 100) if amount_ran_grams else 0
-            out.append({
-                "run": r.run,
-                "operator": r.operator,
-                "input_lbs": flt(r.input_lbs) or (flt(r.amount_ran_grams) / 453.59237 if flt(r.amount_ran_grams) else 0),
-                "hash_pct": hash_pct,
-                "issue": r.run_for or "",
-            })
-        return out
-    return []
+def _eod_rows(day):
+    """One row per (Conversion Entry, stage) for the day being shown."""
+    rows = _conversion_rows(day, day)
+    if not rows:
+        return _legacy_eod_rows(day)
+
+    codes = []
+    for row in rows:
+        codes += [row.get(f"raw_material_{i}") for i in _CE_RM_SLOTS]
+        codes += [row.get(f"finished_good_{i}") for i in _CE_FG_SLOTS]
+    meta = _ce_item_meta(codes)
+
+    grouped = {}
+    order = []
+    for row in rows:
+        stage, rms, fgs = _ce_route(row, meta)
+        key = (row.get("entry"), stage)
+        if key not in grouped:
+            grouped[key] = {
+                "run": row.get("entry"),
+                "doctype": "Conversion Entry",
+                "operator": row.get("owner"),
+                "stage": _CE_STAGE_LABELS.get(stage, stage),
+                "stage_key": stage,
+                "input": 0.0,
+                "input_uom": "lbs" if stage == "FROZEN" else "g",
+                "output": 0.0,
+                "output_uom": "each" if stage in ("VAPES", "GUMMIES") else "g",
+                "yield_pct": None,
+                "benchmark": None,
+                "issue": row.get("reasons") or "",
+            }
+            order.append(key)
+        bucket = grouped[key]
+
+        if stage == "FROZEN":
+            bucket["input"] += sum(r["qty"] for r in rms if r["flags"]["frozen"])
+            bucket["output"] += sum(f["qty"] for f in fgs if f["flags"]["rosin"] or f["flags"]["vrr"])
+            bucket["benchmark"] = FROZEN_YIELD_BENCHMARK
+        elif stage == "ROSIN_VRR":
+            bucket["input"] += sum(r["qty"] for r in rms if r["flags"]["rosin"] or r["flags"]["vrr"])
+            bucket["output"] += sum(f["qty"] for f in fgs if f["flags"]["vrr"])
+            bucket["benchmark"] = ROSIN_VRR_YIELD_BENCHMARK
+        elif stage == "BLEND":
+            bucket["input"] += sum(r["qty"] for r in rms if r["flags"]["rosin"])
+            bucket["output"] += sum(f["qty"] for f in fgs if f["flags"]["rosin"])
+            bucket["benchmark"] = BLEND_YIELD_BENCHMARK
+        else:
+            # Packaging and transfers: quantities are worth showing, but input
+            # and output are in different units so a yield % would be noise.
+            bucket["input"] += sum(r["qty"] for r in rms)
+            bucket["output"] += sum(f["qty"] for f in fgs)
+
+    operators = {}
+    for user in {g["operator"] for g in grouped.values() if g["operator"]}:
+        operators[user] = frappe.db.get_value("User", user, "full_name") or user
+
+    out = []
+    for key in order:
+        bucket = grouped[key]
+        bucket["operator"] = operators.get(bucket["operator"], bucket["operator"])
+        if bucket["stage_key"] == "FROZEN":
+            input_grams = bucket["input"] * GRAMS_PER_LB
+            bucket["yield_pct"] = (bucket["output"] / input_grams * 100) if input_grams else 0.0
+        elif bucket["benchmark"]:
+            bucket["yield_pct"] = (bucket["output"] / bucket["input"] * 100) if bucket["input"] else 0.0
+        out.append(bucket)
+
+    # Yield-bearing stages first, then the biggest runs.
+    out.sort(key=lambda r: (r["benchmark"] is None, -flt(r["input"])))
+    return out[:12]
+
+
+def _legacy_eod_rows(day):
+    """Pre-Conversion Entry runs, for days that only exist on Lab Batch Entry."""
+    if not _doctype_exists("Lab Batch Entry Child"):
+        return []
+    rows = _safe_sql(
+        """
+        SELECT child.parent AS run, parent.owner AS operator,
+               child.pounds_ran AS input_lbs,
+               child.amount_ran_grams AS amount_ran_grams,
+               child.strain_name,
+               child.run_for
+        FROM `tabLab Batch Entry Child` child
+        JOIN `tabLab Batch Entry` parent ON parent.name = child.parent
+        WHERE parent.docstatus != 2 AND child.date_transferred = %(day)s
+        ORDER BY parent.modified DESC
+        LIMIT 8
+        """,
+        {"day": str(day)},
+    )
+    out = []
+    for r in rows:
+        total_hash = 0.0
+        if _doctype_exists("Hash Recording Child"):
+            hash_rows = _safe_sql(
+                """
+                SELECT COALESCE(SUM(total_hash), 0) AS total_hash
+                FROM `tabHash Recording Child`
+                WHERE parent IN (SELECT name FROM `tabHash Recording` WHERE docstatus != 2)
+                  AND date_transferred = %(day)s
+                  AND strain_name = %(strain)s
+                """,
+                {"day": str(day), "strain": r.strain_name},
+            )
+            total_hash = flt(hash_rows[0].total_hash) if hash_rows else 0.0
+        input_lbs = flt(r.input_lbs) or (flt(r.amount_ran_grams) / GRAMS_PER_LB if flt(r.amount_ran_grams) else 0.0)
+        input_grams = input_lbs * GRAMS_PER_LB
+        out.append({
+            "run": r.run,
+            "doctype": "Lab Batch Entry",
+            "operator": r.operator,
+            "stage": _CE_STAGE_LABELS["FROZEN"],
+            "stage_key": "FROZEN",
+            "input": input_lbs,
+            "input_uom": "lbs",
+            "output": total_hash,
+            "output_uom": "g",
+            "yield_pct": (total_hash / input_grams * 100) if input_grams else 0.0,
+            "benchmark": FROZEN_YIELD_BENCHMARK,
+            "issue": r.run_for or "",
+        })
+    return out
 
 
 @frappe.whitelist()
@@ -726,24 +885,74 @@ def get_sales_daily_sync_dashboard(company=None):
 def get_lab_daily_sync_dashboard():
     today = getdate(nowdate())
     yesterday = today - datetime.timedelta(days=1)
-    start = today - datetime.timedelta(days=29)
-    y = _production_yield_for_day(yesterday)
-    before = _production_yield_for_day(yesterday - datetime.timedelta(days=1))
-    trends = _lab_trends(start, today)
-    pending_count = _count("Sales Invoice", {"docstatus": 0})
-    disc = _discrepancies()
+    yesterday_key = str(yesterday)
+    trend_start = today - datetime.timedelta(days=29)
+    # The lab does not run every day, so look further back than the trend
+    # window to find the last day that actually ran.
+    lookback_start = today - datetime.timedelta(days=119)
+
+    by_day = _lab_yield_by_day(lookback_start, today)
+    trends = [{"date": str(day), **by_day.get(str(day), _empty_yield())} for day in _days_between(trend_start, today)]
+
+    # The KPI cards report yesterday, full stop. When nothing ran, `last_run`
+    # carries the most recent day that did, so the cards can say so instead of
+    # showing an unexplained row of zeros.
+    days = [str(day) for day in _days_between(lookback_start, yesterday)]
+    run_days = [day for day in days if _has_production(by_day.get(day))]
+    current = by_day.get(yesterday_key) or _empty_yield()
+
+    last_run = None
+    if run_days:
+        last_run_date = run_days[-1]
+        last_run = {
+            "date": last_run_date,
+            "days_ago": (yesterday - getdate(last_run_date)).days,
+            **(by_day.get(last_run_date) or _empty_yield()),
+        }
+
+    def _prior_value(field, gate):
+        """Latest value of `field` before yesterday on a day that actually ran
+        that stage — the lab skips days, so comparing against a blank calendar
+        day would turn every KPI delta into the day's own value."""
+        for day in reversed([d for d in days if d < yesterday_key]):
+            metrics = by_day.get(day) or {}
+            if flt(metrics.get(gate)):
+                return flt(metrics.get(field))
+        return None
+
+    def _delta(field, gate):
+        if not flt(current.get(gate)):
+            return None
+        prior = _prior_value(field, gate)
+        return None if prior is None else flt(current.get(field)) - prior
+
+    shipment_date, shipment_rows = _latest_delivery_notes(yesterday)
+
     return {
         "as_of": str(today),
-        "yesterday": str(yesterday),
+        "yesterday": yesterday_key,
+        "ran_yesterday": _has_production(current),
+        "last_run": last_run,
+        "eod_date": (last_run or {}).get("date") or yesterday_key,
         "production": {
-            **y,
-            "lbs_delta": flt(y.get("lbs_ran")) - flt(before.get("lbs_ran")),
-            "hash_yield_delta": flt(y.get("hash_yield_pct")) - flt(before.get("hash_yield_pct")),
-            "rosin_yield_delta": flt(y.get("rosin_yield_pct")) - flt(before.get("rosin_yield_pct")),
+            **current,
+            "has_wash_run": bool(flt(current.get("lbs_ran"))),
+            "has_rosin_run": bool(flt(current.get("rosin_in"))),
+            "lbs_delta": _delta("lbs_ran", "lbs_ran"),
+            "hash_yield_delta": _delta("hash_yield_pct", "lbs_ran"),
+            "rosin_yield_delta": _delta("rosin_yield_pct", "rosin_in"),
+            "hash_benchmark": FROZEN_YIELD_BENCHMARK,
+            "rosin_benchmark": ROSIN_VRR_YIELD_BENCHMARK,
         },
         "trends": trends,
-        "eod_rows": _eod_rows(yesterday),
-        "pending_invoices": {"count": pending_count, "trend": _pending_invoices_trend(start, today)},
-        "discrepancies": disc,
-        "shipments": {"rows": _delivery_notes_yesterday(yesterday), "trend": _shipments_trend(start, today)},
+        "period": {"from_date": str(trend_start), "to_date": str(today)},
+        "eod_rows": _eod_rows((last_run or {}).get("date") or yesterday_key),
+        "pending_invoices": {"count": _count("Sales Invoice", {"docstatus": 0}), "trend": _pending_invoices_trend(trend_start, today)},
+        "discrepancies": _discrepancies(),
+        "shipments": {
+            "date": shipment_date,
+            "is_yesterday": shipment_date == str(yesterday),
+            "rows": shipment_rows,
+            "trend": _shipments_trend(trend_start, today),
+        },
     }
