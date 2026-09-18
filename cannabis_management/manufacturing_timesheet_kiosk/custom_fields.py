@@ -139,6 +139,22 @@ TIMESHEET_FIELDS = [
 			"still-running session, so the next minute's tick doesn't send it again."
 		),
 	},
+	{
+		"fieldname": "custom_overtime_declined",
+		"fieldtype": "Check",
+		"label": "Overtime Declined By Employee",
+		"insert_after": "custom_overtime_warning_sent",
+		"default": "0",
+		"no_copy": 1,
+		"read_only": 1,
+		"description": (
+			"Set by api.decline_overtime_request when the employee taps End instead of "
+			"Request Overtime after this Timesheet was auto-ended at 8h: permanently "
+			"resolves the board's needs_request prompt/alarm for this session without "
+			"filing a Kiosk Overtime Request - unlike a Rejected request (which still "
+			"invites a fresh request), this means the employee themself is done."
+		),
+	},
 ]
 
 # On the Timesheet Detail child table (one row per time log), not on Timesheet

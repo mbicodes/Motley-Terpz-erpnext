@@ -764,7 +764,35 @@
 		var audioCtx = null;
 		var activeAlarm = null;          // { osc, gain } of the siren currently sounding
 		var alarmSpeechTimer = null;     // pending announcement, cancellable before it speaks
-		var silencedOvertime = {};       // employee id -> true, while their alarm is muted
+
+		// employee id -> the specific overtime.timesheet they silenced, persisted to
+		// localStorage so a page refresh (or the kiosk tablet just being turned off and
+		// on) doesn't forget a Stop Alarm and start sounding again. Keyed by the
+		// Timesheet name, not just the employee, so a silence never outlives the exact
+		// session it was for - the moment a FRESH 8h-ending happens for that employee
+		// (a different Timesheet name), the stored value no longer matches and
+		// announceOvertimeNeeded() below treats them as unsilenced again.
+		var SILENCE_STORAGE_KEY = "kiosk_silenced_overtime";
+
+		function loadSilencedOvertime() {
+			try {
+				var raw = localStorage.getItem(SILENCE_STORAGE_KEY);
+				return raw ? JSON.parse(raw) : {};
+			} catch (e) {
+				return {};
+			}
+		}
+
+		function saveSilencedOvertime() {
+			try {
+				localStorage.setItem(SILENCE_STORAGE_KEY, JSON.stringify(silencedOvertime));
+			} catch (e) {
+				// Storage unavailable (private mode, quota, etc.) - silencing just won't
+				// survive a refresh this time; nothing else depends on it.
+			}
+		}
+
+		var silencedOvertime = loadSilencedOvertime();
 
 		function stopOvertimeAlarm() {
 			try {
@@ -795,10 +823,12 @@
 		}
 
 		// Mutes this employee's alarm until their overtime state changes. Called by the
-		// Stop Alarm button; announceOvertimeNeeded() clears the flag once they are no
-		// longer waiting on a request, so a fresh 8h ending alarms again.
-		function silenceOvertimeAlarm(employeeId) {
-			silencedOvertime[employeeId] = true;
+		// Stop Alarm button; announceOvertimeNeeded() clears the entry once they are no
+		// longer waiting on a request (or a different session starts alarming), so a
+		// fresh 8h ending alarms again.
+		function silenceOvertimeAlarm(employeeId, timesheet) {
+			silencedOvertime[employeeId] = timesheet;
+			saveSilencedOvertime();
 			stopOvertimeAlarm();
 		}
 
@@ -872,15 +902,20 @@
 			(groups || []).forEach(function (group) {
 				(group.employees || []).forEach(function (emp) {
 					if (emp.overtime && emp.overtime.state === "needs_request") {
-						stillWaiting[emp.employee] = true;
-						if (!silencedOvertime[emp.employee]) names.push(emp.employee_name);
+						stillWaiting[emp.employee] = emp.overtime.timesheet;
+						if (silencedOvertime[emp.employee] !== emp.overtime.timesheet) names.push(emp.employee_name);
 					}
 				});
 			});
 
+			var changed = false;
 			Object.keys(silencedOvertime).forEach(function (employeeId) {
-				if (!stillWaiting[employeeId]) delete silencedOvertime[employeeId];
+				if (stillWaiting[employeeId] !== silencedOvertime[employeeId]) {
+					delete silencedOvertime[employeeId];
+					changed = true;
+				}
 			});
+			if (changed) saveSilencedOvertime();
 
 			if (names.length) playOvertimeAlarm(names.join(", "));
 		}
@@ -1083,11 +1118,25 @@
 				card.appendChild(earlyBtn);
 			}
 
-			// Second button, only while the siren applies to this employee. Stopping it
-			// leaves Request Overtime above untouched - the request is still owed, it
-			// just stops being announced.
+			// Extra buttons, only while this employee needs an overtime decision.
 			if (needsRequest) {
-				var silenced = !!silencedOvertime[emp.employee];
+				// "End" - the employee is done for the day, no overtime wanted. Goes
+				// through the same code screen as every other action; on success the
+				// server marks this Timesheet resolved (decline_overtime_request) so the
+				// prompt and alarm both stop for good, not just until the next 8h ending.
+				var endBtn = document.createElement("button");
+				endBtn.type = "button";
+				endBtn.className = "jc-btn jc-end";
+				endBtn.textContent = "End";
+				endBtn.addEventListener("click", function () {
+					openCodeScreen(emp.employee, emp.employee_name, "decline_overtime");
+				});
+				card.appendChild(endBtn);
+
+				// Stopping the siren leaves Request Overtime/End above untouched - the
+				// decision is still owed, it just stops being announced. Persisted (see
+				// silenceOvertimeAlarm) so a refresh doesn't bring the siren back.
+				var silenced = silencedOvertime[emp.employee] === emp.overtime.timesheet;
 				if (silenced) card.classList.add("silenced");
 
 				var stopBtn = document.createElement("button");
@@ -1096,7 +1145,7 @@
 				stopBtn.textContent = silenced ? "Alarm Stopped" : "Stop Alarm";
 				stopBtn.disabled = silenced;
 				stopBtn.addEventListener("click", function () {
-					silenceOvertimeAlarm(emp.employee);
+					silenceOvertimeAlarm(emp.employee, emp.overtime.timesheet);
 					stopBtn.textContent = "Alarm Stopped";
 					stopBtn.disabled = true;
 					card.classList.add("silenced");
@@ -1257,7 +1306,16 @@
 					// The server's own state wins regardless of which button was tapped:
 					// if an overtime request is still needed, that's what shows - an
 					// employee who taps Start on a stale board still gets routed here.
-					if (result.overtime_prompt && result.overtime_prompt.state === "needs_request") {
+					if (result.overtime_prompt && result.overtime_prompt.state === "needs_request" && state.cardAction === "decline_overtime") {
+						// Tapped "End" on a needs-overtime card: no extra screen, just
+						// resolve it and confirm.
+						return call("decline_overtime_request", { token: state.token }).then(function () {
+							els.doneTitle.textContent = "All Set";
+							els.doneMessage.textContent = "Your day is marked complete. No overtime requested.";
+							showFlowScreen("done");
+							setTimeout(showBoard, 2200);
+						});
+					} else if (result.overtime_prompt && result.overtime_prompt.state === "needs_request") {
 						showOvertimeScreen(result, false);
 					} else if (state.cardAction === "early_overtime" && result.open_session) {
 						// Tapped "Request Overtime" on a still-running card - the session

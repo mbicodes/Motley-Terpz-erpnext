@@ -125,6 +125,7 @@ OVERTIME_FIELD = "custom_overtime"  # Timesheet Detail (Check) - set on the spli
 AUTO_ENDED_FIELD = TIMESHEET_FIELDS[2]["fieldname"]  # custom_auto_ended (Timesheet)
 OVERTIME_REQUEST_FIELD = TIMESHEET_FIELDS[3]["fieldname"]  # custom_overtime_request (Timesheet)
 WARNING_SENT_FIELD = TIMESHEET_FIELDS[4]["fieldname"]  # custom_overtime_warning_sent (Timesheet)
+DECLINED_FIELD = TIMESHEET_FIELDS[5]["fieldname"]  # custom_overtime_declined (Timesheet)
 
 # How long before the 8-hour auto-cutoff send_upcoming_cutoff_warnings() emails the
 # employee - see that function below.
@@ -324,6 +325,10 @@ def _overtime_prompt(employee):
 	- {"state": "pending", ...}: a request is in for it, awaiting Muhammad/Jamie.
 	- {"state": "approved", ...}: approved and not yet used by a new session -
 	  informational hint only; start_session is what actually applies it.
+	- None also once the employee has tapped End on this same session instead of
+	  Request Overtime (see decline_overtime_request) - unlike a Rejected request,
+	  this is the employee's own final word, so it stays resolved for good rather
+	  than re-inviting another request.
 	"""
 	if _get_open_timesheet(employee):
 		# Running again already (e.g. the exempt overtime session itself) - no
@@ -333,11 +338,11 @@ def _overtime_prompt(employee):
 	last_ts = frappe.db.get_value(
 		"Timesheet",
 		{"employee": employee, "docstatus": 1},
-		["name", AUTO_ENDED_FIELD],
+		["name", AUTO_ENDED_FIELD, DECLINED_FIELD],
 		order_by="creation desc",
 		as_dict=True,
 	)
-	if not last_ts or not last_ts.get(AUTO_ENDED_FIELD):
+	if not last_ts or not last_ts.get(AUTO_ENDED_FIELD) or last_ts.get(DECLINED_FIELD):
 		return None
 
 	req = frappe.db.get_value(
@@ -884,6 +889,26 @@ def submit_overtime_request(token, requested_hours):
 	_send_overtime_request_email(doc)
 
 	return {"name": doc.name}
+
+
+@frappe.whitelist(allow_guest=True)
+def decline_overtime_request(token):
+	"""Employee taps End (instead of Request Overtime) on a card that's alarming for
+	an auto-ended session: they're done for the day, no overtime wanted. Permanently
+	resolves _overtime_prompt's needs_request state for that Timesheet - see
+	DECLINED_FIELD - so the board stops alarming and offering Request Overtime for it,
+	without filing a Kiosk Overtime Request at all."""
+	employee = _resolve_token(token)
+
+	prompt = _overtime_prompt(employee)
+	if not prompt or prompt["state"] != "needs_request":
+		frappe.throw(_("There is nothing to end right now."))
+
+	frappe.db.set_value("Timesheet", prompt["timesheet"], DECLINED_FIELD, 1)
+	frappe.db.commit()
+	frappe.cache().delete_value(f"kiosk_token:{token}")
+
+	return {"timesheet": prompt["timesheet"]}
 
 
 @frappe.whitelist(allow_guest=True)
