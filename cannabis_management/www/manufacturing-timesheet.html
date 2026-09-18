@@ -162,6 +162,15 @@
 		.job-card .jc-btn.jc-end { background: linear-gradient(145deg, #ff7a4a, #b8452c); }
 		.job-card .jc-btn.jc-overtime { background: linear-gradient(145deg, #ef4444, #991b1b); }
 
+		/* Secondary option on a still-running card: ask for overtime before the 8h
+		   auto-cutoff ever reaches it, instead of only after. Smaller/quieter than
+		   the main End button on purpose - this is optional, End is not. */
+		.job-card .jc-btn.jc-early-overtime {
+			background: linear-gradient(145deg, #f59e0b, #b45309);
+			font-size: 13px;
+			padding: 9px;
+		}
+
 		/* Silences the siren for this employee without clearing the overtime
 		   request itself - the Request Overtime button stays right above it. */
 		.job-card .jc-btn.jc-silence {
@@ -544,7 +553,7 @@
 				<p class="employee-banner">For <b id="overtime-employee-name">-</b></p>
 
 				<div class="summary-box">
-					<div class="row"><span>Status</span><span>8 hours complete</span></div>
+					<div class="row"><span>Status</span><span id="overtime-status-text">8 hours complete</span></div>
 				</div>
 
 				<div class="field">
@@ -649,6 +658,7 @@
 			endCancelBtn: document.getElementById("end-cancel-btn"),
 
 			overtimeEmployeeName: document.getElementById("overtime-employee-name"),
+			overtimeStatusText: document.getElementById("overtime-status-text"),
 			overtimeHours: document.getElementById("overtime-hours"),
 			overtimeError: document.getElementById("overtime-error"),
 			overtimeSubmitBtn: document.getElementById("overtime-submit-btn"),
@@ -997,6 +1007,8 @@
 			var needsRequest = emp.overtime && emp.overtime.state === "needs_request";
 			var isPending = emp.overtime && emp.overtime.state === "pending";
 			var isApproved = emp.overtime && emp.overtime.state === "approved";
+			var earlyAvailable = emp.running && emp.early_overtime && emp.early_overtime.state === "available";
+			var earlyPending = emp.running && emp.early_overtime && emp.early_overtime.state === "pending";
 
 			var card = document.createElement("div");
 			card.className = "job-card" + (emp.running ? " running" : "") + (needsRequest ? " needs-overtime" : "");
@@ -1009,6 +1021,7 @@
 			var statusText = emp.running ? (emp.is_overtime_session ? "Running (overtime)" : "Running") : "Not started";
 			if (needsRequest) statusText = "Overtime needed";
 			else if (isPending) statusText = "Overtime pending";
+			else if (earlyPending) statusText = "Running — overtime pending";
 
 			var status = document.createElement("div");
 			status.className = "jc-status";
@@ -1040,6 +1053,11 @@
 					? "Requested " + emp.overtime.requested_hours + "h — awaiting approval"
 					: "Approved: " + emp.overtime.requested_hours + "h overtime available";
 				card.appendChild(note);
+			} else if (earlyPending) {
+				var earlyNote = document.createElement("div");
+				earlyNote.className = "jc-note";
+				earlyNote.textContent = "Requested " + emp.early_overtime.requested_hours + "h — awaiting approval";
+				card.appendChild(earlyNote);
 			}
 
 			var action = emp.running ? "end" : (needsRequest ? "overtime" : "start");
@@ -1051,6 +1069,19 @@
 				openCodeScreen(emp.employee, emp.employee_name, action);
 			});
 			card.appendChild(btn);
+
+			// Secondary option on a running card: ask for overtime before the 8h
+			// auto-cutoff reaches it, without ending the session to do so.
+			if (earlyAvailable) {
+				var earlyBtn = document.createElement("button");
+				earlyBtn.type = "button";
+				earlyBtn.className = "jc-btn jc-early-overtime";
+				earlyBtn.textContent = "Request Overtime";
+				earlyBtn.addEventListener("click", function () {
+					openCodeScreen(emp.employee, emp.employee_name, "early_overtime");
+				});
+				card.appendChild(earlyBtn);
+			}
 
 			// Second button, only while the siren applies to this employee. Stopping it
 			// leaves Request Overtime above untouched - the request is still owed, it
@@ -1196,8 +1227,9 @@
 			showFlowScreen("end");
 		}
 
-		function showOvertimeScreen(result) {
+		function showOvertimeScreen(result, isEarly) {
 			els.overtimeEmployeeName.textContent = result.employee_name;
+			els.overtimeStatusText.textContent = isEarly ? "Still running" : "8 hours complete";
 			els.overtimeHours.value = "";
 			els.overtimeError.textContent = "";
 			showFlowScreen("overtime");
@@ -1226,7 +1258,11 @@
 					// if an overtime request is still needed, that's what shows - an
 					// employee who taps Start on a stale board still gets routed here.
 					if (result.overtime_prompt && result.overtime_prompt.state === "needs_request") {
-						showOvertimeScreen(result);
+						showOvertimeScreen(result, false);
+					} else if (state.cardAction === "early_overtime" && result.open_session) {
+						// Tapped "Request Overtime" on a still-running card - the session
+						// itself isn't ending here, only the request is being sent.
+						showOvertimeScreen(result, true);
 					} else if (result.open_session) {
 						showEndScreen(result);
 					} else {
