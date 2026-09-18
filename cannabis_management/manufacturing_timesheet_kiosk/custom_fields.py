@@ -125,6 +125,20 @@ TIMESHEET_FIELDS = [
 			"end_session's normal 8h row-split (custom_overtime) takes over from there."
 		),
 	},
+	{
+		"fieldname": "custom_overtime_warning_sent",
+		"fieldtype": "Check",
+		"label": "Overtime Warning Sent",
+		"insert_after": "custom_overtime_request",
+		"default": "0",
+		"no_copy": 1,
+		"read_only": 1,
+		"description": (
+			"Set by the kiosk's scheduled 30-minutes-before-cutoff warning "
+			"(api.send_upcoming_cutoff_warnings) once that email has gone out for this "
+			"still-running session, so the next minute's tick doesn't send it again."
+		),
+	},
 ]
 
 # On the Timesheet Detail child table (one row per time log), not on Timesheet
