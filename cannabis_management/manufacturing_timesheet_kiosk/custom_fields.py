@@ -155,6 +155,23 @@ TIMESHEET_FIELDS = [
 			"invites a fresh request), this means the employee themself is done."
 		),
 	},
+	{
+		"fieldname": "custom_overtime_alarm_silenced",
+		"fieldtype": "Check",
+		"label": "Overtime Alarm Silenced",
+		"insert_after": "custom_overtime_declined",
+		"default": "0",
+		"no_copy": 1,
+		"read_only": 1,
+		"description": (
+			"Set by api.silence_overtime_alarm when Stop Alarm is tapped on this "
+			"session's needs-overtime card. Server-side (not per-browser) on purpose: "
+			"every kiosk board polling get_employee_board reads the same flag, so "
+			"stopping the siren on one tablet stops it everywhere, not just there. "
+			"Only mutes the alarm - Request Overtime/End stay available exactly as "
+			"before, and this clears again the moment the prompt itself resolves."
+		),
+	},
 ]
 
 # On the Timesheet Detail child table (one row per time log), not on Timesheet

@@ -757,42 +757,15 @@
 		// making noise until someone acts, not to alert once and go quiet.
 		//
 		// The Stop Alarm button on the card is the way out of that loop: it cuts the
-		// current siren short and marks the employee silenced, so later polls stay
-		// quiet for them. It does NOT resolve the overtime - the card keeps its
-		// Request Overtime button so the employee can send the request whenever they
-		// get to the kiosk. ----
+		// current siren short and tells the server this employee's alarm is silenced
+		// (api.silence_overtime_alarm - a Check on the Timesheet, not a per-browser
+		// flag), so every kiosk board's next 30s poll stays quiet for them, not just
+		// the tablet that was tapped. It does NOT resolve the overtime - the card
+		// keeps its Request Overtime/End buttons so the employee (or whoever's at the
+		// kiosk) can still act whenever they get to it. ----
 		var audioCtx = null;
 		var activeAlarm = null;          // { osc, gain } of the siren currently sounding
 		var alarmSpeechTimer = null;     // pending announcement, cancellable before it speaks
-
-		// employee id -> the specific overtime.timesheet they silenced, persisted to
-		// localStorage so a page refresh (or the kiosk tablet just being turned off and
-		// on) doesn't forget a Stop Alarm and start sounding again. Keyed by the
-		// Timesheet name, not just the employee, so a silence never outlives the exact
-		// session it was for - the moment a FRESH 8h-ending happens for that employee
-		// (a different Timesheet name), the stored value no longer matches and
-		// announceOvertimeNeeded() below treats them as unsilenced again.
-		var SILENCE_STORAGE_KEY = "kiosk_silenced_overtime";
-
-		function loadSilencedOvertime() {
-			try {
-				var raw = localStorage.getItem(SILENCE_STORAGE_KEY);
-				return raw ? JSON.parse(raw) : {};
-			} catch (e) {
-				return {};
-			}
-		}
-
-		function saveSilencedOvertime() {
-			try {
-				localStorage.setItem(SILENCE_STORAGE_KEY, JSON.stringify(silencedOvertime));
-			} catch (e) {
-				// Storage unavailable (private mode, quota, etc.) - silencing just won't
-				// survive a refresh this time; nothing else depends on it.
-			}
-		}
-
-		var silencedOvertime = loadSilencedOvertime();
 
 		function stopOvertimeAlarm() {
 			try {
@@ -822,14 +795,13 @@
 			}
 		}
 
-		// Mutes this employee's alarm until their overtime state changes. Called by the
-		// Stop Alarm button; announceOvertimeNeeded() clears the entry once they are no
-		// longer waiting on a request (or a different session starts alarming), so a
-		// fresh 8h ending alarms again.
-		function silenceOvertimeAlarm(employeeId, timesheet) {
-			silencedOvertime[employeeId] = timesheet;
-			saveSilencedOvertime();
+		// Stops the siren here immediately, and tells the server (silence_overtime_alarm)
+		// so every OTHER kiosk board's next poll (see announceOvertimeNeeded) reads the
+		// same silenced flag and stays quiet too - not just this tablet. Guest, no PIN:
+		// same reasoning as the button itself, see its click handler below.
+		function silenceOvertimeAlarm(employeeId) {
 			stopOvertimeAlarm();
+			return call("silence_overtime_alarm", { employee: employeeId });
 		}
 
 		function playOvertimeAlarm(employeeNames) {
@@ -892,30 +864,21 @@
 
 		// Scans the just-rendered board for anyone still needing an overtime request
 		// and sounds the alarm once per loadBoard() call (immediate load, plus every
-		// 30s refresh) for as long as they remain unresolved. Employees whose alarm
-		// was stopped by hand are skipped, and their silence is dropped again as soon
-		// as they stop needing a request - so the next 8h ending is audible.
+		// 30s refresh) for as long as they remain unresolved. `silenced` comes straight
+		// from the server (SILENCED_FIELD on their Timesheet, set by Stop Alarm on ANY
+		// board), so this stays in sync across every kiosk tablet, not just the one
+		// that silenced it - and clears itself the moment a fresh 8h-ending starts a
+		// new Timesheet, so that one is audible again.
 		function announceOvertimeNeeded(groups) {
 			var names = [];
-			var stillWaiting = {};
 
 			(groups || []).forEach(function (group) {
 				(group.employees || []).forEach(function (emp) {
-					if (emp.overtime && emp.overtime.state === "needs_request") {
-						stillWaiting[emp.employee] = emp.overtime.timesheet;
-						if (silencedOvertime[emp.employee] !== emp.overtime.timesheet) names.push(emp.employee_name);
+					if (emp.overtime && emp.overtime.state === "needs_request" && !emp.overtime.silenced) {
+						names.push(emp.employee_name);
 					}
 				});
 			});
-
-			var changed = false;
-			Object.keys(silencedOvertime).forEach(function (employeeId) {
-				if (stillWaiting[employeeId] !== silencedOvertime[employeeId]) {
-					delete silencedOvertime[employeeId];
-					changed = true;
-				}
-			});
-			if (changed) saveSilencedOvertime();
 
 			if (names.length) playOvertimeAlarm(names.join(", "));
 		}
@@ -1134,9 +1097,10 @@
 				card.appendChild(endBtn);
 
 				// Stopping the siren leaves Request Overtime/End above untouched - the
-				// decision is still owed, it just stops being announced. Persisted (see
-				// silenceOvertimeAlarm) so a refresh doesn't bring the siren back.
-				var silenced = silencedOvertime[emp.employee] === emp.overtime.timesheet;
+				// decision is still owed, it just stops being announced. Comes from the
+				// server (emp.overtime.silenced), so it's already in sync with whatever
+				// any other kiosk board did, on load and on every 30s refresh.
+				var silenced = !!emp.overtime.silenced;
 				if (silenced) card.classList.add("silenced");
 
 				var stopBtn = document.createElement("button");
@@ -1145,10 +1109,13 @@
 				stopBtn.textContent = silenced ? "Alarm Stopped" : "Stop Alarm";
 				stopBtn.disabled = silenced;
 				stopBtn.addEventListener("click", function () {
-					silenceOvertimeAlarm(emp.employee, emp.overtime.timesheet);
 					stopBtn.textContent = "Alarm Stopped";
 					stopBtn.disabled = true;
 					card.classList.add("silenced");
+					silenceOvertimeAlarm(emp.employee).catch(function () {
+						// Best-effort - the siren is already stopped here regardless; if
+						// the server call failed, the next poll just re-alarms as normal.
+					});
 				});
 				card.appendChild(stopBtn);
 			}
