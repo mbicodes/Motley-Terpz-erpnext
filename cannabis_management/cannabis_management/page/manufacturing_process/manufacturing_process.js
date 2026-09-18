@@ -500,32 +500,30 @@ function mpcMount(container, initialMaterialRequest) {
 
 	function renderPickerHtml() {
 		return (
-			'<div class="mpc-sub" style="margin:0 2px 14px">' + __('Start a new production run, or resume one below.') + '</div>' +
+			'<div class="mpc-sub" style="margin:0 2px 10px">' + __('Start a new production run below, or jump to one already in progress.') + '</div>' +
+			'<div class="mpc-field-row" style="margin-bottom:14px">' +
+				'<div class="mpc-field mpc-field-wide"><label>' + __('Resume a run') + '</label><div id="mpc-recent"></div></div>' +
+			'</div>' +
 			'<div class="mpc-step mpc-active">' +
 				'<div class="mpc-step-head"><div class="mpc-step-num">1</div><div class="mpc-step-title">' + __('Start a run') + '</div></div>' +
 				'<div class="mpc-step-body" id="mpc-new-run"></div>' +
-			'</div>' +
-			'<div class="mpc-sub" style="margin:14px 2px 4px">' + __('Resume a recent run') + '</div>' +
-			'<div class="mpc-recent-chips" id="mpc-recent"></div>'
+			'</div>'
 		);
 	}
 
 	function bindPickerEvents() {
 		var body = root.querySelector('#mpc-new-run');
 		body.innerHTML =
-			'<div class="mpc-step-desc">' + __('Pick a project, the Fresh Frozen (raw) item and lbs, and a Routing — finished products are derived from the Routing automatically.') + '</div>' +
+			'<div class="mpc-step-desc">' + __('Pick a project, the Fresh Frozen (raw) item and lbs — everything else (routing, warehouses, work orders, job cards, WIP transfer) is filled in automatically.') + '</div>' +
 			'<div class="mpc-field-row">' +
 				field('mpc-f-project', __('Project')) +
 				field('mpc-f-company', __('Company')) +
 				field('mpc-f-item', __('Raw Material Item')) +
 				field('mpc-f-qty', __('Qty (lbs)')) +
-				field('mpc-f-warehouse', __('Source Warehouse')) +
 				field('mpc-f-routing', __('Routing')) +
-				field('mpc-f-wip-wh', __('WIP Warehouse')) +
-				field('mpc-f-fg-wh', __('Target Warehouse')) +
 			'</div>' +
 			'<div id="mpc-fg-preview"></div>' +
-			'<button id="mpc-create-run-btn">' + __('Create request') + '</button>';
+			'<button id="mpc-create-run-btn">' + __('Start run') + '</button>';
 
 		function field(id, label) {
 			return '<div class="mpc-field"><label>' + esc(label) + '</label><div id="' + id + '"></div></div>';
@@ -536,10 +534,10 @@ function mpcMount(container, initialMaterialRequest) {
 		ctl.company = makeControl('mpc-f-company', 'company', 'Link', 'Company', state.defaults.company);
 		ctl.item_code = makeControl('mpc-f-item', 'item_code', 'Link', 'Item');
 		ctl.qty = makeControl('mpc-f-qty', 'qty', 'Float');
-		ctl.warehouse = makeControl('mpc-f-warehouse', 'warehouse', 'Link', 'Warehouse');
-		ctl.routing = makeControl('mpc-f-routing', 'routing', 'Link', 'Routing');
-		ctl.wip_warehouse = makeControl('mpc-f-wip-wh', 'wip_warehouse', 'Link', 'Warehouse');
-		ctl.fg_warehouse = makeControl('mpc-f-fg-wh', 'fg_warehouse', 'Link', 'Warehouse');
+		// "Wash" covers every real run on this site so far — pre-filled as a
+		// starting point, still editable for the day a Fresh Frozen item
+		// actually needs one of the other Routings.
+		ctl.routing = makeControl('mpc-f-routing', 'routing', 'Link', 'Routing', 'Wash');
 
 		function makeControl(id, fieldname, fieldtype, options, defaultVal) {
 			var c = frappe.ui.form.make_control({
@@ -623,21 +621,14 @@ function mpcMount(container, initialMaterialRequest) {
 		});
 
 		root.querySelector('#mpc-create-run-btn').addEventListener('click', function () {
+			var btn = this;
 			var payload = {
 				company: ctl.company.get_value(),
 				custom_project: ctl.project.get_value(),
 				custom_routing: ctl.routing.get_value(),
-				set_warehouse: ctl.warehouse.get_value(),
 				transaction_date: frappe.datetime.get_today(),
-				items: [{ item_code: ctl.item_code.get_value(), qty: ctl.qty.get_value(), warehouse: ctl.warehouse.get_value() }],
-				custom_finished_goods: fgRows.filter(function (f) { return f.operation; }).map(function (f) {
-					return Object.assign({}, f, {
-						source_warehouse: ctl.warehouse.get_value(),
-						wip_warehouse: ctl.wip_warehouse.get_value(),
-						target_warehouse: ctl.fg_warehouse.get_value(),
-					});
-				}),
-				submit: true,
+				items: [{ item_code: ctl.item_code.get_value(), qty: ctl.qty.get_value() }],
+				custom_finished_goods: fgRows.filter(function (f) { return f.operation; }),
 			};
 			if (!payload.company || !payload.custom_project || !payload.items[0].item_code || !payload.items[0].qty) {
 				frappe.msgprint(__('Project, Company, Raw Material Item and Qty are required.'));
@@ -647,38 +638,49 @@ function mpcMount(container, initialMaterialRequest) {
 				frappe.msgprint(__('Pick a Routing that resolves to at least one finished product.'));
 				return;
 			}
+			btn.disabled = true;
 			frappe.call({
-				method: 'cannabis_management.api.manufacturing_process.save_material_request',
+				method: API + 'start_run',
 				args: { payload: payload },
 				freeze: true,
-				freeze_message: __('Creating request…'),
+				freeze_message: __('Starting run — creating the request, releasing to production and sending material to WIP…'),
 				callback: function (r) {
-					if (!r.message) return;
-					state.mr = r.message.name;
+					if (!r.message || !r.message.material_request) return;
+					state.mr = r.message.material_request.name;
+					state.data = r.message;
 					frappe.set_route('manufacturing-process', state.mr);
-					loadRun();
+					render();
 				},
+				error: function () { btn.disabled = false; },
 			});
 		});
 	}
 
+	// A single searchable filter (by Project, not raw Material Request IDs)
+	// instead of an ever-growing row of chips.
 	function loadRecent() {
+		var parent = root.querySelector('#mpc-recent');
+		if (!parent) return;
 		frappe.call({
 			method: API + 'get_recent_runs',
 			callback: function (r) {
 				var rows = r.message || [];
-				var wrap = root.querySelector('#mpc-recent');
-				if (!wrap) return;
-				if (!rows.length) { wrap.innerHTML = '<span class="mpc-empty">' + __('No runs yet.') + '</span>'; return; }
-				wrap.innerHTML = rows.map(function (mr) {
-					return '<span class="mpc-chip" data-mr="' + esc(mr.name) + '">' + esc(mr.custom_project || mr.name) + ' <span class="mpc-muted">· ' + esc(mr.name) + '</span></span>';
-				}).join('');
-				wrap.querySelectorAll('.mpc-chip').forEach(function (chip) {
-					chip.addEventListener('click', function () {
-						state.mr = this.getAttribute('data-mr');
-						frappe.set_route('manufacturing-process', state.mr);
-						loadRun();
-					});
+				var ctl = frappe.ui.form.make_control({
+					parent: parent,
+					df: {
+						fieldtype: 'Autocomplete', fieldname: 'resume_run',
+						placeholder: rows.length ? __('Search a project or run…') : __('No runs yet'),
+						options: rows.map(function (mr) { return { label: (mr.custom_project || mr.name) + ' · ' + mr.name, value: mr.name }; }),
+					},
+					render_input: true,
+				});
+				ctl.refresh();
+				ctl.$input.on('change awesomplete-selectcomplete', function () {
+					var mr = ctl.get_value();
+					if (!mr) return;
+					state.mr = mr;
+					frappe.set_route('manufacturing-process', state.mr);
+					loadRun();
 				});
 			},
 		});
