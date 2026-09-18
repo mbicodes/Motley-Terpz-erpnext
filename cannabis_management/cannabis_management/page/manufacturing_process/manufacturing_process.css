@@ -1,4 +1,372 @@
-/* Single source of truth is public/css/manufacturing_process.css, shared with the
- * portal page at /manufacturing-process. Do not add rules here — add them there,
- * or the Desk and portal views will drift apart. */
-@import url("/assets/cannabis_management/css/manufacturing_process.css");
+/* Manufacturing Process — production run console (Desk only).
+ *
+ * Deliberately NOT shared with the portal at /manufacturing-process — that
+ * page keeps its own tested design (public/css/manufacturing_process.css).
+ * Don't merge the two; see manufacturing_process.js header comment. */
+
+.mpc-console {
+	--mpc-border: #e2e8f0;
+	--mpc-bg: #f6f7f9;
+	--mpc-surface: #ffffff;
+	--mpc-surface-2: #f9fafb;
+	--mpc-text: #1e293b;
+	--mpc-sec: #64748b;
+	--mpc-muted: #94a3b8;
+	--mpc-gold: #b45309;
+	--mpc-gold-dim: rgba(180, 83, 9, 0.1);
+	--mpc-green: #059669;
+	--mpc-green-dim: rgba(5, 150, 105, 0.1);
+	--mpc-amber: #d97706;
+	--mpc-amber-dim: rgba(217, 119, 6, 0.1);
+	--mpc-r: 12px;
+
+	background: var(--mpc-bg);
+	color: var(--mpc-text);
+	font-size: 13px;
+	padding-bottom: 32px;
+}
+
+.mpc-console * {
+	box-sizing: border-box;
+}
+
+.mpc-console button {
+	font-family: inherit;
+	font-size: 12px;
+	border: none;
+	border-radius: 7px;
+	padding: 7px 14px;
+	cursor: pointer;
+	background: var(--mpc-gold);
+	color: #fff;
+}
+.mpc-console button:hover {
+	opacity: 0.92;
+}
+.mpc-console button.mpc-btn-secondary {
+	background: var(--mpc-surface);
+	color: var(--mpc-text);
+	border: 1px solid var(--mpc-border);
+}
+.mpc-console button.mpc-btn-danger {
+	background: #fff;
+	color: #dc2626;
+	border: 1px solid #fecaca;
+}
+.mpc-console button:disabled {
+	opacity: 0.45;
+	cursor: not-allowed;
+}
+
+.mpc-console input, .mpc-console select {
+	font-family: inherit;
+	font-size: 13px;
+	border: 1px solid var(--mpc-border);
+	border-radius: 7px;
+	padding: 6px 10px;
+	background: #fff;
+	color: var(--mpc-text);
+}
+
+/* header */
+.mpc-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	background: var(--mpc-surface-2);
+	border: 1px solid var(--mpc-border);
+	border-radius: var(--mpc-r);
+	padding: 14px 18px;
+	margin-bottom: 14px;
+}
+.mpc-header .mpc-title {
+	font-size: 17px;
+	font-weight: 600;
+}
+.mpc-header .mpc-title .mpc-muted {
+	color: var(--mpc-muted);
+	font-weight: 400;
+}
+.mpc-header .mpc-sub {
+	font-size: 13px;
+	color: var(--mpc-sec);
+	margin-top: 2px;
+}
+.mpc-status-pill {
+	font-size: 12px;
+	padding: 5px 12px;
+	border-radius: 20px;
+	background: var(--mpc-gold-dim);
+	color: var(--mpc-gold);
+	white-space: nowrap;
+}
+.mpc-status-pill.mpc-complete {
+	background: var(--mpc-green-dim);
+	color: var(--mpc-green);
+}
+
+/* progress bar */
+.mpc-progress {
+	display: flex;
+	gap: 6px;
+	margin-bottom: 14px;
+}
+.mpc-progress > div {
+	flex: 1;
+	height: 5px;
+	border-radius: 3px;
+	background: var(--mpc-border);
+}
+.mpc-progress > div.done {
+	background: var(--mpc-green);
+}
+.mpc-progress > div.active {
+	background: var(--mpc-gold);
+}
+
+/* layout */
+.mpc-layout {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) 230px;
+	gap: 14px;
+	align-items: start;
+}
+@media (max-width: 900px) {
+	.mpc-layout {
+		grid-template-columns: 1fr;
+	}
+}
+
+/* step cards */
+.mpc-step {
+	background: var(--mpc-surface-2);
+	border: 1px solid var(--mpc-border);
+	border-radius: var(--mpc-r);
+	padding: 14px 16px;
+	margin-bottom: 10px;
+}
+.mpc-step.mpc-active {
+	border-color: var(--mpc-gold);
+}
+.mpc-step-head {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+.mpc-step-num {
+	width: 24px;
+	height: 24px;
+	border-radius: 50%;
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 12px;
+	background: var(--mpc-border);
+	color: var(--mpc-muted);
+}
+.mpc-step.mpc-done .mpc-step-num {
+	background: var(--mpc-green);
+	color: #fff;
+}
+.mpc-step.mpc-active .mpc-step-num {
+	background: var(--mpc-gold);
+	color: #fff;
+}
+.mpc-step-title {
+	font-size: 15px;
+}
+.mpc-step-body {
+	margin: 10px 0 0 34px;
+}
+.mpc-step-desc {
+	font-size: 13px;
+	color: var(--mpc-sec);
+	margin-bottom: 10px;
+}
+.mpc-hint {
+	font-size: 12px;
+	color: var(--mpc-muted);
+	margin-top: 8px;
+}
+.mpc-done-tag {
+	font-size: 12px;
+	color: var(--mpc-green);
+	margin: 6px 0 0 34px;
+}
+
+.mpc-field-row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10px;
+	margin-bottom: 10px;
+}
+.mpc-field {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	min-width: 160px;
+}
+.mpc-field label {
+	font-size: 11px;
+	color: var(--mpc-muted);
+	text-transform: uppercase;
+	letter-spacing: 0.02em;
+}
+.mpc-field-wide {
+	flex: 1 1 100%;
+}
+
+.mpc-fg-row {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 6px 0;
+	border-top: 1px solid var(--mpc-border);
+}
+.mpc-fg-row:first-child {
+	border-top: none;
+}
+
+/* operation cards inside step 4 */
+.mpc-op-card {
+	border: 1px solid var(--mpc-border);
+	border-radius: 10px;
+	padding: 10px 12px;
+	margin-bottom: 10px;
+	background: var(--mpc-surface);
+}
+.mpc-op-card-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	margin-bottom: 8px;
+}
+.mpc-op-name {
+	font-size: 13px;
+}
+.mpc-op-name .mpc-muted {
+	color: var(--mpc-muted);
+}
+.mpc-op-status {
+	font-size: 11px;
+	padding: 3px 9px;
+	border-radius: 20px;
+	background: var(--mpc-border);
+	color: var(--mpc-sec);
+}
+.mpc-op-status.mpc-running {
+	background: var(--mpc-amber-dim);
+	color: var(--mpc-amber);
+}
+.mpc-op-status.mpc-paused {
+	background: var(--mpc-border);
+	color: var(--mpc-sec);
+}
+.mpc-op-status.mpc-complete {
+	background: var(--mpc-green-dim);
+	color: var(--mpc-green);
+}
+.mpc-sub-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	padding: 6px 0;
+	border-top: 1px solid var(--mpc-border);
+	font-size: 13px;
+	color: var(--mpc-sec);
+}
+.mpc-sub-row:first-child {
+	border-top: none;
+}
+.mpc-sub-row.mpc-sub-current {
+	color: var(--mpc-text);
+}
+.mpc-sub-timer {
+	font-size: 12px;
+	color: var(--mpc-muted);
+	min-width: 48px;
+	text-align: right;
+}
+.mpc-op-actions {
+	display: flex;
+	gap: 8px;
+	margin-top: 8px;
+}
+
+/* scoreboard */
+.mpc-scoreboard {
+	background: var(--mpc-surface);
+	border: 1px solid var(--mpc-border);
+	border-radius: var(--mpc-r);
+	padding: 14px;
+	position: sticky;
+	top: 8px;
+}
+.mpc-scoreboard-title {
+	font-size: 12px;
+	color: var(--mpc-sec);
+	margin-bottom: 10px;
+}
+.mpc-sb-label {
+	font-size: 12px;
+	color: var(--mpc-muted);
+}
+.mpc-sb-value {
+	font-size: 20px;
+	margin-bottom: 8px;
+}
+.mpc-sb-value.mpc-sb-small {
+	font-size: 14px;
+}
+.mpc-sb-yield {
+	font-size: 12px;
+	color: var(--mpc-amber);
+	margin-bottom: 8px;
+}
+.mpc-sb-yield.mpc-sb-good {
+	color: var(--mpc-green);
+}
+.mpc-sb-fg-row {
+	display: flex;
+	justify-content: space-between;
+	font-size: 12px;
+	margin-bottom: 4px;
+}
+
+.mpc-empty {
+	color: var(--mpc-muted);
+	font-size: 13px;
+	padding: 6px 0;
+}
+.mpc-complete-banner {
+	background: var(--mpc-green-dim);
+	border-radius: var(--mpc-r);
+	padding: 14px 16px;
+	color: var(--mpc-green);
+	font-size: 14px;
+	margin-top: 4px;
+}
+
+.mpc-recent-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin-top: 8px;
+}
+.mpc-chip {
+	font-size: 12px;
+	padding: 4px 10px;
+	border-radius: 20px;
+	background: var(--mpc-surface);
+	border: 1px solid var(--mpc-border);
+	cursor: pointer;
+	color: var(--mpc-sec);
+}
+.mpc-chip:hover {
+	border-color: var(--mpc-gold);
+	color: var(--mpc-gold);
+}
