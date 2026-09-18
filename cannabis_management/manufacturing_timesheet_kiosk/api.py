@@ -5,8 +5,9 @@
 API endpoints for the Manufacturing Timesheet Kiosk (``/manufacturing-timesheet``).
 
 Flow:
-	1. get_employee_board() -> this kiosk's rostered employees (see BOARD_GROUPS),
-	   grouped, with their running timer if any. This is the page the kiosk sits on
+	1. get_employee_board() -> this kiosk's rostered employees (see SECTION_TITLES
+	   and Employee's Kiosk Timesheet/Kiosk Section fields), grouped, with their
+	   running timer if any. This is the page the kiosk sits on
 	   with nobody logged in - allow_guest, no code needed yet.
 	2. Employee taps their own card's Start/End/Request Overtime button -> the page
 	   asks for their code -> verify_access_code(access_code, employee) ->
@@ -88,6 +89,13 @@ from cannabis_management.manufacturing_timesheet_kiosk.custom_fields import (
 CODE_FIELD = EMPLOYEE_FIELDS[0]["fieldname"]
 TOKEN_TTL_SECONDS = 300
 
+# How long a Pending request keeps showing "awaiting approval" on the board. The
+# request itself is untouched in the backend past this point - Muhammad/Jamie's
+# email link still works whenever they get to it - this only stops the card
+# nagging the employee about it once it's been sitting long enough that it's
+# clearly not getting an answer soon.
+PENDING_OVERTIME_DISPLAY_SECONDS = 3600
+
 # Timesheet Detail row is split at REGULAR_HOURS_PER_SESSION on manual end (see
 # end_session) - untouched by the auto-cutoff feature below, which reads the same
 # constant to decide *when* to force-end a still-running session.
@@ -106,41 +114,19 @@ OVERTIME_RECIPIENTS = [
 	{"email": "jamie@motleyterpz.com", "label": "Jamie"},
 ]
 
-# Which employees this kiosk's board shows, and under which heading.
+# Which board heading each Kiosk Section (Employee's custom_kiosk_section, see
+# custom_fields.py) renders under, in board order. Who's on the board at all is set
+# entirely from the Employee form now - Active, a Kiosk Access Code, Kiosk Timesheet
+# checked, and one of these picked for Kiosk Section - not from a list in this file,
+# so adding/removing a card never needs a code change or a restart.
 #
-# Holding a Kiosk Access Code is what lets someone clock in; it is *not* on its own
-# a reason to put their card on this board. This kiosk sits on the Master Touch floor,
-# so it lists only the people who clock in here - staff at the other sites keep their
-# codes for their own kiosk without cluttering this screen.
-#
-# Keyed by Employee id, not employee_name: names are editable and not unique, ids are.
-# Order here is the order the cards appear in - not alphabetical.
-#
-# A group with title None renders with no heading of its own; it sits directly under
-# the page header (see the <h1> in manufacturing-timesheet.html), which already names
-# the site. Give a group a title to break it out under its own heading.
-BOARD_GROUPS = [
-	{
-		"title": None,
-		"employees": [
-			"HR-EMP-00020",  # Kayley B
-			"HR-EMP-00022",  # Conner
-			"HR-EMP-00021",  # Israel
-			"HR-EMP-00014",  # Tori Sutliff
-			"HR-EMP-00007",  # Wolf
-			"HR-EMP-00023",  # Leo
-			"HR-EMP-00024",  # Brian
-			"HR-EMP-00025",  # Julien
-		],
-	},
-	{
-		"title": "Hemet Distro",
-		"employees": [
-			"HR-EMP-00008",  # Manny
-			"HR-EMP-00006",  # Sean Carter
-		],
-	},
-]
+# "Master Touch Manufacturing" renders with no heading of its own; those cards sit
+# directly under the page header (see the <h1> in manufacturing-timesheet.html),
+# which already names the site. Every other section breaks out under its own name.
+SECTION_TITLES = {
+	"Master Touch Manufacturing": None,
+	"Hemet Distro": "Hemet Distro",
+}
 
 
 def _client_ip():
@@ -273,22 +259,31 @@ def _get_recent_timesheets(employee, limit=5):
 	return timesheets
 
 
-def _eligible_employees():
-	"""Kiosk-eligible employees, keyed by id -> employee_name: Active status, a
-	code set, on this kiosk's own BOARD_GROUPS roster. Shared by get_employee_board
-	and the auto-cutoff cron so both agree on exactly who this kiosk covers."""
-	rostered = [employee for group in BOARD_GROUPS for employee in group["employees"]]
-	if not rostered:
-		return {}
+def _kiosk_roster():
+	"""Every employee this kiosk covers, with the section their card belongs in:
+	Active, a Kiosk Access Code set, Kiosk Timesheet checked, and a Kiosk Section
+	chosen (unchecked or section-less employees don't get a card - see
+	custom_fields.py's note on the blank section option). One query shared by
+	_eligible_employees (auto-cutoff cron) and get_employee_board so both agree on
+	exactly who this kiosk covers."""
+	return frappe.get_all(
+		"Employee",
+		filters={
+			"status": "Active",
+			CODE_FIELD: ["is", "set"],
+			"custom_kiosk_timesheet": 1,
+			"custom_kiosk_section": ["in", list(SECTION_TITLES.keys())],
+		},
+		fields=["name", "employee_name", "custom_kiosk_section"],
+		order_by="employee_name asc",
+	)
 
-	return {
-		row.name: row.employee_name
-		for row in frappe.get_all(
-			"Employee",
-			filters={"name": ["in", rostered], "status": "Active", CODE_FIELD: ["is", "set"]},
-			fields=["name", "employee_name"],
-		)
-	}
+
+def _eligible_employees():
+	"""Kiosk-eligible employees, keyed by id -> employee_name. Shared by
+	get_employee_board and the auto-cutoff cron so both agree on exactly who this
+	kiosk covers."""
+	return {row.name: row.employee_name for row in _kiosk_roster()}
 
 
 def _overtime_prompt(employee):
@@ -329,6 +324,8 @@ def _overtime_prompt(employee):
 	if not req or req.status == "Rejected":
 		return {"state": "needs_request", "timesheet": last_ts.name, "hours": REGULAR_HOURS_PER_SESSION}
 	if req.status == "Pending":
+		if req.requested_at and _elapsed_seconds(req.requested_at) >= PENDING_OVERTIME_DISPLAY_SECONDS:
+			return None
 		return {
 			"state": "pending",
 			"timesheet": last_ts.name,
@@ -356,14 +353,14 @@ def get_employee_board():
 	per rostered employee, under its group's heading. Tapping a card is what triggers
 	the code prompt (see verify_access_code's `employee` argument), not this call.
 
-	Returns ``[{"title": str | None, "employees": [card, ...]}, ...]`` in BOARD_GROUPS
-	order. Only employees named in BOARD_GROUPS appear, and only while they are Active
-	with a code set: a card whose owner has no code would be a dead end, since
-	verify_access_code could never match it. An empty group is dropped rather than
+	Returns ``[{"title": str | None, "employees": [card, ...]}, ...]`` in
+	SECTION_TITLES order. Only employees opted in via the Employee form appear (see
+	_kiosk_roster) - a card whose owner has no code would be a dead end, since
+	verify_access_code could never match it. An empty section is dropped rather than
 	rendered as a bare heading.
 	"""
-	eligible = _eligible_employees()
-	if not eligible:
+	roster = _kiosk_roster()
+	if not roster:
 		return []
 
 	# Elapsed is measured here rather than in the browser: the kiosk tablet's own
@@ -371,17 +368,20 @@ def get_employee_board():
 	# just because the tablet is set to a different zone than System Settings.
 	now = _kiosk_now()
 
+	by_section = {}
+	for row in roster:
+		by_section.setdefault(row.custom_kiosk_section, []).append(row)
+
 	board = []
-	for group in BOARD_GROUPS:
+	for section, title in SECTION_TITLES.items():
 		cards = []
-		for employee in group["employees"]:
-			if employee not in eligible:
-				continue
+		for row in by_section.get(section, []):
+			employee = row.name
 			open_ts = _get_open_timesheet(employee)
 			cards.append(
 				{
 					"employee": employee,
-					"employee_name": eligible[employee],
+					"employee_name": row.employee_name,
 					"running": bool(open_ts),
 					"activity_type": open_ts.activity_type if open_ts else None,
 					"start_time": open_ts.from_time if open_ts else None,
@@ -391,7 +391,7 @@ def get_employee_board():
 				}
 			)
 		if cards:
-			board.append({"title": group["title"], "employees": cards})
+			board.append({"title": title, "employees": cards})
 
 	return board
 
