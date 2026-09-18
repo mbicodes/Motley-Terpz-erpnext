@@ -126,6 +126,7 @@ AUTO_ENDED_FIELD = TIMESHEET_FIELDS[2]["fieldname"]  # custom_auto_ended (Timesh
 OVERTIME_REQUEST_FIELD = TIMESHEET_FIELDS[3]["fieldname"]  # custom_overtime_request (Timesheet)
 WARNING_SENT_FIELD = TIMESHEET_FIELDS[4]["fieldname"]  # custom_overtime_warning_sent (Timesheet)
 DECLINED_FIELD = TIMESHEET_FIELDS[5]["fieldname"]  # custom_overtime_declined (Timesheet)
+SILENCED_FIELD = TIMESHEET_FIELDS[6]["fieldname"]  # custom_overtime_alarm_silenced (Timesheet)
 
 # How long before the 8-hour auto-cutoff send_upcoming_cutoff_warnings() emails the
 # employee - see that function below.
@@ -319,9 +320,10 @@ def _overtime_prompt(employee):
 
 	- None: nothing to show (last Timesheet was a normal manual end, or there
 	  isn't one yet, or they're currently running again).
-	- {"state": "needs_request", ...}: their last session was auto-ended at 8h and
-	  they have not requested overtime for it (or a prior request was Rejected) -
-	  the board should alarm + show "Request Overtime" in place of Start.
+	- {"state": "needs_request", "silenced": bool, ...}: their last session was
+	  auto-ended at 8h and they have not requested overtime for it (or a prior
+	  request was Rejected) - the board should alarm (unless silenced - see
+	  silence_overtime_alarm) + show "Request Overtime"/"End" in place of Start.
 	- {"state": "pending", ...}: a request is in for it, awaiting Muhammad/Jamie.
 	- {"state": "approved", ...}: approved and not yet used by a new session -
 	  informational hint only; start_session is what actually applies it.
@@ -338,7 +340,7 @@ def _overtime_prompt(employee):
 	last_ts = frappe.db.get_value(
 		"Timesheet",
 		{"employee": employee, "docstatus": 1},
-		["name", AUTO_ENDED_FIELD, DECLINED_FIELD],
+		["name", AUTO_ENDED_FIELD, DECLINED_FIELD, SILENCED_FIELD],
 		order_by="creation desc",
 		as_dict=True,
 	)
@@ -353,7 +355,12 @@ def _overtime_prompt(employee):
 		as_dict=True,
 	)
 	if not req or req.status == "Rejected":
-		return {"state": "needs_request", "timesheet": last_ts.name, "hours": REGULAR_HOURS_PER_SESSION}
+		return {
+			"state": "needs_request",
+			"timesheet": last_ts.name,
+			"hours": REGULAR_HOURS_PER_SESSION,
+			"silenced": bool(last_ts.get(SILENCED_FIELD)),
+		}
 	if req.status == "Pending":
 		if req.requested_at and _elapsed_seconds(req.requested_at) >= PENDING_OVERTIME_DISPLAY_SECONDS:
 			return None
@@ -907,6 +914,28 @@ def decline_overtime_request(token):
 	frappe.db.set_value("Timesheet", prompt["timesheet"], DECLINED_FIELD, 1)
 	frappe.db.commit()
 	frappe.cache().delete_value(f"kiosk_token:{token}")
+
+	return {"timesheet": prompt["timesheet"]}
+
+
+@frappe.whitelist(allow_guest=True)
+def silence_overtime_alarm(employee):
+	"""Stops the siren for this employee's needs-overtime card on every kiosk board -
+	not just the tablet that tapped it. Server-side on purpose (SILENCED_FIELD on the
+	Timesheet, read back by every board's get_employee_board poll) rather than the
+	old per-browser localStorage version, which only silenced the one tablet clicked.
+
+	Deliberately guest + no access-code token, same as this button already was before
+	it made a server call at all: this only mutes a notification sound, it doesn't
+	touch the overtime decision itself - Request Overtime/End stay exactly as
+	available as before, gated by their own token as always. Anyone standing at a
+	blaring kiosk should be able to quiet it without knowing that employee's PIN."""
+	prompt = _overtime_prompt(employee)
+	if not prompt or prompt["state"] != "needs_request":
+		frappe.throw(_("There is no alarm to stop right now."))
+
+	frappe.db.set_value("Timesheet", prompt["timesheet"], SILENCED_FIELD, 1)
+	frappe.db.commit()
 
 	return {"timesheet": prompt["timesheet"]}
 
