@@ -41,7 +41,7 @@ def get_live_menu_items(item_group, menu_type=None):
 
     Args:
         item_group: Item Group name
-        menu_type: 'extracts' filters to Nature's Lab - MT,
+        menu_type: 'extracts' filters to Main Storage - MTM,
                    'fresh_frozen' filters to Hemet TSBC - TSBC,
                    None/empty uses both warehouses
     """
@@ -59,11 +59,11 @@ def get_live_menu_items(item_group, menu_type=None):
 
     # Warehouse filter based on menu type
     if menu_type == "extracts":
-        warehouse_condition = "AND b.warehouse = 'Master Touch Manufacturing Toll - MTM'"
+        warehouse_condition = "AND b.warehouse = 'Main Storage - MTM'"
     elif menu_type == "fresh_frozen":
         warehouse_condition = "AND b.warehouse = 'Hemet TSBC - TSBC'"
     else:
-        warehouse_condition = "AND b.warehouse IN ('Hemet TSBC - TSBC', 'Master Touch Manufacturing Toll - MTM')"
+        warehouse_condition = "AND b.warehouse IN ('Hemet TSBC - TSBC', 'Main Storage - MTM')"
 
     items = frappe.db.sql(
         """
