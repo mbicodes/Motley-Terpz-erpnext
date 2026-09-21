@@ -1,6 +1,6 @@
 {
  "charts": [],
- "content": "[{\"id\":\"8xEronwjvC\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Nikki\",\"col\":12}}]",
+ "content": "[{\"id\": \"8xEronwjvC\", \"type\": \"custom_block\", \"data\": {\"custom_block_name\": \"Nikki\", \"col\": 12}}, {\"id\": \"LHC9DoXHoX\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Your Shortcuts</b></span>\", \"col\": 12}}, {\"id\": \"gCV8kIrOso\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"AR Weekly Review\", \"col\": 3}}]",
  "creation": "2026-03-09 07:23:21.288136",
  "custom_blocks": [
   {
@@ -18,7 +18,7 @@
  "is_hidden": 0,
  "label": "Nikki",
  "links": [],
- "modified": "2026-08-20 10:28:05.587364",
+ "modified": "2026-09-21 16:40:33.501746",
  "modified_by": "Administrator",
  "module": "Cannabis Management",
  "name": "Nikki",
@@ -42,6 +42,13 @@
   }
  ],
  "sequence_id": 1.0,
- "shortcuts": [],
+ "shortcuts": [
+  {
+   "doc_view": "",
+   "label": "AR Weekly Review",
+   "link_to": "ar-weekly-review",
+   "type": "Page"
+  }
+ ],
  "title": "Nikki"
 }
