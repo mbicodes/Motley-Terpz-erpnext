@@ -23,6 +23,27 @@ from cannabis_management.credit_and_ar.doctype.ar_weekly_entry.ar_weekly_entry i
 	week_start,
 )
 
+# Only holders of this role may see the page or call its methods. Kept to Nikki
+# and Matt (plus Administrator, which holds every role) - the AR review is their
+# working list, and the notes on it are written for them.
+PAGE_ROLE = "AR Weekly Review"
+
+
+def _require_access():
+	"""Re-state the page's role restriction for the whitelisted methods.
+
+	The Page doc's `roles` only gate the route: every method below is reachable
+	over /api/method by ANY logged-in user regardless of who can open the page,
+	so without this the restriction would be cosmetic. Administrator holds every
+	role and so needs no special case.
+	"""
+	if PAGE_ROLE not in frappe.get_roles():
+		frappe.throw(
+			_("You are not permitted to view the AR Weekly Review."),
+			frappe.PermissionError,
+		)
+
+
 LEDGER_NEW = "New AR"
 LEDGER_LEGACY = "Legacy AR"
 
@@ -187,6 +208,7 @@ def _latest_entries():
 @frappe.whitelist()
 def get_ar_weekly_review(ledger=None):
 	"""Method 1 (spec §4): the whole grid in one call."""
+	_require_access()
 	rows = _build_rows(ledger)
 	latest = _latest_entries()
 
@@ -208,6 +230,7 @@ def get_ar_weekly_review(ledger=None):
 @frappe.whitelist()
 def get_ar_weekly_log(customer, ledger):
 	"""Method 2 (spec §4): full history for one customer+ledger, newest first."""
+	_require_access()
 	return frappe.get_all(
 		"AR Weekly Entry",
 		filters={"customer": customer, "ledger": ledger},
@@ -228,6 +251,8 @@ def add_ar_weekly_entry(customer, ledger, status, qa=None, plan=None, notes=None
 	week_of, tier_snapshot and amount_snapshot are all computed here — never
 	taken from the client — so the log stays honest even if the page is stale.
 	"""
+	_require_access()
+
 	if not status:
 		frappe.throw(_("Pick a status before saving this week's entry."))
 
