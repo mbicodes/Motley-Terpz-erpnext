@@ -241,10 +241,14 @@ function poRenderItems() {
 				'<tr data-idx="' + idx + '">' +
 				"<td>" +
 				'<div class="po-item-name">' + frappe.utils.escape_html(item.item_name) + "</div>" +
-				'<div class="po-item-code">' + frappe.utils.escape_html(item.item_code) + "</div>" +
+				(item.is_custom
+					? '<div class="po-item-custom-badge">Custom item</div>'
+					: '<div class="po-item-code">' + frappe.utils.escape_html(item.item_code) + "</div>") +
 				"</td>" +
-				'<td class="po-item-group">' + frappe.utils.escape_html(item.item_group) + "</td>" +
-				'<td class="po-stock-qty ' + cls + '">' + sq + " " + frappe.utils.escape_html(item.uom || "") + "</td>" +
+				'<td class="po-item-group">' + (item.is_custom ? "&mdash;" : frappe.utils.escape_html(item.item_group)) + "</td>" +
+				(item.is_custom
+					? '<td class="po-stock-qty">&mdash;</td>'
+					: '<td class="po-stock-qty ' + cls + '">' + sq + " " + frappe.utils.escape_html(item.uom || "") + "</td>") +
 				'<td><input type="number" min="1" value="' + (item.qty || 1) + '" class="po-item-qty"></td>' +
 				'<td><button class="po-btn-remove po-remove-item" title="Remove">' +
 				'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
@@ -271,14 +275,66 @@ function poAddItem(inv) {
 	poRenderItems();
 }
 
+// Add a row for something that is not in the catalog. item_code stays empty --
+// it is a Link to Item on Preorder Item, so free text cannot live there; the
+// typed text travels as item_name and the server keeps item_code blank.
+function poAddCustomItem(text) {
+	text = (text || "").trim();
+	if (!text) return;
+	var dup = window._po.items.find(function (i) {
+		return i.is_custom && (i.item_name || "").toLowerCase() === text.toLowerCase();
+	});
+	if (dup) {
+		frappe.show_alert({ message: "Item already added", indicator: "orange" });
+		return;
+	}
+	window._po.items.push({
+		item_code: "",
+		item_name: text,
+		item_group: "",
+		uom: "",
+		available_qty: 0,
+		qty: 1,
+		is_custom: true,
+	});
+	poRenderItems();
+}
+
+// Enter in the search box: prefer a real catalog match over a custom row, so
+// typing a full SKU and hitting Enter does not silently create free text.
+function poAddTypedTerm(term) {
+	term = (term || "").trim();
+	if (!term) return;
+	var t = term.toLowerCase();
+	var exact = window._po.inventory.find(function (i) {
+		return (i.name || "").toLowerCase() === t || (i.item_name || "").toLowerCase() === t;
+	});
+	if (exact) poAddItem(exact);
+	else poAddCustomItem(term);
+}
+
 // ─────────────────────────────────────────────────────
 // PICKER DROPDOWN
 // ─────────────────────────────────────────────────────
 
-function poRenderPicker(results) {
+function poCustomOptionHtml(term) {
+	term = (term || "").trim();
+	if (!term) return "";
+	return (
+		'<div class="po-picker-option po-picker-custom" data-custom="' + frappe.utils.escape_html(term) + '">' +
+		"<div>" +
+		'<div class="po-picker-option-name">Add &ldquo;' + frappe.utils.escape_html(term) + '&rdquo;</div>' +
+		'<div class="po-picker-option-code">Custom item &mdash; not in inventory</div>' +
+		"</div>" +
+		"</div>"
+	);
+}
+
+function poRenderPicker(results, term) {
 	const dd = document.getElementById("po-picker-dropdown");
+	const customOption = poCustomOptionHtml(term);
 	if (!results.length) {
-		dd.innerHTML = '<div class="po-picker-empty">No matching items</div>';
+		dd.innerHTML = customOption || '<div class="po-picker-empty">No matching items</div>';
 		dd.classList.add("open");
 		return;
 	}
@@ -296,7 +352,7 @@ function poRenderPicker(results) {
 				"</div>"
 			);
 		})
-		.join("");
+		.join("") + customOption;
 	dd.classList.add("open");
 }
 
@@ -359,14 +415,28 @@ function poBindEvents() {
 					i.name.toLowerCase().indexOf(t) > -1
 				);
 			});
-			poRenderPicker(filtered.slice(0, 15));
+			poRenderPicker(filtered.slice(0, 15), term);
 		}, 200);
+	});
+
+	// Enter adds whatever is typed -- a catalog match if there is one,
+	// otherwise a custom free-text row.
+	$("#po-item-search").on("keydown", function (e) {
+		if (e.key !== "Enter") return;
+		e.preventDefault();
+		poAddTypedTerm($(this).val());
+		$(this).val("");
+		$("#po-picker-dropdown").removeClass("open").empty();
 	});
 
 	// Click picker option
 	$(document).on("click", ".po-picker-option", function () {
-		var item = JSON.parse($(this).attr("data-item"));
-		poAddItem(item);
+		var customText = $(this).attr("data-custom");
+		if (customText !== undefined) {
+			poAddCustomItem(customText);
+		} else {
+			poAddItem(JSON.parse($(this).attr("data-item")));
+		}
 		$("#po-item-search").val("");
 		$("#po-picker-dropdown").removeClass("open").empty();
 	});

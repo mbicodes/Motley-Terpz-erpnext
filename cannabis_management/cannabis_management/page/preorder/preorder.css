@@ -482,3 +482,26 @@
     .po-items-search { width: 100%; }
     .po-header { flex-direction: column; }
 }
+/* ── Custom (free-text) preorder items ─────────────────────────────── */
+/* A row whose item is not in the catalog: item_code is blank, so the SKU
+   line is replaced by a badge and the group/availability cells show a dash. */
+.po-items-table .po-item-custom-badge {
+    display: inline-block;
+    margin-top: 2px;
+    padding: 1px 6px;
+    border: 1px solid var(--po-gold-dim);
+    border-radius: 3px;
+    background: var(--po-gold-glow);
+    color: var(--po-gold);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+/* The "Add <text>" entry pinned to the bottom of the picker. */
+.po-picker-option.po-picker-custom {
+    border-top: 1px solid var(--po-border-2);
+    background: var(--po-gold-glow);
+}
+.po-picker-option.po-picker-custom:hover { background: var(--po-gold-dim); }
+.po-picker-option.po-picker-custom .po-picker-option-name { color: var(--po-gold); }
