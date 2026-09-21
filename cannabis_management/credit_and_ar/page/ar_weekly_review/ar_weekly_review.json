@@ -12,16 +12,7 @@
  "page_name": "ar-weekly-review",
  "roles": [
   {
-   "role": "System Manager"
-  },
-  {
-   "role": "Accounts Manager"
-  },
-  {
-   "role": "Account Receivable"
-  },
-  {
-   "role": "AR Dashboard Viewer"
+   "role": "AR Weekly Review"
   }
  ],
  "script": null,
