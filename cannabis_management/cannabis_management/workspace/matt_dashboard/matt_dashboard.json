@@ -1,6 +1,6 @@
 {
  "charts": [],
- "content": "[{\"id\": \"AS5GdsyzOk\", \"type\": \"custom_block\", \"data\": {\"custom_block_name\": \"CEO\", \"col\": 12}}, {\"id\": \"heMQ3JYCh_\", \"type\": \"custom_block\", \"data\": {\"custom_block_name\": \"AR\", \"col\": 12}}, {\"id\": \"EWCvyhXxd3\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Your Shortcuts</b></span>\", \"col\": 12}}, {\"id\": \"ZBvf5H3fq0\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"AR Weekly Review\", \"col\": 3}}]",
+ "content": "[{\"id\": \"AS5GdsyzOk\", \"type\": \"custom_block\", \"data\": {\"custom_block_name\": \"CEO\", \"col\": 12}}, {\"id\": \"heMQ3JYCh_\", \"type\": \"custom_block\", \"data\": {\"custom_block_name\": \"AR\", \"col\": 12}}]",
  "creation": "2026-02-23 08:36:22.854102",
  "custom_blocks": [
   {
@@ -93,13 +93,6 @@
   }
  ],
  "sequence_id": 40.0,
- "shortcuts": [
-  {
-   "doc_view": "",
-   "label": "AR Weekly Review",
-   "link_to": "ar-weekly-review",
-   "type": "Page"
-  }
- ],
+ "shortcuts": [],
  "title": "Matt Dashboard"
 }
