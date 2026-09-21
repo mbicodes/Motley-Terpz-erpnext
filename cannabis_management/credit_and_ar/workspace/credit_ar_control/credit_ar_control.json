@@ -75,6 +75,16 @@
    "link_type": "DocType",
    "onboard": 0,
    "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "AR Weekly Review",
+   "link_count": 0,
+   "link_to": "ar-weekly-review",
+   "link_type": "Page",
+   "onboard": 0,
+   "type": "Link"
   }
  ],
  "modified": "2026-08-11 19:21:16.479634",

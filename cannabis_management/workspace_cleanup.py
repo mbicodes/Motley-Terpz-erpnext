@@ -16,6 +16,12 @@ import frappe
 
 # Workspace docnames to keep out of the sidebar.
 REMOVED_WORKSPACES = [
+	# A DB-only workspace with this exact name was created on live on 2026-09-19
+	# and SHADOWED the ar-weekly-review Page: frappe's router checks
+	# frappe.workspaces[route[0]] before page routes (router.js:181), so
+	# /app/ar-weekly-review rendered a card of shortcuts instead of the page.
+	# Listed here so it cannot come back and hide the page again.
+	"AR Weekly Review",
 	"Stock",
 	"Assets",
 	"Projects",
