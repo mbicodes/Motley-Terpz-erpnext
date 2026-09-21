@@ -158,6 +158,12 @@ before_migrate = ["cannabis_management.compat.install_frappe_shims"]
 # the workspaces we removed from the sidebar have to be dropped again afterwards.
 after_migrate = [
     "cannabis_management.workspace_cleanup.remove_unwanted_workspaces",
+    # Must run AFTER remove_unwanted_workspaces: it guarantees the private
+    # "AR Weekly Review" stub exists and is not public, which is what keeps
+    # /app/ar-weekly-review on the Page and stops the "Workspace AR Weekly Review
+    # not found" dialog. Ordering matters - if the name is ever re-added to
+    # REMOVED_WORKSPACES, the delete runs first and this puts it back.
+    "cannabis_management.workspace_cleanup.ensure_ar_weekly_review_stub",
     # Manufacturing Portal code fields on User. Re-asserted every migrate rather than
     # run once as a patch: create_custom_fields is idempotent, and patches.txt is
     # root-owned on this bench so it cannot be appended to as the bench user.
