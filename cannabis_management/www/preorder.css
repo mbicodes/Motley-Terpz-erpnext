@@ -2,17 +2,25 @@
 
 /* ── TOKENS ───────────────────────────────────────── */
 :root {
-    --po-bg:          #f4f6fb;
+    /* Motley brand palette -- the same purple the "Preorder Entry - Motley"
+       print format uses (#7b2fbf), so the form and the printed sheet match.
+       --po-brand* are the canonical names; the --po-teal* aliases are kept
+       because rules throughout this file already reference them. */
+    --po-brand:       #7b2fbf;
+    --po-brand-dim:   #5f2494;
+    --po-brand-light: #f0e6ff;
+
+    --po-bg:          #faf5ff;
     --po-bg-2:        #ffffff;
     --po-surface:     #ffffff;
-    --po-surface-2:   #f0f2f7;
-    --po-border:      #e2e6ef;
-    --po-border-2:    #d0d5e1;
+    --po-surface-2:   #faf5ff;
+    --po-border:      #e4d4f7;
+    --po-border-2:    #d4bdf0;
 
-    --po-teal:        #0d9f86;
-    --po-teal-dim:    #087a66;
-    --po-teal-light:  #e6f7f4;
-    --po-teal-faint:  rgba(13,159,134,0.08);
+    --po-teal:        var(--po-brand);
+    --po-teal-dim:    var(--po-brand-dim);
+    --po-teal-light:  var(--po-brand-light);
+    --po-teal-faint:  rgba(123,47,191,0.08);
 
     --po-gold:        #c48f0e;
     --po-gold-light:  #fdf6e3;
@@ -22,10 +30,10 @@
     --po-coral-light: #fef0f0;
     --po-sky:         #2a7de1;
 
-    --po-text:        #1a1f36;
-    --po-text-2:      #3c4257;
-    --po-muted:       #6b7394;
-    --po-dim:         #a3accd;
+    --po-text:        #1a1a1a;
+    --po-text-2:      #3c3348;
+    --po-muted:       #6b5f7d;
+    --po-dim:         #a596b8;
 
     --po-radius-sm:   8px;
     --po-radius-md:   12px;
@@ -481,3 +489,37 @@
 }
 .po-link-option.po-link-custom:hover { background: var(--po-gold-light); }
 .po-link-option.po-link-custom .po-link-option-name { color: var(--po-gold); }
+
+/* ── Rate / Amount columns and the order total ─────────────────────── */
+/* Qty and Rate are the only editable cells; Amount is derived (qty x rate)
+   and the server recomputes it on save, so it renders as text, not an input. */
+.po-items-table .po-num { text-align: right; }
+.po-items-table input.po-item-rate {
+    width: 92px;
+    text-align: right;
+}
+.po-items-table .po-item-amount {
+    font-weight: 600;
+    color: var(--po-text);
+    white-space: nowrap;
+}
+.po-items-table .po-totals-row td {
+    border-top: 1px solid var(--po-border-2);
+    border-bottom: none;
+    padding-top: 12px;
+    background: var(--po-teal-faint);
+    font-weight: 700;
+}
+.po-items-table .po-totals-label {
+    text-align: right;
+    color: var(--po-muted);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+.po-items-table .po-totals-qty { text-align: center; color: var(--po-text); }
+.po-items-table .po-totals-amount {
+    color: var(--po-brand);
+    font-size: 15px;
+    white-space: nowrap;
+}

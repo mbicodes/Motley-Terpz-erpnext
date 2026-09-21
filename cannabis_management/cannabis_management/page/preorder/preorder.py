@@ -96,12 +96,19 @@ def save_preorder(data):
 		if not item_code and not item_name:
 			continue
 
+		# Amount is derived here rather than trusted from the client:
+		# Preorder Item.amount is read_only, so the form only ever previews it.
+		qty = frappe.utils.cint(row.get("qty"))
+		rate = frappe.utils.flt(row.get("rate"))
+
 		doc.append("items", {
 			"item_code": item_code or None,
 			"item_name": item_name or None,
 			"item_group": row.get("item_group"),
-			"qty": row.get("qty"),
+			"qty": qty,
 			"uom": uom or None,
+			"rate": rate,
+			"amount": qty * rate,
 			"notes": row.get("notes"),
 		})
 
