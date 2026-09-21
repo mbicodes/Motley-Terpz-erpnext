@@ -523,3 +523,22 @@
     font-size: 15px;
     white-space: nowrap;
 }
+
+/* ── Per-row "open PDF" button in Recent Preorders ─────────────────── */
+/* Mirrors .po-btn-remove, but tinted with the brand rather than the
+   destructive colour -- it opens the Motley print format as a PDF. */
+.po-btn-print {
+    background: none;
+    border: none;
+    color: var(--po-dim);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+}
+.po-btn-print:hover {
+    color: var(--po-brand);
+    background: var(--po-brand-light);
+}
