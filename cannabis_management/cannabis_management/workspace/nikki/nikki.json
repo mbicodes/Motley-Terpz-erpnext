@@ -1,6 +1,6 @@
 {
  "charts": [],
- "content": "[{\"id\": \"8xEronwjvC\", \"type\": \"custom_block\", \"data\": {\"custom_block_name\": \"Nikki\", \"col\": 12}}, {\"id\": \"LHC9DoXHoX\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Your Shortcuts</b></span>\", \"col\": 12}}, {\"id\": \"gCV8kIrOso\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"AR Weekly Review\", \"col\": 3}}]",
+ "content": "[{\"id\": \"8xEronwjvC\", \"type\": \"custom_block\", \"data\": {\"custom_block_name\": \"Nikki\", \"col\": 12}}]",
  "creation": "2026-03-09 07:23:21.288136",
  "custom_blocks": [
   {
@@ -42,13 +42,6 @@
   }
  ],
  "sequence_id": 1.0,
- "shortcuts": [
-  {
-   "doc_view": "",
-   "label": "AR Weekly Review",
-   "link_to": "ar-weekly-review",
-   "type": "Page"
-  }
- ],
+ "shortcuts": [],
  "title": "Nikki"
 }
