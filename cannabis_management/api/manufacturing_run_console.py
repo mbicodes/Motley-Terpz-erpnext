@@ -17,6 +17,8 @@ exact same whitelisted method the full doctype forms already use
 `erpnext...job_card.make_time_log`), so results are identical to using the
 full forms.
 """
+import json
+
 import frappe
 from frappe import _
 from frappe.utils import flt
@@ -200,6 +202,66 @@ def get_run(material_request):
 			"machine_minutes": machine_minutes,
 		},
 	}
+
+
+@frappe.whitelist()
+def get_warehouse_defaults(company):
+	"""Source/WIP/Target warehouse for Step 1, derived from the real per-company
+	warehouse naming convention (every company on this site has exactly one
+	Warehouse named 'Goods In Transit' / 'Work In Progress' / 'Finished Goods'
+	— verified across all 6 companies) instead of asking the user to type
+	them. Returns whatever it can find; a missing one is left blank rather
+	than guessed, so the Step 1 form only asks for what it couldn't resolve.
+	"""
+	def find(warehouse_name):
+		return frappe.db.get_value("Warehouse", {"company": company, "warehouse_name": warehouse_name}, "name")
+
+	return {
+		"source_warehouse": find("Goods In Transit"),
+		"wip_warehouse": find("Work In Progress"),
+		"fg_warehouse": find("Finished Goods"),
+	}
+
+
+@frappe.whitelist()
+def start_run(payload):
+	"""Step 1, collapsed: create + submit the Material Request, release it to
+	production (Work Orders + Job Cards), and send every resulting Work
+	Order's raw materials to WIP — all in one call, so starting a run is one
+	click instead of three. Each sub-step reuses the exact same function the
+	console's own manual per-step buttons call, so a partial failure (e.g.
+	insufficient stock for the WIP transfer) still leaves the Material
+	Request/Work Orders it already created in place — get_run() will just
+	report the console at whichever step actually finished, and the
+	corresponding step's own manual button is still there to retry.
+	"""
+	if isinstance(payload, str):
+		payload = json.loads(payload)
+
+	payload["submit"] = True
+
+	warehouses = get_warehouse_defaults(payload.get("company"))
+	payload["set_warehouse"] = payload.get("set_warehouse") or warehouses["source_warehouse"]
+	for row in payload.get("items") or []:
+		row["warehouse"] = row.get("warehouse") or warehouses["source_warehouse"]
+	for row in payload.get("custom_finished_goods") or []:
+		row["source_warehouse"] = row.get("source_warehouse") or warehouses["source_warehouse"]
+		row["wip_warehouse"] = row.get("wip_warehouse") or warehouses["wip_warehouse"]
+		row["target_warehouse"] = row.get("target_warehouse") or warehouses["fg_warehouse"]
+
+	from cannabis_management.api.manufacturing_process import save_material_request
+	mr = save_material_request(payload)
+
+	result = release_to_production(mr["name"])
+
+	from erpnext.manufacturing.doctype.work_order.work_order import make_stock_entry
+	for wo_name in result["work_orders"]:
+		se = frappe.get_doc(make_stock_entry(wo_name, "Material Transfer for Manufacture"))
+		se.insert(ignore_permissions=True)
+		se.submit()
+
+	frappe.db.commit()
+	return get_run(mr["name"])
 
 
 @frappe.whitelist()

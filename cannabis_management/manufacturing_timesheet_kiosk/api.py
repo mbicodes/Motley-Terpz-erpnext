@@ -73,6 +73,27 @@ keep displaying it; nothing writes to them any more.
 	  backdates the same way. end_session's existing 8-hour row-split
 	  (custom_overtime, untouched by any of this) takes it from there if that session
 	  also runs past 8 hours.
+
+30-minutes-before warning + requesting overtime *before* the cutoff (new):
+	- A second scheduled job, send_upcoming_cutoff_warnings() (same every-minute cron
+	  as the auto-cutoff above), emails an employee once their still-running session
+	  reaches WARNING_LEAD_HOURS before the 8-hour mark, telling them their time is
+	  about to end and to request overtime now if they want to keep working - so they
+	  find out with enough notice to act, instead of only after being auto-clocked-out.
+	  Guarded by custom_overtime_warning_sent so it only fires once per session, and
+	  skipped entirely for a session already exempted by custom_overtime_request.
+	- submit_overtime_request(token, requested_hours) now covers a still-running
+	  session too, not just an already auto-ended one: if the employee has an open
+	  session (no request tied to it yet), the request is tied to THAT Timesheet
+	  instead of waiting for the 8h auto-cutoff to create one. get_employee_board
+	  surfaces this as `early_overtime` on a running card, alongside the End button.
+	- decide_overtime_request's Approved branch tells the two shapes apart by
+	  re-checking whether the linked Timesheet is still open: if so, the session
+	  never stopped, so approval just stamps custom_overtime_request onto it in place
+	  (no new Timesheet, no backdating - there was no gap to backdate across) and the
+	  employee's email says they're already covered. Otherwise it falls back to the
+	  existing _auto_start_overtime_session path for a session that already got cut
+	  off before the approval came through.
 """
 
 import datetime
@@ -103,6 +124,13 @@ REGULAR_HOURS_PER_SESSION = 8.0
 OVERTIME_FIELD = "custom_overtime"  # Timesheet Detail (Check) - set on the split row
 AUTO_ENDED_FIELD = TIMESHEET_FIELDS[2]["fieldname"]  # custom_auto_ended (Timesheet)
 OVERTIME_REQUEST_FIELD = TIMESHEET_FIELDS[3]["fieldname"]  # custom_overtime_request (Timesheet)
+WARNING_SENT_FIELD = TIMESHEET_FIELDS[4]["fieldname"]  # custom_overtime_warning_sent (Timesheet)
+DECLINED_FIELD = TIMESHEET_FIELDS[5]["fieldname"]  # custom_overtime_declined (Timesheet)
+SILENCED_FIELD = TIMESHEET_FIELDS[6]["fieldname"]  # custom_overtime_alarm_silenced (Timesheet)
+
+# How long before the 8-hour auto-cutoff send_upcoming_cutoff_warnings() emails the
+# employee - see that function below.
+WARNING_LEAD_HOURS = 0.5
 
 # Who gets emailed when an employee requests overtime, and who their approval/
 # rejection email credits as "Decided By" (each gets their own Approve/Reject
@@ -292,12 +320,17 @@ def _overtime_prompt(employee):
 
 	- None: nothing to show (last Timesheet was a normal manual end, or there
 	  isn't one yet, or they're currently running again).
-	- {"state": "needs_request", ...}: their last session was auto-ended at 8h and
-	  they have not requested overtime for it (or a prior request was Rejected) -
-	  the board should alarm + show "Request Overtime" in place of Start.
+	- {"state": "needs_request", "silenced": bool, ...}: their last session was
+	  auto-ended at 8h and they have not requested overtime for it (or a prior
+	  request was Rejected) - the board should alarm (unless silenced - see
+	  silence_overtime_alarm) + show "Request Overtime"/"End" in place of Start.
 	- {"state": "pending", ...}: a request is in for it, awaiting Muhammad/Jamie.
 	- {"state": "approved", ...}: approved and not yet used by a new session -
 	  informational hint only; start_session is what actually applies it.
+	- None also once the employee has tapped End on this same session instead of
+	  Request Overtime (see decline_overtime_request) - unlike a Rejected request,
+	  this is the employee's own final word, so it stays resolved for good rather
+	  than re-inviting another request.
 	"""
 	if _get_open_timesheet(employee):
 		# Running again already (e.g. the exempt overtime session itself) - no
@@ -307,11 +340,11 @@ def _overtime_prompt(employee):
 	last_ts = frappe.db.get_value(
 		"Timesheet",
 		{"employee": employee, "docstatus": 1},
-		["name", AUTO_ENDED_FIELD],
+		["name", AUTO_ENDED_FIELD, DECLINED_FIELD, SILENCED_FIELD],
 		order_by="creation desc",
 		as_dict=True,
 	)
-	if not last_ts or not last_ts.get(AUTO_ENDED_FIELD):
+	if not last_ts or not last_ts.get(AUTO_ENDED_FIELD) or last_ts.get(DECLINED_FIELD):
 		return None
 
 	req = frappe.db.get_value(
@@ -322,7 +355,12 @@ def _overtime_prompt(employee):
 		as_dict=True,
 	)
 	if not req or req.status == "Rejected":
-		return {"state": "needs_request", "timesheet": last_ts.name, "hours": REGULAR_HOURS_PER_SESSION}
+		return {
+			"state": "needs_request",
+			"timesheet": last_ts.name,
+			"hours": REGULAR_HOURS_PER_SESSION,
+			"silenced": bool(last_ts.get(SILENCED_FIELD)),
+		}
 	if req.status == "Pending":
 		if req.requested_at and _elapsed_seconds(req.requested_at) >= PENDING_OVERTIME_DISPLAY_SECONDS:
 			return None
@@ -341,6 +379,31 @@ def _overtime_prompt(employee):
 			"requested_hours": req.requested_hours,
 			"requested_at": str(_overtime_start_time(req)) if req.requested_at else None,
 		}
+	return None
+
+
+def _early_overtime_state(employee, open_ts):
+	"""Whether a *still-running* kiosk session can ask for overtime before the 8-hour
+	auto-cutoff ever reaches it - shown on a running job card as a secondary "Request
+	Overtime" option next to End. None once the session is already exempted
+	(custom_overtime_request already set - nothing left to ask for) or once a request
+	for THIS session is already Approved (decide_overtime_request stamps the exemption
+	straight onto the Timesheet the moment that happens, so this state is never seen
+	after that - the card just shows a normal running session again)."""
+	if not open_ts or open_ts.overtime_request:
+		return None
+
+	req = frappe.db.get_value(
+		"Kiosk Overtime Request",
+		{"employee": employee, "timesheet": open_ts.timesheet},
+		["status", "requested_hours"],
+		order_by="creation desc",
+		as_dict=True,
+	)
+	if not req or req.status == "Rejected":
+		return {"state": "available"}
+	if req.status == "Pending":
+		return {"state": "pending", "requested_hours": req.requested_hours}
 	return None
 
 
@@ -388,6 +451,7 @@ def get_employee_board():
 					"elapsed_seconds": _elapsed_seconds(open_ts.from_time, now) if open_ts else None,
 					"is_overtime_session": bool(open_ts and open_ts.overtime_request) if open_ts else False,
 					"overtime": None if open_ts else _overtime_prompt(employee),
+					"early_overtime": _early_overtime_state(employee, open_ts) if open_ts else None,
 				}
 			)
 		if cards:
@@ -728,6 +792,56 @@ def _force_end_session(row):
 	_send_hours_complete_email(row.employee, timesheet.name)
 
 
+def send_upcoming_cutoff_warnings():
+	"""Scheduled every minute (see hooks.py's cron), alongside auto_end_overtime_sessions:
+	emails an employee once their still-running session is WARNING_LEAD_HOURS away from
+	the 8-hour auto-cutoff, so they find out with enough notice to request overtime
+	before it happens rather than only after being force-clocked-out.
+
+	Skips exactly what auto_end_overtime_sessions itself skips (already exempted by an
+	approved overtime request), plus anyone already warned for this same session
+	(WARNING_SENT_FIELD) so this doesn't re-send on every later tick up to the cutoff.
+	"""
+	eligible = _eligible_employees()
+	if not eligible:
+		return
+
+	now = _kiosk_now()
+	warn_at = now - datetime.timedelta(hours=REGULAR_HOURS_PER_SESSION - WARNING_LEAD_HOURS)
+	cutoff = now - datetime.timedelta(hours=REGULAR_HOURS_PER_SESSION)
+	placeholders = ", ".join(["%s"] * len(eligible))
+
+	rows = frappe.db.sql(
+		f"""
+		select ts.name as timesheet, ts.employee, tsd.from_time
+		from `tabTimesheet Detail` tsd
+		inner join `tabTimesheet` ts on ts.name = tsd.parent
+		where ts.docstatus = 0
+			and tsd.from_time is not null
+			and tsd.completed = 0
+			and tsd.from_time <= %s
+			and tsd.from_time > %s
+			and ts.employee in ({placeholders})
+			and (ts.{OVERTIME_REQUEST_FIELD} is null or ts.{OVERTIME_REQUEST_FIELD} = '')
+			and (ts.{WARNING_SENT_FIELD} is null or ts.{WARNING_SENT_FIELD} = 0)
+		""",
+		[warn_at, cutoff, *eligible.keys()],
+		as_dict=True,
+	)
+
+	for row in rows:
+		try:
+			frappe.db.set_value("Timesheet", row.timesheet, WARNING_SENT_FIELD, 1)
+			frappe.db.commit()
+		except Exception:
+			frappe.db.rollback()
+			frappe.log_error(title="Kiosk overtime warning flag failed", message=frappe.get_traceback())
+			continue
+
+		cutoff_time = get_datetime(row.from_time) + datetime.timedelta(hours=REGULAR_HOURS_PER_SESSION)
+		_send_upcoming_cutoff_email(row.employee, row.timesheet, cutoff_time)
+
+
 # ── Overtime requests ────────────────────────────────────────────────────────────
 
 
@@ -740,9 +854,26 @@ def submit_overtime_request(token, requested_hours):
 	if requested_hours > 16:
 		frappe.throw(_("That's more overtime than one request can cover - please enter a smaller number."))
 
-	prompt = _overtime_prompt(employee)
-	if not prompt or prompt["state"] != "needs_request":
-		frappe.throw(_("There is no overtime request needed for this employee right now."))
+	# A still-running session ties the request straight to its own (open) Timesheet,
+	# so an approval can just exempt it in place - see decide_overtime_request. Only
+	# once that session is over (or never existed) does this fall back to the older
+	# post-8h-cutoff path, tied to the last auto-ended Timesheet instead.
+	open_ts = _get_open_timesheet(employee)
+	if open_ts:
+		if open_ts.overtime_request:
+			frappe.throw(_("This session is already cleared to run long - no request needed."))
+		timesheet = open_ts.timesheet
+		existing = frappe.db.exists(
+			"Kiosk Overtime Request",
+			{"employee": employee, "timesheet": timesheet, "status": ["in", ["Pending", "Approved"]]},
+		)
+		if existing:
+			frappe.throw(_("A request for this session has already been sent."))
+	else:
+		prompt = _overtime_prompt(employee)
+		if not prompt or prompt["state"] != "needs_request":
+			frappe.throw(_("There is no overtime request needed for this employee right now."))
+		timesheet = prompt["timesheet"]
 
 	employee_name = frappe.db.get_value("Employee", employee, "employee_name")
 
@@ -751,7 +882,7 @@ def submit_overtime_request(token, requested_hours):
 			"doctype": "Kiosk Overtime Request",
 			"employee": employee,
 			"employee_name": employee_name,
-			"timesheet": prompt["timesheet"],
+			"timesheet": timesheet,
 			"requested_hours": requested_hours,
 			"status": "Pending",
 			"requested_at": _kiosk_now(),
@@ -765,6 +896,48 @@ def submit_overtime_request(token, requested_hours):
 	_send_overtime_request_email(doc)
 
 	return {"name": doc.name}
+
+
+@frappe.whitelist(allow_guest=True)
+def decline_overtime_request(token):
+	"""Employee taps End (instead of Request Overtime) on a card that's alarming for
+	an auto-ended session: they're done for the day, no overtime wanted. Permanently
+	resolves _overtime_prompt's needs_request state for that Timesheet - see
+	DECLINED_FIELD - so the board stops alarming and offering Request Overtime for it,
+	without filing a Kiosk Overtime Request at all."""
+	employee = _resolve_token(token)
+
+	prompt = _overtime_prompt(employee)
+	if not prompt or prompt["state"] != "needs_request":
+		frappe.throw(_("There is nothing to end right now."))
+
+	frappe.db.set_value("Timesheet", prompt["timesheet"], DECLINED_FIELD, 1)
+	frappe.db.commit()
+	frappe.cache().delete_value(f"kiosk_token:{token}")
+
+	return {"timesheet": prompt["timesheet"]}
+
+
+@frappe.whitelist(allow_guest=True)
+def silence_overtime_alarm(employee):
+	"""Stops the siren for this employee's needs-overtime card on every kiosk board -
+	not just the tablet that tapped it. Server-side on purpose (SILENCED_FIELD on the
+	Timesheet, read back by every board's get_employee_board poll) rather than the
+	old per-browser localStorage version, which only silenced the one tablet clicked.
+
+	Deliberately guest + no access-code token, same as this button already was before
+	it made a server call at all: this only mutes a notification sound, it doesn't
+	touch the overtime decision itself - Request Overtime/End stay exactly as
+	available as before, gated by their own token as always. Anyone standing at a
+	blaring kiosk should be able to quiet it without knowing that employee's PIN."""
+	prompt = _overtime_prompt(employee)
+	if not prompt or prompt["state"] != "needs_request":
+		frappe.throw(_("There is no alarm to stop right now."))
+
+	frappe.db.set_value("Timesheet", prompt["timesheet"], SILENCED_FIELD, 1)
+	frappe.db.commit()
+
+	return {"timesheet": prompt["timesheet"]}
 
 
 @frappe.whitelist(allow_guest=True)
@@ -803,27 +976,43 @@ def decide_overtime_request(request, token, decision, by=None):
 	frappe.db.commit()
 
 	started_timesheet = None
+	still_running = False
 	if decision == "Approved":
-		# The approval itself puts them back on the clock. Never at the cost of the
-		# decision: if this fails the request stays Approved + unconsumed and their
-		# next Start picks it up, so the worst case is the old behaviour.
-		try:
-			started_timesheet = _auto_start_overtime_session(doc)
-			frappe.db.commit()
-		except Exception:
-			frappe.db.rollback()
-			started_timesheet = None
-			frappe.log_error(
-				title="Kiosk overtime auto-start failed",
-				message=frappe.get_traceback(),
-			)
+		# Tell the two shapes of request apart: one made *before* the 8h cutoff, whose
+		# Timesheet never stopped running, vs one made after auto-end created a fresh
+		# Timesheet to backdate into existence. The first just needs the exemption
+		# stamped onto the session that's already ticking - there's no gap to
+		# backdate across and nothing to auto-start.
+		open_row = _get_open_timesheet(doc.employee)
+		still_running = bool(open_row and open_row.timesheet == doc.timesheet)
 
-		_send_overtime_decision_email(doc, started_timesheet)
+		if still_running:
+			frappe.db.set_value("Timesheet", doc.timesheet, OVERTIME_REQUEST_FIELD, doc.name)
+			frappe.db.set_value("Kiosk Overtime Request", doc.name, "consumed", 1)
+			frappe.db.commit()
+		else:
+			# The approval itself puts them back on the clock. Never at the cost of the
+			# decision: if this fails the request stays Approved + unconsumed and their
+			# next Start picks it up, so the worst case is the old behaviour.
+			try:
+				started_timesheet = _auto_start_overtime_session(doc)
+				frappe.db.commit()
+			except Exception:
+				frappe.db.rollback()
+				started_timesheet = None
+				frappe.log_error(
+					title="Kiosk overtime auto-start failed",
+					message=frappe.get_traceback(),
+				)
+
+		_send_overtime_decision_email(doc, started_timesheet, still_running=still_running)
 
 	message = _("{0}'s request for {1} hour(s) of overtime has been {2}.").format(
 		doc.employee_name, doc.requested_hours, decision.lower()
 	)
-	if started_timesheet:
+	if still_running:
+		message += " " + _("Their timer is already running - they can keep working uninterrupted.")
+	elif started_timesheet:
 		message += " " + _("Their timer is running from {0}, when they asked.").format(
 			format_datetime(_overtime_start_time(doc), "d MMM, h:mm a")
 		)
@@ -893,6 +1082,46 @@ def _send_hours_complete_email(employee, timesheet_name):
 		frappe.log_error(title="Kiosk hours-complete email failed", message=frappe.get_traceback())
 
 
+def _send_upcoming_cutoff_email(employee, timesheet_name, cutoff_time):
+	"""The 30-minutes-before warning (see send_upcoming_cutoff_warnings). Unlike the
+	hours-complete email above, nothing has happened to the session yet - it's still
+	running - so this is purely a heads-up with time left to act, not a notice of
+	something already done."""
+	email, employee_name = _employee_email(employee)
+	if not email:
+		frappe.log_error(
+			title="Kiosk: no email on file for employee nearing 8h cutoff",
+			message=f"employee={employee} timesheet={timesheet_name}",
+		)
+		return
+
+	cutoff_str = format_datetime(cutoff_time, "h:mm a")
+	body = f"""
+	<p>Hi {employee_name},</p>
+	<p>Heads up - your <b>8 hours</b> for today will be up around <b>{cutoff_str}</b>,
+	   about {int(WARNING_LEAD_HOURS * 60)} minutes from now.</p>
+	<p style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:12px 14px;color:#9a3412;">
+	   Want to keep working past that? Tap your card on the kiosk board now and choose
+	   <b>Request Overtime</b> - do it before your time runs out so you're not clocked
+	   out in the middle of the day.</p>
+	<p>If you're happy to stop at 8 hours, there's nothing you need to do.</p>
+	"""
+	html = _EMAIL_WRAP.format(
+		gradient="linear-gradient(135deg,#78350f,#b45309)",
+		heading="Your Time Is Almost Up",
+		body=body,
+	)
+	try:
+		frappe.sendmail(
+			recipients=[email],
+			subject="Your 8 hours end in 30 minutes - request overtime now if you need it",
+			message=html,
+			delayed=False,
+		)
+	except Exception:
+		frappe.log_error(title="Kiosk upcoming-cutoff email failed", message=frappe.get_traceback())
+
+
 def _send_overtime_request_email(doc):
 	base_url = get_url()
 	for person in OVERTIME_RECIPIENTS:
@@ -932,12 +1161,21 @@ def _send_overtime_request_email(doc):
 			frappe.log_error(title="Kiosk overtime request email failed", message=frappe.get_traceback())
 
 
-def _send_overtime_decision_email(doc, started_timesheet=None):
+def _send_overtime_decision_email(doc, started_timesheet=None, still_running=False):
 	email, employee_name = _employee_email(doc.employee)
 	if not email:
 		return
 
-	if started_timesheet:
+	if still_running:
+		# Asked before the cutoff and it never actually happened - there's no gap to
+		# backdate across or new session to start, the one they're already on just
+		# got cleared to keep going.
+		next_step = (
+			"<p>You're already covered - your current session is cleared to keep running "
+			"past 8 hours. Nothing else to do; just tap <b>End</b> on the kiosk when you "
+			"finish.</p>"
+		)
+	elif started_timesheet:
 		started_from = format_datetime(_overtime_start_time(doc), "d MMM, h:mm a")
 		next_step = (
 			f"<p>Your timer is <b>already running</b> - it was started for you from "

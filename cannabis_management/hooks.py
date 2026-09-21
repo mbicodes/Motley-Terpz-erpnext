@@ -614,6 +614,9 @@ scheduler_events = {
         # of "sometime in the next hour". See manufacturing_timesheet_kiosk/api.py.
         "* * * * *": [
             "cannabis_management.manufacturing_timesheet_kiosk.api.auto_end_overtime_sessions",
+            # 30 minutes before the 8h cutoff above actually fires, warn the employee
+            # so they have time to request overtime instead of just being clocked out.
+            "cannabis_management.manufacturing_timesheet_kiosk.api.send_upcoming_cutoff_warnings",
         ],
         # AR due-date reminders: every day at 7 AM UTC (daily, including weekends)
         "0 7 * * *": [
