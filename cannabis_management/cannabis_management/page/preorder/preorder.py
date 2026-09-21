@@ -54,14 +54,73 @@ def get_packaged_inventory(search_term=""):
 
 
 @frappe.whitelist()
-def save_preorder(data):
-	"""Create a Preorder Entry document from page form data."""
+def get_preorder(name):
+	"""Return one Preorder Entry shaped the way the form expects it.
+
+	Used to load an existing entry back into the page for editing. Permission
+	is checked explicitly -- frappe.get_doc does not do it on its own.
+	"""
+	doc = frappe.get_doc("Preorder Entry", name)
+	doc.check_permission("read")
+
+	return {
+		"name": doc.name,
+		"docstatus": doc.docstatus,
+		"rep_name": doc.rep_name,
+		"rep_email": doc.rep_email,
+		"rep_phone": doc.rep_phone,
+		"brand_name": doc.brand_name,
+		"license_name": doc.license_name,
+		"license_number": doc.license_number,
+		"primary_address": doc.primary_address,
+		"region": doc.region,
+		"order_date": doc.order_date,
+		"requested_delivery_date": doc.requested_delivery_date,
+		"company": doc.company,
+		"notes": doc.notes,
+		"items": [
+			{
+				"item_code": r.item_code,
+				"item_name": r.item_name,
+				"item_group": r.item_group,
+				"qty": r.qty,
+				"uom": r.uom,
+				"rate": r.rate,
+				"amount": r.amount,
+				"notes": r.notes,
+				# A row with no item_code was typed as free text; the form
+				# needs to know so it renders the "Custom item" badge again.
+				"is_custom": not r.item_code,
+			}
+			for r in doc.items
+		],
+	}
+
+
+@frappe.whitelist()
+def save_preorder(data, name=None):
+	"""Create a Preorder Entry from page form data, or update an existing one.
+
+	Passing `name` edits that entry in place instead of creating another. Only
+	drafts can be edited -- a submitted document is immutable in Frappe, so
+	say so plainly rather than letting doc.save() fail further down.
+	"""
 	import json
 
 	if isinstance(data, str):
 		data = json.loads(data)
 
-	doc = frappe.new_doc("Preorder Entry")
+	if name:
+		doc = frappe.get_doc("Preorder Entry", name)
+		if doc.docstatus != 0:
+			frappe.throw(
+				frappe._("{0} is already submitted and can no longer be edited.").format(name)
+			)
+		# Rebuild the table from what the form sent rather than merging: the
+		# form owns the full row set, including deletions.
+		doc.set("items", [])
+	else:
+		doc = frappe.new_doc("Preorder Entry")
 	doc.rep_name = data.get("rep_name")
 	doc.rep_email = data.get("rep_email")
 	doc.rep_phone = data.get("rep_phone")
@@ -112,8 +171,8 @@ def save_preorder(data):
 			"notes": row.get("notes"),
 		})
 
-	doc.insert()
-	return {"name": doc.name, "doctype": "Preorder Entry"}
+	doc.save()
+	return {"name": doc.name, "doctype": "Preorder Entry", "updated": bool(name)}
 
 
 @frappe.whitelist()

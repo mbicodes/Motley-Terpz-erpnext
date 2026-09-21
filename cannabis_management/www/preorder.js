@@ -1,5 +1,5 @@
 document.addEventListener("DOMContentLoaded", function () {
-	window._po = { items: [], inventory: [], dropdownOpen: false };
+	window._po = { items: [], inventory: [], dropdownOpen: false, editing: null };
 	poSetDefaults();
 	poLoadInventory();
 	poLoadRecent();
@@ -277,23 +277,41 @@ function poPrintBtnHtml(name) {
 function poRenderRecent(rows) {
 	var body = document.getElementById("poRecentBody");
 	if (!rows.length) {
-		body.innerHTML = '<tr><td colspan="7" class="po-empty-items">No preorders yet</td></tr>';
+		body.innerHTML = '<div class="po-entry-empty">No preorders yet</div>';
 		return;
 	}
 	body.innerHTML = rows.map(function (row) {
 		var st = row.docstatus;
 		var cls = st === 1 ? "po-status-submitted" : st === 2 ? "po-status-cancelled" : "po-status-draft";
 		var label = st === 1 ? "Submitted" : st === 2 ? "Cancelled" : "Draft";
-		return '<tr data-name="' + poEsc(row.name) + '">' +
-			"<td>" + poEsc(row.name) + "</td>" +
-			"<td>" + poEsc(row.rep_name || "—") + "</td>" +
-			"<td>" + poEsc(row.brand_name || "—") + "</td>" +
-			"<td>" + poEsc(row.region || "—") + "</td>" +
-			"<td>" + (row.order_date || "—") + "</td>" +
-			'<td><span class="po-status-badge ' + cls + '">' + label + "</span></td>" +
-			"<td>" + poPrintBtnHtml(row.name) + "</td></tr>";
+		var editing = window._po.editing === row.name;
+		// Only a draft can be edited -- Frappe will not let a submitted or
+		// cancelled document change, so do not offer a button that cannot work.
+		var editBtn = st === 0
+			? '<button class="po-entry-btn po-edit-preorder" data-name="' + poEsc(row.name) + '">' +
+			  '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+			  '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>' +
+			  '<path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg> Edit</button>'
+			: "";
+		return '<div class="po-entry' + (editing ? " is-editing" : "") + '" data-name="' + poEsc(row.name) + '">' +
+			'<div class="po-entry-head">' +
+			'<span class="po-entry-id">' + poEsc(row.name) + "</span>" +
+			'<span class="po-status-badge ' + cls + '">' + label + "</span>" +
+			"</div>" +
+			'<div class="po-entry-meta">' +
+			poEsc(row.brand_name || row.rep_name || "\u2014") +
+			(row.order_date ? ' &middot; <span class="po-entry-date">' + row.order_date + "</span>" : "") +
+			"</div>" +
+			'<div class="po-entry-actions">' + editBtn +
+			'<button class="po-entry-btn po-print-preorder" data-name="' + poEsc(row.name) + '" title="Open PDF (' + PO_PRINT_FORMAT + ')">' +
+			'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+			'<polyline points="6 9 6 2 18 2 18 9"/>' +
+			'<path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>' +
+			'<rect x="6" y="14" width="12" height="8"/></svg> Print</button>' +
+			"</div></div>";
 	}).join("");
 }
+
 
 /* ─────────────────────────────────────────────────────
    EVENTS
@@ -405,18 +423,22 @@ function poBindEvents() {
 		poRenderItems();
 	});
 
-	// Recent row click → open form, unless the PDF button was the target.
+	// Right pane: Print opens the PDF, Edit loads the entry into the form.
 	document.getElementById("poRecentBody").addEventListener("click", function (e) {
 		var printBtn = e.target.closest(".po-print-preorder");
 		if (printBtn) {
-			e.stopPropagation();
 			poOpenPdf(printBtn.getAttribute("data-name"));
 			return;
 		}
-		var tr = e.target.closest("tr[data-name]");
-		if (tr) {
-			window.location.href = "/app/preorder-entry/" + tr.getAttribute("data-name");
+		var editBtn = e.target.closest(".po-edit-preorder");
+		if (editBtn) {
+			poEditPreorder(editBtn.getAttribute("data-name"));
 		}
+	});
+
+	// Leave edit mode without saving.
+	document.addEventListener("click", function (e) {
+		if (e.target.closest("#poCancelEdit")) poClear();
 	});
 
 	// Save
@@ -424,6 +446,70 @@ function poBindEvents() {
 
 	// Clear
 	document.getElementById("poClearBtn").addEventListener("click", poClear);
+}
+
+/* ─────────────────────────────────────────────────────
+   EDIT AN EXISTING ENTRY
+   ───────────────────────────────────────────────────── */
+
+function poEditPreorder(name) {
+	frappe.call({
+		method: "cannabis_management.cannabis_management.page.preorder.preorder.get_preorder",
+		args: { name: name },
+		freeze: true,
+		freeze_message: "Loading " + name + "\u2026",
+		callback: function (r) {
+			var d = r.message;
+			if (!d) return;
+			var map = {
+				poRepName: "rep_name", poRepEmail: "rep_email", poRepPhone: "rep_phone",
+				poBrandName: "brand_name", poLicenseName: "license_name",
+				poLicenseNumber: "license_number", poAddress: "primary_address",
+				poRegion: "region", poOrderDate: "order_date",
+				poDeliveryDate: "requested_delivery_date", poCompany: "company",
+				poNotes: "notes",
+			};
+			Object.keys(map).forEach(function (id) {
+				var el = document.getElementById(id);
+				if (el) el.value = d[map[id]] || "";
+			});
+			window._po.items = (d.items || []).map(function (r2) {
+				return {
+					item_code: r2.item_code || "",
+					item_name: r2.item_name || "",
+					item_group: r2.item_group || "",
+					uom: r2.uom || "",
+					qty: r2.qty || 1,
+					rate: r2.rate != null ? r2.rate : null,
+					available_qty: 0,
+					is_custom: !!r2.is_custom,
+				};
+			});
+			window._po.editing = d.name;
+			poRenderItems();
+			poSyncEditState();
+			poLoadRecent();
+			window.scrollTo({ top: 0, behavior: "smooth" });
+		},
+	});
+}
+
+// Reflects edit mode in the header: the save button becomes an update, and a
+// banner offers a way out without saving.
+function poSyncEditState() {
+	var editing = window._po.editing;
+	var saveBtn = document.getElementById("poSaveBtn");
+	var banner = document.getElementById("poEditBanner");
+	if (saveBtn) {
+		saveBtn.lastChild.nodeValue = editing ? " Update Preorder" : " Save Preorder";
+	}
+	if (banner) {
+		banner.innerHTML = editing
+			? 'Editing <b>' + poEsc(editing) + "</b> " +
+			  '<button type="button" class="po-banner-cancel" id="poCancelEdit">Cancel</button>'
+			: "";
+		banner.style.display = editing ? "" : "none";
+	}
 }
 
 /* ─────────────────────────────────────────────────────
@@ -458,14 +544,15 @@ function poSave() {
 
 	frappe.call({
 		method: "cannabis_management.cannabis_management.page.preorder.preorder.save_preorder",
-		args: { data: data },
+		args: { data: data, name: window._po.editing || null },
 		freeze: true,
-		freeze_message: "Saving preorder...",
+		freeze_message: window._po.editing ? "Updating preorder..." : "Saving preorder...",
 		callback: function (r) {
 			if (r.message) {
 				var name = r.message.name;
 				frappe.show_alert({
-					message: "Preorder <b>" + poEsc(name) + "</b> created &mdash; " +
+					message: "Preorder <b>" + poEsc(name) + "</b> " +
+						(r.message.updated ? "updated" : "created") + " &mdash; " +
 						'<a href="' + poPdfUrl(name) + '" target="_blank">open PDF</a>',
 					indicator: "green",
 				}, 10);
@@ -486,7 +573,9 @@ function poClear() {
 	document.getElementById("poCompany").value = "";
 	poSetDefaults();
 	window._po.items = [];
+	window._po.editing = null;
 	poRenderItems();
+	poSyncEditState();
 }
 
 /* ─────────────────────────────────────────────────────
