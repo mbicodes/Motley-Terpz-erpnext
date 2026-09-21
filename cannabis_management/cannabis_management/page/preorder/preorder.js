@@ -194,9 +194,11 @@ const PO_PAGE_HTML = `
   <!-- EXISTING PREORDERS (right pane) -->
   <aside class="po-side">
     <div class="po-card po-side-card">
-      <div class="po-card-title">
+      <div class="po-card-title po-side-toggle" id="po-side-toggle">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
         Existing Preorders
+        <span class="po-side-count" id="po-side-count"></span>
+        <svg class="po-side-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
       </div>
       <div class="po-entry-list" id="po-recent-body">
         <div class="po-entry-empty">Loading...</div>
@@ -546,6 +548,12 @@ function poBindEvents() {
 		poClear();
 	});
 
+	// Collapse/expand the entries pane. Only has a visible effect on narrow
+	// screens, where the CSS hides the list unless .is-open is set.
+	$(document).on("click", "#po-side-toggle", function () {
+		$(this).closest(".po-side").toggleClass("is-open");
+	});
+
 	// The entry id still opens the full form, for anything the page cannot do.
 	$(document).on("click", ".po-entry-id", function () {
 		var name = $(this).closest(".po-entry").data("name");
@@ -576,9 +584,13 @@ function poLoadRecent() {
 			var body = document.getElementById("po-recent-body");
 			if (!rows.length) {
 				body.innerHTML = '<div class="po-entry-empty">No preorders yet</div>';
+				var empty = document.getElementById("po-side-count");
+				if (empty) empty.textContent = "0";
 				return;
 			}
 			body.innerHTML = rows.map(poEntryCardHtml).join("");
+			var count = document.getElementById("po-side-count");
+			if (count) count.textContent = rows.length;
 		},
 	});
 }
@@ -596,7 +608,7 @@ function poEntryCardHtml(row) {
 		  '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
 		  '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>' +
 		  '<path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg> Edit</button>' +
-		  '<button class="po-entry-btn po-entry-btn-primary po-submit-preorder" data-name="' + esc(row.name) + '" title="Submit this preorder">' +
+		  '<button class="po-entry-btn po-submit-preorder" data-name="' + esc(row.name) + '" title="Submit this preorder">' +
 		  '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Submit</button>'
 		: "";
 	return '<div class="po-entry' + (editing ? " is-editing" : "") + '" data-name="' + esc(row.name) + '">' +
@@ -609,7 +621,7 @@ function poEntryCardHtml(row) {
 		(row.order_date ? ' &middot; <span class="po-entry-date">' + row.order_date + "</span>" : "") +
 		"</div>" +
 		'<div class="po-entry-actions">' + draftBtns +
-		'<button class="po-entry-btn po-download-preorder" data-name="' + esc(row.name) + '" title="Download PDF (' + PO_PRINT_FORMAT + ')">' +
+		'<button class="po-entry-btn po-entry-btn-primary po-download-preorder" data-name="' + esc(row.name) + '" title="Download PDF (' + PO_PRINT_FORMAT + ')">' +
 		'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download</button>' +
 		"</div></div>";
 }

@@ -279,6 +279,7 @@ function poRenderRecent(rows) {
 	var body = document.getElementById("poRecentBody");
 	if (!rows.length) {
 		body.innerHTML = '<div class="po-entry-empty">No preorders yet</div>';
+		poSetSideCount(0);
 		return;
 	}
 	body.innerHTML = rows.map(function (row) {
@@ -293,7 +294,7 @@ function poRenderRecent(rows) {
 			  '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
 			  '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>' +
 			  '<path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg> Edit</button>' +
-			  '<button class="po-entry-btn po-entry-btn-primary po-submit-preorder" data-name="' + poEsc(row.name) + '" title="Submit this preorder">' +
+			  '<button class="po-entry-btn po-submit-preorder" data-name="' + poEsc(row.name) + '" title="Submit this preorder">' +
 			  '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Submit</button>'
 			: "";
 		return '<div class="po-entry' + (editing ? " is-editing" : "") + '" data-name="' + poEsc(row.name) + '">' +
@@ -306,10 +307,17 @@ function poRenderRecent(rows) {
 			(row.order_date ? ' &middot; <span class="po-entry-date">' + row.order_date + "</span>" : "") +
 			"</div>" +
 			'<div class="po-entry-actions">' + draftBtns +
-			'<button class="po-entry-btn po-download-preorder" data-name="' + poEsc(row.name) + '" title="Download PDF (' + PO_PRINT_FORMAT + ')">' +
+			'<button class="po-entry-btn po-entry-btn-primary po-download-preorder" data-name="' + poEsc(row.name) + '" title="Download PDF (' + PO_PRINT_FORMAT + ')">' +
 			'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download</button>' +
 			"</div></div>";
 	}).join("");
+	poSetSideCount(rows.length);
+}
+
+// Keeps the collapsed header honest about how many entries are behind it.
+function poSetSideCount(n) {
+	var el = document.getElementById("poSideCount");
+	if (el) el.textContent = n;
 }
 
 /* ─────────────────────────────────────────────────────
@@ -444,6 +452,15 @@ function poBindEvents() {
 	document.addEventListener("click", function (e) {
 		if (e.target.closest("#poCancelEdit")) poClear();
 	});
+
+	// Collapse/expand the entries pane. Only has a visible effect on narrow
+	// screens, where the CSS hides the list unless .is-open is set.
+	var sideToggle = document.getElementById("poSideToggle");
+	if (sideToggle) {
+		sideToggle.addEventListener("click", function () {
+			this.closest(".po-side").classList.toggle("is-open");
+		});
+	}
 
 	// Save
 	document.getElementById("poSaveBtn").addEventListener("click", poSave);
