@@ -643,3 +643,14 @@
     .po-entry-actions { flex-wrap: wrap; }
     .po-entry-btn { flex: 1; justify-content: center; padding: 7px 9px; }
 }
+
+/* Submit is the consequential action on a draft card, so it leads. */
+.po-entry-btn.po-entry-btn-primary {
+    border-color: var(--po-brand);
+    background: var(--po-brand-light);
+    color: var(--po-brand);
+}
+.po-entry-btn.po-entry-btn-primary:hover {
+    background: var(--po-brand);
+    color: #fff;
+}
