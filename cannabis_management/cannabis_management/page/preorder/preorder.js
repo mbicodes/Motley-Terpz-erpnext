@@ -195,10 +195,11 @@ const PO_PAGE_HTML = `
           <th>Region</th>
           <th>Date</th>
           <th>Status</th>
+          <th style="width:44px"></th>
         </tr>
       </thead>
       <tbody id="po-recent-body">
-        <tr><td colspan="6" class="po-empty-items">Loading...</td></tr>
+        <tr><td colspan="7" class="po-empty-items">Loading...</td></tr>
       </tbody>
     </table>
   </div>
@@ -522,6 +523,13 @@ function poBindEvents() {
 	// Clear
 	$("#po-clear-btn").on("click", poClear);
 
+	// PDF button. Bound before the row handler and stops propagation, so
+	// printing a row does not also navigate away to its form.
+	$(document).on("click", ".po-print-preorder", function (e) {
+		e.stopPropagation();
+		poOpenPdf($(this).data("name"));
+	});
+
 	// Recent preorder click → open form
 	$(document).on("click", "#po-recent-body tr", function () {
 		var name = $(this).data("name");
@@ -551,7 +559,7 @@ function poLoadRecent() {
 			var rows = r.message || [];
 			var body = document.getElementById("po-recent-body");
 			if (!rows.length) {
-				body.innerHTML = '<tr><td colspan="6" class="po-empty-items">No preorders yet</td></tr>';
+				body.innerHTML = '<tr><td colspan="7" class="po-empty-items">No preorders yet</td></tr>';
 				return;
 			}
 			body.innerHTML = rows
@@ -567,12 +575,48 @@ function poLoadRecent() {
 						"<td>" + frappe.utils.escape_html(row.region || "—") + "</td>" +
 						"<td>" + (row.order_date || "—") + "</td>" +
 						'<td><span class="po-status-badge ' + cls + '">' + label + "</span></td>" +
+						"<td>" + poPrintBtnHtml(row.name) + "</td>" +
 						"</tr>"
 					);
 				})
 				.join("");
 		},
 	});
+}
+
+// ─────────────────────────────────────────────────────
+// PRINT / PDF
+// ─────────────────────────────────────────────────────
+
+var PO_PRINT_FORMAT = "Preorder Entry - Motley";
+
+// Renders the Motley format server-side and hands back a real PDF, so the
+// browser can open it in its viewer or save it straight to disk.
+function poPdfUrl(name) {
+	return (
+		"/api/method/frappe.utils.print_format.download_pdf" +
+		"?doctype=" + encodeURIComponent("Preorder Entry") +
+		"&name=" + encodeURIComponent(name) +
+		"&format=" + encodeURIComponent(PO_PRINT_FORMAT) +
+		"&no_letterhead=0"
+	);
+}
+
+function poOpenPdf(name) {
+	if (!name) return;
+	window.open(poPdfUrl(name), "_blank");
+}
+
+function poPrintBtnHtml(name) {
+	return (
+		'<button class="po-btn-print po-print-preorder" data-name="' +
+		frappe.utils.escape_html(name) + '" title="Open PDF (' + PO_PRINT_FORMAT + ')">' +
+		'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+		'<polyline points="6 9 6 2 18 2 18 9"/>' +
+		'<path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>' +
+		'<rect x="6" y="14" width="12" height="8"/></svg>' +
+		"</button>"
+	);
 }
 
 // ─────────────────────────────────────────────────────
@@ -612,10 +656,13 @@ function poSave() {
 		freeze_message: "Saving preorder...",
 		callback: function (r) {
 			if (r.message) {
+				var name = r.message.name;
 				frappe.show_alert({
-					message: "Preorder <b>" + r.message.name + "</b> created",
+					message:
+						"Preorder <b>" + frappe.utils.escape_html(name) + "</b> created &mdash; " +
+						'<a href="' + poPdfUrl(name) + '" target="_blank">open PDF</a>',
 					indicator: "green",
-				});
+				}, 10);
 				poClear();
 				poLoadRecent();
 			}
