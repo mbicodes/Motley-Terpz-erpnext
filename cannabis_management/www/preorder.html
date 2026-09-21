@@ -29,6 +29,12 @@
     </div>
   </div>
 
+  <div class="po-edit-banner" id="poEditBanner" style="display:none"></div>
+
+  <!-- Form on the left, existing entries on the right -->
+  <div class="po-shell">
+  <div class="po-main">
+
   <!-- REP + LICENSE (side by side) -->
   <div class="po-two-col">
     <div class="po-card">
@@ -168,29 +174,22 @@
     </div>
   </div>
 
-  <!-- RECENT PREORDERS -->
-  <div class="po-card">
-    <div class="po-card-title">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-      Recent Preorders
+  </div><!-- /po-main -->
+
+  <!-- EXISTING PREORDERS (right pane) -->
+  <aside class="po-side">
+    <div class="po-card po-side-card">
+      <div class="po-card-title">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Existing Preorders
+      </div>
+      <div class="po-entry-list" id="poRecentBody">
+        <div class="po-entry-empty">Loading&hellip;</div>
+      </div>
     </div>
-    <table class="po-recent-table" id="poRecentTable">
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Rep</th>
-          <th>Brand</th>
-          <th>Region</th>
-          <th>Date</th>
-          <th>Status</th>
-          <th style="width:44px"></th>
-        </tr>
-      </thead>
-      <tbody id="poRecentBody">
-        <tr><td colspan="7" class="po-empty-items">Loading&hellip;</td></tr>
-      </tbody>
-    </table>
-  </div>
+  </aside>
+
+  </div><!-- /po-shell -->
 
 </div>
 
