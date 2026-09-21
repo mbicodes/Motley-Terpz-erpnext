@@ -128,6 +128,24 @@ WARNING_SENT_FIELD = TIMESHEET_FIELDS[4]["fieldname"]  # custom_overtime_warning
 DECLINED_FIELD = TIMESHEET_FIELDS[5]["fieldname"]  # custom_overtime_declined (Timesheet)
 SILENCED_FIELD = TIMESHEET_FIELDS[6]["fieldname"]  # custom_overtime_alarm_silenced (Timesheet)
 
+
+def _installed_timesheet_fields(*fieldnames):
+	"""Those of `fieldnames` whose column actually exists on Timesheet.
+
+	Kiosk code ships ahead of its columns: custom_fields.install() runs from
+	after_migrate, so between a deploy and the next `bench migrate` these fields
+	are referenced but absent, and selecting one raises OperationalError 1054.
+	On 2026-09-19 that took the whole kiosk down - every board poll 500'd with
+	"Unknown column 'custom_overtime_alarm_silenced'", so nobody could clock in
+	or out - because the board is what every tablet polls.
+
+	Filtering the select instead means the board still loads and the overtime
+	prompt simply does not appear until the field exists. Callers already read
+	these with .get(), so an absent key behaves as "flag not set". has_column is
+	served from frappe's per-request table cache, so this is not a query per row.
+	"""
+	return [f for f in fieldnames if frappe.db.has_column("Timesheet", f)]
+
 # How long before the 8-hour auto-cutoff send_upcoming_cutoff_warnings() emails the
 # employee - see that function below.
 WARNING_LEAD_HOURS = 0.5
@@ -340,7 +358,7 @@ def _overtime_prompt(employee):
 	last_ts = frappe.db.get_value(
 		"Timesheet",
 		{"employee": employee, "docstatus": 1},
-		["name", AUTO_ENDED_FIELD, DECLINED_FIELD, SILENCED_FIELD],
+		["name"] + _installed_timesheet_fields(AUTO_ENDED_FIELD, DECLINED_FIELD, SILENCED_FIELD),
 		order_by="creation desc",
 		as_dict=True,
 	)
@@ -933,6 +951,13 @@ def silence_overtime_alarm(employee):
 	prompt = _overtime_prompt(employee)
 	if not prompt or prompt["state"] != "needs_request":
 		frappe.throw(_("There is no alarm to stop right now."))
+
+	if not frappe.db.has_column("Timesheet", SILENCED_FIELD):
+		# Deployed ahead of its column - see _installed_timesheet_fields. Say so
+		# plainly; the raw OperationalError reads like a broken kiosk.
+		frappe.throw(
+			_("Stop Alarm is not available on this site yet — run bench migrate to finish installing it.")
+		)
 
 	frappe.db.set_value("Timesheet", prompt["timesheet"], SILENCED_FIELD, 1)
 	frappe.db.commit()
