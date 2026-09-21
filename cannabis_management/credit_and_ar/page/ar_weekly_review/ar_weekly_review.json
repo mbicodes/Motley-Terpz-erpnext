@@ -1,0 +1,32 @@
+{
+ "content": null,
+ "creation": "2026-09-19 19:25:02.176325",
+ "docstatus": 0,
+ "doctype": "Page",
+ "idx": 0,
+ "modified": "2026-09-19 19:25:02.176325",
+ "modified_by": "Administrator",
+ "module": "Credit and AR",
+ "name": "ar-weekly-review",
+ "owner": "Administrator",
+ "page_name": "ar-weekly-review",
+ "roles": [
+  {
+   "role": "System Manager"
+  },
+  {
+   "role": "Accounts Manager"
+  },
+  {
+   "role": "Account Receivable"
+  },
+  {
+   "role": "AR Dashboard Viewer"
+  }
+ ],
+ "script": null,
+ "standard": "Yes",
+ "style": null,
+ "system_page": 0,
+ "title": "AR Weekly Review"
+}
