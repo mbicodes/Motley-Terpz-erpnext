@@ -124,10 +124,41 @@ function poCloseDropdown() {
    ITEMS TABLE
    ───────────────────────────────────────────────────── */
 
+// Amount is derived, never typed: Preorder Item.amount is read_only in the
+// doctype and the server recomputes it on save. This is only the preview.
+function poAmount(item) {
+	return (parseFloat(item.rate) || 0) * (parseInt(item.qty, 10) || 0);
+}
+
+function poMoney(v) {
+	return "$" + (v || 0).toLocaleString("en-US", {
+		minimumFractionDigits: 2,
+		maximumFractionDigits: 2,
+	});
+}
+
+function poOrderTotals() {
+	return window._po.items.reduce(function (acc, i) {
+		acc.qty += parseInt(i.qty, 10) || 0;
+		acc.amount += poAmount(i);
+		return acc;
+	}, { qty: 0, amount: 0 });
+}
+
+function poTotalsRowHtml() {
+	var t = poOrderTotals();
+	return '<tr class="po-totals-row">' +
+		'<td colspan="4" class="po-totals-label">Order total</td>' +
+		'<td class="po-totals-qty">' + t.qty + "</td>" +
+		"<td></td>" +
+		'<td class="po-num po-totals-amount">' + poMoney(t.amount) + "</td>" +
+		"<td></td></tr>";
+}
+
 function poRenderItems() {
 	var body = document.getElementById("poItemsBody");
 	if (!window._po.items.length) {
-		body.innerHTML = '<tr class="po-empty-row"><td colspan="6" class="po-empty-items">No items added yet &mdash; click the field above to browse packaged goods</td></tr>';
+		body.innerHTML = '<tr class="po-empty-row"><td colspan="8" class="po-empty-items">No items added yet &mdash; click the field above to browse packaged goods</td></tr>';
 		return;
 	}
 	body.innerHTML = window._po.items.map(function (item, idx) {
@@ -145,11 +176,13 @@ function poRenderItems() {
 			(item.is_custom
 				? '<td class="po-stock-qty">&mdash;</td>'
 				: '<td class="po-stock-qty ' + cls + '">' + sq + " " + poEsc(item.uom || "") + "</td>") +
-			'<td><input type="number" min="1" value="' + (item.qty || 1) + '" class="po-item-qty"></td>' +
+			'<td><input type="number" min="1" step="1" value="' + (item.qty || 1) + '" class="po-item-qty"></td>' +
+			'<td><input type="number" min="0" step="0.01" value="' + (item.rate != null ? item.rate : "") + '" placeholder="0.00" class="po-item-rate"></td>' +
+			'<td class="po-item-amount po-num">' + poMoney(poAmount(item)) + "</td>" +
 			'<td><button class="po-btn-remove po-remove-item" title="Remove">' +
 			'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
 			"</button></td></tr>";
-	}).join("");
+	}).join("") + poTotalsRowHtml();
 }
 
 function poAddItem(inv) {
@@ -164,6 +197,7 @@ function poAddItem(inv) {
 		uom: inv.stock_uom,
 		available_qty: inv.available_qty || 0,
 		qty: 1,
+		rate: null,
 	});
 	poRenderItems();
 }
@@ -188,6 +222,7 @@ function poAddCustomItem(text) {
 		uom: "",
 		available_qty: 0,
 		qty: 1,
+		rate: null,
 		is_custom: true,
 	});
 	poRenderItems();
@@ -315,10 +350,19 @@ function poBindEvents() {
 	});
 
 	// Qty change in items table
+	// Qty / Rate edits. Both re-render so the row's Amount and the order
+	// total stay in step -- amount is derived, never entered directly.
 	document.getElementById("poItemsBody").addEventListener("change", function (e) {
+		var tr = e.target.closest("tr[data-idx]");
+		if (!tr) return;
+		var idx = parseInt(tr.getAttribute("data-idx"), 10);
 		if (e.target.classList.contains("po-item-qty")) {
-			var idx = parseInt(e.target.closest("tr").getAttribute("data-idx"));
-			window._po.items[idx].qty = parseInt(e.target.value) || 1;
+			window._po.items[idx].qty = parseInt(e.target.value, 10) || 1;
+			poRenderItems();
+		} else if (e.target.classList.contains("po-item-rate")) {
+			var raw = e.target.value;
+			window._po.items[idx].rate = raw === "" ? null : Math.max(0, parseFloat(raw) || 0);
+			poRenderItems();
 		}
 	});
 
@@ -371,6 +415,7 @@ function poSave() {
 				item_group: i.item_group,
 				qty: i.qty,
 				uom: i.uom,
+				rate: i.rate,
 			};
 		}),
 	};

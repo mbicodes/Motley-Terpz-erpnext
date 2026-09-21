@@ -15,18 +15,27 @@
 
 /* ── ROOT TOKENS ───────────────────────────────────── */
 :root {
-    --po-bg:          #070c18;
-    --po-bg-2:        #0d1528;
-    --po-bg-3:        #111e36;
+    /* Motley brand palette. The accent used to be teal; it now carries the
+       purple of the "Preorder Entry - Motley" print format (#7b2fbf) so the
+       screen and the printed sheet read as one document. --po-brand* are the
+       canonical names -- the --po-teal* aliases below are kept because rules
+       throughout this file already reference them. */
+    --po-brand:       #b06cf5;
+    --po-brand-dim:   #7b2fbf;
+    --po-brand-deep:  #5f2494;
+
+    --po-bg:          #0b0716;
+    --po-bg-2:        #140c24;
+    --po-bg-3:        #1d1136;
     --po-surface:     rgba(255,255,255,0.045);
     --po-surface-2:   rgba(255,255,255,0.075);
     --po-border:      rgba(255,255,255,0.08);
     --po-border-2:    rgba(255,255,255,0.14);
 
-    --po-teal:        #00e5be;
-    --po-teal-dim:    #00b596;
-    --po-teal-glow:   rgba(0,229,190,0.20);
-    --po-teal-faint:  rgba(0,229,190,0.08);
+    --po-teal:        var(--po-brand);
+    --po-teal-dim:    var(--po-brand-dim);
+    --po-teal-glow:   rgba(176,108,245,0.20);
+    --po-teal-faint:  rgba(176,108,245,0.08);
 
     --po-gold:        #f5c842;
     --po-gold-dim:    #c9a020;
@@ -36,9 +45,9 @@
     --po-coral:       #ff6b6b;
     --po-sky:         #38bdf8;
 
-    --po-text:        #e8f0ff;
-    --po-muted:       #7a90b8;
-    --po-dim:         #3d5070;
+    --po-text:        #f0e6ff;
+    --po-muted:       #a08bc0;
+    --po-dim:         #6b5a8a;
 
     --po-radius-sm:   10px;
     --po-radius-md:   16px;
@@ -505,3 +514,37 @@
 }
 .po-picker-option.po-picker-custom:hover { background: var(--po-gold-dim); }
 .po-picker-option.po-picker-custom .po-picker-option-name { color: var(--po-gold); }
+
+/* ── Rate / Amount columns and the order total ─────────────────────── */
+/* Qty and Rate are the only editable cells; Amount is derived (qty x rate)
+   and the server recomputes it on save, so it renders as text, not an input. */
+.po-items-table .po-num { text-align: right; }
+.po-items-table input.po-item-rate {
+    width: 92px;
+    text-align: right;
+}
+.po-items-table .po-item-amount {
+    font-weight: 600;
+    color: var(--po-text);
+    white-space: nowrap;
+}
+.po-items-table .po-totals-row td {
+    border-top: 1px solid var(--po-border-2);
+    border-bottom: none;
+    padding-top: 12px;
+    background: var(--po-teal-faint);
+    font-weight: 700;
+}
+.po-items-table .po-totals-label {
+    text-align: right;
+    color: var(--po-muted);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+.po-items-table .po-totals-qty { text-align: center; color: var(--po-text); }
+.po-items-table .po-totals-amount {
+    color: var(--po-brand);
+    font-size: 15px;
+    white-space: nowrap;
+}
