@@ -77,8 +77,10 @@ function poOpenDropdown(filterTerm) {
 
 	var showing = inv.slice(0, 40);
 
+	var customOption = poCustomOptionHtml(filterTerm);
+
 	if (!showing.length) {
-		dd.innerHTML = '<div class="po-link-empty">No matching items found</div>';
+		dd.innerHTML = customOption || '<div class="po-link-empty">No matching items found</div>';
 		dd.classList.add("open");
 		window._po.dropdownOpen = true;
 		return;
@@ -97,10 +99,20 @@ function poOpenDropdown(filterTerm) {
 			'<div class="po-link-option-stock po-stock-qty ' + cls + '">' + sq + " avail</div>" +
 			"</div>" +
 			"</div>";
-	}).join("");
+	}).join("") + customOption;
 
 	dd.classList.add("open");
 	window._po.dropdownOpen = true;
+}
+
+function poCustomOptionHtml(term) {
+	term = (term || "").trim();
+	if (!term) return "";
+	return '<div class="po-link-option po-link-custom" data-custom="' + poEsc(term) + '">' +
+		'<div class="po-link-option-left">' +
+		'<div class="po-link-option-name">Add &ldquo;' + poEsc(term) + '&rdquo;</div>' +
+		'<div class="po-link-option-code">Custom item &mdash; not in inventory</div>' +
+		"</div></div>";
 }
 
 function poCloseDropdown() {
@@ -125,10 +137,14 @@ function poRenderItems() {
 			'<td class="po-row-num">' + (idx + 1) + "</td>" +
 			"<td>" +
 			'<div class="po-item-name">' + poEsc(item.item_name) + "</div>" +
-			'<div class="po-item-code">' + poEsc(item.item_code) + "</div>" +
+			(item.is_custom
+				? '<div class="po-item-custom-badge">Custom item</div>'
+				: '<div class="po-item-code">' + poEsc(item.item_code) + "</div>") +
 			"</td>" +
-			'<td class="po-item-group">' + poEsc(item.item_group) + "</td>" +
-			'<td class="po-stock-qty ' + cls + '">' + sq + " " + poEsc(item.uom || "") + "</td>" +
+			'<td class="po-item-group">' + (item.is_custom ? "&mdash;" : poEsc(item.item_group)) + "</td>" +
+			(item.is_custom
+				? '<td class="po-stock-qty">&mdash;</td>'
+				: '<td class="po-stock-qty ' + cls + '">' + sq + " " + poEsc(item.uom || "") + "</td>") +
 			'<td><input type="number" min="1" value="' + (item.qty || 1) + '" class="po-item-qty"></td>' +
 			'<td><button class="po-btn-remove po-remove-item" title="Remove">' +
 			'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
@@ -150,6 +166,44 @@ function poAddItem(inv) {
 		qty: 1,
 	});
 	poRenderItems();
+}
+
+// Row for something not in the catalog. item_code is a Link to Item on
+// Preorder Item and cannot hold free text, so the typed text travels as
+// item_name with item_code left blank.
+function poAddCustomItem(text) {
+	text = (text || "").trim();
+	if (!text) return;
+	var dup = window._po.items.find(function (i) {
+		return i.is_custom && (i.item_name || "").toLowerCase() === text.toLowerCase();
+	});
+	if (dup) {
+		frappe.show_alert({ message: "Item already added", indicator: "orange" });
+		return;
+	}
+	window._po.items.push({
+		item_code: "",
+		item_name: text,
+		item_group: "",
+		uom: "",
+		available_qty: 0,
+		qty: 1,
+		is_custom: true,
+	});
+	poRenderItems();
+}
+
+// Prefer a real catalog match over free text, so typing a full SKU and
+// pressing Enter does not quietly create a custom row.
+function poAddTypedTerm(term) {
+	term = (term || "").trim();
+	if (!term) return;
+	var t = term.toLowerCase();
+	var exact = window._po.inventory.find(function (i) {
+		return (i.name || "").toLowerCase() === t || (i.item_name || "").toLowerCase() === t;
+	});
+	if (exact) poAddItem(exact);
+	else poAddCustomItem(term);
 }
 
 /* ─────────────────────────────────────────────────────
@@ -212,8 +266,12 @@ function poBindEvents() {
 	document.getElementById("poLinkDropdown").addEventListener("click", function (e) {
 		var opt = e.target.closest(".po-link-option");
 		if (!opt) return;
-		var item = JSON.parse(opt.getAttribute("data-item"));
-		poAddItem(item);
+		var customText = opt.getAttribute("data-custom");
+		if (customText !== null) {
+			poAddCustomItem(customText);
+		} else {
+			poAddItem(JSON.parse(opt.getAttribute("data-item")));
+		}
 		input.value = "";
 		poCloseDropdown();
 	});
@@ -225,11 +283,17 @@ function poBindEvents() {
 		}
 	});
 
-	// Escape key closes dropdown
+	// Escape closes the dropdown; Enter adds whatever is typed, as a catalog
+	// match when one exists and as a custom free-text row otherwise.
 	input.addEventListener("keydown", function (e) {
 		if (e.key === "Escape") {
 			poCloseDropdown();
 			input.blur();
+		} else if (e.key === "Enter") {
+			e.preventDefault();
+			poAddTypedTerm(input.value);
+			input.value = "";
+			poCloseDropdown();
 		}
 	});
 

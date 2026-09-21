@@ -457,3 +457,27 @@
     .po-header { flex-direction: column; }
     .po-header-right { width: 100%; }
 }
+
+/* ── Custom (free-text) preorder items ─────────────────────────────── */
+/* A row whose item is not in the catalog: item_code is blank, so the SKU
+   line is replaced by a badge and the group/availability cells show a dash. */
+.po-item-custom-badge {
+    display: inline-block;
+    margin-top: 2px;
+    padding: 1px 6px;
+    border: 1px solid var(--po-gold);
+    border-radius: 3px;
+    background: var(--po-gold-light);
+    color: var(--po-gold);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+/* The "Add <text>" entry pinned to the bottom of the picker. */
+.po-link-option.po-link-custom {
+    border-top: 1px solid var(--po-gold);
+    background: var(--po-gold-faint);
+}
+.po-link-option.po-link-custom:hover { background: var(--po-gold-light); }
+.po-link-option.po-link-custom .po-link-option-name { color: var(--po-gold); }

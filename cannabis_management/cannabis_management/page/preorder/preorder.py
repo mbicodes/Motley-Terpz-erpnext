@@ -76,12 +76,32 @@ def save_preorder(data):
 	doc.notes = data.get("notes")
 
 	for row in data.get("items", []):
+		item_code = (row.get("item_code") or "").strip()
+		item_name = (row.get("item_name") or "").strip()
+		uom = (row.get("uom") or "").strip()
+
+		# A preorder row is allowed to name something we do not stock yet --
+		# reps regularly ask for a product before it exists as an Item. Both
+		# item_code and uom are Link fields, so anything that is not a real
+		# record has to be dropped or carried as free text, or doc.insert()
+		# fails link validation and the whole preorder is lost.
+		if item_code and not frappe.db.exists("Item", item_code):
+			item_name = item_name or item_code
+			item_code = None
+		if uom and not frappe.db.exists("UOM", uom):
+			uom = None
+
+		# Nothing identifying the row at all -- skip it rather than storing a
+		# blank line that no one can act on.
+		if not item_code and not item_name:
+			continue
+
 		doc.append("items", {
-			"item_code": row.get("item_code"),
-			"item_name": row.get("item_name"),
+			"item_code": item_code or None,
+			"item_name": item_name or None,
 			"item_group": row.get("item_group"),
 			"qty": row.get("qty"),
-			"uom": row.get("uom"),
+			"uom": uom or None,
 			"notes": row.get("notes"),
 		})
 
