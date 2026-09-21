@@ -176,6 +176,24 @@ def save_preorder(data, name=None):
 
 
 @frappe.whitelist()
+def submit_preorder(name):
+	"""Submit a draft Preorder Entry.
+
+	Submitting is the point of no return for editing -- a submitted document
+	cannot be changed, only cancelled -- so refuse anything that is not still
+	a draft rather than letting doc.submit() raise something less readable.
+	"""
+	doc = frappe.get_doc("Preorder Entry", name)
+	if doc.docstatus != 0:
+		frappe.throw(
+			frappe._("{0} is not a draft, so it cannot be submitted.").format(name)
+		)
+
+	doc.submit()
+	return {"name": doc.name, "docstatus": doc.docstatus}
+
+
+@frappe.whitelist()
 def get_recent_preorders(limit=20):
 	"""Return recent preorder entries for the listing panel."""
 	return frappe.get_all(

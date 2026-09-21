@@ -536,6 +536,11 @@ function poBindEvents() {
 		poEditPreorder($(this).data("name"));
 	});
 
+	$(document).on("click", ".po-submit-preorder", function (e) {
+		e.stopPropagation();
+		poSubmitPreorder($(this).data("name"));
+	});
+
 	// Leave edit mode without saving.
 	$(document).on("click", "#po-cancel-edit", function () {
 		poClear();
@@ -586,11 +591,13 @@ function poEntryCardHtml(row) {
 	var editing = window._po.editing === row.name;
 	// Only a draft can be edited -- Frappe will not let a submitted or
 	// cancelled document change, so do not offer a button that cannot work.
-	var editBtn = st === 0
+	var draftBtns = st === 0
 		? '<button class="po-entry-btn po-edit-preorder" data-name="' + esc(row.name) + '">' +
 		  '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
 		  '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>' +
-		  '<path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg> Edit</button>'
+		  '<path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg> Edit</button>' +
+		  '<button class="po-entry-btn po-entry-btn-primary po-submit-preorder" data-name="' + esc(row.name) + '" title="Submit this preorder">' +
+		  '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Submit</button>'
 		: "";
 	return '<div class="po-entry' + (editing ? " is-editing" : "") + '" data-name="' + esc(row.name) + '">' +
 		'<div class="po-entry-head">' +
@@ -601,7 +608,7 @@ function poEntryCardHtml(row) {
 		esc(row.brand_name || row.rep_name || "\u2014") +
 		(row.order_date ? ' &middot; <span class="po-entry-date">' + row.order_date + "</span>" : "") +
 		"</div>" +
-		'<div class="po-entry-actions">' + editBtn +
+		'<div class="po-entry-actions">' + draftBtns +
 		'<button class="po-entry-btn po-download-preorder" data-name="' + esc(row.name) + '" title="Download PDF (' + PO_PRINT_FORMAT + ')">' +
 		'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download</button>' +
 		"</div></div>";
@@ -693,6 +700,33 @@ function poSyncEditState() {
 		  '<button type="button" class="po-banner-cancel" id="po-cancel-edit">Cancel</button>'
 		: "";
 	banner.style.display = editing ? "" : "none";
+}
+
+// Submit is the point of no return for editing, so confirm first.
+function poSubmitPreorder(name) {
+	frappe.confirm(
+		"Submit <b>" + frappe.utils.escape_html(name) + "</b>?<br><br>" +
+		"A submitted preorder can no longer be edited.",
+		function () {
+			frappe.call({
+				method: "cannabis_management.cannabis_management.page.preorder.preorder.submit_preorder",
+				args: { name: name },
+				freeze: true,
+				freeze_message: "Submitting " + name + "...",
+				callback: function (r) {
+					if (!r.message) return;
+					// If this is the entry open in the form, editing it is no
+					// longer possible -- drop out of edit mode.
+					if (window._po.editing === name) poClear();
+					frappe.show_alert({
+						message: "Preorder <b>" + frappe.utils.escape_html(name) + "</b> submitted",
+						indicator: "green",
+					});
+					poLoadRecent();
+				},
+			});
+		}
+	);
 }
 
 // ─────────────────────────────────────────────────────
