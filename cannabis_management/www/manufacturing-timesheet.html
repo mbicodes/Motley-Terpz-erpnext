@@ -456,6 +456,34 @@
 			40%, 60% { transform: translateX(4px); }
 		}
 	</style>
+
+	<!-- This page is a standalone document: it deliberately does not extend
+	     templates/web.html, so none of frappe's web bundle is loaded and
+	     `window.frappe` would otherwise not exist. Two consequences, both handled
+	     below, because every call this kiosk makes is a POST:
+
+	       1. frappe replaces the `<!-- csrf_token -->` comment (see
+	          website/page_renderers/base_template_page.py:add_csrf_token) with a
+	          script that ASSIGNS `frappe.csrf_token`. Without the stub object on
+	          the line before, that injected line is a ReferenceError.
+	       2. Without the token, frappe's validate_csrf_token rejects every POST
+	          from a session that has one with CSRFTokenError -> HTTP 400, and the
+	          board shows "Could not load the board. Retrying...". A Guest session
+	          has no token so the check short-circuits, which is why a plain kiosk
+	          tablet works while any browser that has opened /app breaks - the desk
+	          generates and commits a token onto the session (www/app.py).
+
+	     The comment is substituted after the html cache, so the token stays
+	     correct per session even though get_html() is cached. -->
+	<script>window.frappe = window.frappe || {};</script>
+	<!-- csrf_token -->
+	<script>
+		// A Guest session has no token, and the injected line above then renders
+		// python's None as the literal string "None". Harmless today (frappe skips
+		// the check entirely when the session holds no token) but it would send a
+		// junk token if that ever tightened, so normalise it to empty.
+		if (window.frappe.csrf_token === "None" || !window.frappe.csrf_token) window.frappe.csrf_token = "";
+	</script>
 </head>
 <body>
 
