@@ -162,6 +162,15 @@
 		.job-card .jc-btn.jc-end { background: linear-gradient(145deg, #ff7a4a, #b8452c); }
 		.job-card .jc-btn.jc-overtime { background: linear-gradient(145deg, #ef4444, #991b1b); }
 
+		/* Secondary option on a still-running card: ask for overtime before the 8h
+		   auto-cutoff ever reaches it, instead of only after. Smaller/quieter than
+		   the main End button on purpose - this is optional, End is not. */
+		.job-card .jc-btn.jc-early-overtime {
+			background: linear-gradient(145deg, #f59e0b, #b45309);
+			font-size: 13px;
+			padding: 9px;
+		}
+
 		/* Silences the siren for this employee without clearing the overtime
 		   request itself - the Request Overtime button stays right above it. */
 		.job-card .jc-btn.jc-silence {
@@ -544,7 +553,7 @@
 				<p class="employee-banner">For <b id="overtime-employee-name">-</b></p>
 
 				<div class="summary-box">
-					<div class="row"><span>Status</span><span>8 hours complete</span></div>
+					<div class="row"><span>Status</span><span id="overtime-status-text">8 hours complete</span></div>
 				</div>
 
 				<div class="field">
@@ -649,6 +658,7 @@
 			endCancelBtn: document.getElementById("end-cancel-btn"),
 
 			overtimeEmployeeName: document.getElementById("overtime-employee-name"),
+			overtimeStatusText: document.getElementById("overtime-status-text"),
 			overtimeHours: document.getElementById("overtime-hours"),
 			overtimeError: document.getElementById("overtime-error"),
 			overtimeSubmitBtn: document.getElementById("overtime-submit-btn"),
@@ -747,14 +757,15 @@
 		// making noise until someone acts, not to alert once and go quiet.
 		//
 		// The Stop Alarm button on the card is the way out of that loop: it cuts the
-		// current siren short and marks the employee silenced, so later polls stay
-		// quiet for them. It does NOT resolve the overtime - the card keeps its
-		// Request Overtime button so the employee can send the request whenever they
-		// get to the kiosk. ----
+		// current siren short and tells the server this employee's alarm is silenced
+		// (api.silence_overtime_alarm - a Check on the Timesheet, not a per-browser
+		// flag), so every kiosk board's next 30s poll stays quiet for them, not just
+		// the tablet that was tapped. It does NOT resolve the overtime - the card
+		// keeps its Request Overtime/End buttons so the employee (or whoever's at the
+		// kiosk) can still act whenever they get to it. ----
 		var audioCtx = null;
 		var activeAlarm = null;          // { osc, gain } of the siren currently sounding
 		var alarmSpeechTimer = null;     // pending announcement, cancellable before it speaks
-		var silencedOvertime = {};       // employee id -> true, while their alarm is muted
 
 		function stopOvertimeAlarm() {
 			try {
@@ -784,12 +795,13 @@
 			}
 		}
 
-		// Mutes this employee's alarm until their overtime state changes. Called by the
-		// Stop Alarm button; announceOvertimeNeeded() clears the flag once they are no
-		// longer waiting on a request, so a fresh 8h ending alarms again.
+		// Stops the siren here immediately, and tells the server (silence_overtime_alarm)
+		// so every OTHER kiosk board's next poll (see announceOvertimeNeeded) reads the
+		// same silenced flag and stays quiet too - not just this tablet. Guest, no PIN:
+		// same reasoning as the button itself, see its click handler below.
 		function silenceOvertimeAlarm(employeeId) {
-			silencedOvertime[employeeId] = true;
 			stopOvertimeAlarm();
+			return call("silence_overtime_alarm", { employee: employeeId });
 		}
 
 		function playOvertimeAlarm(employeeNames) {
@@ -852,24 +864,20 @@
 
 		// Scans the just-rendered board for anyone still needing an overtime request
 		// and sounds the alarm once per loadBoard() call (immediate load, plus every
-		// 30s refresh) for as long as they remain unresolved. Employees whose alarm
-		// was stopped by hand are skipped, and their silence is dropped again as soon
-		// as they stop needing a request - so the next 8h ending is audible.
+		// 30s refresh) for as long as they remain unresolved. `silenced` comes straight
+		// from the server (SILENCED_FIELD on their Timesheet, set by Stop Alarm on ANY
+		// board), so this stays in sync across every kiosk tablet, not just the one
+		// that silenced it - and clears itself the moment a fresh 8h-ending starts a
+		// new Timesheet, so that one is audible again.
 		function announceOvertimeNeeded(groups) {
 			var names = [];
-			var stillWaiting = {};
 
 			(groups || []).forEach(function (group) {
 				(group.employees || []).forEach(function (emp) {
-					if (emp.overtime && emp.overtime.state === "needs_request") {
-						stillWaiting[emp.employee] = true;
-						if (!silencedOvertime[emp.employee]) names.push(emp.employee_name);
+					if (emp.overtime && emp.overtime.state === "needs_request" && !emp.overtime.silenced) {
+						names.push(emp.employee_name);
 					}
 				});
-			});
-
-			Object.keys(silencedOvertime).forEach(function (employeeId) {
-				if (!stillWaiting[employeeId]) delete silencedOvertime[employeeId];
 			});
 
 			if (names.length) playOvertimeAlarm(names.join(", "));
@@ -997,6 +1005,8 @@
 			var needsRequest = emp.overtime && emp.overtime.state === "needs_request";
 			var isPending = emp.overtime && emp.overtime.state === "pending";
 			var isApproved = emp.overtime && emp.overtime.state === "approved";
+			var earlyAvailable = emp.running && emp.early_overtime && emp.early_overtime.state === "available";
+			var earlyPending = emp.running && emp.early_overtime && emp.early_overtime.state === "pending";
 
 			var card = document.createElement("div");
 			card.className = "job-card" + (emp.running ? " running" : "") + (needsRequest ? " needs-overtime" : "");
@@ -1009,6 +1019,7 @@
 			var statusText = emp.running ? (emp.is_overtime_session ? "Running (overtime)" : "Running") : "Not started";
 			if (needsRequest) statusText = "Overtime needed";
 			else if (isPending) statusText = "Overtime pending";
+			else if (earlyPending) statusText = "Running — overtime pending";
 
 			var status = document.createElement("div");
 			status.className = "jc-status";
@@ -1040,6 +1051,11 @@
 					? "Requested " + emp.overtime.requested_hours + "h — awaiting approval"
 					: "Approved: " + emp.overtime.requested_hours + "h overtime available";
 				card.appendChild(note);
+			} else if (earlyPending) {
+				var earlyNote = document.createElement("div");
+				earlyNote.className = "jc-note";
+				earlyNote.textContent = "Requested " + emp.early_overtime.requested_hours + "h — awaiting approval";
+				card.appendChild(earlyNote);
 			}
 
 			var action = emp.running ? "end" : (needsRequest ? "overtime" : "start");
@@ -1052,11 +1068,39 @@
 			});
 			card.appendChild(btn);
 
-			// Second button, only while the siren applies to this employee. Stopping it
-			// leaves Request Overtime above untouched - the request is still owed, it
-			// just stops being announced.
+			// Secondary option on a running card: ask for overtime before the 8h
+			// auto-cutoff reaches it, without ending the session to do so.
+			if (earlyAvailable) {
+				var earlyBtn = document.createElement("button");
+				earlyBtn.type = "button";
+				earlyBtn.className = "jc-btn jc-early-overtime";
+				earlyBtn.textContent = "Request Overtime";
+				earlyBtn.addEventListener("click", function () {
+					openCodeScreen(emp.employee, emp.employee_name, "early_overtime");
+				});
+				card.appendChild(earlyBtn);
+			}
+
+			// Extra buttons, only while this employee needs an overtime decision.
 			if (needsRequest) {
-				var silenced = !!silencedOvertime[emp.employee];
+				// "End" - the employee is done for the day, no overtime wanted. Goes
+				// through the same code screen as every other action; on success the
+				// server marks this Timesheet resolved (decline_overtime_request) so the
+				// prompt and alarm both stop for good, not just until the next 8h ending.
+				var endBtn = document.createElement("button");
+				endBtn.type = "button";
+				endBtn.className = "jc-btn jc-end";
+				endBtn.textContent = "End";
+				endBtn.addEventListener("click", function () {
+					openCodeScreen(emp.employee, emp.employee_name, "decline_overtime");
+				});
+				card.appendChild(endBtn);
+
+				// Stopping the siren leaves Request Overtime/End above untouched - the
+				// decision is still owed, it just stops being announced. Comes from the
+				// server (emp.overtime.silenced), so it's already in sync with whatever
+				// any other kiosk board did, on load and on every 30s refresh.
+				var silenced = !!emp.overtime.silenced;
 				if (silenced) card.classList.add("silenced");
 
 				var stopBtn = document.createElement("button");
@@ -1065,10 +1109,13 @@
 				stopBtn.textContent = silenced ? "Alarm Stopped" : "Stop Alarm";
 				stopBtn.disabled = silenced;
 				stopBtn.addEventListener("click", function () {
-					silenceOvertimeAlarm(emp.employee);
 					stopBtn.textContent = "Alarm Stopped";
 					stopBtn.disabled = true;
 					card.classList.add("silenced");
+					silenceOvertimeAlarm(emp.employee).catch(function () {
+						// Best-effort - the siren is already stopped here regardless; if
+						// the server call failed, the next poll just re-alarms as normal.
+					});
 				});
 				card.appendChild(stopBtn);
 			}
@@ -1196,8 +1243,9 @@
 			showFlowScreen("end");
 		}
 
-		function showOvertimeScreen(result) {
+		function showOvertimeScreen(result, isEarly) {
 			els.overtimeEmployeeName.textContent = result.employee_name;
+			els.overtimeStatusText.textContent = isEarly ? "Still running" : "8 hours complete";
 			els.overtimeHours.value = "";
 			els.overtimeError.textContent = "";
 			showFlowScreen("overtime");
@@ -1225,8 +1273,21 @@
 					// The server's own state wins regardless of which button was tapped:
 					// if an overtime request is still needed, that's what shows - an
 					// employee who taps Start on a stale board still gets routed here.
-					if (result.overtime_prompt && result.overtime_prompt.state === "needs_request") {
-						showOvertimeScreen(result);
+					if (result.overtime_prompt && result.overtime_prompt.state === "needs_request" && state.cardAction === "decline_overtime") {
+						// Tapped "End" on a needs-overtime card: no extra screen, just
+						// resolve it and confirm.
+						return call("decline_overtime_request", { token: state.token }).then(function () {
+							els.doneTitle.textContent = "All Set";
+							els.doneMessage.textContent = "Your day is marked complete. No overtime requested.";
+							showFlowScreen("done");
+							setTimeout(showBoard, 2200);
+						});
+					} else if (result.overtime_prompt && result.overtime_prompt.state === "needs_request") {
+						showOvertimeScreen(result, false);
+					} else if (state.cardAction === "early_overtime" && result.open_session) {
+						// Tapped "Request Overtime" on a still-running card - the session
+						// itself isn't ending here, only the request is being sent.
+						showOvertimeScreen(result, true);
 					} else if (result.open_session) {
 						showEndScreen(result);
 					} else {

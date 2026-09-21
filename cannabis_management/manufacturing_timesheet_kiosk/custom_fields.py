@@ -125,6 +125,53 @@ TIMESHEET_FIELDS = [
 			"end_session's normal 8h row-split (custom_overtime) takes over from there."
 		),
 	},
+	{
+		"fieldname": "custom_overtime_warning_sent",
+		"fieldtype": "Check",
+		"label": "Overtime Warning Sent",
+		"insert_after": "custom_overtime_request",
+		"default": "0",
+		"no_copy": 1,
+		"read_only": 1,
+		"description": (
+			"Set by the kiosk's scheduled 30-minutes-before-cutoff warning "
+			"(api.send_upcoming_cutoff_warnings) once that email has gone out for this "
+			"still-running session, so the next minute's tick doesn't send it again."
+		),
+	},
+	{
+		"fieldname": "custom_overtime_declined",
+		"fieldtype": "Check",
+		"label": "Overtime Declined By Employee",
+		"insert_after": "custom_overtime_warning_sent",
+		"default": "0",
+		"no_copy": 1,
+		"read_only": 1,
+		"description": (
+			"Set by api.decline_overtime_request when the employee taps End instead of "
+			"Request Overtime after this Timesheet was auto-ended at 8h: permanently "
+			"resolves the board's needs_request prompt/alarm for this session without "
+			"filing a Kiosk Overtime Request - unlike a Rejected request (which still "
+			"invites a fresh request), this means the employee themself is done."
+		),
+	},
+	{
+		"fieldname": "custom_overtime_alarm_silenced",
+		"fieldtype": "Check",
+		"label": "Overtime Alarm Silenced",
+		"insert_after": "custom_overtime_declined",
+		"default": "0",
+		"no_copy": 1,
+		"read_only": 1,
+		"description": (
+			"Set by api.silence_overtime_alarm when Stop Alarm is tapped on this "
+			"session's needs-overtime card. Server-side (not per-browser) on purpose: "
+			"every kiosk board polling get_employee_board reads the same flag, so "
+			"stopping the siren on one tablet stops it everywhere, not just there. "
+			"Only mutes the alarm - Request Overtime/End stay available exactly as "
+			"before, and this clears again the moment the prompt itself resolves."
+		),
+	},
 ]
 
 # On the Timesheet Detail child table (one row per time log), not on Timesheet
