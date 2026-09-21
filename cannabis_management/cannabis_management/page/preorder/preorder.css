@@ -633,7 +633,28 @@
 @media (max-width: 1100px) {
     .po-shell { grid-template-columns: 1fr; }
     .po-side-card { position: static; }
-    .po-entry-list { max-height: none; }
+    /* Stacked, the pane would otherwise land under the whole form -- a long
+       unrolled list nobody scrolls to. Put it above the form instead, and
+       collapse it so it costs one line until it is wanted. */
+    .po-side { order: -1; }
+    .po-side-toggle { cursor: pointer; user-select: none; }
+    .po-side-chevron { display: inline-block; margin-left: auto; transition: transform 0.2s; }
+    .po-side .po-entry-list { display: none; }
+    .po-side.is-open .po-entry-list { display: flex; max-height: 60vh; }
+    .po-side.is-open .po-side-chevron { transform: rotate(180deg); }
+}
+
+/* The chevron and count are mobile affordances; the pane is always open on
+   a wide screen, so they would only be noise there. */
+.po-side-chevron { display: none; }
+.po-side-count {
+    margin-left: 6px;
+    padding: 1px 7px;
+    border-radius: 9px;
+    background: var(--po-teal-faint);
+    color: var(--po-brand);
+    font-size: 10.5px;
+    font-weight: 700;
 }
 
 /* ── Mobile ────────────────────────────────────────────────────────── */
@@ -667,7 +688,8 @@
     .po-entry-btn { flex: 1; justify-content: center; padding: 7px 9px; }
 }
 
-/* Submit is the consequential action on a draft card, so it leads. */
+/* Download leads on an entry card -- once an entry is saved it is the
+   action people reach for, on drafts and submitted entries alike. */
 .po-entry-btn.po-entry-btn-primary {
     border-color: var(--po-brand-dim);
     background: var(--po-teal-faint);
