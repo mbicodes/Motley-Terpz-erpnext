@@ -268,6 +268,13 @@ function poDownloadPdf(name) {
 	document.body.appendChild(a);
 	a.click();
 	document.body.removeChild(a);
+	// The PDF is rendered server-side, so the file can take a moment to
+	// arrive and the click itself shows nothing. Say what is happening, and
+	// hold it long enough to still be there when the download lands.
+	frappe.show_alert({
+		message: "Downloading <b>" + poEsc(name) + ".pdf</b>",
+		indicator: "blue",
+	}, 10);
 }
 
 
