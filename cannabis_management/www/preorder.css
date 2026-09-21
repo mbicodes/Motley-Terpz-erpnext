@@ -524,24 +524,6 @@
     white-space: nowrap;
 }
 
-/* ── Per-row "open PDF" button in Recent Preorders ─────────────────── */
-/* Mirrors .po-btn-remove, but tinted with the brand rather than the
-   destructive colour -- it opens the Motley print format as a PDF. */
-.po-btn-print {
-    background: none;
-    border: none;
-    color: var(--po-dim);
-    cursor: pointer;
-    padding: 4px;
-    border-radius: 4px;
-    transition: all 0.15s;
-    display: flex;
-    align-items: center;
-}
-.po-btn-print:hover {
-    color: var(--po-brand);
-    background: var(--po-brand-light);
-}
 
 /* ── Two-pane shell: form left, existing entries right ─────────────── */
 .po-shell {
@@ -626,4 +608,38 @@
     .po-shell { grid-template-columns: 1fr; }
     .po-side-card { position: static; }
     .po-entry-list { max-height: none; }
+}
+
+/* ── Mobile ────────────────────────────────────────────────────────── */
+/* The items table has 8 columns and will not fit a phone. Let it scroll
+   inside its card instead of widening the page -- a page-level overflow is
+   what pushes the whole form sideways and defeats the stacking rules below. */
+.po-table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+.po-table-scroll .po-items-table { min-width: 660px; }
+
+/* Nothing may force the page wider than the phone. */
+.po-wrap { overflow-x: hidden; }
+
+/* Two form cards side by side stop being readable well before 768px. */
+@media (max-width: 900px) {
+    .po-two-col { grid-template-columns: 1fr; }
+    .po-form-grid { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 560px) {
+    .po-wrap { padding: 14px 10px 32px; }
+    .po-form-grid { grid-template-columns: 1fr; }
+    .po-field-span2 { grid-column: span 1; }
+    .po-header { flex-direction: column; align-items: stretch; gap: 12px; }
+    .po-header-right { width: 100%; display: flex; gap: 8px; }
+    .po-header-right .po-btn { flex: 1; justify-content: center; }
+    .po-card { padding: 14px 12px; }
+    .po-title { font-size: 20px; }
+    .po-subtitle { font-size: 12px; }
+    /* Entry actions read better as full-width targets on a phone. */
+    .po-entry-actions { flex-wrap: wrap; }
+    .po-entry-btn { flex: 1; justify-content: center; padding: 7px 9px; }
 }

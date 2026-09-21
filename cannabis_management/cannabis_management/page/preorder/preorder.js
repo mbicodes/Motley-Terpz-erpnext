@@ -158,6 +158,7 @@ const PO_PAGE_HTML = `
         Browse Inventory
       </button>
     </div>
+    <div class="po-table-scroll">
     <table class="po-items-table" id="po-items-table">
       <thead>
         <tr>
@@ -174,6 +175,7 @@ const PO_PAGE_HTML = `
         <tr class="po-empty-row"><td colspan="7" class="po-empty-items">Search above to add packaged goods to this preorder</td></tr>
       </tbody>
     </table>
+    </div>
   </div>
 
   <!-- NOTES -->
@@ -523,10 +525,10 @@ function poBindEvents() {
 	// Clear
 	$("#po-clear-btn").on("click", poClear);
 
-	// Right pane: Print opens the PDF, Edit loads the entry into the form.
-	$(document).on("click", ".po-print-preorder", function (e) {
+	// Right pane: Download saves the PDF, Edit loads the entry into the form.
+	$(document).on("click", ".po-download-preorder", function (e) {
 		e.stopPropagation();
-		poOpenPdf($(this).data("name"));
+		poDownloadPdf($(this).data("name"));
 	});
 
 	$(document).on("click", ".po-edit-preorder", function (e) {
@@ -600,14 +602,10 @@ function poEntryCardHtml(row) {
 		(row.order_date ? ' &middot; <span class="po-entry-date">' + row.order_date + "</span>" : "") +
 		"</div>" +
 		'<div class="po-entry-actions">' + editBtn +
-		'<button class="po-entry-btn po-print-preorder" data-name="' + esc(row.name) + '" title="Open PDF (' + PO_PRINT_FORMAT + ')">' +
-		'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
-		'<polyline points="6 9 6 2 18 2 18 9"/>' +
-		'<path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>' +
-		'<rect x="6" y="14" width="12" height="8"/></svg> Print</button>' +
+		'<button class="po-entry-btn po-download-preorder" data-name="' + esc(row.name) + '" title="Download PDF (' + PO_PRINT_FORMAT + ')">' +
+		'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download</button>' +
 		"</div></div>";
 }
-
 
 // ─────────────────────────────────────────────────────
 // PRINT / PDF
@@ -627,22 +625,16 @@ function poPdfUrl(name) {
 	);
 }
 
-function poOpenPdf(name) {
+function poDownloadPdf(name) {
 	if (!name) return;
-	window.open(poPdfUrl(name), "_blank");
+	var a = document.createElement("a");
+	a.href = poPdfUrl(name);
+	a.download = name + ".pdf";
+	document.body.appendChild(a);
+	a.click();
+	document.body.removeChild(a);
 }
 
-function poPrintBtnHtml(name) {
-	return (
-		'<button class="po-btn-print po-print-preorder" data-name="' +
-		frappe.utils.escape_html(name) + '" title="Open PDF (' + PO_PRINT_FORMAT + ')">' +
-		'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
-		'<polyline points="6 9 6 2 18 2 18 9"/>' +
-		'<path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>' +
-		'<rect x="6" y="14" width="12" height="8"/></svg>' +
-		"</button>"
-	);
-}
 
 // ─────────────────────────────────────────────────────
 // EDIT AN EXISTING ENTRY
@@ -745,7 +737,7 @@ function poSave() {
 					message:
 						"Preorder <b>" + frappe.utils.escape_html(name) + "</b> " +
 						(r.message.updated ? "updated" : "created") + " &mdash; " +
-						'<a href="' + poPdfUrl(name) + '" target="_blank">open PDF</a>',
+						'<a href="' + poPdfUrl(name) + '" download="' + frappe.utils.escape_html(name) + '.pdf">download PDF</a>',
 					indicator: "green",
 				}, 10);
 				poClear();
