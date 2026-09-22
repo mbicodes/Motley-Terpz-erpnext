@@ -30,6 +30,10 @@ STATUS_NO_SO = "No Sales Order"
 
 LINK_STATUSES = [STATUS_COMPLETE, STATUS_NO_DN, STATUS_NO_SI, STATUS_NO_SO]
 
+# How the delivery note and the invoice on a row are related.
+LINKED_DIRECT = "Direct"
+LINKED_VIA_SO = "Via Sales Order"
+
 
 def execute(filters=None):
 	filters = frappe._dict(filters or {})
@@ -61,6 +65,7 @@ def get_columns():
 		 "precision": 2, "width": 90},
 		{"label": _("Grand Total"), "fieldname": "grand_total", "fieldtype": "Currency", "width": 120},
 		{"label": _("Outstanding"), "fieldname": "outstanding_amount", "fieldtype": "Currency", "width": 120},
+		{"label": _("Linked Via"), "fieldname": "linked_via", "fieldtype": "Data", "width": 120},
 		{"label": _("Link Status"), "fieldname": "link_status", "fieldtype": "Data", "width": 160},
 		{"label": _("Company"), "fieldname": "company", "fieldtype": "Link",
 		 "options": "Company", "width": 160},
@@ -94,46 +99,53 @@ def _build_rows(filters):
 	si_to_so = _si_so_links(docstatuses)
 	dn_to_so = _dn_so_links(docstatuses)
 
+	# A delivery note and an invoice raised against the SAME sales order are
+	# related even when neither points at the other — which is the common shape
+	# when both are made from the order rather than from each other. These two
+	# maps are what let the report join that case.
+	so_to_dn = _invert(dn_to_so)
+	so_to_si = _invert(si_to_so)
+
 	rows = []
 	seen = set()
+	covered_dns = set()
 
 	# ── Anchored on invoices ────────────────────────────────────────────────
 	for si_name, si in invoices.items():
-		dns = sorted(si_to_dn.get(si_name, set()))
 		sos = set(si_to_so.get(si_name, set()))
-		for dn in dns:
-			sos |= dn_to_so.get(dn, set())
+		pairs = _counterparts(si_to_dn.get(si_name), sos, so_to_dn)
 
-		if not dns:
-			dns = [None]
-		for dn in dns:
-			for so in (sorted(sos) or [None]):
+		for dn, how in pairs:
+			row_sos = set(sos)
+			if dn:
+				row_sos |= dn_to_so.get(dn, set())
+				covered_dns.add(dn)
+			for so in (sorted(row_sos) or [None]):
 				key = (so, dn, si_name)
 				if key in seen:
 					continue
 				seen.add(key)
 				rows.append(_make_row(si, _delivery(dn_cache, dn), _order(orders, so),
-				                      so, dn, si_name))
+				                      so, dn, si_name, how))
 
-	# ── Delivery notes that no invoice points at ────────────────────────────
+	# ── Delivery notes no invoice row already accounted for ─────────────────
 	for dn_name, dn in deliveries.items():
-		linked_sis = sorted(dn_to_si.get(dn_name, set()))
+		if dn_name in covered_dns:
+			continue
 		sos = set(dn_to_so.get(dn_name, set()))
+		pairs = _counterparts(dn_to_si.get(dn_name), sos, so_to_si)
 
-		# A delivery that IS invoiced still gets a row here when its invoice fell
-		# outside the filters — with the invoice's real details, not a false
-		# "not invoiced" verdict.
-		for si_name in (linked_sis or [None]):
+		for si_name, how in pairs:
 			si = _invoice(si_cache, si_name) if si_name else None
 			row_sos = set(sos)
 			if si_name:
-				row_sos |= set(si_to_so.get(si_name, set()))
+				row_sos |= si_to_so.get(si_name, set())
 			for so in (sorted(row_sos) or [None]):
 				key = (so, dn_name, si_name)
 				if key in seen:
 					continue
 				seen.add(key)
-				rows.append(_make_row(si, dn, _order(orders, so), so, dn_name, si_name))
+				rows.append(_make_row(si, dn, _order(orders, so), so, dn_name, si_name, how))
 
 	if filters.get("sales_order"):
 		rows = [r for r in rows if r["sales_order"] == filters.sales_order]
@@ -142,6 +154,33 @@ def _build_rows(filters):
 	rows.sort(key=lambda r: (r.get("si_date") or r.get("dn_date") or "", r.get("sales_invoice") or ""),
 	          reverse=True)
 	return rows
+
+
+def _counterparts(direct, sos, so_map):
+	"""Documents on the other side of the link, and how they got there.
+
+	A direct reference always wins. Only when there is none does the sales order
+	act as the bridge — so a well-linked pair is never also reported as an
+	order-level guess.
+	"""
+	if direct:
+		return [(name, LINKED_DIRECT) for name in sorted(direct)]
+
+	via = set()
+	for so in sos:
+		via |= so_map.get(so, set())
+	if via:
+		return [(name, LINKED_VIA_SO) for name in sorted(via)]
+
+	return [(None, "")]
+
+
+def _invert(mapping):
+	out = {}
+	for key, values in mapping.items():
+		for value in values:
+			out.setdefault(value, set()).add(key)
+	return out
 
 
 def _attach_quantities(rows):
@@ -214,7 +253,7 @@ def _invoice(cache, name):
 	return cache[name]
 
 
-def _make_row(si, dn, so, so_name, dn_name, si_name):
+def _make_row(si, dn, so, so_name, dn_name, si_name, linked_via=""):
 	if si_name and dn_name:
 		link_status = STATUS_COMPLETE if so_name else STATUS_NO_SO
 	elif si_name:
@@ -236,6 +275,7 @@ def _make_row(si, dn, so, so_name, dn_name, si_name):
 		"si_status": (si or {}).get("status"),
 		"grand_total": flt((si or {}).get("grand_total")),
 		"outstanding_amount": flt((si or {}).get("outstanding_amount")),
+		"linked_via": linked_via,
 		"link_status": link_status,
 		"company": source.get("company"),
 	}
