@@ -426,6 +426,9 @@ doc_events = {
             "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
             # Source Tag / Target Tag on the Stock Ledger Entries this submit just wrote.
             "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_sle_source_target_tags",
+            # Completed Work Order's produced qty becomes the required qty of
+            # that item on the other Work Order(s) of the same Material Request.
+            "cannabis_management.doc_hooks.stock_entry.carry_produced_qty_to_sibling_work_order",
         ],
         "on_cancel": [
             "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",

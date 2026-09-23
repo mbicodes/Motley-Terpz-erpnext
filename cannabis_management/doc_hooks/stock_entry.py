@@ -279,3 +279,51 @@ def get_wo_cost_breakdown(work_order, company, fg_completed_qty=None, wo_qty=Non
         or company_account.expenses_included_in_valuation
     )
     return [{"expense_account": expense_account, "description": STANDARD_OP_COST_DESC, "amount": amount}]
+
+
+def carry_produced_qty_to_sibling_work_order(doc, method=None):
+    """
+    on_submit of a Manufacture entry. When a Material Request has more than one
+    Work Order and one of them finishes, the other that consumes its output
+    (e.g. Hash Processing -> Rosin Processing) should ask for what was actually
+    produced, not what the BOM planned. So once this entry's Work Order is
+    Completed, every sibling Work Order on the same Material Request that has a
+    required_items row for its production_item gets that row's required_qty set
+    to the completed Work Order's produced_qty.
+    """
+    if doc.purpose != "Manufacture" or not doc.work_order:
+        return
+
+    wo = frappe.db.get_value(
+        "Work Order",
+        doc.work_order,
+        ["name", "status", "material_request", "production_item", "produced_qty"],
+        as_dict=True,
+    )
+    if not wo or wo.status != "Completed" or not wo.material_request:
+        return
+
+    siblings = frappe.get_all(
+        "Work Order",
+        filters={
+            "material_request": wo.material_request,
+            "name": ["!=", wo.name],
+            "docstatus": ["<", 2],
+            "status": ["not in", ["Completed", "Closed", "Cancelled"]],
+        },
+        pluck="name",
+    )
+    for sibling in siblings:
+        rows = frappe.get_all(
+            "Work Order Item",
+            filters={"parent": sibling, "item_code": wo.production_item},
+            pluck="name",
+        )
+        for row in rows:
+            frappe.db.set_value("Work Order Item", row, "required_qty", flt(wo.produced_qty))
+        if rows:
+            frappe.get_doc("Work Order", sibling).add_comment(
+                "Info",
+                f"Required qty of {wo.production_item} set to {flt(wo.produced_qty)}, "
+                f"the produced qty of completed Work Order {wo.name}.",
+            )
