@@ -714,6 +714,14 @@ scheduler_events = {
         ],
         # DN Gap Report: 5 AM PDT every day (12:00 UTC / 3 AM Adak HDT)
         # Weekly AR Report: 5 AM PDT Friday only (12:00 UTC / 3 AM Adak HDT)
+        # Employee Timesheet to Muhammad / Matt / Imran / Jamie, every morning.
+        # 04:00 site time (America/Adak) == 06:00 America/Los_Angeles == 18:00
+        # Asia/Karachi. Adak and Los Angeles share US DST rules, so that two-hour
+        # gap holds all year; the job re-derives its own dates from California
+        # time rather than trusting the clock that woke it.
+        "0 4 * * *": [
+            "cannabis_management.cannabis_management.page.employee_timesheet.employee_timesheet.send_daily_report",
+        ],
         "0 3 * * *": [
             "cannabis_management.api.dn_gap_report.send_dn_gap_report",
         ],
