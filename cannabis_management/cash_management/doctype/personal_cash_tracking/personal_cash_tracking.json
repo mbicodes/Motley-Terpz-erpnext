@@ -184,7 +184,7 @@
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2026-08-31 11:48:03.655543",
+ "modified": "2026-09-24 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Cash Management",
  "name": "Personal Cash Tracking",
@@ -216,6 +216,22 @@
    "role": "Cash Tracking User",
    "submit": 1,
    "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Finance Manager"
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounts Manager"
   },
   {
    "role": "Finance Manager",
