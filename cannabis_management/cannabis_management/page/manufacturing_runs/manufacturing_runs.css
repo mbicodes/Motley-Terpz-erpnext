@@ -1,0 +1,479 @@
+.mrd {
+	padding: 4px 2px 24px;
+}
+
+.mrd-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: flex-start;
+	flex-wrap: wrap;
+	gap: 12px;
+	margin-bottom: 18px;
+}
+
+.mrd-title {
+	font-size: 20px;
+	font-weight: 600;
+	color: var(--text-color);
+}
+
+.mrd-header-controls {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.mrd-link-filter {
+	width: 150px;
+}
+
+.mrd-link-filter .form-control {
+	height: 30px;
+}
+
+.mrd-week-picker {
+	position: relative;
+}
+
+.mrd-week-btn {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	background: var(--card-bg, #fff);
+	border: 1px solid var(--border-color);
+	border-radius: 10px;
+	padding: 8px 14px;
+	cursor: pointer;
+	min-width: 220px;
+}
+
+.mrd-week-btn:hover {
+	border-color: var(--gray-400, #cbd5e1);
+}
+
+.mrd-week-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 30px;
+	height: 30px;
+	border-radius: 8px;
+	background: var(--gray-100, #f1f5f9);
+	color: var(--text-muted);
+	flex-shrink: 0;
+}
+
+.mrd-week-text {
+	display: flex;
+	flex-direction: column;
+	text-align: left;
+	flex: 1;
+}
+
+.mrd-week-preset {
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--text-color);
+}
+
+.mrd-week-label {
+	font-size: 11px;
+	color: var(--text-muted);
+	margin-top: 1px;
+}
+
+.mrd-week-chevron {
+	color: var(--text-muted);
+	flex-shrink: 0;
+}
+
+.mrd-week-menu {
+	min-width: 240px;
+	padding: 6px;
+	border-radius: 8px;
+}
+
+.mrd-week-option {
+	border-radius: 6px;
+	font-size: 13px;
+	padding: 6px 10px;
+}
+
+.mrd-week-custom {
+	padding: 6px 10px 4px;
+}
+
+.mrd-week-custom label {
+	font-size: 11px;
+	color: var(--text-muted);
+	margin-bottom: 4px;
+	display: block;
+}
+
+.mrd-week-custom input[type="date"] {
+	width: 100%;
+	margin-bottom: 8px;
+}
+
+.mrd-apply-range {
+	width: 100%;
+}
+
+.mrd-stat-row {
+	display: grid;
+	grid-template-columns: repeat(4, 1fr);
+	gap: 14px;
+	margin-bottom: 16px;
+}
+
+.mrd-stat-card {
+	background: var(--card-bg, #fff);
+	border: 1px solid var(--border-color);
+	border-radius: 10px;
+	padding: 16px 18px;
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.mrd-stat-label {
+	font-size: 12px;
+	color: var(--text-muted);
+	font-weight: 500;
+}
+
+.mrd-stat-value {
+	font-size: 28px;
+	font-weight: 700;
+	margin-top: 4px;
+	color: var(--text-color);
+}
+
+.mrd-stat-change {
+	font-size: 12px;
+	font-weight: 500;
+}
+
+.mrd-stat-change.up { color: #10b981; }
+.mrd-stat-change.down { color: #ef4444; }
+
+.mrd-stat-note {
+	font-size: 12px;
+	color: var(--text-muted);
+}
+
+.mrd-row {
+	display: grid;
+	gap: 14px;
+	margin-bottom: 16px;
+}
+
+.mrd-row-3 {
+	grid-template-columns: repeat(3, 1fr);
+}
+
+.mrd-card {
+	background: var(--card-bg, #fff);
+	border: 1px solid var(--border-color);
+	border-radius: 10px;
+	padding: 16px 18px;
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.mrd-card-title {
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--text-color);
+	margin-bottom: 10px;
+}
+
+.mrd-donut-wrap {
+	display: flex;
+	justify-content: center;
+	position: relative;
+}
+
+.mrd-legend {
+	margin-top: 8px;
+}
+
+.mrd-donut-total {
+	text-align: center;
+	font-size: 22px;
+	font-weight: 700;
+	margin-bottom: 6px;
+}
+
+.mrd-donut-total span {
+	display: block;
+	font-size: 11px;
+	font-weight: 400;
+	color: var(--text-muted);
+}
+
+.mrd-legend-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 12px;
+	padding: 3px 0;
+	color: var(--text-color);
+}
+
+.mrd-legend-row b {
+	margin-left: auto;
+}
+
+.mrd-dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	display: inline-block;
+	flex-shrink: 0;
+}
+
+.mrd-yield-panels {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+}
+
+.mrd-yield-panel {
+	border: 1px solid var(--border-color);
+	border-radius: 8px;
+	padding: 10px 12px;
+}
+
+.mrd-yield-title {
+	font-size: 12px;
+	font-weight: 600;
+	margin-bottom: 4px;
+}
+
+.mrd-yield-pct {
+	font-size: 22px;
+	font-weight: 700;
+}
+
+.mrd-yield-pct span {
+	font-size: 11px;
+	font-weight: 400;
+	color: var(--text-muted);
+	margin-left: 6px;
+}
+
+.mrd-yield-bar {
+	height: 6px;
+	border-radius: 3px;
+	background: var(--gray-200, #e5e7eb);
+	margin: 6px 0;
+	overflow: hidden;
+}
+
+.mrd-yield-bar-fill {
+	height: 100%;
+	border-radius: 3px;
+}
+
+.mrd-yield-output {
+	font-size: 12px;
+}
+
+.mrd-yield-input {
+	font-size: 11px;
+	color: var(--text-muted);
+}
+
+.mrd-subop-inner {
+	font-size: 12px;
+	margin-bottom: 0;
+}
+
+.mrd-subop-inner th {
+	font-weight: 500;
+	color: var(--text-muted);
+	border-top: none;
+}
+
+.mrd-subop-bar-cell {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	min-width: 130px;
+}
+
+.mrd-subop-stackbar {
+	flex: 1;
+	display: flex;
+	height: 10px;
+	border-radius: 5px;
+	background: var(--gray-200, #e5e7eb);
+	overflow: hidden;
+}
+
+.mrd-subop-seg {
+	height: 100%;
+}
+
+.mrd-subop-bar-label {
+	font-size: 11px;
+	font-weight: 600;
+	min-width: 16px;
+	text-align: right;
+}
+
+.mrd-subop-total {
+	font-weight: 600;
+}
+
+.mrd-runs-detail {
+	margin-top: 4px;
+}
+
+.mrd-runs-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 10px;
+	margin-bottom: 12px;
+}
+
+.mrd-runs-filters {
+	display: flex;
+	gap: 8px;
+}
+
+.mrd-runs-filters .form-control {
+	width: auto;
+}
+
+.mrd-table {
+	font-size: 12px;
+}
+
+.mrd-table th {
+	font-weight: 500;
+	color: var(--text-muted);
+	white-space: nowrap;
+}
+
+.mrd-table td {
+	vertical-align: middle;
+}
+
+.mrd-status-pill {
+	padding: 2px 8px;
+	border-radius: 10px;
+	font-size: 11px;
+	font-weight: 600;
+	white-space: nowrap;
+}
+
+.mrd-badge {
+	display: inline-block;
+	padding: 1px 6px;
+	border-radius: 8px;
+	font-size: 10px;
+	margin: 1px;
+	color: #fff;
+}
+
+.mrd-badge-Completed { background: #10b981; }
+.mrd-badge-In-Progress { background: #3b82f6; }
+.mrd-badge-Pending { background: #9ca3af; }
+
+.mrd-pagination {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-top: 10px;
+	font-size: 12px;
+}
+
+.mrd-page-buttons {
+	display: flex;
+	gap: 4px;
+}
+
+.mrd-page-info {
+	color: var(--text-muted);
+}
+
+.mrd-empty {
+	text-align: center;
+	color: var(--text-muted);
+	font-size: 12px;
+	padding: 24px 0;
+}
+
+@media (max-width: 1100px) {
+	.mrd-stat-row,
+	.mrd-row-3 {
+		grid-template-columns: 1fr 1fr;
+	}
+}
+
+@media (max-width: 700px) {
+	.mrd-stat-row,
+	.mrd-row-3 {
+		grid-template-columns: 1fr;
+	}
+}
+
+/* A card whose chart takes the full height the row gives it. */
+.mrd-card-fill {
+	display: flex;
+	flex-direction: column;
+}
+.mrd-card-fill #mrd-weekday-chart {
+	flex: 1;
+	min-height: 220px;
+}
+
+/* Runs by Operation: who worked each operation, under its legend row. */
+.mrd-op-employee {
+	display: flex;
+	justify-content: space-between;
+	gap: 8px;
+	padding: 2px 0 2px 18px;
+	font-size: 11px;
+	color: var(--text-muted);
+}
+.mrd-op-employee-none { font-style: italic; }
+
+/* Runs by Operation spans the whole row (the width of three cards): donut on
+   the left, each operation with its employees laid out in columns. */
+.mrd-card-wide {
+	grid-column: 1 / -1;
+}
+.mrd-op-yields {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px 24px;
+	margin-bottom: 10px;
+}
+.mrd-op-yields .mrd-op-yield { padding-left: 0; }
+.mrd-op-legend {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+	gap: 12px 20px;
+}
+.mrd-op-block {
+	min-width: 0;
+}
+
+/* Yield line under Wash Cycle / Press Run in Runs by Operation. */
+.mrd-op-yield {
+	padding: 2px 0 4px 18px;
+	font-size: 12px;
+	color: var(--text-color);
+}
+.mrd-op-yield span {
+	margin-left: 6px;
+	font-size: 11px;
+	color: var(--text-muted);
+}
+.mrd-op-employee-yield {
+	padding-left: 30px;
+	color: var(--text-color);
+}
