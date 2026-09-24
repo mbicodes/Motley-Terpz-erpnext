@@ -192,6 +192,11 @@ after_migrate = [
     # never fire for them. Idempotent, same reasoning as the entries above.
     "cannabis_management.overrides.material_request_dashboard.install",
 ]
+    # GL Entry origin stamps. A Delivery Note's stock GL is filed under its
+    # Sales Invoice, and these two fields are the only thing that tells such a
+    # row apart from one the invoice posted itself -- cancellation of either
+    # document depends on them. Idempotent, same reasoning as the entries above.
+    "cannabis_management.overrides.si_cogs_alignment.install_custom_fields",
 
 # Installation
 # ------------
@@ -273,6 +278,11 @@ override_doctype_class = {
     "Delivery Note":        "cannabis_management.overrides.delivery_note_gl.CMDeliveryNote",
     "Stock Reconciliation": "cannabis_management.overrides.stock_reconciliation_gl.CMStockReconciliation",
 }
+    # Not for account mapping: this one guards cancellation, because a Delivery
+    # Note's stock GL is now filed under its Sales Invoice's voucher number and
+    # core would reverse it along with the invoice's own rows.
+    # See overrides/si_cogs_alignment.py.
+    "Sales Invoice":        "cannabis_management.overrides.sales_invoice_gl.CMSalesInvoice",
 
 # Document Events
 # ---------------
