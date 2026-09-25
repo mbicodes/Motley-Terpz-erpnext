@@ -188,6 +188,10 @@ after_migrate = [
     # predate it — submitted cards are never re-saved, so the fetch_from would
     # never fire for them. Idempotent, same reasoning as the entries above.
     "cannabis_management.overrides.material_request_dashboard.install",
+    # Workstation's "Employee wise labor Cost" flag and the two Job Card Time
+    # Log fields it drives. Also re-pins the time log's field_order, which is
+    # a Property Setter -- new columns stay invisible until named in it.
+    "cannabis_management.doc_hooks.job_card.install_custom_fields",
     # GL Entry origin stamps. A Delivery Note's stock GL is filed under its
     # Sales Invoice, and these two fields are the only thing that tells such a
     # row apart from one the invoice posted itself -- cancellation of either
