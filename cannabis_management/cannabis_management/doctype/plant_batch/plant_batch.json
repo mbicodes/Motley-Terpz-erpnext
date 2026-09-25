@@ -134,10 +134,10 @@
   {
    "fieldname": "source_batch_no",
    "fieldtype": "Link",
-   "label": "Source Batch No",
-   "options": "Batch",
+   "label": "Source Package",
+   "options": "Metrc Package",
    "depends_on": "eval:doc.source_type=='Package'",
-   "description": "Consumes seed / clone stock from this batch"
+   "description": "Consumes seed / clone stock from this METRC package"
   },
   {
    "fieldname": "section_break_counts",

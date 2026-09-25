@@ -1,0 +1,23 @@
+{
+ "content": null,
+ "creation": "2026-09-22 00:00:00",
+ "docstatus": 0,
+ "doctype": "Page",
+ "icon": "fa fa-leaf",
+ "idx": 0,
+ "modified": "2026-09-22 00:00:00",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "plant-batches",
+ "owner": "Administrator",
+ "page_name": "plant-batches",
+ "roles": [
+  {"role": "System Manager"},
+  {"role": "Farm Manager"}
+ ],
+ "script": null,
+ "standard": "Yes",
+ "style": null,
+ "system_page": 0,
+ "title": "Plant Batches"
+}
