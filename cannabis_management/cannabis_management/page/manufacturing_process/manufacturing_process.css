@@ -1,372 +1,794 @@
-/* Manufacturing Process — production run console (Desk only).
- *
- * Deliberately NOT shared with the portal at /manufacturing-process — that
- * page keeps its own tested design (public/css/manufacturing_process.css).
- * Don't merge the two; see manufacturing_process.js header comment. */
-
-.mpc-console {
-	--mpc-border: #e2e8f0;
-	--mpc-bg: #f6f7f9;
-	--mpc-surface: #ffffff;
-	--mpc-surface-2: #f9fafb;
-	--mpc-text: #1e293b;
-	--mpc-sec: #64748b;
-	--mpc-muted: #94a3b8;
-	--mpc-gold: #b45309;
-	--mpc-gold-dim: rgba(180, 83, 9, 0.1);
-	--mpc-green: #059669;
-	--mpc-green-dim: rgba(5, 150, 105, 0.1);
-	--mpc-amber: #d97706;
-	--mpc-amber-dim: rgba(217, 119, 6, 0.1);
-	--mpc-r: 12px;
-
-	background: var(--mpc-bg);
-	color: var(--mpc-text);
-	font-size: 13px;
-	padding-bottom: 32px;
+/* ── Manufacturing Control ─────────────────────────────────────────────────── */
+:root {
+  --mc-purple: #7b2fbf;
+  --mc-purple-light: #f0e6ff;
+  --mc-purple-mid: #e4d4f7;
+  --mc-purple-bg: #faf5ff;
+  --mc-green: #28a745;
+  --mc-orange: #fd7e14;
+  --mc-blue: #007bff;
+  --mc-red: #dc3545;
+  --mc-gray: #6c757d;
+  --mc-bg: #f4f6fb;
+  --mc-card: #fff;
+  --mc-text: #1a1a1a;
+  --mc-text-muted: #888;
+  --mc-border: #e4d4f7;
+  --mc-radius: 8px;
 }
 
-.mpc-console * {
-	box-sizing: border-box;
+#mfg-control-app {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--mc-bg);
+  min-height: 80vh;
+  padding: 0;
 }
 
-.mpc-console button {
-	font-family: inherit;
-	font-size: 12px;
-	border: none;
-	border-radius: 7px;
-	padding: 7px 14px;
-	cursor: pointer;
-	background: var(--mpc-gold);
-	color: #fff;
-}
-.mpc-console button:hover {
-	opacity: 0.92;
-}
-.mpc-console button.mpc-btn-secondary {
-	background: var(--mpc-surface);
-	color: var(--mpc-text);
-	border: 1px solid var(--mpc-border);
-}
-.mpc-console button.mpc-btn-danger {
-	background: #fff;
-	color: #dc2626;
-	border: 1px solid #fecaca;
-}
-.mpc-console button:disabled {
-	opacity: 0.45;
-	cursor: not-allowed;
+/* This page-level stylesheet only loads while this page is open, so it's
+   safe to hide the standard Frappe "Manufacturing Process" title bar here —
+   our own purple header above replaces it. */
+.page-head {
+  display: none !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
-.mpc-console input, .mpc-console select {
-	font-family: inherit;
-	font-size: 13px;
-	border: 1px solid var(--mpc-border);
-	border-radius: 7px;
-	padding: 6px 10px;
-	background: #fff;
-	color: var(--mpc-text);
+/* ── Header Bar ── */
+.mc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px;
+  background: #fff;
+  color: #000;
+  border-bottom: 1px solid var(--mc-border);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  margin: -15px -15px 0;
+  border-radius: 0 0 16px 16px;
+}
+.mc-header h1 {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: 0.5px;
+}
+.mc-header-actions { display: flex; align-items: center; gap: 10px; }
+.mc-wo-search {
+  padding: 8px 12px;
+  border-radius: var(--mc-radius);
+  border: 1px solid #d1d5db;
+  background: #fff;
+  color: #000;
+  font-size: 13px;
+  min-width: 180px;
+}
+.mc-wo-search::placeholder { color: #6b7280; }
+.mc-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: var(--mc-radius);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.mc-btn-primary {
+  background: var(--mc-purple);
+  color: #fff;
+}
+.mc-btn-primary:hover { background: #6a28a6; }
+.mc-btn-secondary {
+  background: #fff;
+  color: #000;
+  border: 1px solid #d1d5db;
+}
+.mc-btn-secondary:hover { background: var(--mc-bg); }
+.mc-btn-success { background: var(--mc-green); color: #fff; }
+.mc-btn-success:hover { background: #218838; }
+.mc-btn-action { background: var(--mc-purple); color: #fff; }
+.mc-btn-action:hover { background: #6a28a6; }
+.mc-btn-outline {
+  background: transparent;
+  color: var(--mc-purple);
+  border: 1px solid var(--mc-purple);
+}
+.mc-btn-outline:hover { background: var(--mc-purple-light); }
+.mc-btn-lg { padding: 12px 24px; font-size: 15px; }
+.mc-btn-sm { padding: 5px 10px; font-size: 12px; }
+.mc-btn-cta {
+  min-height: 46px;
+  padding: 12px 26px;
+  font-size: 14px;
+  border-radius: 999px;
+}
+.mc-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── Back Button ── */
+.mc-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+  opacity: 0.85;
+  margin-right: 12px;
+}
+.mc-back:hover { opacity: 1; }
+
+/* ── Stats Row ── */
+.mc-stats {
+  display: flex;
+  gap: 16px;
+  padding: 16px 24px;
+  flex-wrap: wrap;
+}
+.mc-stat {
+  background: var(--mc-card);
+  border-radius: var(--mc-radius);
+  padding: 14px 20px;
+  border-left: 4px solid var(--mc-purple);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  min-width: 160px;
+  flex: 1;
+}
+.mc-stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--mc-purple);
+  line-height: 1;
+}
+.mc-stat-label {
+  font-size: 11px;
+  color: var(--mc-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 4px;
 }
 
-/* header */
-.mpc-header {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: 12px;
-	background: var(--mpc-surface-2);
-	border: 1px solid var(--mpc-border);
-	border-radius: var(--mpc-r);
-	padding: 14px 18px;
-	margin-bottom: 14px;
-}
-.mpc-header .mpc-title {
-	font-size: 17px;
-	font-weight: 600;
-}
-.mpc-header .mpc-title .mpc-muted {
-	color: var(--mpc-muted);
-	font-weight: 400;
-}
-.mpc-header .mpc-sub {
-	font-size: 13px;
-	color: var(--mpc-sec);
-	margin-top: 2px;
-}
-.mpc-status-pill {
-	font-size: 12px;
-	padding: 5px 12px;
-	border-radius: 20px;
-	background: var(--mpc-gold-dim);
-	color: var(--mpc-gold);
-	white-space: nowrap;
-}
-.mpc-status-pill.mpc-complete {
-	background: var(--mpc-green-dim);
-	color: var(--mpc-green);
+/* ── Section ── */
+.mc-section {
+  padding: 20px 24px 24px;
 }
 
-/* progress bar */
-.mpc-progress {
-	display: flex;
-	gap: 6px;
-	margin-bottom: 14px;
+/* ── Header filters (Item Link field + Date), replacing the old WO jump box.
+   The Item filter is a real frappe.ui.form Link control — it brings its own
+   awesomplete dropdown, so only sizing/contrast overrides are needed here to
+   match it against the white header. ── */
+.mc-filter-wrap {
+  position: relative;
+  min-width: 200px;
 }
-.mpc-progress > div {
-	flex: 1;
-	height: 5px;
-	border-radius: 3px;
-	background: var(--mpc-border);
+.mc-filter-wrap .form-control {
+  padding: 8px 12px;
+  height: auto;
+  border-radius: var(--mc-radius);
+  border: 1px solid #d1d5db;
+  background: #fff;
+  color: #000;
+  font-size: 13px;
 }
-.mpc-progress > div.done {
-	background: var(--mpc-green);
-}
-.mpc-progress > div.active {
-	background: var(--mpc-gold);
-}
-
-/* layout */
-.mpc-layout {
-	display: grid;
-	grid-template-columns: minmax(0, 1fr) 230px;
-	gap: 14px;
-	align-items: start;
-}
-@media (max-width: 900px) {
-	.mpc-layout {
-		grid-template-columns: 1fr;
-	}
+.mc-filter-wrap .form-control::placeholder { color: #6b7280; }
+.mc-filter-wrap .form-control:focus {
+  background: #fff;
+  color: var(--mc-text);
 }
 
-/* step cards */
-.mpc-step {
-	background: var(--mpc-surface-2);
-	border: 1px solid var(--mpc-border);
-	border-radius: var(--mpc-r);
-	padding: 14px 16px;
-	margin-bottom: 10px;
+/* ── Run list — every run's card is always fully expanded here, stacked
+   vertically; nothing is collapsed and nothing navigates to another page ── */
+.mc-run-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+  /* Masonry: short rows, each card spans as many as its height needs
+     (set from JS, _observe_card_heights) -- no gap left beside a tall card.
+     The space between cards vertically is kept by that span, not row-gap. */
+  grid-auto-rows: 8px;
+  column-gap: 16px;
+  row-gap: 0;
+  align-items: start;
 }
-.mpc-step.mpc-active {
-	border-color: var(--mpc-gold);
+.mc-run-card {
+  background: var(--mc-card);
+  border: 1px solid var(--mc-border);
+  border-radius: 12px;
+  padding: 16px 18px;
+  max-width: 480px;
+  box-shadow: 0 1px 4px rgba(20, 10, 40, 0.05);
+  transition: border-color 0.4s, box-shadow 0.4s;
 }
-.mpc-step-head {
-	display: flex;
-	align-items: center;
-	gap: 10px;
+.mc-run-card.is-highlight {
+  border-color: var(--mc-purple);
+  box-shadow: 0 4px 16px rgba(123, 47, 191, 0.2);
 }
-.mpc-step-num {
-	width: 24px;
-	height: 24px;
-	border-radius: 50%;
-	flex-shrink: 0;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	font-size: 12px;
-	background: var(--mpc-border);
-	color: var(--mpc-muted);
+.mc-run-card-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--mc-text);
+  white-space: normal;
+  overflow-wrap: break-word;
 }
-.mpc-step.mpc-done .mpc-step-num {
-	background: var(--mpc-green);
-	color: #fff;
+.mc-run-card .mc-run-meta { padding: 4px 0 0; flex-wrap: wrap; }
+.mc-run-card-body { margin-top: 12px; }
+
+/* ── Status Badges ── */
+.mc-status {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
 }
-.mpc-step.mpc-active .mpc-step-num {
-	background: var(--mpc-gold);
-	color: #fff;
+.mc-open-desk-link {
+  color: var(--mc-purple);
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
 }
-.mpc-step-title {
-	font-size: 15px;
+.mc-open-desk-link:hover { text-decoration: underline; }
+.mc-status-draft { background: #fff3cd; color: #856404; }
+.mc-status-submitted, .mc-status-pending { background: #cce5ff; color: #004085; }
+.mc-status-open { background: #e2e3e5; color: #383d41; }
+.mc-status-wip, .mc-status-in-process { background: #d4edda; color: #155724; }
+.mc-status-completed { background: #d4edda; color: #155724; border: 1px solid #28a745; }
+.mc-status-in-progress { background: #fff3cd; color: #856404; }
+.mc-status-transferred { background: #cce5ff; color: #004085; }
+.mc-status-not-started { background: #f8d7da; color: #721c24; }
+.mc-status-overdue { background: #f8d7da; color: #721c24; }
+.mc-status-stopped { background: #f8d7da; color: #721c24; }
+
+/* ── JC Card ── */
+.mc-jc-card {
+  background: var(--mc-card);
+  border-radius: var(--mc-radius);
+  border: 1px solid var(--mc-border);
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.15s;
+  border-left: 4px solid var(--mc-gray);
 }
-.mpc-step-body {
-	margin: 10px 0 0 34px;
+.mc-jc-card:hover {
+  box-shadow: 0 2px 8px rgba(123,47,191,0.12);
 }
-.mpc-step-desc {
-	font-size: 13px;
-	color: var(--mpc-sec);
-	margin-bottom: 10px;
+.mc-jc-card[data-status="Work In Progress"] { border-left-color: var(--mc-green); }
+.mc-jc-card[data-status="Open"] { border-left-color: var(--mc-orange); }
+.mc-jc-card[data-status="Completed"] { border-left-color: var(--mc-purple); }
+.mc-jc-card .mc-card-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--mc-text);
+  margin-bottom: 4px;
 }
-.mpc-hint {
-	font-size: 12px;
-	color: var(--mpc-muted);
-	margin-top: 8px;
+.mc-jc-card .mc-card-op {
+  font-size: 13px;
+  color: var(--mc-purple);
+  font-weight: 600;
+  margin-bottom: 6px;
 }
-.mpc-done-tag {
-	font-size: 12px;
-	color: var(--mpc-green);
-	margin: 6px 0 0 34px;
+.mc-jc-card .mc-card-meta {
+  font-size: 12px;
+  color: var(--mc-text-muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
 }
 
-.mpc-field-row {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 10px;
-	margin-bottom: 10px;
+/* ── Detail View ── */
+.mc-detail {
+  padding: 24px;
 }
-.mpc-field {
-	display: flex;
-	flex-direction: column;
-	gap: 4px;
-	min-width: 160px;
+.mc-detail-header {
+  background: var(--mc-card);
+  border-radius: var(--mc-radius);
+  padding: 20px;
+  margin-bottom: 16px;
+  border: 1px solid var(--mc-border);
 }
-.mpc-field label {
-	font-size: 11px;
-	color: var(--mpc-muted);
-	text-transform: uppercase;
-	letter-spacing: 0.02em;
+.mc-detail-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--mc-text);
+  margin-bottom: 4px;
 }
-.mpc-field-wide {
-	flex: 1 1 100%;
+.mc-detail-subtitle {
+  font-size: 14px;
+  color: var(--mc-text-muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
 }
-
-.mpc-fg-row {
-	display: flex;
-	align-items: center;
-	gap: 10px;
-	padding: 6px 0;
-	border-top: 1px solid var(--mpc-border);
-}
-.mpc-fg-row:first-child {
-	border-top: none;
+.mc-detail-actions {
+  margin-top: 16px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
-/* operation cards inside step 4 */
-.mpc-op-card {
-	border: 1px solid var(--mpc-border);
-	border-radius: 10px;
-	padding: 10px 12px;
-	margin-bottom: 10px;
-	background: var(--mpc-surface);
+/* ── Chain Visualization ── */
+.mc-chain {
+  background: var(--mc-card);
+  border-radius: var(--mc-radius);
+  padding: 16px 20px;
+  margin-bottom: 16px;
+  border: 1px solid var(--mc-border);
 }
-.mpc-op-card-head {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: 8px;
-	margin-bottom: 8px;
+.mc-chain-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--mc-purple);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 12px;
 }
-.mpc-op-name {
-	font-size: 13px;
+.mc-chain-steps {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
 }
-.mpc-op-name .mpc-muted {
-	color: var(--mpc-muted);
+.mc-chain-step {
+  background: var(--mc-purple-bg);
+  border: 1px solid var(--mc-border);
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--mc-text);
+  text-align: center;
+  min-width: 100px;
 }
-.mpc-op-status {
-	font-size: 11px;
-	padding: 3px 9px;
-	border-radius: 20px;
-	background: var(--mpc-border);
-	color: var(--mpc-sec);
+.mc-chain-step.active {
+  background: var(--mc-purple);
+  color: #fff;
+  border-color: var(--mc-purple);
 }
-.mpc-op-status.mpc-running {
-	background: var(--mpc-amber-dim);
-	color: var(--mpc-amber);
+.mc-chain-step.done {
+  background: #d4edda;
+  border-color: #28a745;
+  color: #155724;
 }
-.mpc-op-status.mpc-paused {
-	background: var(--mpc-border);
-	color: var(--mpc-sec);
-}
-.mpc-op-status.mpc-complete {
-	background: var(--mpc-green-dim);
-	color: var(--mpc-green);
-}
-.mpc-sub-row {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: 8px;
-	padding: 6px 0;
-	border-top: 1px solid var(--mpc-border);
-	font-size: 13px;
-	color: var(--mpc-sec);
-}
-.mpc-sub-row:first-child {
-	border-top: none;
-}
-.mpc-sub-row.mpc-sub-current {
-	color: var(--mpc-text);
-}
-.mpc-sub-timer {
-	font-size: 12px;
-	color: var(--mpc-muted);
-	min-width: 48px;
-	text-align: right;
-}
-.mpc-op-actions {
-	display: flex;
-	gap: 8px;
-	margin-top: 8px;
+.mc-chain-arrow {
+  color: var(--mc-purple);
+  font-size: 20px;
+  font-weight: bold;
 }
 
-/* scoreboard */
-.mpc-scoreboard {
-	background: var(--mpc-surface);
-	border: 1px solid var(--mpc-border);
-	border-radius: var(--mpc-r);
-	padding: 14px;
-	position: sticky;
-	top: 8px;
+/* ── WO Row ── */
+.mc-wo-row {
+  background: var(--mc-card);
+  border-radius: var(--mc-radius);
+  border: 1px solid var(--mc-border);
+  padding: 16px;
+  margin-bottom: 10px;
 }
-.mpc-scoreboard-title {
-	font-size: 12px;
-	color: var(--mpc-sec);
-	margin-bottom: 10px;
+.mc-wo-row-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
 }
-.mpc-sb-label {
-	font-size: 12px;
-	color: var(--mpc-muted);
+.mc-wo-row-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--mc-text);
 }
-.mpc-sb-value {
-	font-size: 20px;
-	margin-bottom: 8px;
+.mc-wo-row-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
-.mpc-sb-value.mpc-sb-small {
-	font-size: 14px;
+.mc-wo-row-jcs {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--mc-border);
 }
-.mpc-sb-yield {
-	font-size: 12px;
-	color: var(--mpc-amber);
-	margin-bottom: 8px;
+.mc-wo-row-jc {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  margin-bottom: 4px;
+  background: var(--mc-purple-bg);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
 }
-.mpc-sb-yield.mpc-sb-good {
-	color: var(--mpc-green);
+.mc-wo-row-jc:hover { background: var(--mc-purple-light); }
+.mc-wo-row-jc .mc-jc-label { font-weight: 600; }
+.mc-wo-row-ses {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--mc-border);
 }
-.mpc-sb-fg-row {
-	display: flex;
-	justify-content: space-between;
-	font-size: 12px;
-	margin-bottom: 4px;
+.mc-wo-row-se {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  margin-bottom: 4px;
+  background: var(--mc-bg);
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--mc-text-muted);
 }
 
-.mpc-empty {
-	color: var(--mpc-muted);
-	font-size: 13px;
-	padding: 6px 0;
-}
-.mpc-complete-banner {
-	background: var(--mpc-green-dim);
-	border-radius: var(--mpc-r);
-	padding: 14px 16px;
-	color: var(--mpc-green);
-	font-size: 14px;
-	margin-top: 4px;
+/* ── JC Detail View ── */
+.mc-jc-detail-header {
+  background: var(--mc-card);
+  border-radius: var(--mc-radius);
+  padding: 20px;
+  margin-bottom: 16px;
+  border: 1px solid var(--mc-border);
+  border-left: 5px solid var(--mc-purple);
 }
 
-.mpc-recent-chips {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 6px;
-	margin-top: 8px;
+/* ── Timer Area ── */
+.mc-timer-section {
+  background: var(--mc-card);
+  border-radius: var(--mc-radius);
+  border: 1px solid var(--mc-border);
+  padding: 20px;
+  margin-bottom: 16px;
 }
-.mpc-chip {
-	font-size: 12px;
-	padding: 4px 10px;
-	border-radius: 20px;
-	background: var(--mpc-surface);
-	border: 1px solid var(--mpc-border);
-	cursor: pointer;
-	color: var(--mpc-sec);
+.mc-timer-display {
+  font-size: 42px;
+  font-weight: 700;
+  font-family: 'Courier New', monospace;
+  color: var(--mc-purple);
+  text-align: center;
+  padding: 16px;
+  letter-spacing: 2px;
 }
-.mpc-chip:hover {
-	border-color: var(--mpc-gold);
-	color: var(--mpc-gold);
+.mc-timer-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+.mc-timer-btn {
+  padding: 14px 32px;
+  font-size: 16px;
+  font-weight: 700;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  min-width: 120px;
+  min-height: 48px;
+  transition: background 0.15s, transform 0.1s;
+}
+.mc-timer-btn:active { transform: scale(0.97); }
+.mc-timer-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.mc-timer-start { background: var(--mc-green); color: #fff; }
+.mc-timer-start:hover { background: #218838; }
+.mc-timer-pause { background: var(--mc-orange); color: #fff; }
+.mc-timer-pause:hover { background: #e8690b; }
+.mc-timer-complete { background: var(--mc-purple); color: #fff; }
+.mc-timer-complete:hover { background: #6a28a6; }
+.mc-timer-cost {
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--mc-text-muted);
+  margin-top: -8px;
+  margin-bottom: 4px;
+}
+
+/* ── Sub-Operations ── */
+.mc-sub-ops {
+  margin-top: 2px;
+}
+.mc-sub-op-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 2px;
+  border-bottom: 1px solid var(--mc-border);
+}
+.mc-sub-op-row:last-child { border-bottom: none; }
+.mc-sub-op-name {
+  font-size: 14px;
+  color: var(--mc-text);
+  flex: 1;
+}
+.mc-sub-op-status {
+  font-size: 13px;
+  color: var(--mc-text-muted);
+  white-space: nowrap;
+}
+.mc-op-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 64px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--mc-text);
+  background: #fff;
+  border: 1px solid #d0d0d8;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.mc-op-btn:hover { background: #f5f5f7; }
+.mc-op-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.mc-op-done-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 42px;
+  color: var(--mc-purple);
+  font-size: 20px;
+  font-weight: 700;
+}
+
+/* ── Time Logs ── */
+.mc-time-logs {
+  background: var(--mc-card);
+  border-radius: var(--mc-radius);
+  border: 1px solid var(--mc-border);
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.mc-time-log-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--mc-border);
+  font-size: 13px;
+}
+.mc-time-log-row:last-child { border-bottom: none; }
+
+/* ── Micron Section ── */
+.mc-micron-section {
+  background: var(--mc-card);
+  border-radius: var(--mc-radius);
+  border: 1px solid var(--mc-border);
+  padding: 20px;
+  margin-bottom: 16px;
+}
+.mc-micron-row {
+  display: grid;
+  grid-template-columns: 1fr 120px 100px 120px 130px 1fr;
+  gap: 8px;
+  margin-bottom: 8px;
+  align-items: end;
+}
+.mc-micron-row input, .mc-micron-row select {
+  padding: 8px;
+  border: 1px solid var(--mc-border);
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+/* ── Transfer Modal ── */
+.mc-transfer-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.mc-transfer-table th {
+  background: var(--mc-purple);
+  color: #fff;
+  padding: 8px 12px;
+  text-align: left;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+.mc-transfer-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--mc-border);
+}
+.mc-transfer-table tr:nth-child(even) { background: var(--mc-purple-bg); }
+.mc-tl-time-input {
+  width: 100%;
+  min-width: 190px;
+  padding: 4px 8px;
+  border: 1px solid var(--mc-border);
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+/* ── Run meta ── */
+.mc-run-meta {
+  display: flex;
+  gap: 16px;
+  padding: 12px 24px;
+  font-size: 13px;
+  color: var(--mc-text-muted);
+}
+
+/* ── Unified operations card header (Release / Send Material to WIP) ──
+   Buttons stay pinned top-right next to the title — the title truncates
+   instead of pushing them onto their own line. ── */
+.mc-ops-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: nowrap;
+}
+.mc-ops-card-info { flex: 1; min-width: 0; }
+.mc-ops-card-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  justify-content: flex-end;
+  margin-top: 24px;
+}
+.mc-step-desc {
+  font-size: 14px;
+  color: var(--mc-text-muted);
+  margin-bottom: 12px;
+}
+
+/* ── Per-operation group inside the merged Run-the-operations card ── */
+.mc-run-operations-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.mc-run-op-group {
+  border: 1px solid var(--mc-border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  background: var(--mc-bg);
+  box-shadow: 0 1px 3px rgba(20, 10, 40, 0.04);
+}
+.mc-run-op-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.mc-run-op-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--mc-text);
+}
+.mc-run-op-title .mc-muted { color: var(--mc-text-muted); font-weight: 400; font-size: 13px; }
+.mc-run-op-complete { margin-top: 10px; text-align: right; }
+.mc-run-op-secondary-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.mc-whole-timer { text-align: center; padding: 8px 0; }
+.mc-timer-display-sm {
+  font-size: 26px;
+  font-weight: 700;
+  font-family: 'Courier New', monospace;
+  color: var(--mc-purple);
+}
+
+/* ── Complete banner ── */
+.mc-complete-banner {
+  background: #d4edda;
+  border-radius: var(--mc-radius);
+  padding: 16px;
+  color: #155724;
+  font-size: 14px;
+}
+
+/* ── Loading / Empty ── */
+.mc-loading {
+  text-align: center;
+  padding: 40px;
+  color: var(--mc-text-muted);
+  font-size: 14px;
+}
+.mc-empty {
+  text-align: center;
+  padding: 40px;
+  color: var(--mc-text-muted);
+  font-size: 14px;
+  background: var(--mc-card);
+  border-radius: var(--mc-radius);
+  border: 1px dashed var(--mc-border);
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .mc-header { padding: 10px 16px; flex-wrap: wrap; }
+  .mc-header h1 { font-size: 16px; }
+  .mc-header-actions { flex-wrap: wrap; }
+  .mc-wo-search { min-width: 0; flex: 1 1 100%; order: 3; }
+  .mc-filter-wrap { min-width: 0; flex: 1 1 100%; order: 2; }
+  .mc-stats { padding: 12px 16px; gap: 8px; }
+  .mc-stat { min-width: 120px; padding: 10px 14px; }
+  .mc-stat-value { font-size: 22px; }
+  .mc-section { padding: 16px 16px; }
+  .mc-detail { padding: 16px; }
+  .mc-chain-steps { flex-direction: column; }
+  .mc-chain-arrow { transform: rotate(90deg); }
+  .mc-micron-row { grid-template-columns: 1fr 1fr; }
+  .mc-sub-op-row { flex-wrap: wrap; }
+  .mc-run-card { padding: 16px; }
+}
+
+/* ── Card collapse / expand (per card + Collapse All / Expand All) ── */
+.mc-card-toggle {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  margin-top: 2px;
+  border: 1px solid var(--mc-border);
+  border-radius: 6px;
+  background: var(--mc-purple-bg);
+  color: var(--mc-purple);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+.mc-card-toggle:hover { background: var(--mc-purple-light); }
+.mc-run-card.is-collapsed .mc-run-card-body { display: none; }
+
+/* ── Who ran it: employee (+ workstation) on the operation and sub-op rows ── */
+.mc-op-employee {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: 10px;
+  background: var(--mc-purple-light);
+  color: var(--mc-purple);
+  font-size: 12px;
+  font-weight: 600;
+}
+.mc-sub-op-who {
+  font-size: 12px;
+  color: var(--mc-purple);
+  margin-top: 2px;
+}
+.mc-sub-op-who .mc-muted { color: var(--mc-text-muted); }
+
+/* Assigned employee shown in place of the Assign To button: plain text,
+   not clickable -- an assignment is not picked again from here. */
+.mc-assigned-name {
+  display: inline-block;
+  margin-right: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--mc-text);
+  vertical-align: middle;
+}
+
+/* Step buttons: filled until the step is done, then white with black text
+   (the plain .mc-op-btn look). .mc-step-done marks a one-time step that is
+   finished and can't be pressed again. */
+.mc-btn-pending,
+.mc-op-btn.mc-btn-pending {
+  background: var(--mc-purple);
+  color: #fff;
+  border: 1px solid var(--mc-purple);
+}
+.mc-btn-pending:hover,
+.mc-op-btn.mc-btn-pending:hover { background: #6a28a6; color: #fff; }
+.mc-step-done,
+.mc-op-btn.mc-step-done {
+  background: #fff;
+  color: #000;
+  border: 1px solid #d1d5db;
+  cursor: default;
+  pointer-events: none;
+}
+
+/* The masonry grid's rows are 8px: the empty-list message spans enough of them. */
+.mc-run-list > .mc-empty {
+  grid-column: 1 / -1;
+  grid-row: span 10;
 }

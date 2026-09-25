@@ -30,10 +30,11 @@ def calculate_sub_op_costs(doc, method=None):
         jc_op_ws = op_ws_cache[jc_op]
 
     for row in (doc.time_logs or []):
-        ws_name = None
+        # 0. workstation picked explicitly for this time log (Start popup)
+        ws_name = row.get("custom_workstation") or None
 
         # 1. row-level operation
-        if row.get("operation"):
+        if not ws_name and row.get("operation"):
             op = row.operation
             if op not in op_ws_cache:
                 op_ws_cache[op] = frappe.db.get_value("Operation", op, "workstation") or ""

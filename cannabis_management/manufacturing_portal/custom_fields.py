@@ -32,8 +32,10 @@ USER_FIELDS = [
 		"insert_after": "custom_manufacturing_portal_section",
 		"no_copy": 1,
 		"description": (
-			"Code this person types at /manufacturing-process to unlock the page. "
-			f"Minimum {MIN_CODE_LENGTH} characters, must be unique across all users, "
+			"Deprecated — the /manufacturing-process code-unlock portal this field "
+			"gated has been removed; the field is kept only so existing values and "
+			f"their validation keep working. Minimum {MIN_CODE_LENGTH} characters, "
+			"must be unique across all users, "
 			"and cannot be a single repeated character or a run like 123456. "
 			"Leave blank to deny access."
 		),
