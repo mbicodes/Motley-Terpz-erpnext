@@ -122,7 +122,8 @@
 
 .mrd-stat-row {
 	display: grid;
-	grid-template-columns: repeat(4, 1fr);
+	/* Runs Planned, Washed, Hash / Rosin / Hash to Rosin Yield */
+	grid-template-columns: repeat(5, 1fr);
 	gap: 14px;
 	margin-bottom: 16px;
 }
@@ -477,3 +478,22 @@
 	padding-left: 30px;
 	color: var(--text-color);
 }
+
+/* Runs by Operation: taller and roomier, so each employee's block reads openly. */
+.mrd-card-wide {
+	min-height: 460px;
+	padding: 20px 24px;
+}
+.mrd-card-wide .mrd-card-title { margin-bottom: 14px; }
+.mrd-card-wide .mrd-op-legend {
+	grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+	gap: 20px 32px;
+}
+.mrd-card-wide .mrd-op-block {
+	padding: 12px 14px;
+	border: 1px solid var(--border-color);
+	border-radius: 8px;
+}
+.mrd-card-wide .mrd-legend-row { font-size: 13px; padding-bottom: 6px; }
+.mrd-card-wide .mrd-op-employee { font-size: 12px; padding-top: 4px; padding-bottom: 4px; }
+.mrd-card-wide .mrd-op-yields { margin-bottom: 18px; font-size: 13px; }
