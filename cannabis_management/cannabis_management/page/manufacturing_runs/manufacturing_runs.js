@@ -13,6 +13,8 @@ frappe.pages['manufacturing-runs'].on_page_load = function (wrapper) {
 const MRD_METHOD = 'cannabis_management.cannabis_management.page.manufacturing_runs.manufacturing_runs';
 const MRD_STATUS_COLORS = { Completed: '#10b981', Open: '#3b82f6', 'In Progress': '#f59e0b' };
 const MRD_SUBOP_COLORS = { Completed: '#10b981', 'In Progress': '#3b82f6', Pending: '#f59e0b' };
+// Yield quantities are shown in grams everywhere on this page.
+const fmt_g = (grams) => `${format_number(flt(grams), null, 2)} g`;
 const MRD_TYPE_COLORS = ['#7c3aed', '#0ea5e9', '#f59e0b', '#ef4444', '#10b981', '#6366f1'];
 // Runs by Operation: one dot colour per employee.
 const MRD_OP_COLORS = ['#7c3aed', '#0ea5e9', '#f59e0b', '#ef4444', '#10b981', '#6366f1', '#ec4899', '#14b8a6', '#84cc16', '#f97316'];
@@ -93,31 +95,6 @@ class ManufacturingRunsDashboard {
 
 				<div class="mrd-row mrd-row-3">
 					<div class="mrd-card">
-						<div class="mrd-card-title">Run Status Overview</div>
-						<div class="mrd-donut-wrap" id="mrd-status-donut"></div>
-						<div class="mrd-legend" id="mrd-status-legend"></div>
-					</div>
-					<div class="mrd-card">
-						<div class="mrd-card-title">Runs by Processing Type</div>
-						<div class="mrd-donut-wrap" id="mrd-type-donut"></div>
-						<div class="mrd-legend" id="mrd-type-legend"></div>
-					</div>
-					<div class="mrd-card">
-						<div class="mrd-card-title">Yield by Processing Type</div>
-						<div class="mrd-yield-panels"></div>
-					</div>
-				</div>
-
-				<div class="mrd-row mrd-row-3">
-					<div class="mrd-card mrd-card-wide">
-						<div class="mrd-card-title">Runs by Operation</div>
-						<div class="mrd-op-yields" id="mrd-op-yields"></div>
-						<div class="mrd-legend mrd-op-legend" id="mrd-op-legend"></div>
-					</div>
-				</div>
-
-				<div class="mrd-row mrd-row-3">
-					<div class="mrd-card">
 						<div class="mrd-card-title">Suboperation Status (All Runs)</div>
 						<div class="mrd-subop-table"></div>
 					</div>
@@ -129,6 +106,14 @@ class ManufacturingRunsDashboard {
 					<div class="mrd-card mrd-card-fill">
 						<div class="mrd-card-title">Runs Started vs Completed</div>
 						<div id="mrd-weekday-chart"></div>
+					</div>
+				</div>
+
+				<div class="mrd-row mrd-row-3">
+					<div class="mrd-card mrd-card-wide">
+						<div class="mrd-card-title">Runs by Operation</div>
+						<div class="mrd-op-yields" id="mrd-op-yields"></div>
+						<div class="mrd-legend mrd-op-legend" id="mrd-op-legend"></div>
 					</div>
 				</div>
 
@@ -304,10 +289,7 @@ class ManufacturingRunsDashboard {
 				if (!r.message) return;
 				this.data = r.message;
 				this.render_stat_cards();
-				this.render_status_donut();
-				this.render_type_donut();
 				this.render_op_work();
-				this.render_yield_panels();
 				this.render_subop_table();
 				this.render_employee_donut();
 				this.render_weekday_chart();
@@ -350,6 +332,21 @@ class ManufacturingRunsDashboard {
 				extra: `<span class="mrd-stat-note">${hash_runs !== null ? `of ${hash_runs} Hash run${hash_runs === 1 ? '' : 's'} &middot; ` : ''}`
 					+ `${format_number(s.washed_pounds, null, 2)} lb &middot; ${format_number(s.washed_grams, null, 2)} g</span>`,
 			},
+			// Yields, each over the runs that have the output it needs -- the
+			// same figures as the Runs Detail columns, for the whole period.
+			...[
+				['Hash Yield', 'hash', 'hash out of raw material'],
+				['Rosin Yield', 'rosin', 'rosin out of raw material'],
+				['Hash to Rosin Yield', 'hash_to_rosin', 'rosin out of hash pressed'],
+			].map(([label, key, basis]) => {
+				let y = (this.data.run_yields || {})[key] || { pct: 0, output_g: 0, base_g: 0, runs: 0 };
+				return {
+					label: label,
+					value: `${y.pct}%`,
+					extra: `<span class="mrd-stat-note">${fmt_g(y.output_g)} from ${fmt_g(y.base_g)}`
+						+ ` &middot; ${y.runs} run${y.runs === 1 ? '' : 's'}<br>(${basis})</span>`,
+				};
+			}),
 		];
 		this.page.main.find('.mrd-stat-row').html(cards.map((c) => `
 			<div class="mrd-stat-card">
@@ -360,58 +357,10 @@ class ManufacturingRunsDashboard {
 		`).join(''));
 	}
 
-	render_status_donut() {
-		let b = this.data.run_status_overview.buckets;
-		let labels = Object.keys(b);
-		let values = labels.map((k) => b[k]);
-		this.page.main.find('#mrd-status-donut').html('');
-		if (typeof frappe.Chart !== 'undefined' && this.data.run_status_overview.total) {
-			new frappe.Chart('#mrd-status-donut', {
-				type: 'donut',
-				height: 200,
-				colors: labels.map((l) => MRD_STATUS_COLORS[l] || '#94a3b8'),
-				data: { labels, datasets: [{ values }] },
-			});
-		} else {
-			this.page.main.find('#mrd-status-donut').html('<div class="mrd-empty">No runs in this period</div>');
-		}
-		this.page.main.find('#mrd-status-legend').html(
-			`<div class="mrd-donut-total">${this.data.run_status_overview.total}<span>Total Runs</span></div>` +
-			labels.map((l) => `
-				<div class="mrd-legend-row">
-					<span class="mrd-dot" style="background:${MRD_STATUS_COLORS[l] || '#94a3b8'}"></span>
-					${l} <b>${b[l]}</b>
-				</div>`).join('')
-		);
-	}
-
-	render_type_donut() {
-		let rows = this.data.processing_type.rows;
-		this.page.main.find('#mrd-type-donut').html('');
-		if (typeof frappe.Chart !== 'undefined' && rows.length) {
-			new frappe.Chart('#mrd-type-donut', {
-				type: 'donut',
-				height: 200,
-				colors: MRD_TYPE_COLORS,
-				data: { labels: rows.map((r) => r.label), datasets: [{ values: rows.map((r) => r.count) }] },
-			});
-		} else {
-			this.page.main.find('#mrd-type-donut').html('<div class="mrd-empty">No runs in this period</div>');
-		}
-		this.page.main.find('#mrd-type-legend').html(
-			`<div class="mrd-donut-total">${this.data.processing_type.total}<span>Total Runs</span></div>` +
-			rows.map((r, i) => `
-				<div class="mrd-legend-row">
-					<span class="mrd-dot" style="background:${MRD_TYPE_COLORS[i % MRD_TYPE_COLORS.length]}"></span>
-					${frappe.utils.escape_html(r.label)} <b>${r.count} (${r.pct}%)</b>
-				</div>`).join('')
-		);
-	}
-
 	// Who worked what: each employee, with the operations they logged time
 	// on underneath (time and runs), busiest first. Yield is per process, not
 	// per person, so it sits once at the top -- Wash Cycle for Hash, Press
-	// Run for Rosin, the same figures as Yield by Processing Type.
+	// Run for Rosin (yield_by_type from the server).
 	render_op_work() {
 		let data = this.data.operation_breakdown || { rows: [] };
 		const STEP_ORDER = ['Wash Cycle', 'Collection & Weigh', 'Freeze Drying', 'Bubble Sifting',
@@ -423,7 +372,7 @@ class ManufacturingRunsDashboard {
 		this.page.main.find('#mrd-op-yields').html(Object.entries(yield_for).map(([op, family]) => {
 			let y = yields[family];
 			return y ? `<div class="mrd-op-yield">${frappe.utils.escape_html(op)} yield <b>${y.avg_yield_pct}%</b>
-				<span>${y.total_output_kg} kg from ${y.total_input_kg} kg</span></div>` : '';
+				<span>${fmt_g(y.total_output_g)} from ${fmt_g(y.total_input_g)}</span></div>` : '';
 		}).join(''));
 
 		let people = {};
@@ -450,7 +399,7 @@ class ManufacturingRunsDashboard {
 				</div>${y ? `
 				<div class="mrd-op-employee mrd-op-employee-yield">
 					<span>Yield <b>${y.yield_pct}%</b></span>
-					<span>${y.output_kg} kg from ${y.input_kg} kg &middot; ${y.runs} run${y.runs === 1 ? '' : 's'}</span>
+					<span>${fmt_g(y.output_g)} from ${fmt_g(y.input_g)} &middot; ${y.runs} run${y.runs === 1 ? '' : 's'}</span>
 				</div>` : ''}`;
 				}).join('')}
 			</div>`).join('') : '<div class="mrd-empty">No time logged in this period</div>');
@@ -463,20 +412,6 @@ class ManufacturingRunsDashboard {
 		let h = Math.floor(mins / 60), m = Math.round(mins % 60);
 		if (m === 60) { h += 1; m = 0; }
 		return h ? `${h}h ${m}m` : `${m}m`;
-	}
-
-	render_yield_panels() {
-		let rows = this.data.yield_by_type;
-		let html = rows.length ? rows.map((r, i) => `
-			<div class="mrd-yield-panel">
-				<div class="mrd-yield-title" style="color:${MRD_TYPE_COLORS[i % MRD_TYPE_COLORS.length]}">${frappe.utils.escape_html(r.label)}</div>
-				<div class="mrd-yield-pct">${r.avg_yield_pct}%<span>Avg. Yield</span></div>
-				<div class="mrd-yield-bar"><div class="mrd-yield-bar-fill" style="width:${Math.min(r.avg_yield_pct, 100)}%;background:${MRD_TYPE_COLORS[i % MRD_TYPE_COLORS.length]}"></div></div>
-				<div class="mrd-yield-output">Total Output <b>${r.total_output_kg} kg</b></div>
-				<div class="mrd-yield-input">(from ${r.total_input_kg} kg input)</div>
-			</div>
-		`).join('') : '<div class="mrd-empty">No runs in this period</div>';
-		this.page.main.find('.mrd-yield-panels').html(html);
 	}
 
 	render_subop_table() {

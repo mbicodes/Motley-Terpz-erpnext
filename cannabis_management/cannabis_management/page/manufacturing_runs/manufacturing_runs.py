@@ -175,6 +175,7 @@ def get_dashboard_data(from_date=None, to_date=None, company=None, project=None,
 		"from_date": str(start),
 		"to_date": str(end),
 		"stat_cards": _get_stat_cards(start, end, prev_start, prev_end, **f),
+		"run_yields": _get_run_yields(start, end, **f),
 		"run_status_overview": _get_run_status_overview(start, end, **f),
 		"processing_type": _get_processing_type_breakdown(start, end, family_case, **f),
 		"operation_breakdown": _get_operation_breakdown(start, end, **f),
@@ -431,8 +432,8 @@ def _employee_yield(start, end, company=None, project=None, item=None):
 	for r in rows:
 		out.setdefault(r.employee, {})[r.operation] = {
 			"yield_pct": round(flt(r.avg_yield), 2),
-			"output_kg": round(flt(r.out_g) / 1000, 2),
-			"input_kg": round(flt(r.in_g) / 1000, 2),
+			"output_g": round(flt(r.out_g), 2),
+			"input_g": round(flt(r.in_g), 2),
 			"runs": cint(r.runs),
 		}
 	return out
@@ -461,8 +462,8 @@ def _get_yield_by_type(start, end, family_case, company=None, project=None, item
 		{
 			"label": r.family,
 			"avg_yield_pct": round(flt(r.avg_yield), 2),
-			"total_output_kg": round(flt(r.total_output_g) / 1000, 2),
-			"total_input_kg": round(flt(r.total_input_g) / 1000, 2),
+			"total_output_g": round(flt(r.total_output_g), 2),
+			"total_input_g": round(flt(r.total_input_g), 2),
 		}
 		for r in rows
 	]
@@ -701,8 +702,62 @@ def get_runs_detail(
 	return {"rows": result, "total_count": total_count}
 
 
+def _get_run_yields(start, end, company=None, project=None, item=None):
+	"""Hash Yield, Rosin Yield and Hash to Rosin Yield for the period.
+
+	The Runs Detail table's columns summed over the same runs, each against
+	its own base: hash output / raw input, rosin output / raw input, rosin
+	output / hash output. A run counts toward a figure only once it has the
+	output that figure needs -- a run still washing has no hash yet and
+	would read as 0%.
+	"""
+	conditions, params = _run_conditions(start, end, company, project, item)
+	conditions.append("wo.material_request IS NOT NULL")
+	runs = frappe.db.sql_list(
+		f"SELECT DISTINCT wo.material_request {JC_FROM} WHERE {' AND '.join(conditions)}", params
+	)
+
+	totals = {k: 0.0 for k in ("hash_in", "hash_out", "rosin_in", "rosin_out", "h2r_hash", "h2r_rosin")}
+	counts = {"hash": 0, "rosin": 0, "h2r": 0}
+	for run in runs:
+		cards = _job_cards_for_run(run)
+		hash_qty = sum(flt(c.total_completed_qty) for c in cards if c.operation == HASH_OPERATION)
+		rosin_qty = sum(flt(c.total_completed_qty) for c in cards if c.operation == ROSIN_OPERATION)
+		input_grams = _input_grams(run)
+		if hash_qty and input_grams:
+			totals["hash_in"] += input_grams
+			totals["hash_out"] += hash_qty
+			counts["hash"] += 1
+		if rosin_qty and input_grams:
+			totals["rosin_in"] += input_grams
+			totals["rosin_out"] += rosin_qty
+			counts["rosin"] += 1
+		if hash_qty and rosin_qty:
+			totals["h2r_hash"] += hash_qty
+			totals["h2r_rosin"] += rosin_qty
+			counts["h2r"] += 1
+
+	def figure(out, base, n):
+		return {
+			"pct": round(out / base * 100, 2) if base else 0,
+			"output_g": round(out, 2),
+			"base_g": round(base, 2),
+			"runs": n,
+		}
+
+	return {
+		"hash": figure(totals["hash_out"], totals["hash_in"], counts["hash"]),
+		"rosin": figure(totals["rosin_out"], totals["rosin_in"], counts["rosin"]),
+		"hash_to_rosin": figure(totals["h2r_rosin"], totals["h2r_hash"], counts["h2r"]),
+	}
+
+
 def _job_cards_for_run(material_request):
-	"""Every non-cancelled Job Card belonging to this Material Request."""
+	"""Every non-cancelled Job Card belonging to this Material Request.
+
+	Cancelled by docstatus as well: a cancelled Job Card keeps the status it
+	had (Completed), and counting it booked that output twice.
+	"""
 	return frappe.db.sql(
 		"""
 		SELECT jc.name, jc.operation, jc.status, jc.batch, jc.item_name,
@@ -711,7 +766,7 @@ def _job_cards_for_run(material_request):
 		       wo.project AS wo_project
 		FROM `tabJob Card` jc
 		INNER JOIN `tabWork Order` wo ON wo.name = jc.work_order
-		WHERE wo.material_request = %s AND jc.status != 'Cancelled'
+		WHERE wo.material_request = %s AND jc.status != 'Cancelled' AND jc.docstatus < 2
 		ORDER BY COALESCE(jc.actual_start_date, jc.creation) ASC, jc.creation ASC
 		""",
 		material_request,
