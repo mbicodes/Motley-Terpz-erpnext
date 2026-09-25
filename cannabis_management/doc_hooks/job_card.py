@@ -18,6 +18,8 @@ def calculate_sub_op_costs(doc, method=None):
     """
     op_ws_cache = {}
     ws_rate_cache = {}
+    wage_cache = {}
+    ws_flag_cache = {}
     total = 0.0
     total_completed_qty = 0.0
 
@@ -58,11 +60,19 @@ def calculate_sub_op_costs(doc, method=None):
             hour_rate = ws_rate_cache[ws_name]
 
         time_hrs = flt(row.get("time_in_mins") or 0) / 60.0
-        cost = round(time_hrs * hour_rate, 6)
+        machine_cost = time_hrs * hour_rate
+
+        # Operator's wage for these minutes, when the workstation is costed
+        # employee-wise. Zero otherwise, so the total is unchanged for every
+        # workstation that has not opted in.
+        labor_rate, labor_cost = _labor_for_row(row, ws_name, wage_cache, ws_flag_cache)
+        cost = round(machine_cost + labor_cost, 6)
 
         # Write directly to child row in memory (picked up by validate → save)
         row.custom_workstation = ws_name
         row.custom_hour_rate = hour_rate
+        row.custom_labor_rate = labor_rate
+        row.custom_labor_cost = labor_cost
         row.custom_sub_op_cost = cost
 
         # Also persist explicitly in case this runs from on_submit after the doc save
@@ -70,6 +80,8 @@ def calculate_sub_op_costs(doc, method=None):
             frappe.db.set_value("Job Card Time Log", row.name, {
                 "custom_workstation": ws_name,
                 "custom_hour_rate":   hour_rate,
+                "custom_labor_rate":  labor_rate,
+                "custom_labor_cost":  labor_cost,
                 "custom_sub_op_cost": cost,
             }, update_modified=False)
 
@@ -166,3 +178,98 @@ def validate(doc, method=None):
                 title="Micron Total Mismatch",
                 exc=frappe.ValidationError
             )
+
+# ── Employee-wise labour cost ───────────────────────────────────────────────
+#
+# A workstation can be billed for the machine alone, or for the machine plus
+# whoever ran it. Workstation.custom_employee_wise_labor_cost turns the second
+# on; when it is set, each time log picks up that employee's hourly wage and
+# adds the labour for the minutes logged on top of the workstation rate.
+
+WORKSTATION_LABOR_FLAG = "custom_employee_wise_labor_cost"
+EMPLOYEE_WAGE_FIELD = "custom_hourly_wage_rate"
+
+TIME_LOG_FIELD_ORDER = [
+    "employee", "from_time", "to_time", "column_break_2", "time_in_mins",
+    "completed_qty", "operation", "custom_workstation", "custom_hour_rate",
+    "custom_labor_rate", "custom_labor_cost", "custom_sub_op_cost",
+]
+
+
+def install_custom_fields():
+    """Idempotent; re-asserted on every migrate via after_migrate."""
+    from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
+
+    create_custom_fields(
+        {
+            "Workstation": [
+                {
+                    "fieldname": WORKSTATION_LABOR_FLAG,
+                    "label": "Employee wise labor Cost",
+                    "fieldtype": "Check",
+                    "default": "0",
+                    "insert_after": "custom_total_operating_cost",
+                    "description": (
+                        "Charge the operator's hourly wage on top of this "
+                        "workstation's rate, per time log."
+                    ),
+                }
+            ],
+            "Job Card Time Log": [
+                {
+                    "fieldname": "custom_labor_rate",
+                    "label": "Labor Rate / Hour",
+                    "fieldtype": "Currency",
+                    "read_only": 1,
+                    "insert_after": "custom_hour_rate",
+                    "description": "From the employee's hourly wage rate.",
+                },
+                {
+                    "fieldname": "custom_labor_cost",
+                    "label": "Labor Cost",
+                    "fieldtype": "Currency",
+                    "read_only": 1,
+                    "insert_after": "custom_labor_rate",
+                    "description": "Labor rate / 60 x minutes logged. Included in Sub Op Cost.",
+                },
+            ],
+        },
+        ignore_validate=True,
+    )
+
+    # The grid's column order is pinned by a Property Setter, so new fields
+    # stay invisible until they are named in it.
+    frappe.make_property_setter(
+        {
+            "doctype": "Job Card Time Log",
+            "doctype_or_field": "DocType",
+            "property": "field_order",
+            "value": frappe.as_json(TIME_LOG_FIELD_ORDER),
+            "property_type": "Text",
+        },
+        is_system_generated=False,
+    )
+
+
+def _labor_for_row(row, ws_name, wage_cache, ws_flag_cache):
+    """(rate, cost) for a time log row -- zero unless the workstation asks
+    for employee-wise costing and the row names an employee."""
+    if not ws_name or not row.get("employee"):
+        return 0.0, 0.0
+
+    if ws_name not in ws_flag_cache:
+        ws_flag_cache[ws_name] = bool(
+            frappe.db.get_value("Workstation", ws_name, WORKSTATION_LABOR_FLAG)
+        )
+    if not ws_flag_cache[ws_name]:
+        return 0.0, 0.0
+
+    employee = row.employee
+    if employee not in wage_cache:
+        wage_cache[employee] = flt(
+            frappe.db.get_value("Employee", employee, EMPLOYEE_WAGE_FIELD) or 0
+        )
+
+    rate = wage_cache[employee]
+    cost = round(rate / 60.0 * flt(row.get("time_in_mins") or 0), 6)
+    return rate, cost
