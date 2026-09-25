@@ -49,11 +49,22 @@ class CMStockEntry(StockEntry):
         )
         total = flt(total_fg + flt(self.process_loss_qty), precision)
 
+        # A micron-based entry saved before the fix carries For Quantity equal
+        # to the finished goods alone, with the Job Cards' loss on top of it.
+        # For Quantity is output plus loss, so correct it rather than refuse.
+        if self.process_loss_qty and self.fg_completed_qty == total_fg:
+            self.fg_completed_qty = total
+
         if self.fg_completed_qty and total and self.fg_completed_qty != total:
             frappe.throw(
                 _(
-                    "Total finished goods quantity {0} and For Quantity {1} cannot be different"
-                ).format(frappe.bold(total_fg), frappe.bold(self.fg_completed_qty))
+                    "Total finished goods quantity {0} plus process loss {1} ({2}) and For Quantity {3} cannot be different"
+                ).format(
+                    frappe.bold(total_fg),
+                    frappe.bold(flt(self.process_loss_qty, precision)),
+                    frappe.bold(total),
+                    frappe.bold(self.fg_completed_qty),
+                )
             )
 
     def validate_finished_goods(self):

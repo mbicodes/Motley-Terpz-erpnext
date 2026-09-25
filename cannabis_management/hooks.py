@@ -57,11 +57,6 @@ app_include_js = [
     # Order button, post-submit Payment Entry / Journal Entry actions, and the
     # currency-formatted Sales Order picker. Must load before those form scripts.
     "/assets/cannabis_management/js/cash_tracking_actions.js",
-    # Manufacturing Process Desk page logic (Work Order/BOM/Job Card trail).
-    # Must load before the Desk page's thin shell. The portal at
-    # /manufacturing-process is a separate, lighter Time Clock view now —
-    # see www/manufacturing-process.html — and does not use this file.
-    "/assets/cannabis_management/js/manufacturing_process_app.js",
     # Shared Muid (Metric Tag) Link-query filter, keyed off the row's
     # warehouse License. Must load before the Stock Entry / Purchase
     # Receipt / Purchase Invoice / Delivery Note / Sales Invoice form
@@ -112,6 +107,8 @@ doctype_js = {
 doctype_list_js = {
     "Sales Invoice": "public/js/sales_invoice_list.js",
     "Sales Order": "public/js/sales_order_list.js",
+    # In Progress / Completed badge for Manufacture runs (mr_run_status.py).
+    "Material Request": "public/js/material_request_list.js",
 }
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
@@ -196,6 +193,9 @@ after_migrate = [
     # row apart from one the invoice posted itself -- cancellation of either
     # document depends on them. Idempotent, same reasoning as the entries above.
     "cannabis_management.overrides.si_cogs_alignment.install_custom_fields",
+    # "In Progress" / "Completed" on Material Request's status options, for
+    # Manufacture runs. Idempotent. See overrides/mr_run_status.py.
+    "cannabis_management.overrides.mr_run_status.install",
 ]
 
 # Installation
@@ -282,6 +282,9 @@ override_doctype_class = {
     # core would reverse it along with the invoice's own rows.
     # See overrides/si_cogs_alignment.py.
     "Sales Invoice":        "cannabis_management.overrides.sales_invoice_gl.CMSalesInvoice",
+    # Manufacture run status (In Progress / Completed) survives core's own
+    # status recalculation. See overrides/mr_run_status.py.
+    "Material Request":     "cannabis_management.overrides.mr_run_status.CMMaterialRequest",
 }
 
 # Document Events
@@ -439,9 +442,12 @@ doc_events = {
             # Completed Work Order's produced qty becomes the required qty of
             # that item on the other Work Order(s) of the same Material Request.
             "cannabis_management.doc_hooks.stock_entry.carry_produced_qty_to_sibling_work_order",
+            # Material Request goes Completed once all its Work Orders are produced.
+            "cannabis_management.overrides.mr_run_status.on_stock_entry_change",
         ],
         "on_cancel": [
             "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
+            "cannabis_management.overrides.mr_run_status.on_stock_entry_change",
         ],
     },
     "Sales Order": {
@@ -518,6 +524,9 @@ doc_events = {
     "Work Order": {
         # Gate 1: no production starts for a held customer's order.
         "before_submit": "cannabis_management.credit_and_ar.hold_engine.enforce_hold",
+        # Its Material Request goes In Progress once a Work Order is released.
+        "on_submit": "cannabis_management.overrides.mr_run_status.on_work_order_change",
+        "on_cancel": "cannabis_management.overrides.mr_run_status.on_work_order_change",
     },
     "Timesheet": {
         "after_insert": "cannabis_management.overrides.timesheet_hooks.auto_submit_timesheet",
@@ -585,6 +594,9 @@ doc_events = {
     },
     "Conversion Entry": {
         "on_submit": [
+            # Tiering Product entries submit the Repack entries they draft.
+            # First, so nothing is announced for an entry that then fails.
+            "cannabis_management.api.manufacturing_process.submit_tiering_stock_entries",
             "cannabis_management.overrides.conversion_entry_hooks.notify_conversion_entry_slack",
         ],
     },
@@ -820,12 +832,6 @@ override_doctype_dashboards = {
 
 # Request Events
 # ----------------
-# Manufacturing Portal's route confinement (session_guard.guard) is deliberately
-# NOT wired in here. A code holder needs to be free to also use the rest of the
-# ERP without signing out of the portal first — see
-# manufacturing_portal/session_guard.py's module docstring for what this trades
-# away and how to re-enable it if that ever needs to change back.
-# before_request = ["cannabis_management.manufacturing_portal.session_guard.guard"]
 before_request = [
 	# Keeps logins (the standard /login page AND the Manufacturing Portal's own
 	# code-unlock) from silently failing to persist when this site is reached

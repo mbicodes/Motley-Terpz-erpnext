@@ -127,7 +127,14 @@ def populate_micron_finished_goods(doc, method=None):
             "cost_center": cost_center,
         })
 
-    doc.fg_completed_qty = total_grams
+    # For Quantity is the input side: output plus process loss. Core derives
+    # the Work Order's produced qty as fg_completed_qty - process_loss_qty,
+    # and set_process_loss_qty has already copied the Job Cards' loss onto
+    # this entry by now (the controller's validate runs before this hook).
+    doc.fg_completed_qty = flt(
+        total_grams + flt(doc.process_loss_qty),
+        frappe.get_precision("Stock Entry", "fg_completed_qty"),
+    )
 
 
 def _build_cost_map(work_order_name, company):
