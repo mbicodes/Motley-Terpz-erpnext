@@ -192,6 +192,10 @@ after_migrate = [
     # Log fields it drives. Also re-pins the time log's field_order, which is
     # a Property Setter -- new columns stay invisible until named in it.
     "cannabis_management.doc_hooks.job_card.install_custom_fields",
+    # "Item-wise Sales Register" exists once as a record but ships from two
+    # apps, so whichever synced last owns it. This runs after every app's
+    # sync and leaves it pointing at this app's version, which carries Cost.
+    "cannabis_management.overrides.reports.install",
     # GL Entry origin stamps. A Delivery Note's stock GL is filed under its
     # Sales Invoice, and these two fields are the only thing that tells such a
     # row apart from one the invoice posted itself -- cancellation of either
