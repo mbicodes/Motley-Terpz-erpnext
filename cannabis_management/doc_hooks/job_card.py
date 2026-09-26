@@ -23,6 +23,12 @@ def calculate_sub_op_costs(doc, method=None):
     total = 0.0
     total_completed_qty = 0.0
 
+    # Resolved once: an un-migrated site has neither column, and every read or
+    # write of them would otherwise raise "Unknown column" and fail the save.
+    has_labor_fields = _has_field("Job Card Time Log", "custom_labor_rate") and _has_field(
+        "Job Card Time Log", "custom_labor_cost"
+    )
+
     # Pre-resolve the Job Card's own operation workstation as ultimate fallback
     jc_op_ws = ""
     if doc.get("operation"):
@@ -71,19 +77,27 @@ def calculate_sub_op_costs(doc, method=None):
         # Write directly to child row in memory (picked up by validate → save)
         row.custom_workstation = ws_name
         row.custom_hour_rate = hour_rate
-        row.custom_labor_rate = labor_rate
-        row.custom_labor_cost = labor_cost
         row.custom_sub_op_cost = cost
+
+        values = {
+            "custom_workstation": ws_name,
+            "custom_hour_rate":   hour_rate,
+            "custom_sub_op_cost": cost,
+        }
+
+        # Only touch the labour columns where they exist. On a site that has
+        # the app but has not migrated yet they do not, and writing them
+        # raises "Unknown column" from inside validate -- which fails the
+        # entire Job Card save, Start Timer included.
+        if has_labor_fields:
+            row.custom_labor_rate = labor_rate
+            row.custom_labor_cost = labor_cost
+            values["custom_labor_rate"] = labor_rate
+            values["custom_labor_cost"] = labor_cost
 
         # Also persist explicitly in case this runs from on_submit after the doc save
         if row.get("name") and not row.get("name", "").startswith("new-"):
-            frappe.db.set_value("Job Card Time Log", row.name, {
-                "custom_workstation": ws_name,
-                "custom_hour_rate":   hour_rate,
-                "custom_labor_rate":  labor_rate,
-                "custom_labor_cost":  labor_cost,
-                "custom_sub_op_cost": cost,
-            }, update_modified=False)
+            frappe.db.set_value("Job Card Time Log", row.name, values, update_modified=False)
 
         total += cost
         total_completed_qty += flt(row.get("completed_qty") or 0)
@@ -251,10 +265,29 @@ def install_custom_fields():
     )
 
 
+def _has_field(doctype, fieldname):
+    """True when the custom field is actually on the doctype.
+
+    This code can reach a site that has pulled the app but not migrated yet,
+    where the column does not exist. Querying it then raises "Unknown column"
+    from inside validate, which fails the whole Job Card save -- including
+    Start Timer, which has nothing to do with labour costing. Checking the
+    meta first degrades to "feature off" instead of breaking the document.
+    frappe.get_meta is cached, so this costs nothing per row.
+    """
+    try:
+        return bool(frappe.get_meta(doctype).has_field(fieldname))
+    except Exception:
+        return False
+
+
 def _labor_for_row(row, ws_name, wage_cache, ws_flag_cache):
     """(rate, cost) for a time log row -- zero unless the workstation asks
     for employee-wise costing and the row names an employee."""
     if not ws_name or not row.get("employee"):
+        return 0.0, 0.0
+
+    if not _has_field("Workstation", WORKSTATION_LABOR_FLAG):
         return 0.0, 0.0
 
     if ws_name not in ws_flag_cache:
@@ -262,6 +295,9 @@ def _labor_for_row(row, ws_name, wage_cache, ws_flag_cache):
             frappe.db.get_value("Workstation", ws_name, WORKSTATION_LABOR_FLAG)
         )
     if not ws_flag_cache[ws_name]:
+        return 0.0, 0.0
+
+    if not _has_field("Employee", EMPLOYEE_WAGE_FIELD):
         return 0.0, 0.0
 
     employee = row.employee
