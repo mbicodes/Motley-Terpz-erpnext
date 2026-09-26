@@ -538,6 +538,14 @@ class ManufacturingRun {
 				fields: [
 					{ fieldtype: "Float", fieldname: "completed_qty", label: "Output Qty (grams)", reqd: 1,
 						default: micron_grams || flt(jc.for_quantity) },
+					{
+						fieldtype: "Datetime",
+						fieldname: "posting_datetime",
+						label: "Completed Date & Time",
+						reqd: 1,
+						default: frappe.datetime.now_datetime(),
+						description: "When the run actually finished. The stock entry posts at this time.",
+					},
 					{ fieldtype: "HTML", options: '<p style="color:var(--mc-gray);font-size:13px;">This finishes the operation and records the output as a Manufacture stock entry.</p>' },
 				],
 				primary_action_label: label,
@@ -545,7 +553,11 @@ class ManufacturingRun {
 					d.hide();
 					try {
 						frappe.show_alert({ message: `${esc(label)}…`, indicator: "blue" });
-						const result = await self.api("complete_job_card", { job_card: jc.name, completed_qty: v.completed_qty });
+						const result = await self.api("complete_job_card", {
+							job_card: jc.name,
+							completed_qty: v.completed_qty,
+							posting_datetime: v.posting_datetime,
+						});
 						const se = result.stock_entry || {};
 						if (se.submitted) {
 							frappe.show_alert({ message: esc(self._output_done_label(jc.operation)), indicator: "green" });
@@ -1380,14 +1392,30 @@ class ManufacturingRun {
 
 		const d = new frappe.ui.Dialog({
 			title: "Manufacture Stock Entry — Preview",
-			fields: [{ fieldtype: "HTML", options: table_html }],
+			fields: already_submitted
+				? [{ fieldtype: "HTML", options: table_html }]
+				: [
+					{ fieldtype: "HTML", options: table_html },
+					{
+						fieldtype: "Datetime",
+						fieldname: "posting_datetime",
+						label: "Completed Date & Time",
+						reqd: 1,
+						default: frappe.datetime.now_datetime(),
+						description: "When the run actually finished. The stock entry posts at this time.",
+					},
+				],
 			primary_action_label: already_submitted ? "Close" : "Submit",
-			primary_action: async () => {
+			primary_action: async (v) => {
 				if (already_submitted) { d.hide(); return; }
+				if (!v || !v.posting_datetime) return;
 				d.hide();
 				try {
 					frappe.show_alert({ message: "Creating & submitting Stock Entry…", indicator: "blue" });
-					const result = await self.api("create_manufacture_se", { work_order: wo_name });
+					const result = await self.api("create_manufacture_se", {
+						work_order: wo_name,
+						posting_datetime: v.posting_datetime,
+					});
 					if (result.created || result.submitted) {
 						frappe.show_alert({ message: `Stock Entry ${esc(result.name || "")} submitted`, indicator: "green" });
 					} else {
@@ -1432,13 +1460,27 @@ class ManufacturingRun {
 
 			const d = new frappe.ui.Dialog({
 				title: `Transfer Materials — ${preview.item_name}`,
-				fields: [{ fieldtype: "HTML", options: table_html }],
+				fields: [
+					{ fieldtype: "HTML", options: table_html },
+					{
+						fieldtype: "Datetime",
+						fieldname: "posting_datetime",
+						label: "Transfer Date & Time",
+						reqd: 1,
+						default: frappe.datetime.now_datetime(),
+						description: "When the material actually moved. The Stock Entry posts at this time, not when this is confirmed.",
+					},
+				],
 				primary_action_label: "Confirm Transfer",
-				primary_action: async () => {
+				primary_action: async (values) => {
+					if (!values.posting_datetime) return;
 					try {
 						d.hide();
 						frappe.show_alert({ message: "Transferring materials…", indicator: "blue" });
-						await this.api("execute_transfer", { work_order: wo_name });
+						await this.api("execute_transfer", {
+							work_order: wo_name,
+							posting_datetime: values.posting_datetime,
+						});
 						frappe.show_alert({ message: `Materials transferred for ${esc(preview.item_name)}`, indicator: "green" });
 						this._refresh_one(mr_name);
 					} catch (e) { frappe.msgprint(e.message || e); }

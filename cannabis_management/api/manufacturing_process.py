@@ -436,6 +436,24 @@ def _create_job_cards_for_wo(work_order):
     return created
 
 
+def _apply_posting_datetime(se, posting_datetime):
+    """Book a Stock Entry at the moment the work actually happened.
+
+    Production records a run after the fact, so the operator supplies the
+    time rather than the entry landing at now(). Stock Entry ignores a
+    supplied posting date unless set_posting_time is on, so both go together
+    -- without the flag the entry silently posts at now() and the field looks
+    broken. A future date is left to ERPNext, which already refuses one on
+    validate with a message operators recognise.
+    """
+    if not posting_datetime:
+        return
+    stamp = get_datetime(posting_datetime)
+    se.set_posting_time = 1
+    se.posting_date = stamp.date()
+    se.posting_time = stamp.strftime("%H:%M:%S")
+
+
 # ── 5. Material Transfer Preview & Execute ────────────────────────────────────
 
 @frappe.whitelist()
@@ -472,13 +490,24 @@ def get_transfer_preview(work_order):
 
 
 @frappe.whitelist()
-def execute_transfer(work_order):
+def execute_transfer(work_order, posting_datetime=None):
+    """Transfer the Work Order's materials to WIP.
+
+    `posting_datetime` ("YYYY-MM-DD HH:MM:SS") books the entry at the moment
+    the transfer actually happened rather than when someone got round to
+    recording it. Stock Entry ignores a supplied posting date unless
+    set_posting_time is on, so that is set alongside it. Left out, the entry
+    posts at now() as before.
+    """
     from erpnext.manufacturing.doctype.work_order.work_order import make_stock_entry
 
     # make_stock_entry() returns stock_entry.as_dict() — a plain frappe._dict,
     # not a live Document, so it has no working .insert()/.submit()/.flags.
     # frappe.get_doc() rebuilds an actual (unsaved) Stock Entry doc from it.
     se = frappe.get_doc(make_stock_entry(work_order, "Material Transfer for Manufacture"))
+
+    _apply_posting_datetime(se, posting_datetime)
+
     se.flags.ignore_permissions = True
     se.insert()
     se.submit()
@@ -889,16 +918,25 @@ def save_micron_data(job_card, rows):
 # ── 9. Complete Job Card → Auto Stock Entry ──────────────────────────────────
 
 @frappe.whitelist()
-def complete_job_card(job_card, completed_qty=None):
+def complete_job_card(job_card, completed_qty=None, posting_datetime=None):
+    """Finish the operation and record its output.
+
+    `posting_datetime` is when the work finished: it books the Manufacture
+    Stock Entry at that moment and closes any still-running timer there too,
+    rather than at now().
+    """
     jc = frappe.get_doc("Job Card", job_card)
 
     if jc.docstatus != 0:
         frappe.throw(_("Job Card must be a Draft to complete."))
 
-    # Pause any running timer
+    # Pause any running timer. It closes at the supplied time, so the logged
+    # minutes match the shift -- but never before it started, which would give
+    # a negative duration, so an earlier stamp falls back to now.
+    finished_at = get_datetime(posting_datetime) if posting_datetime else now_datetime()
     for tl in jc.time_logs:
         if tl.from_time and not tl.to_time:
-            tl.to_time = now_datetime()
+            tl.to_time = finished_at if finished_at > get_datetime(tl.from_time) else now_datetime()
             from_dt = get_datetime(tl.from_time)
             to_dt = get_datetime(tl.to_time)
             tl.time_in_mins = flt((to_dt - from_dt).total_seconds() / 60, 2)
@@ -918,7 +956,7 @@ def complete_job_card(job_card, completed_qty=None):
     # Auto-create Manufacture Stock Entry if all JCs for this WO are done
     se_result = None
     if jc.work_order:
-        se_result = _auto_create_manufacture_se(jc.work_order)
+        se_result = _auto_create_manufacture_se(jc.work_order, posting_datetime)
 
     return {
         "status": "completed",
@@ -940,7 +978,7 @@ def _all_job_cards_done(wo):
     return True
 
 
-def _auto_create_manufacture_se(work_order):
+def _auto_create_manufacture_se(work_order, posting_datetime=None):
     wo = frappe.get_doc("Work Order", work_order)
 
     if not _all_job_cards_done(wo):
@@ -958,6 +996,7 @@ def _auto_create_manufacture_se(work_order):
     try:
         from erpnext.manufacturing.doctype.work_order.work_order import make_stock_entry
         se = frappe.get_doc(make_stock_entry(wo.name, "Manufacture", wo.qty))
+        _apply_posting_datetime(se, posting_datetime)
         se.flags.ignore_permissions = True
         se.insert()
         frappe.db.commit()
@@ -1038,12 +1077,12 @@ def get_manufacture_se_preview(work_order):
 
 
 @frappe.whitelist()
-def create_manufacture_se(work_order):
+def create_manufacture_se(work_order, posting_datetime=None):
     """Manual counterpart to the auto-create in `complete_job_card` — lets the
     user confirm/submit from the preview modal instead of it happening
     silently. Idempotent: submits an existing draft rather than duplicating.
     """
-    result = _auto_create_manufacture_se(work_order)
+    result = _auto_create_manufacture_se(work_order, posting_datetime)
     if not result.get("created") and result.get("name"):
         se = frappe.get_doc("Stock Entry", result["name"])
         if se.docstatus == 0:
