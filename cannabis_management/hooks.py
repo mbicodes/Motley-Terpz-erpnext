@@ -293,6 +293,9 @@ override_doctype_class = {
     # Manufacture run status (In Progress / Completed) survives core's own
     # status recalculation. See overrides/mr_run_status.py.
     "Material Request":     "cannabis_management.overrides.mr_run_status.CMMaterialRequest",
+    # Drops core's "Total Completed Qty must equal Qty to Manufacture" check on
+    # submit -- a run is weighed, not dispensed. See overrides/job_card_qty.py.
+    "Job Card":             "cannabis_management.overrides.job_card_qty.CMJobCard",
 }
 
 # Document Events
