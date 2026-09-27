@@ -155,9 +155,22 @@ def sync_micron_total_to_time_log(doc, method=None):
         flt(r.get("grams_collected")) for r in (before.get("custom_micron_collection_detail") or [])
     ):
         return
+    set_output_qty(doc, total)
+
+
+def set_output_qty(doc, qty):
+    """Make the Job Card's Total Completed Qty `qty`: it goes on the time log
+    that already carries the output (else the last), and every other log is
+    cleared so the logs' sum -- which core copies into Total Completed Qty --
+    is exactly `qty`."""
+    logs = doc.get("time_logs") or []
+    if not logs:
+        return
     with_qty = [tl for tl in logs if flt(tl.completed_qty) > 0]
     target = with_qty[-1] if with_qty else logs[-1]
-    target.completed_qty = total
+    for tl in logs:
+        tl.completed_qty = 0
+    target.completed_qty = qty
 
 
 def validate(doc, method=None):

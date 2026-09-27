@@ -14,6 +14,10 @@ from frappe import _
 from frappe.utils import flt, now_datetime, get_datetime
 
 from cannabis_management.doc_hooks.job_card import MICRON_OPERATIONS
+from cannabis_management.doc_hooks.job_card import set_output_qty as _set_output_qty
+
+# Operations whose Completed Qty is the Microns' grams total.
+MICRON_OUTPUT_OPERATIONS = {"Hash Processing", "Rosin Pressing"}
 from cannabis_management.overrides.mr_run_status import work_order_done
 
 
@@ -948,11 +952,16 @@ def complete_job_card(job_card, completed_qty=None, posting_datetime=None):
             to_dt = get_datetime(tl.to_time)
             tl.time_in_mins = flt((to_dt - from_dt).total_seconds() / 60, 2)
 
-    # Set completed qty on at least one row
-    if completed_qty is not None:
-        total_existing = sum(flt(tl.completed_qty) for tl in jc.time_logs)
-        if not total_existing and jc.time_logs:
-            jc.time_logs[-1].completed_qty = flt(completed_qty)
+    # Bubble Hash / Rosin: the output is the micron bags' grams total, never
+    # a typed figure. Other operations take the figure from the dialog.
+    micron_rows = jc.get("custom_micron_collection_detail") or []
+    if jc.operation in MICRON_OUTPUT_OPERATIONS:
+        if not micron_rows:
+            frappe.throw(_("Enter the Microns for {0} first.").format(jc.operation))
+        completed_qty = sum(flt(r.grams_collected) for r in micron_rows)
+
+    if completed_qty is not None and jc.time_logs:
+        _set_output_qty(jc, flt(completed_qty))
 
     jc.status = "Completed"
     jc.flags.ignore_mandatory = True

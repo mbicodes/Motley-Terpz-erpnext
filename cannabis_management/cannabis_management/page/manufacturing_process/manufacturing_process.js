@@ -30,6 +30,8 @@ class ManufacturingRun {
 		this.toggled_by_hand = new Set(); // cards opened/closed by hand -- keep that choice
 		this.default_employee = null; // Employee linked to the session user
 		this.date_filter = null; // "YYYY-MM-DD" or null
+		this.view = "list"; // "list" or "calendar"
+		try { if (localStorage.getItem("mc_view") === "calendar") this.view = "calendar"; } catch (e) { /* no storage */ }
 		this.load_picker();
 		this._start_live_sync();
 	}
@@ -66,21 +68,99 @@ class ManufacturingRun {
 				<div class="mc-filter-wrap" id="mc-item-filter-wrap"></div>
 				<div class="mc-filter-wrap" id="mc-project-filter-wrap"></div>
 				<div class="mc-filter-wrap" id="mc-operation-filter-wrap"></div>
+				<select class="mc-wo-search" id="mc-view-select" title="View">
+					<option value="list"${this.view === "list" ? " selected" : ""}>List View</option>
+					<option value="calendar"${this.view === "calendar" ? " selected" : ""}>Calendar View</option>
+				</select>
 				<input type="date" class="mc-wo-search" id="mc-date-filter" title="Filter by Date" value="${this.date_filter ? esc(this.date_filter) : ""}">
 				<button class="mc-btn mc-btn-secondary" data-action="collapse_all">Collapse All</button>
 				<button class="mc-btn mc-btn-secondary" data-action="expand_all">Expand All</button>
+				<button class="mc-btn mc-btn-dashboard" data-action="open_dashboard" title="Open the Manufacturing Dashboard"><i class="ti ti-layout-dashboard" aria-hidden="true"></i> Switch to Dashboard</button>
 				<button class="mc-btn mc-btn-primary" data-action="new_run">+ New Run</button>
 				<button class="mc-btn mc-btn-secondary" data-action="refresh">↻ Refresh</button>
 			</div>
 		</div>
 		<div class="mc-section">
-			<div class="mc-run-list">${this._render_run_card_shells(filtered)}</div>
+			<div class="mc-run-groups">${this._render_run_card_shells(filtered)}</div>
+			<div class="mc-calendar"></div>
 		</div>`;
 
 		this.$app.html(html);
+		this._cal_ready = false;
 		this._observe_card_heights();
 		this._bind_picker_events();
 		this._load_all_run_details(filtered);
+		this._show_view();
+	}
+
+	// ── Calendar View ────────────────────────────────────────────────────────
+
+	// The same runs as the list (every filter applies), each on its
+	// Transaction Date. Uses the FullCalendar that Frappe's own Calendar View
+	// loads. Clicking a run goes back to the list, at that run's card.
+	_show_view() {
+		const calendar = this.view === "calendar";
+		this.$app.find(".mc-run-groups").toggle(!calendar);
+		this.$app.find(".mc-calendar").toggle(calendar);
+		this.$app.find('[data-action="collapse_all"], [data-action="expand_all"]').toggle(!calendar);
+		if (calendar) this._render_calendar();
+	}
+
+	async _render_calendar() {
+		const $cal = this.$app.find(".mc-calendar");
+		if (!this._cal_ready) {
+			await frappe.require([
+				"assets/frappe/js/lib/fullcalendar/fullcalendar.min.css",
+				"assets/frappe/js/lib/fullcalendar/fullcalendar.min.js",
+			]);
+			$cal.fullCalendar({
+				header: { left: "prev,next today", center: "title", right: "month,basicWeek,listMonth" },
+				defaultView: "month",
+				height: "auto",
+				eventLimit: 4,
+				events: (start, end, tz, callback) => callback(this._calendar_events()),
+				eventClick: (event) => this._open_run_from_calendar(event.id),
+				eventRender: (event, $el) => { $el.attr("title", event.tooltip); },
+			});
+			this._cal_ready = true;
+		} else {
+			$cal.fullCalendar("refetchEvents");
+		}
+	}
+
+	_calendar_events() {
+		const COLORS = {
+			"Draft": "#6c757d", "Pending": "#7b2fbf", "In Progress": "#fd7e14", "Completed": "#28a745",
+		};
+		return this._get_filtered_mrs().filter(m => m.transaction_date).map(m => {
+			const { status_label } = this._run_status_badge(m.docstatus, m.status);
+			const batch = m.project_name || "No Batch";
+			return {
+				id: m.name,
+				title: `${m.primary_label} · ${batch}`,
+				start: m.transaction_date,
+				allDay: true,
+				color: COLORS[status_label] || "#007bff",
+				tooltip: `${m.primary_label}\n${batch} · ${status_label}\n${m.primary_qty || ""}\n${m.name}`,
+			};
+		});
+	}
+
+	_open_run_from_calendar(mr_name) {
+		this.view = "list";
+		try { localStorage.setItem("mc_view", "list"); } catch (e) { /* no storage */ }
+		this.$app.find("#mc-view-select").val("list");
+		this._show_view();
+		const $card = this.$app.find(`.mc-run-card[data-mr="${mr_name}"]`);
+		if (!$card.length) return;
+		if ($card.hasClass("is-collapsed")) {
+			this.toggled_by_hand.add(mr_name);
+			this.collapsed.delete(mr_name);
+			this._set_card_collapsed($card, false);
+		}
+		$card[0].scrollIntoView({ behavior: "smooth", block: "start" });
+		$card.addClass("mc-card-flash");
+		setTimeout(() => $card.removeClass("mc-card-flash"), 2000);
 	}
 
 	// Item (raw material or finished good), Project, Operation (from the
@@ -109,14 +189,50 @@ class ManufacturingRun {
 	_apply_filters() {
 		const filtered = this._get_filtered_mrs();
 		this.$app.find("#mc-active-runs-heading").text(`Active Runs - ${filtered.length}`);
-		this.$app.find(".mc-run-list").html(this._render_run_card_shells(filtered));
+		this.$app.find(".mc-run-groups").html(this._render_run_card_shells(filtered));
 		this._observe_card_heights();
 		this._load_all_run_details(filtered);
+		if (this.view === "calendar") this._render_calendar();
 	}
 
+	// Cards are grouped by batch (the run's Project, which is the batch
+	// inventory dimension), highest batch number first -- Batch 8 at the top,
+	// Batch 1 at the bottom, runs with no batch last; within a batch, newest
+	// transaction date first.
 	_render_run_card_shells(mrs) {
 		if (!mrs.length) return '<div class="mc-empty">No active runs — start one to get going.</div>';
-		return mrs.map(m => this._render_run_card_shell(m)).join("");
+		const groups = new Map();
+		mrs.forEach(m => {
+			const key = m.custom_project || "";
+			if (!groups.has(key)) groups.set(key, []);
+			groups.get(key).push(m);
+		});
+		const latest = (runs) => runs.reduce((d, m) => (m.transaction_date || "") > d ? m.transaction_date : d, "");
+		return [...groups.values()]
+			.map(runs => runs.slice().sort((a, b) => (b.transaction_date || "").localeCompare(a.transaction_date || "")))
+			.sort((a, b) => {
+				if (!a[0].custom_project !== !b[0].custom_project) return a[0].custom_project ? -1 : 1;
+				return (b[0].project_name || "").localeCompare(a[0].project_name || "", undefined, { numeric: true })
+					|| latest(b).localeCompare(latest(a));
+			})
+			.map(runs => {
+				const dates = runs.map(m => m.transaction_date).filter(Boolean).sort();
+				const range = !dates.length ? ""
+					: dates[0] === dates[dates.length - 1] ? this._fmt_date(dates[0])
+					: `${this._fmt_date(dates[0])} – ${this._fmt_date(dates[dates.length - 1])}`;
+				return `
+				<div class="mc-batch-group">
+					<div class="mc-batch-head">
+						<span class="mc-batch-name">Batch: ${esc(runs[0].project_name || "No Batch")}</span>
+						<span class="mc-muted">${runs.length} run${runs.length === 1 ? "" : "s"}${range ? ` · ${esc(range)}` : ""}</span>
+					</div>
+					<div class="mc-run-list">${runs.map(m => this._render_run_card_shell(m)).join("")}</div>
+				</div>`;
+			}).join("");
+	}
+
+	_fmt_date(d) {
+		return d ? frappe.datetime.str_to_user(d) : "";
 	}
 
 	_render_run_card_shell(m) {
@@ -129,9 +245,10 @@ class ManufacturingRun {
 				<div class="mc-ops-card-info">
 					<div class="mc-run-card-title">${esc(m.primary_label)}</div>
 					<div class="mc-run-meta">
-						<span>${esc(m.project_name || "No Project")}</span>
+						<span title="Transaction Date"><i class="ti ti-calendar" aria-hidden="true"></i> ${esc(this._fmt_date(m.transaction_date) || "—")}</span>
 						<span>${esc(m.primary_qty)} <a class="mc-open-desk-link" onclick="frappe.set_route('Form','Material Request','${esc(m.name)}')">Open in Desk</a></span>
 						<span class="mc-status mc-status-${status_class}" data-role="run-status">${status_label}</span>
+						<span data-role="tiering-flag"></span>
 					</div>
 				</div>
 				<div class="mc-ops-card-actions">${this._render_release_action(m.work_order_count > 0)}</div>
@@ -157,6 +274,7 @@ class ManufacturingRun {
 		if (this._card_observer) this._card_observer.disconnect();
 		const list = this.$app.find(".mc-run-list")[0];
 		if (!list || typeof ResizeObserver === "undefined") return;
+		// Every batch group has its own list; they share the same grid metrics.
 		const row = parseFloat(getComputedStyle(list).gridAutoRows) || 8;
 		const gap = parseFloat(getComputedStyle(list).rowGap) || 0;
 		const GUTTER = 16; // space kept under each card
@@ -167,7 +285,7 @@ class ManufacturingRun {
 				card.style.gridRowEnd = `span ${span}`;
 			}
 		});
-		list.querySelectorAll(".mc-run-card").forEach((card) => this._card_observer.observe(card));
+		this.$app[0].querySelectorAll(".mc-run-list .mc-run-card").forEach((card) => this._card_observer.observe(card));
 	}
 
 	// Release is a one-time action: once the run has Work Orders it reads
@@ -233,6 +351,10 @@ class ManufacturingRun {
 		// open until its product has been tiered.
 		const tiering_pending = run.work_orders.some(wo =>
 			(wo.job_cards || []).some(jc => jc.operation === "Rosin Pressing") && !wo.tiering_entry);
+		$card.find('[data-role="tiering-flag"]').html(
+			badge.status_label === "Completed" && tiering_pending
+				? '<span class="mc-status mc-status-tiering-required">Tiering Required</span>'
+				: "");
 		if (run.complete && !tiering_pending && !this.toggled_by_hand.has(mr_name)) {
 			this.collapsed.add(mr_name);
 			this._set_card_collapsed($card, true);
@@ -250,6 +372,7 @@ class ManufacturingRun {
 		$app.off("click");
 
 		$app.find('[data-action="new_run"]').click(() => self.show_new_mr_modal());
+		$app.find('[data-action="open_dashboard"]').click(() => frappe.set_route("manufacturing-runs"));
 		$app.find('[data-action="refresh"]').click(() => self.load_picker());
 
 		// Item + Project filters — Link fields, same as Operation below.
@@ -277,6 +400,11 @@ class ManufacturingRun {
 		// Operation filter — Link field against the Operation doctype.
 		this.operation_filter_control = this._make_filter_control("#mc-operation-filter-wrap", "Operation", "operation_filter", "Filter by Operation");
 
+		$app.find("#mc-view-select").on("change", function () {
+			self.view = $(this).val() === "calendar" ? "calendar" : "list";
+			try { localStorage.setItem("mc_view", self.view); } catch (e) { /* no storage */ }
+			self._show_view();
+		});
 		$app.find("#mc-date-filter").on("change", function () {
 			self.date_filter = $(this).val() || null;
 			self._apply_filters();
@@ -378,12 +506,8 @@ class ManufacturingRun {
 			const running_so = jc && (jc.sub_operations || []).find(s => s.operation === operation);
 			const is_running = running_so ? running_so.status === "active"
 				: !!(jc && jc.active_timer && jc.active_timer.operation === operation);
-			// Last timer on this card = every other sub-operation already
-			// ended — that End also asks for the Completed Qty, which goes on
-			// the Job Card's time log row.
-			const others = ((jc && jc.sub_operations) || []).filter(s => s.operation !== operation);
-			const is_last = !!jc && others.every(s => s.ended);
-
+			// End only closes the time. The Completed Qty comes from the
+			// Microns (their grams total), not from here.
 			const finish = async (v) => {
 				$btn.prop("disabled", true).text("Ending…");
 				try {
@@ -391,7 +515,6 @@ class ManufacturingRun {
 						job_card: jc_name,
 						operation,
 						to_time: v.to_time || null,
-						completed_qty: is_last ? v.completed_qty : null,
 					});
 					frappe.show_alert({ message: `Ended — ${esc(operation)}`, indicator: "blue" });
 					await self._refresh_one(mr_name);
@@ -402,24 +525,15 @@ class ManufacturingRun {
 				}
 			};
 
-			if (!is_running && !is_last) {
+			if (!is_running) {
 				finish({});
 				return;
 			}
-			const fields = [];
-			if (is_running) {
-				fields.push({ fieldtype: "Datetime", fieldname: "to_time", label: "To", default: frappe.datetime.now_datetime(), reqd: 1 });
-			}
-			if (is_last) {
-				fields.push({
-					fieldtype: "Float", fieldname: "completed_qty", label: "Completed Qty", reqd: 1,
-					default: flt(jc.for_quantity),
-					description: `Last timer on ${esc(jc.operation)} — saved as Completed Qty on this time log.`,
-				});
-			}
 			const d = new frappe.ui.Dialog({
 				title: `End — ${operation}`,
-				fields,
+				fields: [
+					{ fieldtype: "Datetime", fieldname: "to_time", label: "End Time", default: frappe.datetime.now_datetime(), reqd: 1 },
+				],
 				primary_action_label: "Confirm",
 				primary_action: (v) => {
 					d.hide();
@@ -538,12 +652,21 @@ class ManufacturingRun {
 				return;
 			}
 
+			// Bubble Hash / Rosin output is what the micron bags weighed: the
+			// Microns total is the Completed Qty, so it is shown, not typed.
 			const micron_grams = (jc.micron_rows || []).reduce((t, r) => t + flt(r.grams_collected), 0);
+			const from_microns = ["Hash Processing", "Rosin Pressing"].includes(jc.operation);
+			if (from_microns && !micron_grams) {
+				frappe.msgprint(`Enter the Microns for ${esc(jc.operation)} first — ${esc(label)} takes its output from them.`);
+				return;
+			}
 			const d = new frappe.ui.Dialog({
 				title: `${label} — ${jc.operation}`,
 				fields: [
 					{ fieldtype: "Float", fieldname: "completed_qty", label: "Output Qty (grams)", reqd: 1,
-						default: micron_grams || flt(jc.for_quantity) },
+						read_only: from_microns ? 1 : 0,
+						default: from_microns ? micron_grams : (micron_grams || flt(jc.for_quantity)),
+						description: from_microns ? "Total of the Microns." : "" },
 					{
 						fieldtype: "Datetime",
 						fieldname: "posting_datetime",
@@ -965,6 +1088,13 @@ class ManufacturingRun {
 		const output = wo.manufacture_entry
 			? `<button class="mc-op-btn" data-action="view_output" ${wo_attr}>${esc(this._output_done_label(jc.operation))}</button>`
 			: `<button class="mc-op-btn mc-btn-pending" data-action="create_sku" ${wo_attr}>${esc(this._sku_button_label(jc.operation))}</button>`;
+		// How much Bubble Hash / Rosin: once made, what was booked; until then,
+		// the Microns total it will be made from.
+		const micron_grams = (jc.micron_rows || []).reduce((t, r) => t + flt(r.grams_collected), 0);
+		const output_qty = wo.manufacture_entry ? flt(jc.total_completed_qty) : micron_grams;
+		const qty = ["Hash Processing", "Rosin Pressing"].includes(jc.operation) && output_qty
+			? `<span class="mc-op-qty" title="${wo.manufacture_entry ? "Completed Qty" : "Microns total"}">${esc(String(flt(output_qty, 3)))} g</span>`
+			: "";
 		const micron_count = (jc.micron_rows || []).length;
 		const microns = `<button class="mc-op-btn${micron_count ? "" : " mc-btn-pending"}" data-action="enter_microns" data-jc="${esc(jc.name)}">Microns${micron_count ? ` (${micron_count})` : ""}</button>`;
 		const tiering = jc.operation === "Rosin Pressing" && jc.work_order
@@ -983,7 +1113,7 @@ class ManufacturingRun {
 				${transfer}
 			</div>
 			${timer_html}
-			<div class="mc-run-op-secondary-actions">${output} ${microns}</div>
+			<div class="mc-run-op-secondary-actions">${microns} ${output} ${qty}</div>
 			${tiering}
 		</div>`;
 	}
