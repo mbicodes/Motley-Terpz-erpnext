@@ -497,3 +497,20 @@
 .mrd-card-wide .mrd-legend-row { font-size: 13px; padding-bottom: 6px; }
 .mrd-card-wide .mrd-op-employee { font-size: 12px; padding-top: 4px; padding-bottom: 4px; }
 .mrd-card-wide .mrd-op-yields { margin-bottom: 18px; font-size: 13px; }
+
+/* Switch to the Manufacturing Process page. */
+.mrd-process-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	height: 32px;
+	padding: 0 12px;
+	border-radius: 8px;
+	border: 1.5px solid #7c3aed;
+	background: var(--card-bg, #fff);
+	color: #7c3aed;
+	font-size: 13px;
+	font-weight: 600;
+	cursor: pointer;
+}
+.mrd-process-btn:hover { background: #7c3aed; color: #fff; }
