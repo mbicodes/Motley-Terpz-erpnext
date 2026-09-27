@@ -25,6 +25,14 @@ frappe.ui.form.on('Job Card', {
         });
     },
 
+    // Core recomputes Total Completed Qty from the time logs on every save,
+    // so a figure typed here straight would fall back to the logs' sum. It
+    // is written into the output time log instead, which makes that sum the
+    // typed figure.
+    total_completed_qty: function (frm) {
+        _push_total_completed_qty_to_time_log(frm);
+    },
+
     before_save: function (frm) {
         // Recalculate all costs before saving
         let total = 0;
@@ -62,6 +70,29 @@ function _sync_micron_total_to_time_log(frm) {
     if (flt(target.completed_qty) !== total) {
         frappe.model.set_value(target.doctype, target.name, 'completed_qty', total);
     }
+}
+
+function _push_total_completed_qty_to_time_log(frm) {
+    let logs = frm.doc.time_logs || [];
+    if (frm.doc.docstatus !== 0) return;
+    if (!logs.length) {
+        frappe.msgprint(__('Add a Time Log first -- Total Completed Qty is saved on it.'));
+        return;
+    }
+
+    let total = flt(frm.doc.total_completed_qty);
+    let with_qty = logs.filter(row => flt(row.completed_qty) > 0);
+    let target = with_qty.length ? with_qty[with_qty.length - 1] : logs[logs.length - 1];
+    let others = logs.filter(row => row !== target)
+        .reduce((sum, row) => sum + flt(row.completed_qty), 0);
+
+    if (total < others) {
+        // The other rows alone exceed the figure: it all goes on the output row.
+        logs.forEach(row => { if (row !== target) row.completed_qty = 0; });
+        others = 0;
+    }
+    target.completed_qty = total - others;
+    frm.refresh_field('time_logs');
 }
 
 frappe.ui.form.on('Job Card Time Log', {
