@@ -294,7 +294,8 @@ override_doctype_class = {
     # status recalculation. See overrides/mr_run_status.py.
     "Material Request":     "cannabis_management.overrides.mr_run_status.CMMaterialRequest",
     # Drops core's "Total Completed Qty must equal Qty to Manufacture" check on
-    # submit -- a run is weighed, not dispensed. See overrides/job_card_qty.py.
+    # submit -- a run is weighed, not dispensed -- and lets an employee run
+    # timers on several operations at once. See overrides/job_card_qty.py.
     "Job Card":             "cannabis_management.overrides.job_card_qty.CMJobCard",
 }
 
