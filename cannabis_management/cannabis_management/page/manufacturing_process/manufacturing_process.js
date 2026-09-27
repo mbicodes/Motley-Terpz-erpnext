@@ -1318,6 +1318,18 @@ class ManufacturingRun {
 	// changes, so it opens read-only.
 	_open_micron_modal(jc, mr_name) {
 		const read_only = jc.docstatus !== 0;
+		// Every run collects these three bag sizes, so an editable popup opens
+		// with a row for each size that isn't entered yet -- only the grams
+		// are left to type. Rows left without grams are dropped on Save.
+		const sizes = ["150u", "120u - 73u", "45u"];
+		const rows = (jc.micron_rows || []).map(r => ({ ...r }));
+		if (!read_only) {
+			sizes.filter(s => !rows.some(r => r.micron_size === s))
+				.forEach(s => rows.push({ micron_size: s, quality_grade: "Full Melt" }));
+		}
+		const grams_total = () => (d.fields_dict.microns.df.data || [])
+			.reduce((t, r) => t + flt(r.grams_collected), 0);
+		const update_total = () => setTimeout(() => d.set_value("total_quantity", grams_total()), 50);
 		const d = new frappe.ui.Dialog({
 			title: `Microns — ${jc.operation}`,
 			size: "extra-large",
@@ -1326,7 +1338,7 @@ class ManufacturingRun {
 					fieldtype: "Table", fieldname: "microns", label: "Micron Collection Detail",
 					in_place_edit: true,
 					cannot_add_rows: read_only, cannot_delete_rows: read_only, read_only: read_only ? 1 : 0,
-					data: (jc.micron_rows || []).map((r, i) => ({ ...r, name: frappe.utils.get_random(10), idx: i + 1 })),
+					data: rows.map((r, i) => ({ ...r, name: frappe.utils.get_random(10), idx: i + 1 })),
 					fields: [
 						{ fieldtype: "Link", fieldname: "item", label: "Item", options: "Item", in_list_view: 1, columns: 2, read_only },
 						{ fieldtype: "Select", fieldname: "micron_size", label: "Micron Size", options: "\n150u\n120u - 73u\n45u", in_list_view: 1, reqd: 1, columns: 2, read_only },
@@ -1336,6 +1348,7 @@ class ManufacturingRun {
 						{ fieldtype: "Data", fieldname: "notes", label: "Notes", in_list_view: 1, columns: 1, read_only },
 					],
 				},
+				{ fieldtype: "Float", fieldname: "total_quantity", label: "Total Quantity", read_only: 1 },
 				read_only ? { fieldtype: "HTML", options: '<p class="text-muted small">This Job Card is submitted — micron data is read-only.</p>' } : null,
 			].filter(Boolean),
 			primary_action_label: read_only ? "Close" : "Save",
@@ -1343,7 +1356,7 @@ class ManufacturingRun {
 				if (read_only) { d.hide(); return; }
 				if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
 				const rows = (d.fields_dict.microns.df.data || [])
-					.filter(r => r.micron_size || r.grams_collected || r.item)
+					.filter(r => r.grams_collected || r.item)
 					.map(r => ({
 						item: r.item || null,
 						micron_size: r.micron_size,
@@ -1366,6 +1379,10 @@ class ManufacturingRun {
 			},
 		});
 		d.show();
+		d.set_value("total_quantity", grams_total());
+		// The grid writes an edit into its row on change; a deleted row only
+		// goes after the click, hence reading the rows a moment later.
+		d.fields_dict.microns.grid.wrapper.on("change click", update_total);
 	}
 
 	// ── Create SKU modal — preview the Manufacture Stock Entry, then submit ──
