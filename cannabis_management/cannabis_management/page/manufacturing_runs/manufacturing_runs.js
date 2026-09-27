@@ -152,6 +152,11 @@ class ManufacturingRunsDashboard {
 			</div>
 		`);
 
+		// Back to the Manufacturing Process page (the runs themselves).
+		$(`<button class="mrd-process-btn" title="Open Manufacturing Process"><i class="ti ti-settings-automation" aria-hidden="true"></i> Switch to Manufacturing Process</button>`)
+			.appendTo(this.page.main.find('.mrd-header-controls'))
+			.on('click', () => frappe.set_route('manufacturing-process'));
+
 		this.page.main.find('.mrd-week-option').on('click', (e) => {
 			e.preventDefault();
 			let preset = $(e.currentTarget).attr('data-preset');
