@@ -39,6 +39,31 @@ frappe.ui.form.on('Job Card', {
     },
 });
 
+// The micron bags are what the run produced, so their grams are the Completed
+// Qty: the total lands on the time log that already carries the output (or the
+// last one), keeping it in step with the "Micron total must match" check.
+frappe.ui.form.on('Micron Collection Detail', {
+    grams_collected: function (frm) {
+        _sync_micron_total_to_time_log(frm);
+    },
+    custom_micron_collection_detail_remove: function (frm) {
+        _sync_micron_total_to_time_log(frm);
+    },
+});
+
+function _sync_micron_total_to_time_log(frm) {
+    let bags = frm.doc.custom_micron_collection_detail || [];
+    let logs = frm.doc.time_logs || [];
+    if (!bags.length || !logs.length || frm.doc.docstatus !== 0) return;
+
+    let total = bags.reduce((sum, row) => sum + flt(row.grams_collected), 0);
+    let with_qty = logs.filter(row => flt(row.completed_qty) > 0);
+    let target = with_qty.length ? with_qty[with_qty.length - 1] : logs[logs.length - 1];
+    if (flt(target.completed_qty) !== total) {
+        frappe.model.set_value(target.doctype, target.name, 'completed_qty', total);
+    }
+}
+
 frappe.ui.form.on('Job Card Time Log', {
 
     from_time: function (frm, cdt, cdn) {

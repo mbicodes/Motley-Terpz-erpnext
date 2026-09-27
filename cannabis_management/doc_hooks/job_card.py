@@ -132,6 +132,26 @@ def bypass_qty_to_manufacture_check(doc, method=None):
         doc.for_quantity = doc.total_completed_qty
 
 
+def sync_micron_total_to_time_log(doc, method=None):
+    """
+    Fired on:  before_validate, so core's validate then rolls the new figure
+               into total_completed_qty.
+
+    The micron bags are what the run produced, so their grams total is the
+    Completed Qty. It goes on the time log that already carries the output,
+    or the last time log when none does yet.
+    """
+    rows = doc.get("custom_micron_collection_detail") or []
+    logs = doc.get("time_logs") or []
+    if doc.docstatus != 0 or not rows or not logs:
+        return
+
+    total = sum(flt(r.get("grams_collected")) for r in rows)
+    with_qty = [tl for tl in logs if flt(tl.completed_qty) > 0]
+    target = with_qty[-1] if with_qty else logs[-1]
+    target.completed_qty = total
+
+
 def validate(doc, method=None):
     """
     Fired on:  validate (every save)
