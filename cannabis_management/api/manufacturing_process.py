@@ -711,7 +711,8 @@ def assign_employee(job_card, employee=None, operation=None):
         assigned[operation] = employee
     else:
         assigned.pop(operation, None)
-    jc.db_set("custom_assigned_employees", json.dumps(assigned) if assigned else None)
+    # notify=True so open Job Card forms and other screens pick it up live.
+    jc.db_set("custom_assigned_employees", json.dumps(assigned) if assigned else None, notify=True)
 
     return {"operation": operation, "employee": employee or "", "employee_name": _employee_name(employee)}
 

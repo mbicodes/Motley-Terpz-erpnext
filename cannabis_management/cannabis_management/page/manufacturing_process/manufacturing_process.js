@@ -31,6 +31,7 @@ class ManufacturingRun {
 		this.default_employee = null; // Employee linked to the session user
 		this.date_filter = null; // "YYYY-MM-DD" or null
 		this.load_picker();
+		this._start_live_sync();
 	}
 
 	api(method, args) {
@@ -198,13 +199,14 @@ class ManufacturingRun {
 		});
 	}
 
-	async _refresh_one(mr_name) {
+	async _refresh_one(mr_name, { quiet = false } = {}) {
 		try {
 			const run = await this.api("get_run_detail", { material_request: mr_name });
 			this.runs[mr_name] = run;
 			this._render_run_card_body(mr_name);
 		} catch (e) {
-			frappe.msgprint(e.message || e);
+			// A background (live-sync) refresh must not pop errors at the user.
+			if (!quiet) frappe.msgprint(e.message || e);
 		}
 	}
 
@@ -1513,6 +1515,68 @@ class ManufacturingRun {
 		} catch (e) {
 			frappe.msgprint(e.message || e);
 		}
+	}
+
+	// ── Live sync with the rest of the ERP ──────────────────────────────────
+	//
+	// Every save of these doctypes -- from this page, the Desk forms, or
+	// another user's screen -- publishes a list_update to the doctype's room.
+	// Listening there refreshes just the run card the document belongs to, so
+	// the page never shows stale timers, quantities or statuses.
+
+	_start_live_sync() {
+		this._live_doctypes = ["Job Card", "Work Order", "Material Request", "Stock Entry", "Conversion Entry"];
+		this._pending_refresh = new Set();
+		this._live_subscribe();
+		frappe.realtime.on("list_update", (data) => this._on_live_update(data));
+		// A List View unsubscribes its doctype's room when it is left, which
+		// would silently drop ours too -- so re-join on show and every minute.
+		$(this.page.wrapper).on("show", () => this._live_subscribe());
+		setInterval(() => this._live_subscribe(), 60000);
+	}
+
+	_live_subscribe() {
+		this._live_doctypes.forEach(dt => frappe.realtime.doctype_subscribe(dt));
+	}
+
+	async _on_live_update(data) {
+		if (!data || !this._live_doctypes.includes(data.doctype)) return;
+		if (!this.$app.is(":visible")) return;
+
+		let work_order = null;
+		if (data.doctype === "Stock Entry" || data.doctype === "Conversion Entry") {
+			const field = data.doctype === "Stock Entry" ? "work_order" : "custom_work_order";
+			const r = await frappe.db.get_value(data.doctype, data.name, field).catch(() => null);
+			work_order = r && r.message && r.message[field];
+			if (!work_order) return;
+		}
+
+		const hits = Object.entries(this.runs).filter(([mr, run]) =>
+			(data.doctype === "Material Request" && mr === data.name)
+			|| (run.work_orders || []).some(wo =>
+				(data.doctype === "Work Order" && wo.name === data.name)
+				|| (work_order && wo.name === work_order)
+				|| (data.doctype === "Job Card" && (wo.job_cards || []).some(jc => jc.name === data.name))));
+
+		if (!hits.length) {
+			// A run this page hasn't loaded yet (e.g. a new Material Request):
+			// reload the list, unless someone is mid-way through a dialog.
+			if (data.doctype === "Material Request" && !(window.cur_dialog && cur_dialog.display)) {
+				clearTimeout(this._picker_timer);
+				this._picker_timer = setTimeout(() => this.load_picker(), 800);
+			}
+			return;
+		}
+
+		// Batch the burst one action produces (Job Card + Stock Entry + Work
+		// Order all save together) into a single refresh per run.
+		hits.forEach(([mr]) => this._pending_refresh.add(mr));
+		clearTimeout(this._refresh_timer);
+		this._refresh_timer = setTimeout(() => {
+			const mrs = [...this._pending_refresh];
+			this._pending_refresh.clear();
+			mrs.forEach(mr => this._refresh_one(mr, { quiet: true }));
+		}, 500);
 	}
 
 	// ── Event binding helpers ───────────────────────────────────────────────
