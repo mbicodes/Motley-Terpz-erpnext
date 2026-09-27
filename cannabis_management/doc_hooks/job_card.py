@@ -147,6 +147,14 @@ def sync_micron_total_to_time_log(doc, method=None):
         return
 
     total = sum(flt(r.get("grams_collected")) for r in rows)
+
+    # Only when the grams changed: a Total Completed Qty typed by hand after
+    # the bags were weighed must survive later saves.
+    before = doc.get_doc_before_save()
+    if before and total == sum(
+        flt(r.get("grams_collected")) for r in (before.get("custom_micron_collection_detail") or [])
+    ):
+        return
     with_qty = [tl for tl in logs if flt(tl.completed_qty) > 0]
     target = with_qty[-1] if with_qty else logs[-1]
     target.completed_qty = total
