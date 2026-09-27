@@ -595,6 +595,7 @@ doc_events = {
         ],
     },
     "Job Card": {
+        "before_validate": "cannabis_management.doc_hooks.job_card.sync_micron_total_to_time_log",
         "validate": [
             "cannabis_management.doc_hooks.job_card.calculate_sub_op_costs",
             "cannabis_management.doc_hooks.job_card.validate",
