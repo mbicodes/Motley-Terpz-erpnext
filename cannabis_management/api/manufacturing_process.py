@@ -728,10 +728,12 @@ def start_timer(job_card, operation=None, employee=None, from_time=None, worksta
     if jc.docstatus != 0:
         frappe.throw(_("Job Card must be a Draft to start a timer."))
 
-    # Check no active timer already running
+    # Several operations may run at once; only the same operation can't be
+    # started twice while its timer is still running.
+    new_op = operation or jc.operation
     for tl in jc.time_logs:
-        if tl.from_time and not tl.to_time:
-            frappe.throw(_("A timer is already running. Pause it first."))
+        if tl.from_time and not tl.to_time and (tl.operation or jc.operation) == new_op:
+            frappe.throw(_("{0} is already running. Pause it first.").format(new_op))
 
     # When this Job Card has sub-operations, every timer must be started
     # against one of them by name — that's what lets each sub-step accrue
@@ -765,11 +767,15 @@ def start_timer(job_card, operation=None, employee=None, from_time=None, worksta
 
 
 @frappe.whitelist()
-def pause_timer(job_card, to_time=None):
+def pause_timer(job_card, to_time=None, operation=None):
     jc = frappe.get_doc("Job Card", job_card)
 
+    # With several timers running on this card, `operation` picks which one
+    # to pause; without it, the first running one is paused.
     paused = False
     for tl in jc.time_logs:
+        if operation and (tl.operation or jc.operation) != operation:
+            continue
         if tl.from_time and not tl.to_time:
             tl.to_time = get_datetime(to_time) if to_time else now_datetime()
             from_dt = get_datetime(tl.from_time)

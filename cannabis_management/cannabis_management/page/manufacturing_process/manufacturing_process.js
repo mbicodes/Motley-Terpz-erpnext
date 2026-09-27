@@ -351,7 +351,7 @@ class ManufacturingRun {
 			const operation = $btn.data("op");
 			$btn.prop("disabled", true).text("Pausing…");
 			try {
-				await self.api("pause_timer", { job_card: $btn.data("jc") });
+				await self.api("pause_timer", { job_card: $btn.data("jc"), operation });
 				frappe.show_alert({ message: `Paused — ${esc(operation)}`, indicator: "orange" });
 				await self._refresh_one(mr_name);
 			} catch (e) {
@@ -371,7 +371,11 @@ class ManufacturingRun {
 			const jc_name = $btn.data("jc");
 			const operation = $btn.data("op");
 			const jc = self.find_job_card(jc_name);
-			const is_running = !!(jc && jc.active_timer && jc.active_timer.operation === operation);
+			// Looked up per sub-op, not via active_timer: several timers can
+			// run at once, and active_timer names only one.
+			const running_so = jc && (jc.sub_operations || []).find(s => s.operation === operation);
+			const is_running = running_so ? running_so.status === "active"
+				: !!(jc && jc.active_timer && jc.active_timer.operation === operation);
 			// Last timer on this card = every other sub-operation already
 			// ended — that End also asks for the Completed Qty, which goes on
 			// the Job Card's time log row.
@@ -1072,7 +1076,9 @@ class ManufacturingRun {
 		const running = so.status === "active";
 		const done = so.status === "done";
 		const is_complete = jc.status === "Completed";
-		const any_running = !!jc.active_timer;
+		// Several operations may run at once, so another running timer never
+		// disables this operation's Start/Resume.
+		const any_running = false;
 		const ended = !!so.ended;
 
 		let status_text = "—";
