@@ -985,6 +985,42 @@ def _all_job_cards_done(wo):
     return True
 
 
+def _completed_output_qty(wo):
+    """What the run actually produced: the Completed Qty of the submitted Job
+    Cards for the Work Order's last operation. Falls back to the planned qty
+    when nothing has been recorded."""
+    if not wo.operations:
+        return flt(wo.qty)
+    last_op = sorted(wo.operations, key=lambda op: op.idx)[-1].operation
+    done = frappe.db.sql(
+        """select sum(total_completed_qty) from `tabJob Card`
+        where work_order = %s and operation = %s and docstatus = 1""",
+        (wo.name, last_op),
+    )[0][0]
+    return flt(done) or flt(wo.qty)
+
+
+def _make_manufacture_se(wo):
+    """Manufacture Stock Entry (as a dict) that books the Job Cards' output.
+
+    Built for the planned qty, so the raw materials consumed are the whole
+    run's, then the finished goods are set to what actually came off the line
+    -- over or under plan. Building it for the output qty instead would scale
+    the raw materials by it, leaving some in WIP (or over-consuming) when a
+    wash or press run's yield differs from the BOM.
+    """
+    from erpnext.manufacturing.doctype.work_order.work_order import make_stock_entry
+
+    se = make_stock_entry(wo.name, "Manufacture", wo.qty)
+    output = _completed_output_qty(wo)
+    se["fg_completed_qty"] = output
+    for d in se["items"]:
+        if d.get("is_finished_item"):
+            d["qty"] = output
+            d["transfer_qty"] = output * flt(d.get("conversion_factor") or 1)
+    return se
+
+
 def _auto_create_manufacture_se(work_order, posting_datetime=None):
     wo = frappe.get_doc("Work Order", work_order)
 
@@ -1001,8 +1037,7 @@ def _auto_create_manufacture_se(work_order, posting_datetime=None):
         return {"created": False, "reason": "Manufacture Stock Entry already exists.", "name": existing}
 
     try:
-        from erpnext.manufacturing.doctype.work_order.work_order import make_stock_entry
-        se = frappe.get_doc(make_stock_entry(wo.name, "Manufacture", wo.qty))
+        se = frappe.get_doc(_make_manufacture_se(wo))
         _apply_posting_datetime(se, posting_datetime)
         se.flags.ignore_permissions = True
         se.insert()
@@ -1064,10 +1099,9 @@ def get_manufacture_se_preview(work_order):
             "reason": _("Not all Job Cards for {0} are completed yet — finish every operation first.").format(wo.name),
         }
 
-    from erpnext.manufacturing.doctype.work_order.work_order import make_stock_entry
     # Preview-only — read via ["items"], not .items (make_stock_entry returns
     # .as_dict(), where the attribute .items collides with dict.items()).
-    se = make_stock_entry(wo.name, "Manufacture", wo.qty)
+    se = _make_manufacture_se(wo)
     return {
         "existing": False,
         "not_ready": False,
