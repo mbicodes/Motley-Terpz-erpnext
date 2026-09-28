@@ -9,6 +9,16 @@ frappe.ui.form.on('Conversion Entry', {
 		}
 	},
 
+	setup: function (frm) {
+		_set_tag_filters(frm);
+
+		// A retired status stays readable on old entries but is not offered
+		// for new ones — see the Conversion Status doctype's `disabled` flag.
+		frm.set_query('conversion_status', function () {
+			return { filters: { disabled: 0 } };
+		});
+	},
+
 	refresh: function (frm) {
 		_set_warehouse_filters(frm);
 
@@ -360,5 +370,38 @@ function clear_hidden_fields_for_row(frm, cdt, cdn) {
 	if (!['1 to 3', '3 to 3', '4 to 3'].includes(ct)) {
 		frappe.model.set_value(cdt, cdn, 'finished_good_3', '');
 		frappe.model.set_value(cdt, cdn, 'qty_fg_3', 0);
+	}
+}
+
+
+// ── Source / Target Tag pickers ──────────────────────────────────────────────
+// Each Source Tag N follows Raw Material N (filtered by the row's Source
+// Warehouse), each Target Tag N follows Finished Good N (Target Warehouse).
+// Both restrictions are enforced server-side in custom/metric_tag.py:
+//   Source Tag -> status=Active, tag's Licence must equal the warehouse's
+//                 METRC Licence #.
+//   Target Tag -> status=Unused, same Licence match, but tags that have not
+//                 been assigned a Licence yet are allowed through too.
+// The status is pinned inside those query methods rather than passed as a
+// filter, so it holds even if nothing on the client sends one.
+const CE_SOURCE_TAG_QUERY =
+	'cannabis_management.cannabis_management.custom.metric_tag.conversion_source_tags';
+const CE_TARGET_TAG_QUERY =
+	'cannabis_management.cannabis_management.custom.metric_tag.conversion_target_tags';
+
+function _set_tag_filters(frm) {
+	// metric_tag_query.js is an app_include_js; guard anyway so a load failure
+	// degrades to an unfiltered picker instead of breaking the form.
+	if (!window.cannabis_management || !cannabis_management.metric_tag) return;
+
+	for (let n = 1; n <= 7; n++) {
+		cannabis_management.metric_tag.filter_by_warehouse(
+			frm, 'rm_' + n + '_tag', 'source_warehouse', 'items', CE_SOURCE_TAG_QUERY
+		);
+	}
+	for (let n = 1; n <= 3; n++) {
+		cannabis_management.metric_tag.filter_by_warehouse(
+			frm, 'fg_' + n + '_tag', 'target_warehouse', 'items', CE_TARGET_TAG_QUERY
+		);
 	}
 }
