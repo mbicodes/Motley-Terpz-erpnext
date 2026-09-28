@@ -751,7 +751,7 @@ scheduler_events = {
             "cannabis_management.api.dn_gap_report.send_dn_gap_report",
         ],
         # AR Dashboard PDFs (Legacy + New, All Entities) to Nikki, CC Matt /
-        # Muhammad / Imran. 11:00 site time (America/Adak) == 13:00
+        # Muhammad / Jamie / Imran. 11:00 site time (America/Adak) == 13:00
         # America/Los_Angeles all year; the job re-checks the California hour.
         "0 11 * * *": [
             "cannabis_management.api.ar_dashboard_email.send_scheduled_ar_report",

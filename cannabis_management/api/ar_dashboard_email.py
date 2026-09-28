@@ -21,7 +21,12 @@ from frappe.utils import getdate, nowdate
 from cannabis_management.cannabis_management.page.ar_dashboard import ar_dashboard as ard
 
 TO = ["nikki@motleyterpz.com"]
-CC = ["matt@motleyterpz.com", "muhammad@motleyterpz.com", "imran@motleyterpz.com"]
+CC = [
+	"matt@motleyterpz.com",
+	"muhammad@motleyterpz.com",
+	"jamie@motleyterpz.com",
+	"imran@motleyterpz.com",
+]
 MODES = ("legacy", "new")
 SEND_TZ = "America/Los_Angeles"
 SEND_HOUR = 13
@@ -81,6 +86,13 @@ def send_ar_dashboard_email(to=None, cc=None):
 		attachments=attachments,
 		reference_doctype="Page",
 		reference_name="ar-dashboard",
+		# Without this the CC list is only a delivery list, not a header: frappe
+		# sends one copy per address, fills `To:` with that copy's own recipient
+		# and writes NO `Cc:` header at all (email_body.py). So Matt's copy read
+		# "To: matt@..." - i.e. sent directly to him - and nobody could see that
+		# Nikki was the addressee. "header" writes the real lists instead, the
+		# same in every copy: To: Nikki, CC: the four below.
+		expose_recipients="header",
 		now=True,
 	)
 	return {"to": to, "cc": cc, "files": [a["fname"] for a in attachments]}
