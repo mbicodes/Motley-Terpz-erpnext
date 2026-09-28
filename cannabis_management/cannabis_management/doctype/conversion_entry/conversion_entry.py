@@ -432,3 +432,60 @@ def _ce_cost_map(ce_doc):
 		}
 
 	return cost_map
+
+
+@frappe.whitelist()
+@frappe.validate_and_sanitize_search_inputs
+def raw_material_stock_query(doctype, txt, searchfield, start, page_len, filters):
+	"""Raw Material picker, showing what is actually on hand in the row's Source
+	Warehouse.
+
+	Item sets show_title_field_in_link, so Frappe uses column 2 as the bold
+	label and joins the rest into the grey line beneath it (see
+	frappe.desk.search.build_for_autosuggest). Returning
+	(name, item_name, qty_label) therefore reads as:
+
+	    Trop Cherry Banana - 1g O2 Vapes
+	    1-O200005, 1,797.00 g in Main Storage - MTM
+
+	Results are ordered by quantity descending so the items that can actually
+	be converted surface first; an item with no stock still appears, at 0, so a
+	planned row can be entered before the stock lands.
+
+	With no Source Warehouse chosen yet the field falls back to a plain item
+	search — a quantity with no warehouse behind it would be a guess.
+	"""
+	warehouse = (filters or {}).get("warehouse")
+	values = {
+		"txt": f"%{txt}%",
+		"start": start,
+		"page_len": page_len,
+		"warehouse": warehouse,
+	}
+
+	if warehouse:
+		qty_column = (
+			"concat(format(ifnull(b.actual_qty, 0), 2), ' ', ifnull(i.stock_uom, ''), "
+			"' in ', %(warehouse)s)"
+		)
+		join = "left join `tabBin` b on b.item_code = i.name and b.warehouse = %(warehouse)s"
+		order = "ifnull(b.actual_qty, 0) desc, i.name"
+	else:
+		qty_column = "''"
+		join = ""
+		order = "i.name"
+
+	return frappe.db.sql(
+		f"""
+		select i.name, i.item_name, {qty_column} as stock_label
+		from `tabItem` i
+		{join}
+		where i.disabled = 0
+		  and ifnull(i.has_variants, 0) = 0
+		  and i.is_stock_item = 1
+		  and (i.name like %(txt)s or i.item_name like %(txt)s)
+		order by {order}
+		limit %(start)s, %(page_len)s
+		""",  # nosemgrep
+		values,
+	)

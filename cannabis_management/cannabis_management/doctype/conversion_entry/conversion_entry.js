@@ -11,6 +11,7 @@ frappe.ui.form.on('Conversion Entry', {
 
 	setup: function (frm) {
 		_set_tag_filters(frm);
+		_set_raw_material_queries(frm);
 
 		// A retired status stays readable on old entries but is not offered
 		// for new ones — see the Conversion Status doctype's `disabled` flag.
@@ -403,5 +404,26 @@ function _set_tag_filters(frm) {
 		cannabis_management.metric_tag.filter_by_warehouse(
 			frm, 'fg_' + n + '_tag', 'target_warehouse', 'items', CE_TARGET_TAG_QUERY
 		);
+	}
+}
+
+
+// ── Raw Material picker ──────────────────────────────────────────────────────
+// Shows each item's quantity in that row's Source Warehouse, with the
+// in-stock items first. Server side: conversion_entry.raw_material_stock_query.
+const CE_RM_QUERY =
+	'cannabis_management.cannabis_management.doctype.conversion_entry.conversion_entry.raw_material_stock_query';
+
+function _set_raw_material_queries(frm) {
+	for (let n = 1; n <= 7; n++) {
+		frm.set_query('raw_material_' + n, 'items', function (doc, cdt, cdn) {
+			const row = locals[cdt][cdn] || {};
+			return {
+				query: CE_RM_QUERY,
+				// Read live off the row, so changing Source Warehouse re-quotes
+				// the quantities on the next search without a reload.
+				filters: { warehouse: row.source_warehouse },
+			};
+		});
 	}
 }
