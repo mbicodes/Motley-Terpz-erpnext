@@ -64,6 +64,7 @@ frappe.pages['ar-weekly-review'].on_page_load = function (wrapper) {
 				</div>
 				<div style="display:flex;align-items:center;">
 					<span class="arw-savemsg" id="arw-savemsg"></span>
+					<button class="btn btn-default btn-sm" id="arw-print" style="margin-right:6px;">${__('Print')}</button>
 					<button class="btn btn-default btn-sm" id="arw-refresh">${__('Refresh')}</button>
 				</div>
 			</div>
@@ -102,6 +103,7 @@ frappe.pages['ar-weekly-review'].on_page_load = function (wrapper) {
 
 function bind_events(page) {
 	page.main.find('#arw-refresh').on('click', () => load(page));
+	page.main.find('#arw-print').on('click', () => print_review(page));
 
 	page.main.find('#arw-modeseg button').on('click', function () {
 		page.main.find('#arw-modeseg button').removeClass('on');
@@ -445,4 +447,93 @@ function save_entry(page, rowid, $btn) {
 			page.main.find('#arw-savemsg').text(__('Save failed'));
 		},
 	});
+}
+
+// Print the whole review: both ledgers, every group, every row, full notes.
+// Ignores the search box and ledger toggle; keeps the current "Group by" mode.
+// Rendered into a fresh window so Desk chrome and the interactive editor stay out.
+function print_review(page) {
+	if (!page.arw.rows.length) {
+		frappe.msgprint(__('Nothing to print yet — wait for the review to load.'));
+		return;
+	}
+	const esc = frappe.utils.escape_html;
+	const by_tier = page.arw.ui.mode === 'tier';
+	const keys = by_tier ? ARW_TIER_ORDER : ['none'].concat(ARW_STATUS_ORDER);
+
+	const ledger_html = ['New AR', 'Legacy AR'].map(function (ledger) {
+		const pool = page.arw.rows.filter((r) => r.ledger === ledger);
+		const total = pool.reduce((s, r) => s + r.amount, 0);
+		const unfiled = pool.filter((r) => !r.current_status);
+
+		const groups = keys.map(function (key) {
+			const def = by_tier ? ARW_TIER_DEF[key] : ARW_STATUS_DEF[key];
+			const rows = pool.filter((r) => by_tier
+				? r.tier === key
+				: (key === 'none' ? !r.current_status : r.current_status === key));
+			rows.sort((a, b) => b.amount - a.amount);
+			const amt = rows.reduce((s, r) => s + r.amount, 0);
+
+			const body = rows.length ? `<table><thead><tr>
+					<th>${__('Customer')}</th>
+					${by_tier ? '' : `<th>${__('Level')}</th>`}
+					<th class="num">${__('Amount')}</th>
+					<th>${__('Worst aging')}</th>
+					${by_tier ? `<th>${__('Status')}</th>` : ''}
+					<th>${__('Latest note')}</th>
+				</tr></thead><tbody>${rows.map((r) => `<tr>
+					<td><b>${esc(r.customer)}</b><div class="dim">${r.portion === 'upcoming' ? __('on terms') : __('overdue')} · ${r.invoice_count} ${__('inv')}</div></td>
+					${by_tier ? '' : `<td>${ARW_TIER_DEF[r.tier].label}</td>`}
+					<td class="num">${fmt_money(r.amount)}</td>
+					<td>${esc(r.days)}</td>
+					${by_tier ? `<td>${r.current_status ? esc(r.current_status) : '<span class="dim">' + __('No status yet') + '</span>'}</td>` : ''}
+					<td>${r.latest_note ? esc(r.latest_note) : '—'}</td>
+				</tr>`).join('')}</tbody></table>`
+				: `<div class="dim empty">${__('No accounts in this group.')}</div>`;
+
+			return `<div class="group ${by_tier ? 'tier-' + key : ''}">
+				<div class="ghead"><span><b>${esc(def.full)}</b>${def.desc ? ` <span class="dim">— ${esc(def.desc)}</span>` : ''}</span>
+				<span><span class="dim">${rows.length} ${rows.length === 1 ? __('row') : __('rows')}</span> <b>${fmt_money(amt)}</b></span></div>
+				${body}</div>`;
+		}).join('');
+
+		return `<section>
+			<h2>${esc(ledger)} <span class="dim">· ${fmt_money(total)} ${__('outstanding')} · ${pool.length} ${__('rows')} · ${unfiled.length} ${__('with no status')}</span></h2>
+			${groups}</section>`;
+	}).join('');
+
+	const html = `<!doctype html><html><head><meta charset="utf-8">
+		<title>${__('AR Weekly Review')} — ${esc(page.arw.meta.as_of || '')}</title>
+		<style>
+			body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#1f2430;font-size:11.5px;margin:24px;}
+			h1{font-size:17px;margin:0;} h2{font-size:14px;margin:22px 0 8px;border-bottom:2px solid #1f2430;padding-bottom:4px;}
+			.dim{color:#767b8a;font-weight:normal;}
+			.group{border:1px solid #ddd;border-left:5px solid #6b46c1;margin-bottom:12px;break-inside:auto;}
+			.tier-upcoming{border-left-color:#2e7d5b;} .tier-level1{border-left-color:#b23b3b;}
+			.tier-level2{border-left-color:#c47b1f;} .tier-level3{border-left-color:#7a2233;}
+			.ghead{display:flex;justify-content:space-between;gap:10px;padding:7px 10px;background:#f4f2f9;}
+			table{width:100%;border-collapse:collapse;}
+			th{text-align:left;font-size:10px;color:#767b8a;padding:5px 10px;border-bottom:1px solid #ddd;}
+			td{padding:5px 10px;border-bottom:1px solid #eee;vertical-align:top;}
+			tr{break-inside:avoid;} thead{display:table-header-group;}
+			.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;}
+			.empty{padding:8px 10px;}
+			@page{size:landscape;margin:12mm;}
+			@media print{body{margin:0;-webkit-print-color-adjust:exact;print-color-adjust:exact;}}
+		</style></head><body>
+		<h1>${__('Accounts Receivable — Weekly Review')}</h1>
+		<div class="dim">${__('As of {0}', [esc(page.arw.meta.as_of || '')])} · ${__('Grouped')} ${by_tier ? __('by debt level') : __('by status')} · ${__('Printed by {0}', [esc(frappe.session.user_fullname || frappe.session.user)])}</div>
+		${ledger_html}
+		</body></html>`;
+
+	const w = window.open('', '_blank');
+	if (!w) {
+		frappe.msgprint(__('Allow pop-ups for this site to print.'));
+		return;
+	}
+	w.document.open();
+	w.document.write(html);
+	w.document.close();
+	w.focus();
+	setTimeout(() => w.print(), 300);
 }
