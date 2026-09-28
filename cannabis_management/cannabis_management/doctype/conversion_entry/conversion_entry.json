@@ -1,202 +1,226 @@
 {
-    "actions": [],
-    "allow_rename": 1,
-    "autoname": "CONV-.#####",
-    "creation": "2026-04-03 15:30:00.000000",
-    "doctype": "DocType",
-    "engine": "InnoDB",
-    "field_order": [
-        "section_break_main",
-        "posting_date",
-        "customer",
-        "project",
-        "company",
-        "column_break_main",
-        "reasons",
-        "partners",
-        "sales_order",
-        "amended_from",
-        "section_break_timing",
-        "workstation",
-        "total_time_in_minutes",
-        "timer_status",
-        "started_time",
-        "current_time",
-        "section_break_timelogs",
-        "time_logs",
-        "section_break_items",
-        "scan_metric_tag",
-        "items"
-    ],
-    "fields": [
-        {
-            "fieldname": "section_break_main",
-            "fieldtype": "Section Break"
-        },
-        {
-            "fieldname": "posting_date",
-            "fieldtype": "Date",
-            "label": "Posting Date",
-            "default": "Today",
-            "reqd": 1
-        },
-        {
-            "fieldname": "customer",
-            "fieldtype": "Link",
-            "label": "Customer",
-            "options": "Customer"
-        },
-        {
-            "fieldname": "project",
-            "fieldtype": "Link",
-            "label": "Project",
-            "options": "Project"
-        },
-        {
-            "fieldname": "company",
-            "fieldtype": "Link",
-            "label": "Company",
-            "options": "Company",
-            "default": ":Company",
-            "reqd": 1
-        },
-        {
-            "fieldname": "column_break_main",
-            "fieldtype": "Column Break"
-        },
-        {
-            "fieldname": "reasons",
-            "fieldtype": "Select",
-            "label": "Reasons",
-            "options": "Tolling\nCo-packing\nOthers"
-        },
-        {
-            "fieldname": "partners",
-            "fieldtype": "Select",
-            "label": "Partners",
-            "options": "\nNina\nLeaf\nBIG Oil\nBloom\nNature\nOther"
-        },
-        {
-            "fieldname": "sales_order",
-            "fieldtype": "Link",
-            "label": "Sales Order",
-            "options": "Sales Order"
-        },
-        {
-            "fieldname": "amended_from",
-            "fieldtype": "Link",
-            "label": "Amended From",
-            "no_copy": 1,
-            "options": "Conversion Entry",
-            "print_hide": 1,
-            "read_only": 1,
-            "search_index": 1
-        },
-        {
-            "fieldname": "section_break_timing",
-            "fieldtype": "Section Break",
-            "label": "Job Timing"
-        },
-        {
-            "fieldname": "workstation",
-            "fieldtype": "Link",
-            "label": "Workstation",
-            "options": "Workstation"
-        },
-        {
-            "fieldname": "total_time_in_minutes",
-            "fieldtype": "Float",
-            "label": "Total Time (Minutes)",
-            "read_only": 1,
-            "no_copy": 1
-        },
-        {
-            "fieldname": "timer_status",
-            "fieldtype": "Select",
-            "label": "Timer Status",
-            "options": "\nWork In Progress\nOn Hold",
-            "hidden": 1,
-            "no_copy": 1
-        },
-        {
-            "fieldname": "started_time",
-            "fieldtype": "Datetime",
-            "label": "Started Time",
-            "hidden": 1,
-            "no_copy": 1,
-            "read_only": 1
-        },
-        {
-            "fieldname": "current_time",
-            "fieldtype": "Int",
-            "label": "Current Time",
-            "hidden": 1,
-            "no_copy": 1,
-            "read_only": 1
-        },
-        {
-            "fieldname": "section_break_timelogs",
-            "fieldtype": "Section Break"
-        },
-        {
-            "fieldname": "time_logs",
-            "fieldtype": "Table",
-            "label": "Time Logs",
-            "options": "Conversion Entry Time Log",
-            "no_copy": 1
-        },
-        {
-            "fieldname": "section_break_items",
-            "fieldtype": "Section Break",
-            "label": "Conversion Items"
-        },
-        {
-            "fieldname": "scan_metric_tag",
-            "fieldtype": "Data",
-            "label": "Scan Metric Tag",
-            "no_copy": 1,
-            "description": "Type or scan a Metric Tag's Tag Code / MUID to auto-fill the next empty Raw Material slot below with an item + strain currently in stock under that tag."
-        },
-        {
-            "allow_bulk_edit": 1,
-            "fieldname": "items",
-            "fieldtype": "Table",
-            "label": "Items",
-            "options": "Conversion Entry Item",
-            "reqd": 1
-        }
-    ],
-    "index_web_pages_for_search": 1,
-    "is_submittable": 1,
-    "links": [
-        {
-            "group": "Stock",
-            "link_doctype": "Stock Entry",
-            "link_fieldname": "custom_conversion_entry_reference"
-        }
-    ],
-    "modified": "2026-09-08 00:00:00.000000",
-    "modified_by": "Administrator",
-    "module": "Cannabis Management",
-    "name": "Conversion Entry",
-    "naming_rule": "Expression",
-    "owner": "Administrator",
-    "permissions": [
-        {
-            "create": 1,
-            "delete": 1,
-            "email": 1,
-            "export": 1,
-            "print": 1,
-            "read": 1,
-            "report": 1,
-            "role": "System Manager",
-            "share": 1,
-            "submit": 1,
-            "write": 1
-        }
-    ],
-    "sort_field": "modified",
-    "sort_order": "DESC",
-    "states": []
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "CONV-.#####",
+ "creation": "2026-04-03 15:30:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_main",
+  "posting_date",
+  "customer",
+  "project",
+  "company",
+  "column_break_main",
+  "reasons",
+  "partners",
+  "sales_order",
+  "conversion_status",
+  "amended_from",
+  "section_break_timing",
+  "workstation",
+  "total_time_in_minutes",
+  "timer_status",
+  "started_time",
+  "current_time",
+  "section_break_timelogs",
+  "time_logs",
+  "section_break_items",
+  "scan_metric_tag",
+  "items",
+  "section_break_notes",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_main",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "posting_date",
+   "fieldtype": "Date",
+   "label": "Posting Date",
+   "default": "Today",
+   "reqd": 1
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "label": "Customer",
+   "options": "Customer"
+  },
+  {
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "label": "Project",
+   "options": "Project"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "default": ":Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_main",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "reasons",
+   "fieldtype": "Select",
+   "label": "Reasons",
+   "options": "Tolling\nCo-packing\nOthers"
+  },
+  {
+   "fieldname": "partners",
+   "fieldtype": "Select",
+   "label": "Partners",
+   "options": "\nNina\nLeaf\nBIG Oil\nBloom\nNature\nOther"
+  },
+  {
+   "fieldname": "sales_order",
+   "fieldtype": "Link",
+   "label": "Sales Order",
+   "options": "Sales Order"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "conversion_status",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Conversion Status",
+   "options": "Conversion Status"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Conversion Entry",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "section_break_timing",
+   "fieldtype": "Section Break",
+   "label": "Job Timing"
+  },
+  {
+   "fieldname": "workstation",
+   "fieldtype": "Link",
+   "label": "Workstation",
+   "options": "Workstation"
+  },
+  {
+   "fieldname": "total_time_in_minutes",
+   "fieldtype": "Float",
+   "label": "Total Time (Minutes)",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "timer_status",
+   "fieldtype": "Select",
+   "label": "Timer Status",
+   "options": "\nWork In Progress\nOn Hold",
+   "hidden": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "started_time",
+   "fieldtype": "Datetime",
+   "label": "Started Time",
+   "hidden": 1,
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "current_time",
+   "fieldtype": "Int",
+   "label": "Current Time",
+   "hidden": 1,
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_timelogs",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "time_logs",
+   "fieldtype": "Table",
+   "label": "Time Logs",
+   "options": "Conversion Entry Time Log",
+   "no_copy": 1
+  },
+  {
+   "fieldname": "section_break_items",
+   "fieldtype": "Section Break",
+   "label": "Conversion Items"
+  },
+  {
+   "fieldname": "scan_metric_tag",
+   "fieldtype": "Data",
+   "label": "Scan Metric Tag",
+   "no_copy": 1,
+   "description": "Type or scan a Metric Tag's Tag Code / MUID to auto-fill the next empty Raw Material slot below with an item + strain currently in stock under that tag."
+  },
+  {
+   "allow_bulk_edit": 1,
+   "fieldname": "items",
+   "fieldtype": "Table",
+   "label": "Items",
+   "options": "Conversion Entry Item",
+   "reqd": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_notes",
+   "fieldtype": "Section Break",
+   "label": "Notes"
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "notes",
+   "fieldtype": "Text Editor",
+   "label": "Notes"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [
+  {
+   "group": "Stock",
+   "link_doctype": "Stock Entry",
+   "link_fieldname": "custom_conversion_entry_reference"
+  }
+ ],
+ "modified": "2026-09-28 23:00:28.184237",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Conversion Entry",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
 }
