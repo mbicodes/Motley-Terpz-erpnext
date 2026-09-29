@@ -1,0 +1,69 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-09-27 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "kind",
+  "channel",
+  "ts",
+  "slack_user",
+  "closed"
+ ],
+ "fields": [
+  {
+   "columns": 2,
+   "fieldname": "kind",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Kind",
+   "options": "thread_parent\napproval_dm\ndispatch_post\nexception_post",
+   "reqd": 1
+  },
+  {
+   "columns": 2,
+   "fieldname": "channel",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Channel",
+   "reqd": 1
+  },
+  {
+   "columns": 2,
+   "fieldname": "ts",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Timestamp",
+   "reqd": 1
+  },
+  {
+   "columns": 2,
+   "fieldname": "slack_user",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Slack User"
+  },
+  {
+   "columns": 1,
+   "fieldname": "closed",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Closed"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "issingle": 0,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-09-27 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "MT Dispatch",
+ "name": "Dispatch Slack Message",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

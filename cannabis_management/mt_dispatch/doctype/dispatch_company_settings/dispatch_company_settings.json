@@ -1,0 +1,261 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "field:company",
+ "creation": "2026-09-27 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "company",
+  "enabled",
+  "sb_channels",
+  "orders_channel",
+  "dispatch_channel",
+  "exceptions_channel",
+  "cb_channels",
+  "fulfillment_group_id",
+  "drivers_group_id",
+  "sb_rules",
+  "conversions_enabled",
+  "payment_gate_enabled",
+  "require_muid_on_dn",
+  "cb_rules",
+  "gate_internal_customers",
+  "payment_tolerance",
+  "sb_defaults",
+  "default_source_warehouse",
+  "default_target_warehouse",
+  "conversion_check_warehouse",
+  "conversion_mention",
+  "cb_defaults",
+  "default_mode_of_payment",
+  "sb_schedule",
+  "timezone",
+  "work_start",
+  "work_end",
+  "cb_schedule",
+  "work_days",
+  "digest_time",
+  "sb_reminders",
+  "reminders",
+  "sb_team",
+  "team"
+ ],
+ "fields": [
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "description": "Off means every hook and gate ignores this company's orders.",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Enabled"
+  },
+  {
+   "fieldname": "sb_channels",
+   "fieldtype": "Section Break",
+   "label": "Slack Channels"
+  },
+  {
+   "description": "Channel ID (C...), never the name.",
+   "fieldname": "orders_channel",
+   "fieldtype": "Data",
+   "label": "Orders Channel"
+  },
+  {
+   "fieldname": "dispatch_channel",
+   "fieldtype": "Data",
+   "label": "Dispatch Channel"
+  },
+  {
+   "fieldname": "exceptions_channel",
+   "fieldtype": "Data",
+   "label": "Exceptions Channel"
+  },
+  {
+   "fieldname": "cb_channels",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Slack user group ID, rendered as <!subteam^ID>.",
+   "fieldname": "fulfillment_group_id",
+   "fieldtype": "Data",
+   "label": "Fulfillment Group ID"
+  },
+  {
+   "fieldname": "drivers_group_id",
+   "fieldtype": "Data",
+   "label": "Drivers Group ID"
+  },
+  {
+   "fieldname": "sb_rules",
+   "fieldtype": "Section Break",
+   "label": "Rules"
+  },
+  {
+   "fieldname": "conversions_enabled",
+   "fieldtype": "Check",
+   "label": "Conversions Enabled"
+  },
+  {
+   "fieldname": "payment_gate_enabled",
+   "fieldtype": "Check",
+   "label": "Payment Gate Enabled"
+  },
+  {
+   "fieldname": "require_muid_on_dn",
+   "fieldtype": "Check",
+   "label": "Require Metric Tag on Delivery Note"
+  },
+  {
+   "fieldname": "cb_rules",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Off means intercompany orders skip the payment gate.",
+   "fieldname": "gate_internal_customers",
+   "fieldtype": "Check",
+   "label": "Gate Internal Customers"
+  },
+  {
+   "default": "0.01",
+   "fieldname": "payment_tolerance",
+   "fieldtype": "Currency",
+   "label": "Payment Tolerance"
+  },
+  {
+   "fieldname": "sb_defaults",
+   "fieldtype": "Section Break",
+   "label": "Defaults"
+  },
+  {
+   "fieldname": "default_source_warehouse",
+   "fieldtype": "Link",
+   "label": "Default Source Warehouse",
+   "options": "Warehouse"
+  },
+  {
+   "fieldname": "default_target_warehouse",
+   "fieldtype": "Link",
+   "label": "Default Target Warehouse",
+   "options": "Warehouse"
+  },
+  {
+   "fieldname": "conversion_check_warehouse",
+   "fieldtype": "Link",
+   "options": "Warehouse",
+   "label": "Conversion Check Warehouse",
+   "description": "Stock for the 'Conversion required' message is checked here. Empty: each order line's own warehouse."
+  },
+  {
+   "fieldname": "conversion_mention",
+   "fieldtype": "Data",
+   "label": "Conversion Mention",
+   "description": "Slack member or user-group IDs tagged on 'Needs conversion', comma separated (e.g. U0AJ7HW183G). Empty: the fulfillment team."
+  },
+  {
+   "fieldname": "cb_defaults",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "default_mode_of_payment",
+   "fieldtype": "Link",
+   "label": "Default Mode of Payment",
+   "options": "Mode of Payment"
+  },
+  {
+   "fieldname": "sb_schedule",
+   "fieldtype": "Section Break",
+   "label": "Working Hours"
+  },
+  {
+   "default": "America/Los_Angeles",
+   "fieldname": "timezone",
+   "fieldtype": "Data",
+   "label": "Timezone"
+  },
+  {
+   "default": "08:00:00",
+   "fieldname": "work_start",
+   "fieldtype": "Time",
+   "label": "Work Start"
+  },
+  {
+   "default": "17:00:00",
+   "fieldname": "work_end",
+   "fieldtype": "Time",
+   "label": "Work End"
+  },
+  {
+   "fieldname": "cb_schedule",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Mon,Tue,Wed,Thu,Fri,Sat",
+   "fieldname": "work_days",
+   "fieldtype": "Data",
+   "label": "Work Days"
+  },
+  {
+   "default": "08:40:00",
+   "fieldname": "digest_time",
+   "fieldtype": "Time",
+   "label": "Digest Time"
+  },
+  {
+   "fieldname": "sb_reminders",
+   "fieldtype": "Section Break",
+   "label": "Reminders"
+  },
+  {
+   "fieldname": "reminders",
+   "fieldtype": "Table",
+   "label": "Reminders",
+   "options": "Dispatch Reminder Rule"
+  },
+  {
+   "fieldname": "sb_team",
+   "fieldtype": "Section Break",
+   "label": "Team"
+  },
+  {
+   "fieldname": "team",
+   "fieldtype": "Table",
+   "label": "Team",
+   "options": "Dispatch Team Member"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "issingle": 0,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-09-29 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "MT Dispatch",
+ "name": "Dispatch Company Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

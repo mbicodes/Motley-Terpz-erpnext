@@ -1,0 +1,32 @@
+# Slack app manifest (spec section 7). Paste into api.slack.com -> Create New App -> From a manifest.
+# The URLs point at the live site. For staging, replace erp.motleyterpz.io with stage.alltechvirtual.com.
+display_information:
+  name: MT Dispatch
+  description: Order release for TMM Group
+features:
+  bot_user: { display_name: MT Dispatch, always_online: true }
+  app_home: { home_tab_enabled: true, messages_tab_enabled: true }
+  slash_commands:
+    - command: /order
+      url: https://erp.motleyterpz.io/api/method/cannabis_management.mt_dispatch.slack.endpoints.command
+      description: Show an order
+      usage_hint: "00418"
+    - command: /board
+      url: https://erp.motleyterpz.io/api/method/cannabis_management.mt_dispatch.slack.endpoints.command
+      description: Today by stage
+      usage_hint: "mtm"
+    - command: /hold
+      url: https://erp.motleyterpz.io/api/method/cannabis_management.mt_dispatch.slack.endpoints.command
+      description: Put an order on hold
+      usage_hint: "00418 reason"
+oauth_config:
+  scopes:
+    bot: [chat:write, im:write, files:read, users:read, users:read.email, commands, channels:read, groups:read]
+settings:
+  interactivity:
+    is_enabled: true
+    request_url: https://erp.motleyterpz.io/api/method/cannabis_management.mt_dispatch.slack.endpoints.interact
+    message_menu_options_url: https://erp.motleyterpz.io/api/method/cannabis_management.mt_dispatch.slack.endpoints.options
+  event_subscriptions:
+    request_url: https://erp.motleyterpz.io/api/method/cannabis_management.mt_dispatch.slack.endpoints.events
+    bot_events: [app_home_opened]

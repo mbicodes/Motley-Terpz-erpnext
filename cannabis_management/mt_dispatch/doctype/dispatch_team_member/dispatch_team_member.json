@@ -1,0 +1,91 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-09-27 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "user",
+  "fulfillment",
+  "compliance",
+  "approver",
+  "finance",
+  "dispatch",
+  "can_override",
+  "backup_approver"
+ ],
+ "fields": [
+  {
+   "columns": 3,
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "User",
+   "options": "User",
+   "reqd": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "fulfillment",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Fulfillment"
+  },
+  {
+   "columns": 1,
+   "fieldname": "compliance",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Compliance"
+  },
+  {
+   "columns": 1,
+   "fieldname": "approver",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Approver"
+  },
+  {
+   "columns": 1,
+   "fieldname": "finance",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Finance"
+  },
+  {
+   "columns": 1,
+   "fieldname": "dispatch",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Dispatch"
+  },
+  {
+   "columns": 1,
+   "description": "Release an unpaid order with a reason. Approvers only.",
+   "fieldname": "can_override",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Can Override"
+  },
+  {
+   "description": "Receives approval DMs once the approval reminder has fired.",
+   "fieldname": "backup_approver",
+   "fieldtype": "Check",
+   "label": "Backup Approver"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "issingle": 0,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-09-27 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "MT Dispatch",
+ "name": "Dispatch Team Member",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

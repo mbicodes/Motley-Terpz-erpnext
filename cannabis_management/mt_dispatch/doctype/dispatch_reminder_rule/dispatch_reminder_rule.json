@@ -1,0 +1,64 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-09-27 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "stage",
+  "after_minutes",
+  "notify",
+  "only_when"
+ ],
+ "fields": [
+  {
+   "columns": 3,
+   "fieldname": "stage",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Stage",
+   "options": "\nOrder Received\nAwaiting Conversion\nOrder Preparing\nOrder Prepared\nDelivery Note Ready\nAwaiting Release\nReleased\nOrder Closed Out\nOn Hold\nCancelled",
+   "reqd": 1
+  },
+  {
+   "columns": 2,
+   "fieldname": "after_minutes",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "After (working minutes)",
+   "reqd": 1
+  },
+  {
+   "columns": 2,
+   "fieldname": "notify",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Notify",
+   "options": "\nfulfillment\ncompliance\napprover\nfinance\ndispatch\nexceptions",
+   "reqd": 1
+  },
+  {
+   "columns": 2,
+   "description": "Leave blank to apply regardless of payment. Splits the two Awaiting Release rules in the spec's default table.",
+   "fieldname": "only_when",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Only When",
+   "options": "\npaid\nunpaid"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "issingle": 0,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-09-27 01:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "MT Dispatch",
+ "name": "Dispatch Reminder Rule",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
