@@ -1,0 +1,271 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "format:SHI-{YY}-{#####}",
+ "creation": "2026-09-29 19:21:30.615413",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "client_section",
+  "client_name",
+  "date_expected_by",
+  "client_col",
+  "license_number",
+  "date_dropped_off",
+  "order_section",
+  "oil_html",
+  "live_resin",
+  "distillate",
+  "oil_col",
+  "rosin",
+  "other_oil",
+  "other_oil_type",
+  "hardware_section",
+  "units_of_hardware",
+  "hardware_col",
+  "size_per_unit_g",
+  "strains_section",
+  "desired_strains",
+  "note_section",
+  "policy_note",
+  "management_section",
+  "total_grams",
+  "needs_approval",
+  "approval_status",
+  "management_col",
+  "approved_by",
+  "approval_date",
+  "signature"
+ ],
+ "fields": [
+  {
+   "fieldname": "client_section",
+   "fieldtype": "Section Break",
+   "label": "Client"
+  },
+  {
+   "fieldname": "client_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Client Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "date_expected_by",
+   "fieldtype": "Date",
+   "label": "Date Expected By"
+  },
+  {
+   "fieldname": "client_col",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "license_number",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "License Number"
+  },
+  {
+   "fieldname": "date_dropped_off",
+   "fieldtype": "Date",
+   "label": "Date Dropped Off"
+  },
+  {
+   "fieldname": "order_section",
+   "fieldtype": "Section Break",
+   "label": "Order"
+  },
+  {
+   "fieldname": "oil_html",
+   "fieldtype": "HTML",
+   "options": "<b>Type of Oil</b>"
+  },
+  {
+   "default": "0",
+   "fieldname": "live_resin",
+   "fieldtype": "Check",
+   "label": "Live Resin"
+  },
+  {
+   "default": "0",
+   "fieldname": "distillate",
+   "fieldtype": "Check",
+   "label": "Distillate"
+  },
+  {
+   "fieldname": "oil_col",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "rosin",
+   "fieldtype": "Check",
+   "label": "Rosin"
+  },
+  {
+   "default": "0",
+   "fieldname": "other_oil",
+   "fieldtype": "Check",
+   "label": "Other"
+  },
+  {
+   "depends_on": "eval:doc.other_oil",
+   "fieldname": "other_oil_type",
+   "fieldtype": "Data",
+   "label": "Other \u2014 please specify",
+   "mandatory_depends_on": "eval:doc.other_oil"
+  },
+  {
+   "fieldname": "hardware_section",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "units_of_hardware",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Units of Hardware",
+   "reqd": 1
+  },
+  {
+   "fieldname": "hardware_col",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "size_per_unit_g",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Size per Unit (g)",
+   "precision": "2",
+   "reqd": 1
+  },
+  {
+   "fieldname": "strains_section",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "desired_strains",
+   "fieldtype": "Small Text",
+   "label": "Desired Strains (if available)"
+  },
+  {
+   "fieldname": "note_section",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "policy_note",
+   "fieldtype": "HTML",
+   "options": "<div style='background:#4c1d95;color:#fff;padding:14px 16px;border-radius:8px;font-size:13px;line-height:1.6'><b style='letter-spacing:.5px;font-size:11px'>PLEASE NOTE</b><br>Resin and distillate are limited to 5g per customer when samples are free.<br>Hardware over 5g needs management approval before it is processed.</div>"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "management_section",
+   "fieldtype": "Section Break",
+   "label": "Management Only (hardware over 5g)"
+  },
+  {
+   "description": "Units of Hardware x Size per Unit.",
+   "fieldname": "total_grams",
+   "fieldtype": "Float",
+   "label": "Total Grams",
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "description": "Set automatically when the order is over 5g.",
+   "fieldname": "needs_approval",
+   "fieldtype": "Check",
+   "label": "Needs Management Approval",
+   "read_only": 1
+  },
+  {
+   "default": "Pending",
+   "fieldname": "approval_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Approval Status",
+   "options": "Pending\nApproved\nDenied"
+  },
+  {
+   "fieldname": "management_col",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "approved_by",
+   "fieldtype": "Link",
+   "label": "Approved By",
+   "options": "User"
+  },
+  {
+   "fieldname": "approval_date",
+   "fieldtype": "Date",
+   "label": "Date"
+  },
+  {
+   "fieldname": "signature",
+   "fieldtype": "Signature",
+   "label": "Signature"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-09-29 19:21:30.615413",
+ "modified_by": "Administrator",
+ "module": "Motley Forms",
+ "name": "Sample Hardware Intake",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sales Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sales User",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Manufacturing Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "client_name",
+ "track_changes": 1
+}
