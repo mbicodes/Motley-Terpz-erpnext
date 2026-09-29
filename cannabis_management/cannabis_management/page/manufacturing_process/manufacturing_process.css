@@ -210,6 +210,10 @@
   white-space: normal;
   overflow-wrap: break-word;
 }
+.mc-run-card-output {
+  font-weight: 600;
+  color: var(--mc-purple);
+}
 .mc-run-card .mc-run-meta { padding: 4px 0 0; flex-wrap: wrap; }
 .mc-run-card-body { margin-top: 12px; }
 

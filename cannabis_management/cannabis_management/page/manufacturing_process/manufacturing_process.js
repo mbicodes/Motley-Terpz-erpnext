@@ -137,11 +137,11 @@ class ManufacturingRun {
 			const batch = m.project_name || "No Batch";
 			return {
 				id: m.name,
-				title: `${m.primary_label} · ${batch}`,
+				title: `${m.primary_label}${m.output_label ? ` → ${m.output_label}` : ""} · ${batch}`,
 				start: m.transaction_date,
 				allDay: true,
 				color: COLORS[status_label] || "#007bff",
-				tooltip: `${m.primary_label}\n${batch} · ${status_label}\n${m.primary_qty || ""}\n${m.name}`,
+				tooltip: `${m.primary_label}${m.output_label ? `\n→ ${m.output_label}` : ""}\n${batch} · ${status_label}\n${m.primary_qty || ""}\n${m.name}`,
 			};
 		});
 	}
@@ -243,7 +243,7 @@ class ManufacturingRun {
 			<div class="mc-ops-card-head">
 				<button class="mc-card-toggle" data-action="toggle_card" title="${collapsed ? "Expand" : "Collapse"}" aria-expanded="${collapsed ? "false" : "true"}">${collapsed ? "▸" : "▾"}</button>
 				<div class="mc-ops-card-info">
-					<div class="mc-run-card-title">${esc(m.primary_label)}</div>
+					<div class="mc-run-card-title">${esc(m.primary_label)}${m.output_label ? `<span class="mc-run-card-output" title="Output"> → ${esc(m.output_label)}</span>` : ""}</div>
 					<div class="mc-run-meta">
 						<span title="Transaction Date"><i class="ti ti-calendar" aria-hidden="true"></i> ${esc(this._fmt_date(m.transaction_date) || "—")}</span>
 						<span>${esc(m.primary_qty)} <a class="mc-open-desk-link" onclick="frappe.set_route('Form','Material Request','${esc(m.name)}')">Open in Desk</a></span>
