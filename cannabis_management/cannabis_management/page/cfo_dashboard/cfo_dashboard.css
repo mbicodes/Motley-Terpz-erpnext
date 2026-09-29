@@ -1,0 +1,127 @@
+.cfo-dash {
+	--cfo-navy: #1f3864;
+	--cfo-up: #2e8b57;
+	--cfo-down: #d9534f;
+	--cfo-total: #2f5fa8;
+	--cfo-watch: #e0a800;
+	padding: 4px 0 24px;
+	color: var(--text-color);
+}
+.cfo-loading { padding: 60px; text-align: center; color: var(--text-muted); }
+.cfo-header {
+	display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;
+	background: var(--cfo-navy); color: #fff; border-radius: 8px; padding: 14px 18px; margin-bottom: 12px;
+}
+.cfo-title { font-size: 18px; font-weight: 600; }
+.cfo-sub { font-size: 12px; opacity: 0.85; margin-top: 2px; }
+.cfo-legend { display: flex; gap: 8px; flex-wrap: wrap; }
+.cfo-header .cfo-badge { background: rgba(255, 255, 255, 0.12); color: #fff; }
+
+.cfo-jump { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+.cfo-jump a {
+	font-size: 12px; padding: 3px 10px; border-radius: 14px; cursor: pointer; text-decoration: none;
+	border: 1px solid var(--border-color); color: var(--text-muted); background: var(--card-bg);
+}
+.cfo-jump a:hover { color: var(--text-color); border-color: var(--cfo-total); }
+.cfo-section-block { margin-bottom: 28px; scroll-margin-top: 70px; }
+.cfo-section-title {
+	display: flex; align-items: center; gap: 10px; justify-content: center;
+	background: var(--cfo-navy); color: #fff; font-size: 17px; font-weight: 600;
+	border-radius: 8px; padding: 9px 14px; margin-bottom: 12px;
+}
+.cfo-section-no {
+	background: rgba(255, 255, 255, 0.18); border-radius: 50%; width: 24px; height: 24px;
+	display: inline-flex; align-items: center; justify-content: center; font-size: 13px;
+}
+
+.cfo-panel {
+	background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px;
+	padding: 12px 14px; margin-bottom: 12px; min-width: 0;
+}
+.cfo-panel-title { font-weight: 600; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cfo-muted { color: var(--text-muted); font-size: 12px; }
+.cfo-foot { margin-top: 8px; }
+
+.cfo-grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.cfo-grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.cfo-split { display: grid; grid-template-columns: minmax(240px, 1fr) minmax(0, 2.4fr); gap: 12px; align-items: start; }
+@media (max-width: 1100px) {
+	.cfo-grid-3, .cfo-split { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 700px) {
+	.cfo-grid-2 { grid-template-columns: minmax(0, 1fr); }
+}
+
+.cfo-cards { display: grid; gap: 8px; margin-bottom: 12px; }
+.cfo-cards-4 { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+.cfo-cards-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.cfo-card {
+	border: 1px solid var(--border-color); border-radius: 8px; padding: 10px 12px; background: var(--card-bg);
+}
+.cfo-card-label { font-size: 12px; color: var(--text-muted); }
+.cfo-card-value { font-size: 20px; font-weight: 700; margin: 2px 0 4px; }
+.cfo-card-foot { display: flex; gap: 8px; flex-wrap: wrap; font-size: 11px; color: var(--text-muted); align-items: center; }
+
+.cfo-badge {
+	display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 500;
+	padding: 1px 8px; border-radius: 10px; background: var(--control-bg);
+}
+.cfo-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.cfo-on_track .cfo-dot { background: var(--cfo-up); }
+.cfo-watch .cfo-dot { background: var(--cfo-watch); }
+.cfo-attention .cfo-dot { background: var(--cfo-down); }
+.cfo-na .cfo-dot { background: var(--text-muted); }
+
+.cfo-notes ul { padding-left: 18px; margin: 0; }
+.cfo-notes li { margin-bottom: 6px; font-size: 13px; }
+.cfo-brief { padding: 8px 0; border-bottom: 1px dashed var(--border-color); }
+.cfo-brief:last-child { border-bottom: none; }
+
+.cfo-wf svg { width: 100%; height: auto; display: block; }
+.cfo-axis { stroke: var(--border-color); }
+.cfo-wf-up { fill: var(--cfo-up); }
+.cfo-wf-down { fill: var(--cfo-down); }
+.cfo-wf-total { fill: var(--cfo-total); }
+.cfo-wf-link { stroke: var(--text-muted); stroke-dasharray: 3 3; opacity: 0.6; }
+.cfo-wf-val { font-size: 11px; text-anchor: middle; fill: var(--text-color); }
+.cfo-wf-lbl { font-size: 11px; text-anchor: end; fill: var(--text-muted); }
+
+.cfo-toolbar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+.cfo-spacer { flex: 1; }
+.cfo-pill {
+	border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-color);
+	border-radius: 16px; padding: 4px 14px; font-size: 12px;
+}
+.cfo-pill.active { background: var(--cfo-total); border-color: var(--cfo-total); color: #fff; }
+.cfo-select { border: 1px solid var(--border-color); background: var(--control-bg); color: var(--text-color); border-radius: 6px; padding: 3px 8px; }
+
+.cfo-table-wrap { overflow-x: auto; }
+.cfo-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.cfo-table th, .cfo-table td { padding: 5px 8px; border-bottom: 1px solid var(--border-color); white-space: nowrap; }
+.cfo-table th { color: var(--text-muted); font-weight: 600; background: var(--subtle-fg); }
+.cfo-table th.cfo-group { text-align: center; background: var(--cfo-navy); color: #fff; }
+.cfo-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.cfo-table .cfo-bold td { font-weight: 700; }
+.cfo-table .cfo-section td { font-weight: 600; color: var(--text-muted); background: var(--subtle-fg); }
+.cfo-pos { color: var(--cfo-up); }
+.cfo-neg { color: var(--cfo-down); }
+
+.cfo-dupont-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.cfo-dupont { flex: 1; min-width: 160px; }
+.cfo-op { font-size: 26px; font-weight: 700; color: var(--text-muted); }
+
+/* Export -> PDF / Print: only the dashboard, colours kept */
+@media print {
+	@page { size: A4 landscape; margin: 10mm; }
+	.navbar, .page-head, .page-form, .standard-filter-section, .cfo-jump, .cfo-open, .cfo-toolbar,
+	.desk-sidebar, .layout-side-section, footer { display: none !important; }
+	.page-body, .layout-main-section, .page-wrapper, .container { margin: 0 !important; padding: 0 !important; max-width: none !important; width: 100% !important; }
+	.cfo-dash { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+	.cfo-section-block { break-before: page; }
+	.cfo-section-block:first-of-type { break-before: auto; }
+	.cfo-panel, .cfo-card, tr { break-inside: avoid; }
+	.cfo-table-wrap { overflow: visible; }
+	.cfo-table { font-size: 9px; }
+	.cfo-grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+	.cfo-split { grid-template-columns: minmax(200px, 1fr) minmax(0, 2.4fr) !important; }
+}
