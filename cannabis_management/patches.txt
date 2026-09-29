@@ -29,3 +29,4 @@ cannabis_management.patches.install_home_hub
 cannabis_management.patches.install_manufacturing_portal
 cannabis_management.patches.install_presale_tsbc_block
 cannabis_management.patches.convert_kiosk_photos_to_files
+cannabis_management.patches.install_mt_dispatch

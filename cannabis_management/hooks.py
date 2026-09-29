@@ -192,6 +192,10 @@ after_migrate = [
     # Log fields it drives. Also re-pins the time log's field_order, which is
     # a Property Setter -- new columns stay invisible until named in it.
     "cannabis_management.doc_hooks.job_card.install_custom_fields",
+    # MT Dispatch: the Sales Order stage fields, the audit tables and the
+    # stage Select's options. Code, not fixtures -- a fixture export would
+    # drag in every unrelated Custom Field on Sales Order.
+    "cannabis_management.mt_dispatch.install.install",
     # "Item-wise Sales Register" exists once as a record but ships from two
     # apps, so whichever synced last owns it. This runs after every app's
     # sync and leaves it pointing at this app's version, which carries Cost.
@@ -627,6 +631,14 @@ doc_events = {
 # from the repo) that merges its own entries into `doc_events` at import time.
 # Where the file is absent — which is everywhere but staging — this is a no-op
 # and the hooks simply do not exist.
+# MT Dispatch wires itself in rather than editing the Sales Order, Delivery
+# Note, Conversion Entry and Payment Entry blocks above, which already carry
+# handlers from other modules -- some as bare strings. See mt_dispatch/hooks_wiring.py.
+from cannabis_management.mt_dispatch import hooks_wiring as _mt_dispatch_hooks
+
+_mt_dispatch_hooks.extend_doc_events(doc_events)
+
+
 try:
     from cannabis_management.metrc import local_hooks as _local_hooks
 except ImportError:
@@ -994,3 +1006,8 @@ fixtures = [
     # no longer re-created on migrate.
 ]
 
+
+# MT Dispatch: the reminder cron and the Sales Order stage buttons, merged in
+# the same way as its doc_events above (see mt_dispatch/hooks_wiring.py).
+_mt_dispatch_hooks.extend_scheduler_events(scheduler_events)
+_mt_dispatch_hooks.extend_doctype_js(doctype_js)

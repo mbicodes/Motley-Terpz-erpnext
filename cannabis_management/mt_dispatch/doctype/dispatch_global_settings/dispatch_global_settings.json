@@ -1,0 +1,56 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-09-27 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "bot_token",
+  "signing_secret",
+  "slack_team_id"
+ ],
+ "fields": [
+  {
+   "fieldname": "bot_token",
+   "fieldtype": "Password",
+   "label": "Bot Token"
+  },
+  {
+   "fieldname": "signing_secret",
+   "fieldtype": "Password",
+   "label": "Signing Secret"
+  },
+  {
+   "description": "Payloads from any other workspace are rejected.",
+   "fieldname": "slack_team_id",
+   "fieldtype": "Data",
+   "label": "Slack Team ID"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "istable": 0,
+ "links": [],
+ "modified": "2026-09-27 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "MT Dispatch",
+ "name": "Dispatch Global Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

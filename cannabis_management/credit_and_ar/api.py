@@ -40,6 +40,26 @@ def _require_approver():
 		)
 
 
+def _notify_dispatch(sales_order: str):
+	"""Let the dispatch flow know a Terms order just cleared credit.
+
+	It cannot find this out for itself. Approval is written with db_set, which
+	updates the column and runs no document events at all -- so neither
+	on_update_after_submit nor any other hook fires, and the order would sit
+	outside the flow forever. Failures here are logged and swallowed: dispatch
+	must never be able to block a credit decision.
+	"""
+	try:
+		from cannabis_management.mt_dispatch.flow import on_terms_approved
+
+		on_terms_approved(sales_order)
+	except Exception:
+		frappe.log_error(
+			title="MT Dispatch: could not start flow after Terms approval",
+			message=frappe.get_traceback(),
+		)
+
+
 # ── endpoints ────────────────────────────────────────────────────────────────
 
 
@@ -93,6 +113,7 @@ def approve_terms(sales_order: str, notes: str | None = None):
 		update_modified=False,
 	)
 
+	_notify_dispatch(doc.name)
 	_close_todos(doc)
 	_email_decision(doc, approved=True, note=notes)
 
