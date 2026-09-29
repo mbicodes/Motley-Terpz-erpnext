@@ -1,5 +1,5 @@
 // Copyright (c) 2026, alltechvirtual.com and contributors
-// AR Weekly Review — port of the ar_weekly_review.html mockup onto a Desk page.
+// AR Accountability (formerly AR Weekly Review) — port of the ar_weekly_review.html mockup onto a Desk page.
 //
 // Tier and amount are never stored; every load recomputes them from Sales
 // Invoice server-side (see ar_weekly_review.py). Saving a week's entry inserts
@@ -41,7 +41,7 @@ const ARW_STATUS_DEF = {
 frappe.pages['ar-weekly-review'].on_page_load = function (wrapper) {
 	const page = frappe.ui.make_app_page({
 		parent: wrapper,
-		title: __('AR Weekly Review'),
+		title: __('AR Accountability'),
 		single_column: true,
 	});
 	wrapper.page = page;
@@ -503,7 +503,7 @@ function print_review(page) {
 	}).join('');
 
 	const html = `<!doctype html><html><head><meta charset="utf-8">
-		<title>${__('AR Weekly Review')} — ${esc(page.arw.meta.as_of || '')}</title>
+		<title>${__('AR Accountability')} — ${esc(page.arw.meta.as_of || '')}</title>
 		<style>
 			body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#1f2430;font-size:11.5px;margin:24px;}
 			h1{font-size:17px;margin:0;} h2{font-size:14px;margin:22px 0 8px;border-bottom:2px solid #1f2430;padding-bottom:4px;}

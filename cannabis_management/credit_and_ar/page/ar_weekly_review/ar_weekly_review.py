@@ -1,6 +1,6 @@
 # Copyright (c) 2026, alltechvirtual.com and contributors
 # For license information, please see license.txt
-"""AR Weekly Review — server side.
+"""AR Accountability (formerly AR Weekly Review) — server side.
 
 Tier and outstanding amount are never stored per customer (spec §3): they are
 recomputed from Sales Invoice on every load, which is what makes an account
@@ -39,7 +39,7 @@ def _require_access():
 	"""
 	if PAGE_ROLE not in frappe.get_roles():
 		frappe.throw(
-			_("You are not permitted to view the AR Weekly Review."),
+			_("You are not permitted to view AR Accountability."),
 			frappe.PermissionError,
 		)
 
