@@ -29,9 +29,11 @@ def get_columns():
 		{"label": _("SI Qty"), "fieldname": "qty", "fieldtype": "Float", "width": 90},
 		{"label": _("SI Rate"), "fieldname": "rate", "fieldtype": "Currency", "options": currency, "width": 110},
 		{"label": _("SI Amount"), "fieldname": "amount", "fieldtype": "Currency", "options": currency, "width": 120},
+		{"label": _("SI Income Account"), "fieldname": "income_account", "fieldtype": "Link", "options": "Account", "width": 200},
 		{"label": _("DN Qty"), "fieldname": "dn_qty", "fieldtype": "Float", "width": 90},
 		{"label": _("DN Rate"), "fieldname": "dn_rate", "fieldtype": "Currency", "options": currency, "width": 110},
 		{"label": _("DN Amount"), "fieldname": "dn_amount", "fieldtype": "Currency", "options": currency, "width": 120},
+		{"label": _("DN Cost Account"), "fieldname": "cost_account", "fieldtype": "Data", "width": 200},
 		{"label": _("Valuation Rate"), "fieldname": "valuation_rate", "fieldtype": "Currency", "options": currency, "width": 110},
 		{"label": _("Valuation Amount"), "fieldname": "valuation_amount", "fieldtype": "Currency", "options": currency, "width": 120},
 		{"label": _("Company"), "fieldname": "company", "fieldtype": "Link", "options": "Company", "width": 150},
@@ -56,6 +58,7 @@ def get_data(filters):
 			sii.name AS si_detail, sii.item_code, sii.item_name, sii.qty, sii.stock_qty,
 			sii.uom, sii.base_net_rate AS rate, sii.base_net_amount AS amount,
 			sii.incoming_rate, sii.sales_order, sii.so_detail,
+			sii.income_account AS _line_income_account, sii.expense_account AS _line_expense_account,
 			sii.delivery_note, sii.dn_detail
 		FROM `tabSales Invoice` si
 		INNER JOIN `tabSales Invoice Item` sii ON sii.parent = si.name
@@ -76,7 +79,7 @@ def get_data(filters):
 		"""
 		SELECT dni.parent AS delivery_note, dn.posting_date AS delivery_note_date,
 			dni.name AS dn_detail, dni.item_code, dni.stock_qty, dni.incoming_rate,
-			dni.qty, dni.base_net_amount AS amount,
+			dni.qty, dni.base_net_amount AS amount, dni.expense_account,
 			dni.against_sales_invoice, dni.si_detail, dni.against_sales_order, dni.so_detail
 		FROM `tabDelivery Note Item` dni
 		INNER JOIN `tabDelivery Note` dn ON dn.name = dni.parent AND dn.docstatus = 1
@@ -103,7 +106,7 @@ def get_data(filters):
 		for d in frappe.db.sql(
 			"""
 			SELECT dni.name AS dn_detail, dn.posting_date AS delivery_note_date,
-				dni.qty, dni.base_net_amount AS amount
+				dni.qty, dni.base_net_amount AS amount, dni.expense_account
 			FROM `tabDelivery Note Item` dni
 			INNER JOIN `tabDelivery Note` dn ON dn.name = dni.parent AND dn.docstatus = 1
 			WHERE dni.name IN %(names)s
@@ -124,7 +127,8 @@ def get_data(filters):
 			dn_row = missing_dn_rows.get(row.dn_detail) or frappe._dict()
 			dns = [frappe._dict(delivery_note=row.delivery_note,
 				delivery_note_date=dn_row.delivery_note_date or missing_dn_dates.get(row.delivery_note),
-				dn_detail=row.dn_detail, incoming_rate=None, qty=dn_row.qty, amount=dn_row.amount)]
+				dn_detail=row.dn_detail, incoming_rate=None, qty=dn_row.qty, amount=dn_row.amount,
+				expense_account=dn_row.expense_account)]
 			source = "Invoice Item"
 
 		# Delivery Note's own qty / rate / amount, summed across every DN row matched to this line
@@ -149,17 +153,29 @@ def get_data(filters):
 			voucher_no=voucher_no,
 			_voucher_detail=voucher_detail,
 			_fallback_rate=(dns[0].incoming_rate if dns and not row.update_stock else row.incoming_rate),
+			_dn_names=list(dict.fromkeys(d.delivery_note for d in dns)),
+			_dn_expense_accounts=[d.expense_account for d in dns if d.get("expense_account")],
 		)
 		if voucher_detail:
 			stock_keys.add((voucher_no, voucher_detail))
 		data.append(row)
 
 	valuation = get_sle_valuation(stock_keys)
+	si_income, si_cost, dn_cost = get_posted_accounts(invoices, {n for r in data for n in r._dn_names})
 	for row in data:
+		row.income_account = pick_posted_account([row._line_income_account], si_income.get(row.sales_invoice))
+		if row.update_stock:
+			# No Delivery Note: the invoice itself posted the cost of the stock
+			row.cost_account = pick_posted_account([row._line_expense_account], si_cost.get(row.sales_invoice))
+		else:
+			row.cost_account = pick_posted_account(
+				row._dn_expense_accounts, set().union(*(dn_cost.get(n, set()) for n in row._dn_names))
+			)
 		rate = valuation.get((row.voucher_no, row._voucher_detail))
 		row.valuation_rate = flt(rate if rate is not None else row._fallback_rate)
 		row.valuation_amount = flt(row.valuation_rate * flt(row.stock_qty or row.qty))
-		for key in ("_voucher_detail", "_fallback_rate", "si_detail", "so_detail", "dn_detail",
+		for key in ("_voucher_detail", "_fallback_rate", "_dn_names", "_dn_expense_accounts",
+				"_line_income_account", "_line_expense_account", "si_detail", "so_detail", "dn_detail",
 				"incoming_rate", "update_stock", "stock_qty"):
 			row.pop(key, None)
 	return data
@@ -205,3 +221,58 @@ def get_sle_valuation(keys):
 				abs(flt(r.value) / flt(r.qty)) if flt(r.qty) else flt(r.valuation_rate)
 			)
 	return result
+
+
+def get_posted_accounts(invoices, delivery_notes):
+	"""Income / expense accounts that actually carry a GL Entry for each voucher.
+
+	GL Entry is summed per account, not per item line, so a line's own account
+	is only trusted when the voucher really posted to it. A Delivery Note's cost
+	may be filed under its Sales Invoice (overrides/si_cogs_alignment.py); the
+	origin fields on those rows still name the Delivery Note.
+	"""
+	si_income, si_cost, dn_cost = {}, {}, {}
+	if invoices:
+		for r in frappe.db.sql(
+			"""
+			SELECT gle.voucher_no, gle.account, acc.root_type
+			FROM `tabGL Entry` gle
+			INNER JOIN `tabAccount` acc ON acc.name = gle.account
+			WHERE gle.is_cancelled = 0 AND gle.voucher_type = 'Sales Invoice'
+				AND gle.voucher_no IN %(invoices)s
+				AND IFNULL(gle.custom_origin_voucher_no, '') = ''
+				AND acc.root_type IN ('Income', 'Expense')
+			GROUP BY gle.voucher_no, gle.account, acc.root_type
+			""",
+			{"invoices": list(invoices)},
+			as_dict=True,
+		):
+			target = si_income if r.root_type == "Income" else si_cost
+			target.setdefault(r.voucher_no, set()).add(r.account)
+	if delivery_notes:
+		for r in frappe.db.sql(
+			"""
+			SELECT IF(IFNULL(gle.custom_origin_voucher_no, '') = '', gle.voucher_no,
+					gle.custom_origin_voucher_no) AS delivery_note, gle.account
+			FROM `tabGL Entry` gle
+			INNER JOIN `tabAccount` acc ON acc.name = gle.account
+			WHERE gle.is_cancelled = 0 AND acc.root_type = 'Expense'
+				AND ((gle.voucher_type = 'Delivery Note' AND gle.voucher_no IN %(dns)s
+						AND IFNULL(gle.custom_origin_voucher_no, '') = '')
+					OR (gle.custom_origin_voucher_type = 'Delivery Note'
+						AND gle.custom_origin_voucher_no IN %(dns)s))
+			GROUP BY delivery_note, gle.account
+			""",
+			{"dns": list(delivery_notes)},
+			as_dict=True,
+		):
+			dn_cost.setdefault(r.delivery_note, set()).add(r.account)
+	return si_income, si_cost, dn_cost
+
+
+def pick_posted_account(line_accounts, posted):
+	"""The line's own account if the voucher posted to it, else what it did post."""
+	if not posted:
+		return None
+	matched = [a for a in dict.fromkeys(line_accounts) if a in posted]
+	return ", ".join(matched or sorted(posted))
