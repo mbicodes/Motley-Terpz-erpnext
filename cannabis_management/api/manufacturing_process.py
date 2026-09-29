@@ -49,6 +49,7 @@ def get_dashboard(company=None):
     mr_names = [m.name for m in mrs]
     mr_items_map = {}
     mr_fg_map = {}
+    mr_output_map = {}
 
     if mr_names:
         for row in frappe.get_all(
@@ -76,6 +77,29 @@ def get_dashboard(company=None):
         ):
             wo_counts[row.material_request] = row.cnt
 
+        # What each run makes (Bubble Hash, Rosin, ...), in the order its Work
+        # Orders were raised -- the card title otherwise shows only the input.
+        for row in frappe.get_all(
+            "Work Order",
+            filters={"material_request": ["in", mr_names], "docstatus": ["!=", 2]},
+            fields=["material_request", "item_name"],
+            order_by="creation asc",
+        ):
+            names = mr_output_map.setdefault(row.material_request, [])
+            if row.item_name and row.item_name not in names:
+                names.append(row.item_name)
+
+        # Not released yet: fall back to the planned Finished Goods rows.
+        fg_items = list({r.item for rows in mr_fg_map.values() for r in rows if r.item})
+        fg_item_names = dict(frappe.get_all(
+            "Item", filters={"name": ["in", fg_items]}, fields=["name", "item_name"], as_list=True,
+        )) if fg_items else {}
+        for mr_name, rows in mr_fg_map.items():
+            if mr_name not in mr_output_map:
+                names = list(dict.fromkeys(fg_item_names.get(r.item, r.item) for r in rows if r.item))
+                if names:
+                    mr_output_map[mr_name] = names
+
     # Resolve project names in bulk
     project_ids = list(set(m.custom_project for m in mrs if m.custom_project))
     project_name_map = {}
@@ -92,6 +116,7 @@ def get_dashboard(company=None):
         first_item = m["items"][0] if m["items"] else None
         m["primary_label"] = first_item["item_name"] if first_item else m.name
         m["primary_qty"] = f"{first_item['qty']} {first_item['uom']}" if first_item else ""
+        m["output_label"] = ", ".join(mr_output_map.get(m.name, []))
 
     # Active Job Cards (Open, Work In Progress, Material Transferred)
     active_statuses = ["Open", "Work In Progress", "Material Transferred"]
