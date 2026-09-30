@@ -18,8 +18,8 @@
  "is_hidden": 0,
  "label": "Conversion",
  "links": [],
- "modified": "2026-08-29 06:12:45.904963",
- "modified_by": "Administrator",
+ "modified": "2026-09-30 08:06:11.109597",
+ "modified_by": "muhammad.huzaifa@alltechvirtual.com",
  "module": "Cannabis Management",
  "name": "Conversion",
  "number_cards": [],
@@ -36,6 +36,9 @@
   },
   {
    "role": "Wolf - Consolidated"
+  },
+  {
+   "role": "Tori S - Consolidated"
   }
  ],
  "sequence_id": 55.0,
