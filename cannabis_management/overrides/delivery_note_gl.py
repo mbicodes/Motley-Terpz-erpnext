@@ -129,3 +129,32 @@ def reverse_origin_entries(origin_type, origin_no):
     )
     if rows:
         make_reverse_gl_entries(gl_entries=rows)
+
+
+@frappe.whitelist()
+def get_accounting_ledger_route(delivery_note):
+    """Voucher and dates the Delivery Note's stock GL actually sits under.
+
+    When the stock GL was filed under the linked Sales Invoice, the note's own
+    number and date find nothing in the General Ledger, so point the report at
+    the invoice and the date it posted on instead.
+    """
+    doc = frappe.get_doc("Delivery Note", delivery_note)
+    doc.check_permission("read")
+
+    rows = frappe.db.sql(
+        """
+        SELECT voucher_no, MIN(posting_date) AS from_date, MAX(posting_date) AS to_date
+        FROM `tabGL Entry`
+        WHERE (voucher_type = 'Delivery Note' AND voucher_no = %(dn)s)
+            OR (`{otype}` = 'Delivery Note' AND `{ono}` = %(dn)s)
+        GROUP BY voucher_no
+        ORDER BY voucher_no = %(dn)s DESC, MIN(posting_date)
+        LIMIT 1
+        """.format(otype=ORIGIN_TYPE_FIELD, ono=ORIGIN_NO_FIELD),
+        {"dn": doc.name},
+        as_dict=True,
+    )
+    if rows:
+        return rows[0]
+    return {"voucher_no": doc.name, "from_date": doc.posting_date, "to_date": doc.posting_date}
