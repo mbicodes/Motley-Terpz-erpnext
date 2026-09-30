@@ -85,6 +85,29 @@ def _source(payload):
 	return channel, message.get("thread_ts") or message.get("ts")
 
 
+def _unreachable_status(payload, value, slack_user):
+	"""A stage picked that no step leads to from here: say where the order can
+	go instead, and put the dropdown back on its real stage."""
+	sales_order = value.get("so")
+	if not sales_order or not frappe.db.exists("Sales Order", sales_order):
+		return _json()
+	so = frappe.get_doc("Sales Order", sales_order)
+	cfg = get_company_settings(so.company)
+	stage = so.get("custom_logistic_status") or "no stage"
+	reachable = []
+	if cfg:
+		for action_id in blocks.stage_action_ids(so, cfg):
+			target = blocks.BUTTON_TARGET.get(action_id, "") or so.get("custom_hold_from_stage")
+			if target and target not in reachable:
+				reachable.append(target)
+	text = f":no_entry: {so.name} can't move from *{stage}* to *{value.get('to')}* directly."
+	text += f" From {stage} it can move to: {', '.join(reachable)}." if reachable else f" There is no step to take from {stage}."
+	channel, _ts = _source(payload)
+	_enqueue("say", slack_user=slack_user, text=text, response_url=payload.get("response_url"), channel=channel)
+	_enqueue("reset_status", sales_order=sales_order)
+	return _json()
+
+
 def _block_actions(payload):
 	action = (payload.get("actions") or [{}])[0]
 	action_id = action.get("action_id") or ""
@@ -103,6 +126,8 @@ def _block_actions(payload):
 			action_id = value.pop("a", "")
 			if not action_id:
 				return _json()  # re-picked the current stage
+			if action_id == blocks.UNREACHABLE_STATUS:
+				return _unreachable_status(payload, value, slack_user)
 		else:
 			value = json.loads(action.get("value") or "{}")
 	except ValueError:

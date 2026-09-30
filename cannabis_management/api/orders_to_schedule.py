@@ -1,7 +1,7 @@
 import frappe
 
 @frappe.whitelist()
-def get_orders_need_to_schedule(page=1, page_size=10, logistic_status="Need to Schedule", company="Motley Terpz", filters=None):
+def get_orders_need_to_schedule(page=1, page_size=10, logistic_status="Order Received", company="Motley Terpz", filters=None):
     """
     Fetch Sales Orders that need to be scheduled with pagination.
     """
@@ -80,7 +80,7 @@ def get_orders_need_to_schedule(page=1, page_size=10, logistic_status="Need to S
     }
 
 @frappe.whitelist()
-def get_orders_need_to_schedule1(page=1, page_size=10, logistic_status="Need to Schedule", company="Motley Terpz", filters=None):
+def get_orders_need_to_schedule1(page=1, page_size=10, logistic_status="Order Received", company="Motley Terpz", filters=None):
     """
     Fetch Sales Orders that need to be scheduled with pagination.
     This function is identical to get_orders_need_to_schedule to ensure consistency across all scheduling views.

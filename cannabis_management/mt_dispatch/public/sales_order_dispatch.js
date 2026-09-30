@@ -32,13 +32,11 @@ frappe.ui.form.on("Sales Order", {
 		if (frm._mt_reverting || frm.doc.docstatus !== 1) return;
 		const chosen = frm.doc.custom_logistic_status;
 		const board = frm._mt_board || {};
+		// Company not on dispatch: a plain field, saved with Update like any other.
+		if (!board.enabled) return;
 		mt_dispatch.revert_stage(frm);
 		if (!chosen || chosen === board.stage) return;
 
-		if (!board.enabled) {
-			frappe.msgprint(__("{0} is not set up for dispatch.", [frm.doc.company]));
-			return;
-		}
 		const a = (board.actions || []).find((x) => x.to === chosen);
 		if (!a) {
 			const reachable = [...new Set((board.actions || []).map((x) => x.to).filter(Boolean))];
