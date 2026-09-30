@@ -25,6 +25,7 @@ def get_columns():
 		{"label": _("Voucher No"), "fieldname": "voucher_no", "fieldtype": "Dynamic Link", "options": "voucher_type", "width": 150},
 		{"label": _("Item"), "fieldname": "item_code", "fieldtype": "Link", "options": "Item", "width": 150},
 		{"label": _("Item Name"), "fieldname": "item_name", "fieldtype": "Data", "width": 200},
+		{"label": _("Item Group"), "fieldname": "item_group", "fieldtype": "Link", "options": "Item Group", "width": 140},
 		{"label": _("UOM"), "fieldname": "uom", "fieldtype": "Link", "options": "UOM", "width": 70},
 		{"label": _("SI Qty"), "fieldname": "qty", "fieldtype": "Float", "width": 90},
 		{"label": _("SI Rate"), "fieldname": "rate", "fieldtype": "Currency", "options": currency, "width": 110},
@@ -55,7 +56,7 @@ def get_data(filters):
 		SELECT
 			si.name AS sales_invoice, si.posting_date AS sales_invoice_date, si.customer,
 			si.company, si.update_stock,
-			sii.name AS si_detail, sii.item_code, sii.item_name, sii.qty, sii.stock_qty,
+			sii.name AS si_detail, sii.item_code, sii.item_name, sii.item_group, sii.qty, sii.stock_qty,
 			sii.uom, sii.base_net_rate AS rate, sii.base_net_amount AS amount,
 			sii.incoming_rate, sii.sales_order, sii.so_detail,
 			sii.income_account AS _line_income_account, sii.expense_account AS _line_expense_account,
