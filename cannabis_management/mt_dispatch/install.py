@@ -212,13 +212,15 @@ def install_property_setters():
 		},
 		is_system_generated=False,
 	)
-	# Editable on a submitted order, so people can change the stage from the
-	# field itself. The form script turns a pick into the matching transition
-	# (same gates, same dialogs); guard_stage_field still rejects any save or
-	# API write that tries to set it directly.
+	# Editable on drafts and submitted orders alike, as it was before dispatch.
+	# On a dispatch company the form script turns a pick into the matching
+	# transition and guard_stage_field rejects a direct save; elsewhere it is a
+	# plain field. No read_only_depends_on: drafts must stay editable too.
+	frappe.db.delete("Property Setter", {
+		"doc_type": "Sales Order", "field_name": STAGE_FIELD, "property": "read_only_depends_on",
+	})
 	for prop, value, ptype in (
 		("read_only", "0", "Check"),
-		("read_only_depends_on", "eval:doc.docstatus!==1", "Code"),
 		# An amended order starts its own flow. Copying the cancelled order's
 		# stage would make on_submit think it is already on the board.
 		("no_copy", "1", "Check"),

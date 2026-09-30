@@ -143,7 +143,8 @@ def get_orders_at_lab(page=1, page_size=10, company="Motley Terpz", filters=None
 
     base_filters = {
         "docstatus": 1,
-        "custom_logistic_status": "Scheduled",
+        # MT Dispatch stage; the old "Scheduled" option no longer exists
+        "custom_logistic_status": "Awaiting Conversion",
         "custom_sales_stages": "Ready to Go Out",
         "company": company
     }
@@ -602,7 +603,8 @@ def get_orders_staged(page=1, page_size=10, company="Motley Terpz", filters=None
 
     base_filters = {
         "docstatus": 1,
-        "custom_logistic_status": "Order Staged",
+        # MT Dispatch stage; the old "Order Staged" option no longer exists
+        "custom_logistic_status": "Delivery Note Ready",
         "company": company
     }
 

@@ -359,7 +359,13 @@ def _as_dict(payload):
 
 
 def guard_stage_field(doc, method=None):
-	"""Nothing edits the stage except this module."""
+	"""Nothing edits the stage except this module -- for companies on dispatch.
+
+	A company with no enabled Dispatch Company Settings has no buttons to go
+	through, so its people set Logistic Status by hand like any other field.
+	"""
+	if not get_company_settings(doc.company):
+		return
 	if doc.has_value_changed(STAGE_FIELD) and not frappe.flags.get("mt_dispatch"):
 		frappe.throw(
 			_("Stage changes go through the dispatch buttons."),
@@ -375,7 +381,13 @@ def enter_flow(so, source="System"):
 		return False
 	if so.docstatus != 1:
 		return False
-	if so.get(STAGE_FIELD) in stages.ALL_STAGES:
+	# On the board means the flow put it there, not that the field holds a
+	# stage: Logistic Status is editable on a draft, so a new order can arrive
+	# at submit already reading "Order Received" without ever having entered
+	# (no stage log, no Slack thread). Such a value is dropped and the order
+	# enters properly below.
+	on_board = frappe.db.exists("Dispatch Stage Log", {"parent": so.name, "parenttype": "Sales Order"})
+	if on_board and so.get(STAGE_FIELD) in stages.ALL_STAGES:
 		return False
 
 	try:
@@ -383,6 +395,8 @@ def enter_flow(so, source="System"):
 	except GateError:
 		return False
 
+	if not on_board:
+		so.set(STAGE_FIELD, None)
 	set_stage(so, RECEIVED, "enter_flow", source)
 	notify.enqueue(
 		"cannabis_management.mt_dispatch.notify.on_transition",

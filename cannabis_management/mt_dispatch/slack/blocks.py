@@ -59,6 +59,9 @@ DIRECT_ACTIONS = {
 
 # Where each stage-changing button takes the order, for the status dropdown.
 # record_payment and new_conversion do not change the stage, so they are not here.
+# Dropdown value for a stage no step of the order leads to right now.
+UNREACHABLE_STATUS = "mt:unreachable"
+
 BUTTON_TARGET = {
 	"mt:flag_conversion": stages.AWAITING_CONVERSION,
 	"mt:start_preparing": stages.PREPARING,
@@ -263,22 +266,42 @@ def stage_action_ids(so, cfg, facts=None):
 
 
 def status_select(so, action_ids, show_current=False):
-	"""A Logistic Status dropdown: pick the stage, run the step that gets there.
+	"""A Logistic Status dropdown listing every stage.
+
+	A stage one of this order's steps leads to runs that step, as its button
+	would. Any other stage is listed too, so the whole flow is visible, and
+	picking it only explains where the order can go from here
+	(UNREACHABLE_STATUS); the gates are never skipped.
 
 	With show_current the order's own stage is the selected option, so the
 	dropdown doubles as the status display. Picking it again does nothing.
 	"""
 	options = []
-	current = so.get("custom_logistic_status") or "No stage"
+	stage = so.get("custom_logistic_status")
+	current = stage or "No stage"
+
+	def value(a, **extra):
+		return json.dumps({"so": so.name, "stage": stage, "a": a, **extra}, separators=(",", ":"))
+
 	if show_current:
-		options.append(option(current, json.dumps({"so": so.name, "stage": so.get("custom_logistic_status"), "a": ""}, separators=(",", ":"))))
+		options.append(option(current, value("")))
+
+	reachable = {}
 	for action_id in action_ids:
 		if action_id not in BUTTON_TARGET:
 			continue
 		target = BUTTON_TARGET[action_id] or so.get("custom_hold_from_stage") or "previous stage"
-		label = f"{target} ({BUTTONS[action_id][0]})" if action_id == "mt:override" else target
-		value = json.dumps({"so": so.name, "stage": so.get("custom_logistic_status"), "a": action_id}, separators=(",", ":"))
-		options.append(option(label, value))
+		reachable.setdefault(target, action_id)
+
+	for target in list(stages.ALL_STAGES) + [t for t in reachable if t not in stages.ALL_STAGES]:
+		if target == stage or target == stages.CANCELLED:
+			continue  # Cancelled comes from cancelling the Sales Order itself
+		action_id = reachable.get(target)
+		if action_id:
+			label = f"{target} ({BUTTONS[action_id][0]})" if action_id == "mt:override" else target
+			options.append(option(label, value(action_id)))
+		else:
+			options.append(option(target, value(UNREACHABLE_STATUS, to=target)))
 	if not options or (show_current and len(options) == 1):
 		return None
 	select = {
