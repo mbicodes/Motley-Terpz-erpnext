@@ -571,6 +571,26 @@ function _pull_project_items(frm) {
 				frappe.msgprint(__('Tick at least one item.'));
 				return;
 			}
+			// A new Conversion Entry opens with an untouched first row, so pulled
+			// items would otherwise stack underneath an empty one that then fails
+			// its own mandatory checks. Only rows with nothing in them go: a row
+			// someone has started is never discarded.
+			const is_blank = (r) => !r.raw_material_1 && !r.finished_good_1
+				&& !flt(r.qty_rm_1) && !flt(r.qty_fg_1);
+			const grid = frm.get_field('items').grid;
+			(frm.doc.items || []).filter(is_blank).forEach((r) => {
+				const grid_row = (grid.grid_rows_by_docname || {})[r.name];
+				if (grid_row) {
+					grid_row.remove();
+				} else {
+					// The grid has not rendered that row yet, so take it off the
+					// document directly and let the refresh below redraw.
+					frm.doc.items = frm.doc.items.filter((x) => x.name !== r.name);
+					frappe.model.clear_doc(r.doctype, r.name);
+				}
+			});
+			(frm.doc.items || []).forEach((r, i) => { r.idx = i + 1; });
+
 			picked.forEach((item) => {
 				const row = frm.add_child('items', {
 					// One row per item: the puller picks the conversion type and
