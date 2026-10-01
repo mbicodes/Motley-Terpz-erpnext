@@ -60,13 +60,21 @@
   "section_break_microns",
   "is_bubble_hash",
   "bh_micron_150u",
+  "bh_grams_150u",
   "bh_micron_120u_73u",
+  "bh_grams_120u_73u",
   "bh_micron_45u",
+  "bh_grams_45u",
+  "bh_total_grams",
   "column_break_microns",
   "is_rosin",
   "rosin_micron_150u",
+  "rosin_grams_150u",
   "rosin_micron_120u_73u",
-  "rosin_micron_45u"
+  "rosin_grams_120u_73u",
+  "rosin_micron_45u",
+  "rosin_grams_45u",
+  "rosin_total_grams"
  ],
  "fields": [
   {
@@ -553,6 +561,64 @@
    "label": "45u",
    "depends_on": "eval:parent.reasons == \"Tolling\" && doc.is_rosin",
    "default": "0"
+  },
+  {
+   "fieldname": "bh_grams_150u",
+   "fieldtype": "Float",
+   "label": "150u grams",
+   "precision": "2",
+   "depends_on": "eval:parent.reasons == \"Tolling\" && doc.is_bubble_hash && doc.bh_micron_150u"
+  },
+  {
+   "fieldname": "bh_grams_120u_73u",
+   "fieldtype": "Float",
+   "label": "120u - 73u grams",
+   "precision": "2",
+   "depends_on": "eval:parent.reasons == \"Tolling\" && doc.is_bubble_hash && doc.bh_micron_120u_73u"
+  },
+  {
+   "fieldname": "bh_grams_45u",
+   "fieldtype": "Float",
+   "label": "45u grams",
+   "precision": "2",
+   "depends_on": "eval:parent.reasons == \"Tolling\" && doc.is_bubble_hash && doc.bh_micron_45u"
+  },
+  {
+   "fieldname": "rosin_grams_150u",
+   "fieldtype": "Float",
+   "label": "150u grams",
+   "precision": "2",
+   "depends_on": "eval:parent.reasons == \"Tolling\" && doc.is_rosin && doc.rosin_micron_150u"
+  },
+  {
+   "fieldname": "rosin_grams_120u_73u",
+   "fieldtype": "Float",
+   "label": "120u - 73u grams",
+   "precision": "2",
+   "depends_on": "eval:parent.reasons == \"Tolling\" && doc.is_rosin && doc.rosin_micron_120u_73u"
+  },
+  {
+   "fieldname": "rosin_grams_45u",
+   "fieldtype": "Float",
+   "label": "45u grams",
+   "precision": "2",
+   "depends_on": "eval:parent.reasons == \"Tolling\" && doc.is_rosin && doc.rosin_micron_45u"
+  },
+  {
+   "fieldname": "bh_total_grams",
+   "fieldtype": "Float",
+   "label": "Total Hash (g)",
+   "read_only": 1,
+   "precision": "2",
+   "depends_on": "eval:parent.reasons == \"Tolling\" && doc.is_bubble_hash"
+  },
+  {
+   "fieldname": "rosin_total_grams",
+   "fieldtype": "Float",
+   "label": "Total Rosin (g)",
+   "read_only": 1,
+   "precision": "2",
+   "depends_on": "eval:parent.reasons == \"Tolling\" && doc.is_rosin"
   }
  ],
  "index_web_pages_for_search": 1,

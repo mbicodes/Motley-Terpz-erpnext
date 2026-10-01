@@ -217,10 +217,10 @@ def _parse_conversion(values, meta):
 			"raw_materials": raw,
 			"finished_goods": finished,
 		}
-		for field in blocks.MICRON_FIELDS:
-			v = state_value(values, f"r{r}_{field}")
+		for grams_field, _check, _flag, _label in blocks.MICRON_FIELDS:
+			v = state_value(values, f"r{r}_{grams_field}")
 			if v not in (None, ""):
-				row[field] = flt(v)
+				row[grams_field] = flt(v)
 		rows.append(row)
 
 	payload = {

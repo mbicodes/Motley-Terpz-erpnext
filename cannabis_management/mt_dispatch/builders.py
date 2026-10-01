@@ -12,7 +12,18 @@ from cannabis_management.mt_dispatch.gates import GateError, draft_delivery_note
 
 MAX_RAW_MATERIALS = 7
 MAX_FINISHED_GOODS = 3
-MICRON_FIELDS = ["micron_150u", "micron_120u", "micron_90u", "micron_73u", "micron_45u", "micron_25u"]
+# (grams field, its tick, the product tick, Slack label). Conversion Entry Item
+# records microns as "the product was run at this size, and this many grams came
+# off it", so a gram figure from Slack has to bring both ticks with it or the
+# form would show a number under an unticked box.
+MICRON_FIELDS = [
+	("bh_grams_150u", "bh_micron_150u", "is_bubble_hash", "Bubble hash 150µ"),
+	("bh_grams_120u_73u", "bh_micron_120u_73u", "is_bubble_hash", "Bubble hash 120µ - 73µ"),
+	("bh_grams_45u", "bh_micron_45u", "is_bubble_hash", "Bubble hash 45µ"),
+	("rosin_grams_150u", "rosin_micron_150u", "is_rosin", "Rosin 150µ"),
+	("rosin_grams_120u_73u", "rosin_micron_120u_73u", "is_rosin", "Rosin 120µ - 73µ"),
+	("rosin_grams_45u", "rosin_micron_45u", "is_rosin", "Rosin 45µ"),
+]
 
 
 # ── Conversion Entry ─────────────────────────────────────────────────────────
@@ -110,9 +121,11 @@ def make_conversion_entry(so, cfg, payload):
 			if entry.get("tag"):
 				values[f"fg_{n}_tag"] = entry["tag"]
 
-		for field in MICRON_FIELDS:
-			if row.get(field):
-				values[field] = flt(row[field])
+		for grams_field, check_field, product_flag, _label in MICRON_FIELDS:
+			if row.get(grams_field):
+				values[grams_field] = flt(row[grams_field])
+				values[check_field] = 1
+				values[product_flag] = 1
 
 		ce.append("items", values)
 

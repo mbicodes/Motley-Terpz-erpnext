@@ -20,7 +20,9 @@ MAX_SLACK_ROWS = 3          # Conversion rows the Slack form takes
 MAX_SLACK_RAW = 3           # raw materials per row on the Slack form
 MAX_SLACK_FINISHED = 3
 MAX_DN_LINES = 20
-MICRON_FIELDS = ["micron_150u", "micron_120u", "micron_90u", "micron_73u", "micron_45u", "micron_25u"]
+# Imported rather than restated, so the modal can never offer a micron the
+# builder would not store.
+from cannabis_management.mt_dispatch.builders import MICRON_FIELDS  # noqa: E402
 
 # action_id -> (label, style). Buttons that open a modal are marked in MODAL_ACTIONS.
 BUTTONS = {
@@ -628,9 +630,13 @@ def conversion_modal(so, cfg, rows=1, microns=False):
 			)
 			blocks.append(input_block(f"r{r}_fgq{n}", f"Finished good {n} qty", number_input("value", min_value=0), optional=n > 1))
 		if microns:
-			for field in MICRON_FIELDS:
-				label = field.replace("micron_", "").replace("u", "µ")
-				blocks.append(input_block(f"r{r}_{field}", f"Row {r} micron {label}", number_input("value", min_value=0), optional=True))
+			for grams_field, _check, _flag, label in MICRON_FIELDS:
+				blocks.append(
+					input_block(
+						f"r{r}_{grams_field}", f"Row {r} {label} (g)",
+						number_input("value", min_value=0), optional=True,
+					)
+				)
 
 	extra = []
 	if rows < MAX_SLACK_ROWS:
