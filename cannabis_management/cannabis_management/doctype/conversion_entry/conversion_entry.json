@@ -9,6 +9,7 @@
   "section_break_main",
   "posting_date",
   "customer",
+  "supplier",
   "project",
   "company",
   "column_break_main",
@@ -47,7 +48,16 @@
    "fieldname": "customer",
    "fieldtype": "Link",
    "label": "Customer",
-   "options": "Customer"
+   "options": "Customer",
+   "depends_on": "eval:doc.reasons != 'Tolling'"
+  },
+  {
+   "depends_on": "eval:doc.reasons == 'Tolling'",
+   "fieldname": "supplier",
+   "fieldtype": "Link",
+   "label": "Supplier",
+   "mandatory_depends_on": "eval:doc.reasons == 'Tolling'",
+   "options": "Supplier"
   },
   {
    "fieldname": "project",
@@ -71,7 +81,7 @@
    "fieldname": "reasons",
    "fieldtype": "Select",
    "label": "Reasons",
-   "options": "Tolling\nCo-packing\nOthers"
+   "options": "Blending\nTolling\nCo-packing\nOthers"
   },
   {
    "fieldname": "partners",
@@ -199,7 +209,7 @@
    "link_fieldname": "custom_conversion_entry_reference"
   }
  ],
- "modified": "2026-09-28 23:00:28.184237",
+ "modified": "2026-10-01 21:54:34.414073",
  "modified_by": "Administrator",
  "module": "Cannabis Management",
  "name": "Conversion Entry",

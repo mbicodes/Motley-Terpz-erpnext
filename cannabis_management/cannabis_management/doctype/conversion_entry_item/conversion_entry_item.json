@@ -11,24 +11,31 @@
   "target_warehouse",
   "raw_material_1",
   "qty_rm_1",
+  "qty_rm_1_g",
   "rm_1_tag",
   "raw_material_2",
   "qty_rm_2",
+  "qty_rm_2_g",
   "rm_2_tag",
   "raw_material_3",
   "qty_rm_3",
+  "qty_rm_3_g",
   "rm_3_tag",
   "raw_material_4",
   "qty_rm_4",
+  "qty_rm_4_g",
   "rm_4_tag",
   "raw_material_5",
   "qty_rm_5",
+  "qty_rm_5_g",
   "rm_5_tag",
   "raw_material_6",
   "qty_rm_6",
+  "qty_rm_6_g",
   "rm_6_tag",
   "raw_material_7",
   "qty_rm_7",
+  "qty_rm_7_g",
   "rm_7_tag",
   "column_break_fg",
   "finished_good_1",
@@ -51,13 +58,15 @@
   "fg_2_item_group",
   "fg_3_item_group",
   "section_break_microns",
-  "micron_150u",
-  "micron_120u",
-  "micron_90u",
+  "is_bubble_hash",
+  "bh_micron_150u",
+  "bh_micron_120u_73u",
+  "bh_micron_45u",
   "column_break_microns",
-  "micron_73u",
-  "micron_45u",
-  "micron_25u"
+  "is_rosin",
+  "rosin_micron_150u",
+  "rosin_micron_120u_73u",
+  "rosin_micron_45u"
  ],
  "fields": [
   {
@@ -416,44 +425,134 @@
    "label": "Microns"
   },
   {
-   "depends_on": "eval:parent.reasons == \"Tolling\"",
-   "fieldname": "micron_150u",
-   "fieldtype": "Float",
-   "label": "150u"
-  },
-  {
-   "depends_on": "eval:parent.reasons == \"Tolling\"",
-   "fieldname": "micron_120u",
-   "fieldtype": "Float",
-   "label": "120u"
-  },
-  {
-   "depends_on": "eval:parent.reasons == \"Tolling\"",
-   "fieldname": "micron_90u",
-   "fieldtype": "Float",
-   "label": "90u"
-  },
-  {
    "fieldname": "column_break_microns",
    "fieldtype": "Column Break"
   },
   {
-   "depends_on": "eval:parent.reasons == \"Tolling\"",
-   "fieldname": "micron_73u",
+   "fieldname": "qty_rm_1_g",
    "fieldtype": "Float",
-   "label": "73u"
+   "label": "Qty (RM 1) in g",
+   "read_only": 1,
+   "precision": "2",
+   "no_copy": 1,
+   "depends_on": "eval:doc.qty_rm_1",
+   "description": "Equivalent of Qty (RM 1) in grams. Stock still moves in the item's own UOM."
   },
   {
-   "depends_on": "eval:parent.reasons == \"Tolling\"",
-   "fieldname": "micron_45u",
+   "fieldname": "qty_rm_2_g",
    "fieldtype": "Float",
-   "label": "45u"
+   "label": "Qty (RM 2) in g",
+   "read_only": 1,
+   "precision": "2",
+   "no_copy": 1,
+   "depends_on": "eval:doc.qty_rm_2",
+   "description": "Equivalent of Qty (RM 2) in grams. Stock still moves in the item's own UOM."
   },
   {
-   "depends_on": "eval:parent.reasons == \"Tolling\"",
-   "fieldname": "micron_25u",
+   "fieldname": "qty_rm_3_g",
    "fieldtype": "Float",
-   "label": "25u"
+   "label": "Qty (RM 3) in g",
+   "read_only": 1,
+   "precision": "2",
+   "no_copy": 1,
+   "depends_on": "eval:doc.qty_rm_3",
+   "description": "Equivalent of Qty (RM 3) in grams. Stock still moves in the item's own UOM."
+  },
+  {
+   "fieldname": "qty_rm_4_g",
+   "fieldtype": "Float",
+   "label": "Qty (RM 4) in g",
+   "read_only": 1,
+   "precision": "2",
+   "no_copy": 1,
+   "depends_on": "eval:doc.qty_rm_4",
+   "description": "Equivalent of Qty (RM 4) in grams. Stock still moves in the item's own UOM."
+  },
+  {
+   "fieldname": "qty_rm_5_g",
+   "fieldtype": "Float",
+   "label": "Qty (RM 5) in g",
+   "read_only": 1,
+   "precision": "2",
+   "no_copy": 1,
+   "depends_on": "eval:doc.qty_rm_5",
+   "description": "Equivalent of Qty (RM 5) in grams. Stock still moves in the item's own UOM."
+  },
+  {
+   "fieldname": "qty_rm_6_g",
+   "fieldtype": "Float",
+   "label": "Qty (RM 6) in g",
+   "read_only": 1,
+   "precision": "2",
+   "no_copy": 1,
+   "depends_on": "eval:doc.qty_rm_6",
+   "description": "Equivalent of Qty (RM 6) in grams. Stock still moves in the item's own UOM."
+  },
+  {
+   "fieldname": "qty_rm_7_g",
+   "fieldtype": "Float",
+   "label": "Qty (RM 7) in g",
+   "read_only": 1,
+   "precision": "2",
+   "no_copy": 1,
+   "depends_on": "eval:doc.qty_rm_7",
+   "description": "Equivalent of Qty (RM 7) in grams. Stock still moves in the item's own UOM."
+  },
+  {
+   "fieldname": "is_bubble_hash",
+   "fieldtype": "Check",
+   "label": "Bubble Hash",
+   "depends_on": "eval:parent.reasons == \"Tolling\"",
+   "default": "0"
+  },
+  {
+   "fieldname": "bh_micron_150u",
+   "fieldtype": "Check",
+   "label": "150u",
+   "depends_on": "eval:parent.reasons == \"Tolling\" && doc.is_bubble_hash",
+   "default": "0"
+  },
+  {
+   "fieldname": "bh_micron_120u_73u",
+   "fieldtype": "Check",
+   "label": "120u - 73u",
+   "depends_on": "eval:parent.reasons == \"Tolling\" && doc.is_bubble_hash",
+   "default": "0"
+  },
+  {
+   "fieldname": "bh_micron_45u",
+   "fieldtype": "Check",
+   "label": "45u",
+   "depends_on": "eval:parent.reasons == \"Tolling\" && doc.is_bubble_hash",
+   "default": "0"
+  },
+  {
+   "fieldname": "is_rosin",
+   "fieldtype": "Check",
+   "label": "Rosin",
+   "depends_on": "eval:parent.reasons == \"Tolling\"",
+   "default": "0"
+  },
+  {
+   "fieldname": "rosin_micron_150u",
+   "fieldtype": "Check",
+   "label": "150u",
+   "depends_on": "eval:parent.reasons == \"Tolling\" && doc.is_rosin",
+   "default": "0"
+  },
+  {
+   "fieldname": "rosin_micron_120u_73u",
+   "fieldtype": "Check",
+   "label": "120u - 73u",
+   "depends_on": "eval:parent.reasons == \"Tolling\" && doc.is_rosin",
+   "default": "0"
+  },
+  {
+   "fieldname": "rosin_micron_45u",
+   "fieldtype": "Check",
+   "label": "45u",
+   "depends_on": "eval:parent.reasons == \"Tolling\" && doc.is_rosin",
+   "default": "0"
   }
  ],
  "index_web_pages_for_search": 1,
