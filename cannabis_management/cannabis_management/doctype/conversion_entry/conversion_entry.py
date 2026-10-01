@@ -42,6 +42,7 @@ class ConversionEntry(Document):
 		self._validate_item_groups()
 		self._calculate_total_time()
 		self._sync_micron_totals()
+		self._sync_yields()
 
 	def _sync_micron_totals(self):
 		"""Micron grams only count while their tick stands.
@@ -62,6 +63,39 @@ class ConversionEntry(Document):
 						continue
 					total += flt(row.get(grams_field))
 				row.set("%s_total_grams" % prefix, flt(total, 2))
+
+	def _sync_yields(self):
+		"""Gram equivalents and the three tolling yields.
+
+		Recomputed here, not just in the form, because a row can arrive from
+		the Slack dispatch modal or an import, and a yield that only exists
+		when someone happened to have the form open is worth nothing.
+
+		A zero denominator leaves the ratio at zero rather than throwing: a
+		half-filled draft is normal while a run is being recorded.
+		"""
+		factors = {}
+		for row in (self.items or []):
+			frozen_grams = 0.0
+			for n in range(1, 8):
+				item_code = row.get("raw_material_%d" % n)
+				qty = flt(row.get("qty_rm_%d" % n))
+				grams = 0.0
+				if item_code and qty:
+					if item_code not in factors:
+						uom = frappe.db.get_value("Item", item_code, "stock_uom")
+						factors[item_code] = grams_per_unit(uom)
+					grams = qty * factors[item_code]
+				row.set("qty_rm_%d_g" % n, flt(grams, 2))
+				frozen_grams += grams
+
+			hash_g = flt(row.get("bh_total_grams"))
+			rosin_g = flt(row.get("rosin_total_grams"))
+
+			row.set("total_frozen_grams", flt(frozen_grams, 2))
+			row.set("frozen_to_hash_pct", flt(hash_g / frozen_grams * 100, 2) if frozen_grams else 0)
+			row.set("hash_to_rosin_pct", flt(rosin_g / hash_g * 100, 2) if hash_g else 0)
+			row.set("frozen_to_rosin_pct", flt(rosin_g / frozen_grams * 100, 2) if frozen_grams else 0)
 
 	def before_submit(self):
 		if self.timer_status == "Work In Progress":
