@@ -32,12 +32,36 @@ _FG_FIELDS = [
 ]
 
 
+MICRON_SIZES = ("150u", "120u_73u", "45u")
+
+
 class ConversionEntry(Document):
 	def validate(self):
 		self._populate_item_groups()
 		self._validate_items()
 		self._validate_item_groups()
 		self._calculate_total_time()
+		self._sync_micron_totals()
+
+	def _sync_micron_totals(self):
+		"""Micron grams only count while their tick stands.
+
+		Done here rather than only in the form because a row can also arrive
+		from the Slack dispatch modal, which never runs the client script.
+		"""
+		for row in (self.items or []):
+			for prefix, flag in (("bh", "is_bubble_hash"), ("rosin", "is_rosin")):
+				on = row.get(flag)
+				total = 0.0
+				for size in MICRON_SIZES:
+					grams_field = "%s_grams_%s" % (prefix, size)
+					check_field = "%s_micron_%s" % (prefix, size)
+					if not on or not row.get(check_field):
+						row.set(check_field, 0 if not on else row.get(check_field))
+						row.set(grams_field, 0)
+						continue
+					total += flt(row.get(grams_field))
+				row.set("%s_total_grams" % prefix, flt(total, 2))
 
 	def before_submit(self):
 		if self.timer_status == "Work In Progress":

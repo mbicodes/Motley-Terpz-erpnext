@@ -221,6 +221,20 @@ frappe.ui.form.on('Conversion Entry Item', {
 	conversion_type: function (frm, cdt, cdn) {
 		clear_hidden_fields_for_row(frm, cdt, cdn);
 	},
+	is_bubble_hash: function (frm, cdt, cdn) { _micron_product_toggled(cdt, cdn, 'bh'); },
+	bh_micron_150u: function (frm, cdt, cdn) { _micron_toggled(cdt, cdn, 'bh', '150u'); },
+	bh_grams_150u: function (frm, cdt, cdn) { _micron_total(cdt, cdn, 'bh'); },
+	bh_micron_120u_73u: function (frm, cdt, cdn) { _micron_toggled(cdt, cdn, 'bh', '120u_73u'); },
+	bh_grams_120u_73u: function (frm, cdt, cdn) { _micron_total(cdt, cdn, 'bh'); },
+	bh_micron_45u: function (frm, cdt, cdn) { _micron_toggled(cdt, cdn, 'bh', '45u'); },
+	bh_grams_45u: function (frm, cdt, cdn) { _micron_total(cdt, cdn, 'bh'); },
+	is_rosin: function (frm, cdt, cdn) { _micron_product_toggled(cdt, cdn, 'rosin'); },
+	rosin_micron_150u: function (frm, cdt, cdn) { _micron_toggled(cdt, cdn, 'rosin', '150u'); },
+	rosin_grams_150u: function (frm, cdt, cdn) { _micron_total(cdt, cdn, 'rosin'); },
+	rosin_micron_120u_73u: function (frm, cdt, cdn) { _micron_toggled(cdt, cdn, 'rosin', '120u_73u'); },
+	rosin_grams_120u_73u: function (frm, cdt, cdn) { _micron_total(cdt, cdn, 'rosin'); },
+	rosin_micron_45u: function (frm, cdt, cdn) { _micron_toggled(cdt, cdn, 'rosin', '45u'); },
+	rosin_grams_45u: function (frm, cdt, cdn) { _micron_total(cdt, cdn, 'rosin'); },
 	qty_rm_1: function (frm, cdt, cdn) { _sync_grams(cdt, cdn, 1); },
 	qty_rm_2: function (frm, cdt, cdn) { _sync_grams(cdt, cdn, 2); },
 	qty_rm_3: function (frm, cdt, cdn) { _sync_grams(cdt, cdn, 3); },
@@ -437,6 +451,43 @@ function _set_raw_material_queries(frm) {
 			};
 		});
 	}
+}
+
+
+// ── Microns ──────────────────────────────────────────────────────────────────
+// A tolling row records what was run: tick the product, tick each micron it was
+// run at, and enter the grams that came off it. Untick anything and the figures
+// below it are cleared, so a stale gram count can never outlive its tick.
+const _MICRON_SIZES = ['150u', '120u_73u', '45u'];
+
+function _micron_total(cdt, cdn, prefix) {
+	const row = locals[cdt][cdn];
+	if (!row) return;
+	const total = _MICRON_SIZES.reduce(
+		(sum, s) => sum + (row[prefix + '_micron_' + s] ? flt(row[prefix + '_grams_' + s]) : 0), 0);
+	frappe.model.set_value(cdt, cdn, prefix + '_total_grams', flt(total, 2));
+}
+
+function _micron_toggled(cdt, cdn, prefix, size) {
+	const row = locals[cdt][cdn];
+	if (!row) return;
+	if (!row[prefix + '_micron_' + size] && flt(row[prefix + '_grams_' + size])) {
+		frappe.model.set_value(cdt, cdn, prefix + '_grams_' + size, 0);
+	}
+	_micron_total(cdt, cdn, prefix);
+}
+
+function _micron_product_toggled(cdt, cdn, prefix) {
+	const row = locals[cdt][cdn];
+	if (!row) return;
+	const on = prefix === 'bh' ? row.is_bubble_hash : row.is_rosin;
+	if (!on) {
+		_MICRON_SIZES.forEach((s) => {
+			if (row[prefix + '_micron_' + s]) frappe.model.set_value(cdt, cdn, prefix + '_micron_' + s, 0);
+			if (flt(row[prefix + '_grams_' + s])) frappe.model.set_value(cdt, cdn, prefix + '_grams_' + s, 0);
+		});
+	}
+	_micron_total(cdt, cdn, prefix);
 }
 
 
