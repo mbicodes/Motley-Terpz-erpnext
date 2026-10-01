@@ -489,3 +489,92 @@ def raw_material_stock_query(doctype, txt, searchfield, start, page_len, filters
 		""",  # nosemgrep
 		values,
 	)
+
+
+@frappe.whitelist()
+def grams_per_unit(uom):
+	"""Grams in one `uom`, or 0 when there is no sensible conversion.
+
+	The pullable items are stocked in LBS while the tolling floor works in
+	grams, so the gram figure is shown everywhere a quantity is — but it is
+	only ever a display: stock moves in the item's own UOM.
+	"""
+	if not uom:
+		return 0.0
+	if uom in ("Gram", "Gm", "g"):
+		return 1.0
+	return flt(frappe.db.get_value(
+		"UOM Conversion Factor", {"from_uom": uom, "to_uom": "Gram"}, "value"
+	))
+
+
+@frappe.whitelist()
+def get_project_items(project, warehouse, company=None):
+	"""Items that went out to a project through a given warehouse.
+
+	Reads the invoice lines rather than the ledger: both Sales Invoice Item and
+	Purchase Invoice Item carry project and warehouse already, so the answer is
+	"what was billed against this project, out of this warehouse" — which is
+	what the person pulling materials into a conversion is actually asking.
+
+	Quantities from both sides are summed per item, so an item that arrived on a
+	purchase invoice and left on a sales invoice shows one line, not two.
+	"""
+	if not (project and warehouse):
+		frappe.throw(_("Pick a Project and a Warehouse."))
+
+	# A warehouse belongs to exactly one company, so take it from there rather
+	# than from the caller. The caller used to pass the form's company, which on
+	# a new Conversion Entry is always Master Touch Manufacturing and silently
+	# hid every invoice raised by any other company.
+	if not company:
+		company = frappe.db.get_value("Warehouse", warehouse, "company")
+
+	rows = []
+	for parent_dt, child_dt in (("Sales Invoice", "Sales Invoice Item"),
+	                            ("Purchase Invoice", "Purchase Invoice Item")):
+		conds = ["p.docstatus = 1", "c.project = %(project)s", "c.warehouse = %(warehouse)s"]
+		values = {"project": project, "warehouse": warehouse}
+		if company:
+			conds.append("p.company = %(company)s")
+			values["company"] = company
+
+		rows += frappe.db.sql(
+			"""
+			select c.item_code, i.item_name, i.stock_uom as uom, i.item_group,
+			       sum(ifnull(c.qty, 0)) as qty, %(source)s as source
+			from `tab{child}` c
+			inner join `tab{parent}` p on p.name = c.parent
+			left join `tabItem` i on i.name = c.item_code
+			where {conds}
+			group by c.item_code, i.item_name, i.stock_uom, i.item_group
+			""".format(child=child_dt, parent=parent_dt, conds=" and ".join(conds)),
+			dict(values, source=parent_dt), as_dict=True,
+		)
+
+	merged = {}
+	for r in rows:
+		row = merged.setdefault(r.item_code, {
+			"item_code": r.item_code,
+			"item_name": r.item_name or r.item_code,
+			"uom": r.uom,
+			"item_group": r.item_group,
+			"qty": 0.0,
+			"sources": set(),
+		})
+		row["qty"] += flt(r.qty)
+		row["sources"].add(r.source)
+
+	factors = {}
+	out = []
+	for row in merged.values():
+		row["sources"] = ", ".join(sorted(row.pop("sources")))
+		row["qty"] = flt(row["qty"], 3)
+		uom = row.get("uom")
+		if uom not in factors:
+			factors[uom] = grams_per_unit(uom)
+		row["grams"] = flt(row["qty"] * factors[uom], 2)
+		out.append(row)
+
+	out.sort(key=lambda r: (-r["qty"], r["item_code"]))
+	return out

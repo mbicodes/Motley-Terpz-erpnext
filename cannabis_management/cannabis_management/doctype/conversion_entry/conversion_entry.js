@@ -23,6 +23,10 @@ frappe.ui.form.on('Conversion Entry', {
 	refresh: function (frm) {
 		_set_warehouse_filters(frm);
 
+		if (frm.doc.docstatus === 0) {
+			frm.add_custom_button(__('Pull Items from Project'), () => _pull_project_items(frm));
+		}
+
 		if (frm.doc.docstatus === 0 && !frm.is_new()) {
 			frm.trigger('prepare_timer_buttons');
 		}
@@ -217,13 +221,20 @@ frappe.ui.form.on('Conversion Entry Item', {
 	conversion_type: function (frm, cdt, cdn) {
 		clear_hidden_fields_for_row(frm, cdt, cdn);
 	},
-	raw_material_1: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'raw_material_1', 'rm_1_item_group'); },
-	raw_material_2: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'raw_material_2', 'rm_2_item_group'); },
-	raw_material_3: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'raw_material_3', 'rm_3_item_group'); },
-	raw_material_4: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'raw_material_4', 'rm_4_item_group'); },
-	raw_material_5: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'raw_material_5', 'rm_5_item_group'); },
-	raw_material_6: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'raw_material_6', 'rm_6_item_group'); },
-	raw_material_7: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'raw_material_7', 'rm_7_item_group'); },
+	qty_rm_1: function (frm, cdt, cdn) { _sync_grams(cdt, cdn, 1); },
+	qty_rm_2: function (frm, cdt, cdn) { _sync_grams(cdt, cdn, 2); },
+	qty_rm_3: function (frm, cdt, cdn) { _sync_grams(cdt, cdn, 3); },
+	qty_rm_4: function (frm, cdt, cdn) { _sync_grams(cdt, cdn, 4); },
+	qty_rm_5: function (frm, cdt, cdn) { _sync_grams(cdt, cdn, 5); },
+	qty_rm_6: function (frm, cdt, cdn) { _sync_grams(cdt, cdn, 6); },
+	qty_rm_7: function (frm, cdt, cdn) { _sync_grams(cdt, cdn, 7); },
+	raw_material_1: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'raw_material_1', 'rm_1_item_group'); _sync_grams(cdt, cdn, 1); },
+	raw_material_2: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'raw_material_2', 'rm_2_item_group'); _sync_grams(cdt, cdn, 2); },
+	raw_material_3: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'raw_material_3', 'rm_3_item_group'); _sync_grams(cdt, cdn, 3); },
+	raw_material_4: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'raw_material_4', 'rm_4_item_group'); _sync_grams(cdt, cdn, 4); },
+	raw_material_5: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'raw_material_5', 'rm_5_item_group'); _sync_grams(cdt, cdn, 5); },
+	raw_material_6: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'raw_material_6', 'rm_6_item_group'); _sync_grams(cdt, cdn, 6); },
+	raw_material_7: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'raw_material_7', 'rm_7_item_group'); _sync_grams(cdt, cdn, 7); },
 	finished_good_1: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'finished_good_1', 'fg_1_item_group'); },
 	finished_good_2: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'finished_good_2', 'fg_2_item_group'); },
 	finished_good_3: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'finished_good_3', 'fg_3_item_group'); },
@@ -426,4 +437,169 @@ function _set_raw_material_queries(frm) {
 			};
 		});
 	}
+}
+
+
+// ── Gram equivalents ─────────────────────────────────────────────────────────
+// The pullable stock is held in LBS but the tolling floor thinks in grams, so
+// every Raw Material qty carries a read-only gram mirror. It is a display only:
+// qty_rm_N stays in the item's own UOM because the Stock Entry line uses it
+// verbatim, and writing grams there would issue 453x the stock.
+const _ce_uom_of_item = {};
+const _ce_grams_per_uom = {};
+
+function _ce_item_uom(item_code) {
+	if (_ce_uom_of_item[item_code] !== undefined) {
+		return Promise.resolve(_ce_uom_of_item[item_code]);
+	}
+	return frappe.db.get_value('Item', item_code, 'stock_uom').then((r) => {
+		const uom = (r.message || {}).stock_uom || '';
+		_ce_uom_of_item[item_code] = uom;
+		return uom;
+	});
+}
+
+function _ce_grams_per_unit(uom) {
+	if (!uom) return Promise.resolve(0);
+	if (_ce_grams_per_uom[uom] !== undefined) return Promise.resolve(_ce_grams_per_uom[uom]);
+	return frappe.call({
+		method: 'cannabis_management.cannabis_management.doctype.conversion_entry.conversion_entry.grams_per_unit',
+		args: { uom: uom },
+	}).then((r) => {
+		const v = flt(r.message);
+		_ce_grams_per_uom[uom] = v;
+		return v;
+	});
+}
+
+function _sync_grams(cdt, cdn, n) {
+	const row = locals[cdt][cdn];
+	if (!row) return;
+	const target = 'qty_rm_' + n + '_g';
+	const item = row['raw_material_' + n];
+	const qty = flt(row['qty_rm_' + n]);
+	// No item or no quantity means nothing to convert — and an item with no
+	// gram conversion on file (Nos, for instance) leaves the mirror empty
+	// rather than inventing a number.
+	if (!item || !qty) {
+		if (flt(row[target])) frappe.model.set_value(cdt, cdn, target, 0);
+		return;
+	}
+	_ce_item_uom(item)
+		.then(_ce_grams_per_unit)
+		.then((factor) => frappe.model.set_value(cdt, cdn, target, flt(qty * factor, 2)));
+}
+
+
+// ── Pull Items from Project ──────────────────────────────────────────────────
+// Asks for a Warehouse and a Project, lists what was billed against that pair
+// (Sales Invoice and Purchase Invoice lines both carry project + warehouse),
+// and turns whatever is ticked into Conversion Items rows — one row per item,
+// its quantity carried across.
+function _pull_project_items(frm) {
+	const d = new frappe.ui.Dialog({
+		title: __('Pull Items from Project'),
+		fields: [
+			{
+				fieldname: 'warehouse', fieldtype: 'Link', options: 'Warehouse',
+				label: __('Warehouse'), reqd: 1,
+				get_query: () => ({ filters: { is_group: 0, disabled: 0 } }),
+			},
+			{
+				fieldname: 'project', fieldtype: 'Link', options: 'Project',
+				label: __('Project'), reqd: 1,
+			},
+			{ fieldname: 'fetch', fieldtype: 'Button', label: __('Show Items') },
+			{ fieldname: 'results', fieldtype: 'HTML' },
+		],
+		primary_action_label: __('Add Selected'),
+		primary_action() {
+			const picked = d.$wrapper.find('.ce-pull-row:checked')
+				.map((i, el) => JSON.parse($(el).attr('data-row'))).get();
+			if (!picked.length) {
+				frappe.msgprint(__('Tick at least one item.'));
+				return;
+			}
+			picked.forEach((item) => {
+				const row = frm.add_child('items', {
+					// One row per item: the puller picks the conversion type and
+					// the finished good, which this cannot know.
+					conversion_type: '1 to 1',
+					source_warehouse: d.get_value('warehouse'),
+					raw_material_1: item.item_code,
+					qty_rm_1: item.qty,
+					// Already computed server-side, so the row shows grams the
+					// moment it lands instead of waiting on a round trip.
+					qty_rm_1_g: item.grams || 0,
+				});
+				row.__ce_pulled = true;
+			});
+			frm.refresh_field('items');
+			if (!frm.doc.project) frm.set_value('project', d.get_value('project'));
+			d.hide();
+			frappe.show_alert({
+				message: __('{0} item(s) added', [picked.length]), indicator: 'green',
+			}, 5);
+		},
+	});
+
+	const render = (items) => {
+		const $area = d.fields_dict.results.$wrapper;
+		if (!items.length) {
+			$area.html(`<div style="color:var(--text-muted);padding:12px 0">${
+				__('Nothing was billed against that project out of that warehouse.')}</div>`);
+			return;
+		}
+		const rows = items.map((it) => `
+			<tr>
+				<td style="padding:6px 8px"><input type="checkbox" class="ce-pull-row"
+					data-row='${frappe.utils.escape_html(JSON.stringify(it))}'></td>
+				<td style="padding:6px 8px"><b>${frappe.utils.escape_html(it.item_name)}</b>
+					<div style="color:var(--text-muted);font-size:11px">${frappe.utils.escape_html(it.item_code)}</div></td>
+				<td style="padding:6px 8px;text-align:right">${format_number(it.qty, null, 3)} ${frappe.utils.escape_html(it.uom || '')}
+					${it.grams ? `<div style="color:var(--text-muted);font-size:11px">${format_number(it.grams, null, 2)} g</div>` : ''}</td>
+				<td style="padding:6px 8px;color:var(--text-muted);font-size:11px">${frappe.utils.escape_html(it.sources)}</td>
+			</tr>`).join('');
+		$area.html(`
+			<div style="max-height:340px;overflow:auto;border:1px solid var(--border-color);border-radius:6px">
+			<table style="width:100%;border-collapse:collapse">
+				<thead><tr style="position:sticky;top:0;background:var(--control-bg)">
+					<th style="padding:6px 8px"><input type="checkbox" class="ce-pull-all"></th>
+					<th style="padding:6px 8px;text-align:left;font-size:11px">${__('Item')}</th>
+					<th style="padding:6px 8px;text-align:right;font-size:11px">${__('Qty')}</th>
+					<th style="padding:6px 8px;text-align:left;font-size:11px">${__('Billed on')}</th>
+				</tr></thead>
+				<tbody>${rows}</tbody>
+			</table></div>`);
+		$area.find('.ce-pull-all').on('change', function () {
+			$area.find('.ce-pull-row').prop('checked', this.checked);
+		});
+	};
+
+	const fetch = () => {
+		if (!d.get_value('warehouse') || !d.get_value('project')) {
+			frappe.msgprint(__('Pick a Warehouse and a Project first.'));
+			return;
+		}
+		frappe.call({
+			method: 'cannabis_management.cannabis_management.doctype.conversion_entry.conversion_entry.get_project_items',
+			args: {
+				// No company: a warehouse belongs to exactly one, so the server
+				// reads it off the warehouse. Sending the form's company here is
+				// what used to blank the list — a new Conversion Entry defaults to
+				// Master Touch Manufacturing and hid every other company's invoices.
+				project: d.get_value('project'),
+				warehouse: d.get_value('warehouse'),
+			},
+			callback: (r) => render(r.message || []),
+		});
+	};
+
+	d.fields_dict.fetch.$input.on('click', fetch);
+	// Picking both values is usually enough — fetch without a second click.
+	d.fields_dict.warehouse.$input.on('change', () => setTimeout(() => {
+		if (d.get_value('project')) fetch();
+	}, 200));
+	d.fields_dict.project.$input.on('change', () => setTimeout(fetch, 200));
+	d.show();
 }
