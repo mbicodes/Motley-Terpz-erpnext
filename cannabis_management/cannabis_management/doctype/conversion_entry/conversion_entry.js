@@ -454,6 +454,29 @@ function _set_raw_material_queries(frm) {
 }
 
 
+// ── Yields ───────────────────────────────────────────────────────────────────
+// Frozen to Hash % = Hash (g) / Frozen (g) * 100
+// Hash to Rosin %  = Rosin (g) / Hash (g) * 100
+// Frozen to Rosin % = Rosin (g) / Frozen (g) * 100
+// Frozen (g) is every Raw Material quantity in grams, so a multi-material row
+// yields against everything it consumed. validate() recomputes all of this
+// server-side; this is just so the figures move as you type.
+function _sync_yield(cdt, cdn) {
+	const row = locals[cdt][cdn];
+	if (!row) return;
+	let frozen = 0;
+	for (let n = 1; n <= 7; n++) frozen += flt(row['qty_rm_' + n + '_g']);
+	const hash_g = flt(row.bh_total_grams);
+	const rosin_g = flt(row.rosin_total_grams);
+	const pct = (num, den) => (den ? flt(num / den * 100, 2) : 0);
+
+	frappe.model.set_value(cdt, cdn, 'total_frozen_grams', flt(frozen, 2));
+	frappe.model.set_value(cdt, cdn, 'frozen_to_hash_pct', pct(hash_g, frozen));
+	frappe.model.set_value(cdt, cdn, 'hash_to_rosin_pct', pct(rosin_g, hash_g));
+	frappe.model.set_value(cdt, cdn, 'frozen_to_rosin_pct', pct(rosin_g, frozen));
+}
+
+
 // ── Microns ──────────────────────────────────────────────────────────────────
 // A tolling row records what was run: tick the product, tick each micron it was
 // run at, and enter the grams that came off it. Untick anything and the figures
@@ -466,6 +489,7 @@ function _micron_total(cdt, cdn, prefix) {
 	const total = _MICRON_SIZES.reduce(
 		(sum, s) => sum + (row[prefix + '_micron_' + s] ? flt(row[prefix + '_grams_' + s]) : 0), 0);
 	frappe.model.set_value(cdt, cdn, prefix + '_total_grams', flt(total, 2));
+	_sync_yield(cdt, cdn);
 }
 
 function _micron_toggled(cdt, cdn, prefix, size) {
@@ -534,11 +558,13 @@ function _sync_grams(cdt, cdn, n) {
 	// rather than inventing a number.
 	if (!item || !qty) {
 		if (flt(row[target])) frappe.model.set_value(cdt, cdn, target, 0);
+		_sync_yield(cdt, cdn);
 		return;
 	}
 	_ce_item_uom(item)
 		.then(_ce_grams_per_unit)
-		.then((factor) => frappe.model.set_value(cdt, cdn, target, flt(qty * factor, 2)));
+		.then((factor) => frappe.model.set_value(cdt, cdn, target, flt(qty * factor, 2)))
+		.then(() => _sync_yield(cdt, cdn));
 }
 
 
@@ -604,6 +630,9 @@ function _pull_project_items(frm) {
 					qty_rm_1_g: item.grams || 0,
 				});
 				row.__ce_pulled = true;
+			});
+			(frm.doc.items || []).forEach((r) => {
+				if (r.__ce_pulled) _sync_yield(r.doctype, r.name);
 			});
 			frm.refresh_field('items');
 			if (!frm.doc.project) frm.set_value('project', d.get_value('project'));
