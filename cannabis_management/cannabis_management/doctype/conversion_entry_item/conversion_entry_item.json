@@ -630,7 +630,6 @@
    "fieldname": "section_break_yield",
    "fieldtype": "Section Break",
    "label": "Yield",
-   "collapsible": 1,
    "depends_on": "eval:parent.reasons == \"Tolling\""
   },
   {
