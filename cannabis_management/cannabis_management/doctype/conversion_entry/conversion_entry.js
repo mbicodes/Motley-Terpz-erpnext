@@ -221,34 +221,41 @@ frappe.ui.form.on('Conversion Entry Item', {
 	conversion_type: function (frm, cdt, cdn) {
 		clear_hidden_fields_for_row(frm, cdt, cdn);
 	},
-	is_bubble_hash: function (frm, cdt, cdn) { _micron_product_toggled(cdt, cdn, 'bh'); },
-	bh_micron_150u: function (frm, cdt, cdn) { _micron_toggled(cdt, cdn, 'bh', '150u'); },
-	bh_grams_150u: function (frm, cdt, cdn) { _micron_total(cdt, cdn, 'bh'); },
-	bh_micron_120u_73u: function (frm, cdt, cdn) { _micron_toggled(cdt, cdn, 'bh', '120u_73u'); },
-	bh_grams_120u_73u: function (frm, cdt, cdn) { _micron_total(cdt, cdn, 'bh'); },
-	bh_micron_45u: function (frm, cdt, cdn) { _micron_toggled(cdt, cdn, 'bh', '45u'); },
-	bh_grams_45u: function (frm, cdt, cdn) { _micron_total(cdt, cdn, 'bh'); },
-	is_rosin: function (frm, cdt, cdn) { _micron_product_toggled(cdt, cdn, 'rosin'); },
-	rosin_micron_150u: function (frm, cdt, cdn) { _micron_toggled(cdt, cdn, 'rosin', '150u'); },
-	rosin_grams_150u: function (frm, cdt, cdn) { _micron_total(cdt, cdn, 'rosin'); },
-	rosin_micron_120u_73u: function (frm, cdt, cdn) { _micron_toggled(cdt, cdn, 'rosin', '120u_73u'); },
-	rosin_grams_120u_73u: function (frm, cdt, cdn) { _micron_total(cdt, cdn, 'rosin'); },
-	rosin_micron_45u: function (frm, cdt, cdn) { _micron_toggled(cdt, cdn, 'rosin', '45u'); },
-	rosin_grams_45u: function (frm, cdt, cdn) { _micron_total(cdt, cdn, 'rosin'); },
-	qty_rm_1: function (frm, cdt, cdn) { _sync_grams(cdt, cdn, 1); },
-	qty_rm_2: function (frm, cdt, cdn) { _sync_grams(cdt, cdn, 2); },
-	qty_rm_3: function (frm, cdt, cdn) { _sync_grams(cdt, cdn, 3); },
-	qty_rm_4: function (frm, cdt, cdn) { _sync_grams(cdt, cdn, 4); },
-	qty_rm_5: function (frm, cdt, cdn) { _sync_grams(cdt, cdn, 5); },
-	qty_rm_6: function (frm, cdt, cdn) { _sync_grams(cdt, cdn, 6); },
-	qty_rm_7: function (frm, cdt, cdn) { _sync_grams(cdt, cdn, 7); },
-	raw_material_1: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'raw_material_1', 'rm_1_item_group'); _sync_grams(cdt, cdn, 1); },
-	raw_material_2: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'raw_material_2', 'rm_2_item_group'); _sync_grams(cdt, cdn, 2); },
-	raw_material_3: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'raw_material_3', 'rm_3_item_group'); _sync_grams(cdt, cdn, 3); },
-	raw_material_4: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'raw_material_4', 'rm_4_item_group'); _sync_grams(cdt, cdn, 4); },
-	raw_material_5: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'raw_material_5', 'rm_5_item_group'); _sync_grams(cdt, cdn, 5); },
-	raw_material_6: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'raw_material_6', 'rm_6_item_group'); _sync_grams(cdt, cdn, 6); },
-	raw_material_7: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'raw_material_7', 'rm_7_item_group'); _sync_grams(cdt, cdn, 7); },
+	// Opening a row recomputes it, so a row saved before these fields existed
+	// -- or edited in another tab -- shows live figures rather than blanks.
+	form_render: function (frm, cdt, cdn) {
+		for (let n = 1; n <= 7; n++) _sync_grams(frm, cdt, cdn, n);
+		_micron_total(frm, cdt, cdn, 'bh');
+		_micron_total(frm, cdt, cdn, 'rosin');
+	},
+	is_bubble_hash: function (frm, cdt, cdn) { _micron_product_toggled(frm, cdt, cdn, 'bh'); },
+	bh_micron_150u: function (frm, cdt, cdn) { _micron_toggled(frm, cdt, cdn, 'bh', '150u'); },
+	bh_grams_150u: function (frm, cdt, cdn) { _micron_total(frm, cdt, cdn, 'bh'); },
+	bh_micron_120u_73u: function (frm, cdt, cdn) { _micron_toggled(frm, cdt, cdn, 'bh', '120u_73u'); },
+	bh_grams_120u_73u: function (frm, cdt, cdn) { _micron_total(frm, cdt, cdn, 'bh'); },
+	bh_micron_45u: function (frm, cdt, cdn) { _micron_toggled(frm, cdt, cdn, 'bh', '45u'); },
+	bh_grams_45u: function (frm, cdt, cdn) { _micron_total(frm, cdt, cdn, 'bh'); },
+	is_rosin: function (frm, cdt, cdn) { _micron_product_toggled(frm, cdt, cdn, 'rosin'); },
+	rosin_micron_150u: function (frm, cdt, cdn) { _micron_toggled(frm, cdt, cdn, 'rosin', '150u'); },
+	rosin_grams_150u: function (frm, cdt, cdn) { _micron_total(frm, cdt, cdn, 'rosin'); },
+	rosin_micron_120u_73u: function (frm, cdt, cdn) { _micron_toggled(frm, cdt, cdn, 'rosin', '120u_73u'); },
+	rosin_grams_120u_73u: function (frm, cdt, cdn) { _micron_total(frm, cdt, cdn, 'rosin'); },
+	rosin_micron_45u: function (frm, cdt, cdn) { _micron_toggled(frm, cdt, cdn, 'rosin', '45u'); },
+	rosin_grams_45u: function (frm, cdt, cdn) { _micron_total(frm, cdt, cdn, 'rosin'); },
+	qty_rm_1: function (frm, cdt, cdn) { _sync_grams(frm, cdt, cdn, 1); },
+	qty_rm_2: function (frm, cdt, cdn) { _sync_grams(frm, cdt, cdn, 2); },
+	qty_rm_3: function (frm, cdt, cdn) { _sync_grams(frm, cdt, cdn, 3); },
+	qty_rm_4: function (frm, cdt, cdn) { _sync_grams(frm, cdt, cdn, 4); },
+	qty_rm_5: function (frm, cdt, cdn) { _sync_grams(frm, cdt, cdn, 5); },
+	qty_rm_6: function (frm, cdt, cdn) { _sync_grams(frm, cdt, cdn, 6); },
+	qty_rm_7: function (frm, cdt, cdn) { _sync_grams(frm, cdt, cdn, 7); },
+	raw_material_1: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'raw_material_1', 'rm_1_item_group'); _sync_grams(frm, cdt, cdn, 1); },
+	raw_material_2: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'raw_material_2', 'rm_2_item_group'); _sync_grams(frm, cdt, cdn, 2); },
+	raw_material_3: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'raw_material_3', 'rm_3_item_group'); _sync_grams(frm, cdt, cdn, 3); },
+	raw_material_4: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'raw_material_4', 'rm_4_item_group'); _sync_grams(frm, cdt, cdn, 4); },
+	raw_material_5: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'raw_material_5', 'rm_5_item_group'); _sync_grams(frm, cdt, cdn, 5); },
+	raw_material_6: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'raw_material_6', 'rm_6_item_group'); _sync_grams(frm, cdt, cdn, 6); },
+	raw_material_7: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'raw_material_7', 'rm_7_item_group'); _sync_grams(frm, cdt, cdn, 7); },
 	finished_good_1: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'finished_good_1', 'fg_1_item_group'); },
 	finished_good_2: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'finished_good_2', 'fg_2_item_group'); },
 	finished_good_3: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'finished_good_3', 'fg_3_item_group'); },
@@ -461,7 +468,7 @@ function _set_raw_material_queries(frm) {
 // Frozen (g) is every Raw Material quantity in grams, so a multi-material row
 // yields against everything it consumed. validate() recomputes all of this
 // server-side; this is just so the figures move as you type.
-function _sync_yield(cdt, cdn) {
+function _sync_yield(frm, cdt, cdn) {
 	const row = locals[cdt][cdn];
 	if (!row) return;
 	let frozen = 0;
@@ -474,6 +481,21 @@ function _sync_yield(cdt, cdn) {
 	frappe.model.set_value(cdt, cdn, 'frozen_to_hash_pct', pct(hash_g, frozen));
 	frappe.model.set_value(cdt, cdn, 'hash_to_rosin_pct', pct(rosin_g, hash_g));
 	frappe.model.set_value(cdt, cdn, 'frozen_to_rosin_pct', pct(rosin_g, frozen));
+	_repaint(frm, cdn, ['total_frozen_grams', 'frozen_to_hash_pct',
+		'hash_to_rosin_pct', 'frozen_to_rosin_pct']);
+}
+
+// A read-only field in an open grid row keeps showing the value it was drawn
+// with, so the figure has to be pushed back onto the row form explicitly --
+// otherwise it only appears once the row is reopened or the document saved.
+function _repaint(frm, cdn, fieldnames) {
+	const grid = frm.get_field('items').grid;
+	const grid_row = (grid.grid_rows_by_docname || {})[cdn];
+	if (!grid_row || !grid_row.grid_form) return;
+	fieldnames.forEach((f) => {
+		const control = (grid_row.grid_form.fields_dict || {})[f];
+		if (control) control.refresh();
+	});
 }
 
 
@@ -483,25 +505,26 @@ function _sync_yield(cdt, cdn) {
 // below it are cleared, so a stale gram count can never outlive its tick.
 const _MICRON_SIZES = ['150u', '120u_73u', '45u'];
 
-function _micron_total(cdt, cdn, prefix) {
+function _micron_total(frm, cdt, cdn, prefix) {
 	const row = locals[cdt][cdn];
 	if (!row) return;
 	const total = _MICRON_SIZES.reduce(
 		(sum, s) => sum + (row[prefix + '_micron_' + s] ? flt(row[prefix + '_grams_' + s]) : 0), 0);
 	frappe.model.set_value(cdt, cdn, prefix + '_total_grams', flt(total, 2));
-	_sync_yield(cdt, cdn);
+	_repaint(frm, cdn, [prefix + '_total_grams']);
+	_sync_yield(frm, cdt, cdn);
 }
 
-function _micron_toggled(cdt, cdn, prefix, size) {
+function _micron_toggled(frm, cdt, cdn, prefix, size) {
 	const row = locals[cdt][cdn];
 	if (!row) return;
 	if (!row[prefix + '_micron_' + size] && flt(row[prefix + '_grams_' + size])) {
 		frappe.model.set_value(cdt, cdn, prefix + '_grams_' + size, 0);
 	}
-	_micron_total(cdt, cdn, prefix);
+	_micron_total(frm, cdt, cdn, prefix);
 }
 
-function _micron_product_toggled(cdt, cdn, prefix) {
+function _micron_product_toggled(frm, cdt, cdn, prefix) {
 	const row = locals[cdt][cdn];
 	if (!row) return;
 	const on = prefix === 'bh' ? row.is_bubble_hash : row.is_rosin;
@@ -511,7 +534,7 @@ function _micron_product_toggled(cdt, cdn, prefix) {
 			if (flt(row[prefix + '_grams_' + s])) frappe.model.set_value(cdt, cdn, prefix + '_grams_' + s, 0);
 		});
 	}
-	_micron_total(cdt, cdn, prefix);
+	_micron_total(frm, cdt, cdn, prefix);
 }
 
 
@@ -547,7 +570,7 @@ function _ce_grams_per_unit(uom) {
 	});
 }
 
-function _sync_grams(cdt, cdn, n) {
+function _sync_grams(frm, cdt, cdn, n) {
 	const row = locals[cdt][cdn];
 	if (!row) return;
 	const target = 'qty_rm_' + n + '_g';
@@ -558,13 +581,16 @@ function _sync_grams(cdt, cdn, n) {
 	// rather than inventing a number.
 	if (!item || !qty) {
 		if (flt(row[target])) frappe.model.set_value(cdt, cdn, target, 0);
-		_sync_yield(cdt, cdn);
+		_sync_yield(frm, cdt, cdn);
 		return;
 	}
 	_ce_item_uom(item)
 		.then(_ce_grams_per_unit)
 		.then((factor) => frappe.model.set_value(cdt, cdn, target, flt(qty * factor, 2)))
-		.then(() => _sync_yield(cdt, cdn));
+		.then(() => {
+			_repaint(frm, cdn, [target]);
+			_sync_yield(frm, cdt, cdn);
+		});
 }
 
 
@@ -632,7 +658,7 @@ function _pull_project_items(frm) {
 				row.__ce_pulled = true;
 			});
 			(frm.doc.items || []).forEach((r) => {
-				if (r.__ce_pulled) _sync_yield(r.doctype, r.name);
+				if (r.__ce_pulled) _sync_yield(frm, r.doctype, r.name);
 			});
 			frm.refresh_field('items');
 			if (!frm.doc.project) frm.set_value('project', d.get_value('project'));
