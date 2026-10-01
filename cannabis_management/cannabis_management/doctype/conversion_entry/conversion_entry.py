@@ -42,15 +42,24 @@ class ConversionEntry(Document):
 		self._validate_item_groups()
 		self._calculate_total_time()
 		self._sync_micron_totals()
-		self._sync_yields()
 
 	def _sync_micron_totals(self):
-		"""Micron grams only count while their tick stands.
+		"""Total the micron grams per product, then the yields off those totals.
 
-		Done here rather than only in the form because a row can also arrive
-		from the Slack dispatch modal, which never runs the client script.
+		One pass: a yield is only ever a ratio of bh_total_grams and
+		rosin_total_grams against the frozen weight, so it is settled where
+		those totals are settled rather than in a second sweep that could run
+		against a stale number.
+
+		Micron grams only count while their tick stands, so an untick clears
+		the figure under it before it can reach a total.
+
+		A zero denominator leaves the ratio at zero rather than throwing: a
+		half-filled draft is normal while a run is still being recorded.
 		"""
+		factors = {}
 		for row in (self.items or []):
+			# Hash and rosin collected, by micron.
 			for prefix, flag in (("bh", "is_bubble_hash"), ("rosin", "is_rosin")):
 				on = row.get(flag)
 				total = 0.0
@@ -64,18 +73,8 @@ class ConversionEntry(Document):
 					total += flt(row.get(grams_field))
 				row.set("%s_total_grams" % prefix, flt(total, 2))
 
-	def _sync_yields(self):
-		"""Gram equivalents and the three tolling yields.
-
-		Recomputed here, not just in the form, because a row can arrive from
-		the Slack dispatch modal or an import, and a yield that only exists
-		when someone happened to have the form open is worth nothing.
-
-		A zero denominator leaves the ratio at zero rather than throwing: a
-		half-filled draft is normal while a run is being recorded.
-		"""
-		factors = {}
-		for row in (self.items or []):
+			# Frozen weight that went in, in grams -- every raw material, so a
+			# multi-material row yields against all of what it consumed.
 			frozen_grams = 0.0
 			for n in range(1, 8):
 				item_code = row.get("raw_material_%d" % n)
@@ -83,8 +82,9 @@ class ConversionEntry(Document):
 				grams = 0.0
 				if item_code and qty:
 					if item_code not in factors:
-						uom = frappe.db.get_value("Item", item_code, "stock_uom")
-						factors[item_code] = grams_per_unit(uom)
+						factors[item_code] = grams_per_unit(
+							frappe.db.get_value("Item", item_code, "stock_uom")
+						)
 					grams = qty * factors[item_code]
 				row.set("qty_rm_%d_g" % n, flt(grams, 2))
 				frozen_grams += grams
