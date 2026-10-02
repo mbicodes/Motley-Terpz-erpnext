@@ -86,8 +86,21 @@ def install_custom_fields():
 # ── calculation ─────────────────────────────────────────────────────────────
 
 
+def _ensure_fields():
+	"""Create the tracking fields if a deploy skipped `bench migrate`."""
+	if not (
+		frappe.db.has_column("Journal Entry Account", ROW_LINE_FIELD)
+		and frappe.db.has_column("Journal Entry Account", ROW_QTY_FIELD)
+		and frappe.db.has_column("Journal Entry", JE_INVOICE_FIELD)
+	):
+		install_custom_fields()
+		frappe.clear_cache(doctype="Journal Entry")
+		frappe.clear_cache(doctype="Journal Entry Account")
+
+
 def get_lines(company, from_date, to_date):
 	"""One dict per stock line of the period's invoices, with the gap worked out."""
+	_ensure_fields()
 	lines = frappe.db.sql(
 		"""
 		SELECT si.name AS sales_invoice, si.posting_date, si.posting_time, si.update_stock,
