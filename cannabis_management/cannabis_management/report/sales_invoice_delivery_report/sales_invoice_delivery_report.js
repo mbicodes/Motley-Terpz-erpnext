@@ -43,5 +43,12 @@ frappe.query_reports["Sales Invoice Delivery Report"] = {
 			fieldtype: "Link",
 			options: "Item",
 		},
+		{
+			// Delivery Notes in the period that have no Sales Invoice yet
+			fieldname: "include_unbilled_dn",
+			label: __("Include Not Invoiced Delivery Notes"),
+			fieldtype: "Check",
+			default: 1,
+		},
 	],
 };
