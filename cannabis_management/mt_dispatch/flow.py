@@ -14,7 +14,7 @@ from frappe.utils import flt, now_datetime
 
 from cannabis_management.mt_dispatch import builders, gates, notify, stages
 from cannabis_management.mt_dispatch.gates import GateError, StaleAction
-from cannabis_management.mt_dispatch.settings import get_company_settings, require_team_flag
+from cannabis_management.mt_dispatch.settings import get_company_settings, is_administrator, require_team_flag
 from cannabis_management.mt_dispatch.stages import (  # re-exported for callers
 	ALL_STAGES,
 	AWAITING_CONVERSION,
@@ -247,8 +247,10 @@ def transition(sales_order, action, expected_stage=None, payload=None, source="E
 
 	require_team_flag(cfg, frappe.session.user, t.flags)
 
-	for guard in t.guards:
-		guard(so, cfg, payload)
+	# Administrator is exempt from the gates, as from the team flags.
+	if not is_administrator():
+		for guard in t.guards:
+			guard(so, cfg, payload)
 
 	# Resolved before the effect runs, not after: `resume` reads its target
 	# stage out of custom_hold_from_stage, and its own effect is what clears
@@ -366,12 +368,18 @@ def guard_stage_field(doc, method=None):
 	"""
 	if not get_company_settings(doc.company):
 		return
-	if doc.has_value_changed(STAGE_FIELD) and not frappe.flags.get("mt_dispatch"):
-		frappe.throw(
-			_("Stage changes go through the dispatch buttons."),
-			exc=GateError,
-			title=_("Dispatch Flow"),
-		)
+	if not doc.has_value_changed(STAGE_FIELD) or frappe.flags.get("mt_dispatch"):
+		return
+	if is_administrator():
+		# Administrator may set the stage by hand; it still goes on the audit trail.
+		before = doc.get_doc_before_save()
+		_append_log(doc, before.get(STAGE_FIELD) if before else None, doc.get(STAGE_FIELD), "admin_set", "ERP", None)
+		return
+	frappe.throw(
+		_("Stage changes go through the dispatch buttons."),
+		exc=GateError,
+		title=_("Dispatch Flow"),
+	)
 
 
 def enter_flow(so, source="System"):
@@ -507,6 +515,43 @@ def on_dn_cancel(doc, method=None):
 			"cannabis_management.mt_dispatch.notify.on_transition",
 			sales_order=so_name,
 			action="dn_cancelled",
+			enqueue_after_commit=True,
+			queue="short",
+		)
+
+
+# Stages before the Delivery Note exists, and before it is submitted.
+BEFORE_DN = (RECEIVED, AWAITING_CONVERSION, PREPARING, PREPARED)
+BEFORE_RELEASE = BEFORE_DN + (DN_READY, AWAITING_RELEASE, ON_HOLD)
+
+
+def dn_after_insert(doc, method=None):
+	"""A note made outside the flow (only Administrator can) puts its order at Delivery Note Ready."""
+	if frappe.flags.get("mt_dispatch"):
+		return
+	for so_name, _cfg in gates._governed_orders(doc):
+		so = frappe.get_doc("Sales Order", so_name)
+		if so.get(STAGE_FIELD) in BEFORE_DN:
+			set_stage(so, DN_READY, "admin_delivery_note", "ERP")
+
+
+def dn_on_submit(doc, method=None):
+	"""A note submitted outside the flow (only Administrator can) releases its order."""
+	if frappe.flags.get("mt_dispatch"):
+		return
+	for so_name, _cfg in gates._governed_orders(doc):
+		so = frappe.get_doc("Sales Order", so_name)
+		if so.get(STAGE_FIELD) not in BEFORE_RELEASE:
+			continue
+		so.db_set(
+			{"custom_released_by": frappe.session.user, "custom_released_on": now_datetime()},
+			update_modified=False,
+		)
+		set_stage(so, RELEASED, "admin_release", "ERP", note=_("{0} submitted by hand").format(doc.name))
+		notify.enqueue(
+			"cannabis_management.mt_dispatch.notify.on_transition",
+			sales_order=so_name,
+			action="release",
 			enqueue_after_commit=True,
 			queue="short",
 		)
