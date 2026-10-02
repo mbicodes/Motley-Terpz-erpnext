@@ -251,7 +251,7 @@ class ManufacturingRun {
 						<span data-role="tiering-flag"></span>
 					</div>
 				</div>
-				<div class="mc-ops-card-actions">${this._render_release_action(m.work_order_count > 0)}</div>
+				<div class="mc-ops-card-actions">${this._render_attach_action()}${this._render_release_action(m.work_order_count > 0)}</div>
 			</div>
 			<div class="mc-run-card-body"><div class="mc-loading" style="padding:20px 0;">Loading operations…</div></div>
 		</div>`;
@@ -294,6 +294,158 @@ class ManufacturingRun {
 		return released
 			? `<span class="mc-btn mc-btn-sm mc-step-done">Released</span>`
 			: `<button class="mc-btn mc-btn-sm mc-btn-pending" data-action="release_run">Release</button>`;
+	}
+
+	// The files on the run's Material Request (its Attachments table). Before
+	// the run's detail loads they aren't known yet, so it reads plain "Attach".
+	_render_attach_action(files) {
+		const n = (files || []).length;
+		return n
+			? `<button class="mc-btn mc-btn-sm mc-btn-secondary" data-action="attachments" title="See what is attached to this run"><i class="ti ti-paperclip" aria-hidden="true"></i> Attachments (${n})</button>`
+			: `<button class="mc-btn mc-btn-sm mc-btn-secondary" data-action="attachments" title="Attach files to the Material Request"><i class="ti ti-paperclip" aria-hidden="true"></i> Attach</button>`;
+	}
+
+	// The card's button follows the list without refetching the whole run.
+	_set_attachments(mr_name, files) {
+		if (this.runs[mr_name]) this.runs[mr_name].attachments = files;
+		this.$app.find(`.mc-run-card[data-mr="${mr_name}"] [data-action="attachments"]`)
+			.replaceWith(this._render_attach_action(files));
+	}
+
+	// Uploads onto the Material Request, several files at once; each becomes a
+	// row of its Attachments table. Rows are added one after another as the
+	// uploads finish, so two never take the same row number.
+	async _upload_attachments(mr_name, on_added) {
+		await frappe.require("file_uploader.bundle.js");
+		let queue = Promise.resolve();
+		new frappe.ui.FileUploader({
+			doctype: "Material Request",
+			docname: mr_name,
+			folder: "Home/Attachments",
+			allow_multiple: true,
+			on_success: (file) => {
+				queue = queue.then(async () => {
+					try {
+						const files = await this.api("add_attachment", { material_request: mr_name, file_url: file.file_url });
+						this._set_attachments(mr_name, files);
+						frappe.show_alert({ message: `${esc(file.file_name || "File")} attached to ${esc(mr_name)}`, indicator: "green" });
+						if (on_added) on_added();
+					} catch (e) { frappe.msgprint(e.message || e); }
+				});
+			},
+		});
+	}
+
+	// Every file on the run as a tile showing what is in it: images and PDFs
+	// as a preview, videos by their first frame, anything else by its type.
+	// Clicking a tile opens the file full size in its own popup.
+	_open_attachments_dialog(mr_name) {
+		const files = () => (this.runs[mr_name] && this.runs[mr_name].attachments) || [];
+		const d = new frappe.ui.Dialog({
+			title: `Attachments — ${mr_name}`,
+			size: "extra-large",
+			fields: [{ fieldtype: "HTML", fieldname: "files" }],
+			primary_action_label: "Add Files",
+			primary_action: () => this._upload_attachments(mr_name, render),
+		});
+		const $files = d.fields_dict.files.$wrapper;
+		const render = () => {
+			const list = files();
+			d.set_title(`Attachments — ${mr_name} (${list.length})`);
+			$files.html(list.length
+				? `<div class="mc-att-grid">${list.map(f => this._render_attachment_tile(f)).join("")}</div>`
+				: '<div class="mc-att-empty">No files attached yet — use Add Files.</div>');
+		};
+		$files.on("click", "[data-att-view]", (e) => {
+			const f = files().find(x => x.name === $(e.currentTarget).attr("data-att-view"));
+			if (f) this._preview_attachment(f);
+		});
+		$files.on("click", "[data-att-remove]", (e) => {
+			const f = files().find(x => x.name === $(e.currentTarget).attr("data-att-remove"));
+			if (!f) return;
+			frappe.confirm(`Remove <b>${esc(this._file_name(f.attachment))}</b> from ${esc(mr_name)}?`, async () => {
+				try {
+					const list = await this.api("remove_attachment", { material_request: mr_name, row: f.name });
+					this._set_attachments(mr_name, list);
+					frappe.show_alert({ message: "Attachment removed", indicator: "orange" });
+					render();
+				} catch (err) { frappe.msgprint(err.message || err); }
+			});
+		});
+		render();
+		d.show();
+	}
+
+	_render_attachment_tile(f) {
+		const url = f.attachment;
+		const name = this._file_name(url);
+		const kind = this._file_kind(url);
+		let thumb;
+		if (kind === "image") thumb = `<img src="${esc(url)}" alt="" loading="lazy">`;
+		else if (kind === "pdf") thumb = `<iframe src="${esc(url)}#toolbar=0&navpanes=0&view=FitH" tabindex="-1" loading="lazy" title="${esc(name)}"></iframe>`;
+		else if (kind === "video") thumb = `<video src="${esc(url)}" preload="metadata" muted></video>`;
+		else thumb = `<i class="ti ${this._file_icon(url)}" aria-hidden="true"></i><span class="mc-att-ext">${esc(this._file_ext(url) || "file")}</span>`;
+		return `
+		<div class="mc-att-tile">
+			<button class="mc-att-thumb" data-att-view="${esc(f.name)}" title="Preview ${esc(name)}">${thumb}</button>
+			<div class="mc-att-info">
+				<div class="mc-att-name" title="${esc(name)}">${esc(name)}</div>
+				<div class="mc-att-meta">${esc(this._attachment_meta(f))}</div>
+			</div>
+			<div class="mc-att-actions">
+				<button class="btn btn-xs btn-default" data-att-view="${esc(f.name)}"><i class="ti ti-eye" aria-hidden="true"></i> View</button>
+				<a class="btn btn-xs btn-default" href="${esc(url)}" target="_blank" rel="noopener"><i class="ti ti-external-link" aria-hidden="true"></i> Open</a>
+				<button class="btn btn-xs btn-default mc-att-remove" data-att-remove="${esc(f.name)}" title="Remove"><i class="ti ti-trash" aria-hidden="true"></i></button>
+			</div>
+		</div>`;
+	}
+
+	// One file, full size. A type the browser can't show says so, with Open.
+	_preview_attachment(f) {
+		const url = f.attachment;
+		const kind = this._file_kind(url);
+		let body;
+		if (kind === "image") body = `<img class="mc-att-full" src="${esc(url)}" alt="">`;
+		else if (kind === "pdf" || kind === "text") body = `<iframe class="mc-att-frame" src="${esc(url)}"></iframe>`;
+		else if (kind === "video") body = `<video class="mc-att-full" src="${esc(url)}" controls></video>`;
+		else body = `<div class="mc-att-empty"><i class="ti ${this._file_icon(url)}" aria-hidden="true"></i><br>No preview for .${esc(this._file_ext(url))} files — use Open to download it.</div>`;
+		const d = new frappe.ui.Dialog({
+			title: this._file_name(url),
+			size: "extra-large",
+			fields: [{ fieldtype: "HTML", options: `${body}<div class="mc-att-meta mc-att-full-meta">${esc(this._attachment_meta(f))}</div>` }],
+			primary_action_label: "Open in New Tab",
+			primary_action: () => window.open(url, "_blank", "noopener"),
+		});
+		d.show();
+	}
+
+	_attachment_meta(f) {
+		return [f.uploaded_by_name, f.uploaded_on ? frappe.datetime.str_to_user(f.uploaded_on) : ""].filter(Boolean).join(" · ");
+	}
+
+	_file_name(url) {
+		return (url || "").split("?")[0].split("/").pop() || url;
+	}
+
+	_file_ext(url) {
+		const name = this._file_name(url);
+		return name.includes(".") ? name.split(".").pop().toLowerCase() : "";
+	}
+
+	_file_kind(url) {
+		const ext = this._file_ext(url);
+		if (["png", "jpg", "jpeg", "gif", "webp", "bmp"].includes(ext)) return "image";
+		if (ext === "pdf") return "pdf";
+		if (["mp4", "webm", "mov", "ogg"].includes(ext)) return "video";
+		if (ext === "txt") return "text";
+		return "other";
+	}
+
+	_file_icon(url) {
+		const ext = this._file_ext(url);
+		if (["xls", "xlsx", "csv", "ods"].includes(ext)) return "ti-file-spreadsheet";
+		if (["pdf", "doc", "docx", "txt", "odt", "rtf"].includes(ext)) return "ti-file-text";
+		return "ti-file";
 	}
 
 	// Fetched in parallel; each card fills in with its own operations as
@@ -339,7 +491,8 @@ class ManufacturingRun {
 		// no header-level button to sync here anymore.
 		let body = this._render_ops_body(run, active_wo);
 		$card.find(".mc-run-card-body").html(body);
-		$card.find(".mc-ops-card-actions").html(this._render_release_action(run.work_orders.length > 0));
+		$card.find(".mc-ops-card-actions").html(
+			this._render_attach_action(run.attachments) + this._render_release_action(run.work_orders.length > 0));
 		const badge = this._run_status_badge(run.material_request.docstatus, run.material_request.status);
 		$card.find('[data-role="run-status"]')
 			.attr("class", `mc-status mc-status-${badge.status_class}`)
@@ -430,6 +583,16 @@ class ManufacturingRun {
 				frappe.msgprint(e.message || e);
 				$btn.prop("disabled", false).text("Release");
 			}
+		});
+
+		// Attach — files are saved in the run's Material Request (its
+		// Attachments table). With none yet it goes straight to the uploader;
+		// otherwise it shows what is attached, with Add Files there.
+		$app.on("click", '[data-action="attachments"]', function () {
+			const mr_name = $(this).closest(".mc-run-card").data("mr");
+			const files = (self.runs[mr_name] && self.runs[mr_name].attachments) || [];
+			if (files.length) self._open_attachments_dialog(mr_name);
+			else self._upload_attachments(mr_name);
 		});
 
 		$app.on("click", '[data-action="transfer_run"]', function () {

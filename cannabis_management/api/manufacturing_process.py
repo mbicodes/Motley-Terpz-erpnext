@@ -185,6 +185,10 @@ def get_dashboard(company=None):
 
 LBS_TO_GRAM = 453.592
 
+# The run's files: a table on the Material Request (install_custom_fields).
+ATTACHMENTS_FIELD = "custom_attachments"
+ATTACHMENT_DOCTYPE = "Material Request Attachment"
+
 
 @frappe.whitelist()
 def get_run_detail(material_request):
@@ -288,6 +292,8 @@ def get_run_detail(material_request):
         "active_work_order": active_wo["name"] if active_wo else None,
         "complete": complete,
         "scoreboard": _build_scoreboard(items, finished_goods, work_orders),
+        # The card's Attach button lists and adds to these.
+        "attachments": _attachments(mr.name),
     }
 
 
@@ -1241,6 +1247,120 @@ def submit_material_request(material_request):
     mr.submit()
     frappe.db.commit()
     return {"name": mr.name, "docstatus": mr.docstatus}
+
+
+# ── Attachments (the run card's Attach button) ───────────────────────────────
+#
+# Rows go straight into the Attachments table rather than through save(): a
+# draft run can be mid-way through being filled in, and attaching a file
+# shouldn't wait on its other validations; a submitted one would otherwise
+# need an Update After Submit. The table is allowed on submit, so released
+# runs take files too.
+
+
+def _attachments(mr_name):
+    rows = frappe.get_all(
+        ATTACHMENT_DOCTYPE,
+        filters={"parenttype": "Material Request", "parent": mr_name, "parentfield": ATTACHMENTS_FIELD},
+        fields=["name", "attachment", "uploaded_by", "uploaded_on"],
+        order_by="idx asc",
+    )
+    for r in rows:
+        r.uploaded_by_name = frappe.utils.get_fullname(r.uploaded_by) if r.uploaded_by else ""
+    return rows
+
+
+def _writable_run(material_request):
+    mr = frappe.get_doc("Material Request", material_request)
+    mr.check_permission("write")
+    if mr.docstatus == 2:
+        frappe.throw(_("Material Request {0} is cancelled.").format(mr.name))
+    return mr
+
+
+def _touch(mr):
+    """The rows bypassed save(), so the parent's modified is bumped by hand: a
+    Desk form opened before this then refuses a stale save (which would drop
+    the new rows) instead of silently overwriting them."""
+    frappe.db.set_value(
+        "Material Request", mr.name,
+        {"modified": now_datetime(), "modified_by": frappe.session.user},
+        update_modified=False,
+    )
+    mr.reload()
+    mr.notify_update()
+
+
+@frappe.whitelist()
+def add_attachment(material_request, file_url):
+    """One uploaded file -> one row on the Material Request's Attachments table."""
+    mr = _writable_run(material_request)
+    if not file_url:
+        frappe.throw(_("No file to attach."))
+    last_idx = frappe.db.sql(
+        "select max(idx) from `tabMaterial Request Attachment` where parenttype = 'Material Request' and parent = %s",
+        mr.name,
+    )[0][0]
+    frappe.get_doc({
+        "doctype": ATTACHMENT_DOCTYPE,
+        "parenttype": "Material Request",
+        "parent": mr.name,
+        "parentfield": ATTACHMENTS_FIELD,
+        "idx": (last_idx or 0) + 1,
+        "attachment": file_url,
+        "uploaded_by": frappe.session.user,
+        "uploaded_on": now_datetime(),
+    }).db_insert()
+    _touch(mr)
+    return _attachments(mr.name)
+
+
+@frappe.whitelist()
+def remove_attachment(material_request, row):
+    """Drops one row, and its File too (as removing it from the Desk sidebar
+    would) unless another row still points at the same file."""
+    mr = _writable_run(material_request)
+    file_url = frappe.db.get_value(
+        ATTACHMENT_DOCTYPE, {"name": row, "parenttype": "Material Request", "parent": mr.name}, "attachment"
+    )
+    if file_url is None:
+        frappe.throw(_("That attachment is not on {0}.").format(mr.name))
+    frappe.db.delete(ATTACHMENT_DOCTYPE, {"name": row})
+    for idx, name in enumerate(r.name for r in _attachments(mr.name)):
+        frappe.db.set_value(ATTACHMENT_DOCTYPE, name, "idx", idx + 1, update_modified=False)
+
+    if file_url and not frappe.db.exists(ATTACHMENT_DOCTYPE, {"parent": mr.name, "attachment": file_url}):
+        for file_name in frappe.get_all(
+            "File",
+            filters={"attached_to_doctype": "Material Request", "attached_to_name": mr.name, "file_url": file_url},
+            pluck="name",
+        ):
+            frappe.delete_doc("File", file_name)
+    _touch(mr)
+    return _attachments(mr.name)
+
+
+def install_custom_fields():
+    """Idempotent; re-asserted on every migrate via after_migrate."""
+    from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
+
+    create_custom_fields(
+        {
+            "Material Request": [
+                {
+                    "fieldname": ATTACHMENTS_FIELD,
+                    "label": "Attachments",
+                    "fieldtype": "Table",
+                    "options": ATTACHMENT_DOCTYPE,
+                    "insert_after": "custom_project",
+                    "allow_on_submit": 1,
+                    "no_copy": 1,
+                    "description": "Also added to from the run's card on the Manufacturing Process page.",
+                }
+            ],
+        },
+        ignore_validate=True,
+    )
 
 
 # ── Tiering Product (Rosin Pressing) ─────────────────────────────────────────
