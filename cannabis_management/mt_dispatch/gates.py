@@ -12,7 +12,7 @@ from frappe.utils import flt
 
 from cannabis_management.mt_dispatch import stages
 from cannabis_management.mt_dispatch.payments import payment_status
-from cannabis_management.mt_dispatch.settings import get_company_settings
+from cannabis_management.mt_dispatch.settings import get_company_settings, is_administrator
 
 MANIFEST_DIGITS = 10
 
@@ -75,6 +75,44 @@ def tags_with_stock(item_code, warehouse, limit=100):
 
 def tag_qty(muid):
 	return flt(frappe.db.get_value("Metric Tag", muid, "current_qty"))
+
+
+def conversion_targets(so_name):
+	"""{item_code: [target warehouse, ...]} from this order's submitted Conversion Entries."""
+	rows = frappe.db.sql(
+		"""
+		select cei.target_warehouse, cei.finished_good_1, cei.finished_good_2, cei.finished_good_3
+		from `tabConversion Entry Item` cei
+		join `tabConversion Entry` ce on ce.name = cei.parent
+		where ce.sales_order = %s and ce.docstatus = 1 and ifnull(cei.target_warehouse, '') != ''
+		""",
+		so_name,
+		as_dict=True,
+	)
+	targets = {}
+	for r in rows:
+		for item_code in (r.finished_good_1, r.finished_good_2, r.finished_good_3):
+			if item_code and r.target_warehouse not in targets.setdefault(item_code, []):
+				targets[item_code].append(r.target_warehouse)
+	return targets
+
+
+def delivery_warehouse(so, row, targets=None):
+	"""Where a Sales Order line ships from.
+
+	Goods this order converted land in the Conversion Entry's target warehouse,
+	not the line's, so such a line ships from there when that warehouse holds
+	the quantity. Any other line ships from its own warehouse.
+	"""
+	default = row.warehouse or so.set_warehouse
+	need = flt(row.stock_qty) or flt(row.qty)
+	if targets is None:
+		targets = conversion_targets(so.name)
+	for warehouse in targets.get(row.item_code, []):
+		held = flt(frappe.db.get_value("Bin", {"item_code": row.item_code, "warehouse": warehouse}, "actual_qty"))
+		if held >= need:
+			return warehouse
+	return default
 
 
 # ── G0 .. G5 ─────────────────────────────────────────────────────────────────
@@ -244,6 +282,10 @@ def _governed_orders(dn):
 
 
 def dn_before_insert(doc, method=None):
+	# Administrator is exempt, as from the team flags; flow.dn_after_insert
+	# moves the order's stage instead.
+	if is_administrator():
+		return
 	for so_name, _cfg in _governed_orders(doc):
 		if frappe.flags.get("mt_dispatch"):
 			continue
@@ -259,7 +301,8 @@ def dn_before_insert(doc, method=None):
 
 
 def dn_before_submit(doc, method=None):
-	if frappe.flags.get("mt_dispatch") in ("release", "release_override"):
+	# Administrator is exempt; flow.dn_on_submit releases the order instead.
+	if frappe.flags.get("mt_dispatch") in ("release", "release_override") or is_administrator():
 		return
 	for so_name, _cfg in _governed_orders(doc):
 		frappe.throw(
