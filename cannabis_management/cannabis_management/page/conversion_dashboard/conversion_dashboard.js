@@ -20,6 +20,9 @@ class ConversionDashboard {
 		this.data = null;
 		this.charts = {};
 		this.page.set_secondary_action(__('Refresh'), () => this.load(), 'refresh');
+		// Pairs with the Dashboard button on the Conversion Entry list.
+		this.page.set_primary_action(__('See Conversion Entries'),
+			() => frappe.set_route('List', 'Conversion Entry'), 'list');
 		this.render_shell();
 		this.make_filters();
 		this.set_preset('90');

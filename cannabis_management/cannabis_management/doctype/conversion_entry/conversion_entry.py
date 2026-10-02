@@ -615,7 +615,7 @@ def get_project_items(warehouse, project=None, company=None):
 			dict(values, source=parent_dt), as_dict=True,
 		)
 
-	return _with_grams(_merge_by_item(rows))
+	return _with_stock(_with_grams(_merge_by_item(rows)), warehouse)
 
 
 def _warehouse_stock_items(warehouse):
@@ -630,7 +630,7 @@ def _warehouse_stock_items(warehouse):
 		""",
 		{"warehouse": warehouse}, as_dict=True,
 	)
-	return _with_grams(_merge_by_item(rows))
+	return _with_stock(_with_grams(_merge_by_item(rows)), warehouse)
 
 
 def _merge_by_item(rows):
@@ -658,8 +658,21 @@ def _with_grams(rows):
 		uom = row.get("uom")
 		if uom not in factors:
 			factors[uom] = grams_per_unit(uom)
+		row["grams_per_unit"] = factors[uom]
 		row["grams"] = flt(row["qty"] * factors[uom], 2)
 		out.append(row)
 
 	out.sort(key=lambda r: (-r["qty"], r["item_code"]))
 	return out
+
+
+def _with_stock(rows, warehouse):
+	"""Stamp each row with what `warehouse` holds of it right now."""
+	codes = [r["item_code"] for r in rows]
+	stock = dict(frappe.get_all(
+		"Bin", filters={"warehouse": warehouse, "item_code": ["in", codes]},
+		fields=["item_code", "actual_qty"], as_list=True,
+	)) if codes else {}
+	for r in rows:
+		r["stock_qty"] = flt(stock.get(r["item_code"]), 3)
+	return rows

@@ -603,6 +603,7 @@ function _sync_grams(frm, cdt, cdn, n) {
 function _pull_project_items(frm) {
 	const d = new frappe.ui.Dialog({
 		title: __('Pull Items from Project'),
+		size: 'large',
 		fields: [
 			{
 				fieldname: 'warehouse', fieldtype: 'Link', options: 'Warehouse',
@@ -619,10 +620,20 @@ function _pull_project_items(frm) {
 		],
 		primary_action_label: __('Add Selected'),
 		primary_action() {
-			const picked = d.$wrapper.find('.ce-pull-row:checked')
-				.map((i, el) => JSON.parse($(el).attr('data-row'))).get();
+			// The row takes the quantity typed in Qty to Pull, not the listed one.
+			const picked = d.$wrapper.find('.ce-pull-row:checked').map((i, el) => {
+				const item = JSON.parse($(el).attr('data-row'));
+				item.pull_qty = flt($(el).closest('tr').find('.ce-pull-qty').val());
+				return item;
+			}).get();
 			if (!picked.length) {
 				frappe.msgprint(__('Tick at least one item.'));
+				return;
+			}
+			const no_qty = picked.filter((it) => it.pull_qty <= 0);
+			if (no_qty.length) {
+				frappe.msgprint(__('Enter a Qty to Pull for: {0}',
+					[no_qty.map((it) => frappe.utils.escape_html(it.item_name)).join(', ')]));
 				return;
 			}
 			// A new Conversion Entry opens with an untouched first row, so pulled
@@ -652,10 +663,10 @@ function _pull_project_items(frm) {
 					conversion_type: '1 to 1',
 					source_warehouse: d.get_value('warehouse'),
 					raw_material_1: item.item_code,
-					qty_rm_1: item.qty,
-					// Already computed server-side, so the row shows grams the
-					// moment it lands instead of waiting on a round trip.
-					qty_rm_1_g: item.grams || 0,
+					qty_rm_1: item.pull_qty,
+					// grams_per_unit comes from the server, so the row shows grams
+					// the moment it lands instead of waiting on a round trip.
+					qty_rm_1_g: flt(item.pull_qty * (item.grams_per_unit || 0), 2),
 				});
 				row.__ce_pulled = true;
 			});
@@ -680,29 +691,56 @@ function _pull_project_items(frm) {
 					: __('Nothing is in stock in that warehouse.')}</div>`);
 			return;
 		}
+		// With a Project the listed Qty is what was billed; without one it is the
+		// stock itself, so the Billed column would only repeat In Warehouse.
+		const billed = !!d.get_value('project');
+		const td = 'padding:6px 8px';
+		const muted = 'color:var(--text-muted);font-size:11px';
+		const g_note = (qty, it) => (it.grams_per_unit && qty
+			? `${format_number(qty * it.grams_per_unit, null, 2)} g` : '');
 		const rows = items.map((it) => `
 			<tr>
-				<td style="padding:6px 8px"><input type="checkbox" class="ce-pull-row"
+				<td style="${td}"><input type="checkbox" class="ce-pull-row"
 					data-row='${frappe.utils.escape_html(JSON.stringify(it))}'></td>
-				<td style="padding:6px 8px"><b>${frappe.utils.escape_html(it.item_name)}</b>
-					<div style="color:var(--text-muted);font-size:11px">${frappe.utils.escape_html(it.item_code)}</div></td>
-				<td style="padding:6px 8px;text-align:right">${format_number(it.qty, null, 3)} ${frappe.utils.escape_html(it.uom || '')}
-					${it.grams ? `<div style="color:var(--text-muted);font-size:11px">${format_number(it.grams, null, 2)} g</div>` : ''}</td>
-				<td style="padding:6px 8px;color:var(--text-muted);font-size:11px">${frappe.utils.escape_html(it.sources)}</td>
+				<td style="${td}"><b>${frappe.utils.escape_html(it.item_name)}</b>
+					<div style="${muted}">${frappe.utils.escape_html(it.item_code)}</div></td>
+				${billed ? `<td style="${td};text-align:right">${format_number(it.qty, null, 3)} ${frappe.utils.escape_html(it.uom || '')}
+					<div style="${muted}">${g_note(it.qty, it)}</div></td>` : ''}
+				<td style="${td};text-align:right">${format_number(it.stock_qty, null, 3)} ${frappe.utils.escape_html(it.uom || '')}
+					<div style="${muted}">${g_note(it.stock_qty, it)}</div></td>
+				<td style="${td};text-align:right;width:130px">
+					<input type="number" min="0" step="any" class="form-control input-xs ce-pull-qty"
+						style="text-align:right" placeholder="0">
+					<div class="ce-pull-g" style="${muted}"></div></td>
+				<td style="${td};${muted}">${frappe.utils.escape_html(it.sources)}</td>
 			</tr>`).join('');
+		const th = (label, right) => `<th style="${td};text-align:${right ? 'right' : 'left'};font-size:11px">${label}</th>`;
 		$area.html(`
-			<div style="max-height:340px;overflow:auto;border:1px solid var(--border-color);border-radius:6px">
+			<div style="max-height:380px;overflow:auto;border:1px solid var(--border-color);border-radius:6px">
 			<table style="width:100%;border-collapse:collapse">
-				<thead><tr style="position:sticky;top:0;background:var(--control-bg)">
-					<th style="padding:6px 8px"><input type="checkbox" class="ce-pull-all"></th>
-					<th style="padding:6px 8px;text-align:left;font-size:11px">${__('Item')}</th>
-					<th style="padding:6px 8px;text-align:right;font-size:11px">${__('Qty')}</th>
-					<th style="padding:6px 8px;text-align:left;font-size:11px">${__('Source')}</th>
+				<thead><tr style="position:sticky;top:0;background:var(--control-bg);z-index:1">
+					<th style="${td}"><input type="checkbox" class="ce-pull-all"></th>
+					${th(__('Item'))}
+					${billed ? th(__('Billed'), true) : ''}
+					${th(__('Qty in Warehouse'), true)}
+					${th(__('Qty to Pull'), true)}
+					${th(__('Source'))}
 				</tr></thead>
 				<tbody>${rows}</tbody>
 			</table></div>`);
 		$area.find('.ce-pull-all').on('change', function () {
 			$area.find('.ce-pull-row').prop('checked', this.checked);
+		});
+		// Typing a quantity ticks the row; clearing it unticks. Pulling more
+		// than the warehouse holds is flagged, not blocked.
+		$area.find('.ce-pull-qty').on('input', function () {
+			const $tr = $(this).closest('tr');
+			const it = JSON.parse($tr.find('.ce-pull-row').attr('data-row'));
+			const qty = flt(this.value);
+			$tr.find('.ce-pull-row').prop('checked', qty > 0);
+			$tr.find('.ce-pull-g').text(g_note(qty, it));
+			$(this).css('border-color', qty > flt(it.stock_qty) ? 'var(--orange-500, #e8833a)' : '');
+			$(this).attr('title', qty > flt(it.stock_qty) ? __('More than the warehouse holds') : '');
 		});
 	};
 
