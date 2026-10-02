@@ -205,6 +205,10 @@ after_migrate = [
     # row apart from one the invoice posted itself -- cancellation of either
     # document depends on them. Idempotent, same reasoning as the entries above.
     "cannabis_management.overrides.si_cogs_alignment.install_custom_fields",
+    # Journal Entry stamps for COGS on invoiced-but-undelivered quantity: the
+    # invoice line and qty each entry covers, so a re-run never books twice.
+    # See api/undelivered_cogs.py.
+    "cannabis_management.api.undelivered_cogs.install_custom_fields",
     # "In Progress" / "Completed" on Material Request's status options, for
     # Manufacture runs. Idempotent. See overrides/mr_run_status.py.
     "cannabis_management.overrides.mr_run_status.install",
