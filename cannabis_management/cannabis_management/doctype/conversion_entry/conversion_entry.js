@@ -694,6 +694,13 @@ function _pull_project_items(frm) {
 		// With a Project the listed Qty is what was billed; without one it is the
 		// stock itself, so the Billed column would only repeat In Warehouse.
 		const billed = !!d.get_value('project');
+		// A server still on the older get_project_items sends neither stock_qty
+		// nor grams_per_unit. Without a project the listed qty is the stock, and
+		// grams per unit falls out of the grams it already sends.
+		items.forEach((it) => {
+			if (it.stock_qty == null && !billed) it.stock_qty = it.qty;
+			if (it.grams_per_unit == null) it.grams_per_unit = flt(it.qty) ? flt(it.grams) / flt(it.qty) : 0;
+		});
 		const td = 'padding:6px 8px';
 		const muted = 'color:var(--text-muted);font-size:11px';
 		const g_note = (qty, it) => (it.grams_per_unit && qty
@@ -706,7 +713,8 @@ function _pull_project_items(frm) {
 					<div style="${muted}">${frappe.utils.escape_html(it.item_code)}</div></td>
 				${billed ? `<td style="${td};text-align:right">${format_number(it.qty, null, 3)} ${frappe.utils.escape_html(it.uom || '')}
 					<div style="${muted}">${g_note(it.qty, it)}</div></td>` : ''}
-				<td style="${td};text-align:right">${format_number(it.stock_qty, null, 3)} ${frappe.utils.escape_html(it.uom || '')}
+				<td style="${td};text-align:right">${it.stock_qty == null ? '—'
+					: `${format_number(it.stock_qty, null, 3)} ${frappe.utils.escape_html(it.uom || '')}`}
 					<div style="${muted}">${g_note(it.stock_qty, it)}</div></td>
 				<td style="${td};text-align:right;width:130px">
 					<input type="number" min="0" step="any" class="form-control input-xs ce-pull-qty"
@@ -739,8 +747,9 @@ function _pull_project_items(frm) {
 			const qty = flt(this.value);
 			$tr.find('.ce-pull-row').prop('checked', qty > 0);
 			$tr.find('.ce-pull-g').text(g_note(qty, it));
-			$(this).css('border-color', qty > flt(it.stock_qty) ? 'var(--orange-500, #e8833a)' : '');
-			$(this).attr('title', qty > flt(it.stock_qty) ? __('More than the warehouse holds') : '');
+			const over = it.stock_qty != null && qty > flt(it.stock_qty);
+			$(this).css('border-color', over ? 'var(--orange-500, #e8833a)' : '');
+			$(this).attr('title', over ? __('More than the warehouse holds') : '');
 		});
 	};
 
