@@ -191,7 +191,8 @@ function show_material_transfer_dialog(frm) {
 // movement). See api/undelivered_cogs.py.
 frappe.ui.form.on('Sales Invoice', {
 	refresh(frm) {
-		if (frm.doc.docstatus !== 1 || frm.doc.is_return) return;
+		// Finance asked for this for Motley Terpz only.
+		if (frm.doc.docstatus !== 1 || frm.doc.is_return || frm.doc.company !== 'Motley Terpz') return;
 		const name = frm.doc.name;
 		frappe
 			.xcall('cannabis_management.api.undelivered_cogs.get_invoice_status', {

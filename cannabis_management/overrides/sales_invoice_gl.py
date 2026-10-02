@@ -63,6 +63,10 @@ class CMSalesInvoice(SalesInvoice):
         if self.docstatus != 2:
             out = super().make_gl_entries(gl_entries=gl_entries, from_repost=from_repost)
             self._restore_missing_note_entries()
+            # Same for undelivered COGS Journal Entries filed under this invoice.
+            from cannabis_management.api.undelivered_cogs import restore_for_invoice
+
+            restore_for_invoice(self.name)
             return out
 
         from erpnext.accounts.general_ledger import make_reverse_gl_entries

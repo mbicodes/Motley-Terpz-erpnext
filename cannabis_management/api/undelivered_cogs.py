@@ -27,12 +27,30 @@ lines are left alone.
 
 Re-running is safe: each posted unit is recorded on its Journal Entry row
 (custom_si_detail / custom_cogs_qty) and subtracted the next time.
+
+General Ledger: the Journal Entry stays the source document (it is what gets
+cancelled and what carries the tracking), but its GL rows are filed under the
+Sales Invoice's own voucher -- the same restamp Delivery Note stock GL gets in
+overrides/si_cogs_alignment.py, with origin stamps naming the Journal Entry.
+The invoice's General Ledger then shows its revenue and all of its COGS.
+Before the Journal Entry cancels, its rows are handed back to it so core's
+reversal finds them.
+
+Finance asked for this for Motley Terpz only (COMPANIES).
 """
 
 import frappe
 from frappe import _
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 from frappe.utils import flt, get_datetime
+
+from cannabis_management.overrides.si_cogs_alignment import (
+	ORIGIN_NO_FIELD,
+	ORIGIN_TYPE_FIELD,
+	invoice_voucher_subtype,
+)
+
+COMPANIES = ("Motley Terpz",)
 
 JE_INVOICE_FIELD = "custom_undelivered_cogs_invoice"
 ROW_LINE_FIELD = "custom_si_detail"
@@ -86,6 +104,11 @@ def install_custom_fields():
 # ── calculation ─────────────────────────────────────────────────────────────
 
 
+def _check_company(company):
+	if company not in COMPANIES:
+		frappe.throw(_("Undelivered COGS is only set up for {0}").format(", ".join(COMPANIES)))
+
+
 def _ensure_fields():
 	"""Create the tracking fields if a deploy skipped `bench migrate`."""
 	if not (
@@ -100,6 +123,7 @@ def _ensure_fields():
 
 def get_lines(company, from_date, to_date):
 	"""One dict per stock line of the period's invoices, with the gap worked out."""
+	_check_company(company)
 	_ensure_fields()
 	lines = frappe.db.sql(
 		"""
@@ -485,6 +509,7 @@ def _make_journal_entry(company, si, rows, defaults):
 @frappe.whitelist()
 def enqueue_post(company, from_date, to_date):
 	frappe.only_for(MANAGER_ROLES)
+	_check_company(company)
 	frappe.enqueue(
 		"cannabis_management.api.undelivered_cogs.post_entries",
 		queue="long",
@@ -515,7 +540,7 @@ def get_invoice_status(sales_invoice):
 		return out
 
 	si = frappe.db.get_value("Sales Invoice", sales_invoice, ["company", "posting_date", "docstatus", "is_return"], as_dict=True)
-	if si.docstatus != 1 or si.is_return:
+	if si.docstatus != 1 or si.is_return or si.company not in COMPANIES:
 		return out
 	pending = [
 		l
@@ -537,3 +562,102 @@ def post_for_invoice(sales_invoice):
 	if summary["failed"]:
 		frappe.throw(summary["failed"][0][1])
 	return summary
+
+
+# ── General Ledger: file under the Sales Invoice ────────────────────────────
+
+
+def file_under_invoice(journal_entry, sales_invoice=None):
+	"""Restamp a Journal Entry's live GL rows onto its Sales Invoice's voucher."""
+	sales_invoice = sales_invoice or frappe.db.get_value("Journal Entry", journal_entry, JE_INVOICE_FIELD)
+	if not sales_invoice:
+		return 0
+	names = frappe.get_all(
+		"GL Entry",
+		filters={"voucher_type": "Journal Entry", "voucher_no": journal_entry, "is_cancelled": 0},
+		pluck="name",
+	)
+	if not names:
+		return 0
+	frappe.db.sql(
+		"""
+		UPDATE `tabGL Entry`
+		SET voucher_type = 'Sales Invoice',
+		    voucher_no   = %(si)s,
+		    voucher_subtype = %(subtype)s,
+		    `{otype}`    = 'Journal Entry',
+		    `{ono}`      = %(je)s
+		WHERE name IN %(names)s
+		""".format(otype=ORIGIN_TYPE_FIELD, ono=ORIGIN_NO_FIELD),
+		{"si": sales_invoice, "subtype": invoice_voucher_subtype(sales_invoice), "je": journal_entry, "names": tuple(names)},
+	)
+	return len(names)
+
+
+def move_back_to_journal_entry(journal_entry):
+	"""Undo file_under_invoice, so core's cancel can find the rows to reverse."""
+	frappe.db.sql(
+		"""
+		UPDATE `tabGL Entry`
+		SET voucher_type = 'Journal Entry',
+		    voucher_no   = %(je)s,
+		    voucher_subtype = %(subtype)s,
+		    `{otype}`    = NULL,
+		    `{ono}`      = NULL
+		WHERE `{otype}` = 'Journal Entry' AND `{ono}` = %(je)s AND is_cancelled = 0
+		""".format(otype=ORIGIN_TYPE_FIELD, ono=ORIGIN_NO_FIELD),
+		{"je": journal_entry, "subtype": frappe.db.get_value("Journal Entry", journal_entry, "voucher_type")},
+	)
+
+
+def restore_for_invoice(sales_invoice):
+	"""Re-post entries a repost of the invoice deleted along with its own rows."""
+	for je in frappe.get_all(
+		"Journal Entry", filters={JE_INVOICE_FIELD: sales_invoice, "docstatus": 1}, pluck="name"
+	):
+		live = frappe.db.sql(
+			"""SELECT 1 FROM `tabGL Entry` WHERE is_cancelled = 0
+			AND ((voucher_type = 'Journal Entry' AND voucher_no = %(je)s) OR `{ono}` = %(je)s) LIMIT 1""".format(
+				ono=ORIGIN_NO_FIELD
+			),
+			{"je": je},
+		)
+		if not live:
+			frappe.get_doc("Journal Entry", je).make_gl_entries()
+			file_under_invoice(je, sales_invoice)
+
+
+def journal_entry_on_submit(doc, method=None):
+	if doc.get(JE_INVOICE_FIELD):
+		file_under_invoice(doc.name, doc.get(JE_INVOICE_FIELD))
+
+
+def journal_entry_before_cancel(doc, method=None):
+	if doc.get(JE_INVOICE_FIELD):
+		move_back_to_journal_entry(doc.name)
+
+
+def repost_ledger_validate(doc, method=None):
+	"""Core's repost looks rows up by the Journal Entry's own voucher and would
+	miss the ones filed under the invoice, booking the COGS twice."""
+	for row in doc.get("vouchers") or []:
+		if row.voucher_type == "Journal Entry" and frappe.db.get_value(
+			"Journal Entry", row.voucher_no, JE_INVOICE_FIELD
+		):
+			frappe.throw(
+				_("Row {0}: {1} is an Undelivered COGS entry filed under its Sales Invoice. Repost the Sales Invoice instead.").format(
+					row.idx, row.voucher_no
+				)
+			)
+
+
+def backfill_gl(company="Motley Terpz"):
+	"""File already-submitted entries' GL under their invoices. Idempotent."""
+	_check_company(company)
+	moved = 0
+	for je in frappe.get_all(
+		"Journal Entry", filters={JE_INVOICE_FIELD: ("is", "set"), "docstatus": 1, "company": company}, pluck="name"
+	):
+		moved += file_under_invoice(je)
+	frappe.db.commit()
+	print(f"Filed {moved} GL rows under their Sales Invoices.")
