@@ -3,7 +3,7 @@
 
 import frappe
 from frappe import _
-from frappe.utils import flt
+from frappe.utils import cint, flt
 
 
 def execute(filters=None):
@@ -42,6 +42,37 @@ def get_columns():
 
 
 def get_data(filters):
+	data = get_invoice_rows(filters)
+	if cint(filters.get("include_unbilled_dn", 1)):
+		data += get_unbilled_dn_rows(filters)
+	if not data:
+		return []
+
+	stock_keys = {(r.voucher_no, r._voucher_detail) for r in data if r._voucher_detail}
+	valuation = get_sle_valuation(stock_keys)
+	si_income, si_cost, dn_cost = get_posted_accounts(
+		{r.sales_invoice for r in data if r.sales_invoice}, {n for r in data for n in r._dn_names}
+	)
+	for row in data:
+		row.income_account = pick_posted_account([row._line_income_account], si_income.get(row.sales_invoice))
+		if row.update_stock:
+			# No Delivery Note: the invoice itself posted the cost of the stock
+			row.cost_account = pick_posted_account([row._line_expense_account], si_cost.get(row.sales_invoice))
+		else:
+			row.cost_account = pick_posted_account(
+				row._dn_expense_accounts, set().union(*(dn_cost.get(n, set()) for n in row._dn_names))
+			)
+		rate = valuation.get((row.voucher_no, row._voucher_detail))
+		row.valuation_rate = flt(rate if rate is not None else row._fallback_rate)
+		row.valuation_amount = flt(row.valuation_rate * flt(row.stock_qty or row.qty))
+		for key in ("_voucher_detail", "_fallback_rate", "_dn_names", "_dn_expense_accounts",
+				"_line_income_account", "_line_expense_account", "si_detail", "so_detail", "dn_detail",
+				"incoming_rate", "update_stock", "stock_qty"):
+			row.pop(key, None)
+	return data
+
+
+def get_invoice_rows(filters):
 	conditions = ["si.docstatus = 1", "si.posting_date BETWEEN %(from_date)s AND %(to_date)s"]
 	# "All Company" arrives with no company key (stripped by api.report_filters)
 	if filters.company:
@@ -121,7 +152,7 @@ def get_data(filters):
 			fields=["name", "posting_date"], as_list=True)
 	) if missing else {}
 
-	data, stock_keys = [], set()
+	data = []
 	for row in items:
 		dns, source = find_delivery_notes(row, by_dn_detail, by_si_detail, by_si_item, by_so_detail, by_so_item)
 		if not dns and row.delivery_note:
@@ -157,29 +188,69 @@ def get_data(filters):
 			_dn_names=list(dict.fromkeys(d.delivery_note for d in dns)),
 			_dn_expense_accounts=[d.expense_account for d in dns if d.get("expense_account")],
 		)
-		if voucher_detail:
-			stock_keys.add((voucher_no, voucher_detail))
 		data.append(row)
-
-	valuation = get_sle_valuation(stock_keys)
-	si_income, si_cost, dn_cost = get_posted_accounts(invoices, {n for r in data for n in r._dn_names})
-	for row in data:
-		row.income_account = pick_posted_account([row._line_income_account], si_income.get(row.sales_invoice))
-		if row.update_stock:
-			# No Delivery Note: the invoice itself posted the cost of the stock
-			row.cost_account = pick_posted_account([row._line_expense_account], si_cost.get(row.sales_invoice))
-		else:
-			row.cost_account = pick_posted_account(
-				row._dn_expense_accounts, set().union(*(dn_cost.get(n, set()) for n in row._dn_names))
-			)
-		rate = valuation.get((row.voucher_no, row._voucher_detail))
-		row.valuation_rate = flt(rate if rate is not None else row._fallback_rate)
-		row.valuation_amount = flt(row.valuation_rate * flt(row.stock_qty or row.qty))
-		for key in ("_voucher_detail", "_fallback_rate", "_dn_names", "_dn_expense_accounts",
-				"_line_income_account", "_line_expense_account", "si_detail", "so_detail", "dn_detail",
-				"incoming_rate", "update_stock", "stock_qty"):
-			row.pop(key, None)
 	return data
+
+
+def get_unbilled_dn_rows(filters):
+	"""Delivery Note lines in the period that no submitted Sales Invoice has billed yet.
+
+	Same scope as ERPNext's "To Bill": no returns, no closed notes. A line counts as
+	invoiced when an invoice points at it (dn_detail / against_sales_invoice) or, for an
+	invoice made straight from the Sales Order, when ERPNext has allocated billed_amt
+	to it. Zero-value lines never get billed_amt, so they fall back to the SO link.
+	"""
+	conditions = [
+		"dn.docstatus = 1", "dn.is_return = 0", "dn.status != 'Closed'",
+		"dn.posting_date BETWEEN %(from_date)s AND %(to_date)s",
+	]
+	if filters.company:
+		conditions.append("dn.company = %(company)s")
+	if filters.customer:
+		conditions.append("dn.customer = %(customer)s")
+	if filters.item_code:
+		conditions.append("dni.item_code = %(item_code)s")
+
+	rows = frappe.db.sql(
+		f"""
+		SELECT
+			dn.name AS delivery_note, dn.posting_date AS delivery_note_date, dn.customer, dn.company,
+			dni.name AS dn_detail, dni.item_code, dni.item_name, dni.item_group, dni.uom,
+			dni.qty AS dn_qty, dni.stock_qty, dni.base_net_amount AS dn_amount,
+			dni.incoming_rate, dni.expense_account, dni.against_sales_order AS sales_order
+		FROM `tabDelivery Note` dn
+		INNER JOIN `tabDelivery Note Item` dni ON dni.parent = dn.name
+		WHERE {" AND ".join(conditions)}
+			AND NOT EXISTS (
+				SELECT 1 FROM `tabSales Invoice Item` sii
+				INNER JOIN `tabSales Invoice` si ON si.name = sii.parent AND si.docstatus = 1
+				WHERE sii.dn_detail = dni.name)
+			AND NOT EXISTS (
+				SELECT 1 FROM `tabSales Invoice` si
+				WHERE si.name = dni.against_sales_invoice AND si.docstatus = 1)
+			AND IF(dni.base_net_amount != 0, IFNULL(dni.billed_amt, 0) = 0, NOT EXISTS (
+				SELECT 1 FROM `tabSales Invoice Item` sii
+				INNER JOIN `tabSales Invoice` si ON si.name = sii.parent AND si.docstatus = 1
+				WHERE sii.so_detail = dni.so_detail AND IFNULL(sii.dn_detail, '') = ''
+					AND IFNULL(dni.so_detail, '') != ''))
+		ORDER BY dn.posting_date, dn.name, dni.idx
+		""",
+		filters,
+		as_dict=True,
+	)
+	for row in rows:
+		row.update(
+			dn_source="Not Invoiced",
+			dn_rate=flt(row.dn_amount) / flt(row.dn_qty) if flt(row.dn_qty) else None,
+			voucher_type="Delivery Note",
+			voucher_no=row.delivery_note,
+			_voucher_detail=row.dn_detail,
+			_fallback_rate=row.incoming_rate,
+			_dn_names=[row.delivery_note],
+			_dn_expense_accounts=[row.expense_account] if row.expense_account else [],
+		)
+		row.pop("expense_account")
+	return rows
 
 
 def find_delivery_notes(row, by_dn_detail, by_si_detail, by_si_item, by_so_detail, by_so_item):
