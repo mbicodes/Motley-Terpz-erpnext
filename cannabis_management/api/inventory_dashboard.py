@@ -53,58 +53,64 @@ def get_stock_by_item_group(item_group, project=None, _=None):
 
 
 # Project is the "Batch" inventory dimension: it lives on Stock Ledger Entry,
-# not on Bin, so a project's stock is summed from the ledger. Stock
-# Reconciliations never carry a batch on this site (their ledger rows have no
-# project and actual_qty = 0), so the ledger sum is the project's whole stock.
-def get_project_stock(item_group, project, company_condition, values):
+# not on Bin, so a project's stock is summed from the ledger. That sum is only
+# trusted where it agrees with what the dashboard shows:
+# - Stock Reconciliations never carry a project (their ledger rows have no
+#   project and actual_qty = 0), and some issues were posted with a project
+#   their receipts lack, so a project's ledger sum can be negative, or name
+#   stock that is no longer there.
+# - So a project counts only where its sum is positive on an item/warehouse
+#   the dashboard lists (Bin qty > 0), and never for more than that Bin holds.
+def get_project_balances(item_group, company_condition, values, project=None):
+    project_condition = "AND sle.project = %s" if project else "AND IFNULL(sle.project, '') != ''"
+    args = (item_group,) + ((project,) if project else ()) + tuple(values[1:])
     return frappe.db.sql("""
         SELECT
+            sle.project,
             sle.item_code,
             i.item_name,
             i.item_group,
             sle.warehouse,
-            SUM(sle.actual_qty) AS actual_qty,
-            0 AS reserved_qty,
-            sle.project
+            LEAST(SUM(sle.actual_qty), b.actual_qty) AS actual_qty,
+            0 AS reserved_qty
         FROM `tabStock Ledger Entry` sle
         INNER JOIN `tabItem` i ON i.name = sle.item_code
         INNER JOIN `tabWarehouse` w ON w.name = sle.warehouse
+        INNER JOIN `tabBin` b ON b.item_code = sle.item_code AND b.warehouse = sle.warehouse
         WHERE i.item_group = %s
             AND i.disabled = 0
             AND i.custom_show_in_dashboard = 1
             AND sle.is_cancelled = 0
-            AND sle.project = %s
+            {project_condition}
+            AND b.actual_qty > 0
             AND sle.warehouse NOT LIKE 'Virtual%%'
             {company_condition}
-        GROUP BY sle.item_code, sle.warehouse
-        HAVING ROUND(SUM(sle.actual_qty), 6) != 0
+        GROUP BY sle.project, sle.item_code, sle.warehouse, b.actual_qty
+        HAVING ROUND(SUM(sle.actual_qty), 6) > 0
         ORDER BY i.item_name
-    """.format(company_condition=company_condition), (item_group, project) + tuple(values[1:]), as_dict=True)
+    """.format(project_condition=project_condition, company_condition=company_condition), args, as_dict=True)
+
+
+def get_project_stock(item_group, project, company_condition, values):
+    return get_project_balances(item_group, company_condition, values, project)
 
 
 def get_projects_with_stock(item_group, company_condition, values):
-    """Projects holding stock of this group in some warehouse, for the filter."""
-    return frappe.db.sql("""
-        SELECT s.project AS name, IFNULL(NULLIF(p.project_name, ''), s.project) AS project_name
-        FROM (
-            SELECT sle.project
-            FROM `tabStock Ledger Entry` sle
-            INNER JOIN `tabItem` i ON i.name = sle.item_code
-            INNER JOIN `tabWarehouse` w ON w.name = sle.warehouse
-            WHERE i.item_group = %s
-                AND i.disabled = 0
-                AND i.custom_show_in_dashboard = 1
-                AND sle.is_cancelled = 0
-                AND IFNULL(sle.project, '') != ''
-                AND sle.warehouse NOT LIKE 'Virtual%%'
-                {company_condition}
-            GROUP BY sle.project, sle.item_code, sle.warehouse
-            HAVING ROUND(SUM(sle.actual_qty), 6) != 0
-        ) s
-        LEFT JOIN `tabProject` p ON p.name = s.project
-        GROUP BY s.project, p.project_name
-        ORDER BY project_name
-    """.format(company_condition=company_condition), tuple(values), as_dict=True)
+    """Projects with stock showing in this group, each with the warehouses it
+    is in, so the filter can list only those in the chosen warehouse."""
+    projects = {}
+    for row in get_project_balances(item_group, company_condition, values):
+        p = projects.setdefault(row.project, {"name": row.project, "warehouses": []})
+        if row.warehouse not in p["warehouses"]:
+            p["warehouses"].append(row.warehouse)
+    if not projects:
+        return []
+    labels = dict(frappe.get_all(
+        "Project", filters={"name": ["in", list(projects)]}, fields=["name", "project_name"], as_list=True
+    ))
+    for name, p in projects.items():
+        p["project_name"] = (labels.get(name) or "").strip() or name
+    return sorted(projects.values(), key=lambda p: p["project_name"].lower())
 
 
 def get_bin_stock(company_condition, values):
