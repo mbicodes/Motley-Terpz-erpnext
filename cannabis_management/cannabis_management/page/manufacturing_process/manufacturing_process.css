@@ -845,3 +845,63 @@
   font-weight: 600;
 }
 .mc-btn-dashboard:hover { background: var(--mc-purple); color: #fff; }
+
+/* ── Attachments popup (the run card's Attach button) ──
+   Lives in a Frappe dialog, so it takes Frappe's theme variables and follows
+   the desk's light/dark theme rather than this page's fixed palette. */
+.mc-att-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 12px;
+}
+.mc-att-tile {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-md, 8px);
+  background: var(--card-bg);
+  overflow: hidden;
+}
+.mc-att-thumb {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  height: 150px;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--subtle-fg);
+  color: var(--text-muted);
+  cursor: zoom-in;
+  overflow: hidden;
+}
+.mc-att-thumb img,
+.mc-att-thumb video { width: 100%; height: 100%; object-fit: cover; }
+/* The PDF viewer would swallow the click; let it fall through to the tile. */
+.mc-att-thumb iframe,
+.mc-att-thumb video { pointer-events: none; }
+.mc-att-thumb iframe { width: 100%; height: 100%; border: 0; background: #fff; }
+.mc-att-thumb .ti { font-size: 40px; }
+.mc-att-ext { font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; }
+.mc-att-info { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px 6px; min-width: 0; }
+.mc-att-name {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-color);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mc-att-meta { font-size: 11px; color: var(--text-muted); }
+.mc-att-actions { display: flex; gap: 6px; padding: 0 10px 10px; }
+.mc-att-actions .mc-att-remove { margin-left: auto; color: var(--red-500, #dc3545); }
+.mc-att-empty { padding: 32px 12px; text-align: center; color: var(--text-muted); }
+.mc-att-empty .ti { font-size: 48px; }
+.mc-att-full { display: block; max-width: 100%; max-height: 75vh; margin: 0 auto; }
+.mc-att-frame { display: block; width: 100%; height: 75vh; border: 0; background: #fff; }
+.mc-att-full-meta { margin-top: 8px; text-align: center; }
