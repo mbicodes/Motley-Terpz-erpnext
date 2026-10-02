@@ -400,7 +400,7 @@ def _rate(line, delivered_value):
 # ── posting ─────────────────────────────────────────────────────────────────
 
 
-def post_entries(company, from_date, to_date):
+def post_entries(company, from_date, to_date, sales_invoice=None, notify=True):
 	"""Post one Journal Entry per invoice with an undelivered gap. Safe to re-run."""
 	defaults = frappe.db.get_value(
 		"Company", company, ["stock_adjustment_account", "default_expense_account", "cost_center"], as_dict=True
@@ -410,7 +410,7 @@ def post_entries(company, from_date, to_date):
 
 	by_invoice = {}
 	for l in get_lines(company, from_date, to_date):
-		if l.status == "To Post":
+		if l.status == "To Post" and (not sales_invoice or l.sales_invoice == sales_invoice):
 			by_invoice.setdefault(l.sales_invoice, []).append(l)
 
 	posted, failed = [], []
@@ -431,6 +431,8 @@ def post_entries(company, from_date, to_date):
 		"failed": failed,
 		"entries": posted,
 	}
+	if not notify:
+		return summary
 	frappe.publish_realtime(
 		"msgprint",
 		_("Undelivered COGS: {0} Journal Entries posted, total {1}. {2} failed.").format(
@@ -492,3 +494,46 @@ def enqueue_post(company, from_date, to_date):
 		to_date=to_date,
 	)
 	return _("Posting started in the background. You will get a message when it finishes.")
+
+
+# ── Sales Invoice form ──────────────────────────────────────────────────────
+
+
+@frappe.whitelist()
+def get_invoice_status(sales_invoice):
+	"""The invoice's undelivered COGS entries, and what is still left to post."""
+	frappe.has_permission("Sales Invoice", "read", sales_invoice, throw=True)
+	_ensure_fields()
+	entries = frappe.get_list(
+		"Journal Entry",
+		filters={JE_INVOICE_FIELD: sales_invoice, "docstatus": ("<", 2)},
+		fields=["name", "posting_date", "total_debit", "docstatus"],
+		order_by="posting_date, creation",
+	)
+	out = {"entries": entries, "can_post": False, "to_post": 0, "lines": 0}
+	if not set(MANAGER_ROLES) & set(frappe.get_roles()):
+		return out
+
+	si = frappe.db.get_value("Sales Invoice", sales_invoice, ["company", "posting_date", "docstatus", "is_return"], as_dict=True)
+	if si.docstatus != 1 or si.is_return:
+		return out
+	pending = [
+		l
+		for l in get_lines(si.company, si.posting_date, si.posting_date)
+		if l.sales_invoice == sales_invoice and l.status == "To Post"
+	]
+	out.update(can_post=True, to_post=flt(sum(l.amount for l in pending), 2), lines=len(pending))
+	return out
+
+
+@frappe.whitelist()
+def post_for_invoice(sales_invoice):
+	"""Post the undelivered COGS of one invoice, from its form."""
+	frappe.only_for(MANAGER_ROLES)
+	si = frappe.db.get_value("Sales Invoice", sales_invoice, ["company", "posting_date", "docstatus"], as_dict=True)
+	if not si or si.docstatus != 1:
+		frappe.throw(_("Sales Invoice {0} is not submitted").format(sales_invoice))
+	summary = post_entries(si.company, si.posting_date, si.posting_date, sales_invoice=sales_invoice, notify=False)
+	if summary["failed"]:
+		frappe.throw(summary["failed"][0][1])
+	return summary

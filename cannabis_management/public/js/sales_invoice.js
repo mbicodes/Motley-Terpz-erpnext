@@ -185,3 +185,173 @@ function show_material_transfer_dialog(frm) {
 
     d.show();
 }
+
+
+// ── Project picker: no filtering ─────────────────────────────────────────────
+// Core restricts Project by company, and on selling forms by customer too
+// (erpnext/public/js/utils/sales_common.js, controllers/buying.js). Projects
+// here are not company-scoped, so that hid valid choices. Cleared in refresh
+// so it lands after core's own setup_queries, which is where core sets it.
+frappe.ui.form.on('Sales Invoice', {
+	refresh(frm) {
+		frm.set_query('project', () => ({}));
+	},
+});
+
+
+// ── Inter-company counterpart ────────────────────────────────────────────────
+// A sale to an internal customer raises the matching purchase document in the
+// buying company. The buying side needs a Company, Warehouse and Project that
+// the sale does not carry, so they are asked for before the sale is committed.
+//
+// Defined behind a guard because all three selling forms ship this same block
+// and only one copy needs to win. Kept out of hooks.py deliberately: these
+// three files are already wired as doctype_js, so the feature ships without
+// touching a shared file.
+window.cannabis_management = window.cannabis_management || {};
+if (!cannabis_management.inter_company) {
+	cannabis_management.inter_company = {
+		METHOD: 'cannabis_management.inter_company.',
+
+		// form.js awaits before_submit, so returning a promise holds the submit
+		// open until the dialog is answered. Rejecting aborts the submit.
+		prompt(frm) {
+			const ns = cannabis_management.inter_company;
+			return new Promise((resolve, reject) => {
+				frappe.call({
+					method: ns.METHOD + 'is_internal_customer',
+					args: { customer: frm.doc.customer },
+					callback: (r) => {
+						const info = (r && r.message) || {};
+						if (!info.internal) {
+							resolve();          // ordinary sale, nothing to raise
+							return;
+						}
+						let answered = false;
+						const d = new frappe.ui.Dialog({
+							title: __('Inter-company purchase details'),
+							fields: [
+								{
+									fieldname: 'info', fieldtype: 'HTML',
+									options: `<p style="color:var(--text-muted);font-size:12px">${
+										__('{0} is an internal customer, so submitting this will raise the matching purchase document.',
+											[frappe.utils.escape_html(frm.doc.customer)])}</p>`,
+								},
+								{
+									fieldname: 'company', fieldtype: 'Link', options: 'Company',
+									label: __('Company (buying side)'), reqd: 1,
+									default: info.represents_company,
+								},
+								{
+									fieldname: 'warehouse', fieldtype: 'Link', options: 'Warehouse',
+									label: __('Warehouse'), reqd: 1,
+									get_query: () => ({ filters: { is_group: 0, disabled: 0 } }),
+								},
+								{
+									fieldname: 'project', fieldtype: 'Link', options: 'Project',
+									label: __('Project'), reqd: 1,
+								},
+							],
+							primary_action_label: __('Continue and submit'),
+							primary_action(values) {
+								answered = true;
+								frm.__inter_company = values;
+								d.hide();
+								resolve();
+							},
+						});
+						// Closing the dialog means "don't submit".
+						d.$wrapper.on('hidden.bs.modal', () => {
+							if (!answered) {
+								frappe.validated = false;
+								reject();
+							}
+						});
+						d.show();
+					},
+					error: reject,
+				});
+			});
+		},
+
+		// Runs after the sale is safely submitted, in its own request — a failure
+		// here reports itself without undoing the sale.
+		create(frm) {
+			const ns = cannabis_management.inter_company;
+			const values = frm.__inter_company;
+			if (!values) return;
+			frm.__inter_company = null;
+
+			frappe.call({
+				method: ns.METHOD + 'create_counterpart',
+				args: {
+					doctype: frm.doctype,
+					name: frm.docname,
+					company: values.company,
+					warehouse: values.warehouse,
+					project: values.project,
+				},
+				freeze: true,
+				freeze_message: __('Raising the inter-company document…'),
+			});
+		},
+	};
+}
+
+frappe.ui.form.on('Sales Invoice', {
+	before_submit(frm) {
+		return cannabis_management.inter_company.prompt(frm);
+	},
+	on_submit(frm) {
+		cannabis_management.inter_company.create(frm);
+	},
+});
+
+// Undelivered COGS: the Journal Entries that booked COGS for quantity this
+// invoice billed but never shipped (Dr COGS / Cr Stock Adjustment, no stock
+// movement). See api/undelivered_cogs.py.
+frappe.ui.form.on('Sales Invoice', {
+	refresh(frm) {
+		if (frm.doc.docstatus !== 1 || frm.doc.is_return) return;
+		const name = frm.doc.name;
+		frappe
+			.xcall('cannabis_management.api.undelivered_cogs.get_invoice_status', {
+				sales_invoice: frm.doc.name,
+			})
+			.then((r) => {
+				if (!r || frm.doc.name !== name) return;
+				(r.entries || []).forEach((je) => {
+					frm.add_custom_button(
+						je.name,
+						() => frappe.set_route('Form', 'Journal Entry', je.name),
+						__('Undelivered COGS')
+					);
+				});
+				if (r.entries && r.entries.length) {
+					const links = r.entries
+						.map((je) => `<a href="/app/journal-entry/${je.name}">${je.name}</a> (${format_currency(je.total_debit, frm.doc.company_currency)})`)
+						.join(', ');
+					frm.dashboard.add_comment(__('Undelivered COGS booked: {0}', [links]), 'blue', true);
+				}
+				if (r.can_post && r.lines) {
+					frm.add_custom_button(
+						__('Post COGS ({0})', [format_currency(r.to_post, frm.doc.company_currency)]),
+						() =>
+							frappe.confirm(
+								__('Book COGS of {0} for {1} undelivered line(s)? Dr COGS / Cr Stock Adjustment. No stock is moved.', [
+									format_currency(r.to_post, frm.doc.company_currency),
+									r.lines,
+								]),
+								() =>
+									frappe
+										.xcall('cannabis_management.api.undelivered_cogs.post_for_invoice', {
+											sales_invoice: frm.doc.name,
+										})
+										.then(() => frm.reload_doc())
+							),
+						__('Undelivered COGS')
+					);
+				}
+			});
+	},
+});
