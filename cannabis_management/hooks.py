@@ -312,6 +312,15 @@ override_doctype_class = {
 # Hook on document methods and events
 
 doc_events = {
+    # ── Undelivered COGS (Motley Terpz): JE GL filed under its Sales Invoice ──
+    # See api/undelivered_cogs.py.
+    "Journal Entry": {
+        "on_submit": "cannabis_management.api.undelivered_cogs.journal_entry_on_submit",
+        "before_cancel": "cannabis_management.api.undelivered_cogs.journal_entry_before_cancel",
+    },
+    "Repost Accounting Ledger": {
+        "validate": "cannabis_management.api.undelivered_cogs.repost_ledger_validate",
+    },
     # ── Manufacturing Portal access code: uniqueness + strength ──────────────
     "User": {
         "validate": "cannabis_management.manufacturing_portal.user_hooks.validate",
