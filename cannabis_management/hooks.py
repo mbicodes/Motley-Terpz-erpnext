@@ -192,6 +192,9 @@ after_migrate = [
     # Log fields it drives. Also re-pins the time log's field_order, which is
     # a Property Setter -- new columns stay invisible until named in it.
     "cannabis_management.doc_hooks.job_card.install_custom_fields",
+    # Material Request's Attachments table, added to from the Manufacturing
+    # Process page's run cards.
+    "cannabis_management.api.manufacturing_process.install_custom_fields",
     # MT Dispatch: the Sales Order stage fields, the audit tables and the
     # stage Select's options. Code, not fixtures -- a fixture export would
     # drag in every unrelated Custom Field on Sales Order.
