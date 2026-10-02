@@ -21,6 +21,18 @@ frappe.ui.form.on("Sales Order", {
 			callback: (r) => {
 				frm._mt_board = r.message || {};
 				mt_dispatch.render(frm, frm._mt_board);
+				mt_dispatch.limit_stage_options(frm, frm._mt_board);
+				mt_dispatch.run_pending(frm, frm._mt_board);
+				if (frm._mt_board.enabled && !frm._mt_board.is_admin) {
+					// The Delivery Note comes from the Dispatch menu's "Create the
+					// Delivery Note" step; core's own button would only be refused.
+					frm.remove_custom_button(__("Delivery Note"), __("Create"));
+					// And the "+" beside Delivery Note under Connections, shown
+					// before that button went away.
+					frm.dashboard.links_area?.body
+						.find('.btn-new[data-doctype="Delivery Note"]')
+						.addClass("hidden");
+				}
 			},
 		});
 	},
@@ -34,24 +46,57 @@ frappe.ui.form.on("Sales Order", {
 		const board = frm._mt_board || {};
 		// Company not on dispatch: a plain field, saved with Update like any other.
 		if (!board.enabled) return;
+		const a = chosen && chosen !== board.stage && mt_dispatch.ready_actions(board).find((x) => x.to === chosen);
+		// Administrator may set any stage by hand: a plain field, saved with Update.
+		if (!a && board.is_admin) return;
 		mt_dispatch.revert_stage(frm);
 		if (!chosen || chosen === board.stage) return;
 
-		const a = (board.actions || []).find((x) => x.to === chosen);
+		// The list only offers stages a ready step reaches, so this only misses
+		// when the order moved on since the form loaded.
 		if (!a) {
-			const reachable = [...new Set((board.actions || []).map((x) => x.to).filter(Boolean))];
-			frappe.msgprint({
-				title: __("Can't move to {0}", [chosen]),
-				indicator: "orange",
-				message: reachable.length
-					? __("From {0} you can move to: {1}.", [board.stage || __("no stage"), reachable.join(", ")])
-					: __("There is no step you can take on this order from {0}.", [board.stage || __("no stage")]),
-			});
+			frm.reload_doc();
 			return;
 		}
 		(mt_dispatch.handlers[a.action] || mt_dispatch.confirm_and_run)(frm, a, board);
 	},
 });
+
+// A step asked for from another form (the Delivery Note's button) opens here,
+// where its dialog lives, once the board says it is still ready.
+mt_dispatch.run_pending = function (frm, board) {
+	const pending = frappe.flags.mt_dispatch_pending;
+	if (!pending || pending.sales_order !== frm.doc.name) return;
+	frappe.flags.mt_dispatch_pending = null;
+	const a = mt_dispatch.ready_actions(board).find((x) => x.action === pending.action);
+	if (a) (mt_dispatch.handlers[a.action] || mt_dispatch.confirm_and_run)(frm, a, board);
+};
+
+// Steps whose checks pass right now. A blocked step gets no button; its reason
+// is shown in the headline instead of as an error after the click.
+mt_dispatch.ready_actions = function (board) {
+	return (board.actions || []).filter((a) => !a.blocked);
+};
+
+// Logistic Status lists the current stage and the stages one ready step away,
+// so every pick is a step that will go through.
+mt_dispatch.limit_stage_options = function (frm, board) {
+	const field = "custom_logistic_status";
+	if (!board.enabled || board.is_admin) {
+		frm.set_df_property(field, "options", frappe.meta.get_docfield("Sales Order", field).options);
+		return;
+	}
+	const options = [board.stage || ""];
+	mt_dispatch.ready_actions(board).forEach((a) => {
+		if (a.to && !options.includes(a.to)) options.push(a.to);
+	});
+	frm.set_df_property(field, "options", options.join("\n"));
+};
+
+// A dialog input problem is shown on the field itself, not as a popup.
+mt_dispatch.field_error = function (d, fieldname, message) {
+	d.get_field(fieldname).set_description(`<span class="text-danger">${message}</span>`);
+};
 
 mt_dispatch.revert_stage = function (frm) {
 	frm._mt_reverting = true;
@@ -73,9 +118,15 @@ mt_dispatch.render = function (frm, board) {
 			? ` · <span class="text-danger">${__("COD short")} ${format_currency(pay.short, frm.doc.currency)}</span>`
 			: ` · <span class="text-success">${__("COD paid in full")}</span>`;
 	}
+	const waiting = (board.actions || [])
+		.filter((a) => a.blocked)
+		.map((a) => `${__(frappe.utils.to_title_case(a.label))}: ${frappe.utils.escape_html(a.blocked)}`);
+	[...(board.notes || []).map(frappe.utils.escape_html), ...waiting].forEach((line) => {
+		headline += `<br><span class="text-warning">${line}</span>`;
+	});
 	frm.dashboard.set_headline_alert(headline);
 
-	(board.actions || []).forEach((a) => {
+	mt_dispatch.ready_actions(board).forEach((a) => {
 		const handler = mt_dispatch.handlers[a.action] || mt_dispatch.confirm_and_run;
 		frm.add_custom_button(__(frappe.utils.to_title_case(a.label)), () => handler(frm, a, board), MT_GROUP);
 	});
@@ -112,7 +163,7 @@ mt_dispatch.reason_dialog = function (frm, a, board, min_length) {
 		primary_action_label: __("Confirm"),
 		primary_action(v) {
 			if (min_length && (v.reason || "").trim().length < min_length) {
-				frappe.msgprint(__("Give a reason of at least {0} characters.", [min_length]));
+				mt_dispatch.field_error(d, "reason", __("Give a reason of at least {0} characters.", [min_length]));
 				return;
 			}
 			d.hide();
@@ -145,6 +196,8 @@ mt_dispatch.handlers = {
 				const fields = [];
 				Object.keys(lines).forEach((so_detail) => {
 					const l = lines[so_detail];
+					// A tag is optional here, so a line with none to offer gets no picker.
+					if (!board.tags_required && !(l.tags || []).length) return;
 					const options = [""].concat((l.tags || []).map((t) => t.muid));
 					fields.push({
 						fieldname: so_detail,
@@ -156,9 +209,13 @@ mt_dispatch.handlers = {
 							__("No Metric Tag holds stock here"),
 					});
 				});
+				if (!fields.length) {
+					mt_dispatch.confirm_and_run(frm, a, board);
+					return;
+				}
 				const d = new frappe.ui.Dialog({
 					title: __("Create Delivery Note"),
-					fields: fields.length ? fields : [{ fieldtype: "HTML", options: __("No lines.") }],
+					fields: fields,
 					primary_action_label: __("Create draft"),
 					primary_action(v) {
 						const muid = {};
@@ -183,7 +240,7 @@ mt_dispatch.handlers = {
 			primary_action_label: __("Upload"),
 			primary_action(v) {
 				if (!/^\d{10}$/.test((v.manifest_number || "").trim())) {
-					frappe.msgprint(__("The manifest number must be 10 digits."));
+					mt_dispatch.field_error(d, "manifest_number", __("The manifest number must be 10 digits."));
 					return;
 				}
 				d.hide();

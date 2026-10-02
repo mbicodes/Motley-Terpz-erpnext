@@ -8,6 +8,7 @@ import frappe
 from frappe import _
 from frappe.utils import flt, nowdate
 
+from cannabis_management.mt_dispatch import gates
 from cannabis_management.mt_dispatch.gates import GateError, draft_delivery_note
 
 MAX_RAW_MATERIALS = 7
@@ -149,11 +150,20 @@ def build_delivery_note(so, cfg, payload):
 
 	dn = make_delivery_note(so.name)
 	picks = payload.get("muid") or {}
+	so_rows = {row.name: row for row in so.items}
+	targets = gates.conversion_targets(so.name)
 
 	for item in dn.items:
+		row = so_rows.get(item.so_detail)
+		if row:
+			item.warehouse = gates.delivery_warehouse(so, row, targets)
 		chosen = picks.get(item.so_detail)
 		if chosen:
 			item.tags = chosen
+
+	warehouses = {item.warehouse for item in dn.items}
+	if len(warehouses) == 1:
+		dn.set_warehouse = warehouses.pop()
 
 	dn.insert()
 	return dn.name
