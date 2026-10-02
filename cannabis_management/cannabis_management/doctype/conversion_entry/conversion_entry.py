@@ -567,8 +567,11 @@ def grams_per_unit(uom):
 
 
 @frappe.whitelist()
-def get_project_items(project, warehouse, company=None):
+def get_project_items(warehouse, project=None, company=None):
 	"""Items that went out to a project through a given warehouse.
+
+	With no project, there is nothing billed to narrow by, so the answer becomes
+	what the warehouse holds right now -- see _warehouse_stock_items.
 
 	Reads the invoice lines rather than the ledger: both Sales Invoice Item and
 	Purchase Invoice Item carry project and warehouse already, so the answer is
@@ -578,8 +581,10 @@ def get_project_items(project, warehouse, company=None):
 	Quantities from both sides are summed per item, so an item that arrived on a
 	purchase invoice and left on a sales invoice shows one line, not two.
 	"""
-	if not (project and warehouse):
-		frappe.throw(_("Pick a Project and a Warehouse."))
+	if not warehouse:
+		frappe.throw(_("Pick a Warehouse."))
+	if not project:
+		return _warehouse_stock_items(warehouse)
 
 	# A warehouse belongs to exactly one company, so take it from there rather
 	# than from the caller. The caller used to pass the form's company, which on
@@ -610,6 +615,25 @@ def get_project_items(project, warehouse, company=None):
 			dict(values, source=parent_dt), as_dict=True,
 		)
 
+	return _with_grams(_merge_by_item(rows))
+
+
+def _warehouse_stock_items(warehouse):
+	"""Everything with stock on hand in `warehouse`, from its Bin rows."""
+	rows = frappe.db.sql(
+		"""
+		select b.item_code, i.item_name, i.stock_uom as uom, i.item_group,
+		       b.actual_qty as qty, 'In stock' as source
+		from `tabBin` b
+		left join `tabItem` i on i.name = b.item_code
+		where b.warehouse = %(warehouse)s and b.actual_qty > 0
+		""",
+		{"warehouse": warehouse}, as_dict=True,
+	)
+	return _with_grams(_merge_by_item(rows))
+
+
+def _merge_by_item(rows):
 	merged = {}
 	for r in rows:
 		row = merged.setdefault(r.item_code, {
@@ -622,10 +646,13 @@ def get_project_items(project, warehouse, company=None):
 		})
 		row["qty"] += flt(r.qty)
 		row["sources"].add(r.source)
+	return merged.values()
 
+
+def _with_grams(rows):
 	factors = {}
 	out = []
-	for row in merged.values():
+	for row in rows:
 		row["sources"] = ", ".join(sorted(row.pop("sources")))
 		row["qty"] = flt(row["qty"], 3)
 		uom = row.get("uom")

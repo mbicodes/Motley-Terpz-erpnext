@@ -1,6 +1,6 @@
 {
  "charts": [],
- "content": "[{\"id\":\"cpNQJRcUbS\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Conversion</span>\",\"col\":12}},{\"id\":\"_RroGRNeX2\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Conversion Entry\",\"col\":3}},{\"id\":\"XwxT4begdj\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Conversion Description\",\"col\":12}}]",
+ "content": "[{\"id\":\"cpNQJRcUbS\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\">Conversion</span>\",\"col\":12}},{\"id\":\"_RroGRNeX2\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Conversion Entry\",\"col\":3}},{\"id\":\"cvdDashSc1\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Conversion & Tolling Dashboard\",\"col\":3}},{\"id\":\"XwxT4begdj\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Conversion Description\",\"col\":12}}]",
  "creation": "2026-05-11 11:54:16.690377",
  "custom_blocks": [
   {
@@ -18,7 +18,7 @@
  "is_hidden": 0,
  "label": "Conversion",
  "links": [],
- "modified": "2026-09-30 08:06:11.109597",
+ "modified": "2026-10-02 19:30:00.000000",
  "modified_by": "muhammad.huzaifa@alltechvirtual.com",
  "module": "Cannabis Management",
  "name": "Conversion",
@@ -50,6 +50,14 @@
    "link_to": "Conversion Entry",
    "stats_filter": "[]",
    "type": "DocType"
+  },
+  {
+   "color": "Purple",
+   "doc_view": "",
+   "label": "Conversion & Tolling Dashboard",
+   "link_to": "conversion-dashboard",
+   "stats_filter": "[]",
+   "type": "Page"
   }
  ],
  "title": "Conversion"

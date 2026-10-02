@@ -595,10 +595,11 @@ function _sync_grams(frm, cdt, cdn, n) {
 
 
 // ── Pull Items from Project ──────────────────────────────────────────────────
-// Asks for a Warehouse and a Project, lists what was billed against that pair
-// (Sales Invoice and Purchase Invoice lines both carry project + warehouse),
-// and turns whatever is ticked into Conversion Items rows — one row per item,
-// its quantity carried across.
+// Asks for a Warehouse and, optionally, a Project. With a Project it lists what
+// was billed against that pair (Sales Invoice and Purchase Invoice lines both
+// carry project + warehouse); with the Warehouse alone it lists what is in
+// stock there. Whatever is ticked becomes Conversion Items rows — one row per
+// item, its quantity carried across.
 function _pull_project_items(frm) {
 	const d = new frappe.ui.Dialog({
 		title: __('Pull Items from Project'),
@@ -610,7 +611,8 @@ function _pull_project_items(frm) {
 			},
 			{
 				fieldname: 'project', fieldtype: 'Link', options: 'Project',
-				label: __('Project'), reqd: 1,
+				label: __('Project'),
+				description: __('Optional. Leave blank to list what is in stock in the warehouse.'),
 			},
 			{ fieldname: 'fetch', fieldtype: 'Button', label: __('Show Items') },
 			{ fieldname: 'results', fieldtype: 'HTML' },
@@ -661,7 +663,7 @@ function _pull_project_items(frm) {
 				if (r.__ce_pulled) _sync_yield(frm, r.doctype, r.name);
 			});
 			frm.refresh_field('items');
-			if (!frm.doc.project) frm.set_value('project', d.get_value('project'));
+			if (!frm.doc.project && d.get_value('project')) frm.set_value('project', d.get_value('project'));
 			d.hide();
 			frappe.show_alert({
 				message: __('{0} item(s) added', [picked.length]), indicator: 'green',
@@ -673,7 +675,9 @@ function _pull_project_items(frm) {
 		const $area = d.fields_dict.results.$wrapper;
 		if (!items.length) {
 			$area.html(`<div style="color:var(--text-muted);padding:12px 0">${
-				__('Nothing was billed against that project out of that warehouse.')}</div>`);
+				d.get_value('project')
+					? __('Nothing was billed against that project out of that warehouse.')
+					: __('Nothing is in stock in that warehouse.')}</div>`);
 			return;
 		}
 		const rows = items.map((it) => `
@@ -693,7 +697,7 @@ function _pull_project_items(frm) {
 					<th style="padding:6px 8px"><input type="checkbox" class="ce-pull-all"></th>
 					<th style="padding:6px 8px;text-align:left;font-size:11px">${__('Item')}</th>
 					<th style="padding:6px 8px;text-align:right;font-size:11px">${__('Qty')}</th>
-					<th style="padding:6px 8px;text-align:left;font-size:11px">${__('Billed on')}</th>
+					<th style="padding:6px 8px;text-align:left;font-size:11px">${__('Source')}</th>
 				</tr></thead>
 				<tbody>${rows}</tbody>
 			</table></div>`);
@@ -703,8 +707,8 @@ function _pull_project_items(frm) {
 	};
 
 	const fetch = () => {
-		if (!d.get_value('warehouse') || !d.get_value('project')) {
-			frappe.msgprint(__('Pick a Warehouse and a Project first.'));
+		if (!d.get_value('warehouse')) {
+			frappe.msgprint(__('Pick a Warehouse first.'));
 			return;
 		}
 		frappe.call({
@@ -714,7 +718,7 @@ function _pull_project_items(frm) {
 				// reads it off the warehouse. Sending the form's company here is
 				// what used to blank the list — a new Conversion Entry defaults to
 				// Master Touch Manufacturing and hid every other company's invoices.
-				project: d.get_value('project'),
+				project: d.get_value('project') || null,
 				warehouse: d.get_value('warehouse'),
 			},
 			callback: (r) => render(r.message || []),
@@ -722,10 +726,10 @@ function _pull_project_items(frm) {
 	};
 
 	d.fields_dict.fetch.$input.on('click', fetch);
-	// Picking both values is usually enough — fetch without a second click.
-	d.fields_dict.warehouse.$input.on('change', () => setTimeout(() => {
-		if (d.get_value('project')) fetch();
+	// Picking a value is usually enough — fetch without a second click.
+	d.fields_dict.warehouse.$input.on('change', () => setTimeout(fetch, 200));
+	d.fields_dict.project.$input.on('change', () => setTimeout(() => {
+		if (d.get_value('warehouse')) fetch();
 	}, 200));
-	d.fields_dict.project.$input.on('change', () => setTimeout(fetch, 200));
 	d.show();
 }
