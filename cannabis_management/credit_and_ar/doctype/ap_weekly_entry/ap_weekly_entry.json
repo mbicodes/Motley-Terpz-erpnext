@@ -1,0 +1,173 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "AP-WE-.#####",
+ "creation": "2026-10-05 10:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "supplier",
+  "company",
+  "week_of",
+  "col_break_head",
+  "status",
+  "tier_snapshot",
+  "amount_snapshot",
+  "sec_detail",
+  "qa",
+  "plan",
+  "notes",
+  "sec_contact",
+  "contact",
+  "email",
+  "col_break_contact",
+  "need_finance_signoff"
+ ],
+ "fields": [
+  {
+   "fieldname": "supplier",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Supplier",
+   "options": "Supplier",
+   "reqd": 1
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "week_of",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Week Of",
+   "reqd": 1
+  },
+  {
+   "fieldname": "col_break_head",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "\nScheduled On Time\nPaying Immediately\nPayment Scheduled\nAwaiting Approval\nDisputed - Need Reconciliation\nShort On Funds",
+   "reqd": 1
+  },
+  {
+   "description": "How far past due this supplier was when the entry was filed. Never recomputed afterwards.",
+   "fieldname": "tier_snapshot",
+   "fieldtype": "Select",
+   "label": "Tier at Time of Entry",
+   "options": "\nupcoming\nlevel1\nlevel2\nlevel3",
+   "read_only": 1
+  },
+  {
+   "fieldname": "amount_snapshot",
+   "fieldtype": "Currency",
+   "label": "Payable at Time of Entry",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sec_detail",
+   "fieldtype": "Section Break",
+   "label": "This Week"
+  },
+  {
+   "fieldname": "qa",
+   "fieldtype": "Small Text",
+   "label": "What is going on?"
+  },
+  {
+   "fieldname": "plan",
+   "fieldtype": "Small Text",
+   "label": "When will this be paid?"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "sec_contact",
+   "fieldtype": "Section Break",
+   "label": "Contact"
+  },
+  {
+   "fieldname": "contact",
+   "fieldtype": "Data",
+   "label": "Contact info"
+  },
+  {
+   "fieldname": "email",
+   "fieldtype": "Data",
+   "label": "Email"
+  },
+  {
+   "fieldname": "col_break_contact",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "need_finance_signoff",
+   "fieldtype": "Check",
+   "label": "Need sign-off from finance"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-10-05 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Credit and AR",
+ "name": "AP Weekly Entry",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounts Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "AP Weekly Review",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "supplier",
+ "track_changes": 1
+}
