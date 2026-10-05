@@ -19,15 +19,15 @@
  "icon": "dashboard",
  "idx": 0,
  "indicator_color": "green",
- "is_hidden": 1,
+ "is_hidden": 0,
  "label": "Matt Dashboard",
  "links": [
   {
    "hidden": 0,
    "is_query_report": 0,
-   "label": "Sales Target Dashboard (for Matt)",
+   "label": "Aging AR Dashboard",
    "link_count": 0,
-   "link_to": "matt-sales-target",
+   "link_to": "ar-dashboard",
    "link_type": "Page",
    "onboard": 0,
    "type": "Link"
@@ -35,9 +35,29 @@
   {
    "hidden": 0,
    "is_query_report": 0,
-   "label": "Aging AR Dashboard",
+   "label": "AR Account wise",
    "link_count": 0,
-   "link_to": "ar-dashboard",
+   "link_to": "ar-legacy",
+   "link_type": "Page",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "AR Accountibility",
+   "link_count": 0,
+   "link_to": "ar-weekly-review",
+   "link_type": "Page",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sales Target Dashboard (for Matt)",
+   "link_count": 0,
+   "link_to": "matt-sales-target",
    "link_type": "Page",
    "onboard": 0,
    "type": "Link"
@@ -75,7 +95,7 @@
    "type": "Link"
   }
  ],
- "modified": "2026-09-21 16:40:33.501213",
+ "modified": "2026-10-05 10:44:31.434893",
  "modified_by": "Administrator",
  "module": "Cannabis Management",
  "name": "Matt Dashboard",
