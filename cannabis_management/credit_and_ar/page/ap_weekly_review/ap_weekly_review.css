@@ -1,0 +1,120 @@
+/* AP Weekly Review -- the payables twin of ar_weekly_review.css.
+   Same layout on purpose: anyone who can read the AR page can read this one.
+   The accent is teal rather than purple so a glance tells you which ledger you
+   are looking at. Everything is scoped under .apw-root so none of it leaks
+   into Desk. */
+.apw-root{
+  --accent:#0f6d66; --accent-soft:#e2f1ef;
+  --orange:#d68a2b; --orange-soft:#fdf1e0;
+  --blue:#2f6fd6; --green:#2e8b57; --grey:#8a8a94;
+  --ink:#1f2430; --ink-dim:#767b8a; --line:#eaeaf0;
+  --page:#f8f7fb; --card:#ffffff;
+  --lvl1:#b23b3b; --lvl1-soft:#fbeaea;
+  --lvl2:#c47b1f; --lvl2-soft:#fdf1e0;
+  --lvl3:#7a2233; --lvl3-soft:#f6e6ea;
+  --upc:#2e7d5b; --upc-soft:#e7f5ec;
+  --radius:12px;
+  background:var(--page); color:var(--ink); font-size:13.5px;
+  padding:18px 22px 60px; min-height:70vh;
+}
+.apw-root *{box-sizing:border-box;}
+
+.apw-head{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:18px;}
+.apw-title{font-size:17px;font-weight:700;}
+.apw-sub{font-size:11.5px;color:var(--ink-dim);margin-top:2px;}
+.apw-savemsg{font-size:11.5px;color:var(--ink-dim);margin-right:10px;}
+
+/* KPI cards */
+.apw-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px;}
+.apw-kpi{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--accent);
+  border-radius:var(--radius);padding:16px 18px;}
+.apw-kpi.acc-orange{border-left-color:var(--orange);}
+.apw-kpi.acc-green{border-left-color:var(--green);}
+.apw-kpi.acc-blue{border-left-color:var(--blue);}
+.apw-kpi-label{font-size:11px;color:var(--ink-dim);font-weight:700;letter-spacing:.2px;margin-bottom:6px;}
+.apw-kpi-value{font-size:22px;font-weight:700;}
+.apw-kpi-sub{font-size:11.5px;color:var(--ink-dim);margin-top:3px;}
+
+/* toolbar */
+.apw-seclabel{font-size:11.5px;font-weight:700;color:var(--ink-dim);margin-bottom:8px;}
+.apw-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:16px 0 12px;}
+.apw-search{border:1px solid var(--line);border-radius:8px;padding:8px 11px;font-size:12.5px;
+  background:var(--card);color:var(--ink);min-width:220px;}
+.apw-seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+.apw-seg button{border:none;background:var(--card);padding:7px 13px;font-size:12px;color:var(--ink-dim);cursor:pointer;}
+.apw-seg button.on{background:var(--accent);color:#fff;}
+.apw-toolbar .apw-spacer{flex:1;}
+.apw-count{font-size:12px;color:var(--ink-dim);}
+
+/* group boxes */
+.apw-box{background:var(--card);border:1px solid var(--line);border-left:5px solid var(--accent);
+  border-radius:var(--radius);margin-bottom:18px;overflow:hidden;}
+.apw-box.tier-upcoming{border-left-color:var(--upc);}
+.apw-box.tier-level1{border-left-color:var(--lvl1);}
+.apw-box.tier-level2{border-left-color:var(--lvl2);}
+.apw-box.tier-level3{border-left-color:var(--lvl3);}
+.apw-boxhead{padding:14px 18px;background:linear-gradient(90deg,var(--accent-soft),transparent 70%);}
+.apw-boxhead .apw-titlerow{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;}
+.apw-boxhead .apw-name{font-size:15.5px;font-weight:800;}
+.apw-boxhead .apw-desc{font-size:12px;color:var(--ink-dim);margin-top:3px;max-width:640px;}
+.apw-boxhead .apw-meta{font-size:14px;font-weight:800;white-space:nowrap;}
+.apw-boxhead .apw-meta .apw-cnt{font-weight:600;color:var(--ink-dim);font-size:12px;margin-right:8px;}
+
+/* rows */
+table.apw-rows{width:100%;border-collapse:collapse;}
+table.apw-rows thead th{text-align:left;font-size:10.5px;color:var(--ink-dim);font-weight:700;
+  padding:10px 16px;border-bottom:1px solid var(--line);background:var(--page);white-space:nowrap;}
+table.apw-rows tbody td{padding:11px 16px;border-bottom:1px solid var(--line);vertical-align:top;}
+table.apw-rows tbody tr:last-child td{border-bottom:none;}
+tr.apw-rowline{cursor:pointer;}
+tr.apw-rowline:hover{background:rgba(15,109,102,.045);}
+.apw-cust{font-weight:700;}
+.apw-ledgertag{font-size:10.5px;color:var(--ink-dim);margin-top:1px;}
+.apw-amt{font-weight:700;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}
+.apw-days{background:var(--orange-soft);color:var(--orange);border-radius:5px;font-size:11px;
+  font-weight:700;padding:2px 7px;white-space:nowrap;}
+.apw-tierchip{font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px;white-space:nowrap;color:#fff;}
+.apw-tierchip.upcoming{background:var(--upc);}
+.apw-tierchip.level1{background:var(--lvl1);}
+.apw-tierchip.level2{background:var(--lvl2);}
+.apw-tierchip.level3{background:var(--lvl3);}
+.apw-statuschip{font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;
+  border:1px solid var(--line);color:var(--ink-dim);white-space:nowrap;}
+.apw-statuschip.s-pay{border-color:var(--upc);color:var(--upc);}
+.apw-statuschip.s-dodge{border-color:var(--lvl1);color:var(--lvl1);}
+.apw-statuschip.s-recon{border-color:var(--lvl2);color:var(--lvl2);}
+.apw-notes{color:var(--ink-dim);font-size:12px;max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.apw-arrow{color:var(--ink-dim);display:inline-block;transition:transform .1s ease;}
+tr.apw-rowline.open .apw-arrow{transform:rotate(90deg);}
+
+/* expanded detail */
+tr.apw-detail td{padding:0;border-bottom:1px solid var(--line);}
+.apw-detailwrap{background:var(--page);padding:18px 18px 20px;}
+.apw-breakdown{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
+.apw-bdchip{background:var(--card);border:1px solid var(--line);border-radius:7px;padding:6px 10px;font-size:11.5px;}
+.apw-bdchip b{font-variant-numeric:tabular-nums;}
+.apw-qarow{display:grid;grid-template-columns:1fr 1fr;gap:12px 18px;margin-bottom:14px;}
+.apw-qarow .full{grid-column:1/-1;}
+.apw-field label{display:block;font-size:10.5px;color:var(--ink-dim);margin-bottom:4px;font-weight:700;}
+.apw-field textarea,.apw-field input[type=text],.apw-field select{
+  width:100%;border:1px solid var(--line);border-radius:7px;padding:8px 10px;
+  font-size:12.5px;font-family:inherit;background:var(--card);color:var(--ink);resize:vertical;}
+.apw-field textarea{min-height:46px;}
+.apw-flagrow{display:flex;align-items:center;gap:8px;font-size:12px;margin-top:4px;}
+.apw-weeklog{border-top:1px dashed var(--line);padding-top:12px;margin-top:4px;}
+.apw-weeklog h4{margin:0 0 8px;font-size:11.5px;color:var(--ink-dim);font-weight:700;}
+table.apw-logtable{width:100%;border-collapse:collapse;font-size:12px;background:var(--card);
+  border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+table.apw-logtable th{text-align:left;font-size:10px;color:var(--ink-dim);padding:7px 10px;
+  border-bottom:1px solid var(--line);background:var(--page);}
+table.apw-logtable td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+table.apw-logtable tr:last-child td{border-bottom:none;}
+table.apw-logtable td.apw-emptylog{color:var(--ink-dim);font-style:italic;}
+.apw-addweek{margin-top:10px;background:var(--card);border:1px solid var(--accent);color:var(--accent);
+  border-radius:7px;padding:7px 13px;font-size:12.5px;font-weight:700;cursor:pointer;}
+.apw-addweek:disabled{opacity:.5;cursor:default;}
+.apw-empty{padding:26px 16px;color:var(--ink-dim);font-size:12.5px;text-align:center;}
+.apw-foot{margin-top:20px;font-size:11px;color:var(--ink-dim);}
+.apw-loading{padding:40px;text-align:center;color:var(--ink-dim);font-size:13px;}
+
+@media (max-width:900px){ .apw-root .apw-kpis{grid-template-columns:repeat(2,1fr);} }
