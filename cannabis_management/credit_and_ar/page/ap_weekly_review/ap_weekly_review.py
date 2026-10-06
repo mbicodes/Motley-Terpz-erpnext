@@ -32,6 +32,7 @@ import frappe
 from frappe import _
 from frappe.utils import flt, getdate, nowdate
 
+from cannabis_management.api.sheet_export import send_xlsx
 from cannabis_management.credit_and_ar.doctype.ap_weekly_entry.ap_weekly_entry import (
 	STATUSES_BY_TIER,
 	week_start,
@@ -316,3 +317,87 @@ def _snapshot_for(supplier, company):
 		if TIER_RANK[r["tier"]] > TIER_RANK[tier]:
 			tier = r["tier"]
 	return tier, amount
+
+
+TIER_LABELS = {
+	"upcoming": "Upcoming - Not Yet Due",
+	"level1": "Past Due Level 1 (0-30)",
+	"level2": "Past Due Level 2 (30-60)",
+	"level3": "Past Due Level 3 (60+)",
+}
+
+
+@frappe.whitelist()
+def export_xlsx(company=None):
+	"""The review as a workbook: the grid, the aging behind it, and the log.
+
+	Everything is exported, not just the company on screen, because the point of
+	taking this to Excel is usually to pivot across entities -- and a filtered
+	export that silently drops rows is a worse failure than one extra column to
+	filter on. The Company column is there to filter by.
+
+	Three sheets rather than one: the aging breakdown is one row per bucket and
+	the log is one row per week, so flattening them into the grid would repeat
+	every supplier line several times over and make the totals unusable.
+	"""
+	_require_access()
+
+	rows = _build_rows(company)
+	latest = _latest_entries()
+	for r in rows:
+		info = latest.get((r["supplier"], r["company"]))
+		r["current_status"] = info["current_status"] if info else ""
+		r["latest_note"] = info["latest_note"] if info else ""
+		r["log_count"] = info["log_count"] if info else 0
+
+	grid = [[
+		"Supplier", "Supplier Name", "Company", "Portion", "Level", "Worst Aging",
+		"Amount", "Bills", "On Hold Amount", "Bills On Hold", "Oldest Due",
+		"Current Status", "Latest Note", "Entries Filed",
+	]]
+	aging = [["Supplier", "Supplier Name", "Company", "Portion", "Aging Bucket", "Amount"]]
+
+	for r in rows:
+		grid.append([
+			r["supplier"], r["supplier_name"], r["company"],
+			"Scheduled" if r["portion"] == "upcoming" else "Past due",
+			TIER_LABELS.get(r["tier"], r["tier"]), r["days"],
+			flt(r["amount"], 2), r["invoice_count"],
+			flt(r["held_amount"], 2), r["held_count"],
+			getdate(r["oldest_due"]) if r["oldest_due"] else None,
+			r["current_status"], r["latest_note"], r["log_count"],
+		])
+		for b in r["breakdown"]:
+			aging.append([
+				r["supplier"], r["supplier_name"], r["company"],
+				"Scheduled" if r["portion"] == "upcoming" else "Past due",
+				b["label"], flt(b["amount"], 2),
+			])
+
+	log = [[
+		"Supplier", "Company", "Week Of", "Status", "Tier At Entry",
+		"Payable At Entry", "What is going on?", "When will this be paid?",
+		"Notes", "Contact", "Email", "Need Finance Sign-off", "Filed By",
+	]]
+	for e in frappe.get_all(
+		"AP Weekly Entry",
+		fields=["supplier", "company", "week_of", "status", "tier_snapshot",
+		        "amount_snapshot", "qa", "plan", "notes", "contact", "email",
+		        "need_finance_signoff", "owner"],
+		order_by="week_of desc, creation desc",
+	):
+		log.append([
+			e.supplier, e.company, getdate(e.week_of) if e.week_of else None,
+			e.status, TIER_LABELS.get(e.tier_snapshot, e.tier_snapshot or ""),
+			flt(e.amount_snapshot, 2), e.qa, e.plan, e.notes, e.contact, e.email,
+			"Yes" if e.need_finance_signoff else "No", e.owner,
+		])
+
+	send_xlsx(
+		_("AP Accountability {0}").format(nowdate()),
+		[
+			("Payables", grid, [26, 34, 26, 12, 24, 14, 14, 8, 15, 13, 13, 26, 48, 13]),
+			("Aging Breakdown", aging, [26, 34, 26, 12, 16, 14]),
+			("Weekly Entries", log, [26, 26, 12, 28, 24, 16, 44, 44, 44, 20, 24, 18, 24]),
+		],
+	)

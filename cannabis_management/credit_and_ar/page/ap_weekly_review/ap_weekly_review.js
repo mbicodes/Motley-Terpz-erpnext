@@ -75,6 +75,7 @@ frappe.pages['ap-weekly-review'].on_page_load = function (wrapper) {
 				</div>
 				<div style="display:flex;align-items:center;">
 					<span class="apw-savemsg" id="apw-savemsg"></span>
+					<button class="btn btn-default btn-sm" id="apw-excel" style="margin-right:6px;">${__('Export to Excel')}</button>
 					<button class="btn btn-default btn-sm" id="apw-print" style="margin-right:6px;">${__('Print')}</button>
 					<button class="btn btn-default btn-sm" id="apw-refresh">${__('Refresh')}</button>
 				</div>
@@ -112,6 +113,7 @@ frappe.pages['ap-weekly-review'].on_page_load = function (wrapper) {
 function bind_events(page) {
 	page.main.find('#apw-refresh').on('click', () => load(page));
 	page.main.find('#apw-print').on('click', () => print_review(page));
+	page.main.find('#apw-excel').on('click', () => export_excel(page));
 
 	page.main.find('#apw-modeseg button').on('click', function () {
 		page.main.find('#apw-modeseg button').removeClass('on');
@@ -474,6 +476,21 @@ function save_entry(page, rowid, $btn) {
 		},
 	});
 }
+
+// Export every company, not just the one on screen: taking this to Excel is
+// normally about pivoting across entities, and a filtered export that quietly
+// drops rows is worse than one more column to filter on. The workbook is built
+// server-side so the figures are the same ones the page was given.
+function export_excel(page) {
+	if (!page.apw.rows.length) {
+		frappe.msgprint(__('Nothing to export yet — wait for the review to load.'));
+		return;
+	}
+	frappe.dom.freeze(__('Building workbook…'));
+	open_url_post(frappe.request.url, { cmd: APW_METHOD + 'export_xlsx' });
+	setTimeout(() => frappe.dom.unfreeze(), 3000);
+}
+
 
 // Print the whole review: every company, every group, every row, full notes.
 // Ignores the search box and company toggle; keeps the current "Group by" mode.
