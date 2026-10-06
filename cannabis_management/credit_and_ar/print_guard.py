@@ -50,17 +50,26 @@ def _is_blocked(doctype: str | None, name: str | None) -> tuple[bool, str | None
 		return False, None
 
 	so = frappe.db.get_value(
-		"Sales Order", name, ["custom_print_blocked", "custom_mode_of_payment", "customer"], as_dict=True
+		"Sales Order",
+		name,
+		["docstatus", "custom_print_blocked", "custom_mode_of_payment", "customer"],
+		as_dict=True,
 	)
 	if not so:
+		return False, None
+
+	# Only a draft is ever blocked. Once an order is submitted it has passed the
+	# credit gate, so it always prints, even if the customer later goes on hold
+	# or the line is used up.
+	if so.docstatus != 0:
 		return False, None
 
 	if int(so.custom_print_blocked or 0):
 		return True, None
 
-	# Checked live (not cached on the Sales Order) so a customer moved to Hard
-	# Hold / Blocked *after* the order was created or submitted is still caught,
-	# without needing a data patch to every existing Sales Order.
+	# Checked live (not cached on the Sales Order) so a draft whose customer is
+	# moved to Hard Hold / Blocked after it was created is still caught, without
+	# needing a data patch to every existing Sales Order.
 	if so.custom_mode_of_payment == utils.MODE_TERMS and so.customer and not utils.is_policy_exempt(
 		so.customer
 	):
@@ -80,8 +89,9 @@ def _is_over_line(so, name) -> bool:
 
 	The same rule that gates creation gates the paperwork: an order raised above
 	the line by an Account Manager is theirs to print, and nobody else can print
-	it into existence behind them. Checked live, so an order that was inside the
-	line when raised stops printing once the line is consumed.
+	it into existence behind them. Checked live, so a draft that was inside the
+	line when raised stops printing once the line is consumed. Submitted orders
+	never reach this check.
 	"""
 	if not so.customer or utils.is_policy_exempt(so.customer):
 		return False
