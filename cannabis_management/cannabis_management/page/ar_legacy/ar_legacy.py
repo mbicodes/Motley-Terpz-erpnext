@@ -16,7 +16,10 @@ so the two pages can never disagree about what legacy AR is.
 """
 
 import frappe
-from frappe.utils import date_diff, flt, getdate, nowdate
+from frappe import _
+from frappe.utils import cint, date_diff, flt, getdate, nowdate
+
+from cannabis_management.api.sheet_export import send_xlsx
 
 from cannabis_management.cannabis_management.page.ar_dashboard.ar_dashboard import (
 	LEGACY_CUTOFF,
@@ -279,3 +282,97 @@ def install_segment_field():
 	)
 	frappe.db.commit()
 	return {"status": "ok", "field": SEGMENT_FIELD, "segments": SEGMENTS}
+
+
+@frappe.whitelist()
+def export_xlsx(ar_mode="legacy", filters=None):
+	"""The page's current view as a workbook.
+
+	The filters are re-applied here rather than trusting a list of rows posted
+	back from the browser: the figures stay server-derived, and an export can
+	never show a balance the page would not. They mirror rows_before_segment()
+	and visible_rows() in ar_legacy.js exactly -- search matches either the
+	customer id or the name, company is a substring match because `companies` is
+	a comma-joined list, and age/minimum are lower bounds.
+
+	A second sheet totals by segment, which is the number the page's segment
+	cards show and the first thing anyone rebuilds by hand in Excel.
+	"""
+	filters = frappe.parse_json(filters) if isinstance(filters, str) else (filters or {})
+	data = get_data(ar_mode)
+	rows = data["rows"]
+
+	search = (filters.get("search") or "").strip().lower()
+	company = filters.get("company") or ""
+	segment = filters.get("segment") or ""
+	min_amount = flt(filters.get("min_amount"))
+	age = cint(filters.get("age"))
+
+	def keep(r):
+		if search and search not in (r.get("customer") or "").lower() \
+				and search not in (r.get("customer_name") or "").lower():
+			return False
+		if company and company not in (r.get("companies") or ""):
+			return False
+		if min_amount and flt(r.get("outstanding")) < min_amount:
+			return False
+		if age and cint(r.get("age_days")) < age:
+			return False
+		if segment == "__unassigned__" and r.get("segment"):
+			return False
+		if segment and segment != "__unassigned__" and r.get("segment") != segment:
+			return False
+		return True
+
+	rows = [r for r in rows if keep(r)]
+
+	sort = filters.get("sort") or "outstanding"
+	if sort == "age":
+		rows.sort(key=lambda r: -cint(r.get("age_days")))
+	elif sort == "invoices":
+		rows.sort(key=lambda r: -cint(r.get("invoices")))
+	elif sort == "name":
+		rows.sort(key=lambda r: (r.get("customer_name") or r.get("customer") or "").lower())
+	else:
+		rows.sort(key=lambda r: -flt(r.get("outstanding")))
+
+	book = "New AR" if data["ar_mode"] == "new" else "Legacy AR"
+
+	grid = [["Customer", "Customer Name", "Segment", "Companies",
+	         "Invoices", "Outstanding", "Oldest Invoice", "Age (days)"]]
+	for r in rows:
+		grid.append([
+			r.get("customer"), r.get("customer_name"),
+			r.get("segment") or data["unassigned_label"],
+			r.get("companies"), cint(r.get("invoices")),
+			flt(r.get("outstanding"), 2),
+			getdate(r["oldest"]) if r.get("oldest") else None,
+			cint(r.get("age_days")),
+		])
+
+	totals = {}
+	for r in rows:
+		key = r.get("segment") or data["unassigned_label"]
+		t = totals.setdefault(key, {"accounts": 0, "invoices": 0, "outstanding": 0.0})
+		t["accounts"] += 1
+		t["invoices"] += cint(r.get("invoices"))
+		t["outstanding"] += flt(r.get("outstanding"))
+
+	summary = [["Segment", "Accounts", "Invoices", "Outstanding"]]
+	for key in sorted(totals, key=lambda k: -totals[k]["outstanding"]):
+		t = totals[key]
+		summary.append([key, t["accounts"], t["invoices"], flt(t["outstanding"], 2)])
+	if len(summary) > 1:
+		summary.append([
+			"Total", sum(t["accounts"] for t in totals.values()),
+			sum(t["invoices"] for t in totals.values()),
+			flt(sum(t["outstanding"] for t in totals.values()), 2),
+		])
+
+	send_xlsx(
+		_("{0} - AR by Segment {1}").format(book, nowdate()),
+		[
+			("Accounts", grid, [26, 36, 22, 30, 10, 16, 15, 12]),
+			("By Segment", summary, [24, 11, 11, 16]),
+		],
+	)
