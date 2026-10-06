@@ -9,8 +9,8 @@
 #     link on Purchase Invoice Item and Journal Entry Account) rather than an
 #     account head, and
 #   * the figures come straight off those two child tables instead of the
-#     General Ledger. Every category shows its Purchase Invoice and Journal
-#     Entry halves as indented child rows beneath it.
+#     General Ledger. Every category lists the Purchase Invoices and Journal
+#     Entries behind it, one indented row per voucher number with its date.
 #
 # Amounts are net and in company currency: ``base_net_amount`` for a Purchase
 # Invoice Item (so a debit note / return subtracts, as it already carries a
@@ -29,12 +29,13 @@ from erpnext.accounts.report.financial_statements import (
 	get_period_list,
 )
 
-PURCHASE_INVOICE = _("Purchase Invoice")
-JOURNAL_ENTRY = _("Journal Entry")
+PURCHASE_INVOICE = "Purchase Invoice"
+JOURNAL_ENTRY = "Journal Entry"
 
 
 def get_purchase_invoice_amounts(filters, from_date, to_date):
-	"""Categorised Purchase Invoice Item lines, as (category, posting_date, amount)."""
+	"""Categorised Purchase Invoice Item lines, as (category, voucher_no,
+	posting_date, amount) per invoice."""
 	conditions = ""
 	values = {
 		"company": filters.company,
@@ -54,6 +55,7 @@ def get_purchase_invoice_amounts(filters, from_date, to_date):
 		f"""
 		select
 			item.custom_expense_category as expense_category,
+			inv.name as voucher_no,
 			inv.posting_date as posting_date,
 			sum(item.base_net_amount) as amount
 		from `tabPurchase Invoice Item` item
@@ -64,7 +66,7 @@ def get_purchase_invoice_amounts(filters, from_date, to_date):
 			and inv.posting_date between %(from_date)s and %(to_date)s
 			and ifnull(item.custom_expense_category, '') != ''
 			{conditions}
-		group by item.custom_expense_category, inv.posting_date
+		group by item.custom_expense_category, inv.name, inv.posting_date
 		""",
 		values,
 		as_dict=1,
@@ -72,7 +74,8 @@ def get_purchase_invoice_amounts(filters, from_date, to_date):
 
 
 def get_journal_entry_amounts(filters, from_date, to_date):
-	"""Categorised Journal Entry Account lines, as (category, posting_date, amount).
+	"""Categorised Journal Entry Account lines, as (category, voucher_no,
+	posting_date, amount) per entry.
 
 	``debit - credit`` so a reversal nets off, mirroring how a Purchase
 	Invoice return nets off on the other side.
@@ -108,6 +111,7 @@ def get_journal_entry_amounts(filters, from_date, to_date):
 		f"""
 		select
 			account.custom_expense_category as expense_category,
+			je.name as voucher_no,
 			je.posting_date as posting_date,
 			sum(account.debit - account.credit) as amount
 		from `tabJournal Entry Account` account
@@ -118,7 +122,7 @@ def get_journal_entry_amounts(filters, from_date, to_date):
 			and je.posting_date between %(from_date)s and %(to_date)s
 			and ifnull(account.custom_expense_category, '') != ''
 			{conditions}
-		group by account.custom_expense_category, je.posting_date
+		group by account.custom_expense_category, je.name, je.posting_date
 		""",
 		values,
 		as_dict=1,
@@ -126,7 +130,8 @@ def get_journal_entry_amounts(filters, from_date, to_date):
 
 
 def get_amounts_by_category(filters, period_list):
-	"""``{category: {source: {period_key: amount}}}`` for the whole date span."""
+	"""``{category: {(voucher_type, voucher_no, posting_date): {period_key: amount}}}``
+	for the whole date span."""
 	from_date = period_list[0]["from_date"]
 	to_date = period_list[-1]["to_date"]
 
@@ -136,7 +141,7 @@ def get_amounts_by_category(filters, period_list):
 	}
 
 	amounts = {}
-	for source, entries in sources.items():
+	for voucher_type, entries in sources.items():
 		for entry in entries:
 			posting_date = getdate(entry.posting_date)
 			period = next(
@@ -150,8 +155,8 @@ def get_amounts_by_category(filters, period_list):
 			if not period:
 				continue
 
-			by_source = amounts.setdefault(entry.expense_category, {})
-			by_period = by_source.setdefault(source, {})
+			by_voucher = amounts.setdefault(entry.expense_category, {})
+			by_period = by_voucher.setdefault((voucher_type, entry.voucher_no, posting_date), {})
 			by_period[period.key] = flt(by_period.get(period.key)) + flt(entry.amount)
 
 	return amounts
@@ -165,6 +170,7 @@ def make_row(
 	row = {
 		"expense_category": label,
 		"account_name": label,
+		"posting_date": None,
 		"currency": currency,
 		"indent": indent,
 		"has_value": False,
@@ -201,11 +207,11 @@ def get_data(filters, period_list, currency):
 	data = []
 	totals = {}
 	for category in categories:
-		by_source = amounts.get(category, {})
+		by_voucher = amounts.get(category, {})
 
 		category_amounts = {}
-		for source_amounts in by_source.values():
-			for key, value in source_amounts.items():
+		for voucher_amounts in by_voucher.values():
+			for key, value in voucher_amounts.items():
 				category_amounts[key] = flt(category_amounts.get(key)) + flt(value)
 
 		category_row = make_row(
@@ -216,19 +222,25 @@ def get_data(filters, period_list, currency):
 
 		data.append(category_row)
 
-		for source in (PURCHASE_INVOICE, JOURNAL_ENTRY):
-			source_row = make_row(
-				source,
-				by_source.get(source, {}),
+		# Oldest first, so each category reads down the year.
+		for voucher_type, voucher_no, posting_date in sorted(
+			by_voucher, key=lambda key: (key[2], key[1])
+		):
+			voucher_row = make_row(
+				voucher_no,
+				by_voucher[(voucher_type, voucher_no, posting_date)],
 				period_list,
 				currency,
 				indent=1,
 				accumulated=accumulated,
 				parent=category,
 			)
-			if not source_row["has_value"] and not show_zero_values:
+			if not voucher_row["has_value"] and not show_zero_values:
 				continue
-			data.append(source_row)
+			voucher_row.update(
+				{"voucher_type": voucher_type, "voucher_no": voucher_no, "posting_date": posting_date}
+			)
+			data.append(voucher_row)
 
 		for key, value in category_amounts.items():
 			totals[key] = flt(totals.get(key)) + flt(value)
@@ -246,16 +258,29 @@ def get_data(filters, period_list, currency):
 
 def get_report_columns(filters, period_list):
 	"""erpnext's financial statement columns, with the account head swapped
-	out for the Expense Category."""
+	out for the Expense Category and a Date column beside it.
+
+	Date goes second so the period columns keep their positions; the Growth
+	View formatter picks them out by position.
+	"""
 	columns = get_columns(
 		filters.periodicity, period_list, filters.accumulated_values, filters.company
 	)
 	columns[0] = {
 		"fieldname": "expense_category",
-		"label": _("Expense Category"),
+		"label": _("Expense Category / Voucher No"),
 		"fieldtype": "Data",
 		"width": 300,
 	}
+	columns.insert(
+		1,
+		{
+			"fieldname": "posting_date",
+			"label": _("Date"),
+			"fieldtype": "Date",
+			"width": 110,
+		},
+	)
 
 	return columns
 
