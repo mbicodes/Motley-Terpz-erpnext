@@ -207,7 +207,9 @@ function print_icon_button(frm) {
 }
 
 function suppress_print(frm, credit_hold_blocked) {
-	const blocked = frm.doc.custom_print_blocked || credit_hold_blocked;
+	// Drafts only, same as print_guard.py: a submitted order always prints.
+	const blocked =
+		frm.doc.docstatus === 0 && (frm.doc.custom_print_blocked || credit_hold_blocked);
 
 	if (!blocked) {
 		// Restore Ctrl+P / toolbar Print once a previously-held order clears

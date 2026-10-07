@@ -31,6 +31,7 @@ either document would do the wrong thing.
 
 import frappe
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
+from frappe.utils import getdate
 
 ORIGIN_TYPE_FIELD = "custom_origin_voucher_type"
 ORIGIN_NO_FIELD = "custom_origin_voucher_no"
@@ -38,6 +39,12 @@ ORIGIN_NO_FIELD = "custom_origin_voucher_no"
 # Finance asked for this for these companies only. Every other company keeps
 # core's behaviour: stock GL on the Delivery Note's own date and voucher.
 ALIGNED_COMPANIES = ("Motley Terpz", "Master Touch Manufacturing")
+
+# Finance asked for this on the history only: Delivery Notes dated up to and
+# including 24 Sep 2026. A note dated after that keeps core's behaviour, so
+# nothing new is aligned going forward. Rows already moved for earlier notes
+# keep their origin stamps, so cancelling and reposting them still works.
+ALIGN_UNTIL = "2026-09-24"
 
 
 def install_custom_fields():
@@ -84,8 +91,12 @@ def get_linked_sales_invoice(doc):
 	  COGS rows covering the whole note, and splitting it across invoices by
 	  value is a different (and reversible-by-nobody) decision. Finance should
 	  see these rather than have them quietly apportioned.
+
+	Notes dated after ALIGN_UNTIL are never aligned.
 	"""
 	if doc.get("company") not in ALIGNED_COMPANIES:
+		return None
+	if not doc.get("posting_date") or getdate(doc.get("posting_date")) > getdate(ALIGN_UNTIL):
 		return None
 
 	invoices = set()
