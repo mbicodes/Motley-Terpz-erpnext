@@ -42,6 +42,7 @@ VERBS = {
 	"cancel": "cancelled the order",
 	"dn_cancelled": "cancelled the Delivery Note after release",
 	"backfill": "moved onto the dispatch board",
+	"admin_set": "changed the Logistic Status",
 }
 
 SYSTEM_ACTIONS = {"enter_flow", "conversions_done", "conversion_progress", "backfill"}
@@ -155,35 +156,54 @@ def mentions_for(action, so, cfg):
 
 
 def ensure_thread(so, cfg):
-	"""The thread parent for an order, posting it the first time."""
+	"""The thread for an order, posting its parent the first time.
+
+	An amended order carries on in the thread of the order it replaces, so a
+	cancel-and-amend never starts a second conversation about the same order.
+	"""
 	row = thread_row(so.name)
 	if row:
 		return row
+	inherited = thread_row(so.amended_from) if so.get("amended_from") else None
+	if inherited:
+		return add_row(so.name, THREAD_PARENT, inherited.channel, inherited.ts)
 	if not cfg.orders_channel:
 		return None
 	text, blks = blocks.thread_parent(so, cfg)
 	channel, ts = client.post(cfg.orders_channel, text, blks)
-	row = add_row(so.name, THREAD_PARENT, channel, ts)
-	_link_amendment(so, cfg, channel, ts)
-	return row
+	return add_row(so.name, THREAD_PARENT, channel, ts)
 
 
-def _link_amendment(so, cfg, channel, ts):
-	"""An amended order's new thread points at the old one, and back."""
-	if not so.get("amended_from"):
-		return
-	old = thread_row(so.amended_from)
-	if not old:
-		return
-	old_link = client.permalink(old.channel, old.ts)
-	new_link = client.permalink(channel, ts)
-	client.post(channel, f"Amended from {so.amended_from}" + (f" · <{old_link}|old thread>" if old_link else ""), thread_ts=ts)
-	client.post(old.channel, f"Amended as {so.name}" + (f" · <{new_link}|new thread>" if new_link else ""), thread_ts=old.ts)
+def owns_thread(so_name, row):
+	"""False once an amendment has taken the thread over: the parent message
+	then shows the amendment, and a late job for the old order must not
+	overwrite it."""
+	latest = frappe.get_all(
+		"Dispatch Slack Message",
+		filters={"kind": THREAD_PARENT, "channel": row.channel, "ts": row.ts},
+		fields=["parent"],
+		order_by="creation desc",
+		limit=1,
+	)
+	return not latest or latest[0].parent == so_name
+
+
+def post_to(so, cfg, channel_key, text, blks=None):
+	"""Post into the order's own thread when `channel_key` names the thread's
+	channel (or no channel). A company that keeps a separate channel for it
+	gets a top-level post there instead. Returns (channel, ts)."""
+	target = cfg.get(channel_key)
+	row = ensure_thread(so, cfg)
+	if row and (not target or target == row.channel):
+		return client.post(row.channel, text, blks, thread_ts=row.ts)
+	if target:
+		return client.post(target, text, blks)
+	return None, None
 
 
 def refresh_parent(so, cfg):
 	row = thread_row(so.name)
-	if not row:
+	if not row or not owns_thread(so.name, row):
 		return
 	text, blks = blocks.thread_parent(so, cfg)
 	try:
@@ -289,8 +309,10 @@ def on_transition(sales_order, action, users=None, channel=None, **kwargs):
 
 def _line(so, action, actor, kwargs):
 	who = "System" if action in SYSTEM_ACTIONS else identity.full_name(actor)
-	at = format_datetime(now_datetime(), "HH:mm")
+	at = format_datetime(now_datetime(), "d MMM HH:mm")
 	if action in ("enter_flow", "backfill"):
+		if so.get("amended_from"):
+			return f":memo: Amended order *{so.name}* replaces {so.amended_from} · {at}"
 		return f"{blocks.STAGE_EMOJI.get(stages.RECEIVED)} New order · {at}"
 	if action in ("create_conversion", "conversion_progress", "conversions_done"):
 		total = frappe.db.count("Conversion Entry", {"sales_order": so.name, "docstatus": ["<", 2]})
@@ -303,8 +325,50 @@ def _line(so, action, actor, kwargs):
 		state = "paid in full" if not short else f"{blocks.money(short, so)} outstanding"
 		return f"{who} recorded a payment · {blocks.money(paid, so)} of {blocks.money(required, so)}, {state} · {at}"
 	verb = VERBS.get(action, action)
+	if action == "create_delivery_note":
+		dn = gates.delivery_notes_for(so.name)
+		if dn:
+			verb = f"created Delivery Note <{blocks.erp_url('Delivery Note', dn[0])}|{dn[0]}>"
 	stage = so.get("custom_logistic_status")
-	return f"{who} {verb} · {at} → *{stage}*"
+	via = f" · from {kwargs['source']}" if kwargs.get("source") in ("Slack", "ERP") else ""
+	return f"{who} {verb} · {at}{via} → *{stage}*"
+
+
+# ── thread notes: things that happen around an order ─────────────────────────
+
+
+def on_event(sales_order, what, ref=None, actor=None, **kwargs):
+	"""A reply in the order's thread for something that moves no stage -- its
+	Sales Invoice, a Delivery Note, a Conversion Entry, an edited date.
+
+	Same locking as on_transition. An order that never came onto the board, or
+	finished before it had a thread, gets no thread just for this.
+	"""
+	frappe.db.commit()
+	frappe.db.get_value("Sales Order", sales_order, "name", for_update=True)
+	so = frappe.get_doc("Sales Order", sales_order)
+	cfg = get_company_settings(so.company)
+	if not cfg:
+		return
+
+	if not thread_row(so.name):
+		stage = so.get("custom_logistic_status")
+		on_board = frappe.db.exists("Dispatch Stage Log", {"parent": so.name, "parenttype": "Sales Order"})
+		if not on_board or stage not in stages.ALL_STAGES or stage in stages.TERMINAL_STAGES:
+			return
+
+	row = ensure_thread(so, cfg)
+	if not row:
+		return
+	refresh_parent(so, cfg)
+
+	who = identity.full_name(actor or frappe.session.user)
+	text, blks = blocks.event_note(so, what, ref, who, kwargs)
+	if text:
+		client.post(row.channel, text, blks, thread_ts=row.ts)
+	frappe.db.commit()
+	if what == "dn_created":
+		_refresh_homes(cfg)
 
 
 # ── approval DMs ─────────────────────────────────────────────────────────────
@@ -360,11 +424,10 @@ def on_payment_cleared(sales_order):
 
 
 def post_dispatch(so, cfg):
-	if not cfg.dispatch_channel:
-		return
 	text, blks = blocks.dispatch_post(so, cfg)
-	channel, ts = client.post(cfg.dispatch_channel, text, blks)
-	add_row(so.name, DISPATCH_POST, channel, ts)
+	channel, ts = post_to(so, cfg, "dispatch_channel", text, blks)
+	if ts:
+		add_row(so.name, DISPATCH_POST, channel, ts)
 
 
 def refresh_dispatch(so, cfg):
@@ -377,11 +440,9 @@ def refresh_dispatch(so, cfg):
 
 
 def post_exception(so, cfg, title, detail, show_resume=False):
-	if not cfg.exceptions_channel:
-		return
 	text, blks = blocks.exception_post(so, cfg, title, detail, show_resume=show_resume)
-	channel, ts = client.post(cfg.exceptions_channel, text, blks)
-	if show_resume:
+	channel, ts = post_to(so, cfg, "exceptions_channel", text, blks)
+	if show_resume and ts:
 		add_row(so.name, EXCEPTION_POST, channel, ts)
 
 

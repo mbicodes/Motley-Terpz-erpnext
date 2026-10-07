@@ -11,7 +11,7 @@ after someone else moved the order is recognised as stale.
 import json
 
 import frappe
-from frappe.utils import flt, fmt_money, format_date, get_url, now_datetime, time_diff_in_seconds
+from frappe.utils import flt, fmt_money, format_date, format_datetime, get_url, now_datetime, strip_html, time_diff_in_seconds
 
 from cannabis_management.mt_dispatch import gates, stages
 from cannabis_management.mt_dispatch.payments import payment_status
@@ -359,14 +359,19 @@ def thread_parent(so, cfg):
 	check = stock_check(so, cfg)
 	header = ":red_circle: Conversion required" if check.need else ":package: New order"
 	text = f"{header.split(' ', 1)[1]} · {so.name} · {so.customer_name or so.customer}"
+	details = "*Sales Order:* <{0}|{1}>\n*Customer:* {2}\n*Warehouse:* {3}\n*Delivery date:* {4} \u00b7 {5}".format(
+		erp_url("Sales Order", so.name), so.name, so.customer_name or so.customer,
+		", ".join(check.warehouses) or "\u2014",
+		format_date(so.delivery_date) if so.delivery_date else "\u2014", facts.pickup,
+	)
+	note = strip_html(so.get("custom_notes_for_logistics") or "").strip()
+	if note:
+		details += f"\n*Logistics note:* {note[:500]}"
+	if so.get("amended_from"):
+		details += f"\n*Amended from:* {so.amended_from}"
 	blocks = [
 		{"type": "header", "text": txt(header)},
-		section(
-			"*Sales Order:* <{0}|{1}>\n*Customer:* {2}\n*Warehouse:* {3}".format(
-				erp_url("Sales Order", so.name), so.name, so.customer_name or so.customer,
-				", ".join(check.warehouses) or "\u2014",
-			)
-		),
+		section(details),
 		divider(),
 	]
 	if check.need:
@@ -464,6 +469,91 @@ def exception_post(so, cfg, title, detail, show_resume=False):
 	if show_resume and so.get("custom_logistic_status") == stages.ON_HOLD:
 		blocks.append({"type": "actions", "block_id": "exception_actions", "elements": [button("mt:resume", so)]})
 	return text, blocks
+
+
+# ── thread notes: things that happen around an order ─────────────────────────
+
+INVOICE_VERBS = {"invoice_created": "created", "invoice_submitted": "submitted", "invoice_cancelled": "cancelled"}
+
+# Conversion Entry Item (item field, qty field) pairs: raw materials in, finished goods out.
+CE_SOURCE_PAIRS = [(f"raw_material_{n}", f"qty_rm_{n}") for n in range(1, 8)]
+CE_TARGET_PAIRS = [(f"finished_good_{n}", f"qty_fg_{n}") for n in range(1, 4)]
+# Slack allows 50 blocks a message; one per row plus the header stays well under.
+MAX_CE_ROWS = 20
+
+
+def event_note(so, what, ref, who, extra=None):
+	"""(text, blocks) for a thread note, or (None, None) for an unknown kind."""
+	extra = extra or {}
+	at = format_datetime(now_datetime(), "d MMM HH:mm")
+
+	if what in INVOICE_VERBS:
+		verb = INVOICE_VERBS[what]
+		head = ":x: *Invoice cancelled*" if what == "invoice_cancelled" else ":receipt: *Order billed*"
+		line = f"{head} · Sales Invoice <{erp_url('Sales Invoice', ref)}|{ref}> {verb} by {who} · {at}"
+		total = frappe.db.get_value("Sales Invoice", ref, ["grand_total", "currency"], as_dict=True)
+		if total:
+			line += f" · {fmt_money(flt(total.grand_total), currency=total.currency)}"
+		return f"{ref} {verb} · {so.name}", [section(line)]
+
+	if what == "dn_created":
+		line = f":page_facing_up: *Delivery Note* <{erp_url('Delivery Note', ref)}|{ref}> created by {who} · {at}"
+		return f"{ref} created · {so.name}", [section(line)]
+
+	if what in ("conversion_submitted", "conversion_cancelled"):
+		return conversion_note(so, ref, what, who, at)
+
+	if what == "so_changed":
+		changes = "\n".join(
+			f"• *{label}:* {old or '—'} → {new or '—'}" for label, old, new in extra.get("changes") or []
+		)
+		return f"{so.name} changed", [section(f":pencil2: {who} changed the order · {at}\n{changes}")]
+
+	return None, None
+
+
+def conversion_note(so, ce_name, what, who, at):
+	"""Which conversion, who did it, and what it turned into what."""
+	ce = frappe.get_doc("Conversion Entry", ce_name)
+	total = frappe.db.count("Conversion Entry", {"sales_order": so.name, "docstatus": ["<", 2]})
+	done = frappe.db.count("Conversion Entry", {"sales_order": so.name, "docstatus": 1})
+	cancelled = what == "conversion_cancelled"
+	verb = "cancelled" if cancelled else "submitted"
+	head = (
+		f"{':x:' if cancelled else ':arrows_counterclockwise:'} *Conversion* "
+		f"<{erp_url('Conversion Entry', ce.name)}|{ce.name}> {verb} by {who} · {at} · {done} of {total} submitted"
+	)
+	if ce.get("amended_from"):
+		head += f"\nAmends {ce.amended_from}"
+	blocks = [section(head)]
+
+	rows = ce.get("items") or []
+	for idx, row in enumerate(rows[:MAX_CE_ROWS], 1):
+		source = _ce_lines(row, CE_SOURCE_PAIRS, row.source_warehouse)
+		target = _ce_lines(row, CE_TARGET_PAIRS, row.target_warehouse)
+		kind = f" · {row.conversion_type}" if row.get("conversion_type") else ""
+		blocks.append(
+			section(
+				f"*Row {idx}*{kind}\n:package: *From*\n" + ("\n".join(source) or "—")
+				+ "\n:dart: *To*\n" + ("\n".join(target) or "—")
+			)
+		)
+	if len(rows) > MAX_CE_ROWS:
+		blocks.append(context(f"… and {len(rows) - MAX_CE_ROWS} more row(s) in the ERP"))
+	return f"{ce.name} {verb} · {so.name}", blocks
+
+
+def _ce_lines(row, pairs, warehouse):
+	lines = []
+	for item_field, qty_field in pairs:
+		item_code = row.get(item_field)
+		qty = flt(row.get(qty_field))
+		if not item_code or qty <= 0:
+			continue
+		item_name, uom = frappe.db.get_value("Item", item_code, ["item_name", "stock_uom"]) or (item_code, "")
+		name = f"*{item_name}* (`{item_code}`)" if item_name and item_name != item_code else f"`{item_code}`"
+		lines.append(f"• {name} — {qty:g} {uom or ''} · {warehouse or '—'}")
+	return lines
 
 
 # ── stock check: does the order need a conversion? ───────────────────────────
