@@ -68,3 +68,19 @@ tr.yd-flagged td{background:var(--bad-soft);}
   .yd-root .yd-kpis{grid-template-columns:repeat(2,1fr);}
   .yd-root .yd-stagecard{grid-template-columns:1fr;}
 }
+
+/* segmented control (Group by) */
+.yd-seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+.yd-seg button{border:none;background:var(--card);padding:5px 12px;font-size:11.5px;
+  color:var(--ink-dim);cursor:pointer;font-weight:600;}
+.yd-seg button.on{background:var(--accent);color:#fff;}
+
+/* expandable run rows */
+tr.yd-runline{cursor:pointer;}
+.yd-arrow{color:var(--ink-dim);display:inline-block;width:10px;}
+tr.yd-sub td{background:var(--page);font-size:12px;}
+tr.yd-sub td:first-child{border-left:3px solid var(--accent);}
+
+/* Source toggle — a mode, so it sits above the numbers it changes. */
+.yd-seg-lg{margin-bottom:16px;}
+.yd-seg-lg button{padding:8px 18px;font-size:12.5px;}

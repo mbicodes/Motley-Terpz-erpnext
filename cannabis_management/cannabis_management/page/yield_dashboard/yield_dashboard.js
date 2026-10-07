@@ -23,8 +23,11 @@ frappe.pages['yield-dashboard'].on_page_load = function (wrapper) {
 		filters: {
 			from_date: frappe.datetime.add_months(today, -3),
 			to_date: today,
-			company: '', project: '', reasons: '', stage: '', search: '', hide_flagged: 0,
+			company: '', project: '', reasons: '', source: '',
+			stage: '', search: '', hide_flagged: 0,
 		},
+		groupby: 'stage',
+		open: {},          // run key -> expanded?
 	};
 
 	page.main.html(`
@@ -39,6 +42,12 @@ frappe.pages['yield-dashboard'].on_page_load = function (wrapper) {
 					<button class="btn btn-default btn-sm" id="yd-csv" style="margin-right:6px;">${__('Export to CSV')}</button>
 					<button class="btn btn-default btn-sm" id="yd-refresh">${__('Refresh')}</button>
 				</div>
+			</div>
+
+			<div class="yd-seg yd-seg-lg" id="yd-sourceseg">
+				<button data-source="" class="on">${__('Both')}</button>
+				<button data-source="Conversion">${__('Conversion yields')}</button>
+				<button data-source="Manufacturing">${__('Manufacturing yields')}</button>
 			</div>
 
 			<div class="yd-kpis" id="yd-kpis"></div>
@@ -62,10 +71,16 @@ frappe.pages['yield-dashboard'].on_page_load = function (wrapper) {
 						<input type="checkbox" id="yd-hideflag" style="min-width:auto;">${__('Hide flagged')}</label></div>
 			</div>
 
-			<div class="yd-sec">${__('By stage')}</div>
+			<div class="yd-sec" style="display:flex;align-items:center;gap:12px;">
+				<span>${__('Summary')}</span>
+				<div class="yd-seg" id="yd-groupseg">
+					<button data-group="stage" class="on">${__('By stage')}</button>
+					<button data-group="material">${__('By raw material')}</button>
+				</div>
+			</div>
 			<div id="yd-stages"></div>
 
-			<div class="yd-sec">${__('Every run, newest first')}</div>
+			<div class="yd-sec">${__('Every run, newest first — click a row for its raw materials')}</div>
 			<div id="yd-runs"><div class="yd-loading">${__('Loading runs…')}</div></div>
 
 			<div class="yd-foot">
@@ -88,6 +103,29 @@ function bind(page) {
 	page.main.find('#yd-to').on('change', function () { f.to_date = this.value; load(page); });
 	page.main.find('#yd-company').on('change', function () { f.company = this.value; load(page); });
 	page.main.find('#yd-reasons').on('change', function () { f.reasons = this.value; load(page); });
+	page.main.find('#yd-sourceseg button').on('click', function () {
+		page.main.find('#yd-sourceseg button').removeClass('on');
+		$(this).addClass('on');
+		f.source = String($(this).attr('data-source') || '');
+		// Stage options differ per source, so a stage picked under one book must
+		// not silently filter everything out under the other.
+		f.stage = '';
+		load(page);
+	});
+
+	page.main.find('#yd-groupseg button').on('click', function () {
+		page.main.find('#yd-groupseg button').removeClass('on');
+		$(this).addClass('on');
+		page.yd.groupby = $(this).data('group');
+		render(page);
+	});
+
+	// A run expands to one line per raw material it consumed.
+	page.main.on('click', '.yd-runline', function () {
+		const key = $(this).data('runkey');
+		page.yd.open[key] = !page.yd.open[key];
+		render(page);
+	});
 	// Stage and search are client-side: the rows are already here, and a round
 	// trip to narrow a list you can see is just latency.
 	page.main.find('#yd-stage').on('change', function () { f.stage = this.value; render(page); });
@@ -100,7 +138,8 @@ function bind(page) {
 
 function server_filters(page) {
 	const f = page.yd.filters;
-	return { from_date: f.from_date, to_date: f.to_date, company: f.company, reasons: f.reasons };
+	return { from_date: f.from_date, to_date: f.to_date, company: f.company,
+		reasons: f.reasons, source: f.source };
 }
 
 function download(page, format) {
@@ -124,11 +163,13 @@ function load(page) {
 			if (!r || !r.message) return;
 			page.yd.runs = r.message.runs || [];
 			page.yd.summary = r.message.summary || [];
+			page.yd.materials = r.message.materials || [];
 			page.yd.meta = r.message;
 			fill_selects(page);
+			const book = page.yd.filters.source || __('Conversion + Manufacturing');
 			page.main.find('#yd-sub').text(
-				__('{0} runs from submitted Conversion Entries · as of {1}',
-					[page.yd.runs.length, r.message.as_of]));
+				__('{0} · {1} runs · as of {2}',
+					[book, page.yd.runs.length, r.message.as_of]));
 			render(page);
 		},
 	});
@@ -187,7 +228,8 @@ function pct_class(value, median) {
 function render(page) {
 	const rows = visible(page);
 	render_kpis(page, rows);
-	render_stages(page, rows);
+	if (page.yd.groupby === 'material') render_materials(page, rows);
+	else render_stages(page, rows);
 	render_runs(page, rows);
 }
 
@@ -272,6 +314,69 @@ function render_stages(page, rows) {
 	}).join('') + '</div>');
 }
 
+// Yield per raw material, apportioning each run's output across its inputs by
+// their share of the input grams. Exact for a single-input run; an assumption
+// for a blend, so the blend count is shown beside it rather than hidden.
+function render_materials(page, rows) {
+	const esc = frappe.utils.escape_html;
+	const by = {};
+	rows.forEach((r) => {
+		if (r.flag) return;
+		(r.materials || []).forEach((m) => {
+			const b = by[m.item_code] = by[m.item_code] || {
+				code: m.item_code, label: m.item_name, group: m.item_group,
+				runs: 0, blended: 0, in_g: 0, out_g: 0, pcts: [], sources: {},
+			};
+			b.runs++;
+			if (r.rm_count > 1) b.blended++;
+			b.sources[r.source] = 1;
+			b.in_g += m.grams;
+			b.out_g += m.out_grams;
+			if (m.yield_pct !== null && m.yield_pct !== undefined) b.pcts.push(m.yield_pct);
+		});
+	});
+
+	const list = Object.keys(by).map((k) => by[k]).sort((a, b) => b.in_g - a.in_g);
+	if (!list.length) {
+		page.main.find('#yd-stages').html(`<div class="yd-empty">${__('No runs match these filters.')}</div>`);
+		return;
+	}
+
+	// Median across materials, so a material is coloured against its peers
+	// rather than an absolute number that means different things per process.
+	const all = list.map((b) => b.in_g ? b.out_g / b.in_g * 100 : null).filter((v) => v !== null).sort((a, b) => a - b);
+	const med = all.length ? (all.length % 2 ? all[(all.length - 1) / 2]
+		: (all[all.length / 2 - 1] + all[all.length / 2]) / 2) : null;
+
+	const body = list.map((b) => {
+		const weighted = b.in_g ? (b.out_g / b.in_g * 100) : null;
+		const avg = b.pcts.length ? b.pcts.reduce((x, y) => x + y, 0) / b.pcts.length : null;
+		return `<tr>
+			<td><span class="yd-strong">${esc(b.label)}</span>
+				<div class="yd-dim">${esc(b.code)} · ${esc(b.group || '—')}</div></td>
+			<td class="yd-num">${b.runs}${b.blended ? `<div class="yd-dim">${b.blended} ${__('blended')}</div>` : ''}</td>
+			<td class="yd-num">${g(b.in_g)} g<div class="yd-dim">${(b.in_g / 453.592).toFixed(1)} lbs</div></td>
+			<td class="yd-num">${g(b.out_g)} g</td>
+			<td class="yd-num"><span class="yd-pct ${pct_class(weighted, med)}">${pct(weighted)}</span></td>
+			<td class="yd-num">${pct(avg)}</td>
+			<td class="yd-dim">${esc(Object.keys(b.sources).join(', '))}</td>
+		</tr>`;
+	}).join('');
+
+	page.main.find('#yd-stages').html(`
+		<table class="yd-table"><thead><tr>
+			<th>${__('Raw material')}</th>
+			<th class="yd-num">${__('Runs')}</th>
+			<th class="yd-num">${__('Input')}</th>
+			<th class="yd-num">${__('Output credited')}</th>
+			<th class="yd-num">${__('Weighted yield')}</th>
+			<th class="yd-num">${__('Average run')}</th>
+			<th>${__('Source')}</th>
+		</tr></thead><tbody>${body}</tbody></table>
+		<div class="yd-dim" style="margin-top:7px;">${
+			__('A blended run credits its output to each input by that input\'s share of the grams that went in. For a single-material run the figure is exact.')}</div>`);
+}
+
 function render_runs(page, rows) {
 	const esc = frappe.utils.escape_html;
 	if (!rows.length) {
@@ -290,11 +395,22 @@ function render_runs(page, rows) {
 		meds[k] = s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2;
 	});
 
-	const body = rows.map((r) => `
-		<tr class="${r.flag ? 'yd-flagged' : ''}">
-			<td>${esc(r.posting_date)}</td>
-			<td><a href="/app/conversion-entry/${encodeURIComponent(r.entry)}">${esc(r.entry)}</a>
-				<div class="yd-dim">${esc(r.stage_label)}</div></td>
+	const route = (r) => r.source === 'Manufacturing'
+		? '/app/stock-entry/' + encodeURIComponent(r.entry)
+		: '/app/conversion-entry/' + encodeURIComponent(r.entry);
+
+	const body = rows.map((r) => {
+		const key = r.source + '|' + r.row_id;
+		const open = !!page.yd.open[key];
+		// Expanding is worth offering only where there is more than one input to
+		// break out; a 1-to-1 run would just repeat the line above it.
+		const expandable = (r.materials || []).length > 1;
+		let html = `
+		<tr class="${r.flag ? 'yd-flagged' : ''}${expandable ? ' yd-runline' : ''}${open ? ' open' : ''}"
+			data-runkey="${esc(key)}">
+			<td>${expandable ? `<span class="yd-arrow">${open ? '▾' : '▸'}</span> ` : ''}${esc(r.posting_date)}</td>
+			<td><a href="${route(r)}" onclick="event.stopPropagation()">${esc(r.entry)}</a>
+				<div class="yd-dim">${esc(r.source)} · ${esc(r.stage_label)}</div></td>
 			<td>${esc(r.rm_name)}<div class="yd-dim">${esc(r.rm_group)}${
 				r.rm_count > 1 ? ` · ${r.rm_count} ${__('inputs')}` : ''}</div></td>
 			<td class="yd-num">${g(r.in_grams)} g</td>
@@ -306,7 +422,25 @@ function render_runs(page, rows) {
 				: `<span class="yd-pct ${pct_class(r.yield_pct, meds[r.stage])}">${pct(r.yield_pct)}</span>`}</td>
 			<td>${esc(r.project || '—')}<div class="yd-dim">${esc(r.party || '')}</div></td>
 			<td class="yd-dim">${esc(r.company)}</td>
-		</tr>`).join('');
+		</tr>`;
+
+		if (open) {
+			html += (r.materials || []).map((m) => `
+				<tr class="yd-sub">
+					<td></td>
+					<td colspan="2">${esc(m.item_name)}
+						<div class="yd-dim">${esc(m.item_code)} · ${esc(m.item_group || '—')}</div></td>
+					<td class="yd-num">${m.qty.toLocaleString('en-US')} ${esc(m.uom)}
+						<div class="yd-dim">${g(m.grams)} g · ${
+							m.share_pct === null ? '—' : m.share_pct.toFixed(1) + '% ' + __('of input')}</div></td>
+					<td class="yd-num">${g(m.out_grams)} g
+						<div class="yd-dim">${__('credited')}</div></td>
+					<td class="yd-num"><span class="yd-pct">${pct(m.yield_pct)}</span></td>
+					<td colspan="2"></td>
+				</tr>`).join('');
+		}
+		return html;
+	}).join('');
 
 	page.main.find('#yd-runs').html(`
 		<table class="yd-table"><thead><tr>
