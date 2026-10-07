@@ -48,7 +48,11 @@ def before_submit(doc, method=None):
     #
     # check_ar_policy() is kept for the Sales Order side to call if that is ever
     # wanted; nothing calls it today.
-    _check_cod_customer(doc)
+    #
+    # The COD Slack alert is off since 2026-10-07: slack_webhook_url points at
+    # #conversions-motley, which no longer takes posts.
+    # _check_cod_customer(doc)
+    pass
 
 
 def on_submit(doc, method=None):
