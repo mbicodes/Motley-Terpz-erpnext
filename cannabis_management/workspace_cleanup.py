@@ -132,3 +132,40 @@ def ensure_ar_weekly_review_stub():
     frappe.db.commit()
     frappe.clear_cache()
     print(f"Created private route stub Workspace {AR_WEEKLY_STUB}")
+
+
+# ── Renamed workspaces ───────────────────────────────────────────────────────
+
+# Workspaces that were renamed. A browser that last opened the old name still
+# holds it in localStorage.current_page and asks for it on every desk load,
+# which pops "Workspace <name> not found" -- failure mode 1 of
+# ensure_ar_weekly_review_stub above. The same private, hidden stub fixes it.
+# Only created when no Workspace of that name exists, so if the real one comes
+# back it is left alone.
+RENAMED_WORKSPACE_STUBS = [
+    "METRC",  # now "METRC Dashboard"
+]
+
+
+def ensure_renamed_workspace_stubs():
+    created = []
+    for name in RENAMED_WORKSPACE_STUBS:
+        if frappe.db.exists("Workspace", name):
+            continue
+        frappe.get_doc(
+            {
+                "doctype": "Workspace",
+                "label": name,
+                "title": f"{name} (route stub)",
+                "public": 0,
+                "for_user": AR_WEEKLY_STUB_USER,
+                "is_hidden": 1,
+                "content": "[]",
+            }
+        ).insert(ignore_permissions=True)
+        created.append(name)
+
+    if created:
+        frappe.db.commit()
+        frappe.clear_cache()
+        print(f"Created private route stub Workspace(s): {', '.join(created)}")

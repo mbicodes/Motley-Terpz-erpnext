@@ -29,7 +29,11 @@ Three rules, all idempotent:
 import frappe
 
 from cannabis_management.credit_and_ar import utils
-from cannabis_management.credit_and_ar.custom_fields import CREDIT_STATUS_OPTIONS
+from cannabis_management.credit_and_ar.custom_fields import (
+	CREDIT_STATUS_DEFAULT,
+	CREDIT_STATUS_DESCRIPTION,
+	CREDIT_STATUS_OPTIONS,
+)
 
 CUSTOMER = "Customer"
 
@@ -109,15 +113,12 @@ def _place_credit_tab():
 def _set_status_permlevel():
 	"""Everything about custom_credit_status that the fixture would undo.
 
-	The fixture still carries this field's original shape — COD in the options, a
-	default of COD, the "every customer is COD by default" description, permlevel
-	0 and read_only 1 — so all five are re-stamped here rather than trusting the
-	fixture import to leave them alone.
+	The fixture carries permlevel 0 and read_only 1, so those are re-stamped here
+	rather than trusting the fixture import to leave them alone.
 
-	Order matters: the default is cleared BEFORE the options are narrowed. Frappe
-	refuses to save a Select whose default is not one of its options, and leaving
-	a stored default of "COD" behind a COD-less option list makes the field
-	unsaveable from the UI afterwards.
+	Order matters: the options are widened BEFORE the default is set. Frappe
+	refuses to save a Select whose default is not one of its options, so writing
+	a default of COD against a COD-less option list makes the field unsaveable.
 	"""
 	name = _name(STATUS_FIELD)
 	if not frappe.db.exists("Custom Field", name):
@@ -130,17 +131,17 @@ def _set_status_permlevel():
 	)
 	changed = []
 
-	if (current.default or "") != "":
-		frappe.db.set_value("Custom Field", name, "default", "")
-		changed.append(f"{STATUS_FIELD} default cleared")
-
 	if (current.options or "") != CREDIT_STATUS_OPTIONS:
 		frappe.db.set_value("Custom Field", name, "options", CREDIT_STATUS_OPTIONS)
-		changed.append(f"{STATUS_FIELD} options reset (COD removed)")
+		changed.append(f"{STATUS_FIELD} options reset")
 
-	if (current.description or "") != "":
-		frappe.db.set_value("Custom Field", name, "description", "")
-		changed.append(f"{STATUS_FIELD} description cleared")
+	if (current.default or "") != CREDIT_STATUS_DEFAULT:
+		frappe.db.set_value("Custom Field", name, "default", CREDIT_STATUS_DEFAULT)
+		changed.append(f"{STATUS_FIELD} default set to {CREDIT_STATUS_DEFAULT}")
+
+	if (current.description or "") != CREDIT_STATUS_DESCRIPTION:
+		frappe.db.set_value("Custom Field", name, "description", CREDIT_STATUS_DESCRIPTION)
+		changed.append(f"{STATUS_FIELD} description set")
 
 	if int(current.permlevel or 0) != STATUS_PERMLEVEL:
 		frappe.db.set_value("Custom Field", name, "permlevel", STATUS_PERMLEVEL)

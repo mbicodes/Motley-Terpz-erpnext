@@ -14,8 +14,15 @@ Customer and are reused as-is.
 
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 
+# COD leads the list because it is what a brand-new customer gets: cash up front
+# until Finance approves terms. See customer_layout._set_status_permlevel, which
+# re-stamps both the options and the default after every fixture import.
 CREDIT_STATUS_OPTIONS = (
-	"Terms Approved\nWarning\nHard Hold\nPayment Plan\nWorkout\nBlocked\nPolicy Exempt"
+	"COD\nTerms Approved\nWarning\nHard Hold\nPayment Plan\nWorkout\nBlocked\nPolicy Exempt"
+)
+CREDIT_STATUS_DEFAULT = "COD"
+CREDIT_STATUS_DESCRIPTION = (
+	"New customers start on COD. Terms orders are refused until Finance grants a credit line."
 )
 SCORE_BAND_OPTIONS = "Insufficient History\nExcellent\nGood\nFair\nWatch\nCOD Only"
 
@@ -68,12 +75,11 @@ CUSTOMER_FIELDS = [
 		# already granted to Credit Finance / Managing Director / Accounts Manager
 		# / Sales Master Manager.
 		"permlevel": 1,
-		# Both explicitly blank: create_custom_fields only writes the keys it is
-		# given, so dropping them from this dict leaves the old values in place —
-		# and a stored default of "COD" is no longer one of the options, which
-		# makes Frappe refuse to save the field at all.
-		"default": "",
-		"description": "",
+		# Every new customer starts on COD — cash on delivery — and only moves to
+		# Terms Approved once Finance grants a line. Written explicitly because
+		# create_custom_fields only writes the keys it is given.
+		"default": CREDIT_STATUS_DEFAULT,
+		"description": CREDIT_STATUS_DESCRIPTION,
 		# Editable, not read-only: permlevel 1 already limits who can touch it, so
 		# the people who own credit decisions can set it by hand when the engines'
 		# view and reality disagree.

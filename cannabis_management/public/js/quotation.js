@@ -152,3 +152,15 @@ function showStockDialog(frm) {
         },
     });
 }
+
+
+// ── Project picker: no filtering ─────────────────────────────────────────────
+// Core restricts Project by company, and on selling forms by customer too
+// (erpnext/public/js/utils/sales_common.js, controllers/buying.js). Projects
+// here are not company-scoped, so that hid valid choices. Cleared in refresh
+// so it lands after core's own setup_queries, which is where core sets it.
+frappe.ui.form.on('Quotation', {
+	refresh(frm) {
+		frm.set_query('project', () => ({}));
+	},
+});

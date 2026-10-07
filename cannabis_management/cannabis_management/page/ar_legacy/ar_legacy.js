@@ -83,6 +83,7 @@ frappe.pages['ar-legacy'].on_page_load = function (wrapper) {
 				</div>
 				<button class="arl-btn arl-btn-ghost" id="arl-clear">Clear</button>
 				<button class="arl-btn" id="arl-excel">Export to Excel</button>
+				<button class="arl-btn" id="arl-csv">Export to CSV</button>
 				<button class="arl-btn" id="arl-refresh">&#8635; Refresh</button>
 			</div>
 
@@ -418,19 +419,25 @@ frappe.pages['ar-legacy'].on_page_load = function (wrapper) {
 	// is on. The server re-applies the same filters rather than taking rows
 	// from the browser, so an export can never show a balance the page would
 	// not.
-	page.main.find('#arl-excel').on('click', function () {
+	function download(format) {
 		if (!state.rows.length) {
 			frappe.msgprint('Nothing to export yet — wait for the page to load.');
 			return;
 		}
-		frappe.dom.freeze('Building workbook…');
+		// CSV carries the accounts grid alone; the per-segment totals are a
+		// second sheet, which a CSV cannot hold.
+		frappe.dom.freeze(format === 'csv' ? 'Building CSV…' : 'Building workbook…');
 		open_url_post(frappe.request.url, {
-			cmd: 'cannabis_management.cannabis_management.page.ar_legacy.ar_legacy.export_xlsx',
+			cmd: 'cannabis_management.cannabis_management.page.ar_legacy.ar_legacy.export_'
+				+ (format === 'csv' ? 'csv' : 'xlsx'),
 			ar_mode: state.ar_mode || 'legacy',
 			filters: JSON.stringify(state.filters || {})
 		});
 		setTimeout(function () { frappe.dom.unfreeze(); }, 3000);
-	});
+	}
+
+	page.main.find('#arl-excel').on('click', function () { download('xlsx'); });
+	page.main.find('#arl-csv').on('click', function () { download('csv'); });
 
 	load();
 };

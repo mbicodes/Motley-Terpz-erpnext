@@ -17,6 +17,7 @@ from io import BytesIO
 import frappe
 import openpyxl
 from frappe.desk.utils import provide_binary_file
+from frappe.utils.csvutils import to_csv
 from frappe.utils.xlsxutils import ILLEGAL_CHARACTERS_RE, get_excel_date_format, handle_html
 from openpyxl.cell import WriteOnlyCell
 from openpyxl.styles import Font
@@ -83,3 +84,26 @@ def send_xlsx(title, sheets):
 	out = BytesIO()
 	wb.save(out)
 	provide_binary_file(title, "xlsx", out.getvalue())
+
+
+def send_csv(title, rows):
+	"""Hand the browser a single CSV. rows[0] is the header.
+
+	CSV has no concept of sheets, so a page whose workbook has several exports
+	only its main grid here. The breakdowns and logs live in the .xlsx -- a CSV
+	that silently concatenated them would be unreadable by anything that opens
+	CSVs for a living.
+	"""
+	if len(rows) < 2:
+		frappe.throw(frappe._("There is nothing to export."))
+
+	clean = []
+	for row in rows:
+		clean.append([
+			"" if cell is None
+			else cell.strftime("%Y-%m-%d") if isinstance(cell, datetime.date | datetime.datetime)
+			else cell
+			for cell in row
+		])
+
+	provide_binary_file(title, "csv", to_csv(clean).encode("utf-8-sig"))

@@ -17,6 +17,7 @@ import frappe
 from frappe import _
 from frappe.utils import flt, getdate, nowdate
 
+from cannabis_management.api.sheet_export import send_csv, send_xlsx
 from cannabis_management.credit_and_ar.utils import NEW_AR_START
 from cannabis_management.credit_and_ar.doctype.ar_weekly_entry.ar_weekly_entry import (
 	STATUSES_BY_TIER,
@@ -292,3 +293,88 @@ def _snapshot_for(customer, ledger):
 		if TIER_RANK[r["tier"]] > TIER_RANK[tier]:
 			tier = r["tier"]
 	return tier, amount
+
+
+TIER_LABELS = {
+	"upcoming": "Upcoming Terms Due",
+	"level1": "Bad Debt Level 1 (0-30)",
+	"level2": "Bad Debt Level 2 (30-60)",
+	"level3": "Bad Debt Level 3 (60+)",
+}
+
+
+def _export_tables(ledger=None):
+	"""The three tables behind both exports: the grid, the aging, and the log.
+
+	Both ledgers are exported, not just the one on screen. The Ledger column is
+	there to filter on, and an export that silently dropped half the book would
+	be a worse failure than one extra column.
+	"""
+	rows = _build_rows(ledger)
+	latest = _latest_entries()
+	for r in rows:
+		info = latest.get((r["customer"], r["ledger"]))
+		r["current_status"] = info["current_status"] if info else ""
+		r["latest_note"] = info["latest_note"] if info else ""
+		r["log_count"] = info["log_count"] if info else 0
+
+	grid = [[
+		"Customer", "Ledger", "Portion", "Level", "Worst Aging", "Amount",
+		"Invoices", "Current Status", "Latest Note", "Entries Filed",
+	]]
+	aging = [["Customer", "Ledger", "Portion", "Aging Bucket", "Amount"]]
+
+	for r in rows:
+		portion = "On terms" if r["portion"] == "upcoming" else "Overdue"
+		grid.append([
+			r["customer"], r["ledger"], portion,
+			TIER_LABELS.get(r["tier"], r["tier"]), r["days"],
+			flt(r["amount"], 2), r["invoice_count"],
+			r["current_status"], r["latest_note"], r["log_count"],
+		])
+		for b in r["breakdown"]:
+			aging.append([r["customer"], r["ledger"], portion, b["label"], flt(b["amount"], 2)])
+
+	log = [[
+		"Customer", "Ledger", "Week Of", "Status", "Tier At Entry",
+		"Outstanding At Entry", "What is going on?", "What is the plan?",
+		"Notes", "Contact", "Email", "Need Three-Way Call", "Filed By",
+	]]
+	for e in frappe.get_all(
+		"AR Weekly Entry",
+		fields=["customer", "ledger", "week_of", "status", "tier_snapshot",
+		        "amount_snapshot", "qa", "plan", "notes", "contact", "email",
+		        "need_three_way_call", "owner"],
+		order_by="week_of desc, creation desc",
+	):
+		log.append([
+			e.customer, e.ledger, getdate(e.week_of) if e.week_of else None,
+			e.status, TIER_LABELS.get(e.tier_snapshot, e.tier_snapshot or ""),
+			flt(e.amount_snapshot, 2), e.qa, e.plan, e.notes, e.contact, e.email,
+			"Yes" if e.need_three_way_call else "No", e.owner,
+		])
+
+	return grid, aging, log
+
+
+@frappe.whitelist()
+def export_xlsx(ledger=None):
+	"""Workbook: the grid, the aging behind it, and the weekly log."""
+	_require_access()
+	grid, aging, log = _export_tables(ledger)
+	send_xlsx(
+		_("AR Accountability {0}").format(nowdate()),
+		[
+			("Receivables", grid, [34, 12, 11, 24, 14, 14, 10, 26, 48, 13]),
+			("Aging Breakdown", aging, [34, 12, 11, 16, 14]),
+			("Weekly Entries", log, [34, 12, 12, 24, 24, 18, 44, 44, 44, 20, 24, 18, 24]),
+		],
+	)
+
+
+@frappe.whitelist()
+def export_csv(ledger=None):
+	"""The receivables grid only -- see send_csv on why the rest is xlsx-only."""
+	_require_access()
+	grid, _aging, _log = _export_tables(ledger)
+	send_csv(_("AR Accountability {0}").format(nowdate()), grid)

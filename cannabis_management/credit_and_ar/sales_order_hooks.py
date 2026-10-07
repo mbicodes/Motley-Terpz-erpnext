@@ -407,6 +407,7 @@ def _terms_problems(doc) -> list[str]:
 	settings = utils.get_settings()
 
 	checks = (
+		_problem_cod_status(doc),
 		_problem_workout(doc),
 		_problem_terms_template(doc),
 		_problem_line(doc),
@@ -419,6 +420,28 @@ def _terms_problems(doc) -> list[str]:
 	problems = [problem for problem in checks if problem]
 	problems += _problem_payment_plan(doc)
 	return problems
+
+
+def _problem_cod_status(doc) -> str | None:
+	"""A COD customer may not take Payment Terms.
+
+	COD is what every customer starts on, so this is the gate a new account has
+	to pass before it can buy on terms at all: Finance moves it to Terms Approved
+	once a credit line exists. Read live from the Customer rather than from
+	anything cached on the order, so moving an account back to COD stops its
+	drafted terms orders too.
+
+	Only reached for Terms orders — _terms_problems is not called for COD or
+	Sample orders — so a cash order from the same customer is unaffected.
+	"""
+	status = frappe.db.get_value("Customer", doc.customer, "custom_credit_status")
+	if status != utils.STATUS_COD:
+		return None
+
+	return _(
+		"{0} is on <b>COD</b>. Orders with Mode of Payment = <b>{1}</b> cannot be "
+		"submitted or printed. Use Cash On Delivery, or ask Finance to approve terms."
+	).format(doc.customer, utils.MODE_TERMS)
 
 
 def _problem_terms_template(doc) -> str | None:
