@@ -4,6 +4,21 @@ import frappe
 MTM_COMPANY = "Master Touch Manufacturing"
 FRESH_FROZEN_GROUPS = ("Fresh Frozen", "Fresh Frozen - BHO", "Fresh Frozen - SHO")
 
+# What "Reserved" means here, matching ERPNext's own projected_qty on Bin
+# (erpnext/stock/doctype/bin/bin.py, set_projected_qty): stock already committed
+# to Sales Orders, Work Orders, subcontracting and production plans.
+#
+# It deliberately excludes Bin.reserved_stock, the Stock Reservation Entry
+# figure, for the same reason core does -- and because reading that field alone
+# is what made the column show 0.00 for everything: 9 bins carry reserved_stock
+# against 549 carrying reserved_qty.
+RESERVED_SQL = """(
+    COALESCE(b.reserved_qty, 0)
+  + COALESCE(b.reserved_qty_for_production, 0)
+  + COALESCE(b.reserved_qty_for_sub_contract, 0)
+  + COALESCE(b.reserved_qty_for_production_plan, 0)
+)"""
+
 
 @frappe.whitelist(allow_guest=True)
 def get_stock_by_item_group(item_group, project=None, _=None):
@@ -72,7 +87,11 @@ def get_project_balances(item_group, company_condition, values, project=None):
             i.item_group,
             sle.warehouse,
             LEAST(SUM(sle.actual_qty), b.actual_qty) AS actual_qty,
-            0 AS reserved_qty
+            ROUND(
+                MAX({reserved})
+                * LEAST(SUM(sle.actual_qty), b.actual_qty)
+                / NULLIF(b.actual_qty, 0)
+            , 6) AS reserved_qty
         FROM `tabStock Ledger Entry` sle
         INNER JOIN `tabItem` i ON i.name = sle.item_code
         INNER JOIN `tabWarehouse` w ON w.name = sle.warehouse
@@ -88,7 +107,8 @@ def get_project_balances(item_group, company_condition, values, project=None):
         GROUP BY sle.project, sle.item_code, sle.warehouse, b.actual_qty
         HAVING ROUND(SUM(sle.actual_qty), 6) > 0
         ORDER BY i.item_name
-    """.format(project_condition=project_condition, company_condition=company_condition), args, as_dict=True)
+    """.format(project_condition=project_condition, company_condition=company_condition,
+               reserved=RESERVED_SQL), args, as_dict=True)
 
 
 def get_project_stock(item_group, project, company_condition, values):
@@ -121,7 +141,7 @@ def get_bin_stock(company_condition, values):
             i.item_group,
             b.warehouse,
             b.actual_qty,
-            b.reserved_stock as reserved_qty
+            {reserved} AS reserved_qty
         FROM `tabBin` b
         INNER JOIN `tabItem` i ON i.name = b.item_code
         INNER JOIN `tabWarehouse` w ON w.name = b.warehouse
@@ -132,7 +152,8 @@ def get_bin_stock(company_condition, values):
             AND b.warehouse NOT LIKE 'Virtual%%'
             {company_condition}
         ORDER BY i.item_name
-    """.format(company_condition=company_condition), tuple(values), as_dict=True)
+    """.format(company_condition=company_condition, reserved=RESERVED_SQL),
+        tuple(values), as_dict=True)
 
 
 def get_yield_data_for_items(item_codes):
