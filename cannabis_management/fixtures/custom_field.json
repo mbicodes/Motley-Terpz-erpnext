@@ -28019,7 +28019,7 @@
   "label": "Rejected Batch",
   "length": 0,
   "link_filters": null,
-  "mandatory_depends_on": "eval:doc.rejected_qty > 0",
+  "mandatory_depends_on": null,
   "modified": "2026-02-19 07:15:20.546226",
   "module": null,
   "name": "Purchase Receipt Item-rejected_batch",

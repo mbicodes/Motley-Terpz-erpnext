@@ -40,18 +40,17 @@ def create_plant_batches(data):
 	if not rows:
 		frappe.throw(_("Add at least one plant batch row."))
 
+	# Each row carries its own source/strain/type/location/date (staged one by
+	# one in the dialog); top-level values remain as a fallback.
+	fields = ("strain", "batch_type", "planting_date", "location",
+		"source_type", "source_plant", "source_batch_no")
 	created = []
 	for row in rows:
 		doc = frappe.new_doc("Plant Batch")
 		doc.batch_name = row.get("batch_name")
 		doc.plant_count = cint(row.get("plant_count"))
-		doc.strain = data.get("strain")
-		doc.batch_type = data.get("batch_type")
-		doc.planting_date = data.get("planting_date")
-		doc.location = data.get("location")
-		doc.source_type = data.get("source_type")
-		doc.source_plant = data.get("source_plant")
-		doc.source_batch_no = data.get("source_batch_no")
+		for f in fields:
+			doc.set(f, row.get(f) or data.get(f))
 		doc.insert()
 		doc.submit()
 		created.append(doc.name)

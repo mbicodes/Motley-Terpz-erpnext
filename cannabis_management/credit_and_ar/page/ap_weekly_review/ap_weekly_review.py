@@ -32,7 +32,7 @@ import frappe
 from frappe import _
 from frappe.utils import flt, getdate, nowdate
 
-from cannabis_management.api.sheet_export import send_xlsx
+from cannabis_management.api.sheet_export import send_csv, send_xlsx
 from cannabis_management.credit_and_ar.doctype.ap_weekly_entry.ap_weekly_entry import (
 	STATUSES_BY_TIER,
 	week_start,
@@ -327,21 +327,18 @@ TIER_LABELS = {
 }
 
 
-@frappe.whitelist()
-def export_xlsx(company=None):
-	"""The review as a workbook: the grid, the aging behind it, and the log.
+def _export_tables(company=None):
+	"""The three tables behind both exports: the grid, the aging, and the log.
 
 	Everything is exported, not just the company on screen, because the point of
 	taking this to Excel is usually to pivot across entities -- and a filtered
 	export that silently drops rows is a worse failure than one extra column to
 	filter on. The Company column is there to filter by.
 
-	Three sheets rather than one: the aging breakdown is one row per bucket and
+	Three tables rather than one: the aging breakdown is one row per bucket and
 	the log is one row per week, so flattening them into the grid would repeat
 	every supplier line several times over and make the totals unusable.
 	"""
-	_require_access()
-
 	rows = _build_rows(company)
 	latest = _latest_entries()
 	for r in rows:
@@ -393,6 +390,14 @@ def export_xlsx(company=None):
 			"Yes" if e.need_finance_signoff else "No", e.owner,
 		])
 
+	return grid, aging, log
+
+
+@frappe.whitelist()
+def export_xlsx(company=None):
+	"""Workbook: the grid, the aging behind it, and the weekly log."""
+	_require_access()
+	grid, aging, log = _export_tables(company)
 	send_xlsx(
 		_("AP Accountability {0}").format(nowdate()),
 		[
@@ -401,3 +406,11 @@ def export_xlsx(company=None):
 			("Weekly Entries", log, [26, 26, 12, 28, 24, 16, 44, 44, 44, 20, 24, 18, 24]),
 		],
 	)
+
+
+@frappe.whitelist()
+def export_csv(company=None):
+	"""The payables grid only -- see send_csv on why the rest is xlsx-only."""
+	_require_access()
+	grid, _aging, _log = _export_tables(company)
+	send_csv(_("AP Accountability {0}").format(nowdate()), grid)

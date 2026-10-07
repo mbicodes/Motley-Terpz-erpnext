@@ -108,7 +108,7 @@ def get_stock_entry_legs():
 	reads the plain source_fieldname ("muid") for the s_warehouse leg and the
 	"to_"-prefixed field ("to_muid") for the t_warehouse leg — a row that both
 	issues and receives (a transfer) can therefore carry two different tags."""
-	source_fieldname, _ = get_metric_tag_dimension_names()
+	source_fieldname, _target_fieldname = get_metric_tag_dimension_names()
 	return [
 		(source_fieldname, "s_warehouse"),
 		(f"to_{source_fieldname}", "t_warehouse"),
@@ -127,7 +127,7 @@ def normalize_stock_entry_tag_fields(doc, method=None):
 	value onto whichever fieldname ERPNext will actually read, so either
 	field works for a single-leg row.
 	"""
-	source_fieldname, _ = get_metric_tag_dimension_names()
+	source_fieldname, _target_fieldname = get_metric_tag_dimension_names()
 	to_fieldname = f"to_{source_fieldname}"
 
 	for row in doc.get("items") or []:
@@ -142,6 +142,32 @@ def normalize_stock_entry_tag_fields(doc, method=None):
 			# Issue-only row — ERPNext reads source_fieldname for this leg.
 			if row.get(to_fieldname) and not row.get(source_fieldname):
 				row.set(source_fieldname, row.get(to_fieldname))
+
+
+def validate_stock_entry_tag_mandatory(doc, method=None):
+	"""validate hook for Stock Entry -- server-side mandatory check for the
+	Source Tag field, replacing the Muid Inventory Dimension's own blanket
+	reqd=1 on it (relaxed to 0 on this doctype's Custom Field specifically,
+	since that flag applied identically to every row with no way to exempt
+	one). A finished-good row (is_finished_item checked) is an output, not
+	something being issued from stock -- it only ever needs its own Target
+	Tag (to_<source_fieldname>), never a Source Tag, so it's exempt outright.
+	A Repack raw-material row (Source Warehouse set) still needs one; so does
+	every row on any other Stock Entry type, matching the field's old
+	unconditional behaviour there.
+	"""
+	source_fieldname, _target_fieldname = get_metric_tag_dimension_names()
+	is_repack = doc.stock_entry_type == "Repack"
+	label = frappe.get_meta("Stock Entry Detail").get_label(source_fieldname)
+
+	for row in doc.get("items") or []:
+		if row.get("is_finished_item"):
+			continue
+		required = bool(row.get("s_warehouse")) if is_repack else True
+		if required and not row.get(source_fieldname):
+			frappe.throw(
+				_("Row #{0}: {1} is mandatory.").format(row.idx, frappe.bold(label))
+			)
 
 
 def get_touched_tags(doc):
@@ -163,6 +189,22 @@ def get_touched_tags(doc):
 				warehouse = row.get(warehouse_fieldname)
 				if tag_name and warehouse:
 					touched[tag_name] = (row.item_code, warehouse)
+	elif doc.doctype == "Stock Reconciliation":
+		# Same single warehouse for both fields -- a reconciliation only ever
+		# touches one warehouse per row, but (like Stock Entry) can carry a
+		# Source Tag (a downward adjustment, against an existing tag) and a
+		# Target Tag (an upward adjustment, into a fresh tag) on that same row
+		# independently, so both are collected rather than picking just one.
+		source_fieldname, _target_fieldname = get_metric_tag_dimension_names()
+		to_fieldname = f"to_{source_fieldname}"
+		for row in rows:
+			warehouse = row.get("warehouse")
+			if not warehouse:
+				continue
+			for tag_fieldname in (source_fieldname, to_fieldname, "reconcile_tag"):
+				tag_name = row.get(tag_fieldname)
+				if tag_name:
+					touched[tag_name] = (row.item_code, warehouse)
 	else:
 		row_fieldname = get_row_tag_fieldname(rows[0].doctype)
 		if row_fieldname:
@@ -175,15 +217,64 @@ def get_touched_tags(doc):
 	return [(tag, item_code, warehouse) for tag, (item_code, warehouse) in touched.items()]
 
 
+def get_reconciled_qty(item_code, warehouse, tag_name):
+	"""Net quantity counted into/out of this tag by submitted Stock
+	Reconciliations through their Reconcile Tag field. Those rows' Stock Ledger
+	Entries carry actual_qty = 0 and no dimension (see doc_hooks.
+	stock_reconciliation.validate_reconcile_tags), so the dimension balance
+	never includes them."""
+	total = frappe.db.sql(
+		"""
+		select sum(sri.quantity_difference)
+		from `tabStock Reconciliation Item` sri
+		where sri.reconcile_tag = %(tag)s
+			and sri.item_code = %(item_code)s
+			and sri.warehouse = %(warehouse)s
+			and sri.docstatus = 1
+		""",
+		{"tag": tag_name, "item_code": item_code, "warehouse": warehouse},
+	)[0][0]
+	return flt(total)
+
+
+def _tag_has_history(tag_name):
+	"""Whether any live stock transaction still references this tag."""
+	_source_fieldname, dimension_field = get_metric_tag_dimension_names()
+	column = frappe.utils.sanitize_column(dimension_field)
+	if frappe.db.sql(
+		f"""
+		select 1 from `tabStock Ledger Entry`
+		where is_cancelled = 0 and ({column} = %(tag)s or target_tag = %(tag)s)
+		limit 1
+		""",  # nosemgrep
+		{"tag": tag_name},
+	):
+		return True
+	return bool(frappe.db.exists("Stock Reconciliation Item", {"reconcile_tag": tag_name, "docstatus": 1}))
+
+
 def sync_metric_tag(tag_name, item_code, warehouse, txn_doctype, txn_name):
 	dimension_field = get_metric_tag_dimension_fieldname()
 	balance = get_stock_balance_for_dimension(item_code, warehouse, dimension_field, tag_name)
+	balance += get_reconciled_qty(item_code, warehouse, tag_name)
 
 	tag = frappe.get_doc("Metric Tag", tag_name)
 	tag.current_qty = balance
 	tag.item_code = item_code
 	tag.warehouse = warehouse
-	tag.status = "Empty" if balance <= 0 else "Active"
+	if balance > 0:
+		tag.status = "Active"
+	elif txn_doctype == "Stock Reconciliation" and not _tag_has_history(tag_name):
+		# Cancelling the reconciliation that first used an Unused tag hands the
+		# tag back, instead of burning it as Empty.
+		tag.status = "Unused"
+	else:
+		tag.status = "Empty"
+	if balance > 0 and not tag.get("custom_license"):
+		# An Unused tag has no License until it first holds stock.
+		license = frappe.db.get_value("Warehouse", warehouse, "custom_metrc_license_number")
+		if license:
+			tag.custom_license = license
 	tag.last_transaction_type = txn_doctype
 	tag.last_transaction_id = txn_name
 	tag.last_updated = now_datetime()
@@ -222,21 +313,41 @@ def validate_metric_tag_status(doc, method=None):
 # ---------------------------------------------------------------------------
 
 # (source_fieldname, target_fieldname) on each item-row doctype. Purchase
-# Receipt Item reverses the usual pairing: its plain "muid" sits next to the
-# *receiving* warehouse field (this doc's primary warehouse is the target,
-# not the source), so "muid" holds the Target tag there and "from_muid"
-# (next to from_warehouse) holds the Source tag. Stock Reconciliation Item
-# only ever touches one warehouse, so it has no Target side.
-ROW_SOURCE_TARGET_FIELDS = {
-	"Stock Entry Detail": ("muid", "to_muid"),
-	"Delivery Note Item": ("muid", "to_muid"),
-	"Purchase Receipt Item": ("from_muid", "muid"),
-	"Stock Reconciliation Item": ("muid", None),
-}
+# Receipt Item reverses the usual pairing: its plain source_fieldname sits
+# next to the *receiving* warehouse field (this doc's primary warehouse is
+# the target, not the source), so it holds the Target tag there and
+# "from_"+source_fieldname (next to from_warehouse) holds the Source tag.
+# Stock Reconciliation Item touches only one warehouse, but (like Stock
+# Entry) still carries both a Source and a Target tag field on the same row
+# -- Source for a downward adjustment, Target for an upward one.
+#
+# Built from get_metric_tag_dimension_names() rather than hardcoded "muid"/
+# "to_muid" literals -- those are only the *fallback* dimension names; a site
+# can (and this one does) configure the Muid Inventory Dimension with a
+# different source_fieldname (e.g. "tags"), and every row here carries that
+# fieldname, never literally "muid". Hardcoding it left this whole lookup
+# returning (None, None) for every row, so sync_sle_source_target_tags below
+# silently wrote nothing.
+def _row_source_target_fields(row_doctype):
+	source_fieldname, _target_fieldname = get_metric_tag_dimension_names()
+	to_fieldname = f"to_{source_fieldname}"
+	from_fieldname = f"from_{source_fieldname}"
+	mapping = {
+		"Stock Entry Detail": (source_fieldname, to_fieldname),
+		"Delivery Note Item": (source_fieldname, to_fieldname),
+		"Purchase Receipt Item": (from_fieldname, source_fieldname),
+		"Stock Reconciliation Item": (source_fieldname, to_fieldname),
+	}
+	return mapping.get(row_doctype, (None, None))
 
 
 def _row_source_target_tags(voucher_doctype, row):
-	source_field, target_field = ROW_SOURCE_TARGET_FIELDS.get(row.doctype, (None, None))
+	if row.get("reconcile_tag"):
+		# Only the plain Target Tag column, never the dimension column: a
+		# dimension on this SLE would make a repost treat it as additive.
+		return None, row.reconcile_tag
+
+	source_field, target_field = _row_source_target_fields(row.doctype)
 	source_value = row.get(source_field) if source_field else None
 	target_value = row.get(target_field) if target_field else None
 
@@ -265,6 +376,21 @@ def sync_sle_source_target_tags(doc, method=None):
 		source_value, target_value = _row_source_target_tags(doc.doctype, row)
 		if not source_value and not target_value:
 			continue
+
+		# Only write the side that actually has a value. A single-leg row
+		# (plain issue or plain receipt) always leaves the other side None --
+		# writing that None here would blank out sle_source_fieldname
+		# ("metric_tag"), which ERPNext's own Inventory Dimension framework
+		# already populated natively (from whichever leg-matched field it
+		# reads for that SLE) before this hook ever runs. Only a same-row
+		# transfer (both legs on one row) has both values, and both are then
+		# genuinely meant to land on the SLE.
+		values = {}
+		if source_value:
+			values[sle_source_fieldname] = source_value
+		if target_value:
+			values["target_tag"] = target_value
+
 		frappe.db.set_value(
 			"Stock Ledger Entry",
 			{
@@ -273,7 +399,7 @@ def sync_sle_source_target_tags(doc, method=None):
 				"voucher_detail_no": row.name,
 				"is_cancelled": 0,
 			},
-			{sle_source_fieldname: source_value, "target_tag": target_value},
+			values,
 			update_modified=False,
 		)
 

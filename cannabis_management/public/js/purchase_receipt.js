@@ -2,9 +2,18 @@ frappe.ui.form.on("Purchase Receipt", {
     refresh: function (frm) {
         // Target/Rejected/Source Tags: only offer Metric Tags whose License
         // matches the row's Warehouse/Rejected Warehouse/From Warehouse.
-        cannabis_management.metric_tag.filter_by_warehouse(frm, "tags", "warehouse");
+        // Note: on Purchase Receipt Item, "tags" is labeled Target Tags and
+        // "from_tags" is labeled Source Tags. Source Tags: only Active tags.
+        // Target Tags: only Unused tags.
+        cannabis_management.metric_tag.filter_by_warehouse(
+            frm, "tags", "warehouse", "items",
+            "cannabis_management.cannabis_management.custom.metric_tag.target_tags_for_warehouse"
+        );
         cannabis_management.metric_tag.filter_by_warehouse(frm, "rejected_tags", "rejected_warehouse");
-        cannabis_management.metric_tag.filter_by_warehouse(frm, "from_tags", "from_warehouse");
+        cannabis_management.metric_tag.filter_by_warehouse(
+            frm, "from_tags", "from_warehouse", "items",
+            "cannabis_management.cannabis_management.custom.metric_tag.source_tags_for_warehouse"
+        );
     },
 
     project: function (frm) {
@@ -74,3 +83,15 @@ frappe.ui.form.on("Purchase Receipt Item", {
     }
 });
 
+
+
+// ── Project picker: no filtering ─────────────────────────────────────────────
+// Core restricts Project by company, and on selling forms by customer too
+// (erpnext/public/js/utils/sales_common.js, controllers/buying.js). Projects
+// here are not company-scoped, so that hid valid choices. Cleared in refresh
+// so it lands after core's own setup_queries, which is where core sets it.
+frappe.ui.form.on('Purchase Receipt', {
+	refresh(frm) {
+		frm.set_query('project', () => ({}));
+	},
+});

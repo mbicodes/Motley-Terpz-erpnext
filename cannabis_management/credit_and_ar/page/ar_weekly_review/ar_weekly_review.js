@@ -64,6 +64,8 @@ frappe.pages['ar-weekly-review'].on_page_load = function (wrapper) {
 				</div>
 				<div style="display:flex;align-items:center;">
 					<span class="arw-savemsg" id="arw-savemsg"></span>
+					<button class="btn btn-default btn-sm" id="arw-excel" style="margin-right:6px;">${__('Export to Excel')}</button>
+					<button class="btn btn-default btn-sm" id="arw-csv" style="margin-right:6px;">${__('Export to CSV')}</button>
 					<button class="btn btn-default btn-sm" id="arw-print" style="margin-right:6px;">${__('Print')}</button>
 					<button class="btn btn-default btn-sm" id="arw-refresh">${__('Refresh')}</button>
 				</div>
@@ -104,6 +106,8 @@ frappe.pages['ar-weekly-review'].on_page_load = function (wrapper) {
 function bind_events(page) {
 	page.main.find('#arw-refresh').on('click', () => load(page));
 	page.main.find('#arw-print').on('click', () => print_review(page));
+	page.main.find('#arw-excel').on('click', () => export_review(page, 'xlsx'));
+	page.main.find('#arw-csv').on('click', () => export_review(page, 'csv'));
 
 	page.main.find('#arw-modeseg button').on('click', function () {
 		page.main.find('#arw-modeseg button').removeClass('on');
@@ -448,6 +452,23 @@ function save_entry(page, rowid, $btn) {
 		},
 	});
 }
+
+// Both ledgers go into the file, not just the one on screen: the Ledger column
+// is there to filter on, and an export that dropped half the book would be a
+// worse failure than one more column. CSV carries the receivables grid alone --
+// the aging breakdown and the weekly log are extra sheets a CSV cannot hold.
+function export_review(page, format) {
+	if (!page.arw.rows.length) {
+		frappe.msgprint(__('Nothing to export yet — wait for the review to load.'));
+		return;
+	}
+	frappe.dom.freeze(format === 'csv' ? __('Building CSV…') : __('Building workbook…'));
+	open_url_post(frappe.request.url, {
+		cmd: ARW_METHOD + (format === 'csv' ? 'export_csv' : 'export_xlsx'),
+	});
+	setTimeout(() => frappe.dom.unfreeze(), 3000);
+}
+
 
 // Print the whole review: both ledgers, every group, every row, full notes.
 // Ignores the search box and ledger toggle; keeps the current "Group by" mode.

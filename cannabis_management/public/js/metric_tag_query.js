@@ -10,11 +10,22 @@
 // cannabis_management.metric_tag.filter_by_warehouse() below.
 window.cannabis_management = window.cannabis_management || {};
 cannabis_management.metric_tag = {
-    filter_by_warehouse(frm, tag_field, warehouse_field, child_table = "items") {
+    // query_path: dotted path of the whitelisted query method to use.
+    // Defaults to the plain (no status restriction) query; the Source/Target
+    // Tags fields pass the dedicated source_tags_for_warehouse /
+    // target_tags_for_warehouse paths instead, which hardcode the status
+    // restriction server-side so it can never be dropped client-side.
+    filter_by_warehouse(
+        frm,
+        tag_field,
+        warehouse_field,
+        child_table = "items",
+        query_path = "cannabis_management.cannabis_management.custom.metric_tag.tags_for_warehouse"
+    ) {
         frm.set_query(tag_field, child_table, function (doc, cdt, cdn) {
             let row = locals[cdt][cdn];
             return {
-                query: "cannabis_management.cannabis_management.custom.metric_tag.tags_for_warehouse",
+                query: query_path,
                 filters: { warehouse: row[warehouse_field] },
             };
         });

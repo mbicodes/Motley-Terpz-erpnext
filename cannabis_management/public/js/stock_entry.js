@@ -2,8 +2,15 @@ frappe.ui.form.on("Stock Entry", {
     refresh: function (frm) {
         // Source/Target Tags: only offer Metric Tags whose License matches
         // the row's Source/Target Warehouse.
-        cannabis_management.metric_tag.filter_by_warehouse(frm, "tags", "s_warehouse");
-        cannabis_management.metric_tag.filter_by_warehouse(frm, "to_tags", "t_warehouse");
+        // Source Tags: only Active tags. Target Tags: only Unused tags.
+        cannabis_management.metric_tag.filter_by_warehouse(
+            frm, "tags", "s_warehouse", "items",
+            "cannabis_management.cannabis_management.custom.metric_tag.source_tags_for_warehouse"
+        );
+        cannabis_management.metric_tag.filter_by_warehouse(
+            frm, "to_tags", "t_warehouse", "items",
+            "cannabis_management.cannabis_management.custom.metric_tag.target_tags_for_warehouse"
+        );
         toggle_tag_mandatory(frm);
 
         frm.fields_dict.items.grid.update_docfield_property("project", "reqd", 0);
@@ -80,6 +87,7 @@ frappe.ui.form.on("Stock Entry Detail", {
 
     is_finished_item: function (frm, cdt, cdn) {
         setTimeout(() => calculate_total_quantity(frm), 300);
+        toggle_tag_mandatory(frm);
     },
 
     item_code: function (frm, cdt, cdn) {
@@ -135,22 +143,13 @@ function toggle_project_mandatory(frm) {
     frm.refresh_fields();
 }
 
-// Repack only: Source/Target Tags become mandatory per row, based on which
-// warehouse that row actually uses -- a raw-material row (Source Warehouse
-// only) needs a Source Tag, a finished-good row (Target Warehouse only)
-// needs a Target Tag, and never both on the same row. Outside Repack, this
-// leaves the doctype's own defaults alone (Source Tags always required,
-// Target Tags optional) -- only Repack rows get this per-row treatment.
+// Source/Target Tags are optional on every row -- never mandatory.
 // frm.set_df_property(..., row.name) scopes the change to that single grid
-// row instead of the whole "tags"/"to_tags" column, which is what makes
-// per-row (not per-column) mandatory possible here.
+// row instead of the whole "tags"/"to_tags" column.
 function toggle_tag_mandatory(frm) {
-    let is_repack = frm.doc.stock_entry_type === "Repack";
     (frm.doc.items || []).forEach(function (row) {
-        let tags_reqd = is_repack ? (row.s_warehouse ? 1 : 0) : 1;
-        let to_tags_reqd = is_repack ? (row.t_warehouse ? 1 : 0) : 0;
-        frm.set_df_property("items", "reqd", tags_reqd, frm.doc.name, "tags", row.name);
-        frm.set_df_property("items", "reqd", to_tags_reqd, frm.doc.name, "to_tags", row.name);
+        frm.set_df_property("items", "reqd", 0, frm.doc.name, "tags", row.name);
+        frm.set_df_property("items", "reqd", 0, frm.doc.name, "to_tags", row.name);
     });
 }
 
@@ -246,3 +245,15 @@ function calculate_total_quantity(frm) {
     frm.doc.total_quantity = total_qty;
     frm.refresh_field("total_quantity");
 }
+
+// ── Project picker: no filtering ─────────────────────────────────────────────
+// Core restricts Project by company, and on selling forms by customer too
+// (erpnext/public/js/utils/sales_common.js, controllers/buying.js). Projects
+// here are not company-scoped, so that hid valid choices. Cleared in refresh
+// so it lands after core's own setup_queries, which is where core sets it.
+frappe.ui.form.on('Stock Entry', {
+	refresh(frm) {
+		frm.set_query('project', () => ({}));
+		frm.set_query('project', 'items', () => ({}));
+	},
+});

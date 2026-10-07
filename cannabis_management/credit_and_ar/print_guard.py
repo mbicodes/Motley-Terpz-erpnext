@@ -28,6 +28,9 @@ from cannabis_management.credit_and_ar import utils
 
 BLOCK_MESSAGE = "Printing is blocked — this Terms order is awaiting Managing Director approval."
 HOLD_BLOCK_MESSAGE = "Printing is blocked — this customer's account is on {0}."
+COD_BLOCK_MESSAGE = (
+	"Printing is blocked — this customer is on COD and this order is on Payment Terms."
+)
 OVER_LINE_MESSAGE = (
 	"Printing is blocked — this order is over the customer's available credit line. "
 	"Only an Account Manager can print it."
@@ -39,7 +42,11 @@ OVER_LINE = "__over_line__"
 
 # Credit statuses that stop a Payment Terms order from printing outright,
 # independent of the approval workflow above.
-_PRINT_BLOCKING_STATUSES = (utils.STATUS_HARD_HOLD, utils.STATUS_BLOCKED)
+# COD sits here with the holds: a customer who has not been granted terms must
+# not be able to hand over a Payment Terms order on paper either. The guard that
+# uses this already fires only when custom_mode_of_payment is Payment Terms, so
+# a Cash On Delivery order for the same customer still prints.
+_PRINT_BLOCKING_STATUSES = (utils.STATUS_COD, utils.STATUS_HARD_HOLD, utils.STATUS_BLOCKED)
 
 
 def _is_blocked(doctype: str | None, name: str | None) -> tuple[bool, str | None]:
@@ -113,6 +120,13 @@ def _guard(doctype: str | None, name: str | None):
 		)
 
 	if hold_status:
+		if hold_status == utils.STATUS_COD:
+			frappe.throw(
+				_(COD_BLOCK_MESSAGE),
+				frappe.PermissionError,
+				title=_("Printing Blocked"),
+			)
+
 		frappe.throw(
 			_(HOLD_BLOCK_MESSAGE).format(_(hold_status)),
 			frappe.PermissionError,

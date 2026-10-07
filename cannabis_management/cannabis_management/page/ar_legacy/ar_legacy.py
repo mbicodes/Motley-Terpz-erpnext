@@ -19,7 +19,7 @@ import frappe
 from frappe import _
 from frappe.utils import cint, date_diff, flt, getdate, nowdate
 
-from cannabis_management.api.sheet_export import send_xlsx
+from cannabis_management.api.sheet_export import send_csv, send_xlsx
 
 from cannabis_management.cannabis_management.page.ar_dashboard.ar_dashboard import (
 	LEGACY_CUTOFF,
@@ -284,9 +284,8 @@ def install_segment_field():
 	return {"status": "ok", "field": SEGMENT_FIELD, "segments": SEGMENTS}
 
 
-@frappe.whitelist()
-def export_xlsx(ar_mode="legacy", filters=None):
-	"""The page's current view as a workbook.
+def _export_tables(ar_mode="legacy", filters=None):
+	"""The accounts grid and the per-segment totals behind both exports.
 
 	The filters are re-applied here rather than trusting a list of rows posted
 	back from the browser: the figures stay server-derived, and an export can
@@ -295,7 +294,7 @@ def export_xlsx(ar_mode="legacy", filters=None):
 	customer id or the name, company is a substring match because `companies` is
 	a comma-joined list, and age/minimum are lower bounds.
 
-	A second sheet totals by segment, which is the number the page's segment
+	The second table totals by segment, which is the number the page's segment
 	cards show and the first thing anyone rebuilds by hand in Excel.
 	"""
 	filters = frappe.parse_json(filters) if isinstance(filters, str) else (filters or {})
@@ -369,6 +368,13 @@ def export_xlsx(ar_mode="legacy", filters=None):
 			flt(sum(t["outstanding"] for t in totals.values()), 2),
 		])
 
+	return book, grid, summary
+
+
+@frappe.whitelist()
+def export_xlsx(ar_mode="legacy", filters=None):
+	"""Workbook: the filtered accounts, plus totals per segment."""
+	book, grid, summary = _export_tables(ar_mode, filters)
 	send_xlsx(
 		_("{0} - AR by Segment {1}").format(book, nowdate()),
 		[
@@ -376,3 +382,10 @@ def export_xlsx(ar_mode="legacy", filters=None):
 			("By Segment", summary, [24, 11, 11, 16]),
 		],
 	)
+
+
+@frappe.whitelist()
+def export_csv(ar_mode="legacy", filters=None):
+	"""The accounts grid only -- see send_csv on why the totals are xlsx-only."""
+	book, grid, _summary = _export_tables(ar_mode, filters)
+	send_csv(_("{0} - AR by Segment {1}").format(book, nowdate()), grid)

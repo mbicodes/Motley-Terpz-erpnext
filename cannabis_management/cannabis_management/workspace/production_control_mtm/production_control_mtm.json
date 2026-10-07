@@ -1,0 +1,108 @@
+{
+ "charts": [
+  {
+   "chart_name": "MTM Job Cards by Status",
+   "label": "MTM Job Cards by Status"
+  },
+  {
+   "chart_name": "MTM Time by Workstation",
+   "label": "MTM Time by Workstation"
+  },
+  {
+   "chart_name": "MTM Produced by Product",
+   "label": "MTM Produced by Product"
+  },
+  {
+   "chart_name": "MTM Operator Labour Cost",
+   "label": "MTM Operator Labour Cost"
+  },
+  {
+   "chart_name": "MTM Operator Hours",
+   "label": "MTM Operator Hours"
+  }
+ ],
+ "content": "[{\"id\": \"hdr1\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Production Control \\u2014 Master Touch Manufacturing</b></span>\", \"col\": 12}}, {\"id\": \"sc_ManufacturingControl\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Manufacturing Control\", \"col\": 12}}, {\"id\": \"pspacer0\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"hdr_kpi\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h6\\\"><b>Key Metrics</b></span>\", \"col\": 12}}, {\"id\": \"nc_MTMActiveProductionRuns\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"MTM Active Production Runs\", \"col\": 4}}, {\"id\": \"nc_MTMJobCardsInWIP\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"MTM Job Cards In WIP\", \"col\": 4}}, {\"id\": \"nc_MTMJobCardsOpen\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"MTM Job Cards Open\", \"col\": 4}}, {\"id\": \"nc_MTMLabourCostBooked\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"MTM Labour Cost Booked\", \"col\": 4}}, {\"id\": \"nc_MTMMachineMinutesLogged\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"MTM Machine Minutes Logged\", \"col\": 4}}, {\"id\": \"nc_MTMGramsProduced\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"MTM Grams Produced\", \"col\": 4}}, {\"id\": \"pspacer1\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"hdr_ch\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h6\\\"><b>Workstations, Operators & Yield</b></span>\", \"col\": 12}}, {\"id\": \"ch_MTMJobCardsbyStatus\", \"type\": \"chart\", \"data\": {\"chart_name\": \"MTM Job Cards by Status\", \"col\": 6}}, {\"id\": \"ch_MTMTimebyWorkstation\", \"type\": \"chart\", \"data\": {\"chart_name\": \"MTM Time by Workstation\", \"col\": 6}}, {\"id\": \"ch_MTMProducedbyProduct\", \"type\": \"chart\", \"data\": {\"chart_name\": \"MTM Produced by Product\", \"col\": 6}}, {\"id\": \"ch_MTMOperatorLabourCost\", \"type\": \"chart\", \"data\": {\"chart_name\": \"MTM Operator Labour Cost\", \"col\": 6}}, {\"id\": \"ch_MTMOperatorHours\", \"type\": \"chart\", \"data\": {\"chart_name\": \"MTM Operator Hours\", \"col\": 6}}, {\"id\": \"pspacer2\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"hdr_dd\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h6\\\"><b>Drill-down Reports & Lists</b></span>\", \"col\": 12}}, {\"id\": \"sc_RunYield\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Run Yield & Cost\", \"col\": 3}}, {\"id\": \"sc_OperatorTime\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Operator Time & Cost\", \"col\": 3}}, {\"id\": \"sc_JobCards\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Job Cards\", \"col\": 3}}, {\"id\": \"sc_WorkOrders\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Work Orders\", \"col\": 3}}, {\"id\": \"sc_MaterialRequests\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Material Requests\", \"col\": 3}}]",
+ "creation": "2026-09-17 14:59:43.948049",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "hide_custom": 0,
+ "icon": "pie-chart",
+ "idx": 0,
+ "is_hidden": 0,
+ "label": "Production Control MTM",
+ "links": [],
+ "modified": "2026-09-17 15:14:41.376356",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Production Control MTM",
+ "number_cards": [
+  {
+   "label": "MTM Active Production Runs",
+   "number_card_name": "MTM Active Production Runs"
+  },
+  {
+   "label": "MTM Job Cards In WIP",
+   "number_card_name": "MTM Job Cards In WIP"
+  },
+  {
+   "label": "MTM Job Cards Open",
+   "number_card_name": "MTM Job Cards Open"
+  },
+  {
+   "label": "MTM Labour Cost Booked",
+   "number_card_name": "MTM Labour Cost Booked"
+  },
+  {
+   "label": "MTM Machine Minutes Logged",
+   "number_card_name": "MTM Machine Minutes Logged"
+  },
+  {
+   "label": "MTM Grams Produced",
+   "number_card_name": "MTM Grams Produced"
+  }
+ ],
+ "owner": "Administrator",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [],
+ "sequence_id": 0.0,
+ "shortcuts": [
+  {
+   "color": "Purple",
+   "label": "Manufacturing Control",
+   "link_to": "manufacturing-process",
+   "type": "Page"
+  },
+  {
+   "color": "Green",
+   "label": "Run Yield & Cost",
+   "link_to": "MTM Run Yield and Cost",
+   "report_ref_doctype": "Job Card",
+   "type": "Report"
+  },
+  {
+   "color": "Blue",
+   "label": "Operator Time & Cost",
+   "link_to": "MTM Operator Time and Cost",
+   "report_ref_doctype": "Job Card",
+   "type": "Report"
+  },
+  {
+   "label": "Job Cards",
+   "link_to": "Job Card",
+   "type": "DocType"
+  },
+  {
+   "label": "Work Orders",
+   "link_to": "Work Order",
+   "type": "DocType"
+  },
+  {
+   "label": "Material Requests",
+   "link_to": "Material Request",
+   "type": "DocType"
+  }
+ ],
+ "title": "Production Control MTM"
+}

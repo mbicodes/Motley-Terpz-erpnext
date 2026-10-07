@@ -239,7 +239,10 @@ class CultivationPlantBatches {
 			primary_action: () => this.submit_create(dialog),
 		});
 
-		this.new_batch_rows = [{ batch_name: '', plant_count: '' }];
+		// Rows staged in the UI via "+ Add New Plant Batches"; nothing is
+		// created until "Create Plant Batch" is clicked.
+		this.staged_batches = [];
+		this.current_batch = { batch_name: '', plant_count: '' };
 		this.render_new_batch_rows(dialog);
 		dialog.show();
 		this.toggle_source_fields(dialog);
@@ -267,77 +270,111 @@ class CultivationPlantBatches {
 
 	render_new_batch_rows(dialog) {
 		const wrap = dialog.fields_dict.new_batches_html.$wrapper;
+		const esc = (v) => frappe.utils.escape_html(v == null ? '' : String(v));
 		wrap.empty();
-		wrap.append('<div class="pb-new-batches"></div>');
-		const list = wrap.find('.pb-new-batches');
 
-		this.new_batch_rows.forEach((row, idx) => {
-			const line = $(`
-				<div class="pb-new-batch-row" style="display:flex;gap:14px;align-items:flex-start;margin-bottom:10px;">
-					<div style="flex-grow:1;">
-						<label style="font-size:11px;text-transform:uppercase;color:#6b7d73;">Name</label>
-						<input type="text" class="form-control pb-batch-name" value="${frappe.utils.escape_html(row.batch_name)}" placeholder="New Plant Batch">
-						<div class="cultivation-field-error pb-name-error" style="display:none;">Plant batch name is required and must be unique</div>
-					</div>
-					<div style="width:120px;">
-						<label style="font-size:11px;text-transform:uppercase;color:#6b7d73;"># Plants</label>
-						<input type="number" min="0" class="form-control pb-plant-count" value="${frappe.utils.escape_html(row.plant_count)}" placeholder="0">
-						<div class="cultivation-field-error pb-count-error" style="display:none;">Must be greater than zero</div>
-					</div>
-					<button class="btn btn-xs btn-default pb-remove-row" style="margin-top:22px;" ${this.new_batch_rows.length <= 1 ? 'disabled' : ''}>✕</button>
-				</div>
-			`);
-			line.find('.pb-batch-name').on('input', (e) => { row.batch_name = e.target.value; });
-			line.find('.pb-plant-count').on('input', (e) => { row.plant_count = e.target.value; });
-			line.find('.pb-remove-row').on('click', () => {
-				this.new_batch_rows.splice(idx, 1);
+		if (this.staged_batches.length) {
+			const rows = this.staged_batches.map((b, idx) => `
+				<tr>
+					<td>${esc(b.batch_name)}</td>
+					<td>${esc(b.plant_count)}</td>
+					<td>${esc(b.strain)}</td>
+					<td>${esc(b.location)}</td>
+					<td>${esc(b.batch_type)}</td>
+					<td>${esc(frappe.datetime.str_to_user(b.planting_date))}</td>
+					<td>${esc(b.source_type === 'Package' ? b.source_batch_no : b.source_plant)}</td>
+					<td><button class="btn btn-xs btn-default pb-remove-staged" data-idx="${idx}">✕</button></td>
+				</tr>`).join('');
+			wrap.append(`
+				<table class="table table-bordered table-sm pb-staged-batches" style="font-size:12px;margin-bottom:12px;">
+					<thead><tr>
+						<th>Name</th><th># Plants</th><th>Strain</th><th>Location</th>
+						<th>Type</th><th>Planting Date</th><th>Source</th><th></th>
+					</tr></thead>
+					<tbody>${rows}</tbody>
+				</table>`);
+			wrap.find('.pb-remove-staged').on('click', (e) => {
+				this.staged_batches.splice(Number($(e.currentTarget).data('idx')), 1);
 				this.render_new_batch_rows(dialog);
 			});
-			list.append(line);
-		});
+		}
+
+		const row = this.current_batch;
+		const line = $(`
+			<div class="pb-new-batch-row" style="display:flex;gap:14px;align-items:flex-start;margin-bottom:10px;">
+				<div style="flex-grow:1;">
+					<label style="font-size:11px;text-transform:uppercase;color:#6b7d73;">Name</label>
+					<input type="text" class="form-control pb-batch-name" value="${esc(row.batch_name)}" placeholder="New Plant Batch">
+					<div class="cultivation-field-error pb-name-error" style="display:none;">Plant batch name is required and must be unique</div>
+				</div>
+				<div style="width:120px;">
+					<label style="font-size:11px;text-transform:uppercase;color:#6b7d73;"># Plants</label>
+					<input type="number" min="0" class="form-control pb-plant-count" value="${esc(row.plant_count)}" placeholder="0">
+					<div class="cultivation-field-error pb-count-error" style="display:none;">Must be greater than zero</div>
+				</div>
+			</div>
+		`);
+		line.find('.pb-batch-name').on('input', (e) => { row.batch_name = e.target.value; });
+		line.find('.pb-plant-count').on('input', (e) => { row.plant_count = e.target.value; });
+		wrap.append(line);
 
 		wrap.append(`<button class="btn btn-sm btn-default pb-add-row" style="margin-top:4px;">+ Add New Plant Batches</button>`);
 		wrap.find('.pb-add-row').on('click', () => {
-			this.new_batch_rows.push({ batch_name: '', plant_count: '' });
+			const entry = this.build_current_entry(dialog);
+			if (!entry) return;
+			this.staged_batches.push(entry);
+			this.current_batch = { batch_name: '', plant_count: '' };
 			this.render_new_batch_rows(dialog);
+			wrap.find('.pb-batch-name').focus();
 		});
 	}
 
-	submit_create(dialog) {
+	// Validates the dialog fields + current Name/# Plants and returns a full
+	// entry snapshot, or null (with inline errors shown) if invalid.
+	build_current_entry(dialog) {
 		const values = dialog.get_values();
-		if (!values) return;
+		if (!values) return null;
 
-		const seen = new Set();
-		let has_error = false;
-		this.new_batch_rows.forEach((row) => {
-			const name_ok = row.batch_name && !seen.has(row.batch_name);
-			const count_ok = row.plant_count && Number(row.plant_count) > 0;
-			seen.add(row.batch_name);
-			if (!name_ok || !count_ok) has_error = true;
-		});
-		if (!this.new_batch_rows.length || has_error) {
-			frappe.msgprint('Every plant batch row needs a unique name and a plant count greater than zero.');
-			return;
+		const wrap = dialog.fields_dict.new_batches_html.$wrapper;
+		const name = (this.current_batch.batch_name || '').trim();
+		const count = Number(this.current_batch.plant_count);
+		const name_ok = !!name && !this.staged_batches.some((b) => b.batch_name === name);
+		const count_ok = count > 0;
+		wrap.find('.pb-name-error').toggle(!name_ok);
+		wrap.find('.pb-count-error').toggle(!count_ok);
+		if (!name_ok || !count_ok) return null;
+
+		return {
+			batch_name: name,
+			plant_count: count,
+			source_type: values.source_type,
+			source_plant: values.source_type === 'Mother Plant' ? values.source_plant : null,
+			source_batch_no: values.source_type === 'Package' ? values.source_batch_no : null,
+			location: values.location,
+			strain: values.strain,
+			batch_type: values.batch_type,
+			planting_date: values.planting_date,
+		};
+	}
+
+	submit_create(dialog) {
+		const batches = [...this.staged_batches];
+		const cur = this.current_batch;
+		// Include the row still in the inputs if the user filled it but
+		// didn't press "+ Add New Plant Batches".
+		if ((cur.batch_name || '').trim() || cur.plant_count || !batches.length) {
+			const entry = this.build_current_entry(dialog);
+			if (!entry) return;
+			batches.push(entry);
 		}
 
 		dialog.set_primary_action('Creating...', null);
 		frappe.call({
 			method: 'cannabis_management.api.plant_batches.create_plant_batches',
-			args: {
-				data: {
-					source_type: values.source_type,
-					source_plant: values.source_plant,
-					source_batch_no: values.source_batch_no,
-					location: values.location,
-					strain: values.strain,
-					batch_type: values.batch_type,
-					planting_date: values.planting_date,
-					new_batches: this.new_batch_rows,
-				},
-			},
+			args: { data: { new_batches: batches } },
 			callback: (r) => {
 				if (r.message && r.message.ok) {
-					frappe.show_alert({ message: 'Plant batch(es) created', indicator: 'green' });
+					frappe.show_alert({ message: `${r.message.names.length} plant batch(es) created`, indicator: 'green' });
 					dialog.hide();
 					this.load_batches();
 				}

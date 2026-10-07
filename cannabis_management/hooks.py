@@ -64,7 +64,7 @@ app_include_js = [
     # NOTE: this path has no build-hash, so browsers/proxies can cache it
     # indefinitely -- bump the ?v= query on every content change (same trick
     # metric_tag_scan.js uses) or edits here silently won't reach users.
-    "/assets/cannabis_management/js/metric_tag_query.js?v=2",
+    "/assets/cannabis_management/js/metric_tag_query.js?v=3",
     # Scan-to-select for Metric Tag: patches erpnext's shared BarcodeScanner
     # (used by Purchase Receipt / Delivery Note / Stock Entry / Stock
     # Reconciliation) so scanning a Metric Tag's Tag Code/MUID into the item
@@ -86,6 +86,7 @@ doctype_js = {
     "Cash Ledger Entry": "cash_management/doctype/cash_ledger_entry/cash_ledger_entry.js",
     "Expense Tracker Entry": "cash_management/doctype/expense_tracker_entry/expense_tracker_entry.js",
     "Stock Entry": "public/js/stock_entry.js",
+    "Stock Reconciliation": "public/js/stock_reconciliation.js",
     "Purchase Order": "public/js/purchase_order.js",
     "Purchase Receipt": "public/js/purchase_receipt.js",
     "Purchase Invoice": "public/js/purchase_invoice.js",
@@ -161,6 +162,9 @@ after_migrate = [
     # not found" dialog. Ordering matters - if the name is ever re-added to
     # REMOVED_WORKSPACES, the delete runs first and this puts it back.
     "cannabis_management.workspace_cleanup.ensure_ar_weekly_review_stub",
+    # Same stub for workspaces that were renamed (e.g. "METRC" -> "METRC
+    # Dashboard"), so stale browsers stop popping "Workspace METRC not found".
+    "cannabis_management.workspace_cleanup.ensure_renamed_workspace_stubs",
     # Manufacturing Portal code fields on User. Re-asserted every migrate rather than
     # run once as a patch: create_custom_fields is idempotent, and patches.txt is
     # root-owned on this bench so it cannot be appended to as the bench user.
@@ -184,6 +188,11 @@ after_migrate = [
     # re-imports against the removed case_type field. after_migrate runs after
     # sync_fixtures, so this gets the last word — without editing the fixture.
     "cannabis_management.credit_and_ar.notifications.install_notifications",
+    # "AR Weekly Review" button in the CEO / Nikki dashboard header blocks. Runs
+    # after sync_fixtures for the same reason as the two entries above: the Nikki
+    # block ships in fixtures/custom_html_block.json and is rewritten from the
+    # fixture on every migrate, so a direct edit to the record never survives.
+    "cannabis_management.credit_and_ar.dashboard_button.install",
     # Job Card's custom_material_request field, plus a backfill for cards that
     # predate it — submitted cards are never re-saved, so the fetch_from would
     # never fire for them. Idempotent, same reasoning as the entries above.
@@ -195,6 +204,9 @@ after_migrate = [
     # Material Request's Attachments table, added to from the Manufacturing
     # Process page's run cards.
     "cannabis_management.api.manufacturing_process.install_custom_fields",
+    # Stock Reconciliation Item gets Stock Entry's Source | Target dimension
+    # layout (Target Brand / Target Tags / Target Batch). Idempotent.
+    "cannabis_management.doc_hooks.stock_reconciliation.install_custom_fields",
     # MT Dispatch: the Sales Order stage fields, the audit tables and the
     # stage Select's options. Code, not fixtures -- a fixture export would
     # drag in every unrelated Custom Field on Sales Order.
@@ -678,6 +690,7 @@ scheduler_events = {
     "hourly": [
         "cannabis_management.credit_and_ar.customer_layout.enforce",
         "cannabis_management.credit_and_ar.notifications.install_notifications",
+        "cannabis_management.credit_and_ar.dashboard_button.install",
     ],
     "cron": {
         # Manufacturing Timesheet Kiosk: force-clock-out anyone still running past
