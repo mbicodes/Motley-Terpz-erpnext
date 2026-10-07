@@ -31,6 +31,7 @@ AUDIENCE = {
 	"resume": ((stages.APPROVER,), "exceptions_channel"),
 	"cancel": ((), "exceptions_channel"),
 	"dn_cancelled": ((stages.APPROVER, stages.COMPLIANCE), "exceptions_channel"),
+	"admin_set": ((), "orders_channel"),
 }
 
 
@@ -114,6 +115,19 @@ def on_transition(sales_order=None, action=None, **kwargs):
 	from cannabis_management.mt_dispatch.slack import post
 
 	return post.on_transition(sales_order, action, users, channel, **kwargs)
+
+
+def on_event(sales_order=None, what=None, **kwargs):
+	"""A thread note that moves no stage (see mt_dispatch/events.py)."""
+	if not sales_order or not what or not frappe.db.exists("Sales Order", sales_order):
+		return
+	company = frappe.db.get_value("Sales Order", sales_order, "company")
+	if not get_company_settings(company) or not slack_enabled():
+		return
+
+	from cannabis_management.mt_dispatch.slack import post
+
+	return post.on_event(sales_order, what, **kwargs)
 
 
 def on_payment_cleared(sales_order=None, **kwargs):

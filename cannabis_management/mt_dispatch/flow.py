@@ -270,6 +270,7 @@ def transition(sales_order, action, expected_stage=None, payload=None, source="E
 		"cannabis_management.mt_dispatch.notify.on_transition",
 		sales_order=so.name,
 		action=action,
+		source=source,
 		enqueue_after_commit=True,
 		queue="short",
 	)
@@ -371,9 +372,18 @@ def guard_stage_field(doc, method=None):
 	if not doc.has_value_changed(STAGE_FIELD) or frappe.flags.get("mt_dispatch"):
 		return
 	if is_administrator():
-		# Administrator may set the stage by hand; it still goes on the audit trail.
+		# Administrator may set the stage by hand; it still goes on the audit
+		# trail, and into the order's Slack thread like any other move.
 		before = doc.get_doc_before_save()
 		_append_log(doc, before.get(STAGE_FIELD) if before else None, doc.get(STAGE_FIELD), "admin_set", "ERP", None)
+		notify.enqueue(
+			"cannabis_management.mt_dispatch.notify.on_transition",
+			sales_order=doc.name,
+			action="admin_set",
+			source="ERP",
+			enqueue_after_commit=True,
+			queue="short",
+		)
 		return
 	frappe.throw(
 		_("Stage changes go through the dispatch buttons."),
@@ -482,16 +492,8 @@ def _sync_conversion(ce):
 		complete = False
 
 	if not complete or so.get(STAGE_FIELD) != AWAITING_CONVERSION:
-		# "2 of 3 submitted" in the thread. Skipped when the submit happens
-		# inside create_conversion, whose own reply already says it.
-		if frappe.flags.get("mt_dispatch") != "create_conversion":
-			notify.enqueue(
-				"cannabis_management.mt_dispatch.notify.on_transition",
-				sales_order=so.name,
-				action="conversion_progress",
-				enqueue_after_commit=True,
-				queue="short",
-			)
+		# No stage move. The thread still hears about it: events.on_ce_change
+		# posts the entry itself -- who, what into what, "2 of 3 submitted".
 		return
 
 	set_stage(so, PREPARING, "conversions_done", "System")

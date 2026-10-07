@@ -10,20 +10,37 @@ normalises the string form so no existing handler is ever dropped.
 MT_DISPATCH_DOC_EVENTS = {
 	"Sales Order": {
 		"on_submit": ["cannabis_management.mt_dispatch.flow.on_so_submit"],
-		"on_update_after_submit": ["cannabis_management.mt_dispatch.flow.on_so_update"],
+		"on_update_after_submit": [
+			"cannabis_management.mt_dispatch.flow.on_so_update",
+			"cannabis_management.mt_dispatch.events.on_so_change",
+		],
 		"before_update_after_submit": ["cannabis_management.mt_dispatch.flow.guard_stage_field"],
 		"on_cancel": ["cannabis_management.mt_dispatch.flow.on_so_cancel"],
 	},
 	"Delivery Note": {
 		"before_insert": ["cannabis_management.mt_dispatch.gates.dn_before_insert"],
-		"after_insert": ["cannabis_management.mt_dispatch.flow.dn_after_insert"],
+		"after_insert": [
+			"cannabis_management.mt_dispatch.flow.dn_after_insert",
+			"cannabis_management.mt_dispatch.events.on_dn_insert",
+		],
 		"before_submit": ["cannabis_management.mt_dispatch.gates.dn_before_submit"],
 		"on_submit": ["cannabis_management.mt_dispatch.flow.dn_on_submit"],
 		"on_cancel": ["cannabis_management.mt_dispatch.flow.on_dn_cancel"],
 	},
 	"Conversion Entry": {
-		"on_submit": ["cannabis_management.mt_dispatch.flow.on_conversion_submit"],
-		"on_cancel": ["cannabis_management.mt_dispatch.flow.on_conversion_cancel"],
+		"on_submit": [
+			"cannabis_management.mt_dispatch.flow.on_conversion_submit",
+			"cannabis_management.mt_dispatch.events.on_ce_change",
+		],
+		"on_cancel": [
+			"cannabis_management.mt_dispatch.flow.on_conversion_cancel",
+			"cannabis_management.mt_dispatch.events.on_ce_change",
+		],
+	},
+	"Sales Invoice": {
+		"after_insert": ["cannabis_management.mt_dispatch.events.on_si_insert"],
+		"on_submit": ["cannabis_management.mt_dispatch.events.on_si_submit"],
+		"on_cancel": ["cannabis_management.mt_dispatch.events.on_si_cancel"],
 	},
 	"Payment Entry": {
 		"on_submit": ["cannabis_management.mt_dispatch.payments.on_pe_change"],

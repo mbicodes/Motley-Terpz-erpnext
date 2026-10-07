@@ -240,10 +240,12 @@ def send_reminder(so, cfg, stage, notify, age):
 
 	if notify == "dispatch":
 		rows = post.message_rows(so.name, post.DISPATCH_POST)
-		if rows:
+		thread = post.thread_row(so.name)
+		if rows and not (thread and rows[-1].channel == thread.channel):
+			# A separate dispatch channel: reply under the dispatch post there.
 			client.post(rows[-1].channel, line, thread_ts=rows[-1].ts)
-		elif cfg.dispatch_channel:
-			client.post(cfg.dispatch_channel, line)
+		else:
+			post.post_to(so, cfg, "dispatch_channel", line)
 		return
 
 	if notify == "fulfillment":
