@@ -513,7 +513,9 @@ doc_events = {
         ],
         "on_submit": [
             "cannabis_management.overrides.sales_order_restrictions.on_submit",
-            "cannabis_management.overrides.sales_invoice_hooks.check_inventory_and_notify_slack",
+            # #conversions-motley order post stopped 2026-10-07: MTM orders now post
+            # once, to #mtm-orders, through MT Dispatch.
+            # "cannabis_management.overrides.sales_invoice_hooks.check_inventory_and_notify_slack",
             # "cannabis_management.overrides.payment_overdue_alert.on_sales_invoice_submit"  # AR Policy disabled
             # Keep Customer.custom_current_exposure / custom_available_line live.
             "cannabis_management.credit_and_ar.sales_order_hooks.on_submit",
@@ -642,7 +644,9 @@ doc_events = {
             # Tiering Product entries submit the Repack entries they draft.
             # First, so nothing is announced for an entry that then fails.
             "cannabis_management.api.manufacturing_process.submit_tiering_stock_entries",
-            "cannabis_management.overrides.conversion_entry_hooks.notify_conversion_entry_slack",
+            # #conversions-motley post stopped 2026-10-07. A conversion against a
+            # Sales Order is posted in that order's thread (mt_dispatch.events).
+            # "cannabis_management.overrides.conversion_entry_hooks.notify_conversion_entry_slack",
         ],
     },
 }
