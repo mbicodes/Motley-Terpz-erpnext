@@ -528,7 +528,7 @@ BEFORE_RELEASE = BEFORE_DN + (DN_READY, AWAITING_RELEASE, ON_HOLD)
 
 
 def dn_after_insert(doc, method=None):
-	"""A note made outside the flow (only Administrator can) puts its order at Delivery Note Ready."""
+	"""A note made outside the flow puts its order at Delivery Note Ready."""
 	if frappe.flags.get("mt_dispatch"):
 		return
 	for so_name, _cfg in gates._governed_orders(doc):
@@ -538,7 +538,7 @@ def dn_after_insert(doc, method=None):
 
 
 def dn_on_submit(doc, method=None):
-	"""A note submitted outside the flow (only Administrator can) releases its order."""
+	"""A note submitted outside the flow releases its order."""
 	if frappe.flags.get("mt_dispatch"):
 		return
 	for so_name, _cfg in gates._governed_orders(doc):
