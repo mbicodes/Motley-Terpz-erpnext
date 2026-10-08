@@ -23,16 +23,6 @@ frappe.ui.form.on("Sales Order", {
 				mt_dispatch.render(frm, frm._mt_board);
 				mt_dispatch.limit_stage_options(frm, frm._mt_board);
 				mt_dispatch.run_pending(frm, frm._mt_board);
-				if (frm._mt_board.enabled && !frm._mt_board.is_admin) {
-					// The Delivery Note comes from the Dispatch menu's "Create the
-					// Delivery Note" step; core's own button would only be refused.
-					frm.remove_custom_button(__("Delivery Note"), __("Create"));
-					// And the "+" beside Delivery Note under Connections, shown
-					// before that button went away.
-					frm.dashboard.links_area?.body
-						.find('.btn-new[data-doctype="Delivery Note"]')
-						.addClass("hidden");
-				}
 			},
 		});
 	},

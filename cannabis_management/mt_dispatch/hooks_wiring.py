@@ -17,13 +17,14 @@ MT_DISPATCH_DOC_EVENTS = {
 		"before_update_after_submit": ["cannabis_management.mt_dispatch.flow.guard_stage_field"],
 		"on_cancel": ["cannabis_management.mt_dispatch.flow.on_so_cancel"],
 	},
+	# Delivery Notes are made and submitted the ordinary way; nothing blocks
+	# them (gates.dn_before_insert / dn_before_submit are no longer wired).
+	# These hooks only keep the order's stage and Slack thread in step.
 	"Delivery Note": {
-		"before_insert": ["cannabis_management.mt_dispatch.gates.dn_before_insert"],
 		"after_insert": [
 			"cannabis_management.mt_dispatch.flow.dn_after_insert",
 			"cannabis_management.mt_dispatch.events.on_dn_insert",
 		],
-		"before_submit": ["cannabis_management.mt_dispatch.gates.dn_before_submit"],
 		"on_submit": ["cannabis_management.mt_dispatch.flow.dn_on_submit"],
 		"on_cancel": ["cannabis_management.mt_dispatch.flow.on_dn_cancel"],
 	},
@@ -71,7 +72,6 @@ MT_DISPATCH_CRON = {
 
 MT_DISPATCH_DOCTYPE_JS = {
 	"Sales Order": ["mt_dispatch/public/sales_order_dispatch.js"],
-	"Delivery Note": ["mt_dispatch/public/delivery_note_dispatch.js"],
 }
 
 
