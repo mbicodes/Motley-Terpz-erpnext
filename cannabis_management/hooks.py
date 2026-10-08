@@ -74,6 +74,9 @@ app_include_js = [
     # indefinitely — bump the ?v= query on every content change (same trick
     # infix_theme.js uses below) or edits here silently won't reach users.
     "/assets/cannabis_management/js/metric_tag_scan.js?v=2",
+    # Data Export dialog: preset button that ticks a saved column set
+    # (Sales Invoice -> the invoice sheet columns). Bump ?v= on every change.
+    "/assets/cannabis_management/js/data_export_presets.js?v=1",
 ]
 
 
