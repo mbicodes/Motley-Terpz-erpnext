@@ -5,12 +5,16 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 
-# Status options per tier — must match the mockup exactly (spec §2a).
+# Status options per tier — the mockup's set (spec §2a) plus the four added
+# 2026-10-09 for the overdue tiers. The page's ARW_STATUS_* maps must list them too.
 STATUSES_BY_TIER = {
 	"upcoming": ["Will Pay On Time"],
-	"level1": ["Will Pay Immediately", "Client Is Dodging Us", "Need Reconciliation"],
-	"level2": ["Will Pay Immediately", "Client Is Dodging Us", "Need Reconciliation"],
-	"level3": ["Will Pay Immediately", "Client Is Dodging Us", "Need Reconciliation"],
+	"level1": ["Will Pay Immediately", "Client Is Dodging Us", "Need Reconciliation",
+		"WIP At Lab", "Pending Pickup", "Payment Plan", "No Longer In Business"],
+	"level2": ["Will Pay Immediately", "Client Is Dodging Us", "Need Reconciliation",
+		"WIP At Lab", "Pending Pickup", "Payment Plan", "No Longer In Business"],
+	"level3": ["Will Pay Immediately", "Client Is Dodging Us", "Need Reconciliation",
+		"WIP At Lab", "Pending Pickup", "Payment Plan", "No Longer In Business"],
 }
 
 

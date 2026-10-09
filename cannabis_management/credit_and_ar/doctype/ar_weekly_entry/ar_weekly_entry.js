@@ -5,9 +5,12 @@
 // rule on validate; this only keeps the dropdown honest while typing.
 const AR_WE_STATUSES_BY_TIER = {
 	upcoming: ['Will Pay On Time'],
-	level1: ['Will Pay Immediately', 'Client Is Dodging Us', 'Need Reconciliation'],
-	level2: ['Will Pay Immediately', 'Client Is Dodging Us', 'Need Reconciliation'],
-	level3: ['Will Pay Immediately', 'Client Is Dodging Us', 'Need Reconciliation'],
+	level1: ['Will Pay Immediately', 'Client Is Dodging Us', 'Need Reconciliation',
+		'WIP At Lab', 'Pending Pickup', 'Payment Plan', 'No Longer In Business'],
+	level2: ['Will Pay Immediately', 'Client Is Dodging Us', 'Need Reconciliation',
+		'WIP At Lab', 'Pending Pickup', 'Payment Plan', 'No Longer In Business'],
+	level3: ['Will Pay Immediately', 'Client Is Dodging Us', 'Need Reconciliation',
+		'WIP At Lab', 'Pending Pickup', 'Payment Plan', 'No Longer In Business'],
 };
 
 frappe.ui.form.on('AR Weekly Entry', {
