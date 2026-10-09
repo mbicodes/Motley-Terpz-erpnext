@@ -80,6 +80,10 @@ tr.arw-rowline:hover{background:rgba(107,70,193,.035);}
 .arw-statuschip.s-pay{border-color:var(--upc);color:var(--upc);}
 .arw-statuschip.s-dodge{border-color:var(--lvl1);color:var(--lvl1);}
 .arw-statuschip.s-recon{border-color:var(--lvl2);color:var(--lvl2);}
+.arw-statuschip.s-wip{border-color:var(--blue);color:var(--blue);}
+.arw-statuschip.s-pickup{border-color:var(--purple);color:var(--purple);}
+.arw-statuschip.s-plan{border-color:var(--orange);color:var(--orange);}
+.arw-statuschip.s-closed{border-color:var(--lvl3);color:var(--lvl3);}
 .arw-notes{color:var(--ink-dim);font-size:12px;max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .arw-arrow{color:var(--ink-dim);display:inline-block;transition:transform .1s ease;}
 tr.arw-rowline.open .arw-arrow{transform:rotate(90deg);}

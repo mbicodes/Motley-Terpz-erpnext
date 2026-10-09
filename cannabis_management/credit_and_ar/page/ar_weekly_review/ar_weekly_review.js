@@ -23,12 +23,17 @@ const ARW_TIER_DEF = {
 };
 const ARW_TIER_ORDER = ['upcoming', 'level1', 'level2', 'level3'];
 const ARW_STATUS_ORDER = ['Will Pay On Time', 'Will Pay Immediately',
-	'Client Is Dodging Us', 'Need Reconciliation'];
+	'Client Is Dodging Us', 'Need Reconciliation', 'WIP At Lab', 'Pending Pickup',
+	'Payment Plan', 'No Longer In Business'];
 const ARW_STATUS_CLASS = {
 	'Will Pay On Time': 's-pay',
 	'Will Pay Immediately': 's-pay',
 	'Client Is Dodging Us': 's-dodge',
 	'Need Reconciliation': 's-recon',
+	'WIP At Lab': 's-wip',
+	'Pending Pickup': 's-pickup',
+	'Payment Plan': 's-plan',
+	'No Longer In Business': 's-closed',
 };
 const ARW_STATUS_DEF = {
 	none: { full: 'No Status Set', desc: 'Needs a status this week.' },
@@ -36,6 +41,10 @@ const ARW_STATUS_DEF = {
 	'Will Pay Immediately': { full: 'Will Pay Immediately', desc: '' },
 	'Client Is Dodging Us': { full: 'Client Is Dodging Us', desc: '' },
 	'Need Reconciliation': { full: 'Need Reconciliation', desc: '' },
+	'WIP At Lab': { full: 'WIP At Lab', desc: '' },
+	'Pending Pickup': { full: 'Pending Pickup', desc: '' },
+	'Payment Plan': { full: 'Payment Plan', desc: '' },
+	'No Longer In Business': { full: 'No Longer In Business', desc: '' },
 };
 
 frappe.pages['ar-weekly-review'].on_page_load = function (wrapper) {
