@@ -1216,6 +1216,20 @@ function na_invoice_cells(row, anchor, split, show_legacy_col) {
 						<td class="ard-range-cell ard-term-green">${g3 > 0 ? fmt_cur(g3) : "\u2014"}</td>`;
 }
 
+// Paid invoices carry no balance, so every New-AR column is blank. Same cells
+// and classes as na_invoice_cells so the column shading lines up.
+function na_blank_cells(split, show_legacy_col) {
+    let d = "\u2014";
+    return `
+						${(split || show_legacy_col) ? `<td class="ard-num ard-col-legacy">${d}</td><td class="ard-num ard-na-new">${d}</td>` : ``}
+						<td class="ard-num ard-na-total">${d}</td>
+						<td class="ard-num ard-na-good">${d}</td>
+						<td class="ard-num ard-na-bad">${d}</td>
+						<td class="ard-range-cell ard-term-red">${d}</td>
+						<td class="ard-range-cell ard-term-amber">${d}</td>
+						<td class="ard-range-cell ard-term-green">${d}</td>`;
+}
+
 function build_table_html(page, ranges, company, display_rows, view_totals, readonly, show_company) {
     if (display_rows.length === 0) {
         return (`
@@ -1231,6 +1245,8 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
     let show_legacy_col = page._ard_ar_mode === 'new'; // New AR: extra column showing legacy outstanding
     let na_anchor = show_terms ? get_report_date(page) : null;
     let na_grand = show_terms ? na_sum(display_rows, na_anchor) : null;
+    // Fully paid invoices per customer (display-only, see _paid_invoices).
+    let paid_map = ((page._ard_all_mode ? page._ard_all_result : page._ard_result) || {}).paid_invoices || {};
 
     let customer_order = [];
     let customer_groups = {};
@@ -1353,7 +1369,7 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
 				<td class="ard-td-sticky">
 					<button class="ard-expand-btn" data-party="${esc_attr(party)}" title="Expand invoices">&#9654;</button><span class="ard-customer-group-name">${esc(group.name)}</span><button class="ard-copy-btn" data-party="${esc_attr(party)}" title="Copy this customer's summary">&#128203;</button>
 					${group.name !== group.party ? `<div class="ard-customer-group-id">${esc(group.party)}</div>` : ""}
-					<div class="ard-invoice-count-compact" style="color:var(--ard-muted);font-size:11px;margin-top:2px;">${group.rows.length} invoice(s)</div>
+					<div class="ard-invoice-count-compact" style="color:var(--ard-muted);font-size:11px;margin-top:2px;">${group.rows.length} invoice(s)${(paid_map[party] || []).length ? ` &bull; ${paid_map[party].length} paid` : ""}</div>
 				</td>
 				<td class="ard-td-recon">${recon_cell}</td>
 				<td class="ard-td-flag">${onboarding_cell}</td>
@@ -1390,6 +1406,35 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
 					<td class="ard-num ard-outstanding">${fmt_cur(row.outstanding)}</td>
 					${show_terms ? na_invoice_cells(row, na_anchor, split_ln, show_legacy_col) : ``}
 					${range_cells}
+					<td></td>
+					<td></td>
+				</tr>
+			`;
+        });
+
+        // Paid-off invoices, newest first, under the open ones. Same row class, so
+        // expand/collapse and the print/PDF rules treat them exactly alike.
+        let paid_rows = (paid_map[party] || []).slice().sort(function (a, b) {
+            return (b.posting_date || "").localeCompare(a.posting_date || "");
+        });
+        paid_rows.forEach(function (inv) {
+            let blank_ranges = ranges.map(function () {
+                return `<td class="ard-range-cell ard-range-zero">\u2014</td>`;
+            }).join("");
+            html += `
+				<tr class="ard-invoice-row ard-paid-row" data-party="${esc_attr(party)}" style="display:none;">
+					<td class="ard-td-sticky" style="padding-left:24px;">
+						<a href="/app/sales-invoice/${esc(inv.voucher_no)}" target="_blank" class="ard-link">${esc(inv.voucher_no)}</a>
+						<div class="ard-inv-meta">${show_company && inv.company ? esc(inv.company) + " &bull; " : ""}${fmt_date(inv.posting_date)} &rarr; ${fmt_date(inv.due_date)} <span class="ard-badge badge-paid">Paid</span></div>
+					</td>
+					<td></td>
+					<td></td>
+					<td></td>
+					<td class="ard-num">${fmt_cur(inv.invoiced)}</td>
+					<td class="ard-num">${fmt_cur(inv.paid)}</td>
+					<td class="ard-num ard-outstanding">${fmt_cur(inv.outstanding)}</td>
+					${show_terms ? na_blank_cells(split_ln, show_legacy_col) : ``}
+					${blank_ranges}
 					<td></td>
 					<td></td>
 				</tr>
@@ -1502,6 +1547,7 @@ function load_all_entities(page) {
 
     let idx = 0;
     let merged_rows = [];
+    let merged_paid = {};
     let ranges = null;
 
     function finish() {
@@ -1512,6 +1558,7 @@ function load_all_entities(page) {
             report_date: date,
             ar_mode: page._ard_ar_mode,
             can_edit_recon: false,
+            paid_invoices: merged_paid,
         };
         render_all_entities(page);
     }
@@ -1542,6 +1589,10 @@ function load_all_entities(page) {
                     (r.message.rows || []).forEach(function (row) {
                         row.company = company; // tag each invoice with its source entity
                         merged_rows.push(row);
+                    });
+                    let paid = r.message.paid_invoices || {};
+                    Object.keys(paid).forEach(function (party) {
+                        merged_paid[party] = (merged_paid[party] || []).concat(paid[party]);
                     });
                 }
                 idx++;

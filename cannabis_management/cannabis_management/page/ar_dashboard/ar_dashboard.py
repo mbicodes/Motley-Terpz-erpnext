@@ -537,7 +537,70 @@ def _get_ar_data(company, report_date=None, customer=None, ageing_based_on="Due 
         "report_date": str(report_date or nowdate()),
         "can_edit_recon": _can_edit_recon(),
         "ar_mode": ar_mode,
+        "paid_invoices": _paid_invoices(rows, company, permitted, report_date, ar_mode),
     }
+
+
+def _paid_invoices(rows, company, permitted, report_date, ar_mode):
+    """Fully paid invoices of every customer listed, for their dropdown.
+
+    The receivable rows above only carry invoices that still have a balance, so
+    a customer's dropdown would otherwise never show what they paid off. These
+    are display-only: they never enter the client totals, the TOTALS row or the
+    aging buckets. Same company scope and AR-mode window as the rows; returns
+    and $0 invoices excluded, and anything already listed as open is skipped.
+    """
+    parties = sorted({r.get("party") for r in rows if r.get("party")})
+    if not parties or not company or company == "__ALL__":
+        return {}
+    companies = _scope_companies(TMM_GROUP_COMPANIES, permitted) if company == "TMM Group" else [company]
+    if not companies:
+        return {}
+
+    conditions = ""
+    if ar_mode == "legacy":
+        conditions = "AND posting_date <= %(cutoff)s"
+    invoices = frappe.db.sql(
+        f"""
+        SELECT name, customer, company, posting_date, due_date,
+               IF(IFNULL(base_rounded_total, 0) != 0, base_rounded_total, base_grand_total) AS invoiced,
+               outstanding_amount
+        FROM `tabSales Invoice`
+        WHERE docstatus = 1 AND is_return = 0
+          AND outstanding_amount <= 0.01
+          AND customer IN %(parties)s AND company IN %(companies)s
+          AND posting_date <= %(report_date)s
+          {conditions}
+        ORDER BY posting_date DESC, name DESC
+        """,
+        {
+            "parties": parties,
+            "companies": companies,
+            "report_date": str(report_date or nowdate()),
+            "cutoff": LEGACY_CUTOFF,
+        },
+        as_dict=True,
+    )
+
+    open_vouchers = {r.get("voucher_no") for r in rows}
+    out = {}
+    for inv in invoices:
+        if inv.name in open_vouchers:
+            continue
+        invoiced = float(inv.invoiced or 0)
+        if abs(invoiced) < 0.005:
+            continue  # $0 invoices (samples etc.) would read as "Paid" for nothing
+        balance = float(inv.outstanding_amount or 0)
+        out.setdefault(inv.customer, []).append({
+            "voucher_no": inv.name,
+            "company": inv.company,
+            "posting_date": str(inv.posting_date or ""),
+            "due_date": str(inv.due_date or ""),
+            "invoiced": invoiced,
+            "paid": round(invoiced - balance, 2),
+            "outstanding": balance,
+        })
+    return out
 
 
 @frappe.whitelist()
