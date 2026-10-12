@@ -1,7 +1,7 @@
 // Categorized AR — receivables filed by whose relationship the account is.
 //
 // The AR Mode toggle switches which book is counted: Legacy (invoices up to the
-// cut-over) or New AR (from the day after). The segment itself lives on the
+// cut-over), New AR (from the day after), or Legacy + New AR (both together). The segment itself lives on the
 // Customer and is NOT per-mode - toggling changes the money shown, not who owns
 // the relationship - so the same account keeps its segment in both views.
 //
@@ -53,6 +53,7 @@ frappe.pages['ar-legacy'].on_page_load = function (wrapper) {
 				<div class="arl-mode-toggle">
 					<button class="arl-mode-btn is-active" data-mode="legacy">Legacy AR</button>
 					<button class="arl-mode-btn" data-mode="new">New AR</button>
+					<button class="arl-mode-btn" data-mode="all">Legacy + New AR</button>
 				</div>
 				<span class="arl-mode-note" id="arl-mode-note"></span>
 			</div>
@@ -292,7 +293,7 @@ frappe.pages['ar-legacy'].on_page_load = function (wrapper) {
 	// ---- data ----------------------------------------------------------
 	function load() {
 		$('#arl-body').html('<div class="arl-loading"><div class="arl-spinner"></div><p>Loading ' +
-			(state.ar_mode === 'new' ? 'new AR' : 'legacy') + ' accounts…</p></div>');
+			({ new: 'new AR', all: 'legacy + new AR' }[state.ar_mode] || 'legacy') + ' accounts…</p></div>');
 		frappe.call({
 			method: 'cannabis_management.cannabis_management.page.ar_legacy.ar_legacy.get_data',
 			args: { ar_mode: state.ar_mode },
@@ -312,7 +313,10 @@ frappe.pages['ar-legacy'].on_page_load = function (wrapper) {
 
 				$('#arl-mode-note').text(state.ar_mode === 'new'
 					? 'Invoices posted on or after ' + (NEW_AR_START_LABEL || 'the cut-over')
-					: 'Invoices posted up to ' + (r.message.cutoff || 'the cut-over'));
+					: state.ar_mode === 'all'
+						? 'All invoices: legacy up to ' + (r.message.cutoff || 'the cut-over')
+							+ ' plus new AR from ' + (NEW_AR_START_LABEL || 'the day after')
+						: 'Invoices posted up to ' + (r.message.cutoff || 'the cut-over'));
 
 				render();
 

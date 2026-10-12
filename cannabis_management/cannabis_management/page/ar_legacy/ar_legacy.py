@@ -46,7 +46,7 @@ AR_SEGMENT_DOCTYPE = "AR Segment"
 # Which invoices each mode counts. The segment itself is a Customer attribute and
 # is NOT per-mode: switching modes changes the money on the page, not who owns
 # the relationship.
-AR_MODES = ("legacy", "new")
+AR_MODES = ("legacy", "new", "all")
 
 
 def get_segments():
@@ -156,6 +156,7 @@ def get_data(ar_mode="legacy"):
 
 	# Legacy is everything up to the cut-over, New AR everything from the day
 	# after it - the same two windows the AR dashboard uses, so the pages agree.
+	# "all" (Legacy + New AR) is both windows together, one row per customer.
 	# Anything unrecognised falls back to legacy: that was the only behaviour
 	# before the toggle existed and it must stay the default.
 	ar_mode = ar_mode if ar_mode in AR_MODES else "legacy"
@@ -164,6 +165,9 @@ def get_data(ar_mode="legacy"):
 	if ar_mode == "new":
 		conditions.append("si.posting_date >= %(start)s")
 		params = {"start": NEW_AR_START}
+	elif ar_mode == "all":
+		conditions.append("(si.posting_date <= %(cutoff)s OR si.posting_date >= %(start)s)")
+		params = {"cutoff": LEGACY_CUTOFF, "start": NEW_AR_START}
 	else:
 		conditions.append("si.posting_date <= %(cutoff)s")
 		params = {"cutoff": LEGACY_CUTOFF}
@@ -335,7 +339,7 @@ def _export_tables(ar_mode="legacy", filters=None):
 	else:
 		rows.sort(key=lambda r: -flt(r.get("outstanding")))
 
-	book = "New AR" if data["ar_mode"] == "new" else "Legacy AR"
+	book = {"new": "New AR", "all": "Legacy + New AR"}.get(data["ar_mode"], "Legacy AR")
 
 	grid = [["Customer", "Customer Name", "Segment", "Companies",
 	         "Invoices", "Outstanding", "Oldest Invoice", "Age (days)"]]
