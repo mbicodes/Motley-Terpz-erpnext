@@ -1,0 +1,220 @@
+# Copyright (c) 2026, alltechvirtual.com and contributors
+# For license information, please see license.txt
+"""Private AR Accountability — server side.
+
+The same page as AR Accountability (ar_weekly_review), on its own log:
+Private AR Weekly Entry. That log holds a copy of every AR Weekly Entry (kept
+in step by AR Weekly Entry's controller) plus entries filed here, which never
+go back to AR Weekly Entry.
+
+The receivables side — tiers, buckets, snapshots — is imported from
+ar_weekly_review rather than copied, so the two pages can never disagree on
+what a customer owes. Only what touches the entry log lives here.
+"""
+
+import frappe
+from frappe import _
+from frappe.utils import flt, getdate, nowdate
+
+from cannabis_management.api.sheet_export import send_csv, send_xlsx
+from cannabis_management.credit_and_ar.doctype.ar_weekly_entry.ar_weekly_entry import (
+	STATUSES_BY_TIER,
+	week_start,
+)
+from cannabis_management.credit_and_ar.page.ar_weekly_review.ar_weekly_review import (
+	TIER_LABELS,
+	_build_rows,
+	_snapshot_for,
+)
+from cannabis_management.credit_and_ar.utils import NEW_AR_START
+
+# Matt and Muhammad only (plus Administrator, which holds every role). Nikki
+# must not reach this page, its methods or its log in any way.
+PAGE_ROLE = "Private AR Accountability"
+ENTRY_DOCTYPE = "Private AR Weekly Entry"
+
+
+def _require_access():
+	"""The Page's roles only gate the route; every method re-checks the role,
+	because whitelisted methods are reachable over /api/method by anyone
+	logged in."""
+	if PAGE_ROLE not in frappe.get_roles():
+		frappe.throw(_("Not permitted"), frappe.PermissionError)
+
+
+def _latest_entries():
+	"""Most recent entry per customer+ledger, plus how many exist."""
+	rows = frappe.db.sql(
+		"""
+		select e.customer, e.ledger, e.status, e.week_of, e.qa, e.plan, e.notes
+		from `tabPrivate AR Weekly Entry` e
+		inner join (
+			select customer, ledger, max(week_of) as week_of
+			from `tabPrivate AR Weekly Entry` group by customer, ledger
+		) latest
+		on latest.customer = e.customer and latest.ledger = e.ledger
+		and latest.week_of = e.week_of
+		""",
+		as_dict=True,
+	)
+	counts = frappe.db.sql(
+		"""select customer, ledger, count(*) n from `tabPrivate AR Weekly Entry`
+		   group by customer, ledger""",
+		as_dict=True,
+	)
+	count_map = {(c.customer, c.ledger): c.n for c in counts}
+
+	out = {}
+	for r in rows:
+		# max(week_of) can tie if two entries were filed the same week; last wins.
+		out[(r.customer, r.ledger)] = {
+			"current_status": r.status or "",
+			"latest_note": r.qa or r.plan or r.notes or "",
+			"latest_week": str(r.week_of or ""),
+			"log_count": count_map.get((r.customer, r.ledger), 0),
+		}
+	return out
+
+
+@frappe.whitelist()
+def get_ar_weekly_review(ledger=None):
+	"""The whole grid in one call."""
+	_require_access()
+	rows = _build_rows(ledger)
+	latest = _latest_entries()
+
+	for r in rows:
+		info = latest.get((r["customer"], r["ledger"]))
+		r["current_status"] = info["current_status"] if info else ""
+		r["latest_note"] = info["latest_note"] if info else ""
+		r["log_count"] = info["log_count"] if info else 0
+		r["statuses"] = STATUSES_BY_TIER.get(r["tier"], [])
+
+	return {
+		"rows": rows,
+		"as_of": nowdate(),
+		"week_of": str(week_start()),
+		"new_ar_start": NEW_AR_START,
+	}
+
+
+@frappe.whitelist()
+def get_ar_weekly_log(customer, ledger):
+	"""Full history for one customer+ledger, newest first."""
+	_require_access()
+	return frappe.get_all(
+		ENTRY_DOCTYPE,
+		filters={"customer": customer, "ledger": ledger},
+		fields=[
+			"name", "week_of", "status", "qa", "plan", "notes",
+			"contact", "email", "need_three_way_call",
+			"tier_snapshot", "amount_snapshot", "owner",
+		],
+		order_by="week_of desc, creation desc",
+	)
+
+
+@frappe.whitelist()
+def add_ar_weekly_entry(customer, ledger, status, qa=None, plan=None, notes=None,
+                        contact=None, email=None, need_three_way_call=0):
+	"""File this week's private entry. It goes to Private AR Weekly Entry only.
+
+	week_of, tier_snapshot and amount_snapshot are computed here, never taken
+	from the client, so the log stays honest even if the page is stale.
+	"""
+	_require_access()
+
+	if not status:
+		frappe.throw(_("Pick a status before saving this week's entry."))
+
+	tier, amount = _snapshot_for(customer, ledger)
+
+	doc = frappe.get_doc({
+		"doctype": ENTRY_DOCTYPE,
+		"customer": customer,
+		"ledger": ledger,
+		"week_of": week_start(),
+		"status": status,
+		"qa": qa,
+		"plan": plan,
+		"notes": notes,
+		"contact": contact,
+		"email": email,
+		"need_three_way_call": 1 if frappe.parse_json(str(need_three_way_call).lower()) else 0,
+		"tier_snapshot": tier,
+		"amount_snapshot": amount,
+	})
+	doc.insert()
+	return {"name": doc.name, "week_of": str(doc.week_of), "tier_snapshot": tier}
+
+
+def _export_tables(ledger=None):
+	"""The grid, the aging, and the private log — same layout as AR Accountability."""
+	rows = _build_rows(ledger)
+	latest = _latest_entries()
+	for r in rows:
+		info = latest.get((r["customer"], r["ledger"]))
+		r["current_status"] = info["current_status"] if info else ""
+		r["latest_note"] = info["latest_note"] if info else ""
+		r["log_count"] = info["log_count"] if info else 0
+
+	grid = [[
+		"Customer", "Ledger", "Portion", "Level", "Worst Aging", "Amount",
+		"Invoices", "Current Status", "Latest Note", "Entries Filed",
+	]]
+	aging = [["Customer", "Ledger", "Portion", "Aging Bucket", "Amount"]]
+
+	for r in rows:
+		portion = "On terms" if r["portion"] == "upcoming" else "Overdue"
+		grid.append([
+			r["customer"], r["ledger"], portion,
+			TIER_LABELS.get(r["tier"], r["tier"]), r["days"],
+			flt(r["amount"], 2), r["invoice_count"],
+			r["current_status"], r["latest_note"], r["log_count"],
+		])
+		for b in r["breakdown"]:
+			aging.append([r["customer"], r["ledger"], portion, b["label"], flt(b["amount"], 2)])
+
+	log = [[
+		"Customer", "Ledger", "Week Of", "Status", "Tier At Entry",
+		"Outstanding At Entry", "What is going on?", "What is the plan?",
+		"Notes", "Contact", "Email", "Need Three-Way Call", "Filed By",
+	]]
+	for e in frappe.get_all(
+		ENTRY_DOCTYPE,
+		fields=["customer", "ledger", "week_of", "status", "tier_snapshot",
+		        "amount_snapshot", "qa", "plan", "notes", "contact", "email",
+		        "need_three_way_call", "owner"],
+		order_by="week_of desc, creation desc",
+	):
+		log.append([
+			e.customer, e.ledger, getdate(e.week_of) if e.week_of else None,
+			e.status, TIER_LABELS.get(e.tier_snapshot, e.tier_snapshot or ""),
+			flt(e.amount_snapshot, 2), e.qa, e.plan, e.notes, e.contact, e.email,
+			"Yes" if e.need_three_way_call else "No", e.owner,
+		])
+
+	return grid, aging, log
+
+
+@frappe.whitelist()
+def export_xlsx(ledger=None):
+	"""Workbook: the grid, the aging behind it, and the private weekly log."""
+	_require_access()
+	grid, aging, log = _export_tables(ledger)
+	send_xlsx(
+		_("Private AR Accountability {0}").format(nowdate()),
+		[
+			("Receivables", grid, [34, 12, 11, 24, 14, 14, 10, 26, 48, 13]),
+			("Aging Breakdown", aging, [34, 12, 11, 16, 14]),
+			("Weekly Entries", log, [34, 12, 12, 24, 24, 18, 44, 44, 44, 20, 24, 18, 24]),
+		],
+	)
+
+
+@frappe.whitelist()
+def export_csv(ledger=None):
+	"""The receivables grid only, as on AR Accountability."""
+	_require_access()
+	grid, _aging, _log = _export_tables(ledger)
+	send_csv(_("Private AR Accountability {0}").format(nowdate()), grid)

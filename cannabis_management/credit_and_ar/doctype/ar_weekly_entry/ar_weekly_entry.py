@@ -36,6 +36,23 @@ class ARWeeklyEntry(Document):
 				)
 			)
 
+	# Every entry here is also kept in the Private AR Weekly Entry log (see that
+	# doctype). Never the other way round. Both calls swallow their own errors,
+	# so this save behaves exactly as it would without them.
+	def on_update(self):
+		from cannabis_management.credit_and_ar.doctype.private_ar_weekly_entry.private_ar_weekly_entry import (
+			mirror_entry,
+		)
+
+		mirror_entry(self)
+
+	def on_trash(self):
+		from cannabis_management.credit_and_ar.doctype.private_ar_weekly_entry.private_ar_weekly_entry import (
+			remove_mirror,
+		)
+
+		remove_mirror(self.name)
+
 
 def week_start(date=None):
 	"""Monday of the week that `date` (default today) falls in.
