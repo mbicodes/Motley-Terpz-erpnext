@@ -857,6 +857,10 @@
 .badge-30      { background: var(--ard-30-lt);      color: var(--ard-30); }
 .badge-60      { background: var(--ard-60-lt);      color: var(--ard-60); }
 .badge-90      { background: var(--ard-90-lt);      color: var(--ard-90); }
+.badge-paid    { background: #dcfce7; color: #15803d; }
+/* Paid-off invoices in a client's dropdown: listed for reference, so muted */
+.ard-paid-row td { color: var(--ard-muted); }
+.ard-paid-row .ard-outstanding { color: var(--ard-muted); }
 
 /* Totals footer row */
 .ard-totals-row {
