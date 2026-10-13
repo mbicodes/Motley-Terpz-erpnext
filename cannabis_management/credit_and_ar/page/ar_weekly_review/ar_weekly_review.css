@@ -111,6 +111,11 @@ table.arw-logtable th{text-align:left;font-size:10px;color:var(--ink-dim);paddin
 table.arw-logtable td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
 table.arw-logtable tr:last-child td{border-bottom:none;}
 table.arw-logtable td.arw-emptylog{color:var(--ink-dim);font-style:italic;}
+/* invoices behind an expanded row */
+.arw-invoices{margin-bottom:18px;}
+.arw-invoices h4{margin:0 0 8px;font-size:11.5px;color:var(--ink-dim);font-weight:700;}
+table.arw-invtable .arw-num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}
+table.arw-invtable tr.arw-invtotal td{font-weight:700;border-top:2px solid var(--line);background:var(--page);}
 .arw-addweek{margin-top:10px;background:var(--card);border:1px solid var(--purple);color:var(--purple);
   border-radius:7px;padding:7px 13px;font-size:12.5px;font-weight:700;cursor:pointer;}
 .arw-addweek:disabled{opacity:.5;cursor:default;}
