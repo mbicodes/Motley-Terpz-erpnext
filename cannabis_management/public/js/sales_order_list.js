@@ -37,6 +37,53 @@ frappe.listview_settings['Sales Order'] = frappe.listview_settings['Sales Order'
 		'Tolling': 'darkgrey',
 	};
 
+	// "Hide Cancelled" checkbox in the filter bar. It is not a Sales Order
+	// field, and FilterArea.get_standard_filters() turns every filter-bar
+	// control into a column filter, so swap it for docstatus != 2 there.
+	const is_hide_cancelled_filter = (f) =>
+		f && f[1] === 'docstatus' && f[2] === '!=' && String(f[3]) === '2';
+
+	function add_hide_cancelled_filter(listview) {
+		const filter_area = listview.filter_area;
+		if (!filter_area || !filter_area.standard_filters_wrapper) return;
+		if (listview.page.fields_dict.hide_cancelled) return;
+
+		const check = listview.page.add_field(
+			{
+				fieldtype: 'Check',
+				fieldname: 'hide_cancelled',
+				label: __('Hide Cancelled'),
+				onchange: () => filter_area.debounced_refresh_list_view(),
+			},
+			filter_area.standard_filters_wrapper
+		);
+
+		const get_standard_filters = filter_area.get_standard_filters.bind(filter_area);
+		filter_area.get_standard_filters = function () {
+			const filters = get_standard_filters().filter((f) => f[1] !== 'hide_cancelled');
+			if (check.get_value()) filters.push([listview.doctype, 'docstatus', '!=', 2]);
+			return filters;
+		};
+
+		// The list saves its filters per user, so a reload brings docstatus != 2
+		// back as an ordinary filter. Move it back onto the checkbox.
+		const saved = filter_area.filter_list.filters.filter(
+			(f) => f.field && is_hide_cancelled_filter(f.get_value())
+		);
+		if (saved.length) {
+			saved.forEach((f) => f.remove());
+			filter_area.filter_list.update_filters();
+			check.set_value(1);
+		}
+	}
+
+	// Chain onto ERPNext's onload (Close / Re-open menu, bulk actions).
+	const erpnext_onload = so_settings.onload;
+	so_settings.onload = function (listview) {
+		erpnext_onload && erpnext_onload.call(this, listview);
+		add_hide_cancelled_filter(listview);
+	};
+
 	so_settings.formatters = Object.assign({}, so_settings.formatters, {
 		custom_delivery_note_created(value) {
 			const created = !!value;
