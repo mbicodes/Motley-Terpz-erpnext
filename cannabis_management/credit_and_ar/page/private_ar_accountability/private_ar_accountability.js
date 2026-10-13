@@ -369,29 +369,44 @@ function detail_html(page, r) {
 	const invs = r.invoices || [];
 	// Cents here: a single invoice is where the odd cent actually shows.
 	const money2 = (n) => '$' + (n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+	// "2026-10-09" -> "Oct 9, 2026", built from the parts so no timezone can shift the day.
+	const nice_date = (d) => {
+		const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(d || '');
+		return m ? new Date(+m[1], +m[2] - 1, +m[3]).toLocaleDateString('en-US',
+			{ month: 'short', day: 'numeric', year: 'numeric' }) : '';
+	};
+	// Each aging label belongs to one tier, and the row's breakdown already says which.
+	const tier_of = {};
+	r.breakdown.forEach((b) => { tier_of[b.label] = b.tier; });
 	const inv_total = (k) => invs.reduce((s, i) => s + (i[k] || 0), 0);
-	const inv_rows = invs.map((i) => `<tr>
-			<td><a href="/app/sales-invoice/${encodeURIComponent(i.name)}" target="_blank">${esc(i.name)}</a></td>
-			<td>${esc(i.company || '')}</td>
-			<td>${esc(i.posting_date || '')}</td>
-			<td>${esc(i.due_date || '')}</td>
-			<td>${esc(i.aging || '')}</td>
+	const inv_rows = invs.map((i) => {
+		const pct = i.invoiced > 0 ? Math.max(0, Math.min(100, (i.paid / i.invoiced) * 100)) : 0;
+		return `<tr>
+			<td><a class="arw-invlink" href="/app/sales-invoice/${encodeURIComponent(i.name)}" target="_blank">${esc(i.name)}</a>
+				<div class="arw-invsub">${esc(i.company || '')}</div></td>
+			<td>${esc(nice_date(i.posting_date))}</td>
+			<td>${esc(nice_date(i.due_date))}</td>
+			<td><span class="arw-agepill tier-${esc(tier_of[i.aging] || 'upcoming')}">${esc(i.aging || '')}</span></td>
 			<td class="arw-num">${money2(i.invoiced)}</td>
-			<td class="arw-num">${money2(i.paid)}</td>
-			<td class="arw-num"><b>${money2(i.outstanding)}</b></td>
-		</tr>`).join('');
+			<td class="arw-num"><span class="${i.paid > 0.005 ? 'arw-paidamt' : 'arw-zero'}">${money2(i.paid)}</span>
+				<div class="arw-paidbar" title="${Math.round(pct)}% ${__('paid')}"><span style="width:${pct.toFixed(1)}%"></span></div></td>
+			<td class="arw-num arw-owed">${money2(i.outstanding)}</td>
+		</tr>`;
+	}).join('');
 	const inv_html = invs.length ? `<div class="arw-invoices">
-			<h4>${__('Invoices')} (${invs.length})</h4>
-			<table class="arw-logtable arw-invtable"><thead><tr>
-				<th>${__('Invoice')}</th><th>${__('Company')}</th><th>${__('Posted')}</th>
-				<th>${__('Due')}</th><th>${__('Aging')}</th><th class="arw-num">${__('Invoiced')}</th>
-				<th class="arw-num">${__('Paid')}</th><th class="arw-num">${__('Outstanding')}</th>
-			</tr></thead><tbody>${inv_rows}
-				<tr class="arw-invtotal"><td colspan="5">${__('Total')}</td>
-					<td class="arw-num">${money2(inv_total('invoiced'))}</td>
-					<td class="arw-num">${money2(inv_total('paid'))}</td>
-					<td class="arw-num">${money2(inv_total('outstanding'))}</td></tr>
-			</tbody></table>
+			<div class="arw-invhead">
+				<div class="arw-invtitle">${__('Invoices')} <span class="arw-invcount">${invs.length}</span></div>
+				<div class="arw-invsum">
+					<span>${__('Invoiced')}<b>${money2(inv_total('invoiced'))}</b></span>
+					<span>${__('Paid')}<b class="arw-paidamt">${money2(inv_total('paid'))}</b></span>
+					<span>${__('Outstanding')}<b>${money2(inv_total('outstanding'))}</b></span>
+				</div>
+			</div>
+			<div class="arw-invscroll"><table class="arw-invtable"><thead><tr>
+				<th>${__('Invoice')}</th><th>${__('Posted')}</th><th>${__('Due')}</th><th>${__('Aging')}</th>
+				<th class="arw-num">${__('Invoiced')}</th><th class="arw-num">${__('Paid')}</th>
+				<th class="arw-num">${__('Outstanding')}</th>
+			</tr></thead><tbody>${inv_rows}</tbody></table></div>
 		</div>` : '';
 
 	const statuses = r.statuses || [];
