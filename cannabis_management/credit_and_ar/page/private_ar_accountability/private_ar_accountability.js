@@ -361,12 +361,6 @@ function detail_html(page, r) {
 	const def = ARW_TIER_DEF[r.tier];
 	const edits = page.arw.edits[r.id] || {};
 	const esc = frappe.utils.escape_html;
-
-	const bd = r.breakdown.map((b) =>
-		`<div class="arw-bdchip">${esc(b.label)} &middot; <b>${fmt_money(b.amount)}</b></div>`).join('');
-
-	// The open invoices that make up this row, oldest due date first.
-	const invs = r.invoices || [];
 	// Cents here: a single invoice is where the odd cent actually shows.
 	const money2 = (n) => '$' + (n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 	// "2026-10-09" -> "Oct 9, 2026", built from the parts so no timezone can shift the day.
@@ -375,39 +369,48 @@ function detail_html(page, r) {
 		return m ? new Date(+m[1], +m[2] - 1, +m[3]).toLocaleDateString('en-US',
 			{ month: 'short', day: 'numeric', year: 'numeric' }) : '';
 	};
-	// Each aging label belongs to one tier, and the row's breakdown already says which.
+
+	// Three sections, each under its own coloured title bar: the invoices behind
+	// the row, this week's entry, and the entry history.
+
+	// Aging breakdown, one cell per bucket in its tier's colour (in the Invoices bar).
+	const bd = r.breakdown.map((b) =>
+		`<span class="arw-bdcell tier-${esc(b.tier)}">${esc(b.label)} <b>${fmt_money(b.amount)}</b></span>`).join('');
+
+	// The open invoices that make up this row, oldest due date first. Each aging
+	// label belongs to one tier, and the row's breakdown already says which.
+	const invs = r.invoices || [];
 	const tier_of = {};
 	r.breakdown.forEach((b) => { tier_of[b.label] = b.tier; });
 	const inv_total = (k) => invs.reduce((s, i) => s + (i[k] || 0), 0);
-	const inv_rows = invs.map((i) => {
-		const pct = i.invoiced > 0 ? Math.max(0, Math.min(100, (i.paid / i.invoiced) * 100)) : 0;
-		return `<tr>
-			<td><a class="arw-invlink" href="/app/sales-invoice/${encodeURIComponent(i.name)}" target="_blank">${esc(i.name)}</a>
-				<div class="arw-invsub">${esc(i.company || '')}</div></td>
-			<td>${esc(nice_date(i.posting_date))}</td>
-			<td>${esc(nice_date(i.due_date))}</td>
-			<td><span class="arw-agepill tier-${esc(tier_of[i.aging] || 'upcoming')}">${esc(i.aging || '')}</span></td>
-			<td class="arw-num">${money2(i.invoiced)}</td>
-			<td class="arw-num"><span class="${i.paid > 0.005 ? 'arw-paidamt' : 'arw-zero'}">${money2(i.paid)}</span>
-				<div class="arw-paidbar" title="${Math.round(pct)}% ${__('paid')}"><span style="width:${pct.toFixed(1)}%"></span></div></td>
-			<td class="arw-num arw-owed">${money2(i.outstanding)}</td>
-		</tr>`;
-	}).join('');
-	const inv_html = invs.length ? `<div class="arw-invoices">
-			<div class="arw-invhead">
-				<div class="arw-invtitle">${__('Invoices')} <span class="arw-invcount">${invs.length}</span></div>
-				<div class="arw-invsum">
-					<span>${__('Invoiced')}<b>${money2(inv_total('invoiced'))}</b></span>
-					<span>${__('Paid')}<b class="arw-paidamt">${money2(inv_total('paid'))}</b></span>
-					<span>${__('Outstanding')}<b>${money2(inv_total('outstanding'))}</b></span>
-				</div>
-			</div>
-			<div class="arw-invscroll"><table class="arw-invtable"><thead><tr>
-				<th>${__('Invoice')}</th><th>${__('Posted')}</th><th>${__('Due')}</th><th>${__('Aging')}</th>
-				<th class="arw-num">${__('Invoiced')}</th><th class="arw-num">${__('Paid')}</th>
-				<th class="arw-num">${__('Outstanding')}</th>
-			</tr></thead><tbody>${inv_rows}</tbody></table></div>
-		</div>` : '';
+	const inv_rows = invs.map((i) => `<tr>
+			<td class="c-inv"><a href="/app/sales-invoice/${encodeURIComponent(i.name)}" target="_blank">${esc(i.name)}</a></td>
+			<td class="c-co">${esc(i.company || '')}</td>
+			<td class="c-date">${esc(nice_date(i.posting_date))}</td>
+			<td class="c-date">${esc(nice_date(i.due_date))}</td>
+			<td class="c-age tier-${esc(tier_of[i.aging] || 'upcoming')}">${esc(i.aging || '')}</td>
+			<td class="c-amt c-invd">${money2(i.invoiced)}</td>
+			<td class="c-amt c-paid">${money2(i.paid)}</td>
+			<td class="c-amt c-out">${money2(i.outstanding)}</td>
+		</tr>`).join('');
+	const inv_html = `<section class="arw-sec arw-sec-inv">
+			<header class="arw-sechead">
+				<span class="arw-sectitle">${__('Invoices')} (${invs.length})</span>
+				<span class="arw-bdcells">${bd}</span>
+			</header>
+			${invs.length ? `<div class="arw-secscroll"><table class="arw-sheet"><thead><tr>
+				<th class="c-inv">${__('Invoice')}</th><th class="c-co">${__('Company')}</th>
+				<th class="c-date">${__('Posted')}</th><th class="c-date">${__('Due')}</th>
+				<th class="c-age">${__('Aging')}</th>
+				<th class="c-amt c-invd">${__('Invoiced')}</th><th class="c-amt c-paid">${__('Paid')}</th>
+				<th class="c-amt c-out">${__('Outstanding')}</th>
+			</tr></thead><tbody>${inv_rows}</tbody>
+			<tfoot><tr><td colspan="5">${__('Total')}</td>
+				<td class="c-amt c-invd">${money2(inv_total('invoiced'))}</td>
+				<td class="c-amt c-paid">${money2(inv_total('paid'))}</td>
+				<td class="c-amt c-out">${money2(inv_total('outstanding'))}</td></tr></tfoot>
+			</table></div>` : `<div class="arw-secempty">${__('No open invoices.')}</div>`}
+		</section>`;
 
 	const statuses = r.statuses || [];
 	const opts = ['<option value="">— ' + __('pick status') + ' —</option>'].concat(
@@ -422,49 +425,60 @@ function detail_html(page, r) {
 		log_rows = `<tr><td class="arw-emptylog" colspan="6">${__('No weekly entries yet — this will be the first.')}</td></tr>`;
 	} else {
 		log_rows = log.map((e) => `<tr>
-			<td>${esc(e.week_of || '')}</td>
-			<td>${esc(e.status || '')}</td>
+			<td class="c-week">${esc(nice_date(e.week_of))}</td>
+			<td class="c-status ${ARW_STATUS_CLASS[e.status] || ''}">${esc(e.status || '')}</td>
 			<td>${esc(e.qa || '')}</td>
 			<td>${esc(e.plan || '')}</td>
 			<td>${esc(e.notes || '')}</td>
 			<td>${esc(e.contact || '')}${e.email ? ' · ' + esc(e.email) : ''}</td>
 		</tr>`).join('');
 	}
+	const log_count = Array.isArray(log) ? log.length : 0;
 
 	const q1 = def.q1 || __('What is going on?');
 
 	return `<div class="arw-detailwrap">
-		<div class="arw-breakdown">${bd}</div>
 		${inv_html}
-		<div class="arw-qarow">
-			<div class="arw-field">
-				<label>${__('This week\'s status')}</label>
-				<select data-role="status" data-rowid="${esc(r.id)}">${opts}</select>
+		<section class="arw-sec arw-sec-entry">
+			<header class="arw-sechead">
+				<span class="arw-sectitle">${__('This week\'s entry')}</span>
+				<span class="arw-secmeta">${__('Week of')} ${esc(nice_date(page.arw.meta.week_of))}</span>
+			</header>
+			<div class="arw-secbody">
+				<div class="arw-qarow">
+					<div class="arw-field">
+						<label>${__('This week\'s status')}</label>
+						<select data-role="status" data-rowid="${esc(r.id)}">${opts}</select>
+					</div>
+					${def.call ? `<div class="arw-field"><label>&nbsp;</label>
+						<div class="arw-flagrow">
+							<input type="checkbox" data-role="need_three_way_call" data-rowid="${esc(r.id)}" ${edits.need_three_way_call ? 'checked' : ''}>
+							${__('Need three-way call with finance')}
+						</div></div>` : '<div></div>'}
+					<div class="arw-field full"><label>${esc(q1)}</label>
+						<textarea data-role="qa" data-rowid="${esc(r.id)}">${esc(edits.qa || '')}</textarea></div>
+					<div class="arw-field"><label>${__('What is the plan?')}</label>
+						<textarea data-role="plan" data-rowid="${esc(r.id)}">${esc(edits.plan || '')}</textarea></div>
+					<div class="arw-field"><label>${__('Notes')}</label>
+						<textarea data-role="notes" data-rowid="${esc(r.id)}">${esc(edits.notes || '')}</textarea></div>
+					<div class="arw-field"><label>${__('Contact info')}</label>
+						<input type="text" data-role="contact" data-rowid="${esc(r.id)}" value="${esc(edits.contact || '')}"></div>
+					<div class="arw-field"><label>${__('Email')}</label>
+						<input type="text" data-role="email" data-rowid="${esc(r.id)}" value="${esc(edits.email || '')}"></div>
+				</div>
+				<button class="arw-addweek" data-rowid="${esc(r.id)}">+ ${__('Save this week\'s entry')} (${page.arw.meta.week_of || ''})</button>
 			</div>
-			${def.call ? `<div class="arw-field"><label>&nbsp;</label>
-				<div class="arw-flagrow">
-					<input type="checkbox" data-role="need_three_way_call" data-rowid="${esc(r.id)}" ${edits.need_three_way_call ? 'checked' : ''}>
-					${__('Need three-way call with finance')}
-				</div></div>` : '<div></div>'}
-			<div class="arw-field full"><label>${esc(q1)}</label>
-				<textarea data-role="qa" data-rowid="${esc(r.id)}">${esc(edits.qa || '')}</textarea></div>
-			<div class="arw-field"><label>${__('What is the plan?')}</label>
-				<textarea data-role="plan" data-rowid="${esc(r.id)}">${esc(edits.plan || '')}</textarea></div>
-			<div class="arw-field"><label>${__('Notes')}</label>
-				<textarea data-role="notes" data-rowid="${esc(r.id)}">${esc(edits.notes || '')}</textarea></div>
-			<div class="arw-field"><label>${__('Contact info')}</label>
-				<input type="text" data-role="contact" data-rowid="${esc(r.id)}" value="${esc(edits.contact || '')}"></div>
-			<div class="arw-field"><label>${__('Email')}</label>
-				<input type="text" data-role="email" data-rowid="${esc(r.id)}" value="${esc(edits.email || '')}"></div>
-		</div>
-		<button class="arw-addweek" data-rowid="${esc(r.id)}">+ ${__('Save this week\'s entry')} (${page.arw.meta.week_of || ''})</button>
-		<div class="arw-weeklog">
-			<h4>${__('All filled entries for this customer, most recent first')}</h4>
-			<table class="arw-logtable"><thead><tr>
+		</section>
+		<section class="arw-sec arw-sec-log">
+			<header class="arw-sechead">
+				<span class="arw-sectitle">${__('Entry history')}${log_count ? ` (${log_count})` : ''}</span>
+				<span class="arw-secmeta">${__('Most recent first')}</span>
+			</header>
+			<div class="arw-secscroll"><table class="arw-sheet arw-logsheet"><thead><tr>
 				<th>${__('Week of')}</th><th>${__('Status')}</th><th>${esc(q1)}</th>
 				<th>${__('Plan')}</th><th>${__('Notes')}</th><th>${__('Contact')}</th>
-			</tr></thead><tbody>${log_rows}</tbody></table>
-		</div>
+			</tr></thead><tbody>${log_rows}</tbody></table></div>
+		</section>
 	</div>`;
 }
 
