@@ -88,63 +88,88 @@ tr.arw-rowline:hover{background:rgba(107,70,193,.035);}
 .arw-arrow{color:var(--ink-dim);display:inline-block;transition:transform .1s ease;}
 tr.arw-rowline.open .arw-arrow{transform:rotate(90deg);}
 
-/* expanded detail */
+/* expanded detail: three sections, each under its own coloured title bar, in
+   the sheet style of the AR Dashboard (grid lines, colour-coded columns). */
 tr.arw-detail td{padding:0;border-bottom:1px solid var(--line);}
-.arw-detailwrap{background:var(--page);padding:18px 18px 20px;}
-.arw-breakdown{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
-.arw-bdchip{background:var(--card);border:1px solid var(--line);border-radius:7px;padding:6px 10px;font-size:11.5px;}
-.arw-bdchip b{font-variant-numeric:tabular-nums;}
+.arw-detailwrap{background:#eef0f3;padding:16px 18px 18px;}
+.arw-sec{background:#fff;border:1px solid #d9d9d9;border-radius:6px;overflow:hidden;margin-bottom:14px;}
+.arw-sec:last-child{margin-bottom:0;}
+.arw-sechead{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  padding:8px 14px;border-bottom:1px solid;}
+.arw-sectitle{font-size:12.5px;font-weight:700;}
+.arw-secmeta{font-size:11.5px;font-weight:600;opacity:.85;}
+.arw-sec-inv .arw-sechead{background:#cfe2f3;color:#1c4587;border-bottom-color:#a4c2f4;}
+.arw-sec-entry .arw-sechead{background:#e4dcf7;color:#4c2a99;border-bottom-color:#c9b8ee;}
+.arw-sec-log .arw-sechead{background:#e8eaed;color:#3c4043;border-bottom-color:#cfd2d6;}
+.arw-secbody{padding:14px 14px 16px;}
+.arw-secscroll{overflow-x:auto;}
+.arw-secempty{padding:14px;color:var(--ink-dim);font-size:12px;}
+
+/* aging breakdown: one cell per bucket, in its tier's colour */
+.arw-bdcells{display:flex;gap:6px;flex-wrap:wrap;}
+.arw-bdcell{padding:3px 9px;border:1px solid;border-radius:3px;font-size:11px;font-weight:600;white-space:nowrap;}
+.arw-bdcell b{margin-left:4px;font-variant-numeric:tabular-nums;}
+.arw-bdcell.tier-upcoming{background:#d9ead3;border-color:#93c47d;color:#274e13;}
+.arw-bdcell.tier-level1{background:#fce8e6;border-color:#e6b8b7;color:#cc0000;}
+.arw-bdcell.tier-level2{background:#fff2cc;border-color:#f1c232;color:#7f6000;}
+.arw-bdcell.tier-level3{background:#f4cccc;border-color:#e06666;color:#990000;}
+
+/* sheet tables: full grid, each kind of column in its own colour */
+table.arw-sheet{width:100%;border-collapse:collapse;font-size:12.5px;}
+table.arw-sheet th,table.arw-sheet td{border:1px solid #e0e0e0;padding:8px 12px;white-space:nowrap;vertical-align:middle;}
+table.arw-sheet tr>:first-child{border-left:none;}
+table.arw-sheet tr>:last-child{border-right:none;}
+table.arw-sheet thead th{border-top:none;background:#f8f9fa;color:#3c4043;font-size:11.5px;font-weight:700;text-align:left;}
+table.arw-sheet tbody tr:hover td{background-image:linear-gradient(rgba(0,0,0,.035),rgba(0,0,0,.035));}
+table.arw-sheet tfoot td{border-bottom:none;background:#f1f3f4;color:#202124;font-weight:700;}
+table.arw-sheet .c-inv a{color:#1155cc;font-weight:600;text-decoration:none;}
+table.arw-sheet .c-inv a:hover{text-decoration:underline;}
+table.arw-sheet td.c-co{color:#5f6368;}
+table.arw-sheet td.c-date{color:#3c4043;font-variant-numeric:tabular-nums;}
+table.arw-sheet .c-age{text-align:center;}
+table.arw-sheet td.c-age{font-weight:700;}
+table.arw-sheet td.c-age.tier-upcoming{background:#d9ead3;color:#274e13;}
+table.arw-sheet td.c-age.tier-level1{background:#fce8e6;color:#cc0000;}
+table.arw-sheet td.c-age.tier-level2{background:#fff2cc;color:#7f6000;}
+table.arw-sheet td.c-age.tier-level3{background:#f4cccc;color:#990000;}
+table.arw-sheet .c-amt{text-align:right;font-variant-numeric:tabular-nums;}
+table.arw-sheet th.c-invd{background:#cfe2f3;color:#1c4587;}
+table.arw-sheet td.c-invd{background:#f3f8fd;color:#1c4587;}
+table.arw-sheet th.c-paid{background:#d9ead3;color:#274e13;}
+table.arw-sheet td.c-paid{background:#f4faf1;color:#38761d;}
+table.arw-sheet th.c-out{background:#f4cccc;color:#990000;}
+table.arw-sheet td.c-out{background:#fdf2f2;color:#cc0000;font-weight:700;}
+table.arw-sheet tfoot td.c-invd{background:#cfe2f3;}
+table.arw-sheet tfoot td.c-paid{background:#d9ead3;}
+table.arw-sheet tfoot td.c-out{background:#f4cccc;color:#990000;}
+
+/* entry history: wraps long notes; status coloured like its chip */
+table.arw-logsheet td{white-space:normal;vertical-align:top;}
+table.arw-logsheet td.c-week{white-space:nowrap;font-weight:600;}
+table.arw-logsheet td.c-status{white-space:nowrap;font-weight:700;}
+table.arw-logsheet td.c-status.s-pay{color:var(--upc);}
+table.arw-logsheet td.c-status.s-dodge{color:var(--lvl1);}
+table.arw-logsheet td.c-status.s-recon{color:var(--lvl2);}
+table.arw-logsheet td.c-status.s-wip{color:var(--blue);}
+table.arw-logsheet td.c-status.s-pickup{color:var(--purple);}
+table.arw-logsheet td.c-status.s-plan{color:var(--orange);}
+table.arw-logsheet td.c-status.s-closed{color:var(--lvl3);}
+table.arw-logsheet td.arw-emptylog{color:var(--ink-dim);font-style:italic;}
+
+/* this week's entry form */
 .arw-qarow{display:grid;grid-template-columns:1fr 1fr;gap:12px 18px;margin-bottom:14px;}
 .arw-qarow .full{grid-column:1/-1;}
-.arw-field label{display:block;font-size:10.5px;color:var(--ink-dim);margin-bottom:4px;font-weight:700;}
+.arw-field label{display:block;font-size:11px;color:#3c4043;margin-bottom:5px;font-weight:700;}
 .arw-field textarea,.arw-field input[type=text],.arw-field select{
-  width:100%;border:1px solid var(--line);border-radius:7px;padding:8px 10px;
-  font-size:12.5px;font-family:inherit;background:var(--card);color:var(--ink);resize:vertical;}
+  width:100%;border:1px solid #cfd2d6;border-radius:4px;padding:8px 10px;
+  font-size:12.5px;font-family:inherit;background:#fff;color:var(--ink);resize:vertical;}
+.arw-field textarea:focus,.arw-field input[type=text]:focus,.arw-field select:focus{
+  outline:none;border-color:#6b46c1;box-shadow:0 0 0 2px #e4dcf7;}
 .arw-field textarea{min-height:46px;}
 .arw-flagrow{display:flex;align-items:center;gap:8px;font-size:12px;margin-top:4px;}
-.arw-weeklog{border-top:1px dashed var(--line);padding-top:12px;margin-top:4px;}
-.arw-weeklog h4{margin:0 0 8px;font-size:11.5px;color:var(--ink-dim);font-weight:700;}
-table.arw-logtable{width:100%;border-collapse:collapse;font-size:12px;background:var(--card);
-  border:1px solid var(--line);border-radius:8px;overflow:hidden;}
-table.arw-logtable th{text-align:left;font-size:10px;color:var(--ink-dim);padding:7px 10px;
-  border-bottom:1px solid var(--line);background:var(--page);}
-table.arw-logtable td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
-table.arw-logtable tr:last-child td{border-bottom:none;}
-table.arw-logtable td.arw-emptylog{color:var(--ink-dim);font-style:italic;}
-/* invoices behind an expanded row: a card with a summary header, then the table */
-.arw-invoices{background:var(--card);border:1px solid var(--line);border-radius:10px;
-  box-shadow:0 1px 3px rgba(31,36,48,.05);margin-bottom:18px;overflow:hidden;}
-.arw-invhead{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
-  padding:12px 16px;border-bottom:1px solid var(--line);}
-.arw-invtitle{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:var(--ink);}
-.arw-invcount{background:var(--purple-soft);color:var(--purple);border-radius:20px;padding:1px 9px;font-size:11px;}
-.arw-invsum{display:flex;gap:20px;flex-wrap:wrap;font-size:11.5px;color:var(--ink-dim);}
-.arw-invsum b{margin-left:6px;color:var(--ink);font-size:12.5px;font-variant-numeric:tabular-nums;}
-.arw-invsum b.arw-paidamt{color:var(--green);}
-.arw-invscroll{overflow-x:auto;}
-table.arw-invtable{width:100%;border-collapse:collapse;font-size:12.5px;}
-table.arw-invtable th{text-align:left;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
-  color:var(--ink-dim);padding:9px 16px;background:var(--page);border-bottom:1px solid var(--line);white-space:nowrap;}
-table.arw-invtable td{padding:11px 16px;border-bottom:1px solid var(--line);vertical-align:middle;white-space:nowrap;}
-table.arw-invtable tbody tr:last-child td{border-bottom:none;}
-table.arw-invtable tbody tr{transition:background .12s ease;}
-table.arw-invtable tbody tr:hover{background:#faf8fe;}
-table.arw-invtable .arw-num{text-align:right;font-variant-numeric:tabular-nums;}
-.arw-invlink{font-weight:600;color:var(--purple);text-decoration:none;}
-.arw-invlink:hover{text-decoration:underline;}
-.arw-invsub{margin-top:2px;font-size:11px;color:var(--ink-dim);}
-.arw-agepill{display:inline-block;padding:3px 10px;border-radius:20px;font-size:10.5px;font-weight:700;white-space:nowrap;}
-.arw-agepill.tier-upcoming{background:var(--upc-soft);color:var(--upc);}
-.arw-agepill.tier-level1{background:var(--lvl1-soft);color:var(--lvl1);}
-.arw-agepill.tier-level2{background:var(--lvl2-soft);color:var(--lvl2);}
-.arw-agepill.tier-level3{background:var(--lvl3-soft);color:var(--lvl3);}
-.arw-paidamt{color:var(--green);font-weight:600;}
-.arw-zero{color:var(--ink-dim);}
-.arw-paidbar{width:76px;height:4px;margin:6px 0 0 auto;background:var(--line);border-radius:4px;overflow:hidden;}
-.arw-paidbar span{display:block;height:100%;background:var(--green);border-radius:4px;}
-.arw-owed{font-weight:700;color:var(--ink);}
-.arw-addweek{margin-top:10px;background:var(--card);border:1px solid var(--purple);color:var(--purple);
-  border-radius:7px;padding:7px 13px;font-size:12.5px;font-weight:700;cursor:pointer;}
+.arw-addweek{background:#6b46c1;border:1px solid #5b3aa8;color:#fff;
+  border-radius:4px;padding:8px 14px;font-size:12.5px;font-weight:700;cursor:pointer;}
+.arw-addweek:hover{background:#5b3aa8;}
 .arw-addweek:disabled{opacity:.5;cursor:default;}
 .arw-empty{padding:26px 16px;color:var(--ink-dim);font-size:12.5px;text-align:center;}
 .arw-foot{margin-top:20px;font-size:11px;color:var(--ink-dim);}
