@@ -365,6 +365,35 @@ function detail_html(page, r) {
 	const bd = r.breakdown.map((b) =>
 		`<div class="arw-bdchip">${esc(b.label)} &middot; <b>${fmt_money(b.amount)}</b></div>`).join('');
 
+	// The open invoices that make up this row, oldest due date first.
+	const invs = r.invoices || [];
+	// Cents here: a single invoice is where the odd cent actually shows.
+	const money2 = (n) => '$' + (n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+	const inv_total = (k) => invs.reduce((s, i) => s + (i[k] || 0), 0);
+	const inv_rows = invs.map((i) => `<tr>
+			<td><a href="/app/sales-invoice/${encodeURIComponent(i.name)}" target="_blank">${esc(i.name)}</a></td>
+			<td>${esc(i.company || '')}</td>
+			<td>${esc(i.posting_date || '')}</td>
+			<td>${esc(i.due_date || '')}</td>
+			<td>${esc(i.aging || '')}</td>
+			<td class="arw-num">${money2(i.invoiced)}</td>
+			<td class="arw-num">${money2(i.paid)}</td>
+			<td class="arw-num"><b>${money2(i.outstanding)}</b></td>
+		</tr>`).join('');
+	const inv_html = invs.length ? `<div class="arw-invoices">
+			<h4>${__('Invoices')} (${invs.length})</h4>
+			<table class="arw-logtable arw-invtable"><thead><tr>
+				<th>${__('Invoice')}</th><th>${__('Company')}</th><th>${__('Posted')}</th>
+				<th>${__('Due')}</th><th>${__('Aging')}</th><th class="arw-num">${__('Invoiced')}</th>
+				<th class="arw-num">${__('Paid')}</th><th class="arw-num">${__('Outstanding')}</th>
+			</tr></thead><tbody>${inv_rows}
+				<tr class="arw-invtotal"><td colspan="5">${__('Total')}</td>
+					<td class="arw-num">${money2(inv_total('invoiced'))}</td>
+					<td class="arw-num">${money2(inv_total('paid'))}</td>
+					<td class="arw-num">${money2(inv_total('outstanding'))}</td></tr>
+			</tbody></table>
+		</div>` : '';
+
 	const statuses = r.statuses || [];
 	const opts = ['<option value="">— ' + __('pick status') + ' —</option>'].concat(
 		statuses.map((s) => `<option value="${esc(s)}"${edits.status === s ? ' selected' : ''}>${esc(s)}</option>`)
@@ -391,6 +420,7 @@ function detail_html(page, r) {
 
 	return `<div class="arw-detailwrap">
 		<div class="arw-breakdown">${bd}</div>
+		${inv_html}
 		<div class="arw-qarow">
 			<div class="arw-field">
 				<label>${__('This week\'s status')}</label>

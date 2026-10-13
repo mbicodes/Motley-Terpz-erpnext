@@ -93,7 +93,8 @@ def _open_invoices():
 	rows = frappe.db.sql(
 		"""
 		select si.name, si.customer, si.posting_date, si.due_date,
-		       si.outstanding_amount, si.company
+		       si.outstanding_amount, si.company,
+		       if(ifnull(si.base_rounded_total, 0) != 0, si.base_rounded_total, si.base_grand_total) as invoiced
 		from `tabSales Invoice` si
 		where si.docstatus = 1 and si.outstanding_amount > 0
 		""",
@@ -135,12 +136,24 @@ def _build_rows(ledger=None):
 				"days": label,
 				"_buckets": {},
 				"invoice_count": 0,
+				"invoices": [],
 			},
 		)
 
 		amount = flt(inv.outstanding_amount)
 		g["amount"] += amount
 		g["invoice_count"] += 1
+		# The invoices behind the row, for the expanded view.
+		g["invoices"].append({
+			"name": inv.name,
+			"company": inv.company,
+			"posting_date": str(inv.posting_date or ""),
+			"due_date": str(inv.due_date or ""),
+			"aging": label,
+			"invoiced": flt(inv.invoiced),
+			"paid": flt(inv.invoiced) - amount,
+			"outstanding": amount,
+		})
 		b = g["_buckets"].setdefault(label, {"label": label, "amount": 0.0, "tier": tier})
 		b["amount"] += amount
 
@@ -153,6 +166,8 @@ def _build_rows(ledger=None):
 	rows = []
 	for g in groups.values():
 		g["breakdown"] = sorted(g.pop("_buckets").values(), key=lambda b: _bucket_rank(b["label"]))
+		# Oldest due date first: the invoice that has been waiting longest leads.
+		g["invoices"].sort(key=lambda i: (i["due_date"] or "9999-12-31", i["name"]))
 		rows.append(g)
 
 	rows.sort(key=lambda r: -r["amount"])
