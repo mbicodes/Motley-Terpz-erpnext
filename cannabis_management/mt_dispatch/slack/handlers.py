@@ -232,31 +232,15 @@ def _parse_conversion(values, meta):
 
 
 def _resolve_pick(value):
-	"""external_select values are item:<code> or tag:<Metric Tag name>."""
-	kind, _, name = (value or "").partition(":")
-	if kind == "tag":
-		item = frappe.db.get_value("Metric Tag", name, "item_code")
-		return {"item": item or name, "tag": name}
+	"""external_select values are item:<code>."""
+	_kind, _, name = (value or "").partition(":")
 	return {"item": name or value}
 
 
 def _parse_delivery_note(values, meta):
-	errors, picks = {}, {}
 	if meta.get("erp_only"):
 		return {"__modal": "This order is created from the ERP form."}, {}, {}
-	so = frappe.get_doc("Sales Order", meta["so"])
-	cfg = get_company_settings(so.company)
-	for row in so.items:
-		block_id = f"line_{row.name}"
-		tag = state_value(values, block_id)
-		if tag:
-			available = gates.tag_qty(tag)
-			if available < flt(row.qty):
-				errors[block_id] = f"This tag holds {available:g}. The line needs {flt(row.qty):g}."
-			picks[row.name] = tag
-		elif cfg and cfg.require_muid_on_dn:
-			errors[block_id] = "Pick a Metric Tag."
-	return errors, {"muid": picks}, {}
+	return {}, {}, {}
 
 
 def _parse_manifest(values, meta):

@@ -38,26 +38,13 @@ def conversion_types():
 
 
 def resolve_item(value, warehouse=None):
-	"""An item code, or the item behind a Metric Tag code.
-
-	The existing tag helpers in cannabis_management.custom.metric_tag are link
-	search queries -- they answer "which tags can I pick here", not "what item
-	is this code". There is no server-side code-to-item resolver to reuse, so
-	this is the one, and everything that needs it calls here.
-	"""
+	"""An item code, checked to exist."""
 	if not value:
-		return None, None
+		return None
 	if frappe.db.exists("Item", value):
-		return value, None
+		return value
 
-	tag = frappe.db.get_value(
-		"Metric Tag", {"name": value}, ["name", "item_code"], as_dict=True
-	) or frappe.db.get_value(
-		"Metric Tag", {"muid": value}, ["name", "item_code"], as_dict=True
-	)
-	if not tag or not tag.item_code:
-		raise GateError(_("{0} is neither an item code nor a Metric Tag.").format(value))
-	return tag.item_code, tag.name
+	raise GateError(_("{0} is not an item code.").format(value))
 
 
 def make_conversion_entry(so, cfg, payload):
@@ -109,18 +96,14 @@ def make_conversion_entry(so, cfg, payload):
 		}
 
 		for n, entry in enumerate(raw, start=1):
-			item_code, tag = resolve_item(entry["item"], source_warehouse)
+			item_code = resolve_item(entry["item"], source_warehouse)
 			values[f"raw_material_{n}"] = item_code
 			values[f"qty_rm_{n}"] = flt(entry["qty"])
-			if tag or entry.get("tag"):
-				values[f"rm_{n}_tag"] = entry.get("tag") or tag
 
 		for n, entry in enumerate(finished, start=1):
-			item_code, tag = resolve_item(entry["item"], target_warehouse)
+			item_code = resolve_item(entry["item"], target_warehouse)
 			values[f"finished_good_{n}"] = item_code
 			values[f"qty_fg_{n}"] = flt(entry["qty"])
-			if entry.get("tag"):
-				values[f"fg_{n}_tag"] = entry["tag"]
 
 		for grams_field, check_field, product_flag, _label in MICRON_FIELDS:
 			if row.get(grams_field):
@@ -140,7 +123,7 @@ def make_conversion_entry(so, cfg, payload):
 
 
 def build_delivery_note(so, cfg, payload):
-	"""Core's own mapper, with the Metric Tag chosen per line.
+	"""Core's own mapper, with the warehouse chosen per line.
 
 	Runs inside transition(), so frappe.flags.mt_dispatch is set and the
 	before_insert guard lets this through -- which is the only way a governed
@@ -149,7 +132,6 @@ def build_delivery_note(so, cfg, payload):
 	from erpnext.selling.doctype.sales_order.sales_order import make_delivery_note
 
 	dn = make_delivery_note(so.name)
-	picks = payload.get("muid") or {}
 	so_rows = {row.name: row for row in so.items}
 	targets = gates.conversion_targets(so.name)
 
@@ -157,9 +139,6 @@ def build_delivery_note(so, cfg, payload):
 		row = so_rows.get(item.so_detail)
 		if row:
 			item.warehouse = gates.delivery_warehouse(so, row, targets)
-		chosen = picks.get(item.so_detail)
-		if chosen:
-			item.tags = chosen
 
 	warehouses = {item.warehouse for item in dn.items}
 	if len(warehouses) == 1:

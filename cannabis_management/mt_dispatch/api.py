@@ -66,7 +66,6 @@ def board(sales_order):
 		"stage": current,
 		"actions": actions,
 		"notes": notes,
-		"tags_required": bool(cfg.require_muid_on_dn),
 		"is_admin": is_admin,
 		"payment": {
 			"gated": applies,
@@ -100,31 +99,6 @@ def blocked_reason(so, cfg, action, t, is_admin=False):
 	except gates.GateError as e:
 		return frappe.utils.strip_html(str(e))
 	return None
-
-
-@frappe.whitelist()
-def tag_options(item_code, warehouse):
-	"""Metric Tags holding stock of this item here, for the picker."""
-	return gates.tags_with_stock(item_code, warehouse)
-
-
-@frappe.whitelist()
-def line_tag_options(sales_order):
-	"""Tag choices per Sales Order line, for the Delivery Note form."""
-	so = frappe.get_doc("Sales Order", sales_order)
-	so.check_permission("read")
-
-	out = {}
-	targets = gates.conversion_targets(so.name)
-	for row in so.items:
-		warehouse = gates.delivery_warehouse(so, row, targets)
-		out[row.name] = {
-			"item_code": row.item_code,
-			"qty": row.qty,
-			"warehouse": warehouse,
-			"tags": gates.tags_with_stock(row.item_code, warehouse) if warehouse else [],
-		}
-	return out
 
 
 @frappe.whitelist()

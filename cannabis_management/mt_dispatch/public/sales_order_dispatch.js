@@ -178,45 +178,7 @@ mt_dispatch.handlers = {
 	},
 
 	create_delivery_note(frm, a, board) {
-		frappe.call({
-			method: MT_API + "line_tag_options",
-			args: { sales_order: frm.doc.name },
-			callback(r) {
-				const lines = r.message || {};
-				const fields = [];
-				Object.keys(lines).forEach((so_detail) => {
-					const l = lines[so_detail];
-					// A tag is optional here, so a line with none to offer gets no picker.
-					if (!board.tags_required && !(l.tags || []).length) return;
-					const options = [""].concat((l.tags || []).map((t) => t.muid));
-					fields.push({
-						fieldname: so_detail,
-						fieldtype: "Select",
-						label: `${l.item_code} · ${l.qty} · ${l.warehouse || ""}`,
-						options: options,
-						default: (l.tags || []).length === 1 ? l.tags[0].muid : "",
-						description: (l.tags || []).map((t) => `${t.tag_code || t.muid}: ${t.qty}`).join(", ") ||
-							__("No Metric Tag holds stock here"),
-					});
-				});
-				if (!fields.length) {
-					mt_dispatch.confirm_and_run(frm, a, board);
-					return;
-				}
-				const d = new frappe.ui.Dialog({
-					title: __("Create Delivery Note"),
-					fields: fields,
-					primary_action_label: __("Create draft"),
-					primary_action(v) {
-						const muid = {};
-						Object.keys(lines).forEach((k) => v[k] && (muid[k] = v[k]));
-						d.hide();
-						mt_dispatch.run(frm, a.action, { muid: muid }, board.stage);
-					},
-				});
-				d.show();
-			},
-		});
+		mt_dispatch.confirm_and_run(frm, a, board);
 	},
 
 	upload_manifest(frm, a, board) {

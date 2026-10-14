@@ -19,7 +19,6 @@
   "sb_rules",
   "conversions_enabled",
   "payment_gate_enabled",
-  "require_muid_on_dn",
   "cb_rules",
   "gate_internal_customers",
   "payment_tolerance",
@@ -109,11 +108,6 @@
    "fieldname": "payment_gate_enabled",
    "fieldtype": "Check",
    "label": "Payment Gate Enabled"
-  },
-  {
-   "fieldname": "require_muid_on_dn",
-   "fieldtype": "Check",
-   "label": "Require Metric Tag on Delivery Note"
   },
   {
    "fieldname": "cb_rules",

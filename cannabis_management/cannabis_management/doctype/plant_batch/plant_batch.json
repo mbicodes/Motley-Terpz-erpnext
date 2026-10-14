@@ -20,7 +20,6 @@
   "section_break_source",
   "source_type",
   "source_plant",
-  "source_batch_no",
   "section_break_counts",
   "plants_promoted",
   "plants_destroyed",
@@ -121,7 +120,7 @@
    "fieldtype": "Select",
    "in_standard_filter": 1,
    "label": "Source Type",
-   "options": "\nMother Plant\nPackage"
+   "options": "\nMother Plant"
   },
   {
    "fieldname": "source_plant",
@@ -130,14 +129,6 @@
    "options": "Plant",
    "depends_on": "eval:doc.source_type=='Mother Plant'",
    "description": "Must be a mother plant (is_mother = 1)"
-  },
-  {
-   "fieldname": "source_batch_no",
-   "fieldtype": "Link",
-   "label": "Source Package",
-   "options": "Metrc Package",
-   "depends_on": "eval:doc.source_type=='Package'",
-   "description": "Consumes seed / clone stock from this METRC package"
   },
   {
    "fieldname": "section_break_counts",

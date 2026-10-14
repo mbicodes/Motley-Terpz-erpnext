@@ -1,16 +1,5 @@
 frappe.ui.form.on("Delivery Note", {
     refresh: function (frm) {
-        // Source/Target Tags: only offer Metric Tags whose License matches
-        // the row's Warehouse/Target Warehouse. Source Tags: only Active
-        // tags. Target Tags: only Unused tags.
-        cannabis_management.metric_tag.filter_by_warehouse(
-            frm, "tags", "warehouse", "items",
-            "cannabis_management.cannabis_management.custom.metric_tag.source_tags_for_warehouse"
-        );
-        cannabis_management.metric_tag.filter_by_warehouse(
-            frm, "to_tags", "target_warehouse", "items",
-            "cannabis_management.cannabis_management.custom.metric_tag.target_tags_for_warehouse"
-        );
 
         // View > Accounting Ledger: core opens it from posting_date to the
         // note's *modified* date, which is often a different day (and can

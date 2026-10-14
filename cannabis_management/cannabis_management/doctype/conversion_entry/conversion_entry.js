@@ -10,7 +10,6 @@ frappe.ui.form.on('Conversion Entry', {
 	},
 
 	setup: function (frm) {
-		_set_tag_filters(frm);
 		_set_raw_material_queries(frm);
 
 		// A retired status stays readable on old entries but is not offered
@@ -37,31 +36,6 @@ frappe.ui.form.on('Conversion Entry', {
 		(frm.doc.items || []).forEach(function (row) {
 			frappe.model.set_value(row.doctype, row.name, 'source_warehouse', '');
 			frappe.model.set_value(row.doctype, row.name, 'target_warehouse', '');
-		});
-	},
-
-	// ── Scan-to-select Metric Tag ────────────────────────────────────────────
-	// Conversion Entry has no BarcodeScanner and its item table is a fixed
-	// set of Raw Material 1-7 / Finished Good 1-3 slots per row rather than
-	// one row per item, so it can't reuse metric_tag_scan.js's own
-	// apply_row — it reuses that file's lookup()/render_picker() and applies
-	// the pick itself. See metric_tag.get_metric_tag_scan.
-	scan_metric_tag: function (frm) {
-		const value = (frm.doc.scan_metric_tag || '').trim();
-		if (!value) return;
-		frm.set_value('scan_metric_tag', '');
-
-		cannabis_management.metric_tag_scan.lookup(value, 'Conversion Entry Item').then((data) => {
-			if (!data || !data.found) {
-				frappe.show_alert({
-					message: __('{0} is not a known Metric Tag.', [value]),
-					indicator: 'orange',
-				});
-				return;
-			}
-			cannabis_management.metric_tag_scan.render_picker(data, (row) =>
-				_apply_metric_tag_to_next_rm_slot(frm, data.tag_name, row)
-			);
 		});
 	},
 
@@ -304,69 +278,6 @@ function _sync_item_group(cdt, cdn, item_field, group_field) {
 	});
 }
 
-// Fills the first empty Raw Material slot (1..7, but never past however many
-// this row's conversion_type actually calls for — e.g. "2 to 1" only ever
-// fills RM1/RM2) with the picked item, defaulting its qty to what's
-// available under the tag and recording the tag on that slot's hidden
-// rm_N_tag field for traceability. Starts a new Conversion Entry Item row
-// once the current last row's active slots are all full (or there is no row
-// yet); a fresh row always starts at RM1.
-function _apply_metric_tag_to_next_rm_slot(frm, tag_name, row) {
-	function rm_count_for(conversion_type) {
-		const match = /^(\d+) to \d+$/.exec(conversion_type || '');
-		return match ? Number(match[1]) : 1;
-	}
-
-	function first_empty_slot(item_row) {
-		const count = Math.min(7, Math.max(1, rm_count_for(item_row.conversion_type)));
-		for (let n = 1; n <= count; n++) {
-			if (!item_row['raw_material_' + n]) return n;
-		}
-		return null;
-	}
-
-	const items = frm.doc.items || [];
-	let target = items.length ? items[items.length - 1] : null;
-	let slot = target ? first_empty_slot(target) : null;
-
-	if (!target || slot === null) {
-		target = frappe.model.add_child(frm.doc, 'Conversion Entry Item', 'items');
-		frm.script_manager.trigger('items_add', target.doctype, target.name);
-		slot = 1;
-	}
-
-	const rm_field = 'raw_material_' + slot;
-	const qty_field = 'qty_rm_' + slot;
-	const tag_field = 'rm_' + slot + '_tag';
-
-	if (!row) {
-		// Tag resolved but has no stock yet (a fresh/just-registered tag) —
-		// nothing to look an item up from, so just record the tag on this
-		// slot and leave the item/qty for the user to fill in by hand.
-		frappe.model.set_value(target.doctype, target.name, tag_field, tag_name).then(() => {
-			frm.refresh_field('items');
-			frappe.show_alert({
-				message: __('Metric Tag {0} has no stock yet — row #{1}, RM {2} tagged; pick the item by hand.', [tag_name, target.idx, slot]),
-				indicator: 'blue',
-			});
-		});
-		return;
-	}
-
-	frappe.run_serially([
-		() => frappe.model.set_value(target.doctype, target.name, tag_field, tag_name),
-		() => frappe.model.set_value(target.doctype, target.name, qty_field, row.qty),
-		() => frappe.model.set_value(target.doctype, target.name, rm_field, row.item_code),
-		() => {
-			frm.refresh_field('items');
-			frappe.show_alert({
-				message: __('Row #{0}, RM {1}: {2} (qty {3}) set from Metric Tag {4}.', [target.idx, slot, row.item_code, row.qty, tag_name]),
-				indicator: 'green',
-			});
-		},
-	]);
-}
-
 function clear_hidden_fields_for_row(frm, cdt, cdn) {
 	let row = frappe.get_doc(cdt, cdn);
 	let ct  = row.conversion_type;
@@ -403,39 +314,6 @@ function clear_hidden_fields_for_row(frm, cdt, cdn) {
 	if (!['1 to 3', '3 to 3', '4 to 3'].includes(ct)) {
 		frappe.model.set_value(cdt, cdn, 'finished_good_3', '');
 		frappe.model.set_value(cdt, cdn, 'qty_fg_3', 0);
-	}
-}
-
-
-// ── Source / Target Tag pickers ──────────────────────────────────────────────
-// Each Source Tag N follows Raw Material N (filtered by the row's Source
-// Warehouse), each Target Tag N follows Finished Good N (Target Warehouse).
-// Both restrictions are enforced server-side in custom/metric_tag.py:
-//   Source Tag -> status=Active, tag's Licence must equal the warehouse's
-//                 METRC Licence #.
-//   Target Tag -> status=Unused, same Licence match, but tags that have not
-//                 been assigned a Licence yet are allowed through too.
-// The status is pinned inside those query methods rather than passed as a
-// filter, so it holds even if nothing on the client sends one.
-const CE_SOURCE_TAG_QUERY =
-	'cannabis_management.cannabis_management.custom.metric_tag.conversion_source_tags';
-const CE_TARGET_TAG_QUERY =
-	'cannabis_management.cannabis_management.custom.metric_tag.conversion_target_tags';
-
-function _set_tag_filters(frm) {
-	// metric_tag_query.js is an app_include_js; guard anyway so a load failure
-	// degrades to an unfiltered picker instead of breaking the form.
-	if (!window.cannabis_management || !cannabis_management.metric_tag) return;
-
-	for (let n = 1; n <= 7; n++) {
-		cannabis_management.metric_tag.filter_by_warehouse(
-			frm, 'rm_' + n + '_tag', 'source_warehouse', 'items', CE_SOURCE_TAG_QUERY
-		);
-	}
-	for (let n = 1; n <= 3; n++) {
-		cannabis_management.metric_tag.filter_by_warehouse(
-			frm, 'fg_' + n + '_tag', 'target_warehouse', 'items', CE_TARGET_TAG_QUERY
-		);
 	}
 }
 
