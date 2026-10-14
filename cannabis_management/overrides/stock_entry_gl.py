@@ -7,6 +7,27 @@ from cannabis_management.overrides.warehouse_account_utils import apply_item_gro
 
 
 class CMStockEntry(StockEntry):
+    def validate(self):
+        self.apply_project_to_items()
+        super().validate()
+
+    def apply_project_to_items(self):
+        """The entry's Project (Accounting Dimensions section) goes on every line.
+
+        It is set as the line's own Project and as the "Batch" inventory dimension,
+        which links to Project and is what each Stock Ledger Entry's project is read
+        from: Batch for the leg leaving a warehouse, To Batch for the leg arriving
+        in the target warehouse. Runs on every save and on submit, so changing the
+        entry's Project re-points all of its lines.
+        """
+        if not self.project:
+            return
+        for d in self.get("items"):
+            d.project = self.project
+            d.batch = self.project
+            if d.t_warehouse:
+                d.to_batch = self.project
+
     def get_gl_entries(self, warehouse_account=None):
         # ERPNext's StockEntry.get_gl_entries() declares warehouse_account as a required
         # positional arg, but Repost Accounting Ledger's preview (generate_preview_data)
