@@ -48,35 +48,6 @@ def draft_delivery_note(so_name):
 	return names[0] if names else None
 
 
-def tags_with_stock(item_code, warehouse, limit=100):
-	"""Metric Tags holding stock of an item in a warehouse.
-
-	Not a Stock Ledger query. `muid` is not an inventory dimension on this site
-	-- the only dimensions are Brand and Batch, and there is no muid column on
-	Stock Ledger Entry at all. Per-tag quantity is a maintained field on the
-	Metric Tag record itself, so that is what both the picker and G3 read.
-
-	Consequence worth knowing: this is only as accurate as whatever keeps
-	Metric Tag.current_qty in step with the ledger.
-	"""
-	return frappe.get_all(
-		"Metric Tag",
-		filters={
-			"item_code": item_code,
-			"warehouse": warehouse,
-			"current_qty": [">", 0],
-			"status": ["!=", "Empty"],
-		},
-		fields=["name as muid", "tag_code", "current_qty as qty"],
-		order_by="current_qty desc",
-		limit=limit,
-	)
-
-
-def tag_qty(muid):
-	return flt(frappe.db.get_value("Metric Tag", muid, "current_qty"))
-
-
 def conversion_targets(so_name):
 	"""{item_code: [target warehouse, ...]} from this order's submitted Conversion Entries."""
 	rows = frappe.db.sql(
@@ -169,45 +140,6 @@ def one_delivery_note(so, cfg, payload=None):
 	if existing:
 		raise GateError(
 			_("Delivery Note {0} already covers this order.").format(existing[0])
-		)
-
-
-def tags_set(so, cfg, payload=None):
-	"""G3 -- every line names a Metric Tag that actually holds the quantity.
-
-	Checks the chosen tags before the Delivery Note is built, not after. G3
-	guards `create_delivery_note`, and guards run before the effect, so at that
-	moment there is no note to read -- only the picks in the payload, keyed by
-	Sales Order Item name. Falling back to the draft note covers the gates
-	being re-run later, e.g. from the ERP form.
-	"""
-	if not cfg or not cfg.require_muid_on_dn:
-		return
-
-	picks = (payload or {}).get("muid")
-	if picks:
-		for row in so.items:
-			_check_tag(picks.get(row.name), row.idx, row.item_code, row.qty)
-		return
-
-	dn_name = draft_delivery_note(so.name)
-	if not dn_name:
-		return
-
-	dn = frappe.get_doc("Delivery Note", dn_name)
-	for row in dn.items:
-		_check_tag(row.get("tags"), row.idx, row.item_code, row.qty)
-
-
-def _check_tag(muid, idx, item_code, qty):
-	if not muid:
-		raise GateError(_("Row #{0} ({1}): no Metric Tag chosen.").format(idx, item_code))
-	available = tag_qty(muid)
-	if available < flt(qty):
-		raise GateError(
-			_("Row #{0} ({1}): tag {2} holds {3}, the line needs {4}.").format(
-				idx, item_code, muid, available, flt(qty)
-			)
 		)
 
 

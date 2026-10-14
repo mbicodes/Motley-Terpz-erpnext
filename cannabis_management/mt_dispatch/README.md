@@ -37,20 +37,9 @@ and every hook and gate ignores the company entirely — including the two
 Delivery Note blocks. Companies get switched on one at a time by creating a
 record.
 
-## Three places the spec did not match the site
+## Places the spec did not match the site
 
-**1. `muid` is not an inventory dimension.** The spec's §6.5 `TAGS_WITH_STOCK`
-selects `muid` from `tabStock Ledger Entry`. There is no such column: the only
-Inventory Dimensions here are Brand and Batch, and `muid` is a plain
-`Link → Metric Tag` on Delivery Note Item. Per-tag quantity lives on the Metric
-Tag record (`current_qty`, `warehouse`, `status`), so `gates.tags_with_stock`
-reads that instead. G3 is therefore only as accurate as whatever keeps
-`Metric Tag.current_qty` in step with the ledger.
-
-There is also almost no tag data — one record, a test row. `require_muid_on_dn`
-defaults off and should stay off until that is sorted, or G3 blocks every note.
-
-**2. Credit approval fires no document events.** §6.2 hooks
+**1. Credit approval fires no document events.** §6.2 hooks
 `on_update_after_submit` so a Terms order joins the flow when credit approves.
 `credit_and_ar.api.approve_terms` writes with `doc.db_set(...)`, which updates
 the column and runs no events at all, so that hook never fires and T02 could
@@ -68,10 +57,9 @@ builder accepts all seven; the Slack form can cap itself lower if it wants.
 
 ## Two ordering problems in the spec's own guard list
 
-G3 guards `create_delivery_note` and G4 guards `upload_manifest` — but guards
-run before effects, so at guard time the note does not exist yet and the
-manifest has not been attached. Both gates now check the payload when there is
-one and fall back to reading the draft note when there isn't.
+G4 guards `upload_manifest` — but guards run before effects, so at guard time
+the manifest has not been attached. The gate checks the payload when there is
+one and falls back to reading the draft note when there isn't.
 
 Same class of problem inside `transition()`: `resume` reads its target stage
 from `custom_hold_from_stage`, and its own effect clears that field. The target
@@ -98,9 +86,8 @@ is now resolved before the effect runs.
 
 1. Create a `Dispatch Company Settings` record. Leave `enabled` off while
    filling in the team, the channel IDs and the reminder rules.
-2. Leave `require_muid_on_dn` off until Metric Tag data is real.
-3. Tick `enabled`.
-4. Run `bench --site <site> execute frappe.modules.patch_handler.run_single
+2. Tick `enabled`.
+3. Run `bench --site <site> execute frappe.modules.patch_handler.run_single
    --kwargs "{'patchmodule': 'cannabis_management.patches.install_mt_dispatch'}"`
    to move that company's open orders onto stages. It is idempotent and posts
    nothing to Slack.

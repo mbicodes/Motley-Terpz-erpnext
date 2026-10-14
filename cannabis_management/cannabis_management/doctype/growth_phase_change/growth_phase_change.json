@@ -15,11 +15,7 @@
   "promote_section",
   "source_plant_batch",
   "qty_to_promote",
-  "tag_allocation",
   "column_break_promote",
-  "starting_tag",
-  "ending_tag",
-  "tag_sequence_verified",
   "phase_section",
   "target_phase",
   "plants_section",
@@ -92,40 +88,8 @@
    "mandatory_depends_on": "eval:doc.change_type=='Promote Batch to Plants'"
   },
   {
-   "fieldname": "tag_allocation",
-   "fieldtype": "Link",
-   "label": "Tag Allocation",
-   "options": "METRC Tag Allocation",
-   "depends_on": "eval:doc.change_type=='Promote Batch to Plants'",
-   "mandatory_depends_on": "eval:doc.change_type=='Promote Batch to Plants'"
-  },
-  {
    "fieldname": "column_break_promote",
    "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "starting_tag",
-   "fieldtype": "Data",
-   "label": "Starting Tag",
-   "read_only": 1,
-   "depends_on": "eval:doc.change_type=='Promote Batch to Plants'",
-   "description": "tag_allocation.next_available_tag"
-  },
-  {
-   "fieldname": "ending_tag",
-   "fieldtype": "Data",
-   "label": "Ending Tag",
-   "read_only": 1,
-   "depends_on": "eval:doc.change_type=='Promote Batch to Plants'",
-   "description": "The qty_to_promote-th available tag from the start — computed, never typed"
-  },
-  {
-   "default": "0",
-   "fieldname": "tag_sequence_verified",
-   "fieldtype": "Check",
-   "label": "Tag Sequence Verified",
-   "depends_on": "eval:doc.change_type=='Promote Batch to Plants'",
-   "description": "Operator confirms printed tags match the computed range (required to submit)"
   },
   {
    "fieldname": "phase_section",

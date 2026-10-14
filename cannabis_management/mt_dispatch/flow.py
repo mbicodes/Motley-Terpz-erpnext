@@ -153,7 +153,7 @@ TRANSITIONS = {
 			"create_delivery_note", "create the Delivery Note",
 			from_stages=[PREPARED], to=DN_READY,
 			flags=[stages.COMPLIANCE],
-			guards=[gates.one_delivery_note, gates.tags_set],
+			guards=[gates.one_delivery_note],
 			effect=builders.build_delivery_note,
 		),
 		Transition(

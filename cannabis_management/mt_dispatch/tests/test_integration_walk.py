@@ -67,8 +67,7 @@ class TestDispatchWalk(FrappeTestCase):
 				"enabled": 1,
 				"conversions_enabled": 1,
 				"payment_gate_enabled": 0,
-				"require_muid_on_dn": 0,
-				"payment_tolerance": 0.01,
+								"payment_tolerance": 0.01,
 			}
 		).insert(ignore_permissions=True)
 		frappe.local.mt_dispatch_cfg = {}
@@ -119,7 +118,7 @@ class TestDispatchWalk(FrappeTestCase):
 		flow.transition(self.so.name, "mark_prepared")
 		self.assertEqual(self.stage(), stages.PREPARED)
 
-		self.dn_name = flow.transition(self.so.name, "create_delivery_note", payload={"muid": {}})
+		self.dn_name = flow.transition(self.so.name, "create_delivery_note", payload={})
 		self.assertEqual(self.stage(), stages.DN_READY)
 		self.assertTrue(frappe.db.exists("Delivery Note", self.dn_name))
 		self.assertEqual(frappe.db.get_value("Delivery Note", self.dn_name, "docstatus"), 0)

@@ -27,7 +27,6 @@
   "section_break_timelogs",
   "time_logs",
   "section_break_items",
-  "scan_metric_tag",
   "items",
   "section_break_notes",
   "notes"
@@ -171,13 +170,6 @@
    "fieldname": "section_break_items",
    "fieldtype": "Section Break",
    "label": "Conversion Items"
-  },
-  {
-   "fieldname": "scan_metric_tag",
-   "fieldtype": "Data",
-   "label": "Scan Metric Tag",
-   "no_copy": 1,
-   "description": "Type or scan a Metric Tag's Tag Code / MUID to auto-fill the next empty Raw Material slot below with an item + strain currently in stock under that tag."
   },
   {
    "allow_bulk_edit": 1,

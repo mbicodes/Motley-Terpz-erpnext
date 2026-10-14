@@ -1,17 +1,5 @@
 frappe.ui.form.on("Stock Entry", {
     refresh: function (frm) {
-        // Source/Target Tags: only offer Metric Tags whose License matches
-        // the row's Source/Target Warehouse.
-        // Source Tags: only Active tags. Target Tags: only Unused tags.
-        cannabis_management.metric_tag.filter_by_warehouse(
-            frm, "tags", "s_warehouse", "items",
-            "cannabis_management.cannabis_management.custom.metric_tag.source_tags_for_warehouse"
-        );
-        cannabis_management.metric_tag.filter_by_warehouse(
-            frm, "to_tags", "t_warehouse", "items",
-            "cannabis_management.cannabis_management.custom.metric_tag.target_tags_for_warehouse"
-        );
-        toggle_tag_mandatory(frm);
 
         frm.fields_dict.items.grid.update_docfield_property("project", "reqd", 0);
         $.each(frm.doc.items || [], function (i, item) {
@@ -28,10 +16,6 @@ frappe.ui.form.on("Stock Entry", {
         }
     },
 
-    stock_entry_type: function (frm) {
-        toggle_tag_mandatory(frm);
-    },
-
     project: function (frm) {
         if (frm.doc.project) {
             $.each(frm.doc.items || [], function (i, item) {
@@ -46,7 +30,6 @@ frappe.ui.form.on("Stock Entry", {
             frappe.model.set_value(cdt, cdn, "project", frm.doc.project);
             frappe.model.set_value(cdt, cdn, "batch", frm.doc.project);
         }
-        toggle_tag_mandatory(frm);
         calculate_total_quantity(frm);
     },
 
@@ -87,7 +70,6 @@ frappe.ui.form.on("Stock Entry Detail", {
 
     is_finished_item: function (frm, cdt, cdn) {
         setTimeout(() => calculate_total_quantity(frm), 300);
-        toggle_tag_mandatory(frm);
     },
 
     item_code: function (frm, cdt, cdn) {
@@ -129,11 +111,9 @@ frappe.ui.form.on("Stock Entry Detail", {
         if (row.custom_project_mandatory && row.item_code && row.project && row.s_warehouse) {
             fetch_project_qty(frm, cdt, cdn, row);
         }
-        toggle_tag_mandatory(frm);
     },
 
     t_warehouse: function (frm) {
-        toggle_tag_mandatory(frm);
     },
 });
 
@@ -141,16 +121,6 @@ function toggle_project_mandatory(frm) {
     let any_mandatory = (frm.doc.items || []).some((item) => item.custom_project_mandatory);
     frm.fields_dict.items.grid.update_docfield_property("project", "reqd", any_mandatory ? 1 : 0);
     frm.refresh_fields();
-}
-
-// Source/Target Tags are optional on every row -- never mandatory.
-// frm.set_df_property(..., row.name) scopes the change to that single grid
-// row instead of the whole "tags"/"to_tags" column.
-function toggle_tag_mandatory(frm) {
-    (frm.doc.items || []).forEach(function (row) {
-        frm.set_df_property("items", "reqd", 0, frm.doc.name, "tags", row.name);
-        frm.set_df_property("items", "reqd", 0, frm.doc.name, "to_tags", row.name);
-    });
 }
 
 function fetch_project_qty(frm, cdt, cdn, row) {

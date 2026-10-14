@@ -79,8 +79,7 @@ class TestDispatchFlow(FrappeTestCase):
 			"enabled": enabled,
 			"conversions_enabled": 1,
 			"payment_gate_enabled": 1,
-			"require_muid_on_dn": 0,
-			"payment_tolerance": 0.01,
+						"payment_tolerance": 0.01,
 			"team": [
 				{"user": FULFILLER, "fulfillment": 1},
 				{"user": COMPLIANCE, "compliance": 1},

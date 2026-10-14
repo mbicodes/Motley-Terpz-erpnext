@@ -709,7 +709,7 @@ def conversion_modal(so, cfg, rows=1, microns=False):
 		for n in range(1, MAX_SLACK_RAW + 1):
 			blocks.append(
 				input_block(
-					f"r{r}_rm{n}", f"Raw material {n}", external_select("mt:item_or_tag", "Item or Metric Tag"),
+					f"r{r}_rm{n}", f"Raw material {n}", external_select("mt:item", "Item"),
 					optional=n > 1,
 				)
 			)
@@ -793,21 +793,8 @@ def delivery_note_modal(so, cfg):
 	blocks = [section(f"Delivery Note for *{so.name}* · {so.customer_name or so.customer}")]
 	for row in lines:
 		warehouse = row.warehouse or so.get("set_warehouse")
-		tags = gates.tags_with_stock(row.item_code, warehouse) if warehouse else []
 		blocks.append(divider())
 		blocks.append(section(f"*{row.item_code}* · {row.item_name or ''}\nQty {flt(row.qty):g} {row.uom or ''} · {warehouse or 'no warehouse'}"))
-		if tags:
-			options = [option(f"{t.tag_code or t.muid} ({flt(t.qty):g})", t.muid) for t in tags]
-			blocks.append(
-				input_block(
-					f"line_{row.name}",
-					"Metric Tag",
-					static_select("value", options, tags[0].muid if len(tags) == 1 else None, "Pick a tag"),
-					optional=not cfg.require_muid_on_dn,
-				)
-			)
-		else:
-			blocks.append(context("No Metric Tag holds stock of this item here."))
 	return _modal("mt_delivery_note", "Delivery Note", blocks, _meta(so), submit="Create draft")
 
 

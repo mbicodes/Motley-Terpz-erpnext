@@ -1289,13 +1289,12 @@ class ManufacturingRun {
 	// The Conversion Item table of a Conversion Entry, in a dialog: its fields
 	// come from the Conversion Entry Item doctype itself, so the per-type
 	// Raw Material 2-7 / Finished Good 2-3 fields show and hide exactly as on
-	// the form (their depends_on), with the form's warehouse and tag pickers.
+	// the form (their depends_on), with the form's warehouse pickers.
 	// Key columns show in the table; every other field is in the row's edit
 	// form. Left out: the Tolling micron fields (they depend on the parent
 	// form) and the item-group fields the entry fills in itself.
 	_open_tiering_dialog(wo_name, doc, mr_name) {
-		const TAGS = "cannabis_management.cannabis_management.custom.metric_tag.";
-		const LIST = { conversion_type: 1, raw_material_1: 2, qty_rm_1: 1, finished_good_1: 2, qty_fg_1: 1, fg_1_tag: 1, target_warehouse: 2 };
+		const LIST = { conversion_type: 1, raw_material_1: 2, qty_rm_1: 1, finished_good_1: 2, qty_fg_1: 1, target_warehouse: 2 };
 		const company = doc.company;
 		const skip = (df) => /^micron_|_microns$/.test(df.fieldname) || /_item_group$/.test(df.fieldname);
 
@@ -1303,18 +1302,14 @@ class ManufacturingRun {
 			const f = { ...df, in_list_view: LIST[df.fieldname] ? 1 : 0, columns: LIST[df.fieldname] || df.columns };
 			if (df.fieldname === "source_warehouse" || df.fieldname === "target_warehouse") {
 				f.get_query = () => ({ filters: { company, is_group: 0 } });
-			} else if (/^rm_\d_tag$/.test(df.fieldname)) {
-				f.get_query = (row) => ({ query: TAGS + "conversion_source_tags", filters: { warehouse: (row && row.source_warehouse) || "" } });
-			} else if (/^fg_\d_tag$/.test(df.fieldname)) {
-				f.get_query = (row) => ({ query: TAGS + "conversion_target_tags", filters: { warehouse: (row && row.target_warehouse) || "" } });
 			} else if (df.fieldname === "conversion_type") {
 				// As on the form: fields the new type doesn't use are cleared.
 				f.onchange = function () {
 					const row = this.doc;
 					if (!row) return;
 					const m = /^(\d+) to (\d+)$/.exec(row.conversion_type || "") || [0, 1, 1];
-					for (let n = +m[1] + 1; n <= 7; n++) ["raw_material_", "qty_rm_"].forEach(p => { row[p + n] = null; }), row[`rm_${n}_tag`] = null;
-					for (let n = +m[2] + 1; n <= 3; n++) ["finished_good_", "qty_fg_"].forEach(p => { row[p + n] = null; }), row[`fg_${n}_tag`] = null;
+					for (let n = +m[1] + 1; n <= 7; n++) ["raw_material_", "qty_rm_"].forEach(p => { row[p + n] = null; });
+					for (let n = +m[2] + 1; n <= 3; n++) ["finished_good_", "qty_fg_"].forEach(p => { row[p + n] = null; });
 					d.fields_dict.items.grid.refresh();
 				};
 			}

@@ -12,7 +12,6 @@
   "performed_by",
   "target_warehouse",
   "mom_plant_reference",
-  "metrc_tag",
   "linked_harvest",
   "status",
   "column_break_1",
@@ -81,12 +80,6 @@
    "fieldname": "mom_plant_reference",
    "fieldtype": "Data",
    "label": "Mom Plant Reference"
-  },
-  {
-   "fieldname": "metrc_tag",
-   "fieldtype": "Data",
-   "label": "METRC Tag",
-   "reqd": 1
   },
   {
    "fieldname": "linked_harvest",

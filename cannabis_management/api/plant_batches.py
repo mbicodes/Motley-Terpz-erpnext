@@ -22,7 +22,7 @@ def get_list(filters=None):
 			"name", "batch_name", "strain", "location", "room_row", "batch_type", "status",
 			"plant_count", "plants_live", "plants_promoted", "plants_destroyed",
 			"plants_packaged", "age_days", "planting_date", "total_input_cost",
-			"source_type", "source_plant", "source_batch_no",
+			"source_type", "source_plant",
 		],
 		order_by="creation desc",
 		limit_page_length=0,
@@ -43,7 +43,7 @@ def create_plant_batches(data):
 	# Each row carries its own source/strain/type/location/date (staged one by
 	# one in the dialog); top-level values remain as a fallback.
 	fields = ("strain", "batch_type", "planting_date", "location",
-		"source_type", "source_plant", "source_batch_no")
+		"source_type", "source_plant")
 	created = []
 	for row in rows:
 		doc = frappe.new_doc("Plant Batch")
@@ -90,14 +90,13 @@ def change_strain(plant_batch, strain):
 
 
 @frappe.whitelist()
-def package_plant_batch(plant_batch, qty, package_date=None, metrc_package_tag=None, note=None):
+def package_plant_batch(plant_batch, qty, package_date=None, note=None):
 	"""'Package Plant Batch' — appends to the existing packaging_log child
 	table (allow_on_submit); calculate_totals() recomputes plants_packaged."""
 	doc = frappe.get_doc("Plant Batch", plant_batch)
 	doc.append("packaging_log", {
 		"package_date": package_date or nowdate(),
 		"qty": cint(qty),
-		"metrc_package_tag": metrc_package_tag,
 		"note": note,
 	})
 	doc.save()
@@ -132,25 +131,6 @@ def destroy_plant_batch(plant_batch, reason=None):
 	})
 	doc.save()
 	return {"ok": True}
-
-
-@frappe.whitelist()
-def promote_growth_phase(plant_batch, tag_allocation, qty_to_promote, output_location, change_date=None):
-	"""'Change Growth Phase' — creates + submits the existing 'Growth Phase
-	Change' doctype (change_type = Promote Batch to Plants). Its own on_submit
-	logic creates the Plant records and logs the promotion on this batch —
-	nothing here duplicates that, it only drives the real doctype."""
-	doc = frappe.new_doc("Growth Phase Change")
-	doc.change_type = "Promote Batch to Plants"
-	doc.source_plant_batch = plant_batch
-	doc.qty_to_promote = cint(qty_to_promote)
-	doc.tag_allocation = tag_allocation
-	doc.output_location = output_location
-	doc.change_date = change_date or nowdate()
-	doc.tag_sequence_verified = 1
-	doc.insert()
-	doc.submit()
-	return {"ok": True, "name": doc.name}
 
 
 @frappe.whitelist()

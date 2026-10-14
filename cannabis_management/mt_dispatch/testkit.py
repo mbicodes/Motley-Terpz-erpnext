@@ -139,8 +139,7 @@ def setup():
 			"enabled": 1,
 			"conversions_enabled": 1,
 			"payment_gate_enabled": 1,
-			"require_muid_on_dn": 0,
-			"fulfillment_group_id": None,
+						"fulfillment_group_id": None,
 			"drivers_group_id": None,
 			"default_source_warehouse": WAREHOUSE,
 			"default_target_warehouse": WAREHOUSE,
@@ -233,7 +232,7 @@ def teardown():
 		saved = backup["settings"]
 		cfg = frappe.get_doc("Dispatch Company Settings", COMPANY)
 		for field in ("enabled", "orders_channel", "dispatch_channel", "exceptions_channel", "fulfillment_group_id",
-					  "drivers_group_id", "conversions_enabled", "payment_gate_enabled", "require_muid_on_dn",
+					  "drivers_group_id", "conversions_enabled", "payment_gate_enabled",
 					  "default_source_warehouse", "default_target_warehouse", "default_mode_of_payment"):
 			cfg.set(field, saved.get(field))
 		cfg.set("team", [])

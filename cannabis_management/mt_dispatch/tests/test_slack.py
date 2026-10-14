@@ -45,8 +45,7 @@ def cfg(**overrides):
 		"conversions_enabled": 1,
 		"payment_gate_enabled": 1,
 		"gate_internal_customers": 0,
-		"require_muid_on_dn": 0,
-		"payment_tolerance": 0.01,
+				"payment_tolerance": 0.01,
 		"timezone": "America/Los_Angeles",
 		"work_start": "08:00:00",
 		"work_end": "17:00:00",
@@ -250,17 +249,6 @@ class TestModalValidation(FrappeTestCase):
 		self.assertFalse(errors)
 		self.assertEqual(len(payload["rows"][0]["raw_materials"]), 2)
 		self.assertFalse(payload["submit"])
-
-	def test_t06_tag_short_of_line_quantity_errors_on_that_line(self):
-		so = FakeDoc(name="SO-X", company="Master Touch Manufacturing",
-		             items=[frappe._dict(name="row1", qty=10, item_code="I1")])
-		values = {"line_row1": {"value": {"type": "static_select", "selected_option": {"value": "TAG-1"}}}}
-		with mock.patch("frappe.get_doc", return_value=so), \
-			mock.patch.object(handlers, "get_company_settings", return_value=cfg()), \
-			mock.patch.object(handlers.gates, "tag_qty", return_value=4):
-			errors, payload, _files = handlers._parse_delivery_note(values, {"so": "SO-X"})
-		self.assertIn("line_row1", errors)
-		self.assertEqual(payload["muid"], {"row1": "TAG-1"})
 
 
 class TestWorkingClock(FrappeTestCase):

@@ -57,23 +57,6 @@ app_include_js = [
     # Order button, post-submit Payment Entry / Journal Entry actions, and the
     # currency-formatted Sales Order picker. Must load before those form scripts.
     "/assets/cannabis_management/js/cash_tracking_actions.js",
-    # Shared Muid (Metric Tag) Link-query filter, keyed off the row's
-    # warehouse License. Must load before the Stock Entry / Purchase
-    # Receipt / Purchase Invoice / Delivery Note / Sales Invoice form
-    # scripts, which call cannabis_management.metric_tag.filter_by_warehouse().
-    # NOTE: this path has no build-hash, so browsers/proxies can cache it
-    # indefinitely -- bump the ?v= query on every content change (same trick
-    # metric_tag_scan.js uses) or edits here silently won't reach users.
-    "/assets/cannabis_management/js/metric_tag_query.js?v=3",
-    # Scan-to-select for Metric Tag: patches erpnext's shared BarcodeScanner
-    # (used by Purchase Receipt / Delivery Note / Stock Entry / Stock
-    # Reconciliation) so scanning a Metric Tag's Tag Code/MUID into the item
-    # table's "Scan Barcode" field opens a picker of the items/strains in
-    # stock under that tag. See metric_tag.get_metric_tag_scan.
-    # NOTE: this path has no build-hash, so browsers/proxies can cache it
-    # indefinitely — bump the ?v= query on every content change (same trick
-    # infix_theme.js uses below) or edits here silently won't reach users.
-    "/assets/cannabis_management/js/metric_tag_scan.js?v=2",
     # Data Export dialog: preset button that ticks a saved column set
     # (Sales Invoice -> the invoice sheet columns). Bump ?v= on every change.
     "/assets/cannabis_management/js/data_export_presets.js?v=1",
@@ -89,7 +72,6 @@ doctype_js = {
     "Cash Ledger Entry": "cash_management/doctype/cash_ledger_entry/cash_ledger_entry.js",
     "Expense Tracker Entry": "cash_management/doctype/expense_tracker_entry/expense_tracker_entry.js",
     "Stock Entry": "public/js/stock_entry.js",
-    "Stock Reconciliation": "public/js/stock_reconciliation.js",
     "Purchase Order": "public/js/purchase_order.js",
     "Purchase Receipt": "public/js/purchase_receipt.js",
     "Purchase Invoice": "public/js/purchase_invoice.js",
@@ -208,7 +190,7 @@ after_migrate = [
     # Process page's run cards.
     "cannabis_management.api.manufacturing_process.install_custom_fields",
     # Stock Reconciliation Item gets Stock Entry's Source | Target dimension
-    # layout (Target Brand / Target Tags / Target Batch). Idempotent.
+    # layout (Target Batch). Idempotent.
     "cannabis_management.doc_hooks.stock_reconciliation.install_custom_fields",
     # MT Dispatch: the Sales Order stage fields, the audit tables and the
     # stage Select's options. Code, not fixtures -- a fixture export would
@@ -467,25 +449,19 @@ doc_events = {
     },
     "Stock Entry": {
         "before_validate": "cannabis_management.cannabis_management.custom.stock_entry.before_validate",
-        # METRC push is appended to on_submit below, after the Metric Tag sync.
+        # METRC push is appended to on_submit below.
         "validate": [
             "cannabis_management.cannabis_management.custom.stock_entry.validate",
             "cannabis_management.doc_hooks.stock_entry.sync_row_uom_with_item",
             "cannabis_management.doc_hooks.stock_entry.populate_micron_finished_goods",
             "cannabis_management.doc_hooks.stock_entry.set_operating_cost_accounts",
-            # Metric Tag: mirror muid/to_muid on single-leg rows so either field works
-            "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.normalize_stock_entry_tag_fields",
         ],
-        # Metric Tag status/qty lifecycle sync — also covers the Stock Entries a Job Card generates
         "before_submit": [
             # Gate 1: production transfers and manufacture only, per §7.
             "cannabis_management.credit_and_ar.hold_engine.enforce_hold",
-            "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.validate_metric_tag_status",
         ],
         "on_submit": [
-            "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
             # Source Tag / Target Tag on the Stock Ledger Entries this submit just wrote.
-            "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_sle_source_target_tags",
             # Completed Work Order's produced qty becomes the required qty of
             # that item on the other Work Order(s) of the same Material Request.
             "cannabis_management.doc_hooks.stock_entry.carry_produced_qty_to_sibling_work_order",
@@ -493,7 +469,6 @@ doc_events = {
             "cannabis_management.overrides.mr_run_status.on_stock_entry_change",
         ],
         "on_cancel": [
-            "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
             "cannabis_management.overrides.mr_run_status.on_stock_entry_change",
         ],
     },
@@ -529,8 +504,6 @@ doc_events = {
         "before_submit": [
             # Gate 1: no product moves for a held customer.
             "cannabis_management.credit_and_ar.hold_engine.enforce_hold",
-            # Metric Tag status lifecycle sync
-            "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.validate_metric_tag_status",
         ],
         "on_update": [
             "cannabis_management.overrides.delivery_note_hooks.update_sales_invoice_delivery_status",
@@ -539,36 +512,12 @@ doc_events = {
         "on_submit": [
             "cannabis_management.overrides.delivery_note_hooks.update_sales_invoice_delivery_status",
             "cannabis_management.overrides.delivery_note_hooks.update_sales_order_delivery_status",
-            "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
-            "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_sle_source_target_tags",
         ],
         "on_cancel": [
             "cannabis_management.overrides.delivery_note_hooks.update_sales_invoice_delivery_status",
             "cannabis_management.overrides.delivery_note_hooks.update_sales_order_delivery_status",
-            "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
         ],
         "validate": "cannabis_management.overrides.delivery_note_hooks.set_expense_head",
-    },
-    # Metric Tag status/qty lifecycle sync
-    "Purchase Receipt": {
-        "before_submit": "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.validate_metric_tag_status",
-        "on_submit": [
-            "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
-            "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_sle_source_target_tags",
-        ],
-        "on_cancel": [
-            "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
-        ],
-    },
-    "Stock Reconciliation": {
-        "before_submit": "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.validate_metric_tag_status",
-        "on_submit": [
-            "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
-            "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_sle_source_target_tags",
-        ],
-        "on_cancel": [
-            "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
-        ],
     },
     "Work Order": {
         # Gate 1: no production starts for a held customer's order.
@@ -654,18 +603,6 @@ doc_events = {
     },
 }
 
-# Staging-only document hooks
-# ---------------------------
-# Some integrations are built and exercised on staging long before they are fit
-# to deploy — their code is deliberately kept out of git, so a production
-# checkout does not have the modules their hooks would name. Wiring them here
-# directly would make every save on the affected doctypes raise
-# ModuleNotFoundError on any site built from git alone.
-#
-# Instead, staging drops a `cannabis_management/metrc/local_hooks.py` (excluded
-# from the repo) that merges its own entries into `doc_events` at import time.
-# Where the file is absent — which is everywhere but staging — this is a no-op
-# and the hooks simply do not exist.
 # MT Dispatch wires itself in rather than editing the Sales Order, Delivery
 # Note, Conversion Entry and Payment Entry blocks above, which already carry
 # handlers from other modules -- some as bare strings. See mt_dispatch/hooks_wiring.py.
@@ -673,13 +610,6 @@ from cannabis_management.mt_dispatch import hooks_wiring as _mt_dispatch_hooks
 
 _mt_dispatch_hooks.extend_doc_events(doc_events)
 
-
-try:
-    from cannabis_management.metrc import local_hooks as _local_hooks
-except ImportError:
-    pass
-else:
-    _local_hooks.extend_doc_events(doc_events)
 
 # Scheduled Tasks
 # ---------------
@@ -957,8 +887,8 @@ before_request = [
 # }
 fixtures = [
     {
-        # Excludes the orphaned Tier/Muid Inventory Dimension fields: those two
-        # dimensions were deleted, but this fixture is unfiltered by default, so
+        # Excludes the orphaned Tier Inventory Dimension fields: that
+        # dimension was deleted, but this fixture is unfiltered by default, so
         # `bench export-fixtures` kept re-capturing their leftover Custom Field
         # rows straight off the DB, and the next `bench migrate` re-inserted them
         # (import_fixtures applies no filter, it just replays whatever the file
@@ -973,10 +903,6 @@ fixtures = [
                     "to_tier",
                     "from_tier",
                     "rejected_tier",
-                    "muid",
-                    "to_muid",
-                    "from_muid",
-                    "rejected_muid",
                 ],
             ]
         ],

@@ -2,8 +2,8 @@
 // Single-page list + row actions matching the reference video's UX, built
 // entirely on the EXISTING "Plant Batch" doctype (and its existing
 // growth_phase_log / packaging_log / loss_log child tables, plus the
-// existing "Growth Phase Change" / "Additive Application" compliance
-// doctypes for the two actions that need METRC tag handling). No new
+// existing "Additive Application" compliance
+// doctype for the additive action). No new
 // doctypes or fields were created.
 
 frappe.pages['plant-batches'].on_page_load = function (wrapper) {
@@ -95,7 +95,7 @@ class CultivationPlantBatches {
 			return;
 		}
 		rows.forEach((r) => {
-			const source = r.source_plant || r.source_batch_no || '-';
+			const source = r.source_plant || '-';
 			const tr = $(`
 				<tr>
 					<td><button class="btn btn-xs btn-default pb-actions">⋮</button></td>
@@ -140,7 +140,6 @@ class CultivationPlantBatches {
 		// disabled with an explanatory note instead of faking a feature.
 		const items = [
 			{ label: 'Move Plant Batch', action: () => this.open_move_dialog(batch_name) },
-			{ label: 'Change Growth Phase', action: () => this.open_growth_phase_dialog(batch_name) },
 			{ label: 'Adjust Quantity', disabled: true, note: 'No quantity-adjustment window exists for this batch' },
 			{ label: 'Add Cost', action: () => this.open_additive_dialog(batch_name, 'Add Cost') },
 			{ label: 'Record Additive', action: () => this.open_additive_dialog(batch_name, 'Record Additive') },
@@ -198,7 +197,7 @@ class CultivationPlantBatches {
 			fields: [
 				{
 					fieldname: 'source_type', label: 'Source', fieldtype: 'Select',
-					options: 'Mother Plant\nPackage',
+					options: 'Mother Plant',
 					default: 'Mother Plant', reqd: 1,
 					onchange: () => this.toggle_source_fields(dialog),
 				},
@@ -209,11 +208,6 @@ class CultivationPlantBatches {
 					depends_on: 'eval:doc.source_type=="Mother Plant"',
 					get_query: () => ({ filters: { is_mother: 1 } }),
 					onchange: () => this.on_mother_plant_change(dialog),
-				},
-				{
-					fieldname: 'source_batch_no', label: 'Source Package', fieldtype: 'Link',
-					options: 'Metrc Package',
-					depends_on: 'eval:doc.source_type=="Package"',
 				},
 				{ fieldname: 'sb_1', fieldtype: 'Section Break' },
 				{
@@ -251,7 +245,6 @@ class CultivationPlantBatches {
 	toggle_source_fields(dialog) {
 		const source = dialog.get_value('source_type');
 		dialog.set_df_property('source_plant', 'hidden', source !== 'Mother Plant');
-		dialog.set_df_property('source_batch_no', 'hidden', source !== 'Package');
 		if (source === 'Mother Plant') {
 			dialog.set_value('batch_type', 'Clone');
 		}
@@ -282,7 +275,7 @@ class CultivationPlantBatches {
 					<td>${esc(b.location)}</td>
 					<td>${esc(b.batch_type)}</td>
 					<td>${esc(frappe.datetime.str_to_user(b.planting_date))}</td>
-					<td>${esc(b.source_type === 'Package' ? b.source_batch_no : b.source_plant)}</td>
+					<td>${esc(b.source_plant)}</td>
 					<td><button class="btn btn-xs btn-default pb-remove-staged" data-idx="${idx}">✕</button></td>
 				</tr>`).join('');
 			wrap.append(`
@@ -349,7 +342,6 @@ class CultivationPlantBatches {
 			plant_count: count,
 			source_type: values.source_type,
 			source_plant: values.source_type === 'Mother Plant' ? values.source_plant : null,
-			source_batch_no: values.source_type === 'Package' ? values.source_batch_no : null,
 			location: values.location,
 			strain: values.strain,
 			batch_type: values.batch_type,
@@ -413,43 +405,6 @@ class CultivationPlantBatches {
 	}
 
 	// ---------------------------------------------------------------
-	// CHANGE GROWTH PHASE — existing "Growth Phase Change" doctype
-	// (Promote Batch to Plants), created + submitted in-dialog, no page nav.
-	// ---------------------------------------------------------------
-	open_growth_phase_dialog(batch_name) {
-		const dialog = new frappe.ui.Dialog({
-			title: `Change Growth Phase — ${batch_name}`,
-			fields: [
-				{ fieldname: 'info', fieldtype: 'HTML', options: '<div class="alert alert-warning">This action will be queued for compliance submission</div>' },
-				{
-					fieldname: 'tag_allocation', label: 'Plant Tag Allocation', fieldtype: 'Link',
-					options: 'METRC Tag Allocation', reqd: 1,
-					get_query: () => ({ filters: { tag_type: 'Plant', status: 'Active' } }),
-				},
-				{ fieldname: 'qty_to_promote', label: '# Immatures Changing Phase', fieldtype: 'Int', reqd: 1 },
-				{ fieldname: 'col_1', fieldtype: 'Column Break' },
-				{ fieldname: 'output_location', label: 'Output Location', fieldtype: 'Link', options: 'Warehouse', reqd: 1 },
-				{ fieldname: 'change_date', label: 'Change Date', fieldtype: 'Date', default: frappe.datetime.get_today(), reqd: 1 },
-			],
-			primary_action_label: 'Change Plants',
-			primary_action: (values) => {
-				dialog.set_primary_action('Submitting...', null);
-				frappe.call({
-					method: 'cannabis_management.api.plant_batches.promote_growth_phase',
-					args: { plant_batch: batch_name, ...values },
-					callback: () => {
-						frappe.show_alert({ message: 'Growth phase change submitted for compliance', indicator: 'orange' });
-						dialog.hide();
-						this.load_batches();
-					},
-					error: () => dialog.get_primary_btn().prop('disabled', false).text('Change Plants'),
-				});
-			},
-		});
-		dialog.show();
-	}
-
-	// ---------------------------------------------------------------
 	// ADD COST / RECORD ADDITIVE — existing "Additive Application" doctype,
 	// created + submitted in-dialog, no page navigation.
 	// ---------------------------------------------------------------
@@ -497,7 +452,6 @@ class CultivationPlantBatches {
 			fields: [
 				{ fieldname: 'qty', label: '# Plants Packaged', fieldtype: 'Int', reqd: 1 },
 				{ fieldname: 'package_date', label: 'Package Date', fieldtype: 'Date', default: frappe.datetime.get_today(), reqd: 1 },
-				{ fieldname: 'metrc_package_tag', label: 'METRC Package Tag', fieldtype: 'Data' },
 				{ fieldname: 'note', label: 'Note', fieldtype: 'Small Text' },
 			],
 			primary_action_label: 'Package',
