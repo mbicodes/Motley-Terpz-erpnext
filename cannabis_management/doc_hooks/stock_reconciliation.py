@@ -18,28 +18,12 @@ from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 
 DIMENSION_FIELDS = {
     "Stock Reconciliation Item": [
-        # One tag field for both directions -- see validate_reconcile_tags.
-        {"fieldname": "reconcile_tag", "label": "Reconcile Tag", "fieldtype": "Link",
-         "options": "Metric Tag", "insert_after": "inventory_dimension", "in_list_view": 1,
-         "columns": 2},
-        {"fieldname": "reconcile_tag_mode", "label": "Reconciled As", "fieldtype": "Data",
-         "read_only": 1, "insert_after": "reconcile_tag",
-         "depends_on": "eval:doc.reconcile_tag"},
-        {"fieldname": "brand", "label": "Source Brand", "fieldtype": "Link",
-         "options": "Brand", "insert_after": "reconcile_tag_mode"},
-        # Superseded by Reconcile Tag; still shown on rows that carry a value.
-        {"fieldname": "tags", "label": "Source Tags", "fieldtype": "Link",
-         "options": "Metric Tag", "insert_after": "brand", "depends_on": "eval:doc.tags"},
         {"fieldname": "batch", "label": "Source Batch", "fieldtype": "Link",
-         "options": "Project", "insert_after": "tags"},
+         "options": "Project", "insert_after": "inventory_dimension"},
         {"fieldname": "inventory_dimension_col_break", "fieldtype": "Column Break",
          "insert_after": "batch"},
-        {"fieldname": "to_brand", "label": "Target Brand", "fieldtype": "Link",
-         "options": "Brand", "insert_after": "inventory_dimension_col_break"},
-        {"fieldname": "to_tags", "label": "Target Tags", "fieldtype": "Link",
-         "options": "Metric Tag", "insert_after": "to_brand", "depends_on": "eval:doc.to_tags"},
         {"fieldname": "to_batch", "label": "Target Batch", "fieldtype": "Link",
-         "options": "Project", "insert_after": "to_tags"},
+         "options": "Project", "insert_after": "inventory_dimension_col_break"},
     ]
 }
 
