@@ -1,5 +1,9 @@
 import frappe
 
+# "Reserved" is the Inventory Dashboard's definition (live Stock Reservation
+# Entries), not Bin.reserved_qty, so both pages show the same available qty.
+from cannabis_management.api.inventory_dashboard import RESERVED_SUBQUERY
+
 
 @frappe.whitelist(allow_guest=True)
 def get_live_menu_groups():
@@ -71,21 +75,24 @@ def get_live_menu_items(item_group, menu_type=None):
             i.item_code,
             i.item_name,
             SUM(COALESCE(b.actual_qty, 0)) AS actual_qty,
-            SUM(COALESCE(b.reserved_qty, 0)) AS reserved_qty,
-            SUM(COALESCE(b.actual_qty, 0)) - SUM(COALESCE(b.reserved_qty, 0)) AS available_qty
+            SUM(COALESCE(sre.reserved_qty, 0)) AS reserved_qty,
+            SUM(COALESCE(b.actual_qty, 0)) - SUM(COALESCE(sre.reserved_qty, 0)) AS available_qty
         FROM `tabItem` i
         LEFT JOIN `tabBin` b ON b.item_code = i.item_code
             {warehouse_condition}
+        LEFT JOIN ({reserved_subquery}) sre
+            ON sre.item_code = b.item_code AND sre.warehouse = b.warehouse
         WHERE i.item_group = %(item_group)s
         AND i.disabled = 0
         AND i.custom_show_in_dashboard = 1
         AND i.custom_hide_from_client = 0
         GROUP BY i.item_code, i.item_name
-        HAVING (SUM(COALESCE(b.actual_qty, 0)) - SUM(COALESCE(b.reserved_qty, 0))) > 0
-        AND (SUM(COALESCE(b.actual_qty, 0)) - SUM(COALESCE(b.reserved_qty, 0))) >= %(min_qty)s
+        HAVING (SUM(COALESCE(b.actual_qty, 0)) - SUM(COALESCE(sre.reserved_qty, 0))) > 0
+        AND (SUM(COALESCE(b.actual_qty, 0)) - SUM(COALESCE(sre.reserved_qty, 0))) >= %(min_qty)s
         ORDER BY i.item_name
         """.format(
             warehouse_condition=warehouse_condition,
+            reserved_subquery=RESERVED_SUBQUERY,
         ),
         {"item_group": item_group, "min_qty": min_qty},
         as_dict=True,
