@@ -14,11 +14,13 @@ enforced.
 import frappe
 from frappe import _
 
-from cannabis_management.credit_and_ar import utils
+from cannabis_management.credit_and_ar import customer_contact_rules, utils
 
 
 def validate(doc, method=None):
 	_stamp_exemption(doc)
+	# New customers need an email and a phone, unused by any other customer.
+	customer_contact_rules.validate_customer(doc)
 
 
 def on_update(doc, method=None):

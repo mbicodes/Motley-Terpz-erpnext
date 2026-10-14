@@ -28,7 +28,7 @@ import frappe
 from frappe import _
 from frappe.utils import flt
 
-from cannabis_management.credit_and_ar import ar_cap, credit_engine, utils
+from cannabis_management.credit_and_ar import ar_cap, credit_engine, customer_contact_rules, utils
 
 
 # ── entry points ─────────────────────────────────────────────────────────────
@@ -37,6 +37,10 @@ from cannabis_management.credit_and_ar import ar_cap, credit_engine, utils
 def validate(doc, method=None):
 	if not doc.customer:
 		return
+
+	# Before the early returns below: no order goes ahead for a customer we
+	# cannot reach by email or phone, whatever its credit status.
+	customer_contact_rules.validate_sales_order(doc)
 
 	if utils.is_policy_exempt(doc.customer):
 		_clear_credit_fields(doc)

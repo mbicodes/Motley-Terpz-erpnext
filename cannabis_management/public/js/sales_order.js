@@ -310,3 +310,72 @@ frappe.ui.form.on('Sales Order', {
 		cannabis_management.inter_company.create(frm);
 	},
 });
+
+// Customer contact. Picking a customer asks for its email address and phone
+// number (pre-filled with what is on file) and stores them on the customer's
+// primary Contact. At least one of the two is required: the server refuses the
+// order otherwise (credit_and_ar/customer_contact_rules.py).
+(function () {
+	const M = 'cannabis_management.credit_and_ar.customer_contact_rules.';
+
+	function ask_contact(frm) {
+		const customer = frm.doc.customer;
+		if (!customer || frm.doc.docstatus !== 0) return;
+		frappe.call({ method: M + 'get_customer_contact', args: { customer: customer } }).then(function (r) {
+			if (frm.doc.customer !== customer) return; // picked another customer meanwhile
+			const cur = r.message || {};
+			// Until something is saved, an order for a customer with nothing on
+			// file cannot go ahead; validate() below re-opens this dialog.
+			frm._cm_contact_missing = !(cur.email || cur.phone);
+			const d = new frappe.ui.Dialog({
+				title: __('Contact details for {0}', [customer]),
+				fields: [
+					{
+						fieldtype: 'HTML',
+						options: `<p class="text-muted" style="margin-bottom:4px">${__('Enter this customer\'s email address or phone number (at least one). They are saved on the customer.')}</p>`,
+					},
+					{ fieldname: 'email', fieldtype: 'Data', options: 'Email', label: __('Email Address'), default: cur.email || '' },
+					{ fieldname: 'phone', fieldtype: 'Data', options: 'Phone', label: __('Phone Number'), default: cur.phone || '' },
+				],
+				primary_action_label: __('Save'),
+				primary_action: function (values) {
+					const email = (values.email || '').trim();
+					const phone = (values.phone || '').trim();
+					if (!email && !phone) {
+						frappe.msgprint({
+							title: __('Contact details required'),
+							indicator: 'red',
+							message: __('Enter an email address or a phone number.'),
+						});
+						return;
+					}
+					frappe.call({
+						method: M + 'save_customer_contact',
+						args: { customer: customer, email: email, phone: phone },
+						freeze: true,
+					}).then(function (res) {
+						const c = res.message || {};
+						frm._cm_contact_missing = false;
+						d.hide();
+						if (c.contact) frm.set_value('contact_person', c.contact);
+						frappe.show_alert({ message: __('Contact details saved on {0}', [customer]), indicator: 'green' });
+					});
+				},
+			});
+			d.show();
+		});
+	}
+
+	frappe.ui.form.on('Sales Order', {
+		customer: function (frm) {
+			ask_contact(frm);
+		},
+		validate: function (frm) {
+			if (frm._cm_contact_missing) {
+				frappe.validated = false;
+				frappe.show_alert({ message: __('Add the customer\'s email or phone to continue.'), indicator: 'red' });
+				ask_contact(frm);
+			}
+		},
+	});
+})();
