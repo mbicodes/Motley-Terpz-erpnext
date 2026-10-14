@@ -709,7 +709,7 @@ def conversion_modal(so, cfg, rows=1, microns=False):
 		for n in range(1, MAX_SLACK_RAW + 1):
 			blocks.append(
 				input_block(
-					f"r{r}_rm{n}", f"Raw material {n}", external_select("mt:item_or_tag", "Item or Metric Tag"),
+					f"r{r}_rm{n}", f"Raw material {n}", external_select("mt:item_or_tag", "Item or Metrc Tag"),
 					optional=n > 1,
 				)
 			)
@@ -801,13 +801,13 @@ def delivery_note_modal(so, cfg):
 			blocks.append(
 				input_block(
 					f"line_{row.name}",
-					"Metric Tag",
+					"Metrc Tag",
 					static_select("value", options, tags[0].muid if len(tags) == 1 else None, "Pick a tag"),
 					optional=not cfg.require_muid_on_dn,
 				)
 			)
 		else:
-			blocks.append(context("No Metric Tag holds stock of this item here."))
+			blocks.append(context("No Metrc Tag holds stock of this item here."))
 	return _modal("mt_delivery_note", "Delivery Note", blocks, _meta(so), submit="Create draft")
 
 

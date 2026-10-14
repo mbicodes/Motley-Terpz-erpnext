@@ -38,7 +38,7 @@ def conversion_types():
 
 
 def resolve_item(value, warehouse=None):
-	"""An item code, or the item behind a Metric Tag code.
+	"""An item code, or the item behind a Metrc Tag code.
 
 	The existing tag helpers in cannabis_management.custom.metric_tag are link
 	search queries -- they answer "which tags can I pick here", not "what item
@@ -51,12 +51,12 @@ def resolve_item(value, warehouse=None):
 		return value, None
 
 	tag = frappe.db.get_value(
-		"Metric Tag", {"name": value}, ["name", "item_code"], as_dict=True
+		"Metrc Tag", {"name": value}, ["name", "item_code"], as_dict=True
 	) or frappe.db.get_value(
-		"Metric Tag", {"muid": value}, ["name", "item_code"], as_dict=True
+		"Metrc Tag", {"muid": value}, ["name", "item_code"], as_dict=True
 	)
 	if not tag or not tag.item_code:
-		raise GateError(_("{0} is neither an item code nor a Metric Tag.").format(value))
+		raise GateError(_("{0} is neither an item code nor a Metrc Tag.").format(value))
 	return tag.item_code, tag.name
 
 
@@ -140,7 +140,7 @@ def make_conversion_entry(so, cfg, payload):
 
 
 def build_delivery_note(so, cfg, payload):
-	"""Core's own mapper, with the Metric Tag chosen per line.
+	"""Core's own mapper, with the Metrc Tag chosen per line.
 
 	Runs inside transition(), so frappe.flags.mt_dispatch is set and the
 	before_insert guard lets this through -- which is the only way a governed

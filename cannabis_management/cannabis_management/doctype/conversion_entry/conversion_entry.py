@@ -288,7 +288,7 @@ class ConversionEntry(Document):
 		# ── Source (outgoing) items ───────────────────────────────────────────
 		total_source_value = 0.0
 		# Each Raw Material N carries its own Source Tag N (rm_N_tag); it maps to
-		# the outgoing Stock Entry line's "tags" field, which is the Metric Tag
+		# the outgoing Stock Entry line's "tags" field, which is the Metrc Tag
 		# inventory dimension's source column on Stock Entry Detail.
 		for item_code, qty, tag in [
 			(row.raw_material_1, row.qty_rm_1, row.rm_1_tag),

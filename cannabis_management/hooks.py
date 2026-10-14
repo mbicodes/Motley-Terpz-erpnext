@@ -8,7 +8,7 @@ app_license = "mit"
 # Apps
 # ------------------
 
-# required_apps = []
+required_apps = ["metrc_customizations"]
 
 # Each item in the list will be shown as an app in the apps page
 # add_to_apps_screen = [
@@ -57,23 +57,8 @@ app_include_js = [
     # Order button, post-submit Payment Entry / Journal Entry actions, and the
     # currency-formatted Sales Order picker. Must load before those form scripts.
     "/assets/cannabis_management/js/cash_tracking_actions.js",
-    # Shared Muid (Metric Tag) Link-query filter, keyed off the row's
-    # warehouse License. Must load before the Stock Entry / Purchase
-    # Receipt / Purchase Invoice / Delivery Note / Sales Invoice form
-    # scripts, which call cannabis_management.metric_tag.filter_by_warehouse().
-    # NOTE: this path has no build-hash, so browsers/proxies can cache it
-    # indefinitely -- bump the ?v= query on every content change (same trick
-    # metric_tag_scan.js uses) or edits here silently won't reach users.
-    "/assets/cannabis_management/js/metric_tag_query.js?v=3",
-    # Scan-to-select for Metric Tag: patches erpnext's shared BarcodeScanner
-    # (used by Purchase Receipt / Delivery Note / Stock Entry / Stock
-    # Reconciliation) so scanning a Metric Tag's Tag Code/MUID into the item
-    # table's "Scan Barcode" field opens a picker of the items/strains in
-    # stock under that tag. See metric_tag.get_metric_tag_scan.
-    # NOTE: this path has no build-hash, so browsers/proxies can cache it
-    # indefinitely — bump the ?v= query on every content change (same trick
-    # infix_theme.js uses below) or edits here silently won't reach users.
-    "/assets/cannabis_management/js/metric_tag_scan.js?v=2",
+    # Metrc Tag pickers (metric_tag_query.js) and scan-to-select
+    # (metric_tag_scan.js) are included by the metrc_customizations app.
     # Data Export dialog: preset button that ticks a saved column set
     # (Sales Invoice -> the invoice sheet columns). Bump ?v= on every change.
     "/assets/cannabis_management/js/data_export_presets.js?v=1",
@@ -148,6 +133,11 @@ doctype_list_js = {
 # 	"methods": "cannabis_management.cannabis_management.utils.jinja_methods",
 # 	"filters": "cannabis_management.cannabis_management.utils.jinja_filters"
 # }
+jinja = {
+	# The "Run Production Log" print format (Material Request) — the Print Log
+	# button on a run's card on the Manufacturing Process page.
+	"methods": ["cannabis_management.api.manufacturing_process.run_production_log"],
+}
 
 # Migration hooks
 # ---------------
@@ -323,6 +313,9 @@ override_doctype_class = {
     # submit -- a run is weighed, not dispensed -- and lets an employee run
     # timers on several operations at once. See overrides/job_card_qty.py.
     "Job Card":             "cannabis_management.overrides.job_card_qty.CMJobCard",
+    # Skips core's blocking gravatar.com lookup on every lead save.
+    # See overrides/crm_lead_no_gravatar.py.
+    "CRM Lead":             "cannabis_management.overrides.crm_lead_no_gravatar.CMCRMLead",
 }
 
 # Document Events
@@ -467,25 +460,27 @@ doc_events = {
     },
     "Stock Entry": {
         "before_validate": "cannabis_management.cannabis_management.custom.stock_entry.before_validate",
-        # METRC push is appended to on_submit below, after the Metric Tag sync.
+        # METRC push is appended to on_submit below, after the Metrc Tag sync.
         "validate": [
             "cannabis_management.cannabis_management.custom.stock_entry.validate",
             "cannabis_management.doc_hooks.stock_entry.sync_row_uom_with_item",
             "cannabis_management.doc_hooks.stock_entry.populate_micron_finished_goods",
             "cannabis_management.doc_hooks.stock_entry.set_operating_cost_accounts",
-            # Metric Tag: mirror muid/to_muid on single-leg rows so either field works
-            "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.normalize_stock_entry_tag_fields",
+            # Metrc Tag: mirror muid/to_muid on single-leg rows so either field works
+            "metrc_customizations.metrc_customizations.doctype.metrc_tag.metrc_tag.normalize_stock_entry_tag_fields",
         ],
-        # Metric Tag status/qty lifecycle sync — also covers the Stock Entries a Job Card generates
+        # Metrc Tag status/qty lifecycle sync — also covers the Stock Entries a Job Card generates
         "before_submit": [
             # Gate 1: production transfers and manufacture only, per §7.
             "cannabis_management.credit_and_ar.hold_engine.enforce_hold",
-            "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.validate_metric_tag_status",
+            "metrc_customizations.metrc_customizations.doctype.metrc_tag.metrc_tag.validate_metric_tag_status",
+            # Each item's Item Group must be in its warehouse's Item Group Account Mapping.
+            "cannabis_management.overrides.warehouse_account_utils.validate_item_group_mapping",
         ],
         "on_submit": [
-            "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
+            "metrc_customizations.metrc_customizations.doctype.metrc_tag.metrc_tag.sync_metric_tags",
             # Source Tag / Target Tag on the Stock Ledger Entries this submit just wrote.
-            "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_sle_source_target_tags",
+            "metrc_customizations.metrc_customizations.doctype.metrc_tag.metrc_tag.sync_sle_source_target_tags",
             # Completed Work Order's produced qty becomes the required qty of
             # that item on the other Work Order(s) of the same Material Request.
             "cannabis_management.doc_hooks.stock_entry.carry_produced_qty_to_sibling_work_order",
@@ -493,7 +488,7 @@ doc_events = {
             "cannabis_management.overrides.mr_run_status.on_stock_entry_change",
         ],
         "on_cancel": [
-            "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
+            "metrc_customizations.metrc_customizations.doctype.metrc_tag.metrc_tag.sync_metric_tags",
             "cannabis_management.overrides.mr_run_status.on_stock_entry_change",
         ],
     },
@@ -529,8 +524,10 @@ doc_events = {
         "before_submit": [
             # Gate 1: no product moves for a held customer.
             "cannabis_management.credit_and_ar.hold_engine.enforce_hold",
-            # Metric Tag status lifecycle sync
-            "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.validate_metric_tag_status",
+            # Metrc Tag status lifecycle sync
+            "metrc_customizations.metrc_customizations.doctype.metrc_tag.metrc_tag.validate_metric_tag_status",
+            # Each item's Item Group must be in its warehouse's Item Group Account Mapping.
+            "cannabis_management.overrides.warehouse_account_utils.validate_item_group_mapping",
         ],
         "on_update": [
             "cannabis_management.overrides.delivery_note_hooks.update_sales_invoice_delivery_status",
@@ -539,35 +536,43 @@ doc_events = {
         "on_submit": [
             "cannabis_management.overrides.delivery_note_hooks.update_sales_invoice_delivery_status",
             "cannabis_management.overrides.delivery_note_hooks.update_sales_order_delivery_status",
-            "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
-            "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_sle_source_target_tags",
+            "metrc_customizations.metrc_customizations.doctype.metrc_tag.metrc_tag.sync_metric_tags",
+            "metrc_customizations.metrc_customizations.doctype.metrc_tag.metrc_tag.sync_sle_source_target_tags",
         ],
         "on_cancel": [
             "cannabis_management.overrides.delivery_note_hooks.update_sales_invoice_delivery_status",
             "cannabis_management.overrides.delivery_note_hooks.update_sales_order_delivery_status",
-            "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
+            "metrc_customizations.metrc_customizations.doctype.metrc_tag.metrc_tag.sync_metric_tags",
         ],
         "validate": "cannabis_management.overrides.delivery_note_hooks.set_expense_head",
     },
-    # Metric Tag status/qty lifecycle sync
+    # Metrc Tag status/qty lifecycle sync
     "Purchase Receipt": {
-        "before_submit": "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.validate_metric_tag_status",
+        "before_submit": [
+            "metrc_customizations.metrc_customizations.doctype.metrc_tag.metrc_tag.validate_metric_tag_status",
+            # Each item's Item Group must be in its warehouse's Item Group Account Mapping.
+            "cannabis_management.overrides.warehouse_account_utils.validate_item_group_mapping",
+        ],
         "on_submit": [
-            "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
-            "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_sle_source_target_tags",
+            "metrc_customizations.metrc_customizations.doctype.metrc_tag.metrc_tag.sync_metric_tags",
+            "metrc_customizations.metrc_customizations.doctype.metrc_tag.metrc_tag.sync_sle_source_target_tags",
         ],
         "on_cancel": [
-            "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
+            "metrc_customizations.metrc_customizations.doctype.metrc_tag.metrc_tag.sync_metric_tags",
         ],
     },
     "Stock Reconciliation": {
-        "before_submit": "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.validate_metric_tag_status",
+        "before_submit": [
+            "metrc_customizations.metrc_customizations.doctype.metrc_tag.metrc_tag.validate_metric_tag_status",
+            # Each item's Item Group must be in its warehouse's Item Group Account Mapping.
+            "cannabis_management.overrides.warehouse_account_utils.validate_item_group_mapping",
+        ],
         "on_submit": [
-            "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
-            "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_sle_source_target_tags",
+            "metrc_customizations.metrc_customizations.doctype.metrc_tag.metrc_tag.sync_metric_tags",
+            "metrc_customizations.metrc_customizations.doctype.metrc_tag.metrc_tag.sync_sle_source_target_tags",
         ],
         "on_cancel": [
-            "cannabis_management.cannabis_management.doctype.metric_tag.metric_tag.sync_metric_tags",
+            "metrc_customizations.metrc_customizations.doctype.metrc_tag.metrc_tag.sync_metric_tags",
         ],
     },
     "Work Order": {
@@ -978,12 +983,16 @@ fixtures = [
                     "from_muid",
                     "rejected_muid",
                 ],
-            ]
+            ],
+            # Metrc fields belong to the metrc_customizations app's fixtures.
+            ["fieldname", "not like", "%metrc%"],
+            ["dt", "!=", "Metrc Tag"],
+            ["name", "!=", "Company-custom_licenses"],
         ],
     },
     "Client Script",
     "Server Script",
-    "Property Setter",
+    {"dt": "Property Setter", "filters": [["doc_type", "!=", "Metrc Tag"]]},
     "Workflow",
     "Workflow State",
     "Workflow Action",

@@ -1,6 +1,6 @@
 frappe.ui.form.on("Purchase Invoice", {
     refresh(frm) {
-        // Target/Rejected/Source Tags: only offer Metric Tags whose License
+        // Target/Rejected/Source Tags: only offer Metrc Tags whose License
         // matches the row's Warehouse/Rejected Warehouse/From Warehouse.
         cannabis_management.metric_tag.filter_by_warehouse(frm, "tags", "warehouse");
         cannabis_management.metric_tag.filter_by_warehouse(frm, "rejected_tags", "rejected_warehouse");

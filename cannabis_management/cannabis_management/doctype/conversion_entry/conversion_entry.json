@@ -175,9 +175,9 @@
   {
    "fieldname": "scan_metric_tag",
    "fieldtype": "Data",
-   "label": "Scan Metric Tag",
+   "label": "Scan Metrc Tag",
    "no_copy": 1,
-   "description": "Type or scan a Metric Tag's Tag Code / MUID to auto-fill the next empty Raw Material slot below with an item + strain currently in stock under that tag."
+   "description": "Type or scan a Metrc Tag's Tag Code / MUID to auto-fill the next empty Raw Material slot below with an item + strain currently in stock under that tag."
   },
   {
    "allow_bulk_edit": 1,

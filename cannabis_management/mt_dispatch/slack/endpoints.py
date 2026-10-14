@@ -253,12 +253,14 @@ def search_options(action_id, query, limit=100):
 	per_kind = limit // 2 if action_id == "mt:item_or_tag" else limit
 
 	if action_id == "mt:item_or_tag":
-		for t in frappe.get_all(
-			"Metric Tag",
-			filters={"status": ["!=", "Empty"]},
-			or_filters={"name": ["like", like], "tag_code": ["like", like], "muid": ["like", like]},
-			fields=["name", "tag_code", "item_code", "current_qty"],
-			limit=per_kind,
+		# Received tags, or Used tags still holding stock -- never Void or emptied ones.
+		for t in frappe.db.sql(
+			"""select name, tag_code, item_code, current_qty from `tabMetrc Tag`
+			where (status = 'Received' or (status = 'Used' and current_qty > 0))
+			  and (name like %(like)s or tag_code like %(like)s or muid like %(like)s)
+			limit %(limit)s""",
+			{"like": like, "limit": per_kind},
+			as_dict=True,
 		):
 			out.append(blocks.option(f"Tag {t.tag_code or t.name} · {t.item_code or '?'} ({t.current_qty or 0:g})", f"tag:{t.name}"))
 

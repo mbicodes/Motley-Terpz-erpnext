@@ -1,15 +1,15 @@
 frappe.ui.form.on("Stock Entry", {
     refresh: function (frm) {
-        // Source/Target Tags: only offer Metric Tags whose License matches
+        // Source/Target Tags: only offer Metrc Tags whose License matches
         // the row's Source/Target Warehouse.
         // Source Tags: only Active tags. Target Tags: only Unused tags.
         cannabis_management.metric_tag.filter_by_warehouse(
             frm, "tags", "s_warehouse", "items",
-            "cannabis_management.cannabis_management.custom.metric_tag.source_tags_for_warehouse"
+            "metrc_customizations.tag_queries.source_tags_for_warehouse"
         );
         cannabis_management.metric_tag.filter_by_warehouse(
             frm, "to_tags", "t_warehouse", "items",
-            "cannabis_management.cannabis_management.custom.metric_tag.target_tags_for_warehouse"
+            "metrc_customizations.tag_queries.target_tags_for_warehouse"
         );
         toggle_tag_mandatory(frm);
 

@@ -8,7 +8,7 @@ underneath them. This lays the row out like Stock Entry: Source Brand /
 Source Tags / Source Batch, a column break, then Target Brand / Target Tags /
 Target Batch.
 
-The Metric Tag hooks already read both Source and Target Tags on a
+The Metrc Tag hooks already read both Source and Target Tags on a
 reconciliation row (see metric_tag.get_touched_tags). Target Brand and Target
 Batch are recorded on the row only: ERPNext copies just the source
 dimensions into the Stock Ledger Entry of a single-warehouse row.
@@ -47,7 +47,7 @@ def install_custom_fields():
 # app's layout means SOURCE Tags — the downward-adjustment field. An upward
 # adjustment belongs in TARGET Tags ("to_tags"), which ERPNext never copies into
 # the Stock Ledger Entry as a dimension, so it does not distort any balance.
-# metric_tag.get_touched_tags reads both fields, so the Metric Tag status sync
+# metric_tag.get_touched_tags reads both fields, so the Metrc Tag status sync
 # and the Metrc Package movements still see the tag either way.
 #
 # So: an increase filed against Source Tags is simply in the wrong box, and is
@@ -62,7 +62,7 @@ from frappe.utils import flt
 
 def resolve_tag_direction(doc):
 	"""Called from CMStockReconciliation.validate_inventory_dimension."""
-	from cannabis_management.cannabis_management.doctype.metric_tag.metric_tag import (
+	from metrc_customizations.metrc_customizations.doctype.metrc_tag.metrc_tag import (
 		get_metric_tag_dimension_names,
 	)
 
@@ -107,7 +107,7 @@ def resolve_tag_direction(doc):
 				"Moved to <b>Target Tags</b> — this row adds stock, and Source Tags is for "
 				"reductions:<ul>{0}</ul>"
 			).format(lines),
-			title=_("Metric Tag moved"),
+			title=_("Metrc Tag moved"),
 			indicator="blue",
 		)
 
@@ -134,7 +134,7 @@ def resolve_tag_direction(doc):
 def clear_superseded_tag_fields(doc):
 	"""A row with a Reconcile Tag must not also carry Source/Target Tags, or the
 	tag would be counted twice. Runs before core's validate."""
-	from cannabis_management.cannabis_management.doctype.metric_tag.metric_tag import (
+	from metrc_customizations.metrc_customizations.doctype.metrc_tag.metrc_tag import (
 		get_metric_tag_dimension_names,
 	)
 
@@ -163,11 +163,11 @@ def validate_reconcile_tags(doc):
 		seen.add(tag_name)
 
 		tag = frappe.db.get_value(
-			"Metric Tag", tag_name, ["status", "item_code", "warehouse", "current_qty"], as_dict=True
+			"Metrc Tag", tag_name, ["status", "item_code", "warehouse", "current_qty"], as_dict=True
 		)
 		diff = flt(row.qty) - flt(row.current_qty)
 
-		if tag.status == "Active" and flt(tag.current_qty) > 0:
+		if tag.status == "Used" and flt(tag.current_qty) > 0:
 			if tag.item_code and tag.item_code != row.item_code:
 				frappe.throw(
 					_("Row #{0}: Reconcile Tag {1} holds {2}, not {3}.").format(
@@ -187,11 +187,11 @@ def validate_reconcile_tags(doc):
 					).format(row.idx, abs(diff), frappe.bold(tag_name), flt(tag.current_qty))
 				)
 			row.reconcile_tag_mode = "Source"
-		elif tag.status == "Unused":
+		elif tag.status == "Received":
 			if diff <= 0:
 				frappe.throw(
 					_(
-						"Row #{0}: Reconcile Tag {1} is Unused, so this row must add stock. "
+						"Row #{0}: Reconcile Tag {1} is Received (not used yet), so this row must add stock. "
 						"Quantity ({2}) has to be more than the current quantity in the warehouse ({3}); "
 						"the difference is what goes into the new tag."
 					).format(row.idx, frappe.bold(tag_name), flt(row.qty), flt(row.current_qty))

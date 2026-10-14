@@ -1,18 +1,18 @@
 frappe.ui.form.on("Purchase Receipt", {
     refresh: function (frm) {
-        // Target/Rejected/Source Tags: only offer Metric Tags whose License
+        // Target/Rejected/Source Tags: only offer Metrc Tags whose License
         // matches the row's Warehouse/Rejected Warehouse/From Warehouse.
         // Note: on Purchase Receipt Item, "tags" is labeled Target Tags and
         // "from_tags" is labeled Source Tags. Source Tags: only Active tags.
         // Target Tags: only Unused tags.
         cannabis_management.metric_tag.filter_by_warehouse(
             frm, "tags", "warehouse", "items",
-            "cannabis_management.cannabis_management.custom.metric_tag.target_tags_for_warehouse"
+            "metrc_customizations.tag_queries.target_tags_for_warehouse"
         );
         cannabis_management.metric_tag.filter_by_warehouse(frm, "rejected_tags", "rejected_warehouse");
         cannabis_management.metric_tag.filter_by_warehouse(
             frm, "from_tags", "from_warehouse", "items",
-            "cannabis_management.cannabis_management.custom.metric_tag.source_tags_for_warehouse"
+            "metrc_customizations.tag_queries.source_tags_for_warehouse"
         );
     },
 

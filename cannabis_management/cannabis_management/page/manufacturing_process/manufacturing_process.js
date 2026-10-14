@@ -73,6 +73,7 @@ class ManufacturingRun {
 					<option value="calendar"${this.view === "calendar" ? " selected" : ""}>Calendar View</option>
 				</select>
 				<input type="date" class="mc-wo-search" id="mc-date-filter" title="Filter by Date" value="${this.date_filter ? esc(this.date_filter) : ""}">
+				<button class="mc-btn mc-btn-secondary" data-action="clear_filters" title="Clear the Item, Project, Operation and Date filters"><i class="ti ti-filter-off" aria-hidden="true"></i> Clear Filters</button>
 				<button class="mc-btn mc-btn-secondary" data-action="collapse_all">Collapse All</button>
 				<button class="mc-btn mc-btn-secondary" data-action="expand_all">Expand All</button>
 				<button class="mc-btn mc-btn-dashboard" data-action="open_dashboard" title="Open the Manufacturing Dashboard"><i class="ti ti-layout-dashboard" aria-hidden="true"></i> Switch to Dashboard</button>
@@ -248,7 +249,6 @@ class ManufacturingRun {
 						<span title="Transaction Date"><i class="ti ti-calendar" aria-hidden="true"></i> ${esc(this._fmt_date(m.transaction_date) || "—")}</span>
 						<span>${esc(m.primary_qty)} <a class="mc-open-desk-link" onclick="frappe.set_route('Form','Material Request','${esc(m.name)}')">Open in Desk</a></span>
 						<span class="mc-status mc-status-${status_class}" data-role="run-status">${status_label}</span>
-						<span data-role="tiering-flag"></span>
 					</div>
 				</div>
 				<div class="mc-ops-card-actions">${this._render_attach_action()}${this._render_release_action(m.work_order_count > 0)}</div>
@@ -264,6 +264,33 @@ class ManufacturingRun {
 		const status_label = docstatus === 0 ? "Draft" : (status || "Submitted");
 		const status_class = status_label.toLowerCase().replace(/\s+/g, "-");
 		return { status_class, status_label };
+	}
+
+	// Once a released run's detail is loaded, its badge names what it is
+	// waiting on: the stage still in production ("Waiting for Bubble Hash",
+	// then "Waiting for Rosin"), then "Waiting for Tiering" until a Rosin
+	// stage's product is tiered, and Completed only when all of that is done.
+	// Draft / Pending / Stopped runs keep the Material Request status.
+	_run_stage_badge(run, tiering_pending) {
+		const mr = run.material_request;
+		if (mr.docstatus !== 1 || !run.work_orders.length || ["Stopped", "Cancelled"].includes(mr.status)) {
+			return this._run_status_badge(mr.docstatus, mr.status);
+		}
+		const active_wo = run.work_orders.find(w => w.name === run.active_work_order);
+		if (active_wo) return { status_class: "in-progress", status_label: `Waiting for ${this._stage_name(active_wo)}` };
+		if (tiering_pending) return { status_class: "tiering-required", status_label: "Waiting for Tiering" };
+		return { status_class: "completed", status_label: "Completed" };
+	}
+
+	// A stage is named for what it makes, by its operation — item names vary
+	// ("Rosin", "Raw Rosin", "Garlic Budder-Rosin"). Anything else falls back
+	// to the part of the item name after the strain.
+	_stage_name(wo) {
+		const STAGE_NAMES = { "Hash Processing": "Bubble Hash", "Rosin Pressing": "Rosin" };
+		const op = ((wo.job_cards || [])[0] || {}).operation;
+		if (STAGE_NAMES[op]) return STAGE_NAMES[op];
+		const item = wo.item_name || wo.production_item || "";
+		return item.split(/\s*-\s*/).pop() || op || item;
 	}
 
 	// Masonry: the list is a grid of short rows and each card spans as many
@@ -294,6 +321,16 @@ class ManufacturingRun {
 		return released
 			? `<span class="mc-btn mc-btn-sm mc-step-done">Released</span>`
 			: `<button class="mc-btn mc-btn-sm mc-btn-pending" data-action="release_run">Release</button>`;
+	}
+
+	// Print Log: the run's Production Log sheet for the log book, once its
+	// Rosin has been created (the Rosin yield is known).
+	_render_print_log_action(run) {
+		const rosin_done = run.work_orders.some(wo => wo.manufacture_entry
+			&& (wo.job_cards || []).some(jc => jc.operation === "Rosin Pressing"));
+		return rosin_done
+			? `<button class="mc-btn mc-btn-sm mc-btn-secondary" data-action="print_log" title="Print this run's Production Log for the log book"><i class="ti ti-printer" aria-hidden="true"></i> Print Log</button>`
+			: "";
 	}
 
 	// The files on the run's Material Request (its Attachments table). Before
@@ -490,30 +527,54 @@ class ManufacturingRun {
 		// already carrying the right data-wo (its own jc.work_order) —
 		// no header-level button to sync here anymore.
 		let body = this._render_ops_body(run, active_wo);
+		const typing = this._note_being_typed($card);
 		$card.find(".mc-run-card-body").html(body);
+		if (typing) this._restore_note(typing);
 		$card.find(".mc-ops-card-actions").html(
-			this._render_attach_action(run.attachments) + this._render_release_action(run.work_orders.length > 0));
-		const badge = this._run_status_badge(run.material_request.docstatus, run.material_request.status);
-		$card.find('[data-role="run-status"]')
-			.attr("class", `mc-status mc-status-${badge.status_class}`)
-			.text(badge.status_label);
-
+			this._render_attach_action(run.attachments) + this._render_release_action(run.work_orders.length > 0)
+			+ this._render_print_log_action(run));
 		// A finished run keeps its card, collapsed by default -- unless
 		// someone has opened or closed it by hand this session. "Finished"
 		// includes Tiering Product: a Completed run with a Rosin stage stays
 		// open until its product has been tiered.
 		const tiering_pending = run.work_orders.some(wo =>
 			(wo.job_cards || []).some(jc => jc.operation === "Rosin Pressing") && !wo.tiering_entry);
-		$card.find('[data-role="tiering-flag"]').html(
-			badge.status_label === "Completed" && tiering_pending
-				? '<span class="mc-status mc-status-tiering-required">Tiering Required</span>'
-				: "");
+		const badge = this._run_stage_badge(run, tiering_pending);
+		$card.find('[data-role="run-status"]')
+			.attr("class", `mc-status mc-status-${badge.status_class}`)
+			.text(badge.status_label);
 		if (run.complete && !tiering_pending && !this.toggled_by_hand.has(mr_name)) {
 			this.collapsed.add(mr_name);
 			this._set_card_collapsed($card, true);
 		}
 
 		this._start_ticks();
+	}
+
+	// A live refresh re-renders the card body; whoever is typing a note
+	// keeps their text, cursor and focus.
+	_note_being_typed($card) {
+		const el = $card.find(".mc-sub-op-note:focus")[0];
+		if (!el) return null;
+		return { jc: el.getAttribute("data-jc"), op: el.getAttribute("data-op"), value: el.value,
+			start: el.selectionStart, end: el.selectionEnd };
+	}
+
+	_restore_note(typing) {
+		const el = this.$app.find(".mc-sub-op-note").toArray()
+			.find(n => n.getAttribute("data-jc") === typing.jc && n.getAttribute("data-op") === typing.op);
+		if (!el) return;
+		el.value = typing.value;
+		el.focus();
+		try { el.setSelectionRange(typing.start, typing.end); } catch (e) { /* not a text input */ }
+	}
+
+	_clear_filters() {
+		this.item_filter = this.project_filter = this.operation_filter = this.date_filter = null;
+		[this.item_filter_control, this.project_filter_control, this.operation_filter_control]
+			.forEach(c => c && c.set_value(""));
+		this.$app.find("#mc-date-filter").val("");
+		this._apply_filters();
 	}
 
 	_bind_picker_events() {
@@ -562,6 +623,7 @@ class ManufacturingRun {
 			self.date_filter = $(this).val() || null;
 			self._apply_filters();
 		});
+		$app.find('[data-action="clear_filters"]').click(() => self._clear_filters());
 
 		// Delegated on $app (not the individual card) so buttons inside a
 		// card's operations body keep working after that body re-renders —
@@ -593,6 +655,26 @@ class ManufacturingRun {
 			const files = (self.runs[mr_name] && self.runs[mr_name].attachments) || [];
 			if (files.length) self._open_attachments_dialog(mr_name);
 			else self._upload_attachments(mr_name);
+		});
+
+		$app.on("click", '[data-action="print_log"]', function () {
+			const mr_name = $(this).closest(".mc-run-card").data("mr");
+			const params = new URLSearchParams({
+				doctype: "Material Request", name: mr_name, format: "Run Production Log",
+				no_letterhead: 1, trigger_print: 1,
+			});
+			window.open(`/printview?${params}`, "_blank");
+		});
+
+		// Note box on each process row: saved when it loses focus or on Enter,
+		// if it differs from what is saved (a re-render while typing puts the
+		// text back into a fresh box, which never fires "change").
+		$app.off(".mcnote");
+		$app.on("keydown.mcnote", ".mc-sub-op-note", function (e) {
+			if (e.key === "Enter") { e.preventDefault(); this.blur(); }
+		});
+		$app.on("focusout.mcnote", ".mc-sub-op-note", function () {
+			self._save_note($(this));
 		});
 
 		$app.on("click", '[data-action="transfer_run"]', function () {
@@ -1294,7 +1376,7 @@ class ManufacturingRun {
 	// form. Left out: the Tolling micron fields (they depend on the parent
 	// form) and the item-group fields the entry fills in itself.
 	_open_tiering_dialog(wo_name, doc, mr_name) {
-		const TAGS = "cannabis_management.cannabis_management.custom.metric_tag.";
+		const TAGS = "metrc_customizations.tag_queries.";
 		const LIST = { conversion_type: 1, raw_material_1: 2, qty_rm_1: 1, finished_good_1: 2, qty_fg_1: 1, fg_1_tag: 1, target_warehouse: 2 };
 		const company = doc.company;
 		const skip = (df) => /^micron_|_microns$/.test(df.fieldname) || /_item_group$/.test(df.fieldname);
@@ -1408,10 +1490,44 @@ class ManufacturingRun {
 
 		return `
 		<div class="mc-sub-op-row">
-			<div class="mc-sub-op-name">${esc(so.operation)}${who}</div>
+			<div class="mc-sub-op-name">${esc(so.operation)}${who}${this._render_note_input(jc, so.operation, so.note)}</div>
 			<div class="mc-sub-op-status">${status_text}</div>
 			<div class="mc-sub-op-actions">${btn}</div>
 		</div>`;
+	}
+
+	// A short note per process row (sub-operation, or the whole Job Card when
+	// it has none) — kept on the Job Card, printed on the Production Log.
+	// Editable at any status, so a note can be added after the step is done.
+	_render_note_input(jc, operation, note) {
+		return `<input type="text" class="mc-sub-op-note" maxlength="140" placeholder="Note"
+			data-jc="${esc(jc.name)}" data-op="${esc(operation || "")}" value="${esc(note || "")}" title="Note for ${esc(operation || "")}">`;
+	}
+
+	async _save_note($input) {
+		const job_card = $input.attr("data-jc");
+		const operation = $input.attr("data-op");
+		const note = ($input.val() || "").trim();
+		const jc = this.find_job_card(job_card);
+		const so = jc && (jc.sub_operations || []).find(s => s.operation === operation);
+		const saved = (so ? so.note : jc && jc.note) || "";
+		if (note === saved) return;
+		try {
+			const r = await this.api("save_sub_op_note", { job_card, operation, note });
+			if (so) so.note = r.note; else if (jc) jc.note = r.note;
+			this._flash_note(job_card, operation, "is-saved");
+		} catch (e) {
+			this._flash_note(job_card, operation, "is-error");
+			frappe.msgprint(e.message || e);
+		}
+	}
+
+	// The box may have been re-rendered while saving — look it up again.
+	_flash_note(job_card, operation, cls) {
+		const $input = this.$app.find(".mc-sub-op-note")
+			.filter((i, el) => el.getAttribute("data-jc") === job_card && el.getAttribute("data-op") === operation);
+		$input.addClass(cls);
+		setTimeout(() => $input.removeClass(cls), 1200);
 	}
 
 	// Fallback for a Job Card whose operation has no defined sub-steps —
@@ -1437,6 +1553,7 @@ class ManufacturingRun {
 		<div class="mc-whole-timer">
 			<div class="mc-timer-display mc-timer-display-sm" data-jc-timer="${esc(jc.name)}">${this._fmt_secs(Math.floor(total_secs))}</div>
 			<div class="mc-timer-actions">${btn}</div>
+			${this._render_note_input(jc, jc.operation, jc.note)}
 		</div>`;
 	}
 

@@ -49,23 +49,23 @@ def draft_delivery_note(so_name):
 
 
 def tags_with_stock(item_code, warehouse, limit=100):
-	"""Metric Tags holding stock of an item in a warehouse.
+	"""Metrc Tags holding stock of an item in a warehouse.
 
 	Not a Stock Ledger query. `muid` is not an inventory dimension on this site
 	-- the only dimensions are Brand and Batch, and there is no muid column on
 	Stock Ledger Entry at all. Per-tag quantity is a maintained field on the
-	Metric Tag record itself, so that is what both the picker and G3 read.
+	Metrc Tag record itself, so that is what both the picker and G3 read.
 
 	Consequence worth knowing: this is only as accurate as whatever keeps
-	Metric Tag.current_qty in step with the ledger.
+	Metrc Tag.current_qty in step with the ledger.
 	"""
 	return frappe.get_all(
-		"Metric Tag",
+		"Metrc Tag",
 		filters={
 			"item_code": item_code,
 			"warehouse": warehouse,
 			"current_qty": [">", 0],
-			"status": ["!=", "Empty"],
+			"status": "Used",
 		},
 		fields=["name as muid", "tag_code", "current_qty as qty"],
 		order_by="current_qty desc",
@@ -74,7 +74,7 @@ def tags_with_stock(item_code, warehouse, limit=100):
 
 
 def tag_qty(muid):
-	return flt(frappe.db.get_value("Metric Tag", muid, "current_qty"))
+	return flt(frappe.db.get_value("Metrc Tag", muid, "current_qty"))
 
 
 def conversion_targets(so_name):
@@ -173,7 +173,7 @@ def one_delivery_note(so, cfg, payload=None):
 
 
 def tags_set(so, cfg, payload=None):
-	"""G3 -- every line names a Metric Tag that actually holds the quantity.
+	"""G3 -- every line names a Metrc Tag that actually holds the quantity.
 
 	Checks the chosen tags before the Delivery Note is built, not after. G3
 	guards `create_delivery_note`, and guards run before the effect, so at that
@@ -201,7 +201,7 @@ def tags_set(so, cfg, payload=None):
 
 def _check_tag(muid, idx, item_code, qty):
 	if not muid:
-		raise GateError(_("Row #{0} ({1}): no Metric Tag chosen.").format(idx, item_code))
+		raise GateError(_("Row #{0} ({1}): no Metrc Tag chosen.").format(idx, item_code))
 	available = tag_qty(muid)
 	if available < flt(qty):
 		raise GateError(

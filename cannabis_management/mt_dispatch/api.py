@@ -104,7 +104,7 @@ def blocked_reason(so, cfg, action, t, is_admin=False):
 
 @frappe.whitelist()
 def tag_options(item_code, warehouse):
-	"""Metric Tags holding stock of this item here, for the picker."""
+	"""Metrc Tags holding stock of this item here, for the picker."""
 	return gates.tags_with_stock(item_code, warehouse)
 
 

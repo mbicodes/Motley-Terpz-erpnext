@@ -232,10 +232,10 @@ def _parse_conversion(values, meta):
 
 
 def _resolve_pick(value):
-	"""external_select values are item:<code> or tag:<Metric Tag name>."""
+	"""external_select values are item:<code> or tag:<Metrc Tag name>."""
 	kind, _, name = (value or "").partition(":")
 	if kind == "tag":
-		item = frappe.db.get_value("Metric Tag", name, "item_code")
+		item = frappe.db.get_value("Metrc Tag", name, "item_code")
 		return {"item": item or name, "tag": name}
 	return {"item": name or value}
 
@@ -255,7 +255,7 @@ def _parse_delivery_note(values, meta):
 				errors[block_id] = f"This tag holds {available:g}. The line needs {flt(row.qty):g}."
 			picks[row.name] = tag
 		elif cfg and cfg.require_muid_on_dn:
-			errors[block_id] = "Pick a Metric Tag."
+			errors[block_id] = "Pick a Metrc Tag."
 	return errors, {"muid": picks}, {}
 
 

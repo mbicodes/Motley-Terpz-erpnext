@@ -40,7 +40,7 @@ frappe.ui.form.on('Conversion Entry', {
 		});
 	},
 
-	// ── Scan-to-select Metric Tag ────────────────────────────────────────────
+	// ── Scan-to-select Metrc Tag ────────────────────────────────────────────
 	// Conversion Entry has no BarcodeScanner and its item table is a fixed
 	// set of Raw Material 1-7 / Finished Good 1-3 slots per row rather than
 	// one row per item, so it can't reuse metric_tag_scan.js's own
@@ -54,7 +54,7 @@ frappe.ui.form.on('Conversion Entry', {
 		cannabis_management.metric_tag_scan.lookup(value, 'Conversion Entry Item').then((data) => {
 			if (!data || !data.found) {
 				frappe.show_alert({
-					message: __('{0} is not a known Metric Tag.', [value]),
+					message: __('{0} is not a known Metrc Tag.', [value]),
 					indicator: 'orange',
 				});
 				return;
@@ -346,7 +346,7 @@ function _apply_metric_tag_to_next_rm_slot(frm, tag_name, row) {
 		frappe.model.set_value(target.doctype, target.name, tag_field, tag_name).then(() => {
 			frm.refresh_field('items');
 			frappe.show_alert({
-				message: __('Metric Tag {0} has no stock yet — row #{1}, RM {2} tagged; pick the item by hand.', [tag_name, target.idx, slot]),
+				message: __('Metrc Tag {0} has no stock yet — row #{1}, RM {2} tagged; pick the item by hand.', [tag_name, target.idx, slot]),
 				indicator: 'blue',
 			});
 		});
@@ -360,7 +360,7 @@ function _apply_metric_tag_to_next_rm_slot(frm, tag_name, row) {
 		() => {
 			frm.refresh_field('items');
 			frappe.show_alert({
-				message: __('Row #{0}, RM {1}: {2} (qty {3}) set from Metric Tag {4}.', [target.idx, slot, row.item_code, row.qty, tag_name]),
+				message: __('Row #{0}, RM {1}: {2} (qty {3}) set from Metrc Tag {4}.', [target.idx, slot, row.item_code, row.qty, tag_name]),
 				indicator: 'green',
 			});
 		},
@@ -418,9 +418,9 @@ function clear_hidden_fields_for_row(frm, cdt, cdn) {
 // The status is pinned inside those query methods rather than passed as a
 // filter, so it holds even if nothing on the client sends one.
 const CE_SOURCE_TAG_QUERY =
-	'cannabis_management.cannabis_management.custom.metric_tag.conversion_source_tags';
+	'metrc_customizations.tag_queries.conversion_source_tags';
 const CE_TARGET_TAG_QUERY =
-	'cannabis_management.cannabis_management.custom.metric_tag.conversion_target_tags';
+	'metrc_customizations.tag_queries.conversion_target_tags';
 
 function _set_tag_filters(frm) {
 	// metric_tag_query.js is an app_include_js; guard anyway so a load failure

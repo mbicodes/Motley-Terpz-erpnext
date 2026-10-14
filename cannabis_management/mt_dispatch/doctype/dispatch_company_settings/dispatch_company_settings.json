@@ -113,7 +113,7 @@
   {
    "fieldname": "require_muid_on_dn",
    "fieldtype": "Check",
-   "label": "Require Metric Tag on Delivery Note"
+   "label": "Require Metrc Tag on Delivery Note"
   },
   {
    "fieldname": "cb_rules",

@@ -196,7 +196,7 @@ mt_dispatch.handlers = {
 						options: options,
 						default: (l.tags || []).length === 1 ? l.tags[0].muid : "",
 						description: (l.tags || []).map((t) => `${t.tag_code || t.muid}: ${t.qty}`).join(", ") ||
-							__("No Metric Tag holds stock here"),
+							__("No Metrc Tag holds stock here"),
 					});
 				});
 				if (!fields.length) {

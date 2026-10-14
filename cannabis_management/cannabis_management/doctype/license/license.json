@@ -116,7 +116,7 @@
    "fieldtype": "Check",
    "label": "Is Company License",
    "default": "0",
-   "description": "Checked for one of our own facility licenses (used on Warehouse / Metric Tag), unchecked for a customer's or other third party's license."
+   "description": "Checked for one of our own facility licenses (used on Warehouse / Metrc Tag), unchecked for a customer's or other third party's license."
   }
  ],
  "grid_page_length": 50,

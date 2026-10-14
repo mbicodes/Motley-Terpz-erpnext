@@ -1,8 +1,8 @@
-// TSBC Ranch — bulk Farm actions on the Metric Tag list view.
+// TSBC Ranch — bulk Farm actions on the Metrc Tag list view.
 //  • Destroy Plants   — destructive: growth_stage = Destroyed + Plant Waste Log + destroyed_by
 //  • Record Waste     — non-destructive: Plant Waste Log only (plant stays alive)
 
-frappe.listview_settings["Metric Tag"] = frappe.listview_settings["Metric Tag"] || {};
+frappe.listview_settings["Metrc Tag"] = frappe.listview_settings["Metrc Tag"] || {};
 
 const WASTE_FIELDS = (include_reason = true) => [
 	{ fieldname: "disposal_method", label: __("Disposal Method"), fieldtype: "Data", reqd: 1 },
@@ -46,7 +46,7 @@ function run_bulk(listview, method, title, action_label, indicator) {
 	d.show();
 }
 
-frappe.listview_settings["Metric Tag"].onload = function (listview) {
+frappe.listview_settings["Metrc Tag"].onload = function (listview) {
 	listview.page.add_actions_menu_item(__("Destroy Plants"), () =>
 		run_bulk(listview, "cannabis_management.farm.destroy_plants",
 			__("Destroy Plants"), __("Destroy"), "red"), true);

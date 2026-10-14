@@ -1,7 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
- "creation": "2026-04-03 15:30:00.000000",
+ "creation": "2026-04-03 15:30:00",
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
@@ -80,7 +80,8 @@
   "frozen_to_hash_pct",
   "column_break_yield",
   "hash_to_rosin_pct",
-  "frozen_to_rosin_pct"
+  "frozen_to_rosin_pct",
+  "expense_account"
  ],
  "fields": [
   {
@@ -127,7 +128,7 @@
    "fieldtype": "Link",
    "label": "Source Tag 1",
    "no_copy": 1,
-   "options": "Metric Tag"
+   "options": "Metrc Tag"
   },
   {
    "depends_on": "eval:in_list([\"2 to 1\", \"2 to 2\", \"3 to 1\", \"3 to 2\", \"3 to 3\", \"4 to 1\", \"4 to 2\", \"4 to 3\", \"5 to 1\", \"6 to 1\", \"7 to 1\"], doc.conversion_type)",
@@ -147,12 +148,12 @@
    "mandatory_depends_on": "eval:in_list([\"2 to 1\", \"2 to 2\", \"3 to 1\", \"3 to 2\", \"3 to 3\", \"4 to 1\", \"4 to 2\", \"4 to 3\", \"5 to 1\", \"6 to 1\", \"7 to 1\"], doc.conversion_type)"
   },
   {
+   "depends_on": "eval:in_list([\"2 to 1\", \"2 to 2\", \"3 to 1\", \"3 to 2\", \"3 to 3\", \"4 to 1\", \"4 to 2\", \"4 to 3\", \"5 to 1\", \"6 to 1\", \"7 to 1\"], doc.conversion_type)",
    "fieldname": "rm_2_tag",
    "fieldtype": "Link",
    "label": "Source Tag 2",
    "no_copy": 1,
-   "options": "Metric Tag",
-   "depends_on": "eval:in_list([\"2 to 1\", \"2 to 2\", \"3 to 1\", \"3 to 2\", \"3 to 3\", \"4 to 1\", \"4 to 2\", \"4 to 3\", \"5 to 1\", \"6 to 1\", \"7 to 1\"], doc.conversion_type)"
+   "options": "Metrc Tag"
   },
   {
    "depends_on": "eval:in_list([\"3 to 1\", \"3 to 2\", \"3 to 3\", \"4 to 1\", \"4 to 2\", \"4 to 3\", \"5 to 1\", \"6 to 1\", \"7 to 1\"], doc.conversion_type)",
@@ -172,12 +173,12 @@
    "mandatory_depends_on": "eval:in_list([\"3 to 1\", \"3 to 2\", \"3 to 3\", \"4 to 1\", \"4 to 2\", \"4 to 3\", \"5 to 1\", \"6 to 1\", \"7 to 1\"], doc.conversion_type)"
   },
   {
+   "depends_on": "eval:in_list([\"3 to 1\", \"3 to 2\", \"3 to 3\", \"4 to 1\", \"4 to 2\", \"4 to 3\", \"5 to 1\", \"6 to 1\", \"7 to 1\"], doc.conversion_type)",
    "fieldname": "rm_3_tag",
    "fieldtype": "Link",
    "label": "Source Tag 3",
    "no_copy": 1,
-   "options": "Metric Tag",
-   "depends_on": "eval:in_list([\"3 to 1\", \"3 to 2\", \"3 to 3\", \"4 to 1\", \"4 to 2\", \"4 to 3\", \"5 to 1\", \"6 to 1\", \"7 to 1\"], doc.conversion_type)"
+   "options": "Metrc Tag"
   },
   {
    "depends_on": "eval:in_list([\"4 to 1\", \"4 to 2\", \"4 to 3\", \"5 to 1\", \"6 to 1\", \"7 to 1\"], doc.conversion_type)",
@@ -197,12 +198,12 @@
    "mandatory_depends_on": "eval:in_list([\"4 to 1\", \"4 to 2\", \"4 to 3\", \"5 to 1\", \"6 to 1\", \"7 to 1\"], doc.conversion_type)"
   },
   {
+   "depends_on": "eval:in_list([\"4 to 1\", \"4 to 2\", \"4 to 3\", \"5 to 1\", \"6 to 1\", \"7 to 1\"], doc.conversion_type)",
    "fieldname": "rm_4_tag",
    "fieldtype": "Link",
    "label": "Source Tag 4",
    "no_copy": 1,
-   "options": "Metric Tag",
-   "depends_on": "eval:in_list([\"4 to 1\", \"4 to 2\", \"4 to 3\", \"5 to 1\", \"6 to 1\", \"7 to 1\"], doc.conversion_type)"
+   "options": "Metrc Tag"
   },
   {
    "depends_on": "eval:in_list([\"5 to 1\", \"6 to 1\", \"7 to 1\"], doc.conversion_type)",
@@ -222,12 +223,12 @@
    "mandatory_depends_on": "eval:in_list([\"5 to 1\", \"6 to 1\", \"7 to 1\"], doc.conversion_type)"
   },
   {
+   "depends_on": "eval:in_list([\"5 to 1\", \"6 to 1\", \"7 to 1\"], doc.conversion_type)",
    "fieldname": "rm_5_tag",
    "fieldtype": "Link",
    "label": "Source Tag 5",
    "no_copy": 1,
-   "options": "Metric Tag",
-   "depends_on": "eval:in_list([\"5 to 1\", \"6 to 1\", \"7 to 1\"], doc.conversion_type)"
+   "options": "Metrc Tag"
   },
   {
    "depends_on": "eval:in_list([\"6 to 1\", \"7 to 1\"], doc.conversion_type)",
@@ -247,12 +248,12 @@
    "mandatory_depends_on": "eval:in_list([\"6 to 1\", \"7 to 1\"], doc.conversion_type)"
   },
   {
+   "depends_on": "eval:in_list([\"6 to 1\", \"7 to 1\"], doc.conversion_type)",
    "fieldname": "rm_6_tag",
    "fieldtype": "Link",
    "label": "Source Tag 6",
    "no_copy": 1,
-   "options": "Metric Tag",
-   "depends_on": "eval:in_list([\"6 to 1\", \"7 to 1\"], doc.conversion_type)"
+   "options": "Metrc Tag"
   },
   {
    "depends_on": "eval:doc.conversion_type == \"7 to 1\"",
@@ -272,12 +273,12 @@
    "mandatory_depends_on": "eval:doc.conversion_type == \"7 to 1\""
   },
   {
+   "depends_on": "eval:doc.conversion_type == \"7 to 1\"",
    "fieldname": "rm_7_tag",
    "fieldtype": "Link",
    "label": "Source Tag 7",
    "no_copy": 1,
-   "options": "Metric Tag",
-   "depends_on": "eval:doc.conversion_type == \"7 to 1\""
+   "options": "Metrc Tag"
   },
   {
    "fieldname": "column_break_fg",
@@ -308,8 +309,8 @@
    "fieldname": "fg_1_tag",
    "fieldtype": "Link",
    "label": "Target Tag 1",
-   "options": "Metric Tag",
-   "no_copy": 1
+   "no_copy": 1,
+   "options": "Metrc Tag"
   },
   {
    "depends_on": "eval:in_list([\"1 to 2\", \"2 to 2\", \"1 to 3\", \"3 to 2\", \"3 to 3\", \"4 to 2\", \"4 to 3\"], doc.conversion_type)",
@@ -329,12 +330,12 @@
    "mandatory_depends_on": "eval:in_list([\"1 to 2\", \"2 to 2\", \"1 to 3\", \"3 to 2\", \"3 to 3\", \"4 to 2\", \"4 to 3\"], doc.conversion_type)"
   },
   {
+   "depends_on": "eval:in_list([\"1 to 2\", \"2 to 2\", \"1 to 3\", \"3 to 2\", \"3 to 3\", \"4 to 2\", \"4 to 3\"], doc.conversion_type)",
    "fieldname": "fg_2_tag",
    "fieldtype": "Link",
    "label": "Target Tag 2",
-   "options": "Metric Tag",
-   "depends_on": "eval:in_list([\"1 to 2\", \"2 to 2\", \"1 to 3\", \"3 to 2\", \"3 to 3\", \"4 to 2\", \"4 to 3\"], doc.conversion_type)",
-   "no_copy": 1
+   "no_copy": 1,
+   "options": "Metrc Tag"
   },
   {
    "depends_on": "eval:in_list([\"1 to 3\", \"3 to 3\", \"4 to 3\"], doc.conversion_type)",
@@ -354,12 +355,12 @@
    "mandatory_depends_on": "eval:in_list([\"1 to 3\", \"3 to 3\", \"4 to 3\"], doc.conversion_type)"
   },
   {
+   "depends_on": "eval:in_list([\"1 to 3\", \"3 to 3\", \"4 to 3\"], doc.conversion_type)",
    "fieldname": "fg_3_tag",
    "fieldtype": "Link",
    "label": "Target Tag 3",
-   "options": "Metric Tag",
-   "depends_on": "eval:in_list([\"1 to 3\", \"3 to 3\", \"4 to 3\"], doc.conversion_type)",
-   "no_copy": 1
+   "no_copy": 1,
+   "options": "Metrc Tag"
   },
   {
    "fieldname": "rm_1_item_group",
@@ -443,246 +444,247 @@
    "fieldtype": "Column Break"
   },
   {
+   "depends_on": "eval:doc.qty_rm_1",
+   "description": "Equivalent of Qty (RM 1) in grams. Stock still moves in the item's own UOM.",
    "fieldname": "qty_rm_1_g",
    "fieldtype": "Float",
    "label": "Qty (RM 1) in g",
-   "read_only": 1,
-   "precision": "2",
    "no_copy": 1,
-   "depends_on": "eval:doc.qty_rm_1",
-   "description": "Equivalent of Qty (RM 1) in grams. Stock still moves in the item's own UOM."
+   "precision": "2",
+   "read_only": 1
   },
   {
+   "depends_on": "eval:doc.qty_rm_2",
+   "description": "Equivalent of Qty (RM 2) in grams. Stock still moves in the item's own UOM.",
    "fieldname": "qty_rm_2_g",
    "fieldtype": "Float",
    "label": "Qty (RM 2) in g",
-   "read_only": 1,
-   "precision": "2",
    "no_copy": 1,
-   "depends_on": "eval:doc.qty_rm_2",
-   "description": "Equivalent of Qty (RM 2) in grams. Stock still moves in the item's own UOM."
+   "precision": "2",
+   "read_only": 1
   },
   {
+   "depends_on": "eval:doc.qty_rm_3",
+   "description": "Equivalent of Qty (RM 3) in grams. Stock still moves in the item's own UOM.",
    "fieldname": "qty_rm_3_g",
    "fieldtype": "Float",
    "label": "Qty (RM 3) in g",
-   "read_only": 1,
-   "precision": "2",
    "no_copy": 1,
-   "depends_on": "eval:doc.qty_rm_3",
-   "description": "Equivalent of Qty (RM 3) in grams. Stock still moves in the item's own UOM."
+   "precision": "2",
+   "read_only": 1
   },
   {
+   "depends_on": "eval:doc.qty_rm_4",
+   "description": "Equivalent of Qty (RM 4) in grams. Stock still moves in the item's own UOM.",
    "fieldname": "qty_rm_4_g",
    "fieldtype": "Float",
    "label": "Qty (RM 4) in g",
-   "read_only": 1,
-   "precision": "2",
    "no_copy": 1,
-   "depends_on": "eval:doc.qty_rm_4",
-   "description": "Equivalent of Qty (RM 4) in grams. Stock still moves in the item's own UOM."
+   "precision": "2",
+   "read_only": 1
   },
   {
+   "depends_on": "eval:doc.qty_rm_5",
+   "description": "Equivalent of Qty (RM 5) in grams. Stock still moves in the item's own UOM.",
    "fieldname": "qty_rm_5_g",
    "fieldtype": "Float",
    "label": "Qty (RM 5) in g",
-   "read_only": 1,
-   "precision": "2",
    "no_copy": 1,
-   "depends_on": "eval:doc.qty_rm_5",
-   "description": "Equivalent of Qty (RM 5) in grams. Stock still moves in the item's own UOM."
+   "precision": "2",
+   "read_only": 1
   },
   {
+   "depends_on": "eval:doc.qty_rm_6",
+   "description": "Equivalent of Qty (RM 6) in grams. Stock still moves in the item's own UOM.",
    "fieldname": "qty_rm_6_g",
    "fieldtype": "Float",
    "label": "Qty (RM 6) in g",
-   "read_only": 1,
-   "precision": "2",
    "no_copy": 1,
-   "depends_on": "eval:doc.qty_rm_6",
-   "description": "Equivalent of Qty (RM 6) in grams. Stock still moves in the item's own UOM."
+   "precision": "2",
+   "read_only": 1
   },
   {
+   "depends_on": "eval:doc.qty_rm_7",
+   "description": "Equivalent of Qty (RM 7) in grams. Stock still moves in the item's own UOM.",
    "fieldname": "qty_rm_7_g",
    "fieldtype": "Float",
    "label": "Qty (RM 7) in g",
-   "read_only": 1,
-   "precision": "2",
    "no_copy": 1,
-   "depends_on": "eval:doc.qty_rm_7",
-   "description": "Equivalent of Qty (RM 7) in grams. Stock still moves in the item's own UOM."
+   "precision": "2",
+   "read_only": 1
   },
   {
+   "default": "0",
+   "depends_on": "eval:parent.reasons == \"Tolling\"",
    "fieldname": "is_bubble_hash",
    "fieldtype": "Check",
-   "label": "Bubble Hash",
-   "depends_on": "eval:parent.reasons == \"Tolling\"",
-   "default": "0"
+   "label": "Bubble Hash"
   },
   {
+   "default": "0",
+   "depends_on": "eval:parent.reasons == \"Tolling\" && doc.is_bubble_hash",
    "fieldname": "bh_micron_150u",
    "fieldtype": "Check",
-   "label": "150u",
-   "depends_on": "eval:parent.reasons == \"Tolling\" && doc.is_bubble_hash",
-   "default": "0"
+   "label": "150u"
   },
   {
+   "default": "0",
+   "depends_on": "eval:parent.reasons == \"Tolling\" && doc.is_bubble_hash",
    "fieldname": "bh_micron_120u_73u",
    "fieldtype": "Check",
-   "label": "120u - 73u",
-   "depends_on": "eval:parent.reasons == \"Tolling\" && doc.is_bubble_hash",
-   "default": "0"
+   "label": "120u - 73u"
   },
   {
+   "default": "0",
+   "depends_on": "eval:parent.reasons == \"Tolling\" && doc.is_bubble_hash",
    "fieldname": "bh_micron_45u",
    "fieldtype": "Check",
-   "label": "45u",
-   "depends_on": "eval:parent.reasons == \"Tolling\" && doc.is_bubble_hash",
-   "default": "0"
+   "label": "45u"
   },
   {
+   "default": "0",
+   "depends_on": "eval:parent.reasons == \"Tolling\"",
    "fieldname": "is_rosin",
    "fieldtype": "Check",
-   "label": "Rosin",
-   "depends_on": "eval:parent.reasons == \"Tolling\"",
-   "default": "0"
+   "label": "Rosin"
   },
   {
+   "default": "0",
+   "depends_on": "eval:parent.reasons == \"Tolling\" && doc.is_rosin",
    "fieldname": "rosin_micron_150u",
    "fieldtype": "Check",
-   "label": "150u",
-   "depends_on": "eval:parent.reasons == \"Tolling\" && doc.is_rosin",
-   "default": "0"
+   "label": "150u"
   },
   {
+   "default": "0",
+   "depends_on": "eval:parent.reasons == \"Tolling\" && doc.is_rosin",
    "fieldname": "rosin_micron_120u_73u",
    "fieldtype": "Check",
-   "label": "120u - 73u",
-   "depends_on": "eval:parent.reasons == \"Tolling\" && doc.is_rosin",
-   "default": "0"
+   "label": "120u - 73u"
   },
   {
+   "default": "0",
+   "depends_on": "eval:parent.reasons == \"Tolling\" && doc.is_rosin",
    "fieldname": "rosin_micron_45u",
    "fieldtype": "Check",
-   "label": "45u",
-   "depends_on": "eval:parent.reasons == \"Tolling\" && doc.is_rosin",
-   "default": "0"
+   "label": "45u"
   },
   {
+   "depends_on": "eval:parent.reasons == \"Tolling\" && doc.is_bubble_hash && doc.bh_micron_150u",
    "fieldname": "bh_grams_150u",
    "fieldtype": "Float",
    "label": "150u grams",
-   "precision": "2",
-   "depends_on": "eval:parent.reasons == \"Tolling\" && doc.is_bubble_hash && doc.bh_micron_150u"
+   "precision": "2"
   },
   {
+   "depends_on": "eval:parent.reasons == \"Tolling\" && doc.is_bubble_hash && doc.bh_micron_120u_73u",
    "fieldname": "bh_grams_120u_73u",
    "fieldtype": "Float",
    "label": "120u - 73u grams",
-   "precision": "2",
-   "depends_on": "eval:parent.reasons == \"Tolling\" && doc.is_bubble_hash && doc.bh_micron_120u_73u"
+   "precision": "2"
   },
   {
+   "depends_on": "eval:parent.reasons == \"Tolling\" && doc.is_bubble_hash && doc.bh_micron_45u",
    "fieldname": "bh_grams_45u",
    "fieldtype": "Float",
    "label": "45u grams",
-   "precision": "2",
-   "depends_on": "eval:parent.reasons == \"Tolling\" && doc.is_bubble_hash && doc.bh_micron_45u"
+   "precision": "2"
   },
   {
+   "depends_on": "eval:parent.reasons == \"Tolling\" && doc.is_rosin && doc.rosin_micron_150u",
    "fieldname": "rosin_grams_150u",
    "fieldtype": "Float",
    "label": "150u grams",
-   "precision": "2",
-   "depends_on": "eval:parent.reasons == \"Tolling\" && doc.is_rosin && doc.rosin_micron_150u"
+   "precision": "2"
   },
   {
+   "depends_on": "eval:parent.reasons == \"Tolling\" && doc.is_rosin && doc.rosin_micron_120u_73u",
    "fieldname": "rosin_grams_120u_73u",
    "fieldtype": "Float",
    "label": "120u - 73u grams",
-   "precision": "2",
-   "depends_on": "eval:parent.reasons == \"Tolling\" && doc.is_rosin && doc.rosin_micron_120u_73u"
+   "precision": "2"
   },
   {
+   "depends_on": "eval:parent.reasons == \"Tolling\" && doc.is_rosin && doc.rosin_micron_45u",
    "fieldname": "rosin_grams_45u",
    "fieldtype": "Float",
    "label": "45u grams",
-   "precision": "2",
-   "depends_on": "eval:parent.reasons == \"Tolling\" && doc.is_rosin && doc.rosin_micron_45u"
+   "precision": "2"
   },
   {
+   "depends_on": "eval:parent.reasons == \"Tolling\" && doc.is_bubble_hash",
    "fieldname": "bh_total_grams",
    "fieldtype": "Float",
    "label": "Total Hash (g)",
-   "read_only": 1,
    "precision": "2",
-   "depends_on": "eval:parent.reasons == \"Tolling\" && doc.is_bubble_hash"
+   "read_only": 1
   },
   {
+   "depends_on": "eval:parent.reasons == \"Tolling\" && doc.is_rosin",
    "fieldname": "rosin_total_grams",
    "fieldtype": "Float",
    "label": "Total Rosin (g)",
-   "read_only": 1,
    "precision": "2",
-   "depends_on": "eval:parent.reasons == \"Tolling\" && doc.is_rosin"
+   "read_only": 1
   },
   {
+   "depends_on": "eval:parent.reasons == \"Tolling\"",
    "fieldname": "section_break_yield",
    "fieldtype": "Section Break",
-   "label": "Yield",
-   "depends_on": "eval:parent.reasons == \"Tolling\""
+   "label": "Yield"
   },
   {
+   "depends_on": "eval:parent.reasons == \"Tolling\"",
+   "description": "Every Raw Material quantity converted to grams. The denominator of the yields below.",
    "fieldname": "total_frozen_grams",
    "fieldtype": "Float",
    "label": "Frozen (g)",
-   "read_only": 1,
    "precision": "2",
-   "description": "Every Raw Material quantity converted to grams. The denominator of the yields below.",
-   "depends_on": "eval:parent.reasons == \"Tolling\""
+   "read_only": 1
   },
   {
+   "depends_on": "eval:parent.reasons == \"Tolling\"",
+   "description": "Hash (g) \u00f7 Frozen (g) \u00d7 100",
    "fieldname": "frozen_to_hash_pct",
    "fieldtype": "Percent",
    "label": "Frozen to Hash %",
-   "read_only": 1,
    "precision": "2",
-   "description": "Hash (g) ÷ Frozen (g) × 100",
-   "depends_on": "eval:parent.reasons == \"Tolling\""
+   "read_only": 1
   },
   {
+   "depends_on": "eval:parent.reasons == \"Tolling\"",
    "fieldname": "column_break_yield",
-   "fieldtype": "Column Break",
-   "depends_on": "eval:parent.reasons == \"Tolling\""
+   "fieldtype": "Column Break"
   },
   {
+   "depends_on": "eval:parent.reasons == \"Tolling\"",
+   "description": "Rosin (g) \u00f7 Hash (g) \u00d7 100",
    "fieldname": "hash_to_rosin_pct",
    "fieldtype": "Percent",
    "label": "Hash to Rosin %",
-   "read_only": 1,
    "precision": "2",
-   "description": "Rosin (g) ÷ Hash (g) × 100",
-   "depends_on": "eval:parent.reasons == \"Tolling\""
+   "read_only": 1
   },
   {
+   "depends_on": "eval:parent.reasons == \"Tolling\"",
+   "description": "Rosin (g) \u00f7 Frozen (g) \u00d7 100",
    "fieldname": "frozen_to_rosin_pct",
    "fieldtype": "Percent",
    "label": "Frozen to Rosin %",
-   "read_only": 1,
    "precision": "2",
-   "description": "Rosin (g) ÷ Frozen (g) × 100",
-   "depends_on": "eval:parent.reasons == \"Tolling\""
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-09-19 17:10:51.263888",
+ "modified": "2026-10-08 13:08:31.566460",
  "modified_by": "Administrator",
  "module": "Cannabis Management",
  "name": "Conversion Entry Item",
  "owner": "Administrator",
  "permissions": [],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": []

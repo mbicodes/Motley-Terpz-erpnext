@@ -42,10 +42,10 @@ record.
 **1. `muid` is not an inventory dimension.** The spec's §6.5 `TAGS_WITH_STOCK`
 selects `muid` from `tabStock Ledger Entry`. There is no such column: the only
 Inventory Dimensions here are Brand and Batch, and `muid` is a plain
-`Link → Metric Tag` on Delivery Note Item. Per-tag quantity lives on the Metric
+`Link → Metrc Tag` on Delivery Note Item. Per-tag quantity lives on the Metric
 Tag record (`current_qty`, `warehouse`, `status`), so `gates.tags_with_stock`
 reads that instead. G3 is therefore only as accurate as whatever keeps
-`Metric Tag.current_qty` in step with the ledger.
+`Metrc Tag.current_qty` in step with the ledger.
 
 There is also almost no tag data — one record, a test row. `require_muid_on_dn`
 defaults off and should stay off until that is sorted, or G3 blocks every note.
@@ -98,7 +98,7 @@ is now resolved before the effect runs.
 
 1. Create a `Dispatch Company Settings` record. Leave `enabled` off while
    filling in the team, the channel IDs and the reminder rules.
-2. Leave `require_muid_on_dn` off until Metric Tag data is real.
+2. Leave `require_muid_on_dn` off until Metrc Tag data is real.
 3. Tick `enabled`.
 4. Run `bench --site <site> execute frappe.modules.patch_handler.run_single
    --kwargs "{'patchmodule': 'cannabis_management.patches.install_mt_dispatch'}"`
