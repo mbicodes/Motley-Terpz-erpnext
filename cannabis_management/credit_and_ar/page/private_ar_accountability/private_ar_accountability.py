@@ -23,7 +23,9 @@ from cannabis_management.credit_and_ar.doctype.ar_weekly_entry.ar_weekly_entry i
 )
 from cannabis_management.credit_and_ar.page.ar_weekly_review.ar_weekly_review import (
 	TIER_LABELS,
+	_attach_customer_info,
 	_build_rows,
+	_customer_columns,
 	_snapshot_for,
 )
 from cannabis_management.credit_and_ar.utils import NEW_AR_START
@@ -90,12 +92,14 @@ def get_ar_weekly_review(ledger=None):
 		r["log_count"] = info["log_count"] if info else 0
 		r["statuses"] = STATUSES_BY_TIER.get(r["tier"], [])
 
-	return {
+	out = {
 		"rows": rows,
 		"as_of": nowdate(),
 		"week_of": str(week_start()),
 		"new_ar_start": NEW_AR_START,
 	}
+	out.update(_attach_customer_info(rows))
+	return out
 
 
 @frappe.whitelist()
@@ -157,10 +161,12 @@ def _export_tables(ledger=None):
 		r["current_status"] = info["current_status"] if info else ""
 		r["latest_note"] = info["latest_note"] if info else ""
 		r["log_count"] = info["log_count"] if info else 0
+	_attach_customer_info(rows)
 
 	grid = [[
 		"Customer", "Ledger", "Portion", "Level", "Worst Aging", "Amount",
-		"Invoices", "Current Status", "Latest Note", "Entries Filed",
+		"Invoices", "Recon Status", "Onboarding", "Company Made Contact", "Segment",
+		"Current Status", "Latest Note", "Entries Filed",
 	]]
 	aging = [["Customer", "Ledger", "Portion", "Aging Bucket", "Amount"]]
 
@@ -169,7 +175,7 @@ def _export_tables(ledger=None):
 		grid.append([
 			r["customer"], r["ledger"], portion,
 			TIER_LABELS.get(r["tier"], r["tier"]), r["days"],
-			flt(r["amount"], 2), r["invoice_count"],
+			flt(r["amount"], 2), r["invoice_count"], *_customer_columns(r),
 			r["current_status"], r["latest_note"], r["log_count"],
 		])
 		for b in r["breakdown"]:
@@ -205,7 +211,7 @@ def export_xlsx(ledger=None):
 	send_xlsx(
 		_("Private AR Accountability {0}").format(nowdate()),
 		[
-			("Receivables", grid, [34, 12, 11, 24, 14, 14, 10, 26, 48, 13]),
+			("Receivables", grid, [34, 12, 11, 24, 14, 14, 10, 28, 12, 20, 24, 26, 48, 13]),
 			("Aging Breakdown", aging, [34, 12, 11, 16, 14]),
 			("Weekly Entries", log, [34, 12, 12, 24, 24, 18, 44, 44, 44, 20, 24, 18, 24]),
 		],

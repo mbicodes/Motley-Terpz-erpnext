@@ -53,6 +53,148 @@ const ARW_STATUS_DEF = {
 	'No Longer In Business': { full: 'No Longer In Business', desc: '' },
 };
 
+// Customer dropdowns: Recon Status / Onboarding / Company Made Contact are the AR
+// Dashboard's columns and Segment is Categorized AR's. They save through those
+// pages' own endpoints, so the values and who may change them are the same
+// everywhere. (arw_ prefix: desk page scripts share one window.)
+const ARW_ARD_METHOD = 'cannabis_management.cannabis_management.page.ar_dashboard.ar_dashboard.';
+const ARW_ARL_METHOD = 'cannabis_management.cannabis_management.page.ar_legacy.ar_legacy.';
+const ARW_FLAG_FIELDS = [['onboarding', 'Onboarding'], ['company_made_contact', 'Company Made Contact']];
+// The AR Dashboard's colours for its five built-in recon statuses.
+const ARW_RECON_COLORS = {
+	'Reconciled collecting money': ['#dcfce7', '#15803d', '#16a34a'],
+	'Reconciled trouble collecting money': ['#fef3c7', '#92400e', '#d97706'],
+	'Unreconciled': ['#fee2e2', '#b91c1c', '#dc2626'],
+	'Dispute': ['#ede9fe', '#5b21b6', '#7c3aed'],
+	'Adjustment': ['#dbeafe', '#1e40af', '#3b82f6'],
+};
+
+function arw_cell_style(bg, fg, border) {
+	return ` style="background-color:${bg};color:${fg};border-color:${border || fg};"`;
+}
+
+function arw_recon_style(page, status) {
+	if (!status) return '';
+	const own = (page.arw.meta.recon_statuses || []).find((s) => s.value === status);
+	if (own && own.color) return arw_cell_style(own.color + '1f', own.color, own.color);
+	const c = ARW_RECON_COLORS[status];
+	return c ? arw_cell_style(c[0], c[1], c[2]) : '';
+}
+
+function arw_flag_style(value) {
+	if (value === 'Yes') return arw_cell_style('#d9ead3', '#274e13', '#93c47d');
+	if (value === 'No') return arw_cell_style('#fce8e6', '#cc0000', '#e6b8b7');
+	return '';
+}
+
+function arw_segment_color(page, seg) {
+	return seg ? ((page.arw.meta.segment_colors || {})[seg] || '#6d28d9') : '';
+}
+
+function arw_segment_style(page, seg) {
+	const c = arw_segment_color(page, seg);
+	return c ? arw_cell_style(c + '1f', c, c) : '';
+}
+
+// One dropdown cell, or a read-only value for someone without edit rights.
+function arw_select(kind, field, customer, value, options, style, editable) {
+	const esc = frappe.utils.escape_html;
+	if (!editable) {
+		const label = (options.find((o) => o[0] === value) || [value, value || '—'])[1];
+		return `<span class="arw-inline-ro"${style}>${esc(label || '—')}</span>`;
+	}
+	const opts = options.map((o) =>
+		`<option value="${esc(o[0])}"${o[0] === value ? ' selected' : ''}>${esc(o[1])}</option>`).join('');
+	return `<select class="arw-inline" data-kind="${kind}" data-field="${esc(field)}"
+		data-customer="${esc(customer)}" data-current="${esc(value || '')}"${style}>${opts}</select>`;
+}
+
+function arw_customer_cells(page, r) {
+	const meta = page.arw.meta;
+	const recon_opts = [['', '—']].concat((meta.recon_statuses || []).map((s) => [s.value, s.label || s.value]));
+	const yes_no = [['', '—'], ['Yes', 'Yes'], ['No', 'No']];
+	const seg_opts = [['', meta.unassigned_label || __('Unassigned')]].concat((meta.segments || []).map((s) => [s, s]));
+	return `
+		<td class="arw-cf">${arw_select('recon', 'recon_status', r.customer, r.recon_status, recon_opts,
+			arw_recon_style(page, r.recon_status), meta.can_edit_recon)}</td>
+		${ARW_FLAG_FIELDS.map((f) => `<td class="arw-cf">${arw_select('flag', f[0], r.customer, r[f[0]], yes_no,
+			arw_flag_style(r[f[0]]), meta.can_edit_recon)}</td>`).join('')}
+		<td class="arw-cf">${arw_select('segment', 'segment', r.customer, r.segment, seg_opts,
+			arw_segment_style(page, r.segment), meta.can_edit_segment)}</td>`;
+}
+
+// Save one dropdown through its home page's endpoint, then update every row of
+// that customer (it can have on-terms and overdue rows in both ledgers).
+function arw_save_customer_field(page, $sel) {
+	const kind = $sel.attr('data-kind');
+	const field = $sel.attr('data-field');
+	const customer = $sel.attr('data-customer');
+	const value = $sel.val();
+	const old = $sel.attr('data-current') || '';
+	let method, args, label;
+	if (kind === 'recon') {
+		method = ARW_ARD_METHOD + 'update_recon_status';
+		args = { party: customer, status: value };
+		label = __('Recon Status');
+	} else if (kind === 'flag') {
+		method = ARW_ARD_METHOD + 'update_ar_flag';
+		args = { party: customer, field: field, value: value };
+		label = __((ARW_FLAG_FIELDS.find((f) => f[0] === field) || [field, field])[1]);
+	} else {
+		method = ARW_ARL_METHOD + 'set_segment';
+		args = { customer: customer, segment: value };
+		label = __('Segment');
+	}
+	$sel.prop('disabled', true);
+	frappe.call({
+		method: method,
+		args: args,
+		callback: function () {
+			page.arw.rows.forEach(function (row) {
+				if (row.customer === customer) row[field] = value;
+			});
+			frappe.show_alert({ message: __('{0} updated for {1}', [label, customer]), indicator: 'green' }, 3);
+			render(page);
+		},
+		error: function () {
+			$sel.prop('disabled', false).val(old);
+			frappe.show_alert({ message: __('Could not update {0}', [label]), indicator: 'red' }, 5);
+		},
+	});
+}
+
+// The groups for the current "Group by" choice, shared by the page and Print.
+function arw_groups(page, pool) {
+	const mode = page.arw.ui.mode;
+	let groups;
+	if (mode === 'owner') {
+		const meta = page.arw.meta;
+		const keys = [''].concat(meta.segments || []);
+		// A segment since disabled can still be on a customer: keep it visible.
+		pool.forEach((r) => { if (r.segment && keys.indexOf(r.segment) === -1) keys.push(r.segment); });
+		groups = keys.map((k) => ({
+			key: k,
+			def: { full: k || meta.unassigned_label || __('Unassigned'),
+				desc: k ? '' : __('No segment chosen yet in Categorized AR.') },
+			cls: 'owner',
+			color: arw_segment_color(page, k) || '#9aa0a6',
+			rows: pool.filter((r) => (r.segment || '') === k),
+		}));
+	} else if (mode === 'status') {
+		groups = ['none'].concat(ARW_STATUS_ORDER).map((k) => ({
+			key: k, def: ARW_STATUS_DEF[k], cls: '', color: '',
+			rows: pool.filter((r) => (k === 'none' ? !r.current_status : r.current_status === k)),
+		}));
+	} else {
+		groups = ARW_TIER_ORDER.map((k) => ({
+			key: k, def: ARW_TIER_DEF[k], cls: 'tier-' + k, color: '',
+			rows: pool.filter((r) => r.tier === k),
+		}));
+	}
+	groups.forEach((g) => g.rows.sort((a, b) => b.amount - a.amount));
+	return groups;
+}
+
 frappe.pages['private-ar-accountability'].on_page_load = function (wrapper) {
 	const page = frappe.ui.make_app_page({
 		parent: wrapper,
@@ -92,6 +234,7 @@ frappe.pages['private-ar-accountability'].on_page_load = function (wrapper) {
 			<div class="arw-seg" id="arw-modeseg">
 				<button data-mode="tier" class="on">${__('By debt level')}</button>
 				<button data-mode="status">${__('By status')}</button>
+				<button data-mode="owner">${__('By ownership')}</button>
 			</div>
 
 			<div class="arw-toolbar">
@@ -165,6 +308,12 @@ function bind_events(page) {
 	page.main.on('click', '.arw-addweek', function (e) {
 		e.stopPropagation();
 		save_entry(page, $(this).data('rowid'), $(this));
+	});
+
+	// Customer dropdowns: a click must not expand the row, a change saves.
+	page.main.on('click', '.arw-inline, .arw-inline-ro', (e) => e.stopPropagation());
+	page.main.on('change', 'select.arw-inline', function () {
+		arw_save_customer_field(page, $(this));
 	});
 }
 
@@ -274,24 +423,18 @@ function render_kpis(page) {
 
 function render_groups(page) {
 	const pool = visible_rows(page);
-	const by_tier = page.arw.ui.mode === 'tier';
-	const keys = by_tier ? ARW_TIER_ORDER : ['none'].concat(ARW_STATUS_ORDER);
+	const mode = page.arw.ui.mode;
 	const $wrap = page.main.find('#arw-groups').empty();
 
 	let shown = 0, amt_shown = 0;
 
-	keys.forEach(function (key) {
-		const def = by_tier ? ARW_TIER_DEF[key] : ARW_STATUS_DEF[key];
-		const rows = pool.filter((r) => by_tier
-			? r.tier === key
-			: (key === 'none' ? !r.current_status : r.current_status === key));
-		rows.sort((a, b) => b.amount - a.amount);
-
+	arw_groups(page, pool).forEach(function (g) {
+		const def = g.def, rows = g.rows;
 		shown += rows.length;
 		const amt = rows.reduce((s, r) => s + r.amount, 0);
 		amt_shown += amt;
 
-		const $box = $(`<div class="arw-box ${by_tier ? 'tier-' + key : ''}"></div>`);
+		const $box = $(`<div class="arw-box ${g.cls}"${g.color ? ` style="border-left-color:${g.color}"` : ''}></div>`);
 		$box.append(`
 			<div class="arw-boxhead">
 				<div class="arw-titlerow">
@@ -308,7 +451,7 @@ function render_groups(page) {
 		if (!rows.length) {
 			$box.append(`<div class="arw-empty">${__('No accounts in this group right now.')}</div>`);
 		} else {
-			$box.append(build_table(page, rows, by_tier));
+			$box.append(build_table(page, rows, mode));
 		}
 		$wrap.append($box);
 	});
@@ -318,15 +461,22 @@ function render_groups(page) {
 	);
 }
 
-function build_table(page, rows, by_tier) {
-	const cols = 6 + (by_tier ? 1 : 1); // arrow + customer + (level|status) + amount + aging + notes
-	let html = `<table class="arw-rows"><thead><tr>
+function build_table(page, rows, mode) {
+	// Level shows unless the groups already are levels; Status unless they are statuses.
+	const show_level = mode !== 'tier';
+	const show_status = mode !== 'status';
+	const cols = 9 + (show_level ? 1 : 0) + (show_status ? 1 : 0);
+	let html = `<div class="arw-tablescroll"><table class="arw-rows"><thead><tr>
 			<th style="width:22px"></th>
 			<th>${__('Customer')}</th>
-			${by_tier ? '' : `<th>${__('Level')}</th>`}
+			${show_level ? `<th>${__('Level')}</th>` : ''}
 			<th>${__('Amount')}</th>
 			<th>${__('Worst aging')}</th>
-			${by_tier ? `<th>${__('Status')}</th>` : ''}
+			${show_status ? `<th>${__('Status')}</th>` : ''}
+			<th>${__('Recon Status')}</th>
+			<th>${__('Onboarding')}</th>
+			<th>${__('Company Made Contact')}</th>
+			<th>${__('Segment')}</th>
 			<th>${__('Latest note')}</th>
 		</tr></thead><tbody>`;
 
@@ -342,10 +492,11 @@ function build_table(page, rows, by_tier) {
 				<div class="arw-cust">${frappe.utils.escape_html(r.customer)}</div>
 				<div class="arw-ledgertag">${r.ledger} · ${r.portion === 'upcoming' ? __('on terms') : __('overdue')} · ${r.invoice_count} ${__('inv')}</div>
 			</td>
-			${by_tier ? '' : `<td><span class="arw-tierchip ${r.tier}">${ARW_TIER_DEF[r.tier].label}</span></td>`}
+			${show_level ? `<td><span class="arw-tierchip ${r.tier}">${ARW_TIER_DEF[r.tier].label}</span></td>` : ''}
 			<td class="arw-amt">${fmt_money(r.amount)}</td>
 			<td><span class="arw-days">${frappe.utils.escape_html(r.days)}</span></td>
-			${by_tier ? `<td>${status_html}</td>` : ''}
+			${show_status ? `<td>${status_html}</td>` : ''}
+			${arw_customer_cells(page, r)}
 			<td class="arw-notes">${r.latest_note ? frappe.utils.escape_html(r.latest_note) : '—'}</td>
 		</tr>`;
 
@@ -354,7 +505,7 @@ function build_table(page, rows, by_tier) {
 		}
 	});
 
-	return html + '</tbody></table>';
+	return html + '</tbody></table></div>';
 }
 
 function detail_html(page, r) {
@@ -553,20 +704,17 @@ function print_review(page) {
 		return;
 	}
 	const esc = frappe.utils.escape_html;
-	const by_tier = page.arw.ui.mode === 'tier';
-	const keys = by_tier ? ARW_TIER_ORDER : ['none'].concat(ARW_STATUS_ORDER);
+	const mode = page.arw.ui.mode;
+	const by_tier = mode === 'tier';
+	const show_status = mode !== 'status';
 
 	const ledger_html = ['New AR', 'Legacy AR'].map(function (ledger) {
 		const pool = page.arw.rows.filter((r) => r.ledger === ledger);
 		const total = pool.reduce((s, r) => s + r.amount, 0);
 		const unfiled = pool.filter((r) => !r.current_status);
 
-		const groups = keys.map(function (key) {
-			const def = by_tier ? ARW_TIER_DEF[key] : ARW_STATUS_DEF[key];
-			const rows = pool.filter((r) => by_tier
-				? r.tier === key
-				: (key === 'none' ? !r.current_status : r.current_status === key));
-			rows.sort((a, b) => b.amount - a.amount);
+		const groups = arw_groups(page, pool).map(function (g) {
+			const def = g.def, rows = g.rows;
 			const amt = rows.reduce((s, r) => s + r.amount, 0);
 
 			const body = rows.length ? `<table><thead><tr>
@@ -574,19 +722,21 @@ function print_review(page) {
 					${by_tier ? '' : `<th>${__('Level')}</th>`}
 					<th class="num">${__('Amount')}</th>
 					<th>${__('Worst aging')}</th>
-					${by_tier ? `<th>${__('Status')}</th>` : ''}
+					${show_status ? `<th>${__('Status')}</th>` : ''}
+					<th>${__('Segment')}</th>
 					<th>${__('Latest note')}</th>
 				</tr></thead><tbody>${rows.map((r) => `<tr>
 					<td><b>${esc(r.customer)}</b><div class="dim">${r.portion === 'upcoming' ? __('on terms') : __('overdue')} · ${r.invoice_count} ${__('inv')}</div></td>
 					${by_tier ? '' : `<td>${ARW_TIER_DEF[r.tier].label}</td>`}
 					<td class="num">${fmt_money(r.amount)}</td>
 					<td>${esc(r.days)}</td>
-					${by_tier ? `<td>${r.current_status ? esc(r.current_status) : '<span class="dim">' + __('No status yet') + '</span>'}</td>` : ''}
+					${show_status ? `<td>${r.current_status ? esc(r.current_status) : '<span class="dim">' + __('No status yet') + '</span>'}</td>` : ''}
+					<td>${esc(r.segment || page.arw.meta.unassigned_label || __('Unassigned'))}</td>
 					<td>${r.latest_note ? esc(r.latest_note) : '—'}</td>
 				</tr>`).join('')}</tbody></table>`
 				: `<div class="dim empty">${__('No accounts in this group.')}</div>`;
 
-			return `<div class="group ${by_tier ? 'tier-' + key : ''}">
+			return `<div class="group ${g.cls}"${g.color ? ` style="border-left-color:${g.color}"` : ''}>
 				<div class="ghead"><span><b>${esc(def.full)}</b>${def.desc ? ` <span class="dim">— ${esc(def.desc)}</span>` : ''}</span>
 				<span><span class="dim">${rows.length} ${rows.length === 1 ? __('row') : __('rows')}</span> <b>${fmt_money(amt)}</b></span></div>
 				${body}</div>`;
@@ -617,7 +767,7 @@ function print_review(page) {
 			@media print{body{margin:0;-webkit-print-color-adjust:exact;print-color-adjust:exact;}}
 		</style></head><body>
 		<h1>${__('Accounts Receivable — Weekly Review')}</h1>
-		<div class="dim">${__('As of {0}', [esc(page.arw.meta.as_of || '')])} · ${__('Grouped')} ${by_tier ? __('by debt level') : __('by status')} · ${__('Printed by {0}', [esc(frappe.session.user_fullname || frappe.session.user)])}</div>
+		<div class="dim">${__('As of {0}', [esc(page.arw.meta.as_of || '')])} · ${__('Grouped')} ${{ tier: __('by debt level'), status: __('by status'), owner: __('by ownership') }[mode]} · ${__('Printed by {0}', [esc(frappe.session.user_fullname || frappe.session.user)])}</div>
 		${ledger_html}
 		</body></html>`;
 

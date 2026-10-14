@@ -18,6 +18,17 @@ from frappe import _
 from frappe.utils import flt, getdate, nowdate
 
 from cannabis_management.api.sheet_export import send_csv, send_xlsx
+from cannabis_management.cannabis_management.page.ar_dashboard.ar_dashboard import (
+	AR_FLAG_FIELDS,
+	_can_edit_recon,
+	get_recon_statuses,
+)
+from cannabis_management.cannabis_management.page.ar_legacy.ar_legacy import (
+	SEGMENT_FIELD,
+	UNASSIGNED,
+	get_segments,
+)
+from cannabis_management.cannabis_management.page.ar_legacy.ar_legacy import _can_edit as _can_edit_segment
 from cannabis_management.credit_and_ar.utils import NEW_AR_START
 from cannabis_management.credit_and_ar.doctype.ar_weekly_entry.ar_weekly_entry import (
 	STATUSES_BY_TIER,
@@ -43,6 +54,49 @@ def _require_access():
 			_("You are not permitted to view AR Accountability."),
 			frappe.PermissionError,
 		)
+
+
+# ── Customer fields shown as dropdowns on this page ──────────────────────────
+# Recon Status, Onboarding and Company Made Contact are the AR Dashboard's
+# columns; Segment is Categorized AR's. They are the same Customer fields those
+# pages edit, saved through the same endpoints with the same edit rights, so a
+# change on any of the three pages shows on the others.
+RECON_FIELD = "custom_reconciliation_status"
+
+
+def _attach_customer_info(rows):
+	"""Put each customer's four values on its rows; return the option lists and
+	edit rights the page needs to draw the dropdowns."""
+	wanted = {"recon_status": RECON_FIELD, "segment": SEGMENT_FIELD}
+	wanted.update(AR_FLAG_FIELDS)
+	present = {k: f for k, f in wanted.items() if frappe.db.has_column("Customer", f)}
+
+	customers = sorted({r["customer"] for r in rows})
+	info = {}
+	if customers and present:
+		for c in frappe.get_all("Customer", filters={"name": ["in", customers]},
+		                        fields=["name"] + list(present.values())):
+			info[c.name] = {k: c.get(f) or "" for k, f in present.items()}
+	for r in rows:
+		values = info.get(r["customer"], {})
+		for k in wanted:
+			r[k] = values.get(k, "")
+
+	segments = get_segments()
+	return {
+		"recon_statuses": get_recon_statuses(),
+		"segments": [s["value"] for s in segments],
+		"segment_colors": {s["value"]: s["color"] for s in segments if s.get("color")},
+		"unassigned_label": UNASSIGNED,
+		"can_edit_recon": _can_edit_recon(),
+		"can_edit_segment": bool(_can_edit_segment() and "segment" in present),
+	}
+
+
+def _customer_columns(r):
+	"""The four values as export cells, in the column order of _export_tables."""
+	return [r.get("recon_status") or "", r.get("onboarding") or "",
+	        r.get("company_made_contact") or "", r.get("segment") or UNASSIGNED]
 
 
 LEDGER_NEW = "New AR"
@@ -235,12 +289,14 @@ def get_ar_weekly_review(ledger=None):
 		r["log_count"] = info["log_count"] if info else 0
 		r["statuses"] = STATUSES_BY_TIER.get(r["tier"], [])
 
-	return {
+	out = {
 		"rows": rows,
 		"as_of": nowdate(),
 		"week_of": str(week_start()),
 		"new_ar_start": NEW_AR_START,
 	}
+	out.update(_attach_customer_info(rows))
+	return out
 
 
 @frappe.whitelist()
@@ -332,10 +388,12 @@ def _export_tables(ledger=None):
 		r["current_status"] = info["current_status"] if info else ""
 		r["latest_note"] = info["latest_note"] if info else ""
 		r["log_count"] = info["log_count"] if info else 0
+	_attach_customer_info(rows)
 
 	grid = [[
 		"Customer", "Ledger", "Portion", "Level", "Worst Aging", "Amount",
-		"Invoices", "Current Status", "Latest Note", "Entries Filed",
+		"Invoices", "Recon Status", "Onboarding", "Company Made Contact", "Segment",
+		"Current Status", "Latest Note", "Entries Filed",
 	]]
 	aging = [["Customer", "Ledger", "Portion", "Aging Bucket", "Amount"]]
 
@@ -344,7 +402,7 @@ def _export_tables(ledger=None):
 		grid.append([
 			r["customer"], r["ledger"], portion,
 			TIER_LABELS.get(r["tier"], r["tier"]), r["days"],
-			flt(r["amount"], 2), r["invoice_count"],
+			flt(r["amount"], 2), r["invoice_count"], *_customer_columns(r),
 			r["current_status"], r["latest_note"], r["log_count"],
 		])
 		for b in r["breakdown"]:
@@ -380,7 +438,7 @@ def export_xlsx(ledger=None):
 	send_xlsx(
 		_("AR Accountability {0}").format(nowdate()),
 		[
-			("Receivables", grid, [34, 12, 11, 24, 14, 14, 10, 26, 48, 13]),
+			("Receivables", grid, [34, 12, 11, 24, 14, 14, 10, 28, 12, 20, 24, 26, 48, 13]),
 			("Aging Breakdown", aging, [34, 12, 11, 16, 14]),
 			("Weekly Entries", log, [34, 12, 12, 24, 24, 18, 44, 44, 44, 20, 24, 18, 24]),
 		],
