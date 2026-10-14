@@ -959,8 +959,11 @@ fixtures = [
         "Jamie",   # Jamie dashboard block — travels to live via git + migrate
     ]]]},
     # Client-facing Extracts Live Menu page (JS: display-name aliases +
-    # Tier group ordering). Git-managed so it deploys via bench update.
-    {"dt": "Web Page", "filters": [["name", "=", "live-menu-2"]]},
+    # Tier group ordering) and the MTM Inventory Dashboard (order cart ->
+    # draft Sales Orders). Git-managed so they deploy via bench update. One
+    # entry for both: export_fixtures writes one file per doctype, so a second
+    # Web Page entry would overwrite this one's export.
+    {"dt": "Web Page", "filters": [["name", "in", ["live-menu-2", "mtm-inventory-dashboard"]]]},
     # Credit & AR: dashboard cards and the §17 in-desk alerts
     {"dt": "Number Card", "filters": [["name", "like", "Credit \u2014 %"]]},
     {"dt": "Notification", "filters": [["module", "=", "Credit and AR"]]},
