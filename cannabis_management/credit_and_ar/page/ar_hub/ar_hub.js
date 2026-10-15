@@ -5,8 +5,13 @@
 //     two Yes/No flags, Notebox and New AR;
 //   * Categorized AR's segment;
 //   * AR Accountability's debt level, weekly status and latest note.
-// Click a customer for its invoices (open and paid), the notebox, this week's
-// entry and the entry history.
+// Click a customer for its invoices (open and paid), every account field in one
+// place, this week's entry and the entry history.
+//
+// The look follows shadcn/ui (cards, tabs, outline inputs, badges, a data-table
+// toolbar, Lucide icons) in plain CSS: a desk page has no React/Tailwind build.
+// The columns that matter come first; the detailed breakdowns are in the
+// Columns menu, remembered per browser.
 //
 // Every save goes through the endpoint of the page that owns the field, with
 // that page's permission check (see ar_hub.py). The weekly review columns and
@@ -22,68 +27,124 @@ const ARW_METHOD = 'cannabis_management.credit_and_ar.page.ar_weekly_review.ar_w
 const ALL_COMPANIES = '__ALL__';
 const BOOK_NEW = 'New AR';
 
-// Debt levels, worst first: the order the grid groups them in.
+// Debt levels, worst first: the order the grid groups them in. One severity
+// scale everywhere a level shows: badge, group header, aging column.
 const TIERS = {
-	level3: { label: __('Level 3'), full: __('Bad Debt Level 3 — 60+ days overdue'), desc: __('Legal pursuit status.'),
-		bar: '#990000', q: __('What is going on?') },
-	level2: { label: __('Level 2'), full: __('Bad Debt Level 2 — 30-60 days overdue'), desc: __('DEFCON Level 2 — Emergency.'),
-		bar: '#b45f06', q: __('What is going on?') },
-	level1: { label: __('Level 1'), full: __('Bad Debt Level 1 — 0-30 days overdue'), desc: __('Should never get here. Extremely urgent. In default.'),
-		bar: '#cc0000', q: __('How did this account get here?') },
-	upcoming: { label: __('On terms'), full: __('Upcoming Terms Due'), desc: __('On agreed terms, not yet due.'),
-		bar: '#38761d', q: __('What is going on?') },
+	level3: { label: __('Level 3'), full: __('Level 3 — 60+ days overdue'), desc: __('Legal pursuit status.'),
+		color: 'var(--arh-red)', q: __('What is going on?') },
+	level2: { label: __('Level 2'), full: __('Level 2 — 30-60 days overdue'), desc: __('DEFCON Level 2 — Emergency.'),
+		color: 'var(--arh-orange)', q: __('What is going on?') },
+	level1: { label: __('Level 1'), full: __('Level 1 — 0-30 days overdue'), desc: __('Should never get here. Extremely urgent. In default.'),
+		color: 'var(--arh-amber)', q: __('How did this account get here?') },
+	upcoming: { label: __('On terms'), full: __('On terms — not yet due'), desc: __('On agreed terms, not yet due.'),
+		color: 'var(--arh-green)', q: __('What is going on?') },
 };
 const TIER_ORDER = ['level3', 'level2', 'level1', 'upcoming'];
 const TIER_RANK = { upcoming: 0, level1: 1, level2: 2, level3: 3 };
 
-const STATUS_INK = {
-	'Will Pay On Time': '#38761d',
-	'Will Pay Immediately': '#38761d',
-	'Client Is Dodging Us': '#cc0000',
-	'Need Reconciliation': '#b45f06',
-	'WIP At Lab': '#1155cc',
-	'Pending Pickup': '#674ea7',
-	'Payment Plan': '#e69138',
-	'No Longer In Business': '#990000',
+const STATUS_COLOR = {
+	'Will Pay On Time': 'var(--arh-green)',
+	'Will Pay Immediately': 'var(--arh-green)',
+	'Client Is Dodging Us': 'var(--arh-red)',
+	'Need Reconciliation': 'var(--arh-amber)',
+	'WIP At Lab': 'var(--arh-blue)',
+	'Pending Pickup': 'var(--arh-violet)',
+	'Payment Plan': 'var(--arh-orange)',
+	'No Longer In Business': 'var(--arh-red)',
 };
-// AR Dashboard's colours for its five built-in recon statuses: [fill, ink].
-const RECON_FALLBACK = {
-	'Reconciled collecting money': ['#dcfce7', '#15803d'],
-	'Reconciled trouble collecting money': ['#fef3c7', '#92400e'],
-	'Unreconciled': ['#fee2e2', '#b91c1c'],
-	'Dispute': ['#ede9fe', '#5b21b6'],
-	'Adjustment': ['#dbeafe', '#1e40af'],
+// AR Dashboard's five built-in recon statuses; a status record's own colour wins.
+const RECON_COLOR = {
+	'Reconciled collecting money': 'var(--arh-green)',
+	'Reconciled trouble collecting money': 'var(--arh-amber)',
+	'Unreconciled': 'var(--arh-red)',
+	'Dispute': 'var(--arh-violet)',
+	'Adjustment': 'var(--arh-blue)',
 };
+const FLAG_COLOR = { Yes: 'var(--arh-green)', No: 'var(--arh-red)' };
 
 const MODE_LABEL = { legacy: __('Legacy AR'), new: __('New AR'), all: __('Legacy + New AR') };
 const GROUPS = [
-	['tier', __('Debt level')],
-	['status', __('Weekly status')],
-	['segment', __('Segment (ownership)')],
-	['recon', __('Recon status')],
+	['tier', __('Group by debt level')],
+	['status', __('Group by weekly status')],
+	['segment', __('Group by segment')],
+	['recon', __('Group by recon status')],
 	['none', __('No grouping')],
 ];
 const SORTS = [
-	['outstanding', __('Largest balance')],
-	['age', __('Oldest invoice first')],
-	['invoices', __('Most invoices')],
-	['name', __('Customer A-Z')],
+	['outstanding', __('Sort by largest balance')],
+	['age', __('Sort by oldest invoice')],
+	['invoices', __('Sort by most invoices')],
+	['name', __('Sort by name (A-Z)')],
 ];
-const AGES = [['', __('Any age')], ['90', __('90+ days')], ['180', __('180+ days')],
-	['270', __('270+ days')], ['365', __('1 year+')]];
+const AGES = [['', __('Any invoice age')], ['90', __('Oldest 90+ days')], ['180', __('Oldest 180+ days')],
+	['270', __('Oldest 270+ days')], ['365', __('Oldest 1 year+')]];
+
+// Optional column sets for the Columns menu. Customer, Level, Outstanding,
+// Overdue, On terms and Oldest invoice always show.
+const COL_SETS = [
+	{ key: 'book', label: __('Legacy / New AR split'), on: true },
+	{ key: 'billing', label: __('Invoiced and paid'), on: false },
+	{ key: 'account', label: __('Segment and recon status'), on: true },
+	{ key: 'flags', label: __('Onboarding and company made contact'), on: false },
+	{ key: 'weekly', label: __('Weekly status and latest note'), on: true },
+	{ key: 'terms', label: __('On-terms breakdown (days left)'), on: false },
+	{ key: 'aging', label: __('Overdue breakdown (days past due)'), on: false },
+];
+const COLS_KEY = 'ar_hub_columns';
+
+// Lucide icons (ISC licence), as shadcn/ui uses them.
+const ICONS = {
+	chevron: '<path d="m9 18 6-6-6-6"/>',
+	down: '<path d="m6 9 6 6 6-6"/>',
+	search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+	download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/>',
+	printer: '<path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/>',
+	refresh: '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>',
+	columns: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="M15 3v18"/>',
+	x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+	external: '<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
+	sheet: '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M8 13h2"/><path d="M14 13h2"/><path d="M8 17h2"/><path d="M14 17h2"/>',
+	file: '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>',
+	filter: '<path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/>',
+	inbox: '<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>',
+};
+const icon = (name, size) => `<svg class="arh-ico" width="${size || 16}" height="${size || 16}" viewBox="0 0 24 24" fill="none"
+	stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]}</svg>`;
 
 const esc = (s) => frappe.utils.escape_html(s == null ? '' : String(s));
 const money = (n) => (n < 0 ? '-$' : '$') + Math.abs(n || 0).toLocaleString('en-US',
 	{ minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const nil = '<span class="arh-nil">—</span>';
-const cash = (n) => (Math.abs(n || 0) >= 0.005 ? money(n) : nil);
+const money_short = (n) => {
+	const a = Math.abs(n || 0);
+	if (a >= 1e6) return '$' + (n / 1e6).toFixed(2) + 'M';
+	if (a >= 1e3) return '$' + (n / 1e3).toFixed(1) + 'k';
+	return money(n);
+};
+const dash = '<span class="arh-nil">—</span>';
+const cash = (n) => (Math.abs(n || 0) >= 0.005 ? money(n) : dash);
 // "2026-10-09" -> "Oct 9, 2026", built from the parts so no timezone shifts the day.
 const nice_date = (d) => {
 	const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(d || '');
 	return m ? new Date(+m[1], +m[2] - 1, +m[3]).toLocaleDateString('en-US',
 		{ month: 'short', day: 'numeric', year: 'numeric' }) : '';
 };
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+const options_html = (list, sel) => list.map((o) =>
+	`<option value="${esc(o[0])}"${o[0] === sel ? ' selected' : ''}>${esc(o[1])}</option>`).join('');
 const blank_filters = () => ({ search: '', segment: '', recon: '', level: '', status: '', age: '', min: '', hide_motley: false });
+
+function load_cols() {
+	const cols = {};
+	COL_SETS.forEach((s) => { cols[s.key] = s.on; });
+	try {
+		Object.assign(cols, JSON.parse(localStorage.getItem(COLS_KEY) || '{}'));
+	} catch (e) { /* storage blocked or unreadable: defaults */ }
+	return cols;
+}
+
+function save_cols(cols) {
+	try { localStorage.setItem(COLS_KEY, JSON.stringify(cols)); } catch (e) { /* storage blocked */ }
+}
 
 frappe.pages['ar-hub'].on_page_load = function (wrapper) {
 	const page = frappe.ui.make_app_page({ parent: wrapper, title: __('AR Hub'), single_column: true });
@@ -98,51 +159,62 @@ frappe.pages['ar-hub'].on_page_load = function (wrapper) {
 		f: blank_filters(),
 		group: 'tier',
 		sort: 'outstanding',
+		cols: load_cols(),
 		open: {},     // customer -> expanded
 		detail: {},   // customer -> 'loading' | 'error' | { paid_invoices, log }
 		edits: {},    // customer -> unsaved weekly entry
 	};
 	page.arh = hub;
 
-	const opts = (list, sel) => list.map((o) =>
-		`<option value="${esc(o[0])}"${o[0] === sel ? ' selected' : ''}>${esc(o[1])}</option>`).join('');
-
 	page.main.html(`
 		<div class="arh">
-			<div class="arh-bar">
-				<div class="arh-ctl">
-					<label>${__('AR Mode')}</label>
-					<div class="arh-modes">
-						${['legacy', 'new', 'all'].map((m) => `<button type="button" data-mode="${m}"${m === hub.mode ? ' class="on"' : ''}>${MODE_LABEL[m]}</button>`).join('')}
+			<div class="arh-top">
+				<div class="arh-tabs" role="tablist" aria-label="${__('AR Mode')}">
+					${['legacy', 'new', 'all'].map((m) => `<button type="button" role="tab" data-mode="${m}"
+						class="arh-tab${m === hub.mode ? ' is-active' : ''}" aria-selected="${m === hub.mode}">${MODE_LABEL[m]}</button>`).join('')}
+				</div>
+				<select class="arh-input arh-company" data-k="company" aria-label="${__('Company')}">
+					<option value="${ALL_COMPANIES}">${__('All Entities')}</option>
+				</select>
+				<div class="arh-spacer"></div>
+				<select class="arh-input" data-k="group" aria-label="${__('Group by')}">${options_html(GROUPS, hub.group)}</select>
+				<select class="arh-input" data-k="sort" aria-label="${__('Sort')}">${options_html(SORTS, hub.sort)}</select>
+				<div class="arh-menu-wrap">
+					<button type="button" class="arh-btn arh-btn-outline" data-menu="cols">${icon('columns')}${__('Columns')}</button>
+					<div class="arh-menu" data-menu-for="cols" role="menu"></div>
+				</div>
+				<div class="arh-menu-wrap">
+					<button type="button" class="arh-btn arh-btn-outline" data-menu="export">${icon('download')}${__('Export')}${icon('down', 14)}</button>
+					<div class="arh-menu arh-menu-right" data-menu-for="export" role="menu">
+						<button type="button" class="arh-menu-item" data-act="xlsx">${icon('sheet')}${__('Excel workbook')}<span>.xlsx</span></button>
+						<button type="button" class="arh-menu-item" data-act="csv">${icon('file')}${__('CSV, grid only')}<span>.csv</span></button>
+						<div class="arh-menu-sep"></div>
+						<button type="button" class="arh-menu-item" data-act="print">${icon('printer')}${__('Print this view')}</button>
 					</div>
 				</div>
-				<div class="arh-ctl"><label>${__('Company')}</label>
-					<select data-k="company"><option value="${ALL_COMPANIES}">${__('All Entities')}</option></select></div>
-				<div class="arh-ctl arh-ctl-search"><label>${__('Customer')}</label>
-					<input type="text" data-f="search" placeholder="${__('Search customer…')}"></div>
-				<div class="arh-ctl"><label>${__('Group by')}</label><select data-k="group">${opts(GROUPS, hub.group)}</select></div>
-				<div class="arh-ctl"><label>${__('Sort')}</label><select data-k="sort">${opts(SORTS, hub.sort)}</select></div>
-				<div class="arh-actions">
-					<button type="button" class="arh-btn" data-act="xlsx">${__('Export Excel')}</button>
-					<button type="button" class="arh-btn" data-act="csv">${__('Export CSV')}</button>
-					<button type="button" class="arh-btn" data-act="print">${__('Print')}</button>
-					<button type="button" class="arh-btn" data-act="refresh">${__('Refresh')}</button>
+				<button type="button" class="arh-btn arh-btn-outline arh-btn-icon" data-act="refresh"
+					title="${__('Refresh')}" aria-label="${__('Refresh')}">${icon('refresh')}</button>
+			</div>
+
+			<div class="arh-cards"></div>
+
+			<div class="arh-panel">
+				<div class="arh-toolbar">
+					<div class="arh-search">${icon('search')}
+						<input type="text" data-f="search" placeholder="${__('Search customers…')}" aria-label="${__('Search customers')}"></div>
+					<select class="arh-input arh-filter" data-f="segment" aria-label="${__('Segment')}"></select>
+					<select class="arh-input arh-filter" data-f="recon" aria-label="${__('Recon Status')}"></select>
+					<select class="arh-input arh-filter" data-f="level" aria-label="${__('Level')}"></select>
+					<select class="arh-input arh-filter arh-wk-only" data-f="status" aria-label="${__('Weekly Status')}"></select>
+					<select class="arh-input arh-filter" data-f="age" aria-label="${__('Oldest invoice')}">${options_html(AGES, '')}</select>
+					<input type="number" class="arh-input arh-filter arh-min" data-f="min" min="0" step="1000"
+						placeholder="${__('Min balance')}" aria-label="${__('Minimum balance')}">
+					<label class="arh-toggle"><input type="checkbox" data-f="hide_motley">${__('Hide Motley')}</label>
+					<button type="button" class="arh-btn arh-btn-ghost arh-reset" data-act="clear">${__('Reset')}${icon('x', 14)}</button>
 				</div>
+				<div class="arh-status"></div>
+				<div class="arh-grid"><div class="arh-empty">${__('Loading receivables…')}</div></div>
 			</div>
-			<div class="arh-bar arh-bar2">
-				<div class="arh-ctl"><label>${__('Segment')}</label><select data-f="segment"></select></div>
-				<div class="arh-ctl"><label>${__('Recon Status')}</label><select data-f="recon"></select></div>
-				<div class="arh-ctl"><label>${__('Level')}</label><select data-f="level"></select></div>
-				<div class="arh-ctl arh-wk-only"><label>${__('Weekly Status')}</label><select data-f="status"></select></div>
-				<div class="arh-ctl"><label>${__('Oldest invoice')}</label><select data-f="age">${opts(AGES, '')}</select></div>
-				<div class="arh-ctl"><label>${__('Min balance')}</label>
-					<input type="number" data-f="min" min="0" step="1000" placeholder="0"></div>
-				<label class="arh-check"><input type="checkbox" data-f="hide_motley"> ${__('Hide Motley')}</label>
-				<button type="button" class="arh-btn arh-btn-plain" data-act="clear">${__('Clear filters')}</button>
-			</div>
-			<div class="arh-sub"></div>
-			<div class="arh-kpis"></div>
-			<div class="arh-grid"><div class="arh-msg">${__('Loading receivables…')}</div></div>
 		</div>
 	`);
 
@@ -154,7 +226,7 @@ frappe.pages['ar-hub'].on_page_load = function (wrapper) {
 
 function load(hub) {
 	const seq = ++hub.seq;
-	if (hub.data) hub.page.main.find('.arh-sub').text(__('Refreshing…'));
+	if (hub.data) hub.page.main.find('.arh-status-text').text(__('Refreshing…'));
 	frappe.call({
 		method: ARH_METHOD + 'get_data',
 		args: { ar_mode: hub.mode, company: hub.company },
@@ -166,7 +238,7 @@ function load(hub) {
 		},
 		error: function () {
 			if (seq !== hub.seq) return;
-			hub.page.main.find('.arh-grid').html(`<div class="arh-msg">${__('Receivables could not be loaded.')}</div>`);
+			hub.page.main.find('.arh-grid').html(`<div class="arh-empty">${__('Receivables could not be loaded.')}</div>`);
 		},
 	});
 }
@@ -209,32 +281,39 @@ function primary_book(r) {
 	return best;
 }
 
+function segment_color(hub, seg) { return seg ? (hub.data.segment_colors[seg] || 'var(--arh-violet)') : ''; }
+function recon_color(hub, status) {
+	if (!status) return '';
+	const own = (hub.data.recon_statuses || []).find((s) => s.value === status);
+	return (own && own.color) || RECON_COLOR[status] || 'var(--arh-slate)';
+}
+
 function fill_options(hub) {
-	const d = hub.data, m = hub.page.main;
-	const opts = (list, sel) => list.map((o) =>
-		`<option value="${esc(o[0])}"${o[0] === sel ? ' selected' : ''}>${esc(o[1])}</option>`).join('');
+	const d = hub.data, m = hub.page.main, f = hub.f;
 
 	if (d.companies.indexOf(hub.company) === -1) hub.company = ALL_COMPANIES;
-	m.find('[data-k="company"]').html(opts([[ALL_COMPANIES, __('All Entities')]].concat(d.companies.map((c) => [c, c])), hub.company));
-
-	const f = hub.f;
-	m.find('[data-f="segment"]').html(opts([['', __('All')], ['__none__', d.unassigned_label]]
+	m.find('[data-k="company"]').html(options_html([[ALL_COMPANIES, __('All Entities')]].concat(d.companies.map((c) => [c, c])), hub.company));
+	m.find('[data-f="segment"]').html(options_html([['', __('All segments')], ['__none__', d.unassigned_label]]
 		.concat(d.segments.map((s) => [s, s])), f.segment));
-	m.find('[data-f="recon"]').html(opts([['', __('All')], ['__none__', __('Not set')]]
+	m.find('[data-f="recon"]').html(options_html([['', __('All recon statuses')], ['__none__', __('Recon not set')]]
 		.concat(d.recon_statuses.map((s) => [s.value, s.label || s.value])), f.recon));
-	m.find('[data-f="level"]').html(opts([['', __('All')]].concat(TIER_ORDER.map((t) => [t, TIERS[t].label])), f.level));
+	m.find('[data-f="level"]').html(options_html([['', __('All levels')]].concat(TIER_ORDER.map((t) => [t, TIERS[t].label])), f.level));
 
 	m.find('.arh-wk-only').toggle(!!d.can_weekly);
-	m.find('[data-f="status"]').html(opts([['', __('All')], ['__none__', __('No status yet')]]
+	m.find('[data-f="status"]').html(options_html([['', __('All weekly statuses')], ['__none__', __('No status yet')]]
 		.concat(d.statuses.map((s) => [s, s])), f.status));
 	if (!d.can_weekly) {
 		f.status = '';
 		if (hub.group === 'status') hub.group = 'tier';
 	}
-	m.find('[data-k="group"]').html(opts(GROUPS.filter((g) => d.can_weekly || g[0] !== 'status'), hub.group));
+	m.find('[data-k="group"]').html(options_html(GROUPS.filter((g) => d.can_weekly || g[0] !== 'status'), hub.group));
 }
 
 // ---- filtering, grouping ------------------------------------------------------
+
+function filters_active(hub) {
+	return Object.keys(hub.f).some((k) => !!hub.f[k]);
+}
 
 function visible_rows(hub) {
 	const f = hub.f;
@@ -280,25 +359,25 @@ function grouped(hub, rows) {
 	const d = hub.data;
 	let groups;
 	if (hub.group === 'tier') {
-		groups = TIER_ORDER.map((t) => ({ title: TIERS[t].full, desc: TIERS[t].desc, color: TIERS[t].bar,
+		groups = TIER_ORDER.map((t) => ({ title: TIERS[t].full, desc: TIERS[t].desc, color: TIERS[t].color,
 			rows: rows.filter((r) => r.tier === t) }));
 	} else if (hub.group === 'segment') {
 		groups = keys_with_extras([''].concat(d.segments), rows, (r) => r.segment).map((k) => ({
 			title: k || d.unassigned_label, desc: k ? '' : __('No segment chosen yet.'),
-			color: k ? (d.segment_colors[k] || '#6d28d9') : '#666666',
+			color: k ? segment_color(hub, k) : 'var(--arh-slate)',
 			rows: rows.filter((r) => (r.segment || '') === k),
 		}));
 	} else if (hub.group === 'recon') {
 		groups = keys_with_extras([''].concat(d.recon_statuses.map((s) => s.value)), rows, (r) => r.recon_status).map((k) => ({
 			title: k || __('Recon status not set'), desc: '',
-			color: k ? recon_colors(hub, k)[1] : '#666666',
+			color: k ? recon_color(hub, k) : 'var(--arh-slate)',
 			rows: rows.filter((r) => (r.recon_status || '') === k),
 		}));
 	} else if (hub.group === 'status') {
 		const status_of = (r) => wk(r, primary_book(r)).status || '';
 		groups = keys_with_extras([''].concat(d.statuses), rows, status_of).map((k) => ({
 			title: k || __('No status yet'), desc: k ? '' : __('Needs a status this week.'),
-			color: k ? (STATUS_INK[k] || '#434343') : '#666666',
+			color: k ? (STATUS_COLOR[k] || 'var(--arh-slate)') : 'var(--arh-slate)',
 			rows: rows.filter((r) => status_of(r) === k),
 		}));
 	} else {
@@ -311,189 +390,225 @@ function grouped(hub, rows) {
 
 // ---- columns ------------------------------------------------------------------
 
-const BANDS = {
-	cust: '', own: __('Ownership'), acct: __('Account'), wk: __('Weekly Review'), age: __('Age'),
-	bal: __('Balance'), book: __('Book'), terms: __('On Terms — days left'), overdue: __('Overdue — days past due'),
-};
+function col_set_applies(hub, key) {
+	if (key === 'book') return hub.data.ar_mode === 'all';
+	if (key === 'weekly') return !!hub.data.can_weekly;
+	return true;
+}
 
 function columns(hub) {
 	const d = hub.data;
+	const on = (k) => hub.cols[k] && col_set_applies(hub, k);
 	const cols = [
-		{ k: 'customer', band: 'cust', label: __('Customer') },
-		{ k: 'segment', band: 'own', label: __('Segment') },
-		{ k: 'recon', band: 'acct', label: __('Recon Status') },
-		{ k: 'onboarding', band: 'acct', label: __('Onboarding') },
-		{ k: 'company_made_contact', band: 'acct', label: __('Company Made Contact') },
+		{ k: 'customer', label: __('Customer') },
+		{ k: 'level', label: __('Level'), tip: __('Debt level of the most overdue invoice') },
+		{ k: 'outstanding', label: __('Outstanding'), num: true, sum: (r) => r.outstanding, tip: __('Unpaid balance on open invoices') },
+		{ k: 'overdue', label: __('Overdue'), num: true, sum: (r) => r.overdue, tip: __('Past the due date') },
+		{ k: 'on_terms', label: __('On terms'), num: true, sum: (r) => r.on_terms, tip: __('Not yet due') },
 	];
-	if (d.can_weekly) {
-		cols.push({ k: 'wstatus', band: 'wk', label: __('Weekly Status') },
-			{ k: 'wnote', band: 'wk', label: __('Latest Note') });
+	if (on('book')) {
+		cols.push({ k: 'legacy', label: __('Legacy AR'), num: true, sum: (r) => r.legacy_ar, tip: __('Invoices up to {0}', [nice_date(d.legacy_cutoff)]) },
+			{ k: 'new', label: __('New AR'), num: true, sum: (r) => r.new_ar, tip: __('Invoices from {0}', [nice_date(d.new_ar_start)]) });
 	}
-	cols.push({ k: 'level', band: 'age', label: __('Level') },
-		{ k: 'oldest', band: 'age', label: __('Oldest Invoice') },
-		{ k: 'invoiced', band: 'bal', label: __('Invoiced'), sum: (r) => r.invoiced },
-		{ k: 'paid', band: 'bal', label: __('Paid'), sum: (r) => r.paid },
-		{ k: 'outstanding', band: 'bal', label: __('Outstanding'), sum: (r) => r.outstanding });
-	if (d.ar_mode === 'all') {
-		cols.push({ k: 'legacy', band: 'book', label: __('Legacy AR'), sum: (r) => r.legacy_ar },
-			{ k: 'new', band: 'book', label: __('New AR'), sum: (r) => r.new_ar });
+	if (on('billing')) {
+		cols.push({ k: 'invoiced', label: __('Invoiced'), num: true, sum: (r) => r.invoiced, tip: __('Total of the open invoices') },
+			{ k: 'paid', label: __('Paid'), num: true, sum: (r) => r.paid, tip: __('Already paid on the open invoices') });
 	}
-	d.terms.forEach((t) => cols.push({ k: 'term-' + t.key, band: 'terms', label: t.label, sub: __('days left'),
-		sum: (r) => r.terms[t.key] }));
-	d.overdue.forEach((b) => cols.push({ k: 'od-' + b.tier, band: 'overdue', label: b.label.replace(' days', ''),
-		sub: __('days'), sum: (r) => r.buckets[b.label] }));
+	cols.push({ k: 'oldest', label: __('Oldest invoice'), tip: __('Posting date of the oldest unpaid invoice') });
+	if (on('weekly')) {
+		cols.push({ k: 'wstatus', label: __('Weekly status'), tip: __('Latest AR Accountability status, per book') });
+	}
+	if (on('account')) {
+		cols.push({ k: 'segment', label: __('Segment'), tip: __('Whose relationship the account is (Categorized AR)') },
+			{ k: 'recon', label: __('Recon status') });
+	}
+	if (on('flags')) {
+		cols.push({ k: 'onboarding', label: __('Onboarding') },
+			{ k: 'company_made_contact', label: __('Company made contact') });
+	}
+	if (on('weekly')) cols.push({ k: 'wnote', label: __('Latest note') });
+	if (on('terms')) {
+		d.terms.forEach((t) => cols.push({ k: 'term-' + t.key, kicker: __('On terms'), label: __('{0} days left', [t.label]),
+			num: true, sum: (r) => r.terms[t.key] }));
+	}
+	if (on('aging')) {
+		d.overdue.forEach((b) => cols.push({ k: 'od-' + b.tier, kicker: __('Overdue'), label: b.label,
+			num: true, sum: (r) => r.buckets[b.label] }));
+	}
 	return cols;
 }
 
-function recon_colors(hub, status) {
-	const own = (hub.data.recon_statuses || []).find((s) => s.value === status);
-	if (own && own.color) return [own.color + '1f', own.color];
-	return RECON_FALLBACK[status] || ['#f1f3f4', '#3c4043'];
-}
-
-function fill_style(bg, ink) {
-	return ` style="background-color:${esc(bg)};color:${esc(ink)};border-color:${esc(ink)};"`;
-}
-
-// A dropdown, or the value alone for someone who may not change it.
-function select_cell(kind, field, r, value, options, style, editable, printing) {
+// A value shown as a badge; a dropdown styled as one for someone who may edit it.
+function pick_html(kind, field, r, value, options, color, editable, printing) {
+	const label = (options.find((o) => o[0] === (value || '')) || [value, value])[1] || '—';
+	const style = value && color ? ` style="--c:${esc(color)}"` : '';
+	const empty = value ? '' : ' is-empty';
 	if (!editable || printing) {
-		const label = (options.find((o) => o[0] === value) || [value, value])[1];
-		return `<td class="c-sel"><span class="arh-ro"${value ? style : ''}>${value ? esc(label) : nil}</span></td>`;
+		return `<span class="arh-badge${empty}"${style}>${esc(label)}</span>`;
 	}
-	const opts = options.map((o) =>
-		`<option value="${esc(o[0])}"${o[0] === (value || '') ? ' selected' : ''}>${esc(o[1])}</option>`).join('');
-	return `<td class="c-sel"><select class="arh-inline" data-kind="${kind}" data-field="${field}"
-		data-customer="${esc(r.customer)}"${value ? style : ''}>${opts}</select></td>`;
+	return `<select class="arh-pick arh-inline${empty}" data-kind="${kind}" data-field="${field}"
+		data-customer="${esc(r.customer)}"${style} title="${esc(label)}">${options_html(options, value || '')}</select>`;
+}
+
+function field_options(hub, kind, r) {
+	const d = hub.data;
+	if (kind === 'segment') {
+		return [['', d.unassigned_label]].concat(keys_with_extras(d.segments, [r], (x) => x.segment).map((s) => [s, s]));
+	}
+	if (kind === 'recon') {
+		return [['', __('Not set')]].concat(keys_with_extras(d.recon_statuses.map((s) => s.value), [r], (x) => x.recon_status).map((s) => [s, s]));
+	}
+	return [['', '—'], ['Yes', __('Yes')], ['No', __('No')]];
+}
+
+function field_pick(hub, kind, field, r, printing) {
+	const d = hub.data;
+	const value = r[field] || '';
+	const color = kind === 'segment' ? segment_color(hub, value) : kind === 'recon' ? recon_color(hub, value) : FLAG_COLOR[value];
+	const editable = kind === 'segment' ? d.can_edit_segment : d.can_edit_recon;
+	return pick_html(kind, field, r, value, field_options(hub, kind, r), color, editable, printing);
+}
+
+function level_badge(tier) {
+	return `<span class="arh-badge arh-badge-solid t-${tier}">${TIERS[tier].label}</span>`;
 }
 
 function cell(hub, c, r, printing) {
-	const d = hub.data;
 	switch (c.k) {
 	case 'customer': {
 		const open = !printing && hub.open[r.customer];
-		return `<td class="c-customer">
-			<div class="arh-cust">${printing ? '' : `<span class="arh-caret">${open ? '▾' : '▸'}</span>`}<span class="arh-cname">${esc(r.customer_name)}</span>${printing ? ''
-				: ` <a class="arh-link" href="/app/customer/${encodeURIComponent(r.customer)}" target="_blank" rel="noopener" title="${__('Open customer')}">↗</a>`}</div>
-			<div class="arh-cmeta">${r.invoice_count} ${__('inv')} · ${esc(r.companies.join(', '))}</div>
-		</td>`;
+		return `<td class="c-customer"><div class="arh-cust">
+			${printing ? '' : `<span class="arh-chev${open ? ' is-open' : ''}">${icon('chevron', 14)}</span>`}
+			<div class="arh-cust-text">
+				<div class="arh-cname">${esc(r.customer_name)}${printing ? '' : `<a class="arh-ext" href="/app/customer/${encodeURIComponent(r.customer)}"
+					target="_blank" rel="noopener" title="${__('Open customer')}">${icon('external', 13)}</a>`}</div>
+				<div class="arh-sub">${plural(r.invoice_count, __('invoice'), __('invoices'))} · ${esc(r.companies.join(', '))}</div>
+			</div></div></td>`;
 	}
-	case 'segment': {
-		const seg_opts = [['', d.unassigned_label]].concat(keys_with_extras(d.segments, [r], (x) => x.segment).map((s) => [s, s]));
-		const color = d.segment_colors[r.segment] || '#6d28d9';
-		return select_cell('segment', 'segment', r, r.segment, seg_opts, fill_style(color + '1f', color), d.can_edit_segment, printing);
+	case 'level':
+		return `<td class="c-level">${level_badge(r.tier)}${r.worst ? `<div class="arh-sub">${esc(r.worst)}</div>` : ''}</td>`;
+	case 'oldest': {
+		const cls = r.age_days >= 365 ? ' is-old' : r.age_days >= 180 ? ' is-aging' : '';
+		return `<td class="c-oldest">${esc(nice_date(r.oldest))}<div class="arh-sub${cls}">${plural(r.age_days, __('day'), __('days'))}</div></td>`;
 	}
-	case 'recon': {
-		const rec_opts = [['', '—']].concat(keys_with_extras(d.recon_statuses.map((s) => s.value), [r], (x) => x.recon_status).map((s) => [s, s]));
-		const rc = recon_colors(hub, r.recon_status);
-		return select_cell('recon', 'recon_status', r, r.recon_status, rec_opts, fill_style(rc[0], rc[1]), d.can_edit_recon, printing);
-	}
+	case 'segment':
+		return `<td class="c-pick">${field_pick(hub, 'segment', 'segment', r, printing)}</td>`;
+	case 'recon':
+		return `<td class="c-pick">${field_pick(hub, 'recon', 'recon_status', r, printing)}</td>`;
 	case 'onboarding':
-	case 'company_made_contact': {
-		const v = r[c.k];
-		const style = v === 'Yes' ? fill_style('#d9ead3', '#274e13') : fill_style('#fce8e6', '#cc0000');
-		return select_cell('flag', c.k, r, v, [['', '—'], ['Yes', 'Yes'], ['No', 'No']], style, d.can_edit_recon, printing);
-	}
+	case 'company_made_contact':
+		return `<td class="c-pick">${field_pick(hub, 'flag', c.k, r, printing)}</td>`;
 	case 'wstatus':
 	case 'wnote': {
 		const bs = books(r);
 		return `<td class="c-${c.k}">${bs.map((b) => {
 			const w = wk(r, b);
 			const tag = bs.length > 1 ? `<span class="arh-book">${b === BOOK_NEW ? __('New') : __('Legacy')}</span>` : '';
-			if (c.k === 'wnote') return `<div class="arh-note" title="${esc(w.note)}">${tag}${w.note ? esc(w.note) : nil}</div>`;
-			return `<div class="arh-wk"${w.status ? ` style="color:${STATUS_INK[w.status] || '#3c4043'}"` : ''}>${tag}${w.status ? esc(w.status) : `<span class="arh-nil">${__('No status yet')}</span>`}</div>`;
+			if (c.k === 'wnote') {
+				return `<div class="arh-line" title="${esc(w.note)}">${tag}<span class="arh-note">${w.note ? esc(w.note) : dash}</span></div>`;
+			}
+			const badge = w.status
+				? `<span class="arh-badge" style="--c:${esc(STATUS_COLOR[w.status] || 'var(--arh-slate)')}">${esc(w.status)}</span>`
+				: `<span class="arh-badge is-empty is-dashed">${__('No status yet')}</span>`;
+			return `<div class="arh-line">${tag}${badge}</div>`;
 		}).join('')}</td>`;
-	}
-	case 'level':
-		return `<td class="c-level t-${r.tier}">${TIERS[r.tier].label}${r.worst ? `<small>${esc(r.worst)}</small>` : ''}</td>`;
-	case 'oldest': {
-		const cls = r.age_days >= 365 ? ' a-old' : r.age_days >= 180 ? ' a-mid' : '';
-		return `<td class="c-oldest${cls}">${esc(nice_date(r.oldest))}<small>${r.age_days} ${__('days')}</small></td>`;
 	}
 	default:
 		return `<td class="c-num c-${c.k}">${cash(c.sum(r))}</td>`;
 	}
 }
 
-// A row of sums: the TOTALS row on top and each group's subtotal.
-function sum_cells(cols, rows, label, cls) {
-	return cols.map((c, i) => {
-		if (i === 0) return `<td class="c-customer ${cls}">${label}</td>`;
-		if (!c.sum) return `<td class="${cls}"></td>`;
-		return `<td class="c-num c-${c.k} ${cls}">${cash(rows.reduce((s, r) => s + (c.sum(r) || 0), 0))}</td>`;
-	}).join('');
-}
-
 // ---- rendering ------------------------------------------------------------------
+
+function sync_filter_ui(hub) {
+	const m = hub.page.main;
+	m.find('[data-f]').each(function () {
+		const set = this.type === 'checkbox' ? this.checked : !!$(this).val();
+		$(this).toggleClass('is-set', set);
+		if (this.type === 'checkbox') $(this).closest('.arh-toggle').toggleClass('is-set', set);
+	});
+	m.find('.arh-reset').toggle(filters_active(hub));
+	m.find('.arh-tab').each(function () {
+		const on = $(this).attr('data-mode') === hub.mode;
+		$(this).toggleClass('is-active', on).attr('aria-selected', on ? 'true' : 'false');
+	});
+}
 
 function render(hub) {
 	const d = hub.data;
 	if (!d) return;
+	sync_filter_ui(hub);
 	const rows = visible_rows(hub);
 	const groups = grouped(hub, rows);
 	hub.shown = [].concat.apply([], groups.map((g) => g.rows));
 
+	const m = hub.page.main;
 	const company_label = hub.company === ALL_COMPANIES ? __('All Entities') : hub.company;
-	hub.page.main.find('.arh-sub').text(__('As of {0} · {1} · {2} · {3} of {4} customers', [
-		nice_date(d.as_of), MODE_LABEL[d.ar_mode], company_label, rows.length, d.rows.length]));
-	hub.page.main.find('.arh-kpis').html(kpi_html(hub, rows));
+	m.find('.arh-status').html(`
+		<span class="arh-status-text">${__('Showing {0} of {1}', [`<b>${rows.length}</b>`, plural(d.rows.length, __('customer'), __('customers'))])}
+			· ${esc(MODE_LABEL[d.ar_mode])} · ${esc(company_label)} · ${__('as of {0}', [esc(nice_date(d.as_of))])}</span>
+		<span class="arh-hint">${d.can_weekly ? __('Click a customer for invoices, account fields and this week\'s entry.')
+		: __('Click a customer for invoices and account fields.')}</span>`);
+	m.find('.arh-cards').html(cards_html(hub, rows));
 
-	const $grid = hub.page.main.find('.arh-grid');
+	const $grid = m.find('.arh-grid');
 	const $old = $grid.find('.arh-wrap');
 	const scroll = $old.length ? [$old.scrollTop(), $old.scrollLeft()] : [0, 0];
 
 	if (!rows.length) {
-		$grid.html(`<div class="arh-msg">${d.rows.length ? __('No customers match these filters.') : __('No outstanding receivables.')}</div>`);
+		$grid.html(`<div class="arh-empty">${icon('inbox', 28)}
+			<b>${d.rows.length ? __('No customers match these filters') : __('No outstanding receivables')}</b>
+			${d.rows.length ? `<button type="button" class="arh-btn arh-btn-outline" data-act="clear">${__('Reset filters')}</button>` : ''}
+		</div>`);
 		return;
 	}
-	$grid.html(`<div class="arh-wrap">${sheet_html(hub, groups, false)}</div>`);
+	$grid.html(`<div class="arh-wrap">${table_html(hub, groups, false)}</div>`);
 
 	const $wrap = $grid.find('.arh-wrap');
 	$wrap.scrollTop(scroll[0]).scrollLeft(scroll[1]);
-	freeze(hub, $wrap);
+	freeze($wrap);
 	Object.keys(hub.open).forEach((c) => { if (hub.open[c]) fetch_detail(hub, c); });
 }
 
-// Header rows stay put while the sheet scrolls: each sticks below the ones above.
-function freeze(hub, $wrap) {
+// The header and TOTALS rows stay put while the table scrolls.
+function freeze($wrap) {
 	let top = 0;
-	$wrap.find('thead tr').each(function () {
+	$wrap.children('table').children('thead').children('tr').each(function () {
 		$(this).children().css('top', top + 'px');
 		top += this.getBoundingClientRect().height;
 	});
-	// Expanded rows span the whole sheet; keep their panel the width of the view.
+	// Expanded rows span the whole table; keep their panel the width of the view.
 	const w = $wrap[0].clientWidth;
-	if (w) $wrap.find('.arh-detail-in').css('width', (w - 2) + 'px');
+	if (w) $wrap.find('.arh-detail-in').css('width', (w - 1) + 'px');
 }
 
-function sheet_html(hub, groups, printing) {
+function table_html(hub, groups, printing) {
 	const d = hub.data;
 	const cols = columns(hub);
 	const all_rows = [].concat.apply([], groups.map((g) => g.rows));
-
-	// Band row: one cell per run of columns that share a band.
-	const bands = [];
-	cols.forEach((c) => {
-		const last = bands[bands.length - 1];
-		if (last && last.band === c.band) last.span++;
-		else bands.push({ band: c.band, span: 1 });
-	});
-	const band_row = bands.map((b, i) =>
-		`<th colspan="${b.span}" class="b-${b.band}${i === 0 ? ' c-customer' : ''}">${esc(BANDS[b.band])}</th>`).join('');
-	const head_row = cols.map((c) =>
-		`<th class="h-${c.band} c-${c.k}">${esc(c.label)}${c.sub ? `<small>${esc(c.sub)}</small>` : ''}</th>`).join('');
 	const n_inv = all_rows.reduce((s, r) => s + r.invoice_count, 0);
-	const totals = sum_cells(cols, all_rows,
-		`${__('TOTALS')}<small>${all_rows.length} ${__('customers')} · ${n_inv} ${__('invoices')}</small>`, 'x-total');
+
+	const head = cols.map((c) => `<th class="c-${c.k}${c.num ? ' is-num' : ''}"${c.tip ? ` title="${esc(c.tip)}"` : ''}>
+		${c.kicker ? `<span class="arh-kicker">${esc(c.kicker)}</span>` : ''}${esc(c.label)}</th>`).join('');
+	const totals = cols.map((c, i) => {
+		if (i === 0) {
+			return `<td class="c-customer"><div class="arh-total-label">${__('Total')}</div>
+				<div class="arh-sub">${plural(all_rows.length, __('customer'), __('customers'))} · ${plural(n_inv, __('invoice'), __('invoices'))}</div></td>`;
+		}
+		if (!c.sum) return '<td></td>';
+		return `<td class="c-num c-${c.k}">${cash(all_rows.reduce((s, r) => s + (c.sum(r) || 0), 0))}</td>`;
+	}).join('');
 
 	let body = '';
 	groups.forEach((g) => {
 		if (g.title !== null) {
 			const amt = g.rows.reduce((s, r) => s + r.outstanding, 0);
-			body += `<tr class="arh-grp"><td colspan="${cols.length}" style="background-color:${esc(g.color)};">
-				<div class="arh-grp-in"><b>${esc(g.title)}</b>${g.desc ? `<span class="arh-grp-desc">${esc(g.desc)}</span>` : ''}
-				<span class="arh-grp-meta">${g.rows.length} ${g.rows.length === 1 ? __('customer') : __('customers')} · ${money(amt)}</span></div>
-			</td></tr>`;
+			body += `<tr class="arh-grp" style="--c:${esc(g.color)}"><td colspan="${cols.length}"><div class="arh-grp-in">
+				<span class="arh-dot"></span><span class="arh-grp-title">${esc(g.title)}</span>
+				${g.desc ? `<span class="arh-grp-desc">${esc(g.desc)}</span>` : ''}
+				<span class="arh-count">${g.rows.length}</span>
+				<span class="arh-grp-amt">${money(amt)}</span>
+			</div></td></tr>`;
 		}
 		g.rows.forEach((r) => {
 			const open = !printing && hub.open[r.customer];
@@ -503,45 +618,49 @@ function sheet_html(hub, groups, printing) {
 				body += `<tr class="arh-detail"><td colspan="${cols.length}"><div class="arh-detail-in">${detail_html(hub, r)}</div></td></tr>`;
 			}
 		});
-		if (g.title !== null) {
-			body += `<tr class="arh-subtotal">${sum_cells(cols, g.rows, __('Subtotal'), 'x-sub')}</tr>`;
-		}
 	});
 
-	return `<table class="arh-sheet${d.ar_mode === 'new' ? ' arh-mode-new' : ''}">
-		<thead>
-			<tr class="arh-band">${band_row}</tr>
-			<tr class="arh-head">${head_row}</tr>
-			<tr class="arh-totals">${totals}</tr>
-		</thead>
+	return `<table class="arh-table${d.ar_mode === 'new' ? ' is-new-mode' : ''}">
+		<thead><tr class="arh-head">${head}</tr><tr class="arh-totals">${totals}</tr></thead>
 		<tbody>${body}</tbody>
 	</table>`;
 }
 
-function kpi_html(hub, rows) {
+// Summary cards. The three that point at work still to do also filter the grid.
+function cards_html(hub, rows) {
 	const d = hub.data;
 	const sum = (list, k) => list.reduce((s, r) => s + (r[k] || 0), 0);
 	const outstanding = sum(rows, 'outstanding');
 	const overdue = sum(rows, 'overdue');
 	const lvl3 = rows.filter((r) => r.tier === 'level3');
 	const unfiled = rows.filter((r) => !r.segment);
-	const cells = [
-		['k-out', __('Outstanding'), money(outstanding), rows.length + ' ' + __('customers')],
-		['k-inv', __('Invoiced'), money(sum(rows, 'invoiced')), ''],
-		['k-paid', __('Paid'), money(sum(rows, 'paid')), ''],
-		['k-terms', __('On terms'), money(sum(rows, 'on_terms')), __('not yet due')],
-		['k-over', __('Overdue'), money(overdue),
-			(outstanding ? (overdue / outstanding * 100).toFixed(1) : '0.0') + '% ' + __('of AR')],
-		['k-l3', __('Level 3 (60+ overdue)'), money(sum(lvl3, 'outstanding')), lvl3.length + ' ' + __('customers')],
-		['k-seg', __('No segment'), money(sum(unfiled, 'outstanding')), unfiled.length + ' ' + __('customers')],
+	const cards = [
+		{ label: __('Total outstanding'), value: money(outstanding),
+			sub: `${plural(rows.length, __('customer'), __('customers'))} · ${money_short(sum(rows, 'invoiced'))} ${__('invoiced')}, ${money_short(sum(rows, 'paid'))} ${__('paid')}` },
+		{ label: __('Overdue'), tone: 'red', value: money(overdue),
+			sub: __('{0}% of outstanding', [outstanding ? (overdue / outstanding * 100).toFixed(1) : '0.0']) },
+		{ label: __('On terms'), tone: 'green', value: money(sum(rows, 'on_terms')), sub: __('Not yet due') },
+		{ label: __('Level 3 · 60+ days'), tone: 'red', value: money(sum(lvl3, 'outstanding')),
+			sub: plural(lvl3.length, __('customer'), __('customers')), quick: ['level', 'level3'] },
+		{ label: __('No segment'), tone: 'violet', value: money(sum(unfiled, 'outstanding')),
+			sub: plural(unfiled.length, __('customer needs an owner'), __('customers need an owner')), quick: ['segment', '__none__'] },
 	];
 	if (d.can_weekly) {
 		const unfiled_wk = rows.filter((r) => books(r).some((b) => !wk(r, b).status));
-		cells.push(['k-wk', __('No weekly status'), money(sum(unfiled_wk, 'outstanding')),
-			unfiled_wk.length + ' ' + __('customers') + ' · ' + __('week of {0}', [nice_date(d.week_of)])]);
+		cards.push({ label: __('No weekly status'), tone: 'amber', value: money(sum(unfiled_wk, 'outstanding')),
+			sub: `${plural(unfiled_wk.length, __('customer'), __('customers'))} · ${__('this week')}`,
+			quick: ['status', '__none__'] });
 	}
-	return `<table class="arh-kpi"><thead><tr>${cells.map((c) => `<th class="${c[0]}">${esc(c[1])}</th>`).join('')}</tr></thead>
-		<tbody><tr>${cells.map((c) => `<td class="${c[0]}"><b>${c[2]}</b>${c[3] ? `<small>${esc(c[3])}</small>` : ''}</td>`).join('')}</tr></tbody></table>`;
+	return cards.map((c) => {
+		const active = c.quick && hub.f[c.quick[0]] === c.quick[1];
+		const tag = c.quick ? 'button' : 'div';
+		const attrs = c.quick ? ` type="button" data-quick-f="${c.quick[0]}" data-quick-v="${c.quick[1]}" aria-pressed="${active}"` : '';
+		return `<${tag} class="arh-card${c.tone ? ' tone-' + c.tone : ''}${c.quick ? ' is-quick' : ''}${active ? ' is-active' : ''}"${attrs}>
+			<span class="arh-card-label">${esc(c.label)}${c.quick ? `<span class="arh-card-act">${active ? __('Showing') + icon('x', 12) : icon('filter', 12) + __('Show')}</span>` : ''}</span>
+			<span class="arh-card-value">${c.value}</span>
+			<span class="arh-card-sub">${esc(c.sub)}</span>
+		</${tag}>`;
+	}).join('');
 }
 
 function detail_html(hub, r) {
@@ -553,47 +672,53 @@ function detail_html(hub, r) {
 
 	// Invoices: the open ones behind the row, then the fully paid ones.
 	const inv_row = (i, is_paid) => `<tr${is_paid ? ' class="is-paid"' : ''}>
-		<td class="m-inv"><a href="/app/sales-invoice/${encodeURIComponent(i.name)}" target="_blank" rel="noopener">${esc(i.name)}</a></td>
-		<td class="m-co">${esc(i.company)}</td>
-		${show_book ? `<td>${esc(i.ledger)}</td>` : ''}
-		<td class="m-date">${esc(nice_date(i.posting_date))}</td>
-		<td class="m-date">${esc(nice_date(i.due_date))}</td>
-		<td class="m-age t-${is_paid ? 'paid' : i.tier}">${is_paid ? __('Paid') : esc(i.aging)}</td>
-		<td class="m-num m-invd">${money(i.invoiced)}</td>
-		<td class="m-num m-paid">${money(is_paid ? i.invoiced : i.paid)}</td>
-		<td class="m-num m-out">${is_paid ? nil : money(i.outstanding)}</td>
+		<td><a class="arh-link" href="/app/sales-invoice/${encodeURIComponent(i.name)}" target="_blank" rel="noopener">${esc(i.name)}</a></td>
+		<td class="arh-muted">${esc(i.company)}</td>
+		${show_book ? `<td class="arh-muted">${esc(i.ledger)}</td>` : ''}
+		<td>${esc(nice_date(i.posting_date))}</td>
+		<td>${esc(nice_date(i.due_date))}</td>
+		<td>${is_paid ? `<span class="arh-badge" style="--c:var(--arh-green)">${__('Paid')}</span>`
+		: `<span class="arh-badge t-${i.tier}">${esc(i.aging)}</span>`}</td>
+		<td class="is-num">${money(i.invoiced)}</td>
+		<td class="is-num">${money(is_paid ? i.invoiced : i.paid)}</td>
+		<td class="is-num arh-strong">${is_paid ? dash : money(i.outstanding)}</td>
 	</tr>`;
 	const total = (k) => r.invoices.reduce((s, i) => s + i[k], 0);
 	const paid_note = det === 'loading' ? __('loading paid invoices…') : det === 'error'
-		? __('paid invoices could not be loaded') : paid.length + ' ' + __('paid');
-	const inv_html = `<section class="arh-sec arh-sec-inv">
-		<header>${__('Invoices')} — ${r.invoices.length} ${__('open')} · ${esc(paid_note)}</header>
-		<div class="arh-sec-scroll"><table class="arh-mini"><thead><tr>
-			<th class="m-inv">${__('Invoice')}</th><th>${__('Company')}</th>${show_book ? `<th>${__('Book')}</th>` : ''}
+		? __('paid invoices could not be loaded') : plural(paid.length, __('paid'), __('paid'));
+	const inv_html = `<section class="arh-dcard is-wide">
+		<header><h4>${__('Invoices')}</h4><p>${plural(r.invoices.length, __('open'), __('open'))} · ${esc(paid_note)}</p></header>
+		<div class="arh-dscroll"><table class="arh-dtable"><thead><tr>
+			<th>${__('Invoice')}</th><th>${__('Company')}</th>${show_book ? `<th>${__('Book')}</th>` : ''}
 			<th>${__('Posted')}</th><th>${__('Due')}</th><th>${__('Aging')}</th>
-			<th class="m-num m-invd">${__('Invoiced')}</th><th class="m-num m-paid">${__('Paid')}</th><th class="m-num m-out">${__('Outstanding')}</th>
+			<th class="is-num">${__('Invoiced')}</th><th class="is-num">${__('Paid')}</th><th class="is-num">${__('Outstanding')}</th>
 		</tr></thead>
 		<tbody>${r.invoices.map((i) => inv_row(i, false)).join('')}${paid.map((i) => inv_row(i, true)).join('')}</tbody>
 		<tfoot><tr><td colspan="${show_book ? 6 : 5}">${__('Open total')}</td>
-			<td class="m-num m-invd">${money(total('invoiced'))}</td><td class="m-num m-paid">${money(total('paid'))}</td>
-			<td class="m-num m-out">${money(total('outstanding'))}</td></tr></tfoot>
+			<td class="is-num">${money(total('invoiced'))}</td><td class="is-num">${money(total('paid'))}</td>
+			<td class="is-num">${money(total('outstanding'))}</td></tr></tfoot>
 		</table></div>
 	</section>`;
 
-	// Account: AR Dashboard's Notebox and New AR flag.
-	const acct_html = `<section class="arh-sec arh-sec-acct">
-		<header>${__('Account notes')}</header>
-		<div class="arh-sec-body arh-acct">
-			<div class="arh-field arh-field-wide"><label>${__('Notebox')}</label>
-				${d.can_edit_recon
-		? `<textarea class="arh-notebox" data-customer="${esc(r.customer)}" placeholder="${__('Saved when you click away')}">${esc(r.notebox)}</textarea>`
-		: `<div class="arh-ro-text">${r.notebox ? esc(r.notebox) : nil}</div>`}</div>
-			<label class="arh-check"><input type="checkbox" class="arh-newar" data-customer="${esc(r.customer)}"
-				${r.new_ar_available ? 'checked' : ''}${d.can_edit_recon ? '' : ' disabled'}> ${__('New AR available')}</label>
+	// Every customer field in one place, whatever columns are showing.
+	const fld = (label, html) => `<div class="arh-field"><label>${esc(label)}</label>${html}</div>`;
+	const acct_html = `<section class="arh-dcard">
+		<header><h4>${__('Account')}</h4><p>${d.can_edit_recon || d.can_edit_segment
+		? __('Changes save as soon as you pick them.') : __('Read only for your role.')}</p></header>
+		<div class="arh-dbody arh-form">
+			${fld(__('Segment'), field_pick(hub, 'segment', 'segment', r))}
+			${fld(__('Recon status'), field_pick(hub, 'recon', 'recon_status', r))}
+			${fld(__('Onboarding'), field_pick(hub, 'flag', 'onboarding', r))}
+			${fld(__('Company made contact'), field_pick(hub, 'flag', 'company_made_contact', r))}
+			<label class="arh-check arh-span"><input type="checkbox" class="arh-newar" data-customer="${esc(r.customer)}"
+				${r.new_ar_available ? 'checked' : ''}${d.can_edit_recon ? '' : ' disabled'}>${__('New AR available')}</label>
+			<div class="arh-field arh-span"><label>${__('Notebox')}</label>${d.can_edit_recon
+		? `<textarea class="arh-input arh-notebox" data-customer="${esc(r.customer)}" placeholder="${__('Saved when you click away')}">${esc(r.notebox)}</textarea>`
+		: `<div class="arh-ro-text">${r.notebox ? esc(r.notebox) : dash}</div>`}</div>
 		</div>
 	</section>`;
 
-	if (!d.can_weekly) return `<div class="arh-detail-cols">${inv_html}${acct_html}</div>`;
+	if (!d.can_weekly) return `<div class="arh-detail-grid">${inv_html}${acct_html}</div>`;
 
 	// This week's entry, for one book at a time.
 	const e = hub.edits[r.customer] || {};
@@ -601,71 +726,83 @@ function detail_html(hub, r) {
 	const book = bs.indexOf(e.book) !== -1 ? e.book : primary_book(r);
 	const w = wk(r, book);
 	const tier = TIERS[w.tier] || TIERS.upcoming;
-	const field = (role, label, tag) => `<div class="arh-field"><label>${esc(label)}</label>${tag === 'input'
-		? `<input type="text" data-role="${role}" data-customer="${esc(r.customer)}" value="${esc(e[role] || '')}">`
-		: `<textarea data-role="${role}" data-customer="${esc(r.customer)}">${esc(e[role] || '')}</textarea>`}</div>`;
-	const entry_html = `<section class="arh-sec arh-sec-entry">
-		<header>${__('This week\'s entry')} — ${__('week of {0}', [esc(nice_date(d.week_of))])}</header>
-		<div class="arh-sec-body">
+	const text = (role, label, input) => fld(label, input
+		? `<input type="text" class="arh-input" data-role="${role}" data-customer="${esc(r.customer)}" value="${esc(e[role] || '')}">`
+		: `<textarea class="arh-input" data-role="${role}" data-customer="${esc(r.customer)}">${esc(e[role] || '')}</textarea>`);
+	const entry_html = `<section class="arh-dcard">
+		<header><h4>${__('This week\'s entry')}</h4><p>${__('Week of {0}', [esc(nice_date(d.week_of))])} · ${__('adds a new entry, never overwrites')}</p></header>
+		<div class="arh-dbody">
 			<div class="arh-form">
-				${bs.length > 1 ? `<div class="arh-field"><label>${__('Book')}</label>
-					<select data-role="book" data-customer="${esc(r.customer)}">${bs.map((b) =>
-		`<option value="${esc(b)}"${b === book ? ' selected' : ''}>${esc(b)}</option>`).join('')}</select></div>` : ''}
-				<div class="arh-field"><label>${__('Status')} <span class="arh-lvl t-${w.tier}">${tier.label}</span></label>
-					<select data-role="status" data-customer="${esc(r.customer)}">
-						<option value="">— ${__('pick status')} —</option>
-						${w.statuses.map((s) => `<option value="${esc(s)}"${e.status === s ? ' selected' : ''}>${esc(s)}</option>`).join('')}
+				${bs.length > 1 ? fld(__('Book'), `<select class="arh-input" data-role="book" data-customer="${esc(r.customer)}">
+					${options_html(bs.map((b) => [b, b]), book)}</select>`) : ''}
+				<div class="arh-field"><label>${__('Status')} ${level_badge(w.tier)}</label>
+					<select class="arh-input" data-role="status" data-customer="${esc(r.customer)}">
+						${options_html([['', __('Pick a status…')]].concat(w.statuses.map((s) => [s, s])), e.status || '')}
 					</select></div>
-				${w.tier !== 'upcoming' ? `<label class="arh-check"><input type="checkbox" data-role="call" data-customer="${esc(r.customer)}"${e.call ? ' checked' : ''}>
+				${w.tier !== 'upcoming' ? `<label class="arh-check arh-span"><input type="checkbox" data-role="call" data-customer="${esc(r.customer)}"${e.call ? ' checked' : ''}>
 					${__('Need three-way call with finance')}</label>` : ''}
-				${field('qa', tier.q)}
-				${field('plan', __('What is the plan?'))}
-				${field('notes', __('Notes'))}
-				${field('contact', __('Contact info'), 'input')}
-				${field('email', __('Email'), 'input')}
+				<div class="arh-span">${text('qa', tier.q)}</div>
+				${text('plan', __('What is the plan?'))}
+				${text('notes', __('Notes'))}
+				${text('contact', __('Contact info'), true)}
+				${text('email', __('Email'), true)}
 			</div>
-			<button type="button" class="arh-save-week" data-customer="${esc(r.customer)}">${__('Save this week\'s entry')} (${esc(book)})</button>
+			<div class="arh-dfoot">
+				<button type="button" class="arh-btn arh-btn-primary arh-save-week" data-customer="${esc(r.customer)}">${__('Save entry for {0}', [esc(book)])}</button>
+			</div>
 		</div>
 	</section>`;
 
 	const log = loaded ? det.log || [] : null;
+	const span = show_book ? 8 : 7;
 	const log_rows = log === null
-		? `<tr><td colspan="${show_book ? 8 : 7}" class="arh-nil">${det === 'error' ? __('Could not load.') : __('Loading…')}</td></tr>`
-		: !log.length ? `<tr><td colspan="${show_book ? 8 : 7}" class="arh-nil">${__('No weekly entries yet — this will be the first.')}</td></tr>`
+		? `<tr><td colspan="${span}" class="arh-muted">${det === 'error' ? __('Could not load.') : __('Loading…')}</td></tr>`
+		: !log.length ? `<tr><td colspan="${span}" class="arh-muted">${__('No weekly entries yet — this will be the first.')}</td></tr>`
 			: log.map((x) => `<tr>
-				<td class="m-date"><b>${esc(nice_date(x.week_of))}</b></td>
-				${show_book ? `<td>${esc(x.ledger)}</td>` : ''}
-				<td><b style="color:${STATUS_INK[x.status] || '#3c4043'}">${esc(x.status || '')}</b></td>
-				<td class="m-wrap">${esc(x.qa || '')}</td>
-				<td class="m-wrap">${esc(x.plan || '')}</td>
-				<td class="m-wrap">${esc(x.notes || '')}</td>
-				<td class="m-wrap">${esc(x.contact || '')}${x.email ? ' · ' + esc(x.email) : ''}${x.need_three_way_call ? ' · ' + __('3-way call') : ''}</td>
-				<td>${esc(x.owner || '')}</td>
+				<td class="arh-strong">${esc(nice_date(x.week_of))}</td>
+				${show_book ? `<td class="arh-muted">${esc(x.ledger)}</td>` : ''}
+				<td><span class="arh-badge" style="--c:${esc(STATUS_COLOR[x.status] || 'var(--arh-slate)')}">${esc(x.status || '')}</span></td>
+				<td class="is-wrap">${esc(x.qa || '')}</td>
+				<td class="is-wrap">${esc(x.plan || '')}</td>
+				<td class="is-wrap">${esc(x.notes || '')}</td>
+				<td class="is-wrap">${esc(x.contact || '')}${x.email ? ' · ' + esc(x.email) : ''}${x.need_three_way_call ? ' · ' + __('3-way call') : ''}</td>
+				<td class="arh-muted">${esc(x.owner || '')}</td>
 			</tr>`).join('');
-	const log_html = `<section class="arh-sec arh-sec-log">
-		<header>${__('Entry history')}${log && log.length ? ` (${log.length})` : ''} — ${__('most recent first')}</header>
-		<div class="arh-sec-scroll"><table class="arh-mini arh-log"><thead><tr>
+	const log_html = `<section class="arh-dcard is-wide">
+		<header><h4>${__('Entry history')}</h4><p>${log && log.length ? plural(log.length, __('entry'), __('entries')) + ' · ' : ''}${__('most recent first')}</p></header>
+		<div class="arh-dscroll"><table class="arh-dtable"><thead><tr>
 			<th>${__('Week of')}</th>${show_book ? `<th>${__('Book')}</th>` : ''}<th>${__('Status')}</th>
 			<th>${__('What is going on?')}</th><th>${__('Plan')}</th><th>${__('Notes')}</th><th>${__('Contact')}</th><th>${__('Filed by')}</th>
 		</tr></thead><tbody>${log_rows}</tbody></table></div>
 	</section>`;
 
-	return `<div class="arh-detail-cols">${inv_html}${entry_html}</div>
-		<div class="arh-detail-cols">${log_html}${acct_html}</div>`;
+	return `<div class="arh-detail-grid">${inv_html}${entry_html}${acct_html}${log_html}</div>`;
+}
+
+function cols_menu_html(hub) {
+	return `<div class="arh-menu-label">${__('Show columns')}</div>
+		${COL_SETS.filter((s) => !hub.data || col_set_applies(hub, s.key)).map((s) => `<label class="arh-menu-item arh-menu-check">
+			<input type="checkbox" data-col="${s.key}"${hub.cols[s.key] ? ' checked' : ''}>${esc(s.label)}</label>`).join('')}
+		<div class="arh-menu-sep"></div>
+		<button type="button" class="arh-menu-item" data-cols-reset>${__('Reset to default')}</button>`;
 }
 
 // ---- events -------------------------------------------------------------------
 
+function close_menus(hub) {
+	hub.page.main.find('.arh-menu').removeClass('is-open');
+	hub.page.main.find('[data-menu]').attr('aria-expanded', 'false');
+}
+
 function bind(hub) {
 	const m = hub.page.main;
 
-	m.on('click', '.arh-modes button', function () {
+	m.on('click', '.arh-tab', function () {
 		const mode = $(this).attr('data-mode');
 		if (mode === hub.mode) return;
 		hub.mode = mode;
-		m.find('.arh-modes button').removeClass('on');
-		$(this).addClass('on');
 		hub.detail = {};
+		sync_filter_ui(hub);
 		load(hub);
 	});
 
@@ -685,10 +822,49 @@ function bind(hub) {
 		const k = $(this).attr('data-f');
 		hub.f[k] = this.type === 'checkbox' ? this.checked : $(this).val();
 		if (hub.data) render(hub);
+		else sync_filter_ui(hub);
+	});
+
+	// A summary card that points at work to do filters the grid to it; again clears.
+	m.on('click', '.arh-card[data-quick-f]', function () {
+		const f = $(this).attr('data-quick-f');
+		const v = $(this).attr('data-quick-v');
+		hub.f[f] = hub.f[f] === v ? '' : v;
+		m.find(`[data-f="${f}"]`).val(hub.f[f]);
+		render(hub);
+	});
+
+	// Menus: one open at a time; a click elsewhere or Escape closes them.
+	m.on('click', '[data-menu]', function (e) {
+		e.stopPropagation();
+		const k = $(this).attr('data-menu');
+		const $menu = m.find(`.arh-menu[data-menu-for="${k}"]`);
+		const was_open = $menu.hasClass('is-open');
+		close_menus(hub);
+		if (was_open) return;
+		if (k === 'cols') $menu.html(cols_menu_html(hub));
+		$menu.addClass('is-open');
+		$(this).attr('aria-expanded', 'true');
+	});
+	m.on('click', '.arh-menu', (e) => e.stopPropagation());
+	$(document).on('click.arh-menu', () => close_menus(hub));
+	$(document).on('keydown.arh-menu', (e) => { if (e.key === 'Escape') close_menus(hub); });
+
+	m.on('change', '[data-col]', function () {
+		hub.cols[$(this).attr('data-col')] = this.checked;
+		save_cols(hub.cols);
+		render(hub);
+	});
+	m.on('click', '[data-cols-reset]', function () {
+		COL_SETS.forEach((s) => { hub.cols[s.key] = s.on; });
+		save_cols(hub.cols);
+		m.find('.arh-menu[data-menu-for="cols"]').html(cols_menu_html(hub));
+		render(hub);
 	});
 
 	m.on('click', '[data-act]', function () {
 		const act = $(this).attr('data-act');
+		close_menus(hub);
 		if (act === 'refresh') { hub.detail = {}; load(hub); }
 		else if (act === 'clear') {
 			hub.f = blank_filters();
@@ -842,7 +1018,8 @@ function export_view(hub, file_format) {
 
 function print_view(hub) {
 	if (!hub.data) return;
-	const groups = grouped(hub, visible_rows(hub));
+	const rows = visible_rows(hub);
+	const groups = grouped(hub, rows);
 	if (!groups.length) {
 		frappe.msgprint(__('Nothing to print — no customers in view.'));
 		return;
@@ -852,18 +1029,21 @@ function print_view(hub) {
 	const html = `<!doctype html><html><head><meta charset="utf-8"><title>${__('AR Hub')}</title>${styles}
 		<style>
 			@page { size: landscape; margin: 8mm; }
-			body { font-family: Arial, sans-serif; margin: 0; }
-			.arh-wrap { max-height: none; overflow: visible; border: none; }
-			.arh-sheet th, .arh-sheet td { position: static !important; padding: 3px 5px; font-size: 9px; }
-			.arh-kpi th, .arh-kpi td { font-size: 9px; padding: 3px 6px; }
-			h2 { font-size: 15px; margin: 0 0 4px; }
+			body { margin: 0; font-family: Inter, Arial, sans-serif; }
+			.arh-wrap { max-height: none; overflow: visible; }
+			.arh-table th, .arh-table td { position: static !important; padding: 4px 6px; font-size: 9px; }
+			.arh-cards { grid-template-columns: repeat(6, 1fr); }
+			.arh-card { padding: 8px 10px; box-shadow: none; }
+			.arh-card-value { font-size: 14px; }
+			.arh-card-act { display: none; }
+			h2 { margin: 0 0 4px; font-size: 16px; }
 			* { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-		</style></head><body class="arh">
+		</style></head><body><div class="arh">
 		<h2>${__('AR Hub')}</h2>
-		<div class="arh-sub">${esc(hub.page.main.find('.arh-sub').text())}</div>
-		${kpi_html(hub, visible_rows(hub))}
-		<div class="arh-wrap">${sheet_html(hub, groups, true)}</div>
-		</body></html>`;
+		<div class="arh-status">${esc(hub.page.main.find('.arh-status-text').text())}</div>
+		<div class="arh-cards">${cards_html(hub, rows)}</div>
+		<div class="arh-panel"><div class="arh-wrap">${table_html(hub, groups, true)}</div></div>
+		</div></body></html>`;
 	const w = window.open('', '_blank');
 	if (!w) {
 		frappe.msgprint(__('Allow pop-ups for this site to print.'));
