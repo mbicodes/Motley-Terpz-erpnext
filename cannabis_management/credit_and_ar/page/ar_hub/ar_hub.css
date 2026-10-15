@@ -243,6 +243,49 @@ textarea.arh-input { display: block; height: auto; min-height: 64px; padding: 8p
 .arh-card.is-active { border-color: var(--arh-primary); box-shadow: 0 0 0 3px var(--arh-ring); }
 .arh-card-act { display: inline-flex; align-items: center; gap: 4px; color: var(--arh-primary); font-size: 12px; font-weight: 500; white-space: nowrap; }
 
+/* ---- aging breakdown (AR Dashboard's bucket cards + distribution bar) -------- */
+.arh-aging-card {
+	margin: 0 0 16px;
+	padding: 14px 16px 16px;
+	border: 1px solid var(--arh-border);
+	border-radius: 12px;
+	background: var(--arh-bg);
+	box-shadow: var(--arh-shadow-xs);
+}
+.arh-aging-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.arh-aging-title { font-size: 14px; font-weight: 600; color: var(--arh-fg); }
+.arh-aging-meta { display: inline-flex; align-items: center; gap: 6px; color: var(--arh-muted-fg); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.arh-aging-meta b { color: var(--arh-fg); font-weight: 600; }
+.arh-aging-clear { height: 24px; padding: 0 8px; font-size: 12px; }
+.arh-agebar { display: flex; height: 22px; overflow: hidden; border-radius: 6px; background: var(--arh-muted); margin-bottom: 12px; }
+.arh-agebar-seg {
+	display: flex; align-items: center; justify-content: center; min-width: 2px;
+	color: #fff; font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums;
+	text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25); white-space: nowrap; overflow: hidden;
+}
+.arh-agebar-seg + .arh-agebar-seg { border-left: 1px solid var(--arh-bg); }
+.arh-agebar-seg.is-empty { background: transparent; }
+.arh-agetiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 8px; }
+.arh-agetile {
+	display: flex; flex-direction: column; gap: 2px; min-width: 0;
+	padding: 9px 10px 9px 12px;
+	border: 1px solid var(--arh-border);
+	border-left: 4px solid var(--arh-age);
+	border-radius: 8px;
+	background: var(--arh-bg);
+	color: var(--arh-fg);
+	font: inherit; text-align: left; cursor: pointer;
+	transition: border-color 0.15s, box-shadow 0.15s, background-color 0.15s;
+}
+.arh-agetile:hover { background: color-mix(in srgb, var(--arh-age) 8%, var(--arh-bg)); }
+.arh-agetile:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--arh-ring); }
+.arh-agetile.is-active { border-color: var(--arh-age-fg); background: color-mix(in srgb, var(--arh-age) 12%, var(--arh-bg)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--arh-age-fg) 30%, transparent); }
+.arh-agetile.is-zero { opacity: 0.6; }
+.arh-agetile-label { display: flex; align-items: baseline; gap: 5px; font-size: 12.5px; font-weight: 600; color: var(--arh-fg); white-space: nowrap; }
+.arh-agetile-label small { font-size: 11px; font-weight: 400; color: var(--arh-muted-fg); overflow: hidden; text-overflow: ellipsis; }
+.arh-agetile-value { font-size: 15px; font-weight: 600; color: var(--arh-age-fg); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.arh-agetile-sub { font-size: 11.5px; color: var(--arh-muted-fg); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
 /* ---- the table panel -------------------------------------------------------- */
 .arh-panel { overflow: hidden; border: 1px solid var(--arh-border); border-radius: 12px; background: var(--arh-bg); box-shadow: var(--arh-shadow-xs); }
 .arh-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px; }

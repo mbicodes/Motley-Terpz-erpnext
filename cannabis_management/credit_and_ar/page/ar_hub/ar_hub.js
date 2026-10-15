@@ -131,7 +131,9 @@ const nice_date = (d) => {
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 const options_html = (list, sel) => list.map((o) =>
 	`<option value="${esc(o[0])}"${o[0] === sel ? ' selected' : ''}>${esc(o[1])}</option>`).join('');
-const blank_filters = () => ({ search: '', segment: '', recon: '', level: '', status: '', age: '', min: '', hide_motley: false });
+const blank_filters = () => ({ search: '', segment: '', recon: '', level: '', status: '', age: '', min: '', hide_motley: false, bucket: '' });
+// Aging breakdown: the "not yet due" tile's key; overdue tiles use their bucket label.
+const TERMS_BUCKET = '__terms__';
 
 function load_cols() {
 	const cols = {};
@@ -197,6 +199,7 @@ frappe.pages['ar-hub'].on_page_load = function (wrapper) {
 			</div>
 
 			<div class="arh-cards"></div>
+			<div class="arh-aging"></div>
 
 			<div class="arh-panel">
 				<div class="arh-toolbar">
@@ -315,7 +318,9 @@ function filters_active(hub) {
 	return Object.keys(hub.f).some((k) => !!hub.f[k]);
 }
 
-function visible_rows(hub) {
+// keep_bucket=false leaves the aging-bucket filter out, so the aging breakdown
+// keeps showing the whole picture while one of its tiles filters the grid.
+function visible_rows(hub, keep_bucket = true) {
 	const f = hub.f;
 	const q = (f.search || '').trim().toLowerCase();
 	const min = parseFloat(f.min) || 0;
@@ -334,6 +339,8 @@ function visible_rows(hub) {
 		}
 		if (min && r.outstanding < min) return false;
 		if (age && r.age_days < age) return false;
+		if (keep_bucket && f.bucket
+			&& !((f.bucket === TERMS_BUCKET ? r.on_terms : (r.buckets || {})[f.bucket]) > 0.005)) return false;
 		return true;
 	});
 }
@@ -550,6 +557,7 @@ function render(hub) {
 		<span class="arh-hint">${d.can_weekly ? __('Click a customer for invoices, account fields and this week\'s entry.')
 		: __('Click a customer for invoices and account fields.')}</span>`);
 	m.find('.arh-cards').html(cards_html(hub, rows));
+	m.find('.arh-aging').html(aging_html(hub, visible_rows(hub, false)));
 
 	const $grid = m.find('.arh-grid');
 	const $old = $grid.find('.arh-wrap');
@@ -661,6 +669,64 @@ function cards_html(hub, rows) {
 			<span class="arh-card-sub">${esc(c.sub)}</span>
 		</${tag}>`;
 	}).join('');
+}
+
+// AR Dashboard's aging breakdown: a distribution bar and one tile per bucket
+// (on terms, then each overdue bucket), over the customers the filters show.
+// Colours follow the debt levels; within a level the older buckets go darker.
+// A tile filters the grid to customers holding a balance in that bucket.
+function aging_html(hub, rows) {
+	const d = hub.data;
+	const amount = (r, key) => (key === TERMS_BUCKET ? r.on_terms : (r.buckets || {})[key]) || 0;
+	const per_tier = {};
+	d.overdue.forEach((b) => { per_tier[b.tier] = (per_tier[b.tier] || 0) + 1; });
+	const seen = {};
+	const tiles = [{ key: TERMS_BUCKET, label: __('On terms'), unit: __('not yet due'), tier: 'upcoming', shade: 100 }]
+		.concat(d.overdue.map((b) => {
+			seen[b.tier] = (seen[b.tier] || 0) + 1;
+			// 55% for a level's first bucket up to 100% for its last.
+			const n = per_tier[b.tier];
+			return { key: b.label, label: b.label, unit: __('overdue'), tier: b.tier,
+				shade: n > 1 ? Math.round(55 + 45 * (seen[b.tier] - 1) / (n - 1)) : 100 };
+		}));
+	tiles.forEach((t) => {
+		const holders = rows.filter((r) => amount(r, t.key) > 0.005);
+		t.amt = holders.reduce((s, r) => s + amount(r, t.key), 0);
+		t.n = holders.length;
+		t.color = `color-mix(in srgb, ${TIERS[t.tier].color} ${t.shade}%, var(--arh-bg))`;
+	});
+	const total = tiles.reduce((s, t) => s + t.amt, 0);
+	const pct = (v) => (total ? (v / total) * 100 : 0);
+	const active = hub.f.bucket;
+
+	const bar = total ? tiles.filter((t) => pct(t.amt) >= 0.3).map((t) => `<span class="arh-agebar-seg"
+		style="width:${pct(t.amt).toFixed(2)}%;background:${t.color}"
+		title="${esc(t.label)}: ${money(t.amt)} (${pct(t.amt).toFixed(1)}%)">${pct(t.amt) >= 7 ? `${pct(t.amt).toFixed(0)}%` : ''}</span>`).join('')
+		: `<span class="arh-agebar-seg is-empty" style="width:100%"></span>`;
+
+	const tile_html = tiles.map((t) => {
+		const on = active === t.key;
+		return `<button type="button" class="arh-agetile${on ? ' is-active' : ''}${t.amt ? '' : ' is-zero'}" data-bucket="${esc(t.key)}"
+			aria-pressed="${on}" style="--arh-age:${t.color};--arh-age-fg:${TIERS[t.tier].color}"
+			title="${on ? __('Showing these customers — click to clear') : __('Show customers with a balance here')}">
+			<span class="arh-agetile-label">${esc(t.label)}<small>${esc(t.unit)}</small></span>
+			<span class="arh-agetile-value">${t.amt ? money(t.amt) : dash}</span>
+			<span class="arh-agetile-sub">${t.amt ? `${pct(t.amt).toFixed(1)}% · ${plural(t.n, __('customer'), __('customers'))}` : '&nbsp;'}</span>
+		</button>`;
+	}).join('');
+
+	const active_tile = tiles.find((t) => t.key === active);
+	return `<div class="arh-aging-card">
+		<div class="arh-aging-head">
+			<span class="arh-aging-title">${__('Aging breakdown')}</span>
+			<span class="arh-aging-meta">${active_tile
+				? `${__('Grid shows customers with a balance in {0}', [`<b>${esc(active_tile.label)}${active_tile.key === TERMS_BUCKET ? '' : ' ' + __('overdue')}</b>`])}
+					<button type="button" class="arh-btn arh-btn-ghost arh-aging-clear" data-bucket="${esc(active)}">${__('Clear')}${icon('x', 12)}</button>`
+				: `${money(total)} · ${plural(rows.length, __('customer'), __('customers'))}`}</span>
+		</div>
+		<div class="arh-agebar" role="img" aria-label="${__('Aging distribution')}">${bar}</div>
+		<div class="arh-agetiles">${tile_html}</div>
+	</div>`;
 }
 
 function detail_html(hub, r) {
@@ -826,6 +892,13 @@ function bind(hub) {
 	});
 
 	// A summary card that points at work to do filters the grid to it; again clears.
+	// Aging breakdown tiles: a second click on the same tile (or Clear) shows everyone again.
+	m.on('click', '.arh-agetile[data-bucket], .arh-aging-clear[data-bucket]', function () {
+		const b = $(this).attr('data-bucket');
+		hub.f.bucket = hub.f.bucket === b ? '' : b;
+		render(hub);
+	});
+
 	m.on('click', '.arh-card[data-quick-f]', function () {
 		const f = $(this).attr('data-quick-f');
 		const v = $(this).attr('data-quick-v');
