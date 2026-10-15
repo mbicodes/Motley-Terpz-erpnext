@@ -1,0 +1,51 @@
+/* AR Hub — the tab strip, and the hosted pages sitting flush inside their tab. */
+
+/* Sheet-style tabs: square, bordered, each in its own colour; the open one is
+   solid and the bar under the strip carries its colour. */
+.arh-tabs {
+	display: flex;
+	flex-wrap: wrap;
+	border-bottom: 3px solid var(--arh-active, #1c4587);
+	margin-bottom: 14px;
+}
+.arh-tab {
+	appearance: none;
+	border: 1px solid #b7b7b7;
+	border-bottom: none;
+	border-radius: 0;
+	margin-right: -1px;
+	padding: 8px 20px;
+	background: var(--arh-tint);
+	color: var(--arh-ink);
+	font-size: 13px;
+	font-weight: 700;
+	line-height: 1.3;
+	cursor: pointer;
+}
+.arh-tab:hover { filter: brightness(0.96); }
+.arh-tab.is-active {
+	background: var(--arh-ink);
+	border-color: var(--arh-ink);
+	color: #fff;
+	filter: none;
+}
+
+.arh-msg {
+	padding: 48px 0;
+	text-align: center;
+	color: var(--text-muted);
+}
+
+/* Each tab's page draws its own page shell. The hub's header already names the
+   page, so the nested header goes, and the nested container drops its width
+   cap and padding so the page fills the tab. */
+.arh-pane > .page-head { display: none !important; }
+.arh-pane > .page-body {
+	width: auto;
+	max-width: none;
+	min-height: 0;
+	margin: 0;
+	padding: 0;
+}
+.arh-pane > .page-body .layout-main { margin-left: 0; margin-right: 0; }
+.arh-pane > .page-body .layout-main-section-wrapper { padding-left: 0; padding-right: 0; }

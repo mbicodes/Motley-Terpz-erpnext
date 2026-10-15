@@ -175,7 +175,7 @@ frappe.pages['ar-legacy'].on_page_load = function (wrapper) {
 			{ label: 'Oldest invoice', value: oldest ? oldest + ' days' : '—', sub: 'in view', tone: 'age' }
 		];
 
-		$('#arl-cards').html(cards.map(function (c) {
+		page.main.find('#arl-cards').html(cards.map(function (c) {
 			return `<div class="arl-card arl-card-${c.tone}">
 						<span class="arl-card-label">${esc(c.label)}</span>
 						<span class="arl-card-value">${esc(c.value)}</span>
@@ -201,7 +201,7 @@ frappe.pages['ar-legacy'].on_page_load = function (wrapper) {
 					</button>`;
 		}).join('');
 
-		$('#arl-seg-cards').html(html);
+		page.main.find('#arl-seg-cards').html(html);
 	}
 
 	function render_active_filters() {
@@ -214,7 +214,7 @@ frappe.pages['ar-legacy'].on_page_load = function (wrapper) {
 		if (f.segment) {
 			bits.push(['segment', f.segment === '__unassigned__' ? 'Unassigned only' : f.segment]);
 		}
-		$('#arl-active').html(bits.length
+		page.main.find('#arl-active').html(bits.length
 			? bits.map(function (b) {
 				return '<span class="arl-pill" data-clear="' + b[0] + '">' + esc(b[1]) + ' <i>&times;</i></span>';
 			}).join('')
@@ -287,12 +287,12 @@ frappe.pages['ar-legacy'].on_page_load = function (wrapper) {
 		render_segment_cards();
 		render_active_filters();
 		var html = all_segments().map(section_html).join('');
-		$('#arl-body').html(html || '<div class="arl-empty arl-empty-page">No accounts match these filters.</div>');
+		page.main.find('#arl-body').html(html || '<div class="arl-empty arl-empty-page">No accounts match these filters.</div>');
 	}
 
 	// ---- data ----------------------------------------------------------
 	function load() {
-		$('#arl-body').html('<div class="arl-loading"><div class="arl-spinner"></div><p>Loading ' +
+		page.main.find('#arl-body').html('<div class="arl-loading"><div class="arl-spinner"></div><p>Loading ' +
 			({ new: 'new AR', all: 'legacy + new AR' }[state.ar_mode] || 'legacy') + ' accounts…</p></div>');
 		frappe.call({
 			method: 'cannabis_management.cannabis_management.page.ar_legacy.ar_legacy.get_data',
@@ -305,13 +305,13 @@ frappe.pages['ar-legacy'].on_page_load = function (wrapper) {
 				state.companies = r.message.companies || [];
 				state.can_edit = !!r.message.can_edit;
 
-				var $co = $('#arl-company').empty().append('<option value="">All companies</option>');
+				var $co = page.main.find('#arl-company').empty().append('<option value="">All companies</option>');
 				state.companies.forEach(function (c) {
 					$co.append('<option value="' + esc(c) + '">' + esc(c) + '</option>');
 				});
 				$co.val(state.filters.company);
 
-				$('#arl-mode-note').text(state.ar_mode === 'new'
+				page.main.find('#arl-mode-note').text(state.ar_mode === 'new'
 					? 'Invoices posted on or after ' + (NEW_AR_START_LABEL || 'the cut-over')
 					: state.ar_mode === 'all'
 						? 'All invoices: legacy up to ' + (r.message.cutoff || 'the cut-over')
@@ -393,17 +393,17 @@ frappe.pages['ar-legacy'].on_page_load = function (wrapper) {
 	});
 
 	function sync_controls() {
-		$('#arl-search').val(state.filters.search);
-		$('#arl-company').val(state.filters.company);
-		$('#arl-age').val(state.filters.age);
-		$('#arl-min').val(state.filters.min_amount);
-		$('#arl-sort').val(state.filters.sort);
+		page.main.find('#arl-search').val(state.filters.search);
+		page.main.find('#arl-company').val(state.filters.company);
+		page.main.find('#arl-age').val(state.filters.age);
+		page.main.find('#arl-min').val(state.filters.min_amount);
+		page.main.find('#arl-sort').val(state.filters.sort);
 	}
 
-	$('#arl-age').html(AGE_BUCKETS.map(function (b) {
+	page.main.find('#arl-age').html(AGE_BUCKETS.map(function (b) {
 		return '<option value="' + b.value + '">' + b.label + '</option>';
 	}).join(''));
-	$('#arl-sort').html(SORTS.map(function (s) {
+	page.main.find('#arl-sort').html(SORTS.map(function (s) {
 		return '<option value="' + s.value + '">' + s.label + '</option>';
 	}).join(''));
 

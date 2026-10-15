@@ -85,9 +85,19 @@
    "link_type": "Page",
    "onboard": 0,
    "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "AR Hub",
+   "link_count": 0,
+   "link_to": "ar-hub",
+   "link_type": "Page",
+   "onboard": 0,
+   "type": "Link"
   }
  ],
- "modified": "2026-08-11 19:21:16.479634",
+ "modified": "2026-10-15 14:50:00.000000",
  "modified_by": "Administrator",
  "module": "Credit and AR",
  "name": "Credit and AR Control",
