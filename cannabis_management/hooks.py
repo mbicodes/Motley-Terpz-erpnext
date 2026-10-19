@@ -879,12 +879,17 @@ before_request = [
 	# config — see manufacturing_timesheet_kiosk/routing.py for why that alias
 	# cannot survive in the bench's nginx template. No-ops for every other path.
 	"cannabis_management.manufacturing_timesheet_kiosk.routing.route_kiosk_api",
+	# Stock Balance, dimension-wise: drains Batch stock that left on untagged
+	# Delivery Notes / Stock Entries instead of showing it forever. Installs once
+	# per process — see the module docstring.
+	"cannabis_management.overrides.stock_balance_dimensions.apply",
 ]
 # after_request = ["cannabis_management.cannabis_management.utils.after_request"]
 
 # Job Events
 # ----------
-# before_job = ["cannabis_management.cannabis_management.utils.before_job"]
+# Same Stock Balance override for reports run in the background (Auto Email Report).
+before_job = ["cannabis_management.overrides.stock_balance_dimensions.apply"]
 # after_job = ["cannabis_management.cannabis_management.utils.after_job"]
 
 # User Data Protection
