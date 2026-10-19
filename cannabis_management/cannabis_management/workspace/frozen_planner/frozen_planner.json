@@ -1,0 +1,42 @@
+{
+ "charts": [],
+ "content": "[{\"id\": \"fpBlock001\", \"type\": \"custom_block\", \"data\": {\"custom_block_name\": \"Frozen Planner\", \"col\": 12}}]",
+ "creation": "2026-10-08 09:36:08.243840",
+ "custom_blocks": [
+  {
+   "custom_block_name": "Frozen Planner",
+   "label": "Frozen Planner"
+  }
+ ],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "hide_custom": 0,
+ "icon": "stock",
+ "idx": 0,
+ "indicator_color": "blue",
+ "is_hidden": 0,
+ "label": "Frozen Planner",
+ "links": [],
+ "modified": "2026-10-08 09:36:08.243840",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Frozen Planner",
+ "number_cards": [],
+ "owner": "Administrator",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [
+  {
+   "role": "Nikki M - Consolidated"
+  },
+  {
+   "role": "Sales Manager"
+  },
+  {
+   "role": "System Manager"
+  }
+ ],
+ "sequence_id": 2.0,
+ "shortcuts": [],
+ "title": "Frozen Planner"
+}
