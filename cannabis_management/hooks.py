@@ -132,6 +132,11 @@ doctype_list_js = {
 # 	"methods": "cannabis_management.cannabis_management.utils.jinja_methods",
 # 	"filters": "cannabis_management.cannabis_management.utils.jinja_filters"
 # }
+jinja = {
+	# The "Run Production Log" print format (Material Request) — the Print Log
+	# button on a run's card on the Manufacturing Process page.
+	"methods": ["cannabis_management.api.manufacturing_process.run_production_log"],
+}
 
 # Migration hooks
 # ---------------
@@ -307,6 +312,9 @@ override_doctype_class = {
     # submit -- a run is weighed, not dispensed -- and lets an employee run
     # timers on several operations at once. See overrides/job_card_qty.py.
     "Job Card":             "cannabis_management.overrides.job_card_qty.CMJobCard",
+    # Skips core's blocking gravatar.com lookup on every lead save.
+    # See overrides/crm_lead_no_gravatar.py.
+    "CRM Lead":             "cannabis_management.overrides.crm_lead_no_gravatar.CMCRMLead",
 }
 
 # Document Events
@@ -461,6 +469,8 @@ doc_events = {
         "before_submit": [
             # Gate 1: production transfers and manufacture only, per §7.
             "cannabis_management.credit_and_ar.hold_engine.enforce_hold",
+            # Each item's Item Group must be in its warehouse's Item Group Account Mapping.
+            "cannabis_management.overrides.warehouse_account_utils.validate_item_group_mapping",
         ],
         "on_submit": [
             # Source Tag / Target Tag on the Stock Ledger Entries this submit just wrote.
@@ -506,6 +516,8 @@ doc_events = {
         "before_submit": [
             # Gate 1: no product moves for a held customer.
             "cannabis_management.credit_and_ar.hold_engine.enforce_hold",
+            # Each item's Item Group must be in its warehouse's Item Group Account Mapping.
+            "cannabis_management.overrides.warehouse_account_utils.validate_item_group_mapping",
         ],
         "on_update": [
             "cannabis_management.overrides.delivery_note_hooks.update_sales_invoice_delivery_status",
@@ -520,6 +532,18 @@ doc_events = {
             "cannabis_management.overrides.delivery_note_hooks.update_sales_order_delivery_status",
         ],
         "validate": "cannabis_management.overrides.delivery_note_hooks.set_expense_head",
+    },
+    "Purchase Receipt": {
+        "before_submit": [
+            # Each item's Item Group must be in its warehouse's Item Group Account Mapping.
+            "cannabis_management.overrides.warehouse_account_utils.validate_item_group_mapping",
+        ],
+    },
+    "Stock Reconciliation": {
+        "before_submit": [
+            # Each item's Item Group must be in its warehouse's Item Group Account Mapping.
+            "cannabis_management.overrides.warehouse_account_utils.validate_item_group_mapping",
+        ],
     },
     "Work Order": {
         # Gate 1: no production starts for a held customer's order.

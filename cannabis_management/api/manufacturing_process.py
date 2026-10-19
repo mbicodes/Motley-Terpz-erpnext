@@ -11,7 +11,7 @@ import json
 
 import frappe
 from frappe import _
-from frappe.utils import flt, now_datetime, get_datetime
+from frappe.utils import flt, now_datetime, get_datetime, format_date, format_datetime
 
 from cannabis_management.doc_hooks.job_card import MICRON_OPERATIONS
 from cannabis_management.doc_hooks.job_card import set_output_qty as _set_output_qty
@@ -587,6 +587,7 @@ def _job_card_full_detail(jc):
     item_name = frappe.db.get_value("Item", jc.production_item, "item_name") or jc.production_item
     sub_operations = _resolve_sub_operations(jc)
     assigned = _get_assignments(jc)
+    notes = _get_notes(jc)
 
     employee_names = {}
     for tl in jc.time_logs:
@@ -647,6 +648,7 @@ def _job_card_full_detail(jc):
             so["default_workstation"] = _default_workstation(jc, so["operation"])
             so["assigned_employee"] = assigned.get(so["operation"], "")
             so["assigned_employee_name"] = _employee_name(so["assigned_employee"])
+            so["note"] = notes.get(so["operation"], "")
             if agg.get("running"):
                 so["status"] = "active"
             elif agg.get("mins"):
@@ -689,6 +691,7 @@ def _job_card_full_detail(jc):
         "default_workstation": jc.workstation or _default_workstation(jc, jc.operation),
         "assigned_employee": assigned.get(jc.operation or "", ""),
         "assigned_employee_name": _employee_name(assigned.get(jc.operation or "", "")),
+        "note": notes.get(jc.operation or "", ""),
         "is_micron_op": jc.operation in MICRON_OPERATIONS,
     }
 
@@ -705,7 +708,16 @@ def _default_workstation(jc, operation):
 
 def _get_assignments(jc):
     """Sub-operation (or the Job Card's own operation) -> assigned Employee."""
-    raw = jc.get("custom_assigned_employees")
+    return _json_map(jc, "custom_assigned_employees")
+
+
+def _get_notes(jc):
+    """Sub-operation (or the Job Card's own operation) -> its short note."""
+    return _json_map(jc, "custom_sub_op_notes")
+
+
+def _json_map(jc, fieldname):
+    raw = jc.get(fieldname)
     if not raw:
         return {}
     if isinstance(raw, str):
@@ -750,6 +762,34 @@ def assign_employee(job_card, employee=None, operation=None):
     jc.db_set("custom_assigned_employees", json.dumps(assigned) if assigned else None, notify=True)
 
     return {"operation": operation, "employee": employee or "", "employee_name": _employee_name(employee)}
+
+
+NOTE_MAX_LENGTH = 140
+
+
+@frappe.whitelist()
+def save_sub_op_note(job_card, note=None, operation=None):
+    """The short note on a process row of the Manufacturing Process page,
+    kept per sub-operation (or the Job Card's own operation) like Assign To.
+    Allowed at any status: a note can still be added once the step is done.
+    It prints on the run's Production Log. A blank note clears it."""
+    jc = frappe.get_doc("Job Card", job_card)
+
+    sub_op_names = [s["operation"] for s in _resolve_sub_operations(jc)]
+    if not sub_op_names:
+        operation = jc.operation
+    elif operation not in sub_op_names:
+        frappe.throw(_("Select a valid sub-operation: {0}").format(", ".join(sub_op_names)))
+
+    note = (note or "").strip()[:NOTE_MAX_LENGTH]
+    notes = _get_notes(jc)
+    if note:
+        notes[operation] = note
+    else:
+        notes.pop(operation, None)
+    jc.db_set("custom_sub_op_notes", json.dumps(notes) if notes else None, notify=True)
+
+    return {"operation": operation, "note": note}
 
 
 @frappe.whitelist()
@@ -1558,3 +1598,144 @@ def submit_tiering_stock_entries(doc, method=None):
         se = frappe.get_doc("Stock Entry", name)
         se.flags.ignore_permissions = True
         se.submit()
+
+
+# ── Production Log (the "Run Production Log" print format, Print Log button) ──
+
+# The log book's benchmark for a Fresh Frozen -> Rosin run, as on the paper
+# FROZEN BIO TO ROSIN sheet (Conversion Entry's "Production Log" format).
+FROZEN_TO_ROSIN_EXPECTED_YIELD = 3.0
+PRODUCTION_LOG_OP_ORDER = ["Hash Processing", "Rosin Pressing"]
+PRODUCTION_LOG_STAGE_LABELS = {"Hash Processing": "Bubble Hash", "Rosin Pressing": "Rosin"}
+
+
+def run_production_log(material_request):
+    """Everything the "Run Production Log" print format fills in for one run:
+    the Fresh Frozen going in, each stage's steps (who, where, when, how long,
+    the row's note), its microns and output, and the yields. Registered as a
+    Jinja method (hooks.jinja) so the print format is layout only."""
+    run = get_run_detail(material_request)
+    mr = run["material_request"]
+    expected = {fg["item"]: fg["expected_yield_"] for fg in run["finished_goods"] if fg.get("item")}
+
+    source = [{
+        "item_code": d["item_code"],
+        "item_name": d["item_name"],
+        "item_group": frappe.db.get_value("Item", d["item_code"], "item_group") or "",
+        "lbs": flt(d["qty"]),
+        "grams": flt(d["qty"]) * LBS_TO_GRAM,
+    } for d in run["items"]]
+    input_grams = sum(s["grams"] for s in source)
+
+    team, workstations, notes, stages, starts_all = {}, [], [], [], []
+    for wo in sorted(run["work_orders"], key=_production_log_rank):
+        jcs = wo["job_cards"]
+        operation = jcs[0]["operation"] if jcs else ""
+        steps = []
+        for jc in jcs:
+            sub_ops = jc["sub_operations"] or [{"operation": jc["operation"], "note": jc.get("note")}]
+            for so in sub_ops:
+                logs = [tl for tl in jc["time_logs"]
+                        if not jc["sub_operations"] or (tl["operation"] or jc["operation"]) == so["operation"]]
+                starts = [get_datetime(tl["from_time"]) for tl in logs if tl["from_time"]]
+                ends = [get_datetime(tl["to_time"]) for tl in logs if tl["to_time"]]
+                running = any(tl["from_time"] and not tl["to_time"] for tl in logs)
+                people = list(dict.fromkeys(tl["employee_name"] for tl in logs if tl["employee_name"]))
+                for tl in logs:
+                    if tl["employee"]:
+                        team.setdefault(tl["employee"], tl["employee_name"])
+                    if tl["workstation"] and tl["workstation"] not in workstations:
+                        workstations.append(tl["workstation"])
+                starts_all += starts
+                note = so.get("note") or ""
+                if note:
+                    notes.append({"where": f"{operation} · {so['operation']}", "note": note})
+                steps.append({
+                    "name": so["operation"],
+                    "employees": ", ".join(people),
+                    "initials": " ".join(_initials(p) for p in people),
+                    "workstation": logs[-1]["workstation"] if logs else "",
+                    "start": format_datetime(min(starts), "MM/dd HH:mm") if starts else "",
+                    "end": "running" if running else (format_datetime(max(ends), "MM/dd HH:mm") if ends else ""),
+                    "duration": _fmt_duration(sum(tl["time_in_mins"] for tl in logs)) if logs else "",
+                    "note": note,
+                })
+
+        posted = ""
+        if wo["manufacture_entry"]:
+            se = frappe.db.get_value(
+                "Stock Entry", wo["manufacture_entry"], ["posting_date", "posting_time"], as_dict=True)
+            posted = format_datetime(get_datetime(f"{se.posting_date} {se.posting_time}"), "MM/dd/yy HH:mm")
+        stage_people = list(dict.fromkeys(p for s in steps for p in s["employees"].split(", ") if p))
+        stages.append({
+            "operation": operation,
+            "label": PRODUCTION_LOG_STAGE_LABELS.get(operation) or wo["item_name"],
+            "item_code": wo["production_item"],
+            "item_name": wo["item_name"],
+            "item_group": frappe.db.get_value("Item", wo["production_item"], "item_group") or "",
+            "workstation": jcs[0]["workstation"] if jcs else "",
+            "planned": wo["qty"],
+            "made": bool(wo["manufacture_entry"]),
+            "produced": wo["produced_qty"] if wo["manufacture_entry"] else 0,
+            "manufacture_entry": wo["manufacture_entry"] or "",
+            "posted": posted,
+            "expected_yield": expected.get(wo["production_item"]),
+            "initials": " ".join(_initials(p) for p in stage_people),
+            "microns": [m for jc in jcs for m in jc["micron_rows"]],
+            "steps": steps,
+        })
+
+    hash_stage = next((s for s in stages if s["operation"] == "Hash Processing"), None)
+    rosin_stage = next((s for s in stages if s["operation"] == "Rosin Pressing"), None)
+    yields = []
+    if hash_stage:
+        yields.append(_yield_row("Bubble Hash from Fresh Frozen", hash_stage, input_grams, hash_stage["expected_yield"]))
+    if hash_stage and rosin_stage:
+        yields.append(_yield_row("Rosin from Bubble Hash", rosin_stage, hash_stage["produced"], rosin_stage["expected_yield"]))
+    if rosin_stage:
+        yields.append(_yield_row("Fresh Frozen to Rosin (overall)", rosin_stage, input_grams, FROZEN_TO_ROSIN_EXPECTED_YIELD))
+
+    first = min(starts_all) if starts_all else None
+    return {
+        "name": mr["name"],
+        "batch": mr["project_name"] or "",
+        "routing": mr["routing"] or "",
+        "company": mr["company"],
+        "production_date": format_date(first or mr["transaction_date"], "MM/dd/yyyy"),
+        "production_time": format_datetime(first, "hh:mm a") if first else "",
+        "completed": rosin_stage["posted"] if rosin_stage else "",
+        "rosin_done": bool(rosin_stage and rosin_stage["made"]),
+        "manufactured_by": ", ".join(team.values()),
+        "team": [{"name": n, "initials": _initials(n)} for n in team.values()],
+        "workstations": workstations,
+        "source": source,
+        "input_grams": input_grams,
+        "input_lbs": sum(s["lbs"] for s in source),
+        "stages": stages,
+        "yields": yields,
+        "notes": notes,
+    }
+
+
+def _production_log_rank(wo):
+    op = wo["job_cards"][0]["operation"] if wo["job_cards"] else ""
+    return PRODUCTION_LOG_OP_ORDER.index(op) if op in PRODUCTION_LOG_OP_ORDER else len(PRODUCTION_LOG_OP_ORDER)
+
+
+def _yield_row(label, stage, basis_grams, expected_pct):
+    made = stage["made"] and flt(basis_grams) > 0
+    return {
+        "label": label,
+        "expected": expected_pct,
+        "grams": stage["produced"] if stage["made"] else None,
+        "actual": flt(stage["produced"]) / flt(basis_grams) * 100 if made else None,
+    }
+
+
+def _initials(name):
+    return "".join(w[0] for w in (name or "").split()).upper()
+
+
+def _fmt_duration(mins):
+    h, m = divmod(int(round(flt(mins))), 60)
+    return f"{h}h {m:02d}m" if h else f"{m} min"

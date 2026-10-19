@@ -169,3 +169,86 @@ def apply_item_group_mapping(doc, gl_entries: list, warehouse_account: dict) -> 
         new_entries.append(doc.get_gl_dict(args, item=item_row))
 
     return kept_entries + new_entries
+
+
+# ── Submit guard: every item group must be mapped ─────────────────────────────
+
+# Item row fields that name a warehouse stock moves in or out of, per doctype.
+_ROW_WAREHOUSE_FIELDS = ("s_warehouse", "t_warehouse", "warehouse", "target_warehouse", "from_warehouse")
+
+
+def validate_item_group_mapping(doc, method=None):
+    """before_submit of Stock Entry, Delivery Note, Purchase Receipt and Stock
+    Reconciliation: a stock item moving in or out of a warehouse that has an
+    Item Group Account Mapping table must have its Item Group in that table,
+    with an Account. Otherwise its GL would quietly fall back to the
+    warehouse's own account (see resolve_account), so the submit is stopped
+    and the missing rows are listed.
+
+    A warehouse whose table is empty is not checked: only Master Touch
+    Manufacturing maps item groups, and the other warehouses have no table.
+    Cancel and reposting do not run this."""
+    moves = []  # (row label, item_code, warehouse)
+    for d in doc.get("items") or []:
+        if not d.get("item_code"):
+            continue
+        for field in _ROW_WAREHOUSE_FIELDS:
+            if d.get(field):
+                moves.append((f"#{d.idx}", d.item_code, d.get(field)))
+        if d.get("rejected_warehouse") and flt(d.get("rejected_qty")):
+            moves.append((f"#{d.idx}", d.item_code, d.rejected_warehouse))
+    # Product bundles: the stock moves on the packed items, not the bundle.
+    for d in doc.get("packed_items") or []:
+        if d.get("item_code") and d.get("warehouse"):
+            moves.append((_("Packed #{0}").format(d.idx), d.item_code, d.warehouse))
+
+    tables = {}  # warehouse -> {item_group: account}, or None when it has no table
+    items = {}   # item_code -> (item_group, is_stock_item)
+    missing = {}  # (warehouse, item_group) -> {"rows": [...], "items": [...], "reason": ...}
+    for row, item_code, warehouse in moves:
+        if warehouse not in tables:
+            rows = frappe.get_all(
+                "Warehouse Item Group Account Mapping",
+                filters={"parent": warehouse, "parenttype": "Warehouse"},
+                fields=["item_group", "account"],
+            )
+            tables[warehouse] = {r.item_group: r.account for r in rows if r.item_group} if rows else None
+        table = tables[warehouse]
+        if table is None:
+            continue
+        if item_code not in items:
+            items[item_code] = frappe.db.get_value("Item", item_code, ["item_group", "is_stock_item"]) or ("", 0)
+        item_group, is_stock_item = items[item_code]
+        if not is_stock_item or table.get(item_group):
+            continue
+        entry = missing.setdefault((warehouse, item_group), {
+            "rows": [], "items": [],
+            "reason": _("no Account set") if item_group in table else _("not in the table"),
+        })
+        if row not in entry["rows"]:
+            entry["rows"].append(row)
+        if item_code not in entry["items"]:
+            entry["items"].append(item_code)
+
+    if not missing:
+        return
+
+    lines = "".join(
+        "<tr><td>{rows}</td><td>{items}</td><td><b>{group}</b></td><td>{wh}</td><td>{reason}</td></tr>".format(
+            rows=", ".join(e["rows"]),
+            items=", ".join(frappe.bold(i) for i in e["items"]),
+            group=frappe.utils.escape_html(item_group or _("(no Item Group)")),
+            wh=frappe.utils.get_link_to_form("Warehouse", warehouse),
+            reason=e["reason"],
+        )
+        for (warehouse, item_group), e in missing.items()
+    )
+    frappe.throw(
+        _("These Item Groups are missing from the Warehouse's Item Group Account Mapping table:")
+        + "<table class='table table-bordered' style='margin-top:8px'>"
+        + "<tr><th>{0}</th><th>{1}</th><th>{2}</th><th>{3}</th><th></th></tr>".format(
+            _("Row"), _("Item"), _("Item Group"), _("Warehouse"))
+        + lines + "</table>"
+        + _("Add each Item Group with its Account to the Warehouse's Item Group Account Mapping, then submit again."),
+        title=_("Item Group Account Mapping Missing"),
+    )

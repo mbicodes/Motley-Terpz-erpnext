@@ -7,7 +7,13 @@ warehouse while the rest sit in MTM's, so a mixed cart becomes one draft per
 company. Everything runs as the user: insert() applies the usual Sales Order
 permissions, permlevels and validate hooks (the credit gate lets any draft
 through; it only stops at submit).
+
+The popup is locked behind one shared access code. The code lives in the
+site config (bench set-config inventory_order_access_code <code>), not in
+git or the page, and every call that reads or writes order data checks it.
 """
+
+import hmac
 
 import frappe
 from frappe import _
@@ -24,6 +30,46 @@ POPUP_SELECT_FIELDS = (
 )
 
 PAYMENT_TERMS_MODE = "Payment Terms"
+
+ACCESS_CODE_CONF_KEY = "inventory_order_access_code"
+# Wrong codes per user before the popup locks for CODE_LOCKOUT_SECONDS.
+MAX_CODE_FAILURES = 10
+CODE_LOCKOUT_SECONDS = 600
+
+
+def _code_failures_key():
+    return f"inventory_order_code_failures:{frappe.session.user}"
+
+
+def _code_is_valid(code):
+    """True for the right code. Counts wrong ones, and refuses every attempt
+    (right or wrong) once a user has MAX_CODE_FAILURES in the lockout window."""
+    expected = str(frappe.conf.get(ACCESS_CODE_CONF_KEY) or "").strip()
+    if not expected:
+        frappe.throw(_("The order access code has not been set up."))
+
+    cache = frappe.cache()
+    key = _code_failures_key()
+    # expires=True: read Redis every time, never a per-request local copy.
+    failures = int(cache.get_value(key, expires=True) or 0)
+    if failures >= MAX_CODE_FAILURES:
+        frappe.throw(_("Too many wrong codes. Try again in 10 minutes."))
+
+    if hmac.compare_digest(str(code or "").strip(), expected):
+        return True
+
+    cache.set_value(key, failures + 1, expires_in_sec=CODE_LOCKOUT_SECONDS)
+    return False
+
+
+def _require_code(code):
+    if not _code_is_valid(code):
+        frappe.throw(_("Wrong access code."))
+
+
+@frappe.whitelist(methods=["POST"])
+def verify_order_code(code=None):
+    return {"ok": _code_is_valid(code)}
 
 
 @frappe.whitelist()
@@ -45,9 +91,20 @@ def get_order_form_options():
         "rate", df=frappe.get_meta("Sales Order Item").get_field("rate"), permission_type="write"
     )
 
+    # A line's company comes from its warehouse, whose name ends in the
+    # company abbreviation, so the popup keys currencies by abbreviation.
+    currencies = {}
+    for c in frappe.get_all("Company", fields=["abbr", "default_currency"]):
+        currencies[c.abbr] = {
+            "currency": c.default_currency,
+            "symbol": frappe.db.get_value("Currency", c.default_currency, "symbol") or c.default_currency,
+        }
+
     return {
         "can_create": bool(frappe.has_permission("Sales Order", "create")),
         "can_set_rate": bool(can_set_rate),
+        "currencies": currencies,
+        "default_currency": frappe.db.get_default("currency") or "USD",
         "options": options,
         "payment_terms_templates": frappe.get_all(
             "Payment Terms Template", pluck="name", order_by="name"
@@ -57,7 +114,8 @@ def get_order_form_options():
 
 
 @frappe.whitelist()
-def search_customers(txt=""):
+def search_customers(txt="", code=None):
+    _require_code(code)
     txt = f"%{txt or ''}%"
     return frappe.get_list(
         "Customer",
@@ -70,7 +128,8 @@ def search_customers(txt=""):
 
 
 @frappe.whitelist()
-def search_licenses(txt=""):
+def search_licenses(txt="", code=None):
+    _require_code(code)
     txt = f"%{txt or ''}%"
     return frappe.get_list(
         "License",
@@ -83,7 +142,8 @@ def search_licenses(txt=""):
 
 
 @frappe.whitelist(methods=["POST"])
-def create_draft_sales_orders(items, details):
+def create_draft_sales_orders(items, details, code=None):
+    _require_code(code)
     items = frappe.parse_json(items) or []
     details = frappe._dict(frappe.parse_json(details) or {})
 
@@ -159,6 +219,8 @@ def create_draft_sales_orders(items, details):
                 "company": company,
                 "items": len(so.items),
                 "total_qty": so.total_qty,
+                "grand_total": so.grand_total,
+                "currency": so.currency,
             }
         )
 
