@@ -223,6 +223,10 @@ after_migrate = [
     # "In Progress" / "Completed" on Material Request's status options, for
     # Manufacture runs. Idempotent. See overrides/mr_run_status.py.
     "cannabis_management.overrides.mr_run_status.install",
+    # Farm and Nursery Daily Reports: FLC supplier group, Farm Activity seeds,
+    # Daily Report Settings defaults and the two submit Notifications (created
+    # only when missing), and the two Web Pages, rebuilt from farm_reports/web/.
+    "cannabis_management.farm_reports.install.install",
 ]
 
 # Installation
@@ -666,6 +670,10 @@ scheduler_events = {
         "cannabis_management.credit_and_ar.customer_layout.enforce",
         "cannabis_management.credit_and_ar.notifications.install_notifications",
         "cannabis_management.credit_and_ar.dashboard_button.install",
+        # Farm/Nursery Daily Report reminder. Hourly, and it acts only at the
+        # reminder hour in the farm's time zone (Daily Report Settings): the
+        # site runs on America/Adak, so a fixed cron would fire at the wrong hour.
+        "cannabis_management.farm_reports.api.send_reminders",
     ],
     "cron": {
         # Manufacturing Timesheet Kiosk: force-clock-out anyone still running past

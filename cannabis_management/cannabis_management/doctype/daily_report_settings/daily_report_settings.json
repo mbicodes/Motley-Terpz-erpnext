@@ -1,0 +1,82 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-10-19 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "enable_reminders",
+  "farm_reporter",
+  "nursery_reporter",
+  "skip_weekends",
+  "column_break_tz",
+  "time_zone",
+  "reminder_hour"
+ ],
+ "fields": [
+  {
+   "default": "1",
+   "fieldname": "enable_reminders",
+   "fieldtype": "Check",
+   "label": "Enable Daily Reminders"
+  },
+  {
+   "fieldname": "farm_reporter",
+   "fieldtype": "Link",
+   "label": "Farm Report Owner",
+   "options": "User"
+  },
+  {
+   "fieldname": "nursery_reporter",
+   "fieldtype": "Link",
+   "label": "Nursery Report Owner",
+   "options": "User"
+  },
+  {
+   "default": "0",
+   "fieldname": "skip_weekends",
+   "fieldtype": "Check",
+   "label": "Skip Reminders on Weekends"
+  },
+  {
+   "fieldname": "column_break_tz",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "America/Los_Angeles",
+   "description": "Used for the report date and the reminder time. The site's system time zone is not the farm's, so the farm zone is kept here.",
+   "fieldname": "time_zone",
+   "fieldtype": "Data",
+   "label": "Farm Time Zone"
+  },
+  {
+   "default": "15",
+   "fieldname": "reminder_hour",
+   "fieldtype": "Int",
+   "label": "Reminder Hour (farm time, 0 to 23)"
+  }
+ ],
+ "grid_page_length": 50,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-10-19 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Daily Report Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

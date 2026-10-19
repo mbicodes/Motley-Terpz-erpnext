@@ -1,0 +1,324 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "FDR-.YYYY.-.#####",
+ "creation": "2026-10-19 12:00:00.000000",
+ "default_print_format": "Farm Daily Report Summary",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "report_date",
+  "column_break_head",
+  "submitted_by",
+  "watering_section",
+  "left_block_watered",
+  "middle_block_watered",
+  "right_block_watered",
+  "watering_notes",
+  "ipm_section",
+  "left_section_ipm",
+  "left_ipm_mixture_details",
+  "middle_section_ipm",
+  "middle_ipm_mixture_details",
+  "right_section_ipm",
+  "right_ipm_mixture_details",
+  "scouting_section",
+  "scouted_for_males",
+  "males_found",
+  "male_photos",
+  "planned_scouting_date",
+  "farm_management_section",
+  "weeds_under_control",
+  "weed_control_plan_date",
+  "weed_control_plan_notes",
+  "maintenance_notes",
+  "labor_section",
+  "flc_workers_on_farm",
+  "flc_labor",
+  "total_laborers",
+  "activities",
+  "other_section",
+  "other_notes",
+  "photos",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "default": "Today",
+   "fieldname": "report_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Report Date",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_head",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "__user",
+   "fieldname": "submitted_by",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Submitted By",
+   "options": "User",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "watering_section",
+   "fieldtype": "Section Break",
+   "label": "Watering"
+  },
+  {
+   "fieldname": "left_block_watered",
+   "fieldtype": "Select",
+   "label": "Left Block Watered",
+   "options": "\nYes\nNo\nN/A (No plants in ground)",
+   "reqd": 1
+  },
+  {
+   "fieldname": "middle_block_watered",
+   "fieldtype": "Select",
+   "label": "Middle Block Watered",
+   "options": "\nYes\nNo\nN/A (No plants in ground)",
+   "reqd": 1
+  },
+  {
+   "fieldname": "right_block_watered",
+   "fieldtype": "Select",
+   "label": "Right Block Watered",
+   "options": "\nYes\nNo\nN/A (No plants in ground)",
+   "reqd": 1
+  },
+  {
+   "fieldname": "watering_notes",
+   "fieldtype": "Small Text",
+   "label": "Watering Notes"
+  },
+  {
+   "fieldname": "ipm_section",
+   "fieldtype": "Section Break",
+   "label": "IPM and Sprays"
+  },
+  {
+   "fieldname": "left_section_ipm",
+   "fieldtype": "Select",
+   "label": "Left Section Sprayed",
+   "options": "\nYes\nNo\nN/A (No plants in ground)",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.left_section_ipm=='Yes'",
+   "fieldname": "left_ipm_mixture_details",
+   "fieldtype": "Small Text",
+   "label": "Left Section Mixture and Measurements",
+   "mandatory_depends_on": "eval:doc.left_section_ipm=='Yes'"
+  },
+  {
+   "fieldname": "middle_section_ipm",
+   "fieldtype": "Select",
+   "label": "Middle Section Sprayed",
+   "options": "\nYes\nNo\nN/A (No plants in ground)",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.middle_section_ipm=='Yes'",
+   "fieldname": "middle_ipm_mixture_details",
+   "fieldtype": "Small Text",
+   "label": "Middle Section Mixture and Measurements",
+   "mandatory_depends_on": "eval:doc.middle_section_ipm=='Yes'"
+  },
+  {
+   "fieldname": "right_section_ipm",
+   "fieldtype": "Select",
+   "label": "Right Section Sprayed",
+   "options": "\nYes\nNo\nN/A (No plants in ground)",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.right_section_ipm=='Yes'",
+   "fieldname": "right_ipm_mixture_details",
+   "fieldtype": "Small Text",
+   "label": "Right Section Mixture and Measurements",
+   "mandatory_depends_on": "eval:doc.right_section_ipm=='Yes'"
+  },
+  {
+   "fieldname": "scouting_section",
+   "fieldtype": "Section Break",
+   "label": "Male Scouting"
+  },
+  {
+   "fieldname": "scouted_for_males",
+   "fieldtype": "Select",
+   "label": "Scouted for Males",
+   "options": "\nYes\nNo\nN/A (No plants in ground)",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.scouted_for_males=='Yes'",
+   "fieldname": "males_found",
+   "fieldtype": "Select",
+   "label": "Males Found",
+   "mandatory_depends_on": "eval:doc.scouted_for_males=='Yes'",
+   "options": "\nYes\nNo"
+  },
+  {
+   "depends_on": "eval:doc.males_found=='Yes'",
+   "fieldname": "male_photos",
+   "fieldtype": "Table",
+   "label": "Male Plant Photos",
+   "options": "Daily Report Photo"
+  },
+  {
+   "depends_on": "eval:doc.scouted_for_males=='No'",
+   "fieldname": "planned_scouting_date",
+   "fieldtype": "Date",
+   "label": "Planned Scouting Date",
+   "mandatory_depends_on": "eval:doc.scouted_for_males=='No'"
+  },
+  {
+   "fieldname": "farm_management_section",
+   "fieldtype": "Section Break",
+   "label": "Farm Management"
+  },
+  {
+   "fieldname": "weeds_under_control",
+   "fieldtype": "Select",
+   "label": "Weeds Under Control",
+   "options": "\nYes\nNo",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.weeds_under_control=='No'",
+   "fieldname": "weed_control_plan_date",
+   "fieldtype": "Date",
+   "label": "Weed Control Plan Date",
+   "mandatory_depends_on": "eval:doc.weeds_under_control=='No'"
+  },
+  {
+   "depends_on": "eval:doc.weeds_under_control=='No'",
+   "fieldname": "weed_control_plan_notes",
+   "fieldtype": "Small Text",
+   "label": "Weed Control Plan"
+  },
+  {
+   "fieldname": "maintenance_notes",
+   "fieldtype": "Small Text",
+   "label": "General Maintenance Notes"
+  },
+  {
+   "fieldname": "labor_section",
+   "fieldtype": "Section Break",
+   "label": "Labor"
+  },
+  {
+   "fieldname": "flc_workers_on_farm",
+   "fieldtype": "Select",
+   "label": "FLC Workers on Farm",
+   "options": "\nYes\nNo",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.flc_workers_on_farm=='Yes'",
+   "fieldname": "flc_labor",
+   "fieldtype": "Table",
+   "label": "FLC Labor",
+   "mandatory_depends_on": "eval:doc.flc_workers_on_farm=='Yes'",
+   "options": "Daily Report FLC Labor"
+  },
+  {
+   "depends_on": "eval:doc.flc_workers_on_farm=='Yes'",
+   "fieldname": "total_laborers",
+   "fieldtype": "Int",
+   "label": "Total Laborers",
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.flc_workers_on_farm=='Yes'",
+   "fieldname": "activities",
+   "fieldtype": "Table",
+   "label": "Activities and Production",
+   "mandatory_depends_on": "eval:doc.flc_workers_on_farm=='Yes'",
+   "options": "Daily Report Activity"
+  },
+  {
+   "fieldname": "other_section",
+   "fieldtype": "Section Break",
+   "label": "Other"
+  },
+  {
+   "fieldname": "other_notes",
+   "fieldtype": "Small Text",
+   "label": "Other Notes, Comments or Concerns"
+  },
+  {
+   "fieldname": "photos",
+   "fieldtype": "Table",
+   "label": "Photos",
+   "options": "Daily Report Photo"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Farm Daily Report",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-10-19 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Farm Daily Report",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "if_owner": 1,
+   "print": 1,
+   "read": 1,
+   "role": "Farm Reporter",
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Daily Report Recipient"
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "report_date",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "report_date",
+ "track_changes": 1
+}

@@ -1,0 +1,69 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-10-19 12:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "activity",
+  "no_of_people",
+  "quantity_completed",
+  "uom",
+  "output_per_person"
+ ],
+ "fields": [
+  {
+   "fieldname": "activity",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Activity",
+   "options": "Farm Activity",
+   "reqd": 1
+  },
+  {
+   "fieldname": "no_of_people",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "No. of People",
+   "non_negative": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "quantity_completed",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Quantity Completed",
+   "non_negative": 1,
+   "reqd": 1
+  },
+  {
+   "default": "Plants",
+   "fieldname": "uom",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Unit"
+  },
+  {
+   "fieldname": "output_per_person",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Output per Person",
+   "precision": "2",
+   "read_only": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-10-19 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Daily Report Activity",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

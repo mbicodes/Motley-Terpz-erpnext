@@ -1,0 +1,127 @@
+{
+ "charts": [],
+ "content": "[{\"id\":\"drHeader01\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Fill out today's report</b></span>\",\"col\":12}},{\"id\":\"drShortc01\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Farm Daily Report Form\",\"col\":4}},{\"id\":\"drShortc02\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Nursery Daily Report Form\",\"col\":4}},{\"id\":\"drSpacer01\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"drHeader02\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Submitted reports</b></span>\",\"col\":12}},{\"id\":\"drShortc03\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Farm Daily Report\",\"col\":4}},{\"id\":\"drShortc04\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Nursery Daily Report\",\"col\":4}},{\"id\":\"drSpacer02\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"drCard0001\",\"type\":\"card\",\"data\":{\"card_name\":\"Reports\",\"col\":4}},{\"id\":\"drCard0002\",\"type\":\"card\",\"data\":{\"card_name\":\"Setup\",\"col\":4}}]",
+ "creation": "2026-10-19 12:00:00.000000",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "agriculture",
+ "idx": 0,
+ "indicator_color": "green",
+ "is_hidden": 0,
+ "label": "Daily Reports",
+ "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Reports",
+   "link_count": 2,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Farm Daily Report",
+   "link_count": 0,
+   "link_to": "Farm Daily Report",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Nursery Daily Report",
+   "link_count": 0,
+   "link_to": "Nursery Daily Report",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Setup",
+   "link_count": 2,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Farm Activity",
+   "link_count": 0,
+   "link_to": "Farm Activity",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Daily Report Settings",
+   "link_count": 0,
+   "link_to": "Daily Report Settings",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2026-10-19 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Daily Reports",
+ "number_cards": [],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [
+  {
+   "role": "Farm Reporter"
+  },
+  {
+   "role": "Daily Report Recipient"
+  },
+  {
+   "role": "System Manager"
+  }
+ ],
+ "sequence_id": 30.0,
+ "shortcuts": [
+  {
+   "color": "Purple",
+   "doc_view": "",
+   "label": "Farm Daily Report Form",
+   "type": "URL",
+   "url": "/farm-daily-report"
+  },
+  {
+   "color": "Green",
+   "doc_view": "",
+   "label": "Nursery Daily Report Form",
+   "type": "URL",
+   "url": "/nursery-daily-report"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Farm Daily Report",
+   "link_to": "Farm Daily Report",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Nursery Daily Report",
+   "link_to": "Nursery Daily Report",
+   "type": "DocType"
+  }
+ ],
+ "title": "Daily Reports"
+}

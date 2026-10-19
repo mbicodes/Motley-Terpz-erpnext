@@ -1,0 +1,213 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "NDR-.YYYY.-.#####",
+ "creation": "2026-10-19 12:00:00.000000",
+ "default_print_format": "Nursery Daily Report Summary",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "report_date",
+  "column_break_head",
+  "submitted_by",
+  "watering_section",
+  "nursery_watered",
+  "watering_notes",
+  "sprays_section",
+  "sprays_applied",
+  "spray_mixture_details",
+  "scouting_section",
+  "scouted_for_males",
+  "males_found",
+  "male_photos",
+  "next_scouting_date",
+  "metrc_section",
+  "plants_tagged_per_metrc",
+  "pending_tagging_actions",
+  "promised_completion_date",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "default": "Today",
+   "fieldname": "report_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Report Date",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_head",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "__user",
+   "fieldname": "submitted_by",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Submitted By",
+   "options": "User",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "watering_section",
+   "fieldtype": "Section Break",
+   "label": "Watering"
+  },
+  {
+   "fieldname": "nursery_watered",
+   "fieldtype": "Select",
+   "label": "Nursery Watered",
+   "options": "\nYes\nNo",
+   "reqd": 1
+  },
+  {
+   "fieldname": "watering_notes",
+   "fieldtype": "Small Text",
+   "label": "Watering Notes"
+  },
+  {
+   "fieldname": "sprays_section",
+   "fieldtype": "Section Break",
+   "label": "Nutrients and Sprays"
+  },
+  {
+   "fieldname": "sprays_applied",
+   "fieldtype": "Select",
+   "label": "Nutrients, Sprays or IPM Applied",
+   "options": "\nYes\nNo",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.sprays_applied=='Yes'",
+   "fieldname": "spray_mixture_details",
+   "fieldtype": "Small Text",
+   "label": "Products Applied and Mixture Details",
+   "mandatory_depends_on": "eval:doc.sprays_applied=='Yes'"
+  },
+  {
+   "fieldname": "scouting_section",
+   "fieldtype": "Section Break",
+   "label": "Male Scouting"
+  },
+  {
+   "fieldname": "scouted_for_males",
+   "fieldtype": "Select",
+   "label": "Scouted for Males",
+   "options": "\nYes\nNo",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.scouted_for_males=='Yes'",
+   "fieldname": "males_found",
+   "fieldtype": "Select",
+   "label": "Males Found",
+   "mandatory_depends_on": "eval:doc.scouted_for_males=='Yes'",
+   "options": "\nYes\nNo"
+  },
+  {
+   "depends_on": "eval:doc.males_found=='Yes'",
+   "fieldname": "male_photos",
+   "fieldtype": "Table",
+   "label": "Male Plant Photos",
+   "options": "Daily Report Photo"
+  },
+  {
+   "depends_on": "eval:doc.scouted_for_males=='No'",
+   "fieldname": "next_scouting_date",
+   "fieldtype": "Date",
+   "label": "Next Scouting Date",
+   "mandatory_depends_on": "eval:doc.scouted_for_males=='No'"
+  },
+  {
+   "fieldname": "metrc_section",
+   "fieldtype": "Section Break",
+   "label": "METRC"
+  },
+  {
+   "description": "All mature plants have individual tags and all immature plants are on package tags.",
+   "fieldname": "plants_tagged_per_metrc",
+   "fieldtype": "Select",
+   "label": "All Plants Tagged per METRC",
+   "options": "\nYes\nNo",
+   "reqd": 1
+  },
+  {
+   "depends_on": "eval:doc.plants_tagged_per_metrc=='No'",
+   "fieldname": "pending_tagging_actions",
+   "fieldtype": "Small Text",
+   "label": "Pending Tagging Actions",
+   "mandatory_depends_on": "eval:doc.plants_tagged_per_metrc=='No'"
+  },
+  {
+   "depends_on": "eval:doc.plants_tagged_per_metrc=='No'",
+   "fieldname": "promised_completion_date",
+   "fieldtype": "Date",
+   "label": "Promised Completion Date",
+   "mandatory_depends_on": "eval:doc.plants_tagged_per_metrc=='No'"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Nursery Daily Report",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-10-19 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Nursery Daily Report",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "if_owner": 1,
+   "print": 1,
+   "read": 1,
+   "role": "Farm Reporter",
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Daily Report Recipient"
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "report_date",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "report_date",
+ "track_changes": 1
+}
