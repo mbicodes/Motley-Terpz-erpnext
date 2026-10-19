@@ -4,20 +4,45 @@ import frappe
 MTM_COMPANY = "Master Touch Manufacturing"
 FRESH_FROZEN_GROUPS = ("Fresh Frozen", "Fresh Frozen - BHO", "Fresh Frozen - SHO")
 
-# What "Reserved" means here, matching ERPNext's own projected_qty on Bin
-# (erpnext/stock/doctype/bin/bin.py, set_projected_qty): stock already committed
-# to Sales Orders, Work Orders, subcontracting and production plans.
+# What "Reserved" means here: the Stock Reservation Entry lifecycle, not
+# Bin.reserved_qty (Sales-Order-level projected qty -- committed the moment an
+# SO is submitted, regardless of whether anyone actually reserved stock for
+# it) and not Bin.reserved_stock directly (same number, but reading the raw
+# Bin column risks staleness if it isn't recalculated promptly).
 #
-# It deliberately excludes Bin.reserved_stock, the Stock Reservation Entry
-# figure, for the same reason core does -- and because reading that field alone
-# is what made the column show 0.00 for everything: 9 bins carry reserved_stock
-# against 549 carrying reserved_qty.
-RESERVED_SQL = """(
-    COALESCE(b.reserved_qty, 0)
-  + COALESCE(b.reserved_qty_for_production, 0)
-  + COALESCE(b.reserved_qty_for_sub_contract, 0)
-  + COALESCE(b.reserved_qty_for_production_plan, 0)
-)"""
+# An SRE counts while it still holds stock: status Reserved / Partially
+# Reserved / Partially Delivered. It stops counting -- is released from this
+# dashboard -- the moment it's Cancelled, and a Partially Delivered entry only
+# counts what's left (reserved_qty - delivered_qty), not the original amount.
+RESERVED_SUBQUERY = """
+    SELECT item_code, warehouse, SUM(reserved_qty - delivered_qty) AS reserved_qty
+    FROM `tabStock Reservation Entry`
+    WHERE docstatus = 1
+      AND status IN ('Reserved', 'Partially Reserved', 'Partially Delivered')
+    GROUP BY item_code, warehouse
+"""
+
+# Stock Ledger Entry.project is not reliable on its own: this site's "Batch"
+# Inventory Dimension targets "project", and ERPNext's dimension framework
+# (get_evaluated_inventory_dimension / update_inventory_dimensions in
+# erpnext/controllers/stock_controller.py) unconditionally overwrites
+# sl_dict["project"] with the item row's own dimension value -- down to
+# blank -- whenever that row has no "batch" value set, even if the row's own
+# `project` field and the document's header Project are both correctly
+# filled in. That silently drops items from their project's stock here.
+# Same fallback already proven in custom_profit_and_loss_statement.py:
+# recover the project from the voucher that actually generated the entry.
+VOUCHER_PROJECT_UNION = """
+    SELECT 'Stock Entry' AS voucher_type, name AS voucher_no, project FROM `tabStock Entry`
+    UNION ALL
+    SELECT 'Purchase Receipt', name, project FROM `tabPurchase Receipt`
+    UNION ALL
+    SELECT 'Purchase Invoice', name, project FROM `tabPurchase Invoice`
+    UNION ALL
+    SELECT 'Delivery Note', name, project FROM `tabDelivery Note`
+    UNION ALL
+    SELECT 'Sales Invoice', name, project FROM `tabSales Invoice`
+"""
 
 
 @frappe.whitelist(allow_guest=True)
@@ -77,38 +102,57 @@ def get_stock_by_item_group(item_group, project=None, _=None):
 # - So a project counts only where its sum is positive on an item/warehouse
 #   the dashboard lists (Bin qty > 0), and never for more than that Bin holds.
 def get_project_balances(item_group, company_condition, values, project=None):
-    project_condition = "AND sle.project = %s" if project else "AND IFNULL(sle.project, '') != ''"
-    args = (item_group,) + ((project,) if project else ()) + tuple(values[1:])
+    project_condition = "AND eff_project = %s" if project else "AND eff_project != ''"
+    # Placeholder order in the SQL below: item_group, then company_condition's
+    # param (if any), then project_condition's param (if any) -- it now comes
+    # last since project_condition is applied outside the inner subquery.
+    args = (item_group,) + tuple(values[1:]) + ((project,) if project else ())
     return frappe.db.sql("""
         SELECT
-            sle.project,
-            sle.item_code,
-            i.item_name,
-            i.item_group,
-            sle.warehouse,
-            LEAST(SUM(sle.actual_qty), b.actual_qty) AS actual_qty,
+            eff_project AS project,
+            item_code,
+            item_name,
+            item_group,
+            warehouse,
+            LEAST(SUM(actual_qty), actual_qty_bin) AS actual_qty,
             ROUND(
-                MAX({reserved})
-                * LEAST(SUM(sle.actual_qty), b.actual_qty)
-                / NULLIF(b.actual_qty, 0)
+                MAX(reserved_qty)
+                * LEAST(SUM(actual_qty), actual_qty_bin)
+                / NULLIF(actual_qty_bin, 0)
             , 6) AS reserved_qty
-        FROM `tabStock Ledger Entry` sle
-        INNER JOIN `tabItem` i ON i.name = sle.item_code
-        INNER JOIN `tabWarehouse` w ON w.name = sle.warehouse
-        INNER JOIN `tabBin` b ON b.item_code = sle.item_code AND b.warehouse = sle.warehouse
-        WHERE i.item_group = %s
-            AND i.disabled = 0
-            AND i.custom_show_in_dashboard = 1
-            AND sle.is_cancelled = 0
-            {project_condition}
-            AND b.actual_qty > 0
-            AND sle.warehouse NOT LIKE 'Virtual%%'
-            {company_condition}
-        GROUP BY sle.project, sle.item_code, sle.warehouse, b.actual_qty
-        HAVING ROUND(SUM(sle.actual_qty), 6) > 0
-        ORDER BY i.item_name
+        FROM (
+            SELECT
+                sle.actual_qty,
+                sle.item_code,
+                i.item_name,
+                i.item_group,
+                sle.warehouse,
+                b.actual_qty AS actual_qty_bin,
+                COALESCE(sre.reserved_qty, 0) AS reserved_qty,
+                IFNULL(NULLIF(sle.project, ''), IFNULL(vp.project, '')) AS eff_project
+            FROM `tabStock Ledger Entry` sle
+            INNER JOIN `tabItem` i ON i.name = sle.item_code
+            INNER JOIN `tabWarehouse` w ON w.name = sle.warehouse
+            INNER JOIN `tabBin` b ON b.item_code = sle.item_code AND b.warehouse = sle.warehouse
+            LEFT JOIN ({reserved_subquery}) sre
+                ON sre.item_code = b.item_code AND sre.warehouse = b.warehouse
+            LEFT JOIN ({voucher_project_union}) vp
+                ON vp.voucher_type = sle.voucher_type AND vp.voucher_no = sle.voucher_no
+            WHERE i.item_group = %s
+                AND i.disabled = 0
+                AND i.custom_show_in_dashboard = 1
+                AND sle.is_cancelled = 0
+                AND b.actual_qty > 0
+                AND sle.warehouse NOT LIKE 'Virtual%%'
+                {company_condition}
+        ) ledger
+        WHERE 1 = 1 {project_condition}
+        GROUP BY eff_project, item_code, warehouse, actual_qty_bin
+        HAVING ROUND(SUM(actual_qty), 6) > 0
+        ORDER BY item_name
     """.format(project_condition=project_condition, company_condition=company_condition,
-               reserved=RESERVED_SQL), args, as_dict=True)
+               reserved_subquery=RESERVED_SUBQUERY,
+               voucher_project_union=VOUCHER_PROJECT_UNION), args, as_dict=True)
 
 
 def get_project_stock(item_group, project, company_condition, values):
@@ -141,10 +185,12 @@ def get_bin_stock(company_condition, values):
             i.item_group,
             b.warehouse,
             b.actual_qty,
-            {reserved} AS reserved_qty
+            COALESCE(sre.reserved_qty, 0) AS reserved_qty
         FROM `tabBin` b
         INNER JOIN `tabItem` i ON i.name = b.item_code
         INNER JOIN `tabWarehouse` w ON w.name = b.warehouse
+        LEFT JOIN ({reserved_subquery}) sre
+            ON sre.item_code = b.item_code AND sre.warehouse = b.warehouse
         WHERE i.item_group = %s
             AND i.disabled = 0
             AND i.custom_show_in_dashboard = 1
@@ -152,7 +198,7 @@ def get_bin_stock(company_condition, values):
             AND b.warehouse NOT LIKE 'Virtual%%'
             {company_condition}
         ORDER BY i.item_name
-    """.format(company_condition=company_condition, reserved=RESERVED_SQL),
+    """.format(company_condition=company_condition, reserved_subquery=RESERVED_SUBQUERY),
         tuple(values), as_dict=True)
 
 
@@ -225,24 +271,24 @@ def get_batch_warehouse_summary(item_group):
     data = frappe.db.sql("""
         SELECT
             warehouse,
-            COUNT(DISTINCT project) AS batch_count
+            COUNT(DISTINCT eff_project) AS batch_count
         FROM (
             SELECT
                 sle.warehouse,
-                sle.project,
+                IFNULL(NULLIF(sle.project, ''), IFNULL(vp.project, '')) AS eff_project,
                 SUM(sle.actual_qty) AS qty
             FROM `tabStock Ledger Entry` sle
             INNER JOIN `tabItem` i ON i.name = sle.item_code
+            LEFT JOIN ({voucher_project_union}) vp
+                ON vp.voucher_type = sle.voucher_type AND vp.voucher_no = sle.voucher_no
             WHERE i.item_group = %s
               AND i.disabled = 0
               AND i.custom_show_in_dashboard = 1
               AND sle.is_cancelled = 0
-              AND sle.project IS NOT NULL
-              AND sle.project != ''
-            GROUP BY sle.warehouse, sle.project
-            HAVING SUM(sle.actual_qty) > 0
+            GROUP BY sle.warehouse, eff_project
+            HAVING SUM(sle.actual_qty) > 0 AND eff_project != ''
         ) sub
         GROUP BY warehouse
         ORDER BY batch_count DESC
-    """, (item_group,), as_dict=True)
+    """.format(voucher_project_union=VOUCHER_PROJECT_UNION), (item_group,), as_dict=True)
     return data
