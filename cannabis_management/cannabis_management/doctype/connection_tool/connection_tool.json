@@ -1,0 +1,125 @@
+{
+ "actions": [],
+ "autoname": "CT-.YYYY.-.#####",
+ "creation": "2026-10-18 21:00:00.000000",
+ "description": "Break the links other documents hold to a document (so it can be cancelled or deleted), then make them again - to the same document or to its amended version.",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "reference_doctype",
+  "reference_name",
+  "reference_docstatus",
+  "column_break_ref",
+  "status",
+  "relink_to",
+  "include_cancelled",
+  "section_break_links",
+  "links",
+  "section_break_notes",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "fieldname": "reference_doctype",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Document Type",
+   "options": "DocType",
+   "reqd": 1
+  },
+  {
+   "fieldname": "reference_name",
+   "fieldtype": "Dynamic Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Document",
+   "options": "reference_doctype",
+   "reqd": 1
+  },
+  {
+   "fieldname": "reference_docstatus",
+   "fieldtype": "Select",
+   "label": "Document Status",
+   "options": "\nDraft\nSubmitted\nCancelled\nSaved",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_ref",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Draft",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Draft\nNo Connections\nConnected\nPartially Broken\nBroken\nRelinked",
+   "read_only": 1
+  },
+  {
+   "description": "Where Make Connections points the broken links. Leave empty to restore them to the original document; set it to the amended document (e.g. SAL-ORD-2026-00627-1) to move them there.",
+   "fieldname": "relink_to",
+   "fieldtype": "Dynamic Link",
+   "label": "Relink To",
+   "options": "reference_doctype"
+  },
+  {
+   "default": "0",
+   "description": "Cancelled documents never block a Cancel; tick this only when you need to Delete the document.",
+   "fieldname": "include_cancelled",
+   "fieldtype": "Check",
+   "label": "Include Cancelled Links"
+  },
+  {
+   "fieldname": "section_break_links",
+   "fieldtype": "Section Break",
+   "label": "Connections"
+  },
+  {
+   "fieldname": "links",
+   "fieldtype": "Table",
+   "label": "Links",
+   "options": "Connection Tool Link"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_notes",
+   "fieldtype": "Section Break",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-10-18 21:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Connection Tool",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "reference_name",
+ "track_changes": 1
+}

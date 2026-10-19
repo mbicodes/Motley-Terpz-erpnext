@@ -60,6 +60,8 @@ app_include_js = [
     # Data Export dialog: preset button that ticks a saved column set
     # (Sales Invoice -> the invoice sheet columns). Bump ?v= on every change.
     "/assets/cannabis_management/js/data_export_presets.js?v=1",
+    # "Break / Make Connections" menu item on submittable forms -> Connection Tool.
+    "/assets/cannabis_management/js/connection_tool_menu.js?v=1",
 ]
 
 
@@ -825,7 +827,8 @@ override_doctype_dashboards = {
 # Ignore links to specified DocTypes when deleting documents
 # -----------------------------------------------------------
 
-# ignore_links_on_delete = ["Communication", "ToDo"]
+# The Connection Tool only records links; it must never stop a delete.
+ignore_links_on_delete = ["Connection Tool", "Connection Tool Link"]
 
 # Request Events
 # ----------------

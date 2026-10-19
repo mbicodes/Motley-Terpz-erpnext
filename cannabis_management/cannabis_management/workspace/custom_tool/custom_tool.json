@@ -1,0 +1,68 @@
+{
+ "charts": [],
+ "content": "[{\"id\":\"ctHeader01\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Custom Tools</b></span>\",\"col\":12}},{\"id\":\"ctShortc01\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Connection Tool\",\"col\":3}},{\"id\":\"ctShortc02\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"New Connection Tool\",\"col\":3}},{\"id\":\"ctSpacer01\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"ctParagr01\",\"type\":\"paragraph\",\"data\":{\"text\":\"<b>Connection Tool</b> \u2014 break the links other documents hold to a document so it can be cancelled, then make them again (to the same document or its amended copy).<br>1. Open the document \u2192 <b>\u22ef Menu \u2192 Break / Make Connections</b> (or New Connection Tool).<br>2. <b>Break Connections</b>, then cancel the document.<br>3. After amending: <b>Relink To \u2192 Use Amended Document</b>, then <b>Make Connections</b>.\",\"col\":12}},{\"id\":\"ctCard0001\",\"type\":\"card\",\"data\":{\"card_name\":\"Tools\",\"col\":4}}]",
+ "creation": "2026-10-18 12:07:39.012573",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "hide_custom": 0,
+ "icon": "tool",
+ "idx": 0,
+ "indicator_color": "red",
+ "is_hidden": 0,
+ "label": "Custom Tool",
+ "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Tools",
+   "link_count": 1,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Connection Tool",
+   "link_count": 0,
+   "link_to": "Connection Tool",
+   "link_type": "DocType",
+   "onboard": 1,
+   "type": "Link"
+  }
+ ],
+ "modified": "2026-10-18 12:12:20.093778",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Custom Tool",
+ "number_cards": [],
+ "owner": "Administrator",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [
+  {
+   "role": "System Manager"
+  }
+ ],
+ "sequence_id": 51.0,
+ "shortcuts": [
+  {
+   "color": "Red",
+   "doc_view": "List",
+   "format": "{} Broken",
+   "label": "Connection Tool",
+   "link_to": "Connection Tool",
+   "stats_filter": "[[\"Connection Tool\", \"status\", \"in\", [\"Broken\", \"Partially Broken\"], false]]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "",
+   "label": "New Connection Tool",
+   "type": "URL",
+   "url": "/app/connection-tool/new"
+  }
+ ],
+ "title": "Custom Tool"
+}
