@@ -621,7 +621,7 @@
    "name": "Sales Order-custom_sales_order_type",
    "no_copy": 0,
    "non_negative": 0,
-   "options": "\nSales\nSamples\nEvents\nTesting\nInfluencers\nConsignment\nTolling\nPresale",
+   "options": "\nSales\nSamples\nEvents\nTesting\nInfluencers\nConsignment\nTolling\nPresale\nStorage",
    "owner": "Administrator",
    "permlevel": 0,
    "placeholder": null,
@@ -1162,7 +1162,7 @@
    "property": "options",
    "property_type": null,
    "row_name": null,
-   "value": "\nSales\nHold"
+   "value": "\nSales\nHold\nStorage"
   },
   {
    "_assign": null,

@@ -162,6 +162,11 @@ def backfill_delivery_note_created():
     return msg
 
 
+SAMPLE_EXPENSE_ACCOUNT_FIELD = "custom_sample_expense_account"
+# custom_sales_order_type's option is "Samples"; "Sample" is accepted too.
+SAMPLE_ORDER_TYPES = ("Samples", "Sample")
+
+
 def set_expense_head(doc, method):
     """
     Overrides each item's expense_account from Expense Head Settings, based on
@@ -173,6 +178,11 @@ def set_expense_head(doc, method):
     silently leaving every other row (and any row from a different Sales
     Order, e.g. on a consolidated document) on its item/company default
     expense account instead of the configured one.
+
+    A Samples order takes the company's Sample Expense Account
+    (Company.custom_sample_expense_account) ahead of Expense Head Settings:
+    that settings table holds one account per type, which can belong to only
+    one company.
     """
 
     if not doc.items:
@@ -199,6 +209,11 @@ def set_expense_head(doc, method):
     for row in settings.expense_head:
         if row.sales_order_type and row.expense_account:
             expense_account_by_type.setdefault(row.sales_order_type, row.expense_account)
+
+    sample_account = frappe.get_cached_value("Company", doc.company, SAMPLE_EXPENSE_ACCOUNT_FIELD)
+    if sample_account:
+        for so_type in SAMPLE_ORDER_TYPES:
+            expense_account_by_type[so_type] = sample_account
 
     if not expense_account_by_type:
         return
