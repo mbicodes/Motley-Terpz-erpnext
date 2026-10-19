@@ -537,7 +537,15 @@ doc_events = {
         ],
         "validate": "cannabis_management.overrides.delivery_note_hooks.set_expense_head",
     },
+    # Inter-company purchases carry the sale's customer contact; drop it.
+    "Purchase Order": {
+        "before_validate": "cannabis_management.inter_company.drop_foreign_contact",
+    },
+    "Purchase Invoice": {
+        "before_validate": "cannabis_management.inter_company.drop_foreign_contact",
+    },
     "Purchase Receipt": {
+        "before_validate": "cannabis_management.inter_company.drop_foreign_contact",
         "before_submit": [
             # Each item's Item Group must be in its warehouse's Item Group Account Mapping.
             "cannabis_management.overrides.warehouse_account_utils.validate_item_group_mapping",

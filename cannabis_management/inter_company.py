@@ -171,3 +171,32 @@ def _link_back(source, target):
 	if source.get(field):
 		return
 	frappe.db.set_value(source.doctype, source.name, field, target.name, update_modified=False)
+
+
+# Purchase-side fields that describe the Contact Person.
+_CONTACT_FIELDS = ("contact_person", "contact_display", "contact_mobile", "contact_email", "contact_phone")
+
+
+def drop_foreign_contact(doc, method=None):
+	"""before_validate on Purchase Order / Invoice / Receipt.
+
+	make_inter_company_* maps the sale onto the purchase field by field, so the
+	sale's Contact Person (a contact of the internal *Customer*) lands on the
+	purchase document, whose party is the internal *Supplier*. ERPNext then
+	refuses to save it: "Contact Person does not belong to the <supplier>".
+	For an internal supplier, a contact not linked to that supplier is dropped.
+	"""
+	contact = doc.get("contact_person")
+	if not contact or not doc.get("supplier"):
+		return
+	if not (doc.get("is_internal_supplier")
+	        or frappe.db.get_value("Supplier", doc.supplier, "is_internal_supplier")):
+		return
+	if frappe.db.exists(
+		"Dynamic Link",
+		{"parenttype": "Contact", "parent": contact, "link_doctype": "Supplier", "link_name": doc.supplier},
+	):
+		return
+	for field in _CONTACT_FIELDS:
+		if doc.meta.has_field(field):
+			doc.set(field, None)
