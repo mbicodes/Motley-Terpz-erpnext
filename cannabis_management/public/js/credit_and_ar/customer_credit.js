@@ -61,19 +61,22 @@ function render_exemption_banner(frm) {
 // New customers need an email address and a phone number
 // (credit_and_ar/customer_contact_rules.py). The New Customer dialog asks for
 // both; the full form only shows them read-only, so ask here rather than let the
-// save fail. Administrator and Muhammad are exempt, as on the server.
+// save fail. Administrator and Muhammad are exempt, as on the server. An
+// internal customer (Is Internal Customer) needs only the phone number.
 (function () {
 	const EXEMPT = ['Administrator', 'muhammad@motleyterpz.com'];
 
 	frappe.ui.form.on('Customer', {
 		validate: function (frm) {
 			if (!frm.is_new() || EXEMPT.indexOf(frappe.session.user) !== -1) return;
-			if ((frm.doc.email_id || '').trim() && (frm.doc.mobile_no || '').trim()) return;
+			const email_required = !frm.doc.is_internal_customer;
+			const has_email = !!(frm.doc.email_id || '').trim();
+			if ((has_email || !email_required) && (frm.doc.mobile_no || '').trim()) return;
 			frappe.validated = false;
 			const d = new frappe.ui.Dialog({
 				title: __('Contact details required'),
 				fields: [
-					{ fieldname: 'email_id', fieldtype: 'Data', options: 'Email', label: __('Email Address'), reqd: 1, default: frm.doc.email_id || '' },
+					{ fieldname: 'email_id', fieldtype: 'Data', options: 'Email', label: __('Email Address'), reqd: email_required ? 1 : 0, default: frm.doc.email_id || '' },
 					{ fieldname: 'mobile_no', fieldtype: 'Data', options: 'Phone', label: __('Phone Number'), reqd: 1, default: frm.doc.mobile_no || '' },
 				],
 				primary_action_label: __('Save Customer'),

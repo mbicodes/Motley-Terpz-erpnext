@@ -4,11 +4,14 @@
 
 1. A new Customer needs an email address AND a phone number, and neither may
    already belong to a different customer. Administrator and Muhammad are
-   exempt (EXEMPT_USERS).
-2. A Sales Order cannot be saved until its customer can be reached by email OR
-   phone. The Sales Order form asks for them as soon as a customer is picked
+   exempt (EXEMPT_USERS). An internal customer (Is Internal Customer) needs
+   only the phone number; its email is optional.
+2. A Payment Terms Sales Order cannot be saved until its customer can be
+   reached by email OR phone (a Cash On Delivery order does not need it). The Sales Order form asks for them as soon as a customer is picked
    (public/js/sales_order.js) and stores them on the customer's primary Contact
-   through save_customer_contact().
+   through save_customer_contact(). A Policy Exempt customer is never asked:
+   like every other Sales Order gate in this module, it does not apply to them
+   (utils.is_policy_exempt).
 
 The email and phone on a Customer (email_id / mobile_no) are read-only copies
 of its primary Contact. ERPNext builds that Contact from them when a customer
@@ -20,6 +23,11 @@ import re
 import frappe
 from frappe import _
 from frappe.utils import validate_email_address
+
+from cannabis_management.credit_and_ar import utils
+
+# Sales Order.custom_mode_of_payment value (credit_and_ar/utils.MODE_TERMS).
+MODE_TERMS = "Payment Terms"
 
 EXEMPT_USERS = {"Administrator", "muhammad@motleyterpz.com"}
 
@@ -112,15 +120,20 @@ def validate_customer(doc):
 
 	email = (doc.get("email_id") or "").strip()
 	phone = (doc.get("mobile_no") or "").strip()
-	missing = [label for value, label in ((email, _("an email address")), (phone, _("a phone number")))
-	           if not value]
+	# An internal customer is one of our own companies: email is optional there.
+	email_required = not doc.get("is_internal_customer")
+	missing = [label for value, label, required in (
+		(email, _("an email address"), email_required),
+		(phone, _("a phone number"), True),
+	) if required and not value]
 	if missing:
 		frappe.throw(
 			_("Add {0} before creating this customer.").format(_(" and ").join(missing)),
 			title=_("Contact details required"),
 		)
 
-	validate_email_address(email, throw=True)
+	if email:
+		validate_email_address(email, throw=True)
 	dup = find_duplicate(email, phone, exclude_customer=doc.name)
 	if dup:
 		_throw_duplicate(dup)
@@ -149,13 +162,18 @@ def validate_sales_order(doc):
 	"""Called from sales_order_hooks.validate, before its own early returns."""
 	if not doc.customer or _bulk_operation():
 		return
+	# Only a Payment Terms order needs a way to reach the customer.
+	if (doc.get("custom_mode_of_payment") or "") != MODE_TERMS:
+		return
+	if utils.is_policy_exempt(doc.customer):
+		return
 	if doc.get("contact_email") or doc.get("contact_mobile") or doc.get("contact_phone"):
 		return
 	if _customer_reachable(doc.customer):
 		return
 	frappe.throw(
 		_("Customer {0} has no email address or phone number. Add at least one before "
-		  "saving this Sales Order: re-select the customer to be asked for them.").format(
+		  "saving this Sales Order: save again to be asked for them.").format(
 			frappe.bold(doc.customer)
 		),
 		title=_("Customer contact required"),
@@ -169,7 +187,14 @@ def get_customer_contact(customer):
 	email, mobile, contact = frappe.db.get_value(
 		"Customer", customer, ["email_id", "mobile_no", "customer_primary_contact"]
 	) or (None, None, None)
-	return {"email": email or "", "phone": mobile or "", "contact": contact or ""}
+	return {
+		"email": email or "",
+		"phone": mobile or "",
+		"contact": contact or "",
+		# Same test validate_sales_order applies, so the form agrees with the save.
+		"reachable": bool(email or mobile) or _customer_reachable(customer),
+		"exempt": utils.is_policy_exempt(customer),
+	}
 
 
 @frappe.whitelist()

@@ -38,6 +38,21 @@ frappe.ui.form.on('Sales Order', {
 			);
 		}
 	},
+	setup(frm) {
+		// Picking a customer asks who the sales person is. ERPNext's own
+		// customer() swaps in the customer's Sales Team (erpnext/accounts/party.py)
+		// and form.on handlers run before it, so this hangs off the old-style
+		// custom_customer slot instead, which runs after it (script_manager.js).
+		frm.cscript.custom_customer = function () {
+			if (!frm.doc.customer || frm.doc.docstatus !== 0) return;
+			const docname = frm.doc.name;
+			const customer = frm.doc.customer;
+			after_party_details(frm, () => {
+				if (frm.doc.name !== docname || frm.doc.customer !== customer) return; // moved on meanwhile
+				prompt_sales_person(frm);
+			});
+		};
+	},
 	custom_mode_of_payment(frm) {
 		apply_payment_terms_restrictions(frm);
 	},
@@ -57,6 +72,70 @@ frappe.ui.form.on('Sales Order', {
 		frm.refresh_field('items');
 	}
 });
+
+// ── Sales person prompt (on picking a customer) ──────────────────────────────
+
+// ERPNext raises updating_party_details while it writes the customer's defaults
+// onto the order; wait for that, and the calls it sets off, to finish.
+function after_party_details(frm, fn, tries = 0) {
+	frappe.after_ajax(() => {
+		if (frm.updating_party_details && tries < 50) {
+			setTimeout(() => after_party_details(frm, fn, tries + 1), 100);
+			return;
+		}
+		fn();
+	});
+}
+
+function prompt_sales_person(frm) {
+	// Pre-fill with the customer's lead sales person, now on the order.
+	const team = (frm.doc.sales_team || []).filter((r) => r.sales_person);
+	team.sort((a, b) => (b.allocated_percentage || 0) - (a.allocated_percentage || 0));
+	const customer = frm.doc.customer;
+	const d = new frappe.ui.Dialog({
+		title: __('Sales Person'),
+		fields: [
+			{
+				label: __('Who is the Sales Person?'),
+				fieldname: 'sales_person',
+				fieldtype: 'Link',
+				options: 'Sales Person',
+				reqd: 1,
+				default: team.length ? team[0].sales_person : undefined,
+				get_query: () => ({ filters: { is_group: 0, enabled: 1 } }),
+			},
+		],
+		size: 'small',
+		primary_action_label: __('Set'),
+		primary_action(values) {
+			apply_sales_person(frm, values.sales_person);
+			d.hide();
+			// Not on the customer's own Sales Team yet: add it there too.
+			frappe.call({
+				method: 'cannabis_management.overrides.sales_order_utils.add_sales_person_to_customer',
+				args: { customer: customer, sales_person: values.sales_person },
+			}).then((r) => {
+				if (r.message) {
+					frappe.show_alert({
+						message: __('{0} added to the Sales Team of {1}', [values.sales_person, customer]),
+						indicator: 'green',
+					});
+				}
+			});
+		},
+	});
+	d.show();
+}
+
+function apply_sales_person(frm, sales_person) {
+	const rows = frm.doc.sales_team || [];
+	if (rows.length === 1 && rows[0].sales_person === sales_person) return;
+	frm.clear_table('sales_team');
+	const row = frm.add_child('sales_team');
+	row.sales_person = sales_person;
+	row.allocated_percentage = 100;
+	frm.refresh_field('sales_team');
+}
 
 function apply_payment_terms_restrictions(frm) {
 	const is_payment_terms = frm.doc.custom_mode_of_payment === 'Payment Terms';
@@ -311,22 +390,34 @@ frappe.ui.form.on('Sales Order', {
 	},
 });
 
-// Customer contact. Picking a customer asks for its email address and phone
-// number (pre-filled with what is on file) and stores them on the customer's
-// primary Contact. At least one of the two is required: the server refuses the
-// order otherwise (credit_and_ar/customer_contact_rules.py).
+// Customer contact. On a Payment Terms order, picking a customer asks for its
+// email address and phone number (pre-filled with what is on file) and stores
+// them on the customer's primary Contact. At least one of the two is required:
+// the server refuses the order otherwise (credit_and_ar/customer_contact_rules.py).
+// A Cash On Delivery order, or a Policy Exempt customer, is never asked.
 (function () {
 	const M = 'cannabis_management.credit_and_ar.customer_contact_rules.';
 
-	function ask_contact(frm) {
+	function contact_required(frm) {
+		return frm.doc.custom_mode_of_payment === 'Payment Terms';
+	}
+
+	// only_if_missing: check quietly and open the dialog only when the customer
+	// has nothing on file (an order opened with the customer already filled in,
+	// e.g. a duplicate or one made from another document, never fires the
+	// customer trigger). Returns the check's promise.
+	function ask_contact(frm, only_if_missing) {
 		const customer = frm.doc.customer;
-		if (!customer || frm.doc.docstatus !== 0) return;
-		frappe.call({ method: M + 'get_customer_contact', args: { customer: customer } }).then(function (r) {
+		if (!customer || frm.doc.docstatus !== 0) return Promise.resolve();
+		return frappe.call({ method: M + 'get_customer_contact', args: { customer: customer } }).then(function (r) {
 			if (frm.doc.customer !== customer) return; // picked another customer meanwhile
 			const cur = r.message || {};
 			// Until something is saved, an order for a customer with nothing on
 			// file cannot go ahead; validate() below re-opens this dialog.
-			frm._cm_contact_missing = !(cur.email || cur.phone);
+			// A Policy Exempt customer is never asked (the server skips it too).
+			frm._cm_contact_missing = !(cur.exempt || cur.reachable || cur.email || cur.phone);
+			frm._cm_contact_checked = customer;
+			if (cur.exempt || (only_if_missing && !frm._cm_contact_missing)) return;
 			const d = new frappe.ui.Dialog({
 				title: __('Contact details for {0}', [customer]),
 				fields: [
@@ -366,16 +457,44 @@ frappe.ui.form.on('Sales Order', {
 		});
 	}
 
+	function has_order_contact(frm) {
+		return !!(frm.doc.contact_email || frm.doc.contact_mobile || frm.doc.contact_phone);
+	}
+
 	frappe.ui.form.on('Sales Order', {
 		customer: function (frm) {
-			ask_contact(frm);
+			if (contact_required(frm)) ask_contact(frm);
+		},
+		custom_mode_of_payment: function (frm) {
+			// Switched to Payment Terms: ask now if the customer has nothing on file.
+			if (contact_required(frm) && frm.doc.customer && !has_order_contact(frm)) {
+				ask_contact(frm, true);
+			}
+		},
+		refresh: function (frm) {
+			if (contact_required(frm) && frm.is_new() && frm.doc.customer
+				&& frm._cm_contact_checked !== frm.doc.customer && !has_order_contact(frm)) {
+				ask_contact(frm, true);
+			}
 		},
 		validate: function (frm) {
-			if (frm._cm_contact_missing) {
+			if (!contact_required(frm)) return;
+			if (!frm.doc.customer || frm.doc.docstatus !== 0 || has_order_contact(frm)) return;
+			const block = function () {
 				frappe.validated = false;
 				frappe.show_alert({ message: __('Add the customer\'s email or phone to continue.'), indicator: 'red' });
-				ask_contact(frm);
+			};
+			if (frm._cm_contact_checked === frm.doc.customer) {
+				if (frm._cm_contact_missing) {
+					block();
+					ask_contact(frm);
+				}
+				return;
 			}
+			// Never checked for this customer: ask the server before saving.
+			return ask_contact(frm, true).then(function () {
+				if (frm._cm_contact_missing) block();
+			});
 		},
 	});
 })();

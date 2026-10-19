@@ -111,3 +111,30 @@ def create_material_transfer_from_so(sales_order, source_warehouse, target_wareh
         msg += "<br>".join(skipped_items)
 
     return {"stock_entry": se.name, "message": msg}
+
+
+@frappe.whitelist()
+def add_sales_person_to_customer(customer, sales_person):
+    """
+    Add the Sales Person picked in the Sales Order prompt to the customer's own
+    Sales Team, unless it is already there. Returns True when a row was added.
+
+    Customer.validate wants the team to total exactly 100, so the newcomer joins
+    at 0% and the customer's existing split -- the default ERPNext copies onto
+    every new order -- is left as it is. Sales roles that cannot edit Customers
+    still make orders, so this is gated on Sales Order access instead.
+    """
+    frappe.has_permission("Sales Order", "create", throw=True)
+    frappe.has_permission("Customer", "read", doc=customer, throw=True)
+    if not frappe.db.exists("Sales Person", {"name": sales_person, "enabled": 1, "is_group": 0}):
+        frappe.throw(_("{0} is not an enabled Sales Person.").format(sales_person))
+
+    cust = frappe.get_doc("Customer", customer)
+    if any(row.sales_person == sales_person for row in cust.sales_team):
+        return False
+
+    allocated = 0 if cust.sales_team else 100
+    cust.append("sales_team", {"sales_person": sales_person, "allocated_percentage": allocated})
+    cust.flags.ignore_permissions = True
+    cust.save()
+    return True
