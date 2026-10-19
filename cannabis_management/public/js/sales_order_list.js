@@ -82,7 +82,17 @@ frappe.listview_settings['Sales Order'] = frappe.listview_settings['Sales Order'
 	so_settings.onload = function (listview) {
 		erpnext_onload && erpnext_onload.call(this, listview);
 		add_hide_cancelled_filter(listview);
+		add_pipeline_button(listview);
 	};
+
+	// Jump to the Fulfillment Pipeline board (mt_dispatch page), for users
+	// whose roles open that page. The page has a "Sales Orders" button back.
+	function add_pipeline_button(listview) {
+		if (!(frappe.boot.page_info || {})['fulfillment-pipeline']) return;
+		listview.page.add_inner_button(__('Fulfillment Pipeline'), () =>
+			frappe.set_route('fulfillment-pipeline')
+		);
+	}
 
 	so_settings.formatters = Object.assign({}, so_settings.formatters, {
 		custom_delivery_note_created(value) {

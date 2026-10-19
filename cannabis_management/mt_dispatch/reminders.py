@@ -126,7 +126,8 @@ def applicable_rules(so, cfg, stage):
 def last_log(so_name):
 	rows = frappe.get_all(
 		"Dispatch Stage Log",
-		filters={"parent": so_name, "parenttype": "Sales Order"},
+		# "Got it" on the Fulfillment board logs a row but moves nothing.
+		filters={"parent": so_name, "parenttype": "Sales Order", "action": ["!=", "update_ack"]},
 		fields=["name", "at", "to_stage", "last_reminded_on"],
 		order_by="idx desc",
 		limit=1,

@@ -43,9 +43,11 @@ VERBS = {
 	"dn_cancelled": "cancelled the Delivery Note after release",
 	"backfill": "moved onto the dispatch board",
 	"admin_set": "changed the Logistic Status",
+	"board_move": "moved it on the Fulfillment board",
+	"invoice_close": "closed out (fully invoiced)",
 }
 
-SYSTEM_ACTIONS = {"enter_flow", "conversions_done", "conversion_progress", "backfill"}
+SYSTEM_ACTIONS = {"enter_flow", "conversions_done", "conversion_progress", "backfill", "invoice_close"}
 
 
 # ── message rows ─────────────────────────────────────────────────────────────
@@ -289,7 +291,7 @@ def on_transition(sales_order, action, users=None, channel=None, **kwargs):
 		refresh_exceptions(so, cfg)
 		post_exception(so, cfg, "Resumed", f"Resumed by {identity.mention(actor)}. Back at {stage}.")
 		refresh_approval_dms(so.name)
-	elif action == "mark_delivered":
+	elif action in ("mark_delivered", "invoice_close"):
 		refresh_dispatch(so, cfg)
 		close_rows(so.name)
 	elif action == "cancel":

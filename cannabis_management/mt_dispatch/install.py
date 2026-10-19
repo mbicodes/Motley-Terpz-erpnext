@@ -160,6 +160,70 @@ def install_custom_fields():
 					"allow_on_submit": 1,
 					"insert_after": "custom_stage_log",
 				},
+				# The Fulfillment Pipeline page (page/fulfillment_pipeline).
+				{
+					"fieldname": "custom_fulfillment_section",
+					"label": "Fulfillment",
+					"fieldtype": "Section Break",
+					"collapsible": 1,
+					"insert_after": "custom_slack_messages",
+				},
+				{
+					"fieldname": "custom_pull_sheet",
+					"label": "Pull Sheet",
+					"fieldtype": "Attach",
+					"allow_on_submit": 1,
+					"insert_after": "custom_fulfillment_section",
+					"description": "Photo or scan of the filled Lab Pull Sheet.",
+				},
+				{
+					"fieldname": "custom_pull_sheet_by",
+					"label": "Pull Sheet By",
+					"fieldtype": "Link",
+					"options": "User",
+					"read_only": 1,
+					"allow_on_submit": 1,
+					"insert_after": "custom_pull_sheet",
+				},
+				{
+					"fieldname": "custom_pull_sheet_on",
+					"label": "Pull Sheet On",
+					"fieldtype": "Datetime",
+					"read_only": 1,
+					"allow_on_submit": 1,
+					"insert_after": "custom_pull_sheet_by",
+				},
+				{
+					"fieldname": "custom_fulfillment_cb",
+					"fieldtype": "Column Break",
+					"insert_after": "custom_pull_sheet_on",
+				},
+				{
+					"fieldname": "custom_update_ack_on",
+					"label": "Update Acknowledged On",
+					"fieldtype": "Datetime",
+					"read_only": 1,
+					"allow_on_submit": 1,
+					"insert_after": "custom_fulfillment_cb",
+					"description": "Last time someone cleared the board's Order Updated banner.",
+				},
+				{
+					"fieldname": "custom_update_ack_by",
+					"label": "Update Acknowledged By",
+					"fieldtype": "Link",
+					"options": "User",
+					"read_only": 1,
+					"allow_on_submit": 1,
+					"insert_after": "custom_update_ack_on",
+				},
+				{
+					"fieldname": "custom_cancel_reason",
+					"label": "Cancel Reason",
+					"fieldtype": "Small Text",
+					"allow_on_submit": 1,
+					"insert_after": "custom_update_ack_by",
+					"description": "Shown on the Fulfillment Pipeline's Cancelled tab. Fill in before cancelling.",
+				},
 			],
 			"User": [
 				{
@@ -179,6 +243,8 @@ def install_custom_fields():
 		"custom_conversion_required", "custom_payment_verified", "custom_amount_paid",
 		"custom_hold_from_stage", "custom_hold_reason", "custom_released_by", "custom_released_on",
 		"custom_release_override_reason", "custom_stage_log", "custom_slack_messages",
+		"custom_pull_sheet", "custom_pull_sheet_by", "custom_pull_sheet_on",
+		"custom_update_ack_on", "custom_update_ack_by", "custom_cancel_reason",
 	):
 		name = frappe.db.get_value("Custom Field", {"dt": "Sales Order", "fieldname": fieldname})
 		if name:

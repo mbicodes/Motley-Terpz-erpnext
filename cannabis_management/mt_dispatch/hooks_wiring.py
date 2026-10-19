@@ -40,7 +40,10 @@ MT_DISPATCH_DOC_EVENTS = {
 	},
 	"Sales Invoice": {
 		"after_insert": ["cannabis_management.mt_dispatch.events.on_si_insert"],
-		"on_submit": ["cannabis_management.mt_dispatch.events.on_si_submit"],
+		"on_submit": [
+			"cannabis_management.mt_dispatch.events.on_si_submit",
+			"cannabis_management.mt_dispatch.fulfillment_board.on_si_submit",
+		],
 		"on_cancel": ["cannabis_management.mt_dispatch.events.on_si_cancel"],
 	},
 	"Payment Entry": {

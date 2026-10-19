@@ -884,7 +884,10 @@ MODAL_BUILDERS = {
 
 def age_in_stage(so_name):
 	at = frappe.db.get_value(
-		"Dispatch Stage Log", {"parent": so_name, "parenttype": "Sales Order"}, "at", order_by="idx desc"
+		"Dispatch Stage Log",
+		{"parent": so_name, "parenttype": "Sales Order", "action": ["!=", "update_ack"]},
+		"at",
+		order_by="idx desc",
 	)
 	if not at:
 		return "—"

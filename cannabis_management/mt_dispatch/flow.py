@@ -293,6 +293,14 @@ def set_stage(so, to, action, source="System", note=None, user=None):
 
 	so.set(STAGE_FIELD, to)
 	_append_log(so, previous, to, action, source, note, user)
+	# The Fulfillment Pipeline page redraws this order's card. db_set above
+	# sends no list_update, so without this a move made in Slack, on the form
+	# or by a document hook would wait for the page's poll.
+	frappe.publish_realtime(
+		"mt_fulfillment_update",
+		{"sales_order": so.name, "from_stage": previous, "to_stage": to},
+		after_commit=True,
+	)
 
 
 def _append_log(so, from_stage, to_stage, action, source, note, user=None):
@@ -326,7 +334,7 @@ def _append_log(so, from_stage, to_stage, action, source, note, user=None):
 def last_log_row(so):
 	rows = frappe.get_all(
 		"Dispatch Stage Log",
-		filters={"parent": so.name, "parenttype": "Sales Order"},
+		filters={"parent": so.name, "parenttype": "Sales Order", "action": ["!=", "update_ack"]},
 		fields=["user", "at", "to_stage"],
 		order_by="idx desc",
 		limit=1,

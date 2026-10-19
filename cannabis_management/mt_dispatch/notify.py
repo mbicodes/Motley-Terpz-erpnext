@@ -32,6 +32,8 @@ AUDIENCE = {
 	"cancel": ((), "exceptions_channel"),
 	"dn_cancelled": ((stages.APPROVER, stages.COMPLIANCE), "exceptions_channel"),
 	"admin_set": ((), "orders_channel"),
+	"board_move": ((), "orders_channel"),
+	"invoice_close": ((), "orders_channel"),
 }
 
 

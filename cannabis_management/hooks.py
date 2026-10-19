@@ -135,7 +135,11 @@ doctype_list_js = {
 jinja = {
 	# The "Run Production Log" print format (Material Request) — the Print Log
 	# button on a run's card on the Manufacturing Process page.
-	"methods": ["cannabis_management.api.manufacturing_process.run_production_log"],
+	"methods": [
+		"cannabis_management.api.manufacturing_process.run_production_log",
+		# The "Lab Pull Sheet" print format (Sales Order) — Fulfillment Pipeline page.
+		"cannabis_management.mt_dispatch.fulfillment_board.lab_pull_sheet",
+	],
 }
 
 # Migration hooks
