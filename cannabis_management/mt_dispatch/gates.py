@@ -68,13 +68,42 @@ def conversion_targets(so_name):
 	return targets
 
 
-def delivery_warehouse(so, row, targets=None):
+def reserved_warehouses(so_name, row_name):
+	"""{warehouse: stock qty} still held for one Sales Order line by its open
+	Stock Reservation Entries, largest first."""
+	rows = frappe.db.sql(
+		"""
+		select warehouse, sum(reserved_qty - delivered_qty) as qty
+		from `tabStock Reservation Entry`
+		where docstatus = 1 and voucher_type = 'Sales Order' and voucher_no = %s
+		  and voucher_detail_no = %s and status not in ('Delivered', 'Cancelled')
+		group by warehouse
+		order by qty desc
+		""",
+		(so_name, row_name),
+		as_dict=True,
+	)
+	return {r.warehouse: flt(r.qty) for r in rows if flt(r.qty) > 0}
+
+
+def delivery_warehouse(so, row, targets=None, follow_reservation=True):
 	"""Where a Sales Order line ships from.
 
-	Goods this order converted land in the Conversion Entry's target warehouse,
-	not the line's, so such a line ships from there when that warehouse holds
-	the quantity. Any other line ships from its own warehouse.
+	A line with stock reserved for it ships from where that stock is held:
+	ERPNext refuses a Delivery Note row whose warehouse is not one of the
+	line's reservation warehouses ("Stock Reservation Warehouse Mismatch").
+	Otherwise, goods this order converted land in the Conversion Entry's target
+	warehouse, not the line's, so such a line ships from there when that
+	warehouse holds the quantity. Any other line ships from its own warehouse.
+
+	follow_reservation=False gives the warehouse the line would ship from on
+	stock alone; the Fulfillment board's Reserve uses it to decide where the
+	reservation belongs.
 	"""
+	if follow_reservation and row.get("name") and so.get("name"):
+		held = reserved_warehouses(so.name, row.name)
+		if held:
+			return next(iter(held))
 	default = row.warehouse or so.set_warehouse
 	need = flt(row.stock_qty) or flt(row.qty)
 	if targets is None:

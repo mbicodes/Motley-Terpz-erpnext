@@ -1,22 +1,35 @@
 {
  "content": null,
- "creation": "2026-10-18 00:00:00",
+ "creation": "2026-10-18 12:29:41.527304",
  "docstatus": 0,
  "doctype": "Page",
  "icon": "fa fa-truck",
  "idx": 0,
- "modified": "2026-10-18 00:00:00",
+ "modified": "2026-10-19 11:46:31.505843",
  "modified_by": "Administrator",
  "module": "MT Dispatch",
  "name": "fulfillment-pipeline",
  "owner": "Administrator",
  "page_name": "fulfillment-pipeline",
  "roles": [
-  {"role": "Fulfilment"},
-  {"role": "Fulfilment - Consolidated"},
-  {"role": "Tori S - Consolidated"},
-  {"role": "Matt Schneider - Consolidated"},
-  {"role": "System Manager"}
+  {
+   "role": "Fulfilment"
+  },
+  {
+   "role": "Fulfilment - Consolidated"
+  },
+  {
+   "role": "Tori S - Consolidated"
+  },
+  {
+   "role": "Matt Schneider - Consolidated"
+  },
+  {
+   "role": "System Manager"
+  },
+  {
+   "role": "Manufacturing Manager"
+  }
  ],
  "script": null,
  "standard": "Yes",

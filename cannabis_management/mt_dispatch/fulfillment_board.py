@@ -61,6 +61,8 @@ VIEW_ROLES = {
 	"Tori S - Consolidated",
 	"Matt Schneider - Consolidated",
 	"System Manager",
+	# Added to the page's roles on 2026-10-19 (view only).
+	"Manufacturing Manager",
 }
 EDIT_ROLES = {
 	"Fulfilment",
@@ -160,6 +162,7 @@ def get_board(view="open"):
 		"stages": BOARD_STAGES,
 		"cancelled_count": len(rows) if cancelled else len(_cancelled_rows(names_only=True)),
 		"can_edit": can_edit(),
+		"can_reserve": _can_reserve(),
 		"today": nowdate(),
 		"now": str(now_datetime()),
 	}
@@ -246,6 +249,7 @@ def _build(rows, cancelled=False, write_flags=True):
 		) if item_codes else set(),
 		bins=_bins(item_codes),
 		reserved=_reservations(item_codes),
+		row_sre=_sre_by_row(names),
 		targets=_conversion_targets(names),
 		ces=_conversion_entries(names),
 		dns=_delivery_notes(names),
@@ -297,6 +301,53 @@ def _reservations(item_codes):
 		if flt(r.qty) > 0:
 			out.setdefault((r.item_code, r.warehouse), {})[r.voucher_no] = flt(r.qty)
 	return out
+
+
+def _sre_by_row(names):
+	"""{Sales Order Item name: {warehouse: stock qty still held}} from these
+	orders' own open Stock Reservation Entries (reserved minus delivered)."""
+	out = {}
+	if not names:
+		return out
+	for r in frappe.db.sql(
+		"""
+		select voucher_detail_no, warehouse, sum(reserved_qty - delivered_qty) as qty
+		from `tabStock Reservation Entry`
+		where docstatus = 1 and voucher_type = 'Sales Order' and voucher_no in %(names)s
+		  and status not in ('Delivered', 'Cancelled')
+		group by voucher_detail_no, warehouse
+		""",
+		{"names": names},
+		as_dict=True,
+	):
+		if flt(r.qty) > 0:
+			out.setdefault(r.voucher_detail_no, {})[r.warehouse] = flt(r.qty)
+	return out
+
+
+def _open_sres(so_name):
+	"""This order's Stock Reservation Entries that still hold stock."""
+	return [
+		r
+		for r in frappe.get_all(
+			"Stock Reservation Entry",
+			filters={
+				"docstatus": 1,
+				"voucher_type": "Sales Order",
+				"voucher_no": so_name,
+				"status": ["not in", ["Delivered", "Cancelled"]],
+			},
+			fields=["name", "voucher_detail_no", "warehouse", "reserved_qty", "delivered_qty", "stock_uom"],
+			order_by="creation asc",
+		)
+		if flt(r.reserved_qty) - flt(r.delivered_qty) > EPSILON
+	]
+
+
+def _qty_label(by_unit):
+	"""{unit: qty} as "500 g + 20 LBS", so grams and pounds are never added up."""
+	parts = [_qty_text(q, u) for u, q in by_unit.items() if q > EPSILON]
+	return " + ".join(parts) or "0"
 
 
 def _conversion_targets(names):
@@ -433,13 +484,18 @@ def _lines(r, its, ctx):
 	for it in its:
 		row_wh = it.warehouse or r.set_warehouse
 		need = max(flt(it.qty) - flt(it.delivered_qty), 0) * (flt(it.conversion_factor) or 1)
-		# Same rule as gates.delivery_warehouse: goods this order converted
+		# Same rule as gates.delivery_warehouse: a line with stock reserved ships
+		# from the reservation's warehouse; otherwise goods this order converted
 		# ship from the Conversion Entry's target when it holds the quantity.
+		sre = ctx.row_sre.get(it.name) or {}
 		wh = row_wh
-		for target in so_targets.get(it.item_code, []):
-			if ctx.bins.get((it.item_code, target), 0) >= need:
-				wh = target
-				break
+		if sre:
+			wh = max(sre, key=sre.get)
+		else:
+			for target in so_targets.get(it.item_code, []):
+				if ctx.bins.get((it.item_code, target), 0) >= need:
+					wh = target
+					break
 		line = lines.setdefault(
 			(it.item_code, wh),
 			frappe._dict(
@@ -450,11 +506,17 @@ def _lines(r, its, ctx):
 				uom=it.stock_uom,
 				ordered=0.0,
 				need=0.0,
+				reserved=0.0,
+				misplaced=0.0,
 				is_stock=it.item_code in ctx.stock_items,
 			),
 		)
 		line.ordered += flt(it.stock_qty)
 		line.need += need
+		# Only stock held where the line ships from counts as reserved for it;
+		# anything held elsewhere is "misplaced" and can only be released.
+		line.reserved += sre.get(wh, 0)
+		line.misplaced += sum(q for w, q in sre.items() if w != wh)
 
 	out = []
 	for (item_code, wh), line in lines.items():
@@ -476,6 +538,8 @@ def _lines(r, its, ctx):
 				"need": flt(line.need, 3),
 				"available": None if available is None else flt(available, 3),
 				"short": flt(short or 0, 3),
+				"reserved": flt(line.reserved, 3),
+				"misplaced": flt(line.misplaced, 3),
 				"is_stock": line.is_stock,
 			}
 		)
@@ -586,6 +650,27 @@ def _card(r, its, ctx, versions, cancelled=False):
 	dns = ctx.dns.get(r.name, [])
 	logs = ctx.logs.get(r.name, [])
 	units = {line["uom"] for line in lines}
+	# Stock reservation: what this order holds vs what it still has to ship.
+	stock_lines = [line for line in lines if line["is_stock"] and line["need"] > EPSILON]
+	reserved_by_unit, todo_by_unit, held_by_unit = {}, {}, {}
+	for line in stock_lines:
+		u = line["uom"]
+		reserved_by_unit[u] = reserved_by_unit.get(u, 0) + min(line["reserved"], line["need"])
+		todo_by_unit[u] = todo_by_unit.get(u, 0) + max(line["need"] - line["reserved"], 0)
+	for line in lines:
+		if line["reserved"] + line["misplaced"] > EPSILON:
+			held_by_unit[line["uom"]] = held_by_unit.get(line["uom"], 0) + line["reserved"] + line["misplaced"]
+	reserved_total = sum(reserved_by_unit.values())
+	to_reserve = sum(todo_by_unit.values())
+	misplaced_total = sum(line["misplaced"] for line in lines)
+	if not stock_lines:
+		reserve_state = "n/a"
+	elif to_reserve <= EPSILON:
+		reserve_state = "full"
+	elif reserved_total > EPSILON:
+		reserve_state = "partial"
+	else:
+		reserve_state = "none"
 
 	card = {
 		"so": r.name,
@@ -616,6 +701,14 @@ def _card(r, its, ctx, versions, cancelled=False):
 		"short_count": short_count,
 		"conv": "submitted" if ce["submitted"] else ("draft" if ce["draft"] else "none"),
 		"conv_draft": ce["draft"][0] if ce["draft"] else None,
+		"reserve_state": reserve_state,
+		"reserved_total": flt(reserved_total, 3),
+		"to_reserve": flt(to_reserve, 3),
+		"held_total": flt(sum(held_by_unit.values()), 3),
+		"misplaced_total": flt(misplaced_total, 3),
+		"reserved_text": _qty_label(reserved_by_unit),
+		"to_reserve_text": _qty_label(todo_by_unit),
+		"held_text": _qty_label(held_by_unit),
 		"dn": dns[0].name if dns else None,
 		"dn_submitted": bool(dns and dns[0].docstatus == 1),
 		"invoiced": flt(r.per_billed) > 0,
@@ -770,6 +863,132 @@ def ack_update(sales_order):
 	)
 	current = so.get(STAGE_FIELD)
 	flow._append_log(so, current, current, "update_ack", "ERP", None)
+	_touch(so.name)
+	return get_card(so.name)
+
+
+def _stock_reservation_on():
+	if not cint(frappe.db.get_single_value("Stock Settings", "enable_stock_reservation")):
+		frappe.throw(_("Stock reservation is switched off in Stock Settings."))
+
+
+def _can_reserve(ptypes=("create", "submit")):
+	"""ERPNext's own Stock Reservation Entry rights. The board does not lift them:
+	a board editor without them sees no Reserve button, and the server says why."""
+	return can_edit() and all(frappe.has_permission("Stock Reservation Entry", p) for p in ptypes)
+
+
+def _require_reserve_rights(ptypes):
+	if not _can_reserve(ptypes):
+		frappe.throw(
+			_("Your roles cannot {0} Stock Reservation Entries. Ask for the Stock User role.").format(
+				_(" / ").join(ptypes)
+			),
+			frappe.PermissionError,
+		)
+
+
+@frappe.whitelist(methods=["POST"])
+def reserve_stock(sales_order):
+	"""Reserve available stock for every line still to ship ("Reserve" button).
+
+	ERPNext's own Sales Order reservation does the work, so its rules (partial
+	reservation, stock available after other orders' reservations, non-stock
+	items skipped) and its messages apply unchanged.
+
+	The reservation must sit where the Delivery Note will ship the line from,
+	or ERPNext refuses the note ("Stock Reservation Warehouse Mismatch"):
+	- a line already on a Delivery Note is reserved in that note's warehouse;
+	- otherwise in gates.delivery_warehouse(follow_reservation=False), i.e.
+	  where the line would ship on stock alone.
+	Stock this order holds for a line in any other warehouse is released first
+	and asked for again in the right one. An order whose shortage still waits
+	on its Conversion Entry is refused, as "+ DN" is: the converted goods land
+	in another warehouse.
+	"""
+	_require(edit=True)
+	_require_reserve_rights(("create", "submit"))
+	_stock_reservation_on()
+	so = _open_so(sales_order, for_update=True)
+	if flt(so.get("per_picked")) > 0:
+		frappe.throw(_("{0} has a Pick List. Reserve its stock from the Pick List.").format(so.name))
+	card = _fresh_card(so.name)
+	if card["needs_conv"] and card["conv"] != "submitted":
+		frappe.throw(
+			_("{0} is short until its Conversion Entry is submitted. Reserve after that, when the goods are in place.").format(so.name)
+		)
+
+	targets = gates.conversion_targets(so.name)
+	sres = _open_sres(so.name)
+	dn_warehouse = dict(
+		frappe.db.sql(
+			"""select so_detail, warehouse from `tabDelivery Note Item`
+			where against_sales_order = %s and docstatus = 0 and ifnull(so_detail, '') != ''""",
+			so.name,
+		)
+	)
+	units = {row.name: _unit(row.stock_uom) for row in so.items}
+
+	def held_by_unit():
+		out = {}
+		for r in _open_sres(so.name):
+			u = units.get(r.voucher_detail_no, _unit(r.stock_uom))
+			out[u] = out.get(u, 0) + flt(r.reserved_qty) - flt(r.delivered_qty)
+		return out
+
+	before = held_by_unit()
+	release, details = [], []
+	for row in so.items:
+		if not row.item_code or not frappe.get_cached_value("Item", row.item_code, "is_stock_item"):
+			continue
+		cf = flt(row.conversion_factor) or 1
+		need = max(flt(row.stock_qty) - flt(row.delivered_qty) * cf, 0)
+		ship = dn_warehouse.get(row.name) or gates.delivery_warehouse(so, row, targets, follow_reservation=False)
+		mine = [r for r in sres if r.voucher_detail_no == row.name]
+		wrong = [r.name for r in mine if r.warehouse != ship]
+		held_here = sum(flt(r.reserved_qty) - flt(r.delivered_qty) for r in mine if r.warehouse == ship)
+		release += wrong
+		open_qty = need - held_here
+		if open_qty <= EPSILON:
+			continue
+		# ERPNext reserves only lines ticked "Reserve Stock" (allow_on_submit).
+		if not row.reserve_stock:
+			row.db_set("reserve_stock", 1, update_modified=False)
+		details.append({"sales_order_item": row.name, "warehouse": ship, "qty_to_reserve": open_qty / cf})
+
+	if not details and not release:
+		frappe.throw(_("Everything still to ship on {0} is already reserved.").format(so.name))
+	if release:
+		_require_reserve_rights(("cancel",))
+		so.cancel_stock_reservation_entries(sre_list=release, notify=False)
+	if details:
+		so.create_stock_reservation_entries(items_details=details, notify=True)
+
+	after = held_by_unit()
+	gained = {u: after.get(u, 0) - before.get(u, 0) for u in set(after) | set(before)}
+	_touch(so.name)
+	return {
+		"card": get_card(so.name),
+		"reserved_now": flt(sum(v for v in gained.values() if v > 0), 3),
+		"reserved_now_text": _qty_label({u: v for u, v in gained.items() if v > 0}),
+		"moved": len(release),
+	}
+
+
+@frappe.whitelist(methods=["POST"])
+def unreserve_stock(sales_order):
+	"""Release the order's Stock Reservation Entries that still hold stock.
+
+	Delivered entries are left alone, as ERPNext's own Unreserve dialog does.
+	"""
+	_require(edit=True)
+	_require_reserve_rights(("cancel",))
+	_stock_reservation_on()
+	so = _open_so(sales_order, for_update=True)
+	sre_list = [r.name for r in _open_sres(so.name)]
+	if not sre_list:
+		frappe.throw(_("Nothing is reserved for {0}.").format(so.name))
+	so.cancel_stock_reservation_entries(sre_list=sre_list, notify=True)
 	_touch(so.name)
 	return get_card(so.name)
 

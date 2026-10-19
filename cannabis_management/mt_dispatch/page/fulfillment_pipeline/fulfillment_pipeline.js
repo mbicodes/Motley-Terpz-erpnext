@@ -14,7 +14,7 @@
 		Cancelled: "#991b1b",
 	};
 	const ON_HOLD = "On Hold";
-	const WATCH = ["Sales Order", "Conversion Entry", "Delivery Note", "Sales Invoice"];
+	const WATCH = ["Sales Order", "Conversion Entry", "Delivery Note", "Sales Invoice", "Stock Reservation Entry"];
 	const POLL_MS = 60000;
 
 	const esc = (s) =>
@@ -151,6 +151,7 @@
 					this.today = m.today;
 					this.stages = m.stages;
 					this.can_edit = !!m.can_edit;
+					this.can_reserve = !!m.can_reserve;
 					this.cx_count = m.cancelled_count;
 					if (m.view === "cancelled") this.cx_cards = m.cards;
 					else this.open_cards = m.cards;
@@ -397,6 +398,21 @@
 				c.type ? `<span class="fp-chip">${esc(__(c.type))}</span>` : "",
 				pay,
 				c.rep ? `<span class="fp-chip">${__("Rep")}: ${esc(c.rep)}</span>` : "",
+				!cx && c.reserve_state === "full"
+					? `<span class="fp-chip rsv" title="${esc(__("{0} reserved", [c.reserved_text]))}">🔒 ${__(
+							"Reserved"
+					  )}</span>`
+					: "",
+				!cx && c.reserve_state === "partial"
+					? `<span class="fp-chip rsv-part" title="${esc(
+							__("{0} reserved, {1} not yet", [c.reserved_text, c.to_reserve_text])
+					  )}">🔒 ${__("Part reserved")}</span>`
+					: "",
+				!cx && c.misplaced_total > 0
+					? `<span class="fp-chip rsv-part" title="${esc(
+							__("Stock is reserved in a warehouse this order will not ship from. Reserve moves it; Unreserve releases it.")
+					  )}">⚠ ${__("Reserved elsewhere")}</span>`
+					: "",
 				!cx && !c.on_flow
 					? `<span class="fp-chip muted" title="${esc(
 							__("Logistic Status is {0}. Moving the card sets it.", [c.raw_status || __("empty")])
@@ -417,6 +433,38 @@
 			const age = this.age(c);
 			const due_diff = cx ? null : this.due_diff(c);
 			const due_cls = due_diff > 0 ? "late" : due_diff === 0 ? "today" : "";
+
+			// Reserve: stock lines still to ship and not yet reserved where they
+			// ship from. Fully reserved shows "Reserved", which offers to release
+			// it; anything partly reserved (or reserved in the wrong warehouse)
+			// gets a separate Unreserve next to Reserve.
+			let reserve_btn = "";
+			if (edit && this.can_reserve) {
+				const full = c.reserve_state === "full" && !(c.misplaced_total > 0);
+				const can_add =
+					c.reserve_state === "none" || c.reserve_state === "partial" || c.misplaced_total > 0;
+				if (full) {
+					reserve_btn = `<button class="fp-pv fp-rsv done" data-unreserve="${esc(c.so)}" title="${esc(
+						__("{0} reserved. Click to unreserve.", [c.held_text])
+					)}">✓ ${__("Reserved")}</button>`;
+				} else {
+					if (can_add && c.reserve_state !== "n/a") {
+						const waits = c.needs_conv && c.conv !== "submitted";
+						reserve_btn += `<button class="fp-pv fp-rsv" data-reserve="${esc(c.so)}" ${
+							waits ? "disabled" : ""
+						} title="${esc(
+							waits
+								? __("Reserve once the Conversion Entry is submitted.")
+								: __("Reserve {0} still to ship", [c.to_reserve_text])
+						)}">🔒 ${__("Reserve")}</button>`;
+					}
+					if (c.held_total > 0) {
+						reserve_btn += `<button class="fp-pv" data-unreserve="${esc(c.so)}" title="${esc(
+							__("Release the {0} reserved", [c.held_text])
+						)}">${__("Unreserve")}</button>`;
+					}
+				}
+			}
 
 			const can_dn = !c.dn && (!c.needs_conv || c.conv === "submitted");
 			const conv_enabled = !!c.conv_draft || c.needs_conv;
@@ -469,9 +517,9 @@
 					${cx ? "" : this.steps_html(c)}
 					<div class="fp-foot">
 						${cx ? "<span></span>" : `<span class="fp-age ${age.warn ? "warn" : ""}">${__("In this stage {0}", [age.text])}</span>`}
-						<button class="fp-pv ${this.pop_so === c.so ? "on" : ""}" data-preview="${esc(c.so)}" title="${__(
+						<span class="fp-foot-btns">${reserve_btn}<button class="fp-pv ${this.pop_so === c.so ? "on" : ""}" data-preview="${esc(c.so)}" title="${__(
 							"Items, stock and shortages"
-						)}">${__("Preview")}</button>
+						)}">${__("Preview")}</button></span>
 					</div>
 				</div>
 				${acts}
@@ -512,6 +560,20 @@
 				me.hide_pop();
 				const c = me.card_of(this);
 				if (c) me.act(this.dataset.act, c);
+			});
+
+			// Stock reservation
+			this.$board.on("click", "[data-reserve]", function (e) {
+				e.stopPropagation();
+				me.hide_pop();
+				const c = me.find(this.dataset.reserve);
+				if (c) me.reserve(c);
+			});
+			this.$board.on("click", "[data-unreserve]", function (e) {
+				e.stopPropagation();
+				me.hide_pop();
+				const c = me.find(this.dataset.unreserve);
+				if (c) me.unreserve(c);
 			});
 
 			// Preview: the card's item/stock detail, opened from its button
@@ -668,6 +730,46 @@
 
 		// ── card actions ────────────────────────────────────────────────────
 
+		reserve(c) {
+			frappe.call({
+				method: API + "reserve_stock",
+				args: { sales_order: c.so },
+				freeze: true,
+				freeze_message: __("Reserving stock…"),
+				callback: (r) => {
+					const m = r.message || {};
+					this.put(m.card, c.so);
+					if (m.reserved_now > 0) {
+						frappe.show_alert(
+							{ message: __("{0}: reserved {1}", [esc(c.so), esc(m.reserved_now_text)]), indicator: "green" },
+							5
+						);
+					} else if (m.moved) {
+						frappe.show_alert({ message: __("{0}: reservation released from the wrong warehouse", [esc(c.so)]), indicator: "orange" }, 6);
+					} else {
+						frappe.show_alert({ message: __("{0}: no stock was free to reserve", [esc(c.so)]), indicator: "orange" }, 6);
+					}
+				},
+			});
+		}
+
+		unreserve(c) {
+			frappe.confirm(
+				__("Release the {0} reserved for {1}?", [esc(c.held_text), esc(c.so)]),
+				() =>
+					frappe.call({
+						method: API + "unreserve_stock",
+						args: { sales_order: c.so },
+						freeze: true,
+						freeze_message: __("Unreserving stock…"),
+						callback: (r) => {
+							this.put(r.message, c.so);
+							frappe.show_alert({ message: __("{0}: stock unreserved", [esc(c.so)]), indicator: "green" }, 4);
+						},
+					})
+			);
+		}
+
 		act(action, c) {
 			if (action === "print") return this.print_sheet(c);
 			if (action === "attach") return this.attach(c);
@@ -816,6 +918,7 @@
 			if (!c.lines) return;
 			const whs = [...new Set(c.lines.map((l) => l.warehouse).filter(Boolean))].join(", ");
 			const short_total = c.lines.reduce((a, l) => a + (l.short || 0), 0);
+			const reserved_total = c.lines.reduce((a, l) => a + (l.reserved || 0), 0);
 			const units = [...new Set(c.lines.map((l) => l.uom))];
 			const unit = units.length === 1 ? units[0] : "";
 			const rows = c.lines
@@ -824,6 +927,9 @@
 						<td>${esc(l.item_name)}</td>
 						<td class="r">${esc(qty(l.need, l.uom))}</td>
 						<td class="r">${l.is_stock ? esc(qty(l.available, l.uom)) : "n/a"}</td>
+						<td class="r">${l.reserved > 0 ? esc(qty(l.reserved, l.uom)) : "-"}${
+							l.misplaced > 0 ? ` <span title="${esc(__("reserved in another warehouse"))}">(+${esc(qty(l.misplaced, l.uom))} ⚠)</span>` : ""
+						}</td>
 						<td class="r">${l.short > 0 ? esc(qty(l.short, l.uom)) : "-"}</td>
 					</tr>`
 				)
@@ -842,12 +948,14 @@
 				<table>
 					<thead><tr><th>${__("Item")}</th><th class="r">${__("To ship")}</th><th class="r">${__(
 				"In stock"
-			)}</th><th class="r">${__("Short")}</th></tr></thead>
+			)}</th><th class="r">${__("Reserved")}</th><th class="r">${__("Short")}</th></tr></thead>
 					<tbody>${rows}</tbody>
 					<tfoot><tr><td>${__("Total")}</td><td class="r">${esc(qty(
 				c.lines.reduce((a, l) => a + (l.need || 0), 0),
 				unit
-			))}</td><td></td><td class="r">${short_total > 0 ? esc(qty(short_total, unit)) : "-"}</td></tr></tfoot>
+			))}</td><td></td><td class="r">${
+				reserved_total > 0 ? esc(qty(reserved_total, unit)) : "-"
+			}</td><td class="r">${short_total > 0 ? esc(qty(short_total, unit)) : "-"}</td></tr></tfoot>
 				</table>${upd}`);
 		}
 

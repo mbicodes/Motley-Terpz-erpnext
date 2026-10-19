@@ -583,3 +583,40 @@ a.fp-so:hover {
 		flex-basis: 260px;
 	}
 }
+
+/* stock reservation */
+.fp-foot-btns {
+	display: inline-flex;
+	gap: 4px;
+	flex: 0 0 auto;
+}
+.fp-chip.rsv {
+	background: var(--fp-green-bg);
+	color: var(--fp-green);
+	font-weight: 600;
+}
+.fp-chip.rsv-part {
+	background: var(--fp-amber-bg);
+	color: var(--fp-amber);
+	font-weight: 600;
+}
+.fp-rsv {
+	border-color: var(--fp-blue);
+	color: var(--fp-blue);
+}
+.fp-rsv.done {
+	border-color: var(--fp-green);
+	color: var(--fp-green);
+	background: var(--fp-green-bg);
+}
+.fp-foot {
+	flex-wrap: wrap;
+	row-gap: 4px;
+}
+.fp-foot-btns {
+	margin-left: auto;
+}
+.fp-pv:disabled {
+	opacity: 0.45;
+	cursor: not-allowed;
+}
