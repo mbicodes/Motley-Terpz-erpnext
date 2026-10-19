@@ -105,7 +105,9 @@ def _fetch_sessions(from_date, to_date, employee=None, include_open=False):
 	each row has been converted and dated.
 	"""
 	docstatuses = (0, 1) if include_open else (1,)
-	conds = ["ts.docstatus in %(docstatuses)s"]
+	# A timesheet with no employee is nobody's hours — it can't count towards
+	# anyone's pay or overtime, and a blank name would break the sort below.
+	conds = ["ts.docstatus in %(docstatuses)s", "ifnull(ts.employee, '') != ''"]
 	values = {
 		"docstatuses": docstatuses,
 		"from_dt": f"{add_days(from_date, -2)} 00:00:00",
@@ -190,7 +192,7 @@ def build_rows(from_date, to_date, employee=None, include_open=False, overtime_o
 		g["timesheets"] = sorted(g["timesheets"])
 		rows.append(g)
 
-	rows.sort(key=lambda r: (r["employee_name"].lower(), r["shift_day"]))
+	rows.sort(key=lambda r: ((r["employee_name"] or "").lower(), r["shift_day"]))
 	return rows
 
 
