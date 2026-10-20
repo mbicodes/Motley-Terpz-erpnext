@@ -39,6 +39,8 @@ SEGMENTS = [
 	"Nikki's Accounts - Matt knows them",
 	"Nikki's Accounts - Legit companies",
 	"Nikki's Accounts - Unknown companies",
+	"Ready to reach out",
+	"Ready to reach out - Sales Rep",
 ]
 
 AR_SEGMENT_DOCTYPE = "AR Segment"
