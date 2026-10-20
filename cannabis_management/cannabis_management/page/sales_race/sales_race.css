@@ -5,9 +5,9 @@
 .sr-head { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 16px; }
 .sr-kicker { font-size: 11px; letter-spacing: .12em; font-weight: 700; color: var(--sr-mute); }
 .sr-month { text-align: right; }
-.sr-month-nav { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+.sr-filters { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+.sr-filter { width: 200px; }
 .sr-month-label { font-size: 22px; font-weight: 700; color: var(--sr-orange); }
-.sr-nav { border: 0; background: #fff; border-radius: 6px; width: 26px; height: 26px; cursor: pointer; font-size: 16px; line-height: 1; }
 .sr-sub, .sr-muted { color: var(--sr-mute); font-size: 12px; }
 .sr-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 .sr-stat, .sr-panel, .sr-card { background: #fff; border-radius: 12px; box-shadow: 0 1px 3px rgba(15,23,42,.08); }
@@ -65,3 +65,4 @@
 @media (max-width: 768px) {
   .sr-stats { grid-template-columns: 1fr; } .sr-lane { flex-direction: column; align-items: stretch; } .sr-chip { width: auto; }
 }
+.sr-pay { overflow-x: auto; } .sr-pay td { vertical-align: top; }
