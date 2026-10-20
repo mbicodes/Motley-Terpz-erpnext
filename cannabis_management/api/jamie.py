@@ -755,7 +755,21 @@ def get_sales_dashboard_data(period='weekly', territory=None, company=None):
             "has_target":        True,
         })
         total_target += p_target
-        total_actual += actual_rev
+
+    # Actual Revenue counts every item sold (Distillate, BHO etc. included even without a
+    # target row), same scope as the Monthly Revenue Matrix total.
+    total_actual = _flt(frappe.db.sql("""
+        SELECT SUM(sii.base_net_amount)
+        FROM `tabSales Invoice Item` sii
+        JOIN `tabSales Invoice` si ON si.name = sii.parent
+        WHERE si.docstatus = 1
+          AND si.posting_date BETWEEN %(from_date)s AND %(to_date)s
+          AND si.is_return = 0
+          AND si.customer NOT IN %(internal_customers)s
+    """, {
+        'from_date': from_date, 'to_date': to_date,
+        'internal_customers': _get_excluded_customers(),
+    })[0][0])
 
     total_variance = total_actual - total_target
     total_variance_pct = (total_variance / total_target * 100.0) if total_target else 0.0
@@ -1300,7 +1314,8 @@ def get_sales_matrix(territory=None):
         GROUP BY si.posting_date, si.company, i.item_group
     """, {'s': min_date, 'e': max_date, 'ic': excluded_customers}, as_dict=True) if min_date and max_date else []
 
-    # MTM + LA Canna: all items, no item-group filter (separate companies)
+    # MTM + LA Canna: all items, no item-group filter (separate companies).
+    # Intercompany / internal customers excluded like every other revenue query.
     mtm_lacanna_rows = frappe.db.sql("""
         SELECT si.posting_date, si.company,
                SUM(sii.base_net_amount) AS rev
@@ -1309,8 +1324,9 @@ def get_sales_matrix(territory=None):
         WHERE si.docstatus = 1 AND si.is_return = 0
           AND si.posting_date BETWEEN %(s)s AND %(e)s
           AND si.company IN ('Master Touch Manufacturing', 'LA Canna Distro')
+          AND si.customer NOT IN %(ic)s
         GROUP BY si.posting_date, si.company
-    """, {'s': min_date, 'e': max_date}, as_dict=True) if min_date and max_date else []
+    """, {'s': min_date, 'e': max_date, 'ic': excluded_customers}, as_dict=True) if min_date and max_date else []
 
     # Tolling: actuals by specific item_code (toll-processing-fee), not item_group
     toll_rows = frappe.db.sql("""
