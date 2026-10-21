@@ -90,6 +90,18 @@ function arw_segment_style(page, seg) {
 	return c ? arw_cell_style(c + '1f', c, c) : '';
 }
 
+// Reach Out Status: a Customer field, blank read as "Haven't Reached Out".
+const ARW_NOT_REACHED = "Haven't Reached Out";
+const ARW_REACH_OUT_DEF = {
+	"Haven't Reached Out": { color: '#d97706', desc: 'Nobody has reached out to this account yet.' },
+	'Reached Out': { color: '#16a34a', desc: '' },
+};
+
+function arw_reach_out_style(value) {
+	const d = ARW_REACH_OUT_DEF[value || ARW_NOT_REACHED];
+	return d ? arw_cell_style(d.color + '1f', d.color, d.color) : '';
+}
+
 // One dropdown cell, or a read-only value for someone without edit rights.
 function arw_select(kind, field, customer, value, options, style, editable) {
 	const esc = frappe.utils.escape_html;
@@ -114,7 +126,10 @@ function arw_customer_cells(page, r) {
 		${ARW_FLAG_FIELDS.map((f) => `<td class="arw-cf">${arw_select('flag', f[0], r.customer, r[f[0]], yes_no,
 			arw_flag_style(r[f[0]]), meta.can_edit_recon)}</td>`).join('')}
 		<td class="arw-cf">${arw_select('segment', 'segment', r.customer, r.segment, seg_opts,
-			arw_segment_style(page, r.segment), meta.can_edit_segment)}</td>`;
+			arw_segment_style(page, r.segment), meta.can_edit_segment)}</td>
+		<td class="arw-cf">${arw_select('reach_out', 'reach_out', r.customer, r.reach_out || ARW_NOT_REACHED,
+			(meta.reach_out_statuses || [ARW_NOT_REACHED]).map((s) => [s, s]),
+			arw_reach_out_style(r.reach_out), meta.can_edit_reach_out)}</td>`;
 }
 
 // Save one dropdown through its home page's endpoint, then update every row of
@@ -134,6 +149,10 @@ function arw_save_customer_field(page, $sel) {
 		method = ARW_ARD_METHOD + 'update_ar_flag';
 		args = { party: customer, field: field, value: value };
 		label = __((ARW_FLAG_FIELDS.find((f) => f[0] === field) || [field, field])[1]);
+	} else if (kind === 'reach_out') {
+		method = ARW_ARL_METHOD + 'set_reach_out_status';
+		args = { customer: customer, status: value };
+		label = __('Reach Out Status');
 	} else {
 		method = ARW_ARL_METHOD + 'set_segment';
 		args = { customer: customer, segment: value };
@@ -173,6 +192,15 @@ function arw_groups(page, pool) {
 			cls: 'owner',
 			color: arw_segment_color(page, k) || '#9aa0a6',
 			rows: pool.filter((r) => (r.segment || '') === k),
+		}));
+	} else if (mode === 'reach_out') {
+		// "Haven't Reached Out" first: that is the pile still to be worked.
+		groups = (page.arw.meta.reach_out_statuses || [ARW_NOT_REACHED]).map((k) => ({
+			key: k,
+			def: { full: k, desc: (ARW_REACH_OUT_DEF[k] || {}).desc || '' },
+			cls: 'owner',
+			color: (ARW_REACH_OUT_DEF[k] || {}).color || '#9aa0a6',
+			rows: pool.filter((r) => (r.reach_out || ARW_NOT_REACHED) === k),
 		}));
 	} else if (mode === 'status') {
 		groups = ['none'].concat(ARW_STATUS_ORDER).map((k) => ({
@@ -229,6 +257,7 @@ frappe.pages['ar-weekly-review'].on_page_load = function (wrapper) {
 				<button data-mode="tier" class="on">${__('By debt level')}</button>
 				<button data-mode="status">${__('By status')}</button>
 				<button data-mode="owner">${__('By ownership')}</button>
+				<button data-mode="reach_out">${__('By reach out status')}</button>
 			</div>
 
 			<div class="arw-toolbar">
@@ -459,7 +488,7 @@ function build_table(page, rows, mode) {
 	// Level shows unless the groups already are levels; Status unless they are statuses.
 	const show_level = mode !== 'tier';
 	const show_status = mode !== 'status';
-	const cols = 9 + (show_level ? 1 : 0) + (show_status ? 1 : 0);
+	const cols = 10 + (show_level ? 1 : 0) + (show_status ? 1 : 0);
 	let html = `<div class="arw-tablescroll"><table class="arw-rows"><thead><tr>
 			<th style="width:22px"></th>
 			<th>${__('Customer')}</th>
@@ -471,6 +500,7 @@ function build_table(page, rows, mode) {
 			<th>${__('Onboarding')}</th>
 			<th>${__('Company Made Contact')}</th>
 			<th>${__('Segment')}</th>
+			<th>${__('Reach Out Status')}</th>
 			<th>${__('Latest note')}</th>
 		</tr></thead><tbody>`;
 
@@ -718,6 +748,7 @@ function print_review(page) {
 					<th>${__('Worst aging')}</th>
 					${show_status ? `<th>${__('Status')}</th>` : ''}
 					<th>${__('Segment')}</th>
+					<th>${__('Reach Out Status')}</th>
 					<th>${__('Latest note')}</th>
 				</tr></thead><tbody>${rows.map((r) => `<tr>
 					<td><b>${esc(r.customer)}</b><div class="dim">${r.portion === 'upcoming' ? __('on terms') : __('overdue')} · ${r.invoice_count} ${__('inv')}</div></td>
@@ -726,6 +757,7 @@ function print_review(page) {
 					<td>${esc(r.days)}</td>
 					${show_status ? `<td>${r.current_status ? esc(r.current_status) : '<span class="dim">' + __('No status yet') + '</span>'}</td>` : ''}
 					<td>${esc(r.segment || page.arw.meta.unassigned_label || __('Unassigned'))}</td>
+					<td>${esc(r.reach_out || ARW_NOT_REACHED)}</td>
 					<td>${r.latest_note ? esc(r.latest_note) : '—'}</td>
 				</tr>`).join('')}</tbody></table>`
 				: `<div class="dim empty">${__('No accounts in this group.')}</div>`;
@@ -761,7 +793,7 @@ function print_review(page) {
 			@media print{body{margin:0;-webkit-print-color-adjust:exact;print-color-adjust:exact;}}
 		</style></head><body>
 		<h1>${__('Accounts Receivable — Weekly Review')}</h1>
-		<div class="dim">${__('As of {0}', [esc(page.arw.meta.as_of || '')])} · ${__('Grouped')} ${{ tier: __('by debt level'), status: __('by status'), owner: __('by ownership') }[mode]} · ${__('Printed by {0}', [esc(frappe.session.user_fullname || frappe.session.user)])}</div>
+		<div class="dim">${__('As of {0}', [esc(page.arw.meta.as_of || '')])} · ${__('Grouped')} ${{ tier: __('by debt level'), status: __('by status'), owner: __('by ownership'), reach_out: __('by reach out status') }[mode]} · ${__('Printed by {0}', [esc(frappe.session.user_fullname || frappe.session.user)])}</div>
 		${ledger_html}
 		</body></html>`;
 

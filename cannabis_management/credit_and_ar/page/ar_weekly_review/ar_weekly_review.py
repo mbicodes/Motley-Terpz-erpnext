@@ -24,6 +24,9 @@ from cannabis_management.cannabis_management.page.ar_dashboard.ar_dashboard impo
 	get_recon_statuses,
 )
 from cannabis_management.cannabis_management.page.ar_legacy.ar_legacy import (
+	NOT_REACHED_OUT,
+	REACH_OUT_FIELD,
+	REACH_OUT_STATUSES,
 	SEGMENT_FIELD,
 	UNASSIGNED,
 	get_segments,
@@ -65,9 +68,9 @@ RECON_FIELD = "custom_reconciliation_status"
 
 
 def _attach_customer_info(rows):
-	"""Put each customer's four values on its rows; return the option lists and
+	"""Put each customer's five values on its rows; return the option lists and
 	edit rights the page needs to draw the dropdowns."""
-	wanted = {"recon_status": RECON_FIELD, "segment": SEGMENT_FIELD}
+	wanted = {"recon_status": RECON_FIELD, "segment": SEGMENT_FIELD, "reach_out": REACH_OUT_FIELD}
 	wanted.update(AR_FLAG_FIELDS)
 	present = {k: f for k, f in wanted.items() if frappe.db.has_column("Customer", f)}
 
@@ -81,6 +84,8 @@ def _attach_customer_info(rows):
 		values = info.get(r["customer"], {})
 		for k in wanted:
 			r[k] = values.get(k, "")
+		# Blank only on a customer created before the field: nobody has called.
+		r["reach_out"] = r["reach_out"] or NOT_REACHED_OUT
 
 	segments = get_segments()
 	return {
@@ -90,13 +95,16 @@ def _attach_customer_info(rows):
 		"unassigned_label": UNASSIGNED,
 		"can_edit_recon": _can_edit_recon(),
 		"can_edit_segment": bool(_can_edit_segment() and "segment" in present),
+		"reach_out_statuses": REACH_OUT_STATUSES,
+		"can_edit_reach_out": bool(_can_edit_segment() and "reach_out" in present),
 	}
 
 
 def _customer_columns(r):
-	"""The four values as export cells, in the column order of _export_tables."""
+	"""The five values as export cells, in the column order of _export_tables."""
 	return [r.get("recon_status") or "", r.get("onboarding") or "",
-	        r.get("company_made_contact") or "", r.get("segment") or UNASSIGNED]
+	        r.get("company_made_contact") or "", r.get("segment") or UNASSIGNED,
+	        r.get("reach_out") or NOT_REACHED_OUT]
 
 
 LEDGER_NEW = "New AR"
@@ -393,6 +401,7 @@ def _export_tables(ledger=None):
 	grid = [[
 		"Customer", "Ledger", "Portion", "Level", "Worst Aging", "Amount",
 		"Invoices", "Recon Status", "Onboarding", "Company Made Contact", "Segment",
+		"Reach Out Status",
 		"Current Status", "Latest Note", "Entries Filed",
 	]]
 	aging = [["Customer", "Ledger", "Portion", "Aging Bucket", "Amount"]]
@@ -438,7 +447,7 @@ def export_xlsx(ledger=None):
 	send_xlsx(
 		_("AR Accountability {0}").format(nowdate()),
 		[
-			("Receivables", grid, [34, 12, 11, 24, 14, 14, 10, 28, 12, 20, 24, 26, 48, 13]),
+			("Receivables", grid, [34, 12, 11, 24, 14, 14, 10, 28, 12, 20, 24, 20, 26, 48, 13]),
 			("Aging Breakdown", aging, [34, 12, 11, 16, 14]),
 			("Weekly Entries", log, [34, 12, 12, 24, 24, 18, 44, 44, 44, 20, 24, 18, 24]),
 		],

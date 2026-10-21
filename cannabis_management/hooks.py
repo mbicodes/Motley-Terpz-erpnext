@@ -174,6 +174,9 @@ after_migrate = [
     "cannabis_management.cannabis_management.page.ar_dashboard.ar_dashboard.seed_recon_statuses",
     # Same for the Categorized AR segments.
     "cannabis_management.cannabis_management.page.ar_legacy.ar_legacy.seed_segments",
+    # Customer Reach Out Status field (AR Accountability), and retires the two
+    # "Ready to reach out" segments it replaced.
+    "cannabis_management.cannabis_management.page.ar_legacy.ar_legacy.install_reach_out_field",
     # Customer form rules re-asserted after sync_fixtures re-imports the app's
     # unfiltered Custom Field fixture: re-anchors the Credit Control tab, resets
     # custom_credit_status's options/permlevel, and drops the fields the fixture

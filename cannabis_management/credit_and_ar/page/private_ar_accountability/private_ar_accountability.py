@@ -166,6 +166,7 @@ def _export_tables(ledger=None):
 	grid = [[
 		"Customer", "Ledger", "Portion", "Level", "Worst Aging", "Amount",
 		"Invoices", "Recon Status", "Onboarding", "Company Made Contact", "Segment",
+		"Reach Out Status",
 		"Current Status", "Latest Note", "Entries Filed",
 	]]
 	aging = [["Customer", "Ledger", "Portion", "Aging Bucket", "Amount"]]
@@ -211,7 +212,7 @@ def export_xlsx(ledger=None):
 	send_xlsx(
 		_("Private AR Accountability {0}").format(nowdate()),
 		[
-			("Receivables", grid, [34, 12, 11, 24, 14, 14, 10, 28, 12, 20, 24, 26, 48, 13]),
+			("Receivables", grid, [34, 12, 11, 24, 14, 14, 10, 28, 12, 20, 24, 20, 26, 48, 13]),
 			("Aging Breakdown", aging, [34, 12, 11, 16, 14]),
 			("Weekly Entries", log, [34, 12, 12, 24, 24, 18, 44, 44, 44, 20, 24, 18, 24]),
 		],

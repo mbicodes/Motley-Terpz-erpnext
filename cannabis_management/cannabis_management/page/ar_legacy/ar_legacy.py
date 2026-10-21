@@ -39,9 +39,15 @@ SEGMENTS = [
 	"Nikki's Accounts - Matt knows them",
 	"Nikki's Accounts - Legit companies",
 	"Nikki's Accounts - Unknown companies",
-	"Ready to reach out",
-	"Ready to reach out - Sales Rep",
 ]
+
+# "Ready to reach out" used to be two segments, but it is not an owner - it is
+# where the account stands with us, and it said nothing once someone had made the
+# call. It is its own Customer field now, separate from the segment.
+REACH_OUT_FIELD = "custom_reach_out_status"
+NOT_REACHED_OUT = "Haven't Reached Out"
+REACHED_OUT = "Reached Out"
+REACH_OUT_STATUSES = [NOT_REACHED_OUT, REACHED_OUT]
 
 AR_SEGMENT_DOCTYPE = "AR Segment"
 
@@ -258,6 +264,80 @@ def set_segment(customer, segment):
 
 	frappe.db.set_value("Customer", customer, SEGMENT_FIELD, segment)
 	return {"customer": customer, "segment": segment}
+
+
+@frappe.whitelist()
+def set_reach_out_status(customer, status):
+	"""Mark whether anyone has reached out to this customer yet. Same edit rights
+	as the segment: both are the AR owners' call."""
+	if not _can_edit():
+		frappe.throw(
+			"You do not have permission to change the reach out status.",
+			frappe.PermissionError,
+		)
+
+	status = (status or "").strip() or NOT_REACHED_OUT
+	if status not in REACH_OUT_STATUSES:
+		frappe.throw(f"Unknown reach out status: {status}")
+
+	if not frappe.db.has_column("Customer", REACH_OUT_FIELD):
+		frappe.throw(
+			"The Reach Out Status field is not installed on this site yet. Run: "
+			"bench --site &lt;site&gt; execute cannabis_management.cannabis_management."
+			"page.ar_legacy.ar_legacy.install_reach_out_field"
+		)
+
+	if not frappe.db.exists("Customer", customer):
+		frappe.throw(f"Customer {customer} not found")
+
+	frappe.db.set_value("Customer", customer, REACH_OUT_FIELD, status)
+	return {"customer": customer, "status": status}
+
+
+def install_reach_out_field():
+	"""Create the Customer's Reach Out Status field and retire the two "Ready to
+	reach out" segments it replaces. Idempotent; runs on every migrate.
+
+	Not in the Custom Field fixture, for the same reason as the segment field.
+	"""
+	from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
+
+	create_custom_fields(
+		{
+			"Customer": [
+				{
+					"fieldname": REACH_OUT_FIELD,
+					"fieldtype": "Select",
+					"label": "Reach Out Status",
+					"options": "\n".join(REACH_OUT_STATUSES),
+					"default": NOT_REACHED_OUT,
+					"insert_after": SEGMENT_FIELD,
+					"in_standard_filter": 1,
+					"description": "Set from AR Accountability — whether anyone has reached out to this account yet.",
+				}
+			]
+		},
+		update=True,
+	)
+	# Customers that existed before the field have no value; a blank means
+	# nobody has reached out, so say so.
+	frappe.db.sql(
+		f"""UPDATE `tabCustomer` SET `{REACH_OUT_FIELD}` = %s
+		WHERE IFNULL(`{REACH_OUT_FIELD}`, '') = ''""",
+		NOT_REACHED_OUT,
+	)
+
+	# Disabled rather than deleted, so any customer still holding the old text
+	# keeps a readable value (see ARSegment.on_trash).
+	if frappe.db.exists("DocType", AR_SEGMENT_DOCTYPE):
+		for old in ("Ready to reach out", "Ready to reach out - Sales Rep"):
+			if frappe.db.get_value(AR_SEGMENT_DOCTYPE, old, "disabled") == 0:
+				seg = frappe.get_doc(AR_SEGMENT_DOCTYPE, old)
+				seg.disabled = 1
+				seg.save(ignore_permissions=True)
+
+	frappe.db.commit()
+	return {"status": "ok", "field": REACH_OUT_FIELD}
 
 
 def install_segment_field():
