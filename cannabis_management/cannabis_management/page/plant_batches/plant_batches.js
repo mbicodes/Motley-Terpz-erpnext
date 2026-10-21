@@ -24,12 +24,16 @@ class CultivationPlantBatches {
 		this.setup_header();
 		this.setup_table();
 		this.load_batches();
+		let saved = null;
+		try { saved = localStorage.getItem('cultivation_view'); } catch (e) { /* storage unavailable */ }
+		if (saved && saved !== 'Plant Batches') this.switch_view(saved);
 	}
 
 	// ---------------------------------------------------------------
 	// HEADER: filter + Create Plant Batch button
 	// ---------------------------------------------------------------
 	setup_header() {
+		this.setup_nav_dropdown();
 		this.page.set_primary_action('Create Plant Batch', () => this.open_create_dialog(), 'add');
 
 		this.page.add_field({
@@ -46,6 +50,54 @@ class CultivationPlantBatches {
 				this.load_batches();
 			},
 		});
+	}
+
+	// Dropdown that switches this one page between Plant Batches / Plants /
+	// Teardowns / Harvests.
+	setup_nav_dropdown() {
+		const items = [
+			{ label: 'Plant Batches', icon: 'fa-leaf' },
+			{ label: 'Plants', icon: 'fa-pagelines' },
+			{ label: 'Teardowns', icon: 'fa-scissors' },
+			{ label: 'Harvests', icon: 'fa-envira' },
+		];
+		this.$nav = $(`
+			<div class="dropdown pb-nav-dropdown" style="display:inline-block;margin-right:8px;">
+				<button class="btn btn-default btn-sm dropdown-toggle" data-toggle="dropdown">
+					<span class="pb-nav-label">Plant Batches</span> <span class="caret"></span>
+				</button>
+				<ul class="dropdown-menu"></ul>
+			</div>`);
+		items.forEach((i) => {
+			const $li = $(`<li><a class="dropdown-item" href="#"><i class="fa ${i.icon}"></i> ${i.label}</a></li>`);
+			$li.find('a').on('click', (e) => { e.preventDefault(); this.switch_view(i.label); });
+			this.$nav.find('ul').append($li);
+		});
+		// The dropdown replaces the page heading itself.
+		this.$nav.css('margin-right', 0).find('button').css({
+			border: 'none', background: 'transparent', boxShadow: 'none',
+			fontSize: '20px', fontWeight: 600, padding: '0',
+		});
+		const $title = $(this.page.wrapper).find('.page-head .title-area').first();
+		$title.find('.title-text').hide();
+		$title.prepend(this.$nav);
+	}
+
+	switch_view(label) {
+		this.$nav.find('.pb-nav-label').text(label);
+		this.page.set_title(label);
+		try { localStorage.setItem('cultivation_view', label); } catch (e) { /* storage unavailable */ }
+		const is_batches = label === 'Plant Batches';
+		this.wrapper.find('.cultivation-list-wrap').first().toggle(is_batches);
+		this.page.fields_dict.status_filter.$wrapper.toggle(is_batches);
+		$(this.page.btn_primary).toggle(is_batches);
+		if (!this.$extra) this.$extra = $('<div class="cultivation-extra"></div>').appendTo(this.wrapper);
+		this.$extra.empty().toggle(!is_batches);
+		if (is_batches) return this.load_batches();
+		frappe.require([
+			'/assets/cannabis_management/js/cultivation/cultivation_list.js',
+			'/assets/cannabis_management/js/cultivation/cultivation_configs.js',
+		], () => { this.extra_list = new CultivationList(this.$extra, CultivationConfigs[label]()); });
 	}
 
 	// ---------------------------------------------------------------
@@ -95,7 +147,7 @@ class CultivationPlantBatches {
 			return;
 		}
 		rows.forEach((r) => {
-			const source = r.source_plant || '-';
+			const source = r.source_plant || r.source_package || '-';
 			const tr = $(`
 				<tr>
 					<td><button class="btn btn-xs btn-default pb-actions">⋮</button></td>
@@ -139,6 +191,7 @@ class CultivationPlantBatches {
 		// video itself shows for an expired Adjust Quantity — they render
 		// disabled with an explanatory note instead of faking a feature.
 		const items = [
+			{ label: 'Change Growth Phase', action: () => this.open_growth_phase_dialog(batch_name, row) },
 			{ label: 'Move Plant Batch', action: () => this.open_move_dialog(batch_name) },
 			{ label: 'Adjust Quantity', disabled: true, note: 'No quantity-adjustment window exists for this batch' },
 			{ label: 'Add Cost', action: () => this.open_additive_dialog(batch_name, 'Add Cost') },
@@ -197,7 +250,7 @@ class CultivationPlantBatches {
 			fields: [
 				{
 					fieldname: 'source_type', label: 'Source', fieldtype: 'Select',
-					options: 'Mother Plant',
+					options: 'Mother Plant\nPackage (Seed or Clone)',
 					default: 'Mother Plant', reqd: 1,
 					onchange: () => this.toggle_source_fields(dialog),
 				},
@@ -208,6 +261,13 @@ class CultivationPlantBatches {
 					depends_on: 'eval:doc.source_type=="Mother Plant"',
 					get_query: () => ({ filters: { is_mother: 1 } }),
 					onchange: () => this.on_mother_plant_change(dialog),
+				},
+				{
+					fieldname: 'source_package', label: 'Metrc Package', fieldtype: 'Link',
+					options: 'Metrc Package',
+					depends_on: 'eval:doc.source_type=="Package (Seed or Clone)"',
+					mandatory_depends_on: 'eval:doc.source_type=="Package (Seed or Clone)"',
+					get_query: () => ({ filters: { status: 'Active' } }),
 				},
 				{ fieldname: 'sb_1', fieldtype: 'Section Break' },
 				{
@@ -245,6 +305,7 @@ class CultivationPlantBatches {
 	toggle_source_fields(dialog) {
 		const source = dialog.get_value('source_type');
 		dialog.set_df_property('source_plant', 'hidden', source !== 'Mother Plant');
+		dialog.set_df_property('source_package', 'hidden', source !== 'Package (Seed or Clone)');
 		if (source === 'Mother Plant') {
 			dialog.set_value('batch_type', 'Clone');
 		}
@@ -275,7 +336,7 @@ class CultivationPlantBatches {
 					<td>${esc(b.location)}</td>
 					<td>${esc(b.batch_type)}</td>
 					<td>${esc(frappe.datetime.str_to_user(b.planting_date))}</td>
-					<td>${esc(b.source_plant)}</td>
+					<td>${esc(b.source_plant || b.source_package)}</td>
 					<td><button class="btn btn-xs btn-default pb-remove-staged" data-idx="${idx}">✕</button></td>
 				</tr>`).join('');
 			wrap.append(`
@@ -342,6 +403,7 @@ class CultivationPlantBatches {
 			plant_count: count,
 			source_type: values.source_type,
 			source_plant: values.source_type === 'Mother Plant' ? values.source_plant : null,
+			source_package: values.source_type === 'Package (Seed or Clone)' ? values.source_package : null,
 			location: values.location,
 			strain: values.strain,
 			batch_type: values.batch_type,
@@ -380,6 +442,103 @@ class CultivationPlantBatches {
 	// ---------------------------------------------------------------
 	// MOVE PLANT BATCH
 	// ---------------------------------------------------------------
+	// ── Change Growth Phase ──────────────────────────────────────────────────
+	// Promotes immatures out of the batch into individually tagged vegetative
+	// plants. The tags come from the Metrc Tag pool in issue order: the user
+	// picks the first one and the last is derived from the quantity, so the
+	// run on screen matches the physical strip on the bench.
+	open_growth_phase_dialog(batch_name, row) {
+		const live = Math.max(0, (row.plant_count || 0) - (row.plants_promoted || 0)
+			- (row.plants_destroyed || 0) - (row.plants_packaged || 0));
+
+		const d = new frappe.ui.Dialog({
+			title: `Change Growth Phase — ${row.batch_name || batch_name}`,
+			fields: [
+				{ fieldname: 'output_location', fieldtype: 'Link', options: 'Warehouse',
+					label: 'Output Location', reqd: 1 },
+				{ fieldname: 'change_date', fieldtype: 'Date', label: 'Change Date',
+					reqd: 1, default: frappe.datetime.get_today() },
+				{ fieldname: 'cb1', fieldtype: 'Column Break' },
+				{ fieldname: 'qty', fieldtype: 'Int', label: '# Immatures Changing Phase',
+					reqd: 1, default: live,
+					description: `${live} plant${live === 1 ? '' : 's'} left in this batch` },
+				{ fieldname: 'sb_tags', fieldtype: 'Section Break', label: 'Plant Tags' },
+				{ fieldname: 'starting_tag', fieldtype: 'Link', options: 'Metrc Tag',
+					label: 'Starting Plant Tag', reqd: 1,
+					get_query: () => ({ filters: { tag_category: 'Plant', status: 'Available' } }) },
+				{ fieldname: 'cb2', fieldtype: 'Column Break' },
+				{ fieldname: 'ending_tag', fieldtype: 'Data', label: 'Ending Plant Tag',
+					read_only: 1, description: 'Calculated from the starting tag and the quantity.' },
+				{ fieldname: 'run_note', fieldtype: 'HTML' },
+			],
+			primary_action_label: `Change ${live} Plants`,
+			primary_action: () => this.submit_growth_phase(d, batch_name),
+		});
+
+		// Re-derive the ending tag whenever either input moves.
+		const preview = () => {
+			const qty = cint(d.get_value('qty'));
+			const starting = d.get_value('starting_tag');
+			if (!qty || !starting) {
+				d.set_value('ending_tag', '');
+				d.fields_dict.run_note.$wrapper.empty();
+				return;
+			}
+			frappe.call({
+				method: 'cannabis_management.api.plant_batches.preview_tag_run',
+				args: { starting_tag: starting, qty: qty },
+				callback: (r) => {
+					const m = r.message || {};
+					d.set_value('ending_tag', m.ending_tag || '');
+					d.fields_dict.run_note.$wrapper.html(m.short_by
+						? `<div style="color:#c0392b;font-size:12px;">Only ${m.count} available tags from here — ${m.short_by} short.</div>`
+						: '');
+				},
+			});
+		};
+
+		d.fields_dict.qty.$input.on('change', () => {
+			const qty = cint(d.get_value('qty'));
+			d.set_primary_action(`Change ${qty || 0} Plants`, () => this.submit_growth_phase(d, batch_name));
+			preview();
+		});
+		d.fields_dict.starting_tag.$input.on('change', () => setTimeout(preview, 200));
+
+		d.show();
+		this.growth_phase_dialog = d;
+	}
+
+	submit_growth_phase(d, batch_name) {
+		const v = d.get_values();
+		if (!v) return;
+		const qty = cint(v.qty);
+		if (qty <= 0) {
+			frappe.msgprint('Enter how many plants are changing phase.');
+			return;
+		}
+		d.disable_primary_action();
+		frappe.call({
+			method: 'cannabis_management.api.plant_batches.change_growth_phase',
+			args: {
+				plant_batch: batch_name, qty: qty,
+				output_location: v.output_location,
+				starting_tag: v.starting_tag,
+				change_date: v.change_date,
+			},
+			callback: (r) => {
+				if (!r || !r.message) { d.enable_primary_action(); return; }
+				const m = r.message;
+				d.hide();
+				frappe.show_alert({
+					message: `${m.plants_created} plants tagged ${m.starting_tag} – ${m.ending_tag}`,
+					indicator: 'green',
+				}, 6);
+				this.refresh();
+			},
+			error: () => d.enable_primary_action(),
+		});
+	}
+
 	open_move_dialog(batch_name) {
 		const dialog = new frappe.ui.Dialog({
 			title: `Move Plant Batch — ${batch_name}`,

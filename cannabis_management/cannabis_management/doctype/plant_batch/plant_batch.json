@@ -20,6 +20,7 @@
   "section_break_source",
   "source_type",
   "source_plant",
+  "source_package",
   "section_break_counts",
   "plants_promoted",
   "plants_destroyed",
@@ -120,7 +121,7 @@
    "fieldtype": "Select",
    "in_standard_filter": 1,
    "label": "Source Type",
-   "options": "\nMother Plant"
+   "options": "\nMother Plant\nPackage (Seed or Clone)"
   },
   {
    "fieldname": "source_plant",
@@ -254,6 +255,14 @@
    "print_hide": 1,
    "read_only": 1,
    "search_index": 1
+  },
+  {
+   "fieldname": "source_package",
+   "fieldtype": "Link",
+   "label": "Source Package",
+   "options": "Metrc Package",
+   "depends_on": "eval:doc.source_type=='Package (Seed or Clone)'",
+   "description": "Active Metrc packages only."
   }
  ],
  "grid_page_length": 50,

@@ -15,7 +15,7 @@ def get_list(filters=None):
 		if filters.get(key):
 			batch_filters[key] = filters[key]
 
-	return frappe.get_list(
+	rows = frappe.get_list(
 		"Plant Batch",
 		filters=batch_filters,
 		fields=[
@@ -27,6 +27,15 @@ def get_list(filters=None):
 		order_by="creation desc",
 		limit_page_length=0,
 	)
+
+	# "# Tagged" = plants that left the batch through a phase change (promotion),
+	# i.e. Plant records created from it; never less than the logged quantity.
+	tagged = dict(frappe.db.sql(
+		"""select source_plant_batch, count(*) from `tabPlant`
+		where ifnull(source_plant_batch, '') != '' group by source_plant_batch"""))
+	for r in rows:
+		r["plants_promoted"] = max(cint(r.get("plants_promoted")), cint(tagged.get(r["name"])))
+	return rows
 
 
 @frappe.whitelist()
@@ -160,3 +169,68 @@ def record_additive(plant_batch, item, additive_template, qty_applied, uom, sour
 	doc.insert()
 	doc.submit()
 	return {"ok": True, "name": doc.name}
+
+
+@frappe.whitelist()
+def available_plant_tags(start_from=None, limit=50):
+	"""Available plant tags in issue order, for the Starting Plant Tag picker."""
+	filters = {"tag_category": "Plant", "status": "Available"}
+	if start_from:
+		filters["tag_code"] = (">=", start_from)
+	return frappe.get_all("Metrc Tag", filters=filters,
+	                      fields=["name", "tag_code"],
+	                      order_by="tag_code asc", limit_page_length=cint(limit))
+
+
+@frappe.whitelist()
+def preview_tag_run(starting_tag, qty):
+	"""The ending tag for a run, so the dialog can show it before submitting.
+
+	Read-only: it allocates nothing. The same run is re-checked on submit,
+	because tags are a shared pool and another promotion may take them first.
+	"""
+	qty = cint(qty)
+	if not starting_tag or qty <= 0:
+		return {"ending_tag": None, "count": 0}
+
+	start_code = frappe.db.get_value("Metrc Tag", starting_tag, "tag_code")
+	run = frappe.get_all(
+		"Metrc Tag",
+		filters={"tag_category": "Plant", "status": "Available",
+		         "tag_code": (">=", start_code)},
+		fields=["name", "tag_code"], order_by="tag_code asc", limit_page_length=qty)
+	return {
+		"starting_tag": start_code,
+		"ending_tag": run[-1].tag_code if len(run) == qty else None,
+		"count": len(run),
+		"short_by": max(0, qty - len(run)),
+	}
+
+
+@frappe.whitelist()
+def change_growth_phase(plant_batch, qty, output_location, starting_tag,
+                        change_date=None):
+	"""'Change Growth Phase' — promote immatures to tagged vegetative plants.
+
+	The work itself lives on Growth Phase Change, so a promotion made from the
+	Desk form behaves identically to one made from this page. Insert and submit
+	run in one call: a half-made promotion would consume tags without plants.
+	"""
+	doc = frappe.get_doc({
+		"doctype": "Growth Phase Change",
+		"change_type": "Promote Batch to Plants",
+		"change_date": change_date or nowdate(),
+		"output_location": output_location,
+		"source_plant_batch": plant_batch,
+		"qty_to_promote": cint(qty),
+		"starting_plant_tag": starting_tag,
+	})
+	doc.insert()
+	doc.submit()
+	return {
+		"ok": True,
+		"growth_phase_change": doc.name,
+		"starting_tag": frappe.db.get_value("Metrc Tag", starting_tag, "tag_code"),
+		"ending_tag": doc.ending_plant_tag,
+		"plants_created": len(doc.plants),
+	}

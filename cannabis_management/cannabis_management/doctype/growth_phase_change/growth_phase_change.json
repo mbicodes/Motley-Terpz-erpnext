@@ -15,6 +15,8 @@
   "promote_section",
   "source_plant_batch",
   "qty_to_promote",
+  "starting_plant_tag",
+  "ending_plant_tag",
   "column_break_promote",
   "phase_section",
   "target_phase",
@@ -115,7 +117,8 @@
    "fieldtype": "Table",
    "label": "Plants",
    "options": "Growth Phase Change Plant",
-   "description": "Targets for a phase change, or the plants created by a promotion"
+   "description": "Targets for a phase change, or the plants created by a promotion",
+   "depends_on": "eval:doc.change_type"
   },
   {
    "fieldname": "amended_from",
@@ -126,6 +129,22 @@
    "print_hide": 1,
    "read_only": 1,
    "search_index": 1
+  },
+  {
+   "fieldname": "starting_plant_tag",
+   "fieldtype": "Link",
+   "label": "Starting Plant Tag",
+   "depends_on": "eval:doc.change_type=='Promote Batch to Plants'",
+   "description": "First tag in the run. The rest follow it in tag_code order.",
+   "options": "Metrc Tag"
+  },
+  {
+   "fieldname": "ending_plant_tag",
+   "fieldtype": "Data",
+   "label": "Ending Plant Tag",
+   "depends_on": "eval:doc.change_type=='Promote Batch to Plants'",
+   "description": "Last tag consumed. Calculated from the starting tag and the quantity.",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 1,

@@ -50,6 +50,9 @@ function set_scoping_queries(frm) {
 	frm.set_query("location", () => ({ filters: { is_cultivation_room: 1 } }));
 	// Source Plant: mother plants only.
 	frm.set_query("source_plant", () => ({ filters: { is_mother: 1 } }));
+	// A seed or clone package can only be started from stock that is still
+	// live in Metrc, so inactive and held packages are never offered.
+	frm.set_query("source_package", () => ({ filters: { status: "Active" } }));
 	// Licence: active licences only.
 	frm.set_query("licence", () => ({ filters: { is_active: 1 } }));
 }
