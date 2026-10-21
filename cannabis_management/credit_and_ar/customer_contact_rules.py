@@ -2,10 +2,9 @@
 # For license information, please see license.txt
 """Customer contact rules.
 
-1. A new Customer needs an email address AND a phone number, and neither may
-   already belong to a different customer. Administrator and Muhammad are
-   exempt (EXEMPT_USERS). An internal customer (Is Internal Customer) needs
-   only the phone number; its email is optional.
+1. A new Customer's email address and phone number are optional, but when
+   given neither may already belong to a different customer. Administrator and
+   Muhammad are exempt (EXEMPT_USERS).
 2. A Payment Terms Sales Order cannot be saved until its customer can be
    reached by email OR phone (a Cash On Delivery order does not need it). The Sales Order form asks for them as soon as a customer is picked
    (public/js/sales_order.js) and stores them on the customer's primary Contact
@@ -120,18 +119,6 @@ def validate_customer(doc):
 
 	email = (doc.get("email_id") or "").strip()
 	phone = (doc.get("mobile_no") or "").strip()
-	# An internal customer is one of our own companies: email is optional there.
-	email_required = not doc.get("is_internal_customer")
-	missing = [label for value, label, required in (
-		(email, _("an email address"), email_required),
-		(phone, _("a phone number"), True),
-	) if required and not value]
-	if missing:
-		frappe.throw(
-			_("Add {0} before creating this customer.").format(_(" and ").join(missing)),
-			title=_("Contact details required"),
-		)
-
 	if email:
 		validate_email_address(email, throw=True)
 	dup = find_duplicate(email, phone, exclude_customer=doc.name)
