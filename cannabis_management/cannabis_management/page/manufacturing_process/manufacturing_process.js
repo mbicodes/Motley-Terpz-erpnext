@@ -247,7 +247,7 @@ class ManufacturingRun {
 					<div class="mc-run-card-title">${esc(m.primary_label)}${m.output_label ? `<span class="mc-run-card-output" title="Output"> → ${esc(m.output_label)}</span>` : ""}</div>
 					<div class="mc-run-meta">
 						<span title="Transaction Date"><i class="ti ti-calendar" aria-hidden="true"></i> ${esc(this._fmt_date(m.transaction_date) || "—")}</span>
-						<span><a class="mc-open-desk-link" onclick="frappe.set_route('Form','Material Request','${esc(m.name)}')">Open in Desk</a></span>
+						<span>${esc(m.primary_qty)} <a class="mc-open-desk-link" onclick="frappe.set_route('Form','Material Request','${esc(m.name)}')">Open in Desk</a></span>
 						<span class="mc-status mc-status-${status_class}" data-role="run-status">${status_label}</span>
 					</div>
 				</div>
