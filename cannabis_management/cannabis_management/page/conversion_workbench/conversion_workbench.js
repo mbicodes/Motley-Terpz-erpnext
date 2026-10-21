@@ -69,20 +69,27 @@ frappe.pages['conversion-workbench'].on_page_load = function (wrapper) {
 	frappe.call({ method: CWB + 'get_conversion_types' })
 		.then((r) => { page.cwb.types = (r && r.message) || []; });
 
-	frappe.db.get_list('Company', { fields: ['name'], limit: 0, order_by: 'name' })
-		.then((rows) => {
+	// The allowed companies come from the server, not a list in here, so the
+	// picker cannot offer one the server would refuse.
+	frappe.call({ method: CWB + 'get_companies' })
+		.then((r) => {
 			const esc = frappe.utils.escape_html;
-			rows = rows || [];
-			if (!page.cwb.company && rows.length) page.cwb.company = rows[0].name;
+			const names = (r && r.message) || [];
+			if (!names.length) {
+				page.main.find('#cwb-list').html(
+					`<div class="cwb-empty">${__('No companies are set up for the workbench.')}</div>`);
+				return;
+			}
+			// The user's default only wins if it is one of the workbench's own;
+			// otherwise the first (Master Touch Manufacturing) is the default.
+			if (names.indexOf(page.cwb.company) === -1) page.cwb.company = names[0];
 			page.main.find('#cwb-company').html(
-				rows.map((r) => `<option value="${esc(r.name)}">${esc(r.name)}</option>`).join('')
+				names.map((n) => `<option value="${esc(n)}">${esc(n)}</option>`).join('')
 			).val(page.cwb.company);
 			reload_all(page);
 		})
 		.catch(() => {
-			// Still usable on the user's default company rather than a dead page.
-			if (page.cwb.company) reload_all(page);
-			else page.main.find('#cwb-list').html(
+			page.main.find('#cwb-list').html(
 				`<div class="cwb-empty">${__('Could not load companies. Reload the page.')}</div>`);
 		});
 };
@@ -322,13 +329,17 @@ function open_convert(page) {
 			{ fieldname: 'cb_h2', fieldtype: 'Column Break' },
 			{ fieldname: 'conversion_status', fieldtype: 'Link', options: 'Conversion Status',
 				label: __('Conversion Status') },
-			{ fieldname: 'customer', fieldtype: 'Link', options: 'Customer', label: __('Customer') },
+			// Customer and Supplier swap on Tolling, exactly as the Conversion
+			// Entry form does, so the two never both carry a value.
+			{ fieldname: 'customer', fieldtype: 'Link', options: 'Customer', label: __('Customer'),
+				depends_on: "eval:doc.reasons != 'Tolling'" },
+			{ fieldname: 'supplier', fieldtype: 'Link', options: 'Supplier', label: __('Supplier'),
+				depends_on: "eval:doc.reasons == 'Tolling'",
+				mandatory_depends_on: "eval:doc.reasons == 'Tolling'" },
 			{ fieldname: 'sb_party', fieldtype: 'Section Break' },
-			{ fieldname: 'supplier', fieldtype: 'Link', options: 'Supplier', label: __('Supplier') },
 			{ fieldname: 'sales_order', fieldtype: 'Link', options: 'Sales Order', label: __('Sales Order') },
 			{ fieldname: 'cb_p1', fieldtype: 'Column Break' },
 			{ fieldname: 'project', fieldtype: 'Link', options: 'Project', label: __('Project') },
-			{ fieldname: 'workstation', fieldtype: 'Link', options: 'Workstation', label: __('Workstation') },
 
 			{ fieldname: 'sb_wh', fieldtype: 'Section Break' },
 			{ fieldname: 'source_warehouse', fieldtype: 'Link', options: 'Warehouse',
@@ -339,6 +350,7 @@ function open_convert(page) {
 			{ fieldname: 'cb_wh', fieldtype: 'Column Break' },
 			{ fieldname: 'expense_account', fieldtype: 'Link', options: 'Account',
 				label: __('Expense Account'),
+				mandatory_depends_on: "eval:doc.reasons == 'Tolling'",
 				get_query: () => ({ filters: { company: s.company, is_group: 0 } }) },
 
 			{ fieldname: 'sb_tables', fieldtype: 'Section Break' },
@@ -500,6 +512,12 @@ function submit_convert(page, d, state) {
 	if (!v.source_warehouse || !v.target_warehouse) {
 		return frappe.msgprint(__('Source Warehouse and Target Warehouse are required.'));
 	}
+	if (v.reasons === 'Tolling') {
+		if (!v.supplier) return frappe.msgprint(__('Supplier is required for a Tolling conversion.'));
+		if (!v.expense_account) {
+			return frappe.msgprint(__('Expense Account is required for a Tolling conversion.'));
+		}
+	}
 	for (const r of raws) {
 		if (!flt(r.qty)) return frappe.msgprint(__('Enter a quantity for {0}.', [r.item_code]));
 		if (flt(r.qty) > flt(r.actual_qty) + 0.0001) {
@@ -542,9 +560,10 @@ function post_convert(page, d, v, raws, fins) {
 			payload: JSON.stringify({
 				posting_date: v.posting_date, company: v.company,
 				reasons: v.reasons, partners: v.partners,
-				conversion_status: v.conversion_status, customer: v.customer,
-				supplier: v.supplier, sales_order: v.sales_order,
-				project: v.project, workstation: v.workstation, notes: v.notes,
+				conversion_status: v.conversion_status,
+				customer: v.reasons === 'Tolling' ? null : v.customer,
+				supplier: v.reasons === 'Tolling' ? v.supplier : null,
+				sales_order: v.sales_order, project: v.project, notes: v.notes,
 				source_warehouse: v.source_warehouse, target_warehouse: v.target_warehouse,
 				expense_account: v.expense_account,
 				raw_materials: raws.map((r) => ({

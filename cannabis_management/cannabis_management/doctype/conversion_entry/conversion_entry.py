@@ -40,6 +40,7 @@ class ConversionEntry(Document):
 		self._populate_item_groups()
 		self._validate_items()
 		self._validate_item_groups()
+		self._validate_metrc_packages()
 		self._calculate_total_time()
 		self._sync_micron_totals()
 
@@ -204,6 +205,25 @@ class ConversionEntry(Document):
 			if row.conversion_type in ["1 to 3", "3 to 3", "4 to 3"]:
 				if not row.finished_good_3 or flt(row.qty_fg_3) <= 0:
 					frappe.throw(_("Row {0}: Finished Good 3 and its Qty are required for {1} conversion.").format(idx, row.conversion_type))
+
+	def _validate_metrc_packages(self):
+		"""Each Raw Material's Metrc Package must be Active and of that same item."""
+		for idx, row in enumerate(self.items, 1):
+			for n in range(1, 8):
+				pkg = row.get(f"metrc_package_{n}")
+				if not pkg:
+					continue
+				item = row.get(f"raw_material_{n}")
+				if not item:
+					row.set(f"metrc_package_{n}", None)
+					continue
+				status, pkg_item = frappe.db.get_value("Metrc Package", pkg, ["status", "item_code"]) or (None, None)
+				if pkg_item != item:
+					frappe.throw(
+						_("Row {0}: Metrc Package {1} is not for Raw Material {2} ({3}).").format(idx, pkg, n, item)
+					)
+				if status != "Active":
+					frappe.throw(_("Row {0}: Metrc Package {1} is {2}, not Active.").format(idx, pkg, status))
 
 	def _populate_item_groups(self):
 		for row in self.items:

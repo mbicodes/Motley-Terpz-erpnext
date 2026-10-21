@@ -11,6 +11,8 @@ frappe.ui.form.on('Conversion Entry', {
 
 	setup: function (frm) {
 		_set_raw_material_queries(frm);
+		_set_metrc_package_queries(frm);
+		_set_metrc_tag_queries(frm);
 
 		// A retired status stays readable on old entries but is not offered
 		// for new ones — see the Conversion Status doctype's `disabled` flag.
@@ -223,13 +225,13 @@ frappe.ui.form.on('Conversion Entry Item', {
 	qty_rm_5: function (frm, cdt, cdn) { _sync_grams(frm, cdt, cdn, 5); },
 	qty_rm_6: function (frm, cdt, cdn) { _sync_grams(frm, cdt, cdn, 6); },
 	qty_rm_7: function (frm, cdt, cdn) { _sync_grams(frm, cdt, cdn, 7); },
-	raw_material_1: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'raw_material_1', 'rm_1_item_group'); _sync_grams(frm, cdt, cdn, 1); },
-	raw_material_2: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'raw_material_2', 'rm_2_item_group'); _sync_grams(frm, cdt, cdn, 2); },
-	raw_material_3: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'raw_material_3', 'rm_3_item_group'); _sync_grams(frm, cdt, cdn, 3); },
-	raw_material_4: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'raw_material_4', 'rm_4_item_group'); _sync_grams(frm, cdt, cdn, 4); },
-	raw_material_5: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'raw_material_5', 'rm_5_item_group'); _sync_grams(frm, cdt, cdn, 5); },
-	raw_material_6: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'raw_material_6', 'rm_6_item_group'); _sync_grams(frm, cdt, cdn, 6); },
-	raw_material_7: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'raw_material_7', 'rm_7_item_group'); _sync_grams(frm, cdt, cdn, 7); },
+	raw_material_1: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'raw_material_1', 'rm_1_item_group'); _sync_grams(frm, cdt, cdn, 1); _clear_stale_package(cdt, cdn, 1); },
+	raw_material_2: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'raw_material_2', 'rm_2_item_group'); _sync_grams(frm, cdt, cdn, 2); _clear_stale_package(cdt, cdn, 2); },
+	raw_material_3: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'raw_material_3', 'rm_3_item_group'); _sync_grams(frm, cdt, cdn, 3); _clear_stale_package(cdt, cdn, 3); },
+	raw_material_4: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'raw_material_4', 'rm_4_item_group'); _sync_grams(frm, cdt, cdn, 4); _clear_stale_package(cdt, cdn, 4); },
+	raw_material_5: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'raw_material_5', 'rm_5_item_group'); _sync_grams(frm, cdt, cdn, 5); _clear_stale_package(cdt, cdn, 5); },
+	raw_material_6: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'raw_material_6', 'rm_6_item_group'); _sync_grams(frm, cdt, cdn, 6); _clear_stale_package(cdt, cdn, 6); },
+	raw_material_7: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'raw_material_7', 'rm_7_item_group'); _sync_grams(frm, cdt, cdn, 7); _clear_stale_package(cdt, cdn, 7); },
 	finished_good_1: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'finished_good_1', 'fg_1_item_group'); },
 	finished_good_2: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'finished_good_2', 'fg_2_item_group'); },
 	finished_good_3: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'finished_good_3', 'fg_3_item_group'); },
@@ -286,26 +288,32 @@ function clear_hidden_fields_for_row(frm, cdt, cdn) {
 	if (!['2 to 1', '2 to 2', '3 to 1', '3 to 2', '3 to 3', '4 to 1', '4 to 2', '4 to 3', '5 to 1', '6 to 1', '7 to 1'].includes(ct)) {
 		frappe.model.set_value(cdt, cdn, 'raw_material_2', '');
 		frappe.model.set_value(cdt, cdn, 'qty_rm_2', 0);
+		frappe.model.set_value(cdt, cdn, 'metrc_package_2', '');
 	}
 	if (!['3 to 1', '3 to 2', '3 to 3', '4 to 1', '4 to 2', '4 to 3', '5 to 1', '6 to 1', '7 to 1'].includes(ct)) {
 		frappe.model.set_value(cdt, cdn, 'raw_material_3', '');
 		frappe.model.set_value(cdt, cdn, 'qty_rm_3', 0);
+		frappe.model.set_value(cdt, cdn, 'metrc_package_3', '');
 	}
 	if (!['4 to 1', '4 to 2', '4 to 3', '5 to 1', '6 to 1', '7 to 1'].includes(ct)) {
 		frappe.model.set_value(cdt, cdn, 'raw_material_4', '');
 		frappe.model.set_value(cdt, cdn, 'qty_rm_4', 0);
+		frappe.model.set_value(cdt, cdn, 'metrc_package_4', '');
 	}
 	if (!['5 to 1', '6 to 1', '7 to 1'].includes(ct)) {
 		frappe.model.set_value(cdt, cdn, 'raw_material_5', '');
 		frappe.model.set_value(cdt, cdn, 'qty_rm_5', 0);
+		frappe.model.set_value(cdt, cdn, 'metrc_package_5', '');
 	}
 	if (!['6 to 1', '7 to 1'].includes(ct)) {
 		frappe.model.set_value(cdt, cdn, 'raw_material_6', '');
 		frappe.model.set_value(cdt, cdn, 'qty_rm_6', 0);
+		frappe.model.set_value(cdt, cdn, 'metrc_package_6', '');
 	}
 	if (ct !== '7 to 1') {
 		frappe.model.set_value(cdt, cdn, 'raw_material_7', '');
 		frappe.model.set_value(cdt, cdn, 'qty_rm_7', 0);
+		frappe.model.set_value(cdt, cdn, 'metrc_package_7', '');
 	}
 	if (!['1 to 2', '2 to 2', '1 to 3', '3 to 2', '3 to 3', '4 to 2', '4 to 3'].includes(ct)) {
 		frappe.model.set_value(cdt, cdn, 'finished_good_2', '');
@@ -336,6 +344,54 @@ function _set_raw_material_queries(frm) {
 			};
 		});
 	}
+}
+
+
+// ── Metrc Package picker ─────────────────────────────────────────────────────
+// Each Raw Material picks an Active Metrc Package of that same item.
+// validate() enforces the same two rules server-side.
+function _set_metrc_package_queries(frm) {
+	for (let n = 1; n <= 7; n++) {
+		frm.set_query('metrc_package_' + n, 'items', function (doc, cdt, cdn) {
+			const row = locals[cdt][cdn] || {};
+			if (!row['raw_material_' + n]) {
+				frappe.throw(__('Select Raw Material {0} first.', [n]));
+			}
+			return { filters: { status: 'Active', item_code: row['raw_material_' + n] } };
+		});
+	}
+}
+
+// ── Metrc Tag picker (finished goods) ────────────────────────────────────────
+// A finished good leaves the conversion as a new package, so it takes a fresh
+// tag rather than an existing one: the list is Metrc Tags still Available.
+// Metrc Tag autonames on tag_code and carries muid in its search_fields, so
+// typing a MUID finds the tag and the MUID shows beside it in the dropdown.
+function _set_metrc_tag_queries(frm) {
+	for (let n = 1; n <= 3; n++) {
+		frm.set_query('metrc_tag_fg_' + n, 'items', function (doc, cdt, cdn) {
+			const row = locals[cdt][cdn] || {};
+			if (!row['finished_good_' + n]) {
+				frappe.throw(__('Select Finished Good {0} first.', [n]));
+			}
+			return { filters: { status: 'Available' } };
+		});
+	}
+}
+
+function _clear_stale_package(cdt, cdn, n) {
+	const row = locals[cdt][cdn];
+	const pkg = row && row['metrc_package_' + n];
+	if (!pkg) return;
+	if (!row['raw_material_' + n]) {
+		frappe.model.set_value(cdt, cdn, 'metrc_package_' + n, '');
+		return;
+	}
+	frappe.db.get_value('Metrc Package', pkg, 'item_code', function (val) {
+		if (!val || val.item_code !== row['raw_material_' + n]) {
+			frappe.model.set_value(cdt, cdn, 'metrc_package_' + n, '');
+		}
+	});
 }
 
 

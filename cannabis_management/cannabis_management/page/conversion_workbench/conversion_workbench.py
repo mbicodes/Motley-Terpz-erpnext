@@ -20,6 +20,11 @@ import frappe
 from frappe import _
 from frappe.utils import cint, flt, nowdate
 
+# The workbench runs for these three only, newest default first. Six companies
+# exist on the site; the rest have no conversion work and would only be ways to
+# post a run against the wrong entity.
+WORKBENCH_COMPANIES = ("Master Touch Manufacturing", "Motley Terpz", "TSBC Ranch")
+
 MAX_RAW = 7
 MAX_FINISHED = 3
 PAGE_LENGTH = 200
@@ -41,9 +46,23 @@ def get_conversion_types():
 	return _conversion_type_options()
 
 
+@frappe.whitelist()
+def get_companies():
+	"""The companies the workbench offers, in order, defaulting to the first.
+
+	Served from here rather than listed in the page so the picker and the
+	server guard below can never disagree about which companies are allowed.
+	"""
+	existing = set(frappe.get_all("Company", pluck="name"))
+	return [c for c in WORKBENCH_COMPANIES if c in existing]
+
+
 def _company_filter(company):
 	if not company:
 		frappe.throw(_("Company is required."))
+	if company not in WORKBENCH_COMPANIES:
+		frappe.throw(_("The Conversion Workbench runs for {0} only.")
+		             .format(", ".join(WORKBENCH_COMPANIES)))
 	return company
 
 
@@ -200,6 +219,17 @@ def create_conversion(payload):
 		frappe.throw(_("You are not permitted to submit a Conversion Entry."),
 		             frappe.PermissionError)
 
+	_company_filter(payload.get("company"))
+
+	# Both are checked here rather than relying on the doctype's
+	# mandatory_depends_on: that is evaluated by the form, and an insert made in
+	# code -- which is all this page does -- goes straight past it.
+	if payload.get("reasons") == "Tolling":
+		if not payload.get("supplier"):
+			frappe.throw(_("Supplier is required for a Tolling conversion."))
+		if not payload.get("expense_account"):
+			frappe.throw(_("Expense Account is required for a Tolling conversion."))
+
 	raws = [r for r in (payload.get("raw_materials") or []) if r.get("item_code")]
 	finished = [f for f in (payload.get("finished_items") or []) if f.get("item_code")]
 	conversion_type = _validate(payload, raws, finished)
@@ -227,8 +257,12 @@ def create_conversion(payload):
 	doc = frappe.new_doc("Conversion Entry")
 	doc.posting_date = payload.get("posting_date") or nowdate()
 	doc.company = payload.get("company")
-	for field in ("reasons", "partners", "conversion_status", "customer", "supplier",
-	              "sales_order", "project", "workstation", "notes"):
+	header = ["reasons", "partners", "conversion_status", "sales_order", "project", "notes"]
+	# The doctype shows Supplier only for Tolling and Customer only for the rest,
+	# so only the one that belongs is carried over -- a hidden value left on the
+	# entry would never be visible to correct.
+	header.append("supplier" if payload.get("reasons") == "Tolling" else "customer")
+	for field in header:
 		if payload.get(field):
 			doc.set(field, payload[field])
 	doc.append("items", row)
