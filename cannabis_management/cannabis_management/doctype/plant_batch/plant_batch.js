@@ -60,7 +60,7 @@ function set_scoping_queries(frm) {
 function recalc(frm) {
 	const initial = cint(frm.doc.plant_count);
 
-	const promoted = (frm.doc.growth_phase_log || []).reduce((s, r) => s + cint(r.qty), 0);
+	const promoted = (frm.doc.growth_phase_log || []).reduce((s, r) => s + (r.is_deleted ? 0 : cint(r.qty)), 0);
 	const destroyed = (frm.doc.loss_log || []).reduce((s, r) => s + cint(r.qty_lost), 0);
 	const packaged = (frm.doc.packaging_log || []).reduce((s, r) => s + cint(r.qty), 0);
 	const live = Math.max(0, initial - promoted - destroyed - packaged);

@@ -28,13 +28,6 @@ def get_list(filters=None):
 		limit_page_length=0,
 	)
 
-	# "# Tagged" = plants that left the batch through a phase change (promotion),
-	# i.e. Plant records created from it; never less than the logged quantity.
-	tagged = dict(frappe.db.sql(
-		"""select source_plant_batch, count(*) from `tabPlant`
-		where ifnull(source_plant_batch, '') != '' group by source_plant_batch"""))
-	for r in rows:
-		r["plants_promoted"] = max(cint(r.get("plants_promoted")), cint(tagged.get(r["name"])))
 	return rows
 
 

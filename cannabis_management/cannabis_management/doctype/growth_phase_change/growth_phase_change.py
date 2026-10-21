@@ -32,6 +32,29 @@ class GrowthPhaseChange(Document):
 		elif self.change_type == PHASE:
 			self.do_phase_change()
 
+	def on_cancel(self):
+		self.mark_log_deleted()
+
+	def on_trash(self):
+		self.mark_log_deleted()
+
+	def mark_log_deleted(self):
+		"""Cancelling or deleting a promotion flags its row on the Plant Batch log
+		as Deleted and refreshes Plants Promoted."""
+		if self.change_type != PROMOTE or not self.source_plant_batch:
+			return
+		if not frappe.db.exists("Plant Batch", self.source_plant_batch):
+			return
+		batch = frappe.get_doc("Plant Batch", self.source_plant_batch)
+		hit = False
+		for row in batch.growth_phase_log or []:
+			if row.note == self.name and not row.is_deleted:
+				row.is_deleted = 1
+				hit = True
+		if hit:
+			batch.flags.ignore_permissions = True
+			batch.save()
+
 	# ── promotion ────────────────────────────────────────────────────────────
 
 	def validate_promotion(self):

@@ -14,7 +14,11 @@ class PlantBatch(Document):
 
 	def validate(self):
 		self.set_batch_name()
+		self.keep_deleted_phase_rows()
 		self.calculate_totals()
+
+	def before_update_after_submit(self):
+		self.keep_deleted_phase_rows()
 
 	def on_submit(self):
 		update_linked_harvest(self)
@@ -44,12 +48,28 @@ class PlantBatch(Document):
 		if not self.batch_name and self.strain:
 			self.batch_name = " ".join(str(p) for p in [self.strain, self.planting_date] if p)
 
+	def keep_deleted_phase_rows(self):
+		"""A growth phase row removed from the form stays in the log, flagged
+		Deleted, so the history is kept and it stops counting as promoted."""
+		before = self.get_doc_before_save()
+		if not before:
+			return
+		current = {r.name for r in (self.growth_phase_log or [])}
+		for old in before.get("growth_phase_log") or []:
+			if old.name not in current:
+				row = old.as_dict(no_default_fields=True, no_nulls=True)
+				row.pop("name", None)
+				row["is_deleted"] = 1
+				self.append("growth_phase_log", row)
+
 	def calculate_totals(self):
 		"""Recompute the live plant inventory from the event logs."""
 		initial = cint(self.plant_count)
 
 		# --- Event sums ---
-		self.plants_promoted = sum(cint(r.qty) for r in (self.growth_phase_log or []))
+		self.plants_promoted = sum(
+			cint(r.qty) for r in (self.growth_phase_log or []) if not r.is_deleted
+		)
 		self.plants_destroyed = sum(cint(r.qty_lost) for r in (self.loss_log or []))
 		self.plants_packaged = sum(cint(r.qty) for r in (self.packaging_log or []))
 

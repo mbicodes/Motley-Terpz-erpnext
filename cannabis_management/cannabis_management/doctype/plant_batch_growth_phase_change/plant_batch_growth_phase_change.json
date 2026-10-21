@@ -9,7 +9,8 @@
   "from_phase",
   "to_phase",
   "qty",
-  "note"
+  "note",
+  "is_deleted"
  ],
  "fields": [
   {
@@ -50,10 +51,22 @@
   },
   {
    "fieldname": "note",
-   "fieldtype": "Data",
+   "fieldtype": "Link",
    "columns": 2,
-   "label": "Note",
-   "allow_on_submit": 1
+   "label": "Growth Phase Change",
+   "allow_on_submit": 1,
+   "options": "Growth Phase Change",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "is_deleted",
+   "fieldtype": "Check",
+   "label": "Deleted",
+   "read_only": 1,
+   "in_list_view": 1,
+   "columns": 1,
+   "allow_on_submit": 1,
+   "description": "Set when this growth phase change was removed; it no longer counts in Plants Promoted"
   }
  ],
  "index_web_pages_for_search": 1,
