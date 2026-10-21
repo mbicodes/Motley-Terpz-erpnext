@@ -175,6 +175,8 @@ def _sales_rows(doctype, first, last, company):
 @frappe.whitelist()
 def get_race(from_date=None, to_date=None, company=None, basis="Sales Invoice"):
     """Defaults to the current month, all companies. Returns everything the page renders."""
+    if company == "All Companies":
+        company = None
     today = getdate(nowdate())
     first = getdate(from_date) if from_date else today.replace(day=1)
     last = getdate(to_date) if to_date else first.replace(day=calendar.monthrange(first.year, first.month)[1])

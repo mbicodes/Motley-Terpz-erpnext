@@ -30,7 +30,16 @@ frappe.pages['sales-race'].on_page_load = function (wrapper) {
             parent: $f, df: Object.assign({ change: load }, df), render_input: true
         });
     }
-    addFilter({ fieldname: 'company', label: 'Company', fieldtype: 'Link', options: 'Company', placeholder: 'All companies' });
+    // Select, not Link: a Link cannot offer an explicit "All Companies" entry.
+    var ALL = 'All Companies';
+    addFilter({ fieldname: 'company', label: 'Company', fieldtype: 'Select', options: [ALL], default: ALL });
+    filters.company.set_value(ALL);
+    frappe.db.get_list('Company', { fields: ['name'], limit: 0, order_by: 'name asc' }).then(function (rows) {
+        var current = filters.company.get_value() || ALL;
+        filters.company.df.options = [ALL].concat(rows.map(function (r) { return r.name; }));
+        filters.company.refresh();
+        filters.company.set_value(current);
+    });
     addFilter({ fieldname: 'basis', label: 'Basis', fieldtype: 'Select', options: 'Sales Invoice\nSales Order', default: 'Sales Invoice' });
     addFilter({ fieldname: 'from_date', label: 'From Date', fieldtype: 'Date', default: frappe.datetime.month_start() });
     addFilter({ fieldname: 'to_date', label: 'To Date', fieldtype: 'Date', default: frappe.datetime.month_end() });
@@ -40,7 +49,7 @@ frappe.pages['sales-race'].on_page_load = function (wrapper) {
     var lastArgs = null;
     function load() {
         var args = {
-            company: filters.company.get_value() || null,
+            company: (filters.company.get_value() === ALL ? null : filters.company.get_value()) || null,
             basis: filters.basis.get_value() || 'Sales Invoice',
             from_date: filters.from_date.get_value(),
             to_date: filters.to_date.get_value()
