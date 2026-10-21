@@ -895,6 +895,9 @@ def _build_run_row(material_request):
 	return {
 		"run_id": material_request,
 		"raw_material": raw_material,
+		# The run's raw material as requested on its Material Request, in pounds
+		# (the figure the Manufacturing Process card used to show).
+		"input_lbs": round(input_grams / GRAMS_PER_POUND, 2) if input_grams else 0,
 		"batch_name": batch_name,
 		"status": run_status,
 		"status_bucket": run_status,

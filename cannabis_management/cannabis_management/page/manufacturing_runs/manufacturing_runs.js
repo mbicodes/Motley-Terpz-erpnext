@@ -137,7 +137,7 @@ class ManufacturingRunsDashboard {
 						<table class="table mrd-table">
 							<thead>
 								<tr>
-									<th>Run #</th><th>Raw Material</th><th>Batch</th><th>Status</th>
+									<th>Run #</th><th>Batch</th><th>Status</th><th>Raw Material (LBS)</th><th>Raw Material</th>
 									<th>150u Hash</th><th>120u-73u Hash</th><th>45u Hash</th>
 									<th>150u Rosin</th><th>120u-73u Rosin</th><th>45u Rosin</th>
 									<th>Hash Yield</th><th>Rosin Yield</th><th>Hash to Rosin Yield</th>
@@ -538,9 +538,10 @@ class ManufacturingRunsDashboard {
 		let body = rows.length ? rows.map((r) => `
 			<tr>
 				<td><a href="/app/material-request/${encodeURIComponent(r.run_id)}">${frappe.utils.escape_html(r.run_id)}</a></td>
-				<td>${frappe.utils.escape_html(r.raw_material)}</td>
 				<td>${frappe.utils.escape_html(r.batch_name)}</td>
 				<td>${status_badge(r.status)}</td>
+				<td>${r.input_lbs ? `${r.input_lbs.toLocaleString('en-US', { maximumFractionDigits: 2 })} LBS` : '-'}</td>
+				<td>${frappe.utils.escape_html(r.raw_material)}</td>
 				<td>${grams(r.hash_150u)}</td>
 				<td>${grams(r.hash_120u_73u)}</td>
 				<td>${grams(r.hash_45u)}</td>
@@ -555,7 +556,7 @@ class ManufacturingRunsDashboard {
 				<td>${r.started_on}</td>
 				<td>${r.completed_on}</td>
 			</tr>
-		`).join('') : `<tr><td colspan="17" class="mrd-empty">No runs match these filters</td></tr>`;
+		`).join('') : `<tr><td colspan="18" class="mrd-empty">No runs match these filters</td></tr>`;
 		this.page.main.find('.mrd-table-body').html(body);
 		this.render_pagination(total_count);
 	}
