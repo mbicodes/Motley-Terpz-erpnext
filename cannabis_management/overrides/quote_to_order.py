@@ -24,7 +24,7 @@ def create_sales_order_from_quotation(quotation):
     if (q.get("custom_approval_status") or "") != "Approved":
         frappe.throw(_("Only an <b>Approved</b> quotation can be converted to a Sales Order."))
 
-    customer = _resolve_erp_customer(q)
+    customer = _resolve_erp_customer(q, create=True)
     if not customer:
         frappe.throw(_(
             "Could not resolve an ERPNext Customer for this quotation. "
@@ -81,22 +81,78 @@ def create_sales_order_from_quotation(quotation):
     return {"sales_order": so.name, "had_existing": bool(existing), "existing": existing}
 
 
-def _resolve_erp_customer(q):
+@frappe.whitelist()
+def make_sales_order(source_name, target_doc=None, args=None):
+    """Override of ERPNext's Quotation → Sales Order mapper (the standard
+    "Create → Sales Order" button). ERPNext only turns a Lead or Prospect into a
+    Customer; a quote raised against a CRM Deal came back with a blank Customer,
+    and the deal usually had no Customer yet — Frappe CRM only creates one when
+    the deal is marked Won — so the rep had nothing to pick."""
+    from erpnext.selling.doctype.quotation.quotation import (
+        make_sales_order as erpnext_make_sales_order,
+    )
+
+    so = erpnext_make_sales_order(source_name, target_doc, args=args)
+    if not so.customer:
+        q = frappe.get_doc("Quotation", source_name)
+        customer = _resolve_erp_customer(q, create=True)
+        if customer:
+            so.customer = customer
+            so.crm_deal = q.get("crm_deal")
+            so.run_method("set_missing_values")
+            so.run_method("calculate_taxes_and_totals")
+    return so
+
+
+def _resolve_erp_customer(q, create=False):
     """Resolve the real ERPNext Customer for a quotation, whether it was raised
-    against a Customer directly or against a CRM Deal / Prospect."""
+    against a Customer directly or against a CRM Deal / Prospect. With `create`,
+    a CRM Deal that has no Customer yet gets one, built exactly as winning the
+    deal would build it."""
     if q.get("quotation_to") == "Customer" and q.get("party_name"):
         return q.party_name
 
-    deal = q.get("crm_deal")
-    if deal:
-        cust = frappe.db.get_value("Customer", {"crm_deal": deal}, "name")
+    deal = q.get("crm_deal") or (q.party_name if q.get("quotation_to") == "CRM Deal" else None)
+    if not deal or not frappe.db.exists("DocType", "CRM Deal"):
+        return None
+
+    cust = frappe.db.get_value("Customer", {"crm_deal": deal}, "name")
+    if cust:
+        return cust
+    if frappe.db.has_column("CRM Deal", "erpnext_customer"):
+        cust = frappe.db.get_value("CRM Deal", deal, "erpnext_customer")
         if cust:
             return cust
-        if frappe.db.exists("DocType", "CRM Deal") and frappe.db.has_column("CRM Deal", "erpnext_customer"):
-            cust = frappe.db.get_value("CRM Deal", deal, "erpnext_customer")
-            if cust:
-                return cust
-    return None
+
+    # A Customer named after the deal's organization (what CRM itself would create).
+    org = frappe.db.get_value("CRM Deal", deal, "organization")
+    cust = org and frappe.db.get_value("Customer", {"customer_name": org, "disabled": 0}, "name")
+    if cust:
+        frappe.db.set_value("CRM Deal", deal, "erpnext_customer", cust)
+        return cust
+
+    return _create_customer_from_deal(deal) if create else None
+
+
+def _create_customer_from_deal(deal):
+    try:
+        from crm.fcrm.doctype.erpnext_crm_settings.erpnext_crm_settings import (
+            create_customer_in_erpnext,
+        )
+    except ImportError:
+        return None
+
+    settings = frappe.get_single("ERPNext CRM Settings")
+    if not settings.enabled:
+        return None
+
+    # create_customer_in_erpnext only acts on a deal in the "Won" status. Present
+    # the deal that way in memory only (never saved) so the Customer gets the same
+    # contacts, address, crm_deal link and deal-owner assignment as on a win.
+    doc = frappe.get_doc("CRM Deal", deal)
+    doc.status = settings.deal_status
+    create_customer_in_erpnext(doc, "quote_to_order")
+    return frappe.db.get_value("CRM Deal", deal, "erpnext_customer")
 
 
 def _default_warehouse(item_code, company):

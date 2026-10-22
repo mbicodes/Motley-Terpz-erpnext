@@ -4,7 +4,12 @@
 
 frappe.ui.form.on("Quotation", {
     onload_post_render(frm) {
-        // Filter the item picker to items priced in the chosen price list.
+        // Item picker lists items priced in the chosen price list first, then
+        // all others. Replace the default "Filters applied for Price List = …"
+        // hint, which would wrongly suggest unpriced items are hidden.
+        frm.fields_dict.items.grid.update_docfield_property(
+            "item_code", "filter_description", __("Priced items are listed first")
+        );
         frm.set_query("item_code", "items", () => {
             if (frm.doc.selling_price_list) {
                 return {

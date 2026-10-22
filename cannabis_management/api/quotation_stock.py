@@ -55,21 +55,24 @@ def get_item_availability(item_codes):
 @frappe.whitelist()
 @frappe.validate_and_sanitize_search_inputs
 def items_in_price_list(doctype, txt, searchfield, start, page_len, filters):
-    """Item-picker query. When a price list is supplied, restrict to items that
-    have a selling Item Price in that list; otherwise fall back to all items."""
+    """Item-picker query. When a price list is supplied, items with a selling
+    Item Price in that list come first, then every other enabled item. It used
+    to return ONLY priced items, but just ~240 of ~3,900 items carry a price, so
+    most product codes (e.g. the STO-ITEM tier items) could not be picked."""
     price_list = (filters or {}).get("price_list")
     like = f"%{txt or ''}%"
 
     if price_list:
         return frappe.db.sql(
             """
-            SELECT DISTINCT i.name, i.item_name
+            SELECT i.name, i.item_name
             FROM `tabItem` i
-            JOIN `tabItem Price` ip
+            LEFT JOIN `tabItem Price` ip
               ON ip.item_code = i.name AND ip.price_list = %(pl)s AND ip.selling = 1
             WHERE i.disabled = 0
               AND (i.name LIKE %(txt)s OR i.item_name LIKE %(txt)s)
-            ORDER BY i.name
+            GROUP BY i.name, i.item_name
+            ORDER BY MAX(ip.name IS NOT NULL) DESC, i.name
             LIMIT %(start)s, %(page_len)s
             """,
             {"pl": price_list, "txt": like, "start": start, "page_len": page_len},

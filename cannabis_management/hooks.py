@@ -835,6 +835,10 @@ scheduler_events = {
 # Overriding Methods
 # ------------------------------
 override_whitelisted_methods = {
+    # Quotation → Sales Order: fill the Customer for quotes raised against a CRM Deal.
+    "erpnext.selling.doctype.quotation.quotation.make_sales_order":
+        "cannabis_management.overrides.quote_to_order.make_sales_order",
+
     # Always set party_type=Employee on Payment Entries created from Cash/Expense doctypes.
     "cannabis_management.cash_management.utils.cash_utils.create_payment_entry":
         "cannabis_management.api.cash_payment_override.create_payment_entry",
