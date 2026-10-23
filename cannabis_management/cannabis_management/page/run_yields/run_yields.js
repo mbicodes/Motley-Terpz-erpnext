@@ -15,7 +15,7 @@ frappe.pages['run-yields'].on_page_load = function (wrapper) {
 		{ key: 'run_id', label: __('Run #'), kind: 'text', group: 'run' },
 		{ key: 'batch_name', label: __('Batch'), kind: 'text', group: 'run' },
 		{ key: 'status', label: __('Status'), kind: 'text', group: 'run' },
-		{ key: 'input_lbs', label: __('Raw Material (LBS)'), kind: 'num', group: 'run' },
+		{ key: 'input_lbs', label: __('Raw Material') + '<br>(LBS)', kind: 'num', group: 'run' },
 		{ key: 'raw_material', label: __('Raw Material'), kind: 'text', group: 'run' },
 		{ key: 'hash_150u', label: '150u', kind: 'g', group: 'hash' },
 		{ key: 'hash_120u_73u', label: '120u–73u', kind: 'g', group: 'hash' },
@@ -28,7 +28,7 @@ frappe.pages['run-yields'].on_page_load = function (wrapper) {
 		{ key: 'hash_to_rosin_yield', label: __('Hash to Rosin'), kind: 'pct', group: 'yield' },
 	];
 	const GROUPS = [
-		{ key: 'run', label: __('Run'), span: 5 },
+		{ key: 'run', label: __('Run details'), span: 5 },
 		{ key: 'hash', label: __('Hash (g)'), span: 3 },
 		{ key: 'rosin', label: __('Rosin (g)'), span: 3 },
 		{ key: 'yield', label: __('Yield'), span: 3 },
@@ -51,10 +51,7 @@ frappe.pages['run-yields'].on_page_load = function (wrapper) {
 	$(page.body).html(`
 		<div class="ry">
 			<div class="ry-head">
-				<div>
-					<h2 class="ry-title">${__('Run Yields')}</h2>
-					<p class="ry-sub">${__('Hash and rosin returned by every manufacturing run.')}</p>
-				</div>
+				<p class="ry-sub">${__('Hash and rosin returned by every manufacturing run.')}</p>
 				<div class="ry-actions">
 					<button class="ry-btn ry-btn-outline" data-act="export">${icon('es-line-download')} ${__('Export CSV')}</button>
 					<button class="ry-btn ry-btn-outline ry-btn-icon" data-act="refresh" title="${__('Refresh')}">${icon('refresh')}</button>
@@ -65,23 +62,42 @@ frappe.pages['run-yields'].on_page_load = function (wrapper) {
 
 			<div class="ry-panel">
 				<div class="ry-toolbar">
-					<div class="ry-search">
-						${icon('search')}
-						<input type="text" class="ry-input" data-f="run" placeholder="${__('Run #')}">
+					<label class="ry-field ry-field-run">
+						<span class="ry-field-label">${__('Run #')}</span>
+						<span class="ry-search">
+							${icon('search')}
+							<input type="text" class="ry-input" data-f="run" placeholder="${__('Search runs')}">
+						</span>
+					</label>
+					<label class="ry-field">
+						<span class="ry-field-label">${__('Batch')}</span>
+						<select class="ry-input ry-select" data-f="batch"><option value="">${__('All batches')}</option></select>
+					</label>
+					<label class="ry-field">
+						<span class="ry-field-label">${__('Status')}</span>
+						<select class="ry-input ry-select" data-f="status"><option value="">${__('All statuses')}</option>
+							${STATUSES.map((s) => `<option value="${s}">${__(s)}</option>`).join('')}</select>
+					</label>
+					<label class="ry-field ry-field-wide">
+						<span class="ry-field-label">${__('Raw material')}</span>
+						<select class="ry-input ry-select" data-f="material"><option value="">${__('All raw materials')}</option></select>
+					</label>
+					<label class="ry-field">
+						<span class="ry-field-label">${__('Started by')}</span>
+						<select class="ry-input ry-select" data-f="started_by"><option value="">${__('Anyone')}</option></select>
+					</label>
+					<div class="ry-field">
+						<span class="ry-field-label">${__('Started between')}</span>
+						<span class="ry-range">
+							<input type="date" data-f="from" title="${__('Started on or after')}">
+							<span class="ry-range-sep">→</span>
+							<input type="date" data-f="to" title="${__('Started on or before')}">
+						</span>
 					</div>
-					<select class="ry-input" data-f="batch"><option value="">${__('All batches')}</option></select>
-					<select class="ry-input" data-f="status"><option value="">${__('All statuses')}</option>
-						${STATUSES.map((s) => `<option value="${s}">${__(s)}</option>`).join('')}</select>
-					<select class="ry-input" data-f="material"><option value="">${__('All raw materials')}</option></select>
-					<select class="ry-input" data-f="started_by"><option value="">${__('Anyone')}</option></select>
-					<div class="ry-dates">
-						<input type="date" class="ry-input" data-f="from" title="${__('Started from')}">
-						<span class="ry-muted">${__('to')}</span>
-						<input type="date" class="ry-input" data-f="to" title="${__('Started to')}">
+					<div class="ry-toolbar-end">
+						<button class="ry-btn ry-btn-ghost" data-act="clear" hidden>${icon('close')} ${__('Clear filters')}</button>
+						<span class="ry-count"></span>
 					</div>
-					<button class="ry-btn ry-btn-ghost" data-act="clear" hidden>${icon('close')} ${__('Clear')}</button>
-					<div class="ry-spacer"></div>
-					<span class="ry-count ry-muted"></span>
 				</div>
 				<div class="ry-scroll">
 					<table class="ry-table">
@@ -89,8 +105,8 @@ frappe.pages['run-yields'].on_page_load = function (wrapper) {
 							<tr class="ry-groups">${GROUPS.map((g) =>
 								`<th colspan="${g.span}" class="g-${g.key}">${g.label}</th>`).join('')}</tr>
 							<tr class="ry-cols">${COLUMNS.map((c) =>
-								`<th class="g-${c.group}${c.kind === 'text' ? '' : ' is-num'}" data-sort="${c.key}">
-									<span>${c.label}</span><span class="ry-sort"></span></th>`).join('')}</tr>
+								`<th class="g-${c.group}${c.kind === 'text' ? '' : ' is-num'} c-${c.key}" data-sort="${c.key}" title="${__('Sort')}">
+									<span class="ry-th"><span class="ry-th-label">${c.label}</span><span class="ry-sort"></span></span></th>`).join('')}</tr>
 						</thead>
 						<tbody></tbody>
 						<tfoot></tfoot>
@@ -116,6 +132,7 @@ frappe.pages['run-yields'].on_page_load = function (wrapper) {
 			always: () => {
 				state.loading = false;
 				draw();
+				fit();
 			},
 		});
 	}
@@ -205,8 +222,14 @@ frappe.pages['run-yields'].on_page_load = function (wrapper) {
 		const active = !!(f.run || f.batch || f.status || f.material || f.started_by || f.from || f.to);
 
 		$root.find('[data-act="clear"]').prop('hidden', !active);
-		$root.find('.ry-count').text(state.loading ? __('Loading…')
-			: __('{0} of {1} runs', [rows.length, state.rows.length]));
+		$root.find('.ry-count').html(state.loading ? __('Loading…')
+			: active ? __('<b>{0}</b> of {1} runs', [rows.length, state.rows.length])
+			: __('<b>{0}</b> runs', [rows.length]));
+		// An applied filter is outlined, so it is obvious what is narrowing the list.
+		$root.find('[data-f]').each(function () {
+			$(this).toggleClass('is-active', !!state.f[$(this).data('f')]);
+		});
+		$root.find('.ry-range').toggleClass('is-active', !!(f.from || f.to));
 
 		$root.find('.ry-cards').html([
 			card(__('Runs'), t.runs.toLocaleString('en-US'), __('{0} completed', [t.done])),
@@ -217,9 +240,8 @@ frappe.pages['run-yields'].on_page_load = function (wrapper) {
 		].join(''));
 
 		$root.find('.ry-cols th').each(function () {
-			const key = $(this).data('sort');
-			$(this).toggleClass('is-sorted', state.sort.key === key)
-				.find('.ry-sort').text(state.sort.key === key ? (state.sort.dir > 0 ? '▲' : '▼') : '');
+			const on = state.sort.key === $(this).data('sort');
+			$(this).toggleClass('is-asc', on && state.sort.dir > 0).toggleClass('is-desc', on && state.sort.dir < 0);
 		});
 
 		const $empty = $root.find('.ry-empty');
@@ -308,5 +330,16 @@ frappe.pages['run-yields'].on_page_load = function (wrapper) {
 		}
 	});
 
+	function fit() {
+		const $scroll = $root.find('.ry-scroll');
+		$root.find('.ry-table').css('--ry-group-h', $root.find('.ry-groups').outerHeight() + 'px');
+		if (window.innerWidth <= 640) return $scroll.css('max-height', '');
+		const top = $scroll[0].getBoundingClientRect().top + window.scrollY;
+		$scroll.css('max-height', Math.max(360, window.innerHeight - top - 24) + 'px');
+	}
+	$(window).on('resize', frappe.utils.debounce(fit, 150));
+	$(wrapper).on('show', fit);
+
 	load();
+	setTimeout(fit, 0);
 };
