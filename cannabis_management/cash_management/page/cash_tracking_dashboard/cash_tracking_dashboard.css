@@ -177,6 +177,27 @@
 	white-space: nowrap;
 	background: var(--subtle-fg, #fafbfc);
 }
+/* Per-column filter row under the headers, like a Frappe report. */
+.ctd-table thead tr.ctd-filter-row th {
+	padding: 6px 8px;
+	text-transform: none;
+	letter-spacing: 0;
+}
+.ctd-col-filter {
+	width: 100%;
+	min-width: 70px;
+	height: 28px;
+	border: 1px solid var(--border-color, #dfe3e8);
+	border-radius: 6px;
+	padding: 0 8px;
+	font-size: 12px;
+	font-weight: 400;
+	background: var(--control-bg, #fff);
+	color: var(--text-color);
+	outline: none;
+}
+.ctd-col-filter:focus { border-color: var(--primary, #4f46e5); }
+.ctd-col-filter.ctd-num { text-align: right; }
 .ctd-table tbody td {
 	padding: 11px 14px;
 	border-bottom: 1px solid var(--border-color, #f0f2f5);

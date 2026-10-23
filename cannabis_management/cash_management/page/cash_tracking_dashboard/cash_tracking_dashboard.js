@@ -13,7 +13,9 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 		can_mark_processed: false,   // Finance only; the server decides
 		from_date: '',
 		to_date: '',
-		rows: []
+		rows: [],
+		col_filters: {},  // column key -> text typed in the header filter row
+		shown: []         // rows left after the column filters
 	};
 	page._state = state;
 
@@ -33,6 +35,9 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 					</button>
 					<button class="ctd-refresh ctd-new" id="ctd-new-personal" title="New Personal Cash Tracking">
 						<span class="ctd-refresh-icon">&#43;</span> Personal Cash
+					</button>
+					<button class="ctd-refresh" id="ctd-export" title="Export the rows shown to CSV (receipts not included)">
+						<span class="ctd-refresh-icon">&#8615;</span> Export CSV
 					</button>
 					<button class="ctd-refresh" id="ctd-refresh" title="Refresh">
 						<span class="ctd-refresh-icon">&#8635;</span> Refresh
@@ -93,10 +98,31 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 							<th>Type</th>
 							<th>Transaction Notes</th>
 							<th>Business</th>
+							<th>Sales Order</th>
 							<th class="ctd-num">Money In</th>
 							<th class="ctd-num">Money Out</th>
 							<th>Status</th>
 							<th class="ctd-col-processed">Processed</th>
+						</tr>
+						<tr class="ctd-filter-row">
+							<th><input class="ctd-col-filter" data-key="date" placeholder="Filter"></th>
+							<th><input class="ctd-col-filter" data-key="name" placeholder="Filter"></th>
+							<th><input class="ctd-col-filter" data-key="tracker" placeholder="Filter"></th>
+							<th class="ctd-col-user"><input class="ctd-col-filter" data-key="person" placeholder="Filter"></th>
+							<th><input class="ctd-col-filter" data-key="category" placeholder="Filter"></th>
+							<th><input class="ctd-col-filter" data-key="notes" placeholder="Filter"></th>
+							<th><input class="ctd-col-filter" data-key="business" placeholder="Filter"></th>
+							<th><input class="ctd-col-filter" data-key="sales_order" placeholder="Filter"></th>
+							<th><input class="ctd-col-filter ctd-num" data-key="money_in" placeholder="e.g. >100" title="Number, or >, <, >=, <=, = followed by a number"></th>
+							<th><input class="ctd-col-filter ctd-num" data-key="money_out" placeholder="e.g. >100" title="Number, or >, <, >=, <=, = followed by a number"></th>
+							<th><input class="ctd-col-filter" data-key="status" placeholder="Filter"></th>
+							<th class="ctd-col-processed">
+								<select class="ctd-col-filter" data-key="processed">
+									<option value="">All</option>
+									<option value="yes">Yes</option>
+									<option value="no">No</option>
+								</select>
+							</th>
 						</tr>
 					</thead>
 					<tbody id="ctd-tbody"></tbody>
@@ -189,23 +215,73 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 			select_tracker(result.tracker);   // server refused Motley
 		}
 		state.rows = result.rows || [];
-		var t = result.totals || {};
-		$('#ctd-total-in').text(fmt_money(t.money_in));
-		$('#ctd-total-out').text(fmt_money(t.money_out));
-		var net = t.net || 0;
+		draw();
+	}
+
+	// ---- column filters ------------------------------------------------
+	// The text each column is matched against: what the cell shows, so the
+	// filter behaves like the header filters in a Frappe report.
+	var FILTER_TEXT = {
+		date: function (r) { return (frappe.datetime.str_to_user(r.date) || '') + ' ' + (r.date || ''); },
+		name: function (r) { return r.name; },
+		tracker: function (r) { return r.tracker; },
+		person: function (r) { return r.person || r.user; },
+		category: function (r) { return r.category; },
+		notes: function (r) { return r.notes; },
+		business: function (r) { return r.business; },
+		sales_order: function (r) { return r.sales_order; },
+		status: function (r) { return r.status; }
+	};
+
+	// Money columns take a number, optionally prefixed with >, <, >=, <= or =.
+	function match_amount(value, query) {
+		var m = query.replace(/[$,\s]/g, '').match(/^(>=|<=|>|<|=)?(-?\d*\.?\d+)$/);
+		if (!m) return false;
+		var n = parseFloat(m[2]), v = flt(value);
+		switch (m[1]) {
+			case '>': return v > n;
+			case '<': return v < n;
+			case '>=': return v >= n;
+			case '<=': return v <= n;
+			default: return v === n;
+		}
+	}
+
+	function row_matches(r) {
+		return Object.keys(state.col_filters).every(function (key) {
+			var q = (state.col_filters[key] || '').trim().toLowerCase();
+			if (!q) return true;
+			if (key === 'money_in' || key === 'money_out') return match_amount(r[key], q);
+			if (key === 'processed') return (q === 'yes') === !!r.processed;
+			return String(FILTER_TEXT[key](r) || '').toLowerCase().indexOf(q) !== -1;
+		});
+	}
+
+	// Cards and table both follow the column filters.
+	function draw() {
+		var rows = state.shown = state.rows.filter(row_matches);
+		var money_in = 0, money_out = 0;
+		rows.forEach(function (r) { money_in += flt(r.money_in); money_out += flt(r.money_out); });
+		$('#ctd-total-in').text(fmt_money(money_in));
+		$('#ctd-total-out').text(fmt_money(money_out));
+		var net = money_in - money_out;
 		var $net = $('#ctd-total-net').text(fmt_money(net));
 		$net.closest('.ctd-card-net').toggleClass('ctd-negative', net < 0);
-		$('#ctd-total-count').text(t.count || 0);
+		$('#ctd-total-count').text(rows.length);
 
 		var $body = $('#ctd-tbody').empty();
-		if (!state.rows.length) {
+		apply_processed_visibility();
+		if (!rows.length) {
 			$('#ctd-empty').show();
 			return;
 		}
 		$('#ctd-empty').hide();
 
-		state.rows.forEach(function (r) {
+		rows.forEach(function (r) {
 			var link = '/app/' + frappe.router.slug(doctype_of(r.tracker)) + '/' + encodeURIComponent(r.name);
+			var so_cell = r.sales_order
+				? '<a href="/app/sales-order/' + encodeURIComponent(r.sales_order) + '" class="ctd-link">' + esc(r.sales_order) + '</a>'
+				: '';
 			var tr = `
 				<tr>
 					<td>${esc(frappe.datetime.str_to_user(r.date) || r.date || '')}</td>
@@ -215,6 +291,7 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 					<td class="ctd-cat">${esc(r.category || '')}</td>
 					<td class="ctd-notes" title="${esc(r.notes || '')}">${esc(r.notes || '')}</td>
 					<td>${esc(r.business || '')}</td>
+					<td>${so_cell}</td>
 					<td class="ctd-num ctd-in">${r.money_in ? fmt_money(r.money_in) : ''}</td>
 					<td class="ctd-num ctd-out">${r.money_out ? fmt_money(r.money_out) : ''}</td>
 					<td>${status_badge(r.status)}</td>
@@ -223,6 +300,38 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 			$body.append(tr);
 		});
 		apply_processed_visibility();
+	}
+
+	// Every field of the rows currently shown, except the receipt image.
+	// Processed columns go out only to Finance, matching the table.
+	function export_csv() {
+		if (!state.shown.length) {
+			frappe.msgprint(__('There are no rows to export.'));
+			return;
+		}
+		var processed = state.can_mark_processed;
+		var header = ['Date', 'ID', 'Tracker', 'Cash Tracker Person', 'User', 'Employee',
+			'Transaction Type', 'Transaction Notes', 'Business', 'Sales Order',
+			'Money In', 'Money Out', 'Status'];
+		if (processed) header.push('Processed', 'Processed By', 'Processed On');
+
+		var data = [header];
+		state.shown.forEach(function (r) {
+			var line = [
+				frappe.datetime.str_to_user(r.date) || r.date || '', r.name, r.tracker,
+				r.person || '', r.user || '', r.employee || '',
+				r.category || '', r.notes || '', r.business || '', r.sales_order || '',
+				flt(r.money_in), flt(r.money_out), r.status || ''
+			];
+			if (processed) {
+				line.push(r.processed ? 'Yes' : 'No', r.processed_by || '',
+					r.processed_on ? frappe.datetime.str_to_user(r.processed_on) : '');
+			}
+			data.push(line);
+		});
+		var tracker = { motley: 'Motley', tsbc: 'TSBC' }[state.tracker] || 'Personal';
+		frappe.tools.downloadify(data, null,
+			'Cash Tracking - ' + tracker + ' - ' + frappe.datetime.get_today());
 	}
 
 	function load() {
@@ -341,6 +450,14 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 		});
 	});
 
+	page.main.on('input change', '.ctd-col-filter', frappe.utils.debounce(function () {
+		$('.ctd-col-filter').each(function () {
+			state.col_filters[$(this).data('key')] = $(this).val();
+		});
+		draw();
+	}, 200));
+
+	$('#ctd-export').on('click', export_csv);
 	$('#ctd-refresh').on('click', function () { load(); });
 	$('#ctd-new-motley').on('click', function () { frappe.new_doc('Motley Cash Tracking'); });
 	$('#ctd-new-tsbc').on('click', function () { frappe.new_doc('TSBC Cash Tracking'); });
