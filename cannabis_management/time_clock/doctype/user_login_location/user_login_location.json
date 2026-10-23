@@ -1,0 +1,203 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "naming_series:",
+ "creation": "2026-10-22 09:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "user",
+  "user_full_name",
+  "column_break_main",
+  "login_time",
+  "status",
+  "section_break_location",
+  "location_source",
+  "ip_location",
+  "latitude",
+  "longitude",
+  "accuracy",
+  "column_break_location",
+  "location",
+  "section_break_audit",
+  "ip_address",
+  "error_message",
+  "column_break_audit",
+  "user_agent"
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "hidden": 1,
+   "label": "Series",
+   "no_copy": 1,
+   "options": "USR-LOC-.YYYY.-",
+   "print_hide": 1,
+   "set_only_once": 1
+  },
+  {
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "User",
+   "options": "User",
+   "read_only": 1,
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fetch_from": "user.full_name",
+   "fieldname": "user_full_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Full Name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_main",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "login_time",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Login Time",
+   "read_only": 1,
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "description": "IP Only = the browser has not shared a position (yet); the location shown is from the IP address.",
+   "options": "Captured\nApproximate\nIP Only\nDenied\nUnavailable\nNot Supported",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_location",
+   "fieldtype": "Section Break",
+   "label": "Location"
+  },
+  {
+   "description": "Device = the browser's position (user allowed location). IP Address = looked up from the IP at login, no permission needed; city-level only and wrong behind a VPN.",
+   "fieldname": "location_source",
+   "fieldtype": "Select",
+   "in_standard_filter": 1,
+   "label": "Location Source",
+   "options": "\nDevice\nIP Address",
+   "read_only": 1
+  },
+  {
+   "description": "City, state and country of the IP address at login",
+   "fieldname": "ip_location",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "IP Location",
+   "read_only": 1
+  },
+  {
+   "fieldname": "latitude",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Latitude",
+   "precision": "7",
+   "read_only": 1
+  },
+  {
+   "fieldname": "longitude",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Longitude",
+   "precision": "7",
+   "read_only": 1
+  },
+  {
+   "description": "Radius in metres reported by the device. Larger means less precise.",
+   "fieldname": "accuracy",
+   "fieldtype": "Float",
+   "label": "Accuracy (m)",
+   "precision": "1",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_location",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "location",
+   "fieldtype": "Geolocation",
+   "label": "Map",
+   "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_audit",
+   "fieldtype": "Section Break",
+   "label": "Audit Trail"
+  },
+  {
+   "fieldname": "ip_address",
+   "fieldtype": "Data",
+   "label": "IP Address",
+   "read_only": 1
+  },
+  {
+   "fieldname": "error_message",
+   "fieldtype": "Small Text",
+   "label": "Browser Error",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_audit",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "user_agent",
+   "fieldtype": "Small Text",
+   "label": "User Agent",
+   "read_only": 1
+  }
+ ],
+ "in_create": 1,
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-10-23 23:45:00.000000",
+ "modified_by": "Administrator",
+ "module": "Time Clock",
+ "name": "User Login Location",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "HR Manager"
+  }
+ ],
+ "sort_field": "login_time",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "user_full_name",
+ "track_changes": 0
+}

@@ -33,7 +33,8 @@ csrf_exempt = [
 
 # include js, css files in header of web template
 # web_include_css = "/assets/cannabis_management/css/cannabis_management.css"
-# web_include_js = "/assets/cannabis_management/js/cannabis_management.js"
+# Portal logins (e.g. /timeclock) need the login location capture too.
+web_include_js = ["/assets/cannabis_management/js/login_location.js?v=4"]
 
 # include custom scss in every website theme (without file extension ".scss")
 # website_theme_scss = "cannabis_management/public/scss/website"
@@ -62,6 +63,8 @@ app_include_js = [
     "/assets/cannabis_management/js/data_export_presets.js?v=1",
     # "Break / Make Connections" menu item on submittable forms -> Connection Tool.
     "/assets/cannabis_management/js/connection_tool_menu.js?v=1",
+    # Captures the user's coordinates once per login -> User Login Location.
+    "/assets/cannabis_management/js/login_location.js?v=4",
 ]
 
 
@@ -327,6 +330,9 @@ override_doctype_class = {
     # See overrides/crm_lead_no_gravatar.py.
     "CRM Lead":             "cannabis_management.overrides.crm_lead_no_gravatar.CMCRMLead",
 }
+
+# Marks each new session so the browser reports its coordinates (User Login Location).
+on_session_creation = ["cannabis_management.time_clock.login_location.on_session_creation"]
 
 # Document Events
 # ---------------
