@@ -94,6 +94,9 @@ function arw_segment_style(page, seg) {
 const ARW_NOT_REACHED = "Haven't Reached Out";
 const ARW_REACH_OUT_DEF = {
 	"Haven't Reached Out": { color: '#d97706', desc: 'Nobody has reached out to this account yet.' },
+	'Ready to reach out': { color: '#2563eb', desc: '' },
+	'Ready to reach out - Sales Rep': { color: '#7c3aed', desc: '' },
+	'Find Info': { color: '#0891b2', desc: 'Contact or account info has to be found before anyone can reach out.' },
 	'Reached Out': { color: '#16a34a', desc: '' },
 };
 

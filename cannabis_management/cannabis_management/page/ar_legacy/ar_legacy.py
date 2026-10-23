@@ -43,11 +43,18 @@ SEGMENTS = [
 
 # "Ready to reach out" used to be two segments, but it is not an owner - it is
 # where the account stands with us, and it said nothing once someone had made the
-# call. It is its own Customer field now, separate from the segment.
+# call. It is its own Customer field now, separate from the segment, and the two
+# old segment texts are steps in it. In working order: the page groups by it.
 REACH_OUT_FIELD = "custom_reach_out_status"
 NOT_REACHED_OUT = "Haven't Reached Out"
 REACHED_OUT = "Reached Out"
-REACH_OUT_STATUSES = [NOT_REACHED_OUT, REACHED_OUT]
+REACH_OUT_STATUSES = [
+	NOT_REACHED_OUT,
+	"Ready to reach out",
+	"Ready to reach out - Sales Rep",
+	"Find Info",
+	REACHED_OUT,
+]
 
 AR_SEGMENT_DOCTYPE = "AR Segment"
 
