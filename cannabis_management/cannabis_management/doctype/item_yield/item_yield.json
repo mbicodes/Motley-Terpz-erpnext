@@ -7,32 +7,131 @@
  "engine": "InnoDB",
  "field_order": [
   "item_code",
+  "item_name",
+  "project",
+  "yield_source",
   "quantity",
-  "yield_percentage"
+  "column_break_hash",
+  "hash_qty",
+  "yield_percentage",
+  "column_break_rosin",
+  "rosin_qty",
+  "hash_to_rosin",
+  "rosin_yield",
+  "section_break_rem",
+  "remarks",
+  "sales_order_item"
  ],
  "fields": [
   {
    "fieldname": "item_code",
    "fieldtype": "Link",
    "label": "Item Code",
-   "options": "Item"
+   "options": "Item",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 2
+  },
+  {
+   "fieldname": "item_name",
+   "fieldtype": "Data",
+   "label": "Item Name",
+   "fetch_from": "item_code.item_name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "label": "Batch (Project)",
+   "options": "Project"
+  },
+  {
+   "fieldname": "yield_source",
+   "fieldtype": "Select",
+   "label": "Source",
+   "options": "Customer\nOur Lab",
+   "default": "Customer",
+   "in_list_view": 1,
+   "columns": 1,
+   "allow_on_submit": 1,
+   "description": "Our Lab = a yield we got ourselves; shown purple on the Inventory Dashboard"
   },
   {
    "fieldname": "quantity",
-   "fieldtype": "Data",
-   "label": "Quantity"
+   "fieldtype": "Float",
+   "label": "Qty Sent / Ran (LBS)",
+   "in_list_view": 1,
+   "columns": 1
+  },
+  {
+   "fieldname": "column_break_hash",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "hash_qty",
+   "fieldtype": "Float",
+   "label": "Hash (g)",
+   "in_list_view": 1,
+   "columns": 1
   },
   {
    "fieldname": "yield_percentage",
    "fieldtype": "Percent",
-   "label": "Yield Percentage"
+   "label": "Yield To Hash %",
+   "in_list_view": 1,
+   "columns": 1,
+   "description": "Auto from Hash (g) \u00f7 Qty (LBS\u2192g); type it in if the customer only sent a %"
+  },
+  {
+   "fieldname": "column_break_rosin",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "rosin_qty",
+   "fieldtype": "Float",
+   "label": "Rosin (g)",
+   "in_list_view": 1,
+   "columns": 1
+  },
+  {
+   "fieldname": "hash_to_rosin",
+   "fieldtype": "Percent",
+   "label": "Hash to Rosin %",
+   "in_list_view": 1,
+   "columns": 1,
+   "description": "Auto from Rosin (g) \u00f7 Hash (g)"
+  },
+  {
+   "fieldname": "rosin_yield",
+   "fieldtype": "Percent",
+   "label": "Rosin Yield % (of raw)",
+   "in_list_view": 1,
+   "columns": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_rem",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "label": "Remarks"
+  },
+  {
+   "fieldname": "sales_order_item",
+   "fieldtype": "Data",
+   "label": "Sales Order Item",
+   "hidden": 1,
+   "read_only": 1,
+   "no_copy": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-03-17 09:08:04.037792",
+ "modified": "2026-10-23 14:30:00.000000",
  "modified_by": "Administrator",
  "module": "Cannabis Management",
  "name": "Item Yield",
