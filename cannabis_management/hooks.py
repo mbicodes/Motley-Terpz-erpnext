@@ -65,6 +65,8 @@ app_include_js = [
     "/assets/cannabis_management/js/connection_tool_menu.js?v=1",
     # Captures the user's coordinates once per login -> User Login Location.
     "/assets/cannabis_management/js/login_location.js?v=4",
+    # Logs the desk out after 45 minutes with no activity in any tab.
+    "/assets/cannabis_management/js/idle_logout.js?v=1",
 ]
 
 
@@ -334,7 +336,11 @@ override_doctype_class = {
 }
 
 # Marks each new session so the browser reports its coordinates (User Login Location).
-on_session_creation = ["cannabis_management.time_clock.login_location.on_session_creation"]
+on_session_creation = [
+    "cannabis_management.time_clock.login_location.on_session_creation",
+    # Stamps the login time for the idle logout (public/js/idle_logout.js).
+    "cannabis_management.idle_logout.on_session_creation",
+]
 
 # Document Events
 # ---------------
