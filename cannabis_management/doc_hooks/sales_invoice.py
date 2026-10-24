@@ -35,6 +35,33 @@ AR_ALERT_RECIPIENTS = [
 def before_validate(doc, method=None):
     # Skip ERPNext's is_frozen check — we manage AR status via custom_ar_status
     frappe.flags.ignore_party_validation = True
+    _set_tsbc_income_account(doc)
+
+
+# TSBC Ranch: Fresh Frozen items carry "Intercomapny Revenue - TSBC" as their
+# Item Default, so outside sales were landing on intercompany income. Pick the
+# account from the customer instead. Only these two accounts are swapped; any
+# other account on a line (IC Receivable MTM, Temporary Opening) is left alone.
+TSBC_COMPANY = "TSBC Ranch"
+TSBC_INTERCOMPANY_INCOME = "Intercomapny Revenue - TSBC"
+TSBC_SALES_INCOME = "Sales Fresh Frozen - TSBC"
+
+
+def _set_tsbc_income_account(doc):
+    if doc.company != TSBC_COMPANY or doc.get("is_opening") == "Yes" or not doc.customer:
+        return
+
+    is_intercompany = doc.get("is_internal_customer") or frappe.db.get_value(
+        "Customer", doc.customer, "custom_is_intercompany"
+    )
+    wrong, right = (
+        (TSBC_SALES_INCOME, TSBC_INTERCOMPANY_INCOME)
+        if is_intercompany
+        else (TSBC_INTERCOMPANY_INCOME, TSBC_SALES_INCOME)
+    )
+    for item in doc.items:
+        if item.income_account == wrong:
+            item.income_account = right
 
 
 def before_submit(doc, method=None):
