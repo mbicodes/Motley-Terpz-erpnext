@@ -231,6 +231,7 @@
 .ctd-badge-cancelled { background: #fee2e2; color: #991b1b; text-decoration: line-through; }
 .ctd-tag-motley { background: #ede9fe; color: #5b21b6; }
 .ctd-tag-tsbc { background: #dcfce7; color: #166534; }
+.ctd-tag-safe { background: #fef3c7; color: #92400e; }
 .ctd-tag-personal { background: #e0f2fe; color: #075985; }
 
 /* ---- empty state ---- */
@@ -248,6 +249,7 @@
 [data-theme="dark"] .ctd-badge-cancelled { background: #45201f; color: #fca5a5; }
 [data-theme="dark"] .ctd-tag-motley { background: #2e2454; color: #c4b5fd; }
 [data-theme="dark"] .ctd-tag-tsbc { background: #14351f; color: #86efac; }
+[data-theme="dark"] .ctd-tag-safe { background: #3b2a0a; color: #fcd34d; }
 [data-theme="dark"] .ctd-tag-personal { background: #0b3247; color: #7dd3fc; }
 [data-theme="dark"] .ctd-table thead th { background: var(--subtle-fg, #1c2126); }
 
@@ -278,3 +280,208 @@
 	width: 15px; height: 15px; cursor: pointer; accent-color: #16a34a; margin: 0;
 }
 .ctd-processed-box:disabled { cursor: wait; opacity: .5; }
+
+/* ══ The Safe ═══════════════════════════════════════════════════════════════
+   Its own button at the right of the filter bar, its own dark-steel-and-gold
+   look, and a vault door that opens on the way in. Palette is fixed (not theme
+   variables) so the Safe looks the same in light and dark mode. */
+.ctd-container { position: relative; transition: background .45s ease, padding .3s ease, box-shadow .45s ease; }
+.ctd-vault-logo { width: 22px; height: 22px; flex: 0 0 auto; }
+
+/* button at the far right of the filter bar */
+.ctd-safe-slot { margin-left: auto; }
+.ctd-safe-btn {
+	display: inline-flex; align-items: center; gap: 8px;
+	height: 34px; padding: 0 16px 0 8px;
+	border-radius: 10px;
+	border: 1px solid #b8892a;
+	background: linear-gradient(145deg, #2a2f3a, #14171d);
+	color: #f5d77a;
+	font-size: 13px; font-weight: 700; letter-spacing: .04em;
+	cursor: pointer;
+	box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 2px 8px rgba(0,0,0,.18);
+	transition: transform .15s ease, box-shadow .2s ease;
+}
+.ctd-safe-btn .ctd-vault-logo { width: 26px; height: 26px; transition: transform .6s cubic-bezier(.3,1.4,.5,1); }
+.ctd-safe-btn:hover { transform: translateY(-1px); box-shadow: 0 0 0 3px rgba(212,167,44,.18), 0 6px 16px rgba(0,0,0,.22); }
+.ctd-safe-btn:hover .ctd-vault-logo { transform: rotate(-90deg); }
+.ctd-safe-btn.ctd-safe-on { animation: ctdSafePulse 2.4s ease-in-out infinite; }
+@keyframes ctdSafePulse {
+	0%, 100% { box-shadow: 0 0 0 2px rgba(212,167,44,.55), 0 0 14px rgba(212,167,44,.25); }
+	50% { box-shadow: 0 0 0 2px rgba(245,215,122,.9), 0 0 26px rgba(212,167,44,.5); }
+}
+
+/* gold "+ Safe Cash" */
+.ctd-new.ctd-new-safe {
+	display: inline-flex; align-items: center; gap: 6px;
+	background: linear-gradient(135deg, #f5d77a, #d4a72c 55%, #a37a1c);
+	border-color: #a37a1c; color: #1b1606; font-weight: 700;
+}
+.ctd-new.ctd-new-safe:hover { background: linear-gradient(135deg, #fbe39a, #dcb23a 55%, #a37a1c); }
+.ctd-btn-logo { width: 18px; height: 18px; }
+
+/* heading swap */
+.ctd-safe-title { display: none; align-items: center; gap: 14px; }
+.ctd-safe-title-logo { width: 48px; height: 48px; filter: drop-shadow(0 4px 10px rgba(212,167,44,.35)); }
+.ctd-safe-name {
+	margin: 0; font-size: 26px; font-weight: 800; letter-spacing: .02em;
+	background: linear-gradient(100deg, #a37a1c 0%, #f5d77a 30%, #fff6d6 45%, #f5d77a 60%, #a37a1c 100%);
+	background-size: 220% 100%;
+	-webkit-background-clip: text; background-clip: text; color: transparent;
+	animation: ctdShine 4s linear infinite;
+}
+@keyframes ctdShine { from { background-position: 120% 0; } to { background-position: -120% 0; } }
+.ctd-safe-sub { margin: 2px 0 0; font-size: 12.5px; color: #b8a77a; }
+
+/* safe mode: the whole page becomes the inside of the vault */
+.ctd-safe-mode {
+	padding: 22px 24px 36px;
+	border-radius: 20px;
+	color: #ece6d4;
+	background:
+		radial-gradient(900px 320px at 50% -60px, rgba(212,167,44,.22), transparent 70%),
+		repeating-linear-gradient(90deg, rgba(255,255,255,.012) 0 2px, transparent 2px 6px),
+		linear-gradient(165deg, #171a21 0%, #1d2129 50%, #111318 100%);
+	border: 1px solid rgba(212,167,44,.4);
+	box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 20px 50px rgba(0,0,0,.28);
+}
+.ctd-safe-mode .ctd-heading { display: none; }
+.ctd-safe-mode .ctd-safe-title { display: flex; }
+.ctd-safe-mode .ctd-filter-bar,
+.ctd-safe-mode .ctd-card,
+.ctd-safe-mode .ctd-table-wrap {
+	background: rgba(255,255,255,.035);
+	border-color: rgba(212,167,44,.28);
+	box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
+}
+.ctd-safe-mode .ctd-label,
+.ctd-safe-mode .ctd-card-label,
+.ctd-safe-mode .ctd-table thead th { color: #c9b47a; }
+.ctd-safe-mode .ctd-select,
+.ctd-safe-mode .ctd-input,
+.ctd-safe-mode .ctd-col-filter {
+	background: #0e1116; border-color: rgba(212,167,44,.32); color: #f3efe2; color-scheme: dark;
+}
+.ctd-safe-mode .ctd-select:focus,
+.ctd-safe-mode .ctd-input:focus,
+.ctd-safe-mode .ctd-col-filter:focus { border-color: #d4a72c; box-shadow: 0 0 0 3px rgba(212,167,44,.18); }
+.ctd-safe-mode .ctd-toggle { background: rgba(255,255,255,.06); }
+.ctd-safe-mode .ctd-toggle-btn { color: #9aa1ad; }
+.ctd-safe-mode .ctd-toggle-btn:hover { color: #f3efe2; }
+.ctd-safe-mode .ctd-refresh:not(.ctd-new) { background: #1c2028; border-color: rgba(212,167,44,.35); color: #ece6d4; }
+.ctd-safe-mode .ctd-refresh:not(.ctd-new):hover { background: #252a34; }
+.ctd-safe-mode .ctd-card::before { background: linear-gradient(180deg, #f5d77a, #a37a1c); }
+.ctd-safe-mode .ctd-card-in .ctd-card-value { color: #4ade80; }
+.ctd-safe-mode .ctd-card-out .ctd-card-value { color: #f87171; }
+.ctd-safe-mode .ctd-card-net .ctd-card-value { color: #f5d77a; }
+.ctd-safe-mode .ctd-card-count .ctd-card-value { color: #ece6d4; }
+.ctd-safe-mode .ctd-table thead th { background: rgba(212,167,44,.08); border-bottom-color: rgba(212,167,44,.25); }
+.ctd-safe-mode .ctd-table tbody td { border-bottom-color: rgba(255,255,255,.06); }
+.ctd-safe-mode .ctd-table tbody tr:hover { background: rgba(212,167,44,.07); }
+.ctd-safe-mode .ctd-link { color: #f5d77a; }
+.ctd-safe-mode .ctd-in { color: #4ade80; }
+.ctd-safe-mode .ctd-out { color: #f87171; }
+.ctd-safe-mode .ctd-tag-safe { background: linear-gradient(135deg, #f5d77a, #d4a72c); color: #1b1606; }
+.ctd-safe-mode .ctd-empty { color: #9aa1ad; }
+
+/* the desk behind it goes dark too (beats the theme's !important body /
+   .page-container backgrounds by specificity) */
+body.ctd-safe-body {
+	background:
+		radial-gradient(1400px 520px at 50% -120px, rgba(212,167,44,.16), transparent 70%),
+		linear-gradient(180deg, #0f1116 0%, #0b0d11 100%) fixed !important;
+	transition: background-color .45s ease;
+}
+body.ctd-safe-body .page-container,
+body.ctd-safe-body .page-body,
+body.ctd-safe-body .layout-main,
+body.ctd-safe-body .layout-main-section-wrapper,
+body.ctd-safe-body .layout-main-section,
+body.ctd-safe-body .page-content {
+	background: transparent !important;
+}
+body.ctd-safe-body .page-head,
+body.ctd-safe-body .page-head .page-head-content {
+	background: rgba(11, 13, 17, .92) !important;
+	border-bottom-color: rgba(212,167,44,.25) !important;
+}
+body.ctd-safe-body .page-head .title-text,
+body.ctd-safe-body .page-head .page-title { color: #f5d77a !important; }
+body.ctd-safe-body .ctd-safe-mode { box-shadow: 0 0 0 1px rgba(212,167,44,.15), 0 30px 80px rgba(0,0,0,.55); }
+
+/* rise-in after the door opens */
+.ctd-safe-entering .ctd-safe-title,
+.ctd-safe-entering .ctd-filter-bar,
+.ctd-safe-entering .ctd-card,
+.ctd-safe-entering .ctd-table-wrap { animation: ctdRise .6s cubic-bezier(.2,.8,.2,1) both; }
+.ctd-safe-entering .ctd-safe-title { animation-delay: 1.35s; }
+.ctd-safe-entering .ctd-filter-bar { animation-delay: 1.45s; }
+.ctd-safe-entering .ctd-card:nth-child(1) { animation-delay: 1.55s; }
+.ctd-safe-entering .ctd-card:nth-child(2) { animation-delay: 1.62s; }
+.ctd-safe-entering .ctd-card:nth-child(3) { animation-delay: 1.69s; }
+.ctd-safe-entering .ctd-card:nth-child(4) { animation-delay: 1.76s; }
+.ctd-safe-entering .ctd-table-wrap { animation-delay: 1.85s; }
+@keyframes ctdRise { from { opacity: 0; transform: translateY(18px) scale(.985); } to { opacity: 1; transform: none; } }
+
+/* the vault door */
+.ctd-vault-overlay {
+	position: absolute; inset: 0; z-index: 20;
+	border-radius: 20px; overflow: hidden;
+	display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+	padding-top: 60px; min-height: 420px;
+	background: radial-gradient(circle at 50% 185px, #232833 0%, #0b0d11 70%);
+	animation: ctdOverlayOut .45s ease 1.5s forwards;
+}
+.ctd-vault-frame { perspective: 1100px; }
+.ctd-vault-door {
+	position: relative; width: 250px; height: 250px; border-radius: 50%;
+	background:
+		radial-gradient(circle at 35% 30%, rgba(255,255,255,.18), transparent 45%),
+		conic-gradient(from 0deg, #4a505c, #2b3038, #5a616e, #2b3038, #4a505c, #2b3038, #5a616e, #2b3038, #4a505c);
+	border: 10px solid #8a6512;
+	box-shadow: 0 0 0 4px #d4a72c, 0 0 0 12px #2a2f39, 0 25px 60px rgba(0,0,0,.6), inset 0 0 40px rgba(0,0,0,.55);
+	transform-origin: left center;
+	animation: ctdDoorOpen .62s cubic-bezier(.55,.05,.4,1) .95s forwards;
+}
+.ctd-vault-bolts {
+	position: absolute; inset: 14px; border-radius: 50%;
+	background: repeating-conic-gradient(#d4a72c 0 3deg, transparent 3deg 30deg);
+	-webkit-mask: radial-gradient(circle, transparent 0 calc(50% - 9px), #000 calc(50% - 8px) 50%, transparent calc(50% + 1px));
+	        mask: radial-gradient(circle, transparent 0 calc(50% - 9px), #000 calc(50% - 8px) 50%, transparent calc(50% + 1px));
+	opacity: .9;
+}
+.ctd-vault-wheel {
+	position: absolute; left: 50%; top: 50%; width: 150px; height: 150px; margin: -75px 0 0 -75px;
+	filter: drop-shadow(0 4px 6px rgba(0,0,0,.5));
+	animation: ctdWheelSpin .9s cubic-bezier(.6,0,.3,1) .05s both;
+}
+.ctd-vault-glow {
+	position: absolute; left: 50%; top: 185px; width: 30px; height: 30px; margin: -15px 0 0 -15px;
+	border-radius: 50%; background: radial-gradient(circle, rgba(255,236,170,.95), rgba(212,167,44,.5) 40%, transparent 70%);
+	opacity: 0; animation: ctdGlow .9s ease-out 1.05s forwards;
+}
+.ctd-vault-caption {
+	margin-top: 34px; font-size: 12px; font-weight: 700; letter-spacing: .32em; text-transform: uppercase;
+	color: #d4a72c; animation: ctdCaption 1.2s ease both;
+}
+@keyframes ctdWheelSpin { from { transform: rotate(0); } to { transform: rotate(-540deg); } }
+@keyframes ctdDoorOpen {
+	0% { transform: rotateY(0); }
+	100% { transform: rotateY(-108deg); opacity: .15; }
+}
+@keyframes ctdGlow { 0% { opacity: 0; transform: scale(1); } 40% { opacity: 1; } 100% { opacity: 0; transform: scale(28); } }
+@keyframes ctdCaption { 0% { opacity: 0; letter-spacing: .6em; } 50% { opacity: 1; letter-spacing: .32em; } 100% { opacity: 0; } }
+@keyframes ctdOverlayOut { to { opacity: 0; visibility: hidden; } }
+
+@media (prefers-reduced-motion: reduce) {
+	.ctd-safe-name, .ctd-safe-btn.ctd-safe-on { animation: none; }
+	.ctd-vault-overlay { display: none; }
+	.ctd-safe-entering * { animation: none !important; }
+}
+@media (max-width: 560px) {
+	.ctd-safe-slot { margin-left: 0; }
+	.ctd-safe-mode { padding: 16px 12px 28px; }
+	.ctd-vault-door { width: 190px; height: 190px; }
+	.ctd-vault-wheel { width: 116px; height: 116px; margin: -58px 0 0 -58px; }
+	.ctd-vault-glow { top: 155px; }
+}

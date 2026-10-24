@@ -1,3 +1,24 @@
+// Safe logo: a vault with a gold door wheel. Each copy gets its own gradient id.
+var ctd_vault_seq = 0;
+function vault_svg(cls) {
+	var id = 'ctdGold' + (++ctd_vault_seq);
+	return `<svg class="ctd-vault-logo ${cls || ''}" viewBox="0 0 64 64" aria-hidden="true">
+		<defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1">
+			<stop offset="0" stop-color="#fde68a"/><stop offset=".5" stop-color="#d4a72c"/><stop offset="1" stop-color="#8a6512"/>
+		</linearGradient></defs>
+		<rect x="5" y="5" width="54" height="50" rx="9" fill="#1f2430" stroke="url(#${id})" stroke-width="3"/>
+		<rect x="11" y="55" width="10" height="5" rx="2" fill="url(#${id})"/>
+		<rect x="43" y="55" width="10" height="5" rx="2" fill="url(#${id})"/>
+		<circle cx="30" cy="30" r="15" fill="#2b3240" stroke="url(#${id})" stroke-width="2.5"/>
+		<g stroke="url(#${id})" stroke-width="2.5" stroke-linecap="round">
+			<line x1="30" y1="18" x2="30" y2="42"/><line x1="18" y1="30" x2="42" y2="30"/>
+			<line x1="21.5" y1="21.5" x2="38.5" y2="38.5"/><line x1="38.5" y1="21.5" x2="21.5" y2="38.5"/>
+		</g>
+		<circle cx="30" cy="30" r="4.5" fill="url(#${id})"/>
+		<rect x="50" y="19" width="4" height="22" rx="2" fill="url(#${id})"/>
+	</svg>`;
+}
+
 frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 	var page = frappe.ui.make_app_page({
 		parent: wrapper,
@@ -22,9 +43,16 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 	page.main.html(`
 		<div class="ctd-container">
 			<div class="ctd-header">
-				<div>
+				<div class="ctd-heading">
 					<h2 class="ctd-title">Cash Tracking</h2>
 					<p class="ctd-subtitle" id="ctd-subtitle">Cash entries</p>
+				</div>
+				<div class="ctd-safe-title">
+					${vault_svg('ctd-safe-title-logo')}
+					<div>
+						<h2 class="ctd-safe-name">The Safe</h2>
+						<p class="ctd-safe-sub">Cash going into and coming out of the safe</p>
+					</div>
 				</div>
 				<div class="ctd-actions">
 					<button class="ctd-refresh ctd-new" id="ctd-new-motley" title="New Motley Cash Tracking" style="display:none;">
@@ -32,6 +60,9 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 					</button>
 					<button class="ctd-refresh ctd-new" id="ctd-new-tsbc" title="New TSBC Cash Tracking" style="display:none;">
 						<span class="ctd-refresh-icon">&#43;</span> TSBC Cash
+					</button>
+					<button class="ctd-refresh ctd-new ctd-new-safe" id="ctd-new-safe" title="New Safe Cash Tracking" style="display:none;">
+						${vault_svg('ctd-btn-logo')} <span class="ctd-refresh-icon">&#43;</span> Safe Cash
 					</button>
 					<button class="ctd-refresh ctd-new" id="ctd-new-personal" title="New Personal Cash Tracking">
 						<span class="ctd-refresh-icon">&#43;</span> Personal Cash
@@ -65,6 +96,12 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 				<div class="ctd-filter-group">
 					<label class="ctd-label">To</label>
 					<input type="date" id="ctd-to" class="ctd-input" />
+				</div>
+				<div class="ctd-filter-group ctd-safe-slot" id="ctd-safe-group" style="display:none;">
+					<label class="ctd-label">Vault</label>
+					<button class="ctd-safe-btn" id="ctd-toggle-safe" data-val="safe" title="Open the Safe">
+						${vault_svg('ctd-safe-btn-logo')}<span>Safe</span>
+					</button>
 				</div>
 			</div>
 
@@ -160,7 +197,6 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 	// it in get_entries; this only keeps the UI from offering a dead option.
 	function show_motley(allowed) {
 		$('#ctd-toggle-motley').toggle(!!allowed);
-		$('#ctd-new-motley').toggle(!!allowed);
 		if (!allowed && state.tracker === 'motley') {
 			select_tracker('personal');
 		}
@@ -169,8 +205,16 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 	// Mirror of show_motley for the TSBC ledger.
 	function show_tsbc(allowed) {
 		$('#ctd-toggle-tsbc').toggle(!!allowed);
-		$('#ctd-new-tsbc').toggle(!!allowed);
 		if (!allowed && state.tracker === 'tsbc') {
+			select_tracker('personal');
+		}
+	}
+
+	// Mirror of show_motley for the Safe ledger. Its button sits on its own at
+	// the right of the filter bar, not in the tracker toggle.
+	function show_safe(allowed) {
+		$('#ctd-safe-group').toggle(!!allowed);
+		if (!allowed && state.tracker === 'safe') {
 			select_tracker('personal');
 		}
 	}
@@ -179,6 +223,53 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 		state.tracker = val;
 		$('#ctd-tracker-toggle .ctd-toggle-btn').removeClass('ctd-active');
 		$('#ctd-tracker-toggle .ctd-toggle-btn[data-val="' + val + '"]').addClass('ctd-active');
+		set_safe_mode(val === 'safe');
+		// Only the "+ New" button of the tracker being viewed. A tracker the user
+		// may not view is never selected, so its button never shows either.
+		$('.ctd-actions .ctd-new').hide();
+		$('#ctd-new-' + val).show();
+	}
+
+	// The Safe has its own look (dark steel and gold) and is entered through a
+	// vault door: the wheel spins, the door swings open, the page rises in.
+	function set_safe_mode(on) {
+		var $c = page.main.find('.ctd-container');
+		var entering = on && !$c.hasClass('ctd-safe-mode');
+		$c.toggleClass('ctd-safe-mode', on);
+		// The whole desk background goes dark with it, not just this page's box.
+		$('body').toggleClass('ctd-safe-body', on);
+		$('#ctd-toggle-safe').toggleClass('ctd-safe-on', on);
+		if (entering) play_vault_door($c);
+		if (!on) $c.find('.ctd-vault-overlay').remove();
+	}
+
+	function play_vault_door($c) {
+		if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+		$c.find('.ctd-vault-overlay').remove();
+		$c.removeClass('ctd-safe-entering');
+		void $c[0].offsetWidth;   // restart the rise-in animation
+		$c.addClass('ctd-safe-entering');
+		var $overlay = $(`
+			<div class="ctd-vault-overlay" aria-hidden="true">
+				<div class="ctd-vault-glow"></div>
+				<div class="ctd-vault-frame">
+					<div class="ctd-vault-door">
+						<div class="ctd-vault-bolts"></div>
+						<svg class="ctd-vault-wheel" viewBox="0 0 100 100">
+							<circle cx="50" cy="50" r="30" fill="none" stroke="#d4a72c" stroke-width="5"/>
+							<g stroke="#e9c766" stroke-width="5" stroke-linecap="round">
+								<line x1="50" y1="8" x2="50" y2="92"/><line x1="8" y1="50" x2="92" y2="50"/>
+								<line x1="20" y1="20" x2="80" y2="80"/><line x1="80" y1="20" x2="20" y2="80"/>
+							</g>
+							<circle cx="50" cy="50" r="11" fill="#d4a72c" stroke="#8a6512" stroke-width="2"/>
+						</svg>
+					</div>
+				</div>
+				<div class="ctd-vault-caption">Opening the Safe</div>
+			</div>`);
+		$c.append($overlay);
+		setTimeout(function () { $overlay.remove(); }, 2000);
+		setTimeout(function () { $c.removeClass('ctd-safe-entering'); }, 3200);
 	}
 
 	// Only Finance sees this column at all. A submitted entry can be ticked once
@@ -203,6 +294,7 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 	function doctype_of(tracker) {
 		if (tracker === 'Personal') return 'Personal Cash Tracking';
 		if (tracker === 'TSBC') return 'TSBC Cash Tracking';
+		if (tracker === 'Safe') return 'Safe Cash Tracking';
 		return 'Motley Cash Tracking';
 	}
 
@@ -329,7 +421,7 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 			}
 			data.push(line);
 		});
-		var tracker = { motley: 'Motley', tsbc: 'TSBC' }[state.tracker] || 'Personal';
+		var tracker = { motley: 'Motley', tsbc: 'TSBC', safe: 'Safe' }[state.tracker] || 'Personal';
 		frappe.tools.downloadify(data, null,
 			'Cash Tracking - ' + tracker + ' - ' + frappe.datetime.get_today());
 	}
@@ -361,6 +453,8 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 				show_motley(state.allow_motley);
 				state.allow_tsbc = !!data.allow_tsbc;
 				show_tsbc(state.allow_tsbc);
+				state.allow_safe = !!data.allow_safe;
+				show_safe(state.allow_safe);
 
 				var persons = data.persons || [];
 				var shared = data.shared || [];
@@ -403,10 +497,17 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 		});
 	}
 
+	$('#ctd-toggle-safe').on('click', function () {
+		if (!state.allow_safe || state.tracker === 'safe') { return; }
+		select_tracker('safe');
+		load();
+	});
+
 	$('#ctd-tracker-toggle').on('click', '.ctd-toggle-btn', function () {
 		var val = $(this).data('val');
 		if (val === 'motley' && !state.allow_motley) { return; }
 		if (val === 'tsbc' && !state.allow_tsbc) { return; }
+		if (val === 'safe' && !state.allow_safe) { return; }
 		select_tracker(val);
 		load();
 	});
@@ -461,6 +562,7 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 	$('#ctd-refresh').on('click', function () { load(); });
 	$('#ctd-new-motley').on('click', function () { frappe.new_doc('Motley Cash Tracking'); });
 	$('#ctd-new-tsbc').on('click', function () { frappe.new_doc('TSBC Cash Tracking'); });
+	$('#ctd-new-safe').on('click', function () { frappe.new_doc('Safe Cash Tracking'); });
 	$('#ctd-new-personal').on('click', function () { frappe.new_doc('Personal Cash Tracking'); });
 // Apply options passed in from the Motley / Personal form buttons
 	// (tracker to preselect + a from/to date range), then reflect them in the UI.
@@ -478,6 +580,10 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 
 	// Expose so on_page_show can re-apply presets on repeat visits (the page
 	// object is created once; on_page_load does not run again).
+	// Leaving the page must not leave the rest of the desk in the vault colours.
+	$(wrapper).on('hide', function () { $('body').removeClass('ctd-safe-body'); });
+	$(wrapper).on('show', function () { $('body').toggleClass('ctd-safe-body', state.tracker === 'safe'); });
+
 	page.apply_route_options = apply_route_options;
 	page.reload_data = load;
 

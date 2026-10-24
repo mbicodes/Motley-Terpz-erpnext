@@ -1,0 +1,232 @@
+{
+ "actions": [],
+ "autoname": "format:SCT-{YYYY}-{#####}",
+ "creation": "2026-10-24 10:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "cash_tracker_person",
+  "user",
+  "employee",
+  "transaction_date",
+  "money_in",
+  "money_out",
+  "column_break_1",
+  "transaction_type",
+  "invoice_number",
+  "business",
+  "section_receipt",
+  "receipt",
+  "column_break_receipt",
+  "receipt_preview",
+  "transaction_notes",
+  "processed_section",
+  "processed",
+  "processed_by",
+  "processed_on",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "description": "Pick the tracker person \u2014 User and Employee fill in automatically.",
+   "fieldname": "cash_tracker_person",
+   "fieldtype": "Link",
+   "ignore_user_permissions": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Cash Tracker Person",
+   "options": "Cash Tracker Person",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "cash_tracker_person.user",
+   "fieldname": "user",
+   "fieldtype": "Link",
+   "ignore_user_permissions": 1,
+   "label": "User",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fetch_from": "cash_tracker_person.employee",
+   "fieldname": "employee",
+   "fieldtype": "Link",
+   "ignore_user_permissions": 1,
+   "label": "Employee",
+   "options": "Employee",
+   "read_only": 1
+  },
+  {
+   "default": "Today",
+   "description": "The day the cash went into or came out of the safe.",
+   "fieldname": "transaction_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Transaction Date",
+   "reqd": 1
+  },
+  {
+   "description": "ONLY fill this out if money was put INTO the safe. Put the amount.",
+   "fieldname": "money_in",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Money In"
+  },
+  {
+   "description": "ONLY fill this out if money was taken OUT of the safe. Put the amount.",
+   "fieldname": "money_out",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Money Out"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "transaction_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Transaction Type",
+   "options": "\nMotley - Hardware\nClient - Hardware\nClient Payment Towards Invoice\nFresh Frozen Procurement\nTolling Partner Payment\nMotley - Packaging\nLab Testing\nPayroll\nLab Consumables\nMarketing\nSeeds/Clones for Farm\nRent\nLab Setup\nLab Supplies\nCollecting OLD AR\nReimbursement\nOther",
+   "reqd": 1
+  },
+  {
+   "description": "Required for Hardware and Client Payment Towards Invoice transactions.",
+   "fieldname": "invoice_number",
+   "fieldtype": "Link",
+   "ignore_user_permissions": 1,
+   "label": "Invoice # (Sales Order)",
+   "mandatory_depends_on": "eval:[\"Motley - Hardware\", \"Client - Hardware\", \"Client Payment Towards Invoice\"].includes(doc.transaction_type)",
+   "options": "Sales Order"
+  },
+  {
+   "description": "Which company was this for? If unsure \u2014 contact MBI.",
+   "fieldname": "business",
+   "fieldtype": "Link",
+   "ignore_user_permissions": 1,
+   "in_standard_filter": 1,
+   "label": "Business",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_receipt",
+   "fieldtype": "Section Break"
+  },
+  {
+   "description": "Upload a photo of the cash count, slip, etc.",
+   "fieldname": "receipt",
+   "fieldtype": "Attach",
+   "label": "Receipt"
+  },
+  {
+   "fieldname": "column_break_receipt",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "receipt_preview",
+   "fieldtype": "HTML",
+   "label": "Receipt Preview"
+  },
+  {
+   "description": "Add any additional notes here.",
+   "fieldname": "transaction_notes",
+   "fieldtype": "Small Text",
+   "label": "Transaction Notes",
+   "reqd": 1
+  },
+  {
+   "fieldname": "processed_section",
+   "fieldtype": "Section Break",
+   "label": "Finance",
+   "permlevel": 1
+  },
+  {
+   "fieldname": "processed",
+   "fieldtype": "Check",
+   "label": "Processed",
+   "default": "0",
+   "permlevel": 1,
+   "allow_on_submit": 1,
+   "description": "Ticked by Finance once this has been posted to the books."
+  },
+  {
+   "fieldname": "processed_by",
+   "fieldtype": "Link",
+   "options": "User",
+   "label": "Processed By",
+   "read_only": 1,
+   "permlevel": 1,
+   "allow_on_submit": 1
+  },
+  {
+   "fieldname": "processed_on",
+   "fieldtype": "Datetime",
+   "label": "Processed On",
+   "read_only": 1,
+   "permlevel": 1,
+   "allow_on_submit": 1
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Safe Cash Tracking",
+   "print_hide": 1,
+   "read_only": 1
+  }
+ ],
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-10-24 12:00:00",
+ "modified_by": "Administrator",
+ "module": "Cash Management",
+ "name": "Safe Cash Tracking",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "create": 1,
+   "submit": 1,
+   "write": 1,
+   "role": "Safe Cash Tracker"
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "share": 1,
+   "submit": 1,
+   "write": 1,
+   "role": "System Manager"
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounts Manager"
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "transaction_date",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

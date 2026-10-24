@@ -75,6 +75,15 @@
    "description": "Only people with this ticked may create TSBC Cash Tracking entries, or see the TSBC filter on the Cash Tracking page. Personal entries are unaffected."
   },
   {
+   "fieldname": "allow_for_safe",
+   "fieldtype": "Check",
+   "label": "Allow For Safe",
+   "default": "0",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "description": "Only people with this ticked may create Safe Cash Tracking entries (cash put into or taken out of the safe), or see the Safe filter on the Cash Tracking page."
+  },
+  {
    "fieldname": "balances_section",
    "fieldtype": "Section Break",
    "label": "Live Balances (auto-updated)"

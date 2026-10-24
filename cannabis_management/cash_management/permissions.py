@@ -111,6 +111,29 @@ def person_allows_tsbc(person):
     return bool(frappe.db.get_value("Cash Tracker Person", person, "allow_for_tsbc"))
 
 
+# ── Safe eligibility ──────────────────────────────────────────────────────────
+# The Safe ledger only records cash going into and out of the safe. Same model
+# as TSBC, with its own "Allow For Safe" switch on Cash Tracker Person.
+
+def can_use_safe(user=None):
+    """True if this user may file Safe entries. Cash admins always may."""
+    user = user or frappe.session.user
+    if is_cash_admin(user):
+        return True
+    return bool(frappe.db.get_value(
+        "Cash Tracker Person",
+        {"user": user, "is_active": 1, "allow_for_safe": 1},
+        "name",
+    ))
+
+
+def person_allows_safe(person):
+    """True if a given Cash Tracker Person is flagged for Safe entries."""
+    if not person:
+        return False
+    return bool(frappe.db.get_value("Cash Tracker Person", person, "allow_for_safe"))
+
+
 # ── List-view filtering ────────────────────────────────────────────────────────
 
 def cash_ledger_entry_query(user):
@@ -307,6 +330,45 @@ def tsbc_cash_tracking_has_permission(doc, ptype="read", user=None):
         return True
     # The cash tracking person may READ their own entries even if a colleague
     # entered them (owner != them).
+    if ptype == "read" and doc.get("cash_tracker_person") in _my_persons(user):
+        return True
+    return False
+
+
+# ── Safe Cash Tracking — strictly own records ───────────────────────────────
+
+def safe_cash_tracking_query(user):
+    """List-level filter: full-view users (cash admins / Accounts Manager) see
+    all; everyone else sees records they own OR that belong to their own Cash
+    Tracker Person (entered on their behalf)."""
+    user = user or frappe.session.user
+    if is_cash_full_view(user):
+        return ""
+    conds = [f"`tabSafe Cash Tracking`.owner = {frappe.db.escape(user)}"]
+    persons = _my_persons(user)
+    if persons:
+        plist = ", ".join(frappe.db.escape(p) for p in persons)
+        conds.append(f"`tabSafe Cash Tracking`.cash_tracker_person IN ({plist})")
+    return "(" + " OR ".join(conds) + ")"
+
+
+def safe_cash_tracking_has_permission(doc, ptype="read", user=None):
+    """Document-level gate, the TSBC rules with "Allow For Safe": cash admins
+    have full access; Accounts Manager reads everyone's; everyone else only
+    their own records, never cancel, and writing needs the Safe flag."""
+    user = user or frappe.session.user
+    if is_cash_admin(user):
+        return True
+    if ptype == "read" and is_accounts_manager(user):
+        return True
+    if ptype == "cancel":
+        return False
+    if ptype in ("create", "write", "submit", "amend") and not can_use_safe(user):
+        return False
+    if doc is None or isinstance(doc, str):
+        return True  # doctype-level access is decided by role permissions
+    if (doc.get("owner") or user) == user:
+        return True
     if ptype == "read" and doc.get("cash_tracker_person") in _my_persons(user):
         return True
     return False

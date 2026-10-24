@@ -282,6 +282,7 @@ permission_query_conditions = {
     "Personal Cash Tracking": "cannabis_management.cash_management.permissions.personal_cash_tracking_query",
     "Motley Cash Tracking":   "cannabis_management.cash_management.permissions.motley_cash_tracking_query",
     "TSBC Cash Tracking":     "cannabis_management.cash_management.permissions.tsbc_cash_tracking_query",
+    "Safe Cash Tracking":     "cannabis_management.cash_management.permissions.safe_cash_tracking_query",
 }
 
 has_permission = {
@@ -292,6 +293,7 @@ has_permission = {
     "Personal Cash Tracking": "cannabis_management.cash_management.permissions.personal_cash_tracking_has_permission",
     "Motley Cash Tracking":   "cannabis_management.cash_management.permissions.motley_cash_tracking_has_permission",
     "TSBC Cash Tracking":     "cannabis_management.cash_management.permissions.tsbc_cash_tracking_has_permission",
+    "Safe Cash Tracking":     "cannabis_management.cash_management.permissions.safe_cash_tracking_has_permission",
 }
 
 
@@ -415,6 +417,9 @@ doc_events = {
         "before_cancel": "cannabis_management.cash_management.utils.cash_utils.restrict_cancel",
     },
     "TSBC Cash Tracking": {
+        "before_cancel": "cannabis_management.cash_management.utils.cash_utils.restrict_cancel",
+    },
+    "Safe Cash Tracking": {
         "before_cancel": "cannabis_management.cash_management.utils.cash_utils.restrict_cancel",
     },
     "Personal Cash Tracking": {

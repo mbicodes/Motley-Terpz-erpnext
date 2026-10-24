@@ -20,6 +20,7 @@ import frappe
 from cannabis_management.cash_management.permissions import (
     can_mark_processed,
     can_use_motley,
+    can_use_safe,
     can_use_tsbc,
     is_cash_admin,
 )
@@ -90,6 +91,15 @@ def _can_view_tsbc(persons):
     )
 
 
+def _can_view_safe(persons):
+    """Safe rows are viewable when any person in view is flagged for Safe."""
+    if not persons:
+        return False
+    return bool(
+        frappe.db.exists("Cash Tracker Person", {"name": ["in", persons], "allow_for_safe": 1})
+    )
+
+
 @frappe.whitelist()
 def get_persons():
     """Options for the person filter.
@@ -109,6 +119,7 @@ def get_persons():
             "own": _own_person(),
             "allow_motley": True,
             "allow_tsbc": True,
+            "allow_safe": True,
         }
 
     own = _own_person()
@@ -133,6 +144,9 @@ def get_persons():
         # Same pair for the TSBC ledger.
         "allow_tsbc": _can_view_tsbc(visible),
         "can_create_tsbc": can_use_tsbc(),
+        # And for the Safe ledger.
+        "allow_safe": _can_view_safe(visible),
+        "can_create_safe": can_use_safe(),
     }
 
 
@@ -161,6 +175,8 @@ def get_entries(tracker="personal", person=None, from_date=None, to_date=None):
             tracker = "personal"
         if tracker == "tsbc" and not _can_view_tsbc(visible):
             tracker = "personal"
+        if tracker == "safe" and not _can_view_safe(visible):
+            tracker = "personal"
         person = person if person in visible else (visible if not person else visible[0])
     else:
         # Full-view users (cash admins / Accounts Manager) may view any person's
@@ -173,6 +189,8 @@ def get_entries(tracker="personal", person=None, from_date=None, to_date=None):
         rows += _fetch_motley(person, from_date, to_date)
     elif tracker == "tsbc":
         rows += _fetch_tsbc(person, from_date, to_date)
+    elif tracker == "safe":
+        rows += _fetch_safe(person, from_date, to_date)
     else:
         rows += _fetch_personal(person, from_date, to_date)
 
@@ -245,6 +263,25 @@ def _fetch_tsbc(person, from_date, to_date):
     return recs
 
 
+def _fetch_safe(person, from_date, to_date):
+    recs = frappe.get_all(
+        "Safe Cash Tracking",
+        filters=_base_filters(person, from_date, to_date),
+        fields=[
+            "name", "transaction_date as date", "cash_tracker_person as person",
+            "user", "transaction_type as category", "business",
+            "money_in", "money_out", "docstatus", "transaction_notes as notes",
+            "invoice_number as sales_order", "employee",
+            "processed", "processed_by", "processed_on",
+        ],
+        order_by="transaction_date desc",
+    )
+    for r in recs:
+        r["tracker"] = "Safe"
+        r["status"] = STATUS_MAP.get(r.pop("docstatus"), "")
+    return recs
+
+
 def _fetch_personal(person, from_date, to_date):
     recs = frappe.get_all(
         "Personal Cash Tracking",
@@ -297,6 +334,7 @@ def set_processed(tracker, name, processed):
     doctype = {
         "motley": "Motley Cash Tracking",
         "tsbc": "TSBC Cash Tracking",
+        "safe": "Safe Cash Tracking",
     }.get(tracker, "Personal Cash Tracking")
     if not frappe.db.exists(doctype, name):
         frappe.throw(f"{doctype} {name} not found")
