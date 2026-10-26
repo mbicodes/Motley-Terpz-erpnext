@@ -34,8 +34,9 @@ PENDING_TTL_SECONDS = 6 * 60 * 60
 # stored as Approximate so it can be filtered out.
 APPROXIMATE_ABOVE_M = 100
 
-# Never locked out by a refusal, so there is always a way back in to fix things.
-LOGOUT_EXEMPT_USERS = ("Administrator",)
+# Not logged out on a refusal (the Denied row is still written). Administrator so
+# there is always a way back in to fix things; the rest are business exceptions.
+LOGOUT_EXEMPT_USERS = ("Administrator", "nikki@motleyterpz.com")
 
 STATUSES = ("Captured", "Approximate", "Denied", "Unavailable", "Not Supported")
 

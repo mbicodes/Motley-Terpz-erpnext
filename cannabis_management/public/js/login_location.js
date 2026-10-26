@@ -3,7 +3,8 @@
 // login handler; once the browser grants access the form is submitted again and
 // passes through. A refusal after login still ends the session server-side.
 (function () {
-	const EXEMPT = ["administrator"];
+	// Keep in step with LOGOUT_EXEMPT_USERS in time_clock/login_location.py.
+	const EXEMPT = ["administrator", "nikki@motleyterpz.com"];
 	let allowed = false;
 	let asking = false;
 

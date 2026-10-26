@@ -34,7 +34,7 @@ csrf_exempt = [
 # include js, css files in header of web template
 # web_include_css = "/assets/cannabis_management/css/cannabis_management.css"
 # Portal logins (e.g. /timeclock) need the login location capture too.
-web_include_js = ["/assets/cannabis_management/js/login_location.js?v=4"]
+web_include_js = ["/assets/cannabis_management/js/login_location.js?v=5"]
 
 # include custom scss in every website theme (without file extension ".scss")
 # website_theme_scss = "cannabis_management/public/scss/website"
@@ -64,7 +64,7 @@ app_include_js = [
     # "Break / Make Connections" menu item on submittable forms -> Connection Tool.
     "/assets/cannabis_management/js/connection_tool_menu.js?v=1",
     # Captures the user's coordinates once per login -> User Login Location.
-    "/assets/cannabis_management/js/login_location.js?v=4",
+    "/assets/cannabis_management/js/login_location.js?v=5",
     # Logs the desk out after 45 minutes with no activity in any tab.
     "/assets/cannabis_management/js/idle_logout.js?v=1",
     # About dialog: "Website" links to alltechvirtual.com instead of frappe.io,
