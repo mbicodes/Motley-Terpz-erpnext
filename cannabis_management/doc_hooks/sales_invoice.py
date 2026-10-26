@@ -48,6 +48,9 @@ TSBC_SALES_INCOME = "Sales Fresh Frozen - TSBC"
 
 
 def _set_tsbc_income_account(doc):
+    # before_validate is also wired to Sales Order, whose lines carry no income_account.
+    if doc.doctype != "Sales Invoice":
+        return
     if doc.company != TSBC_COMPANY or doc.get("is_opening") == "Yes" or not doc.customer:
         return
 
