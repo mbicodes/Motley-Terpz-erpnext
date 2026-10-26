@@ -67,8 +67,9 @@ app_include_js = [
     "/assets/cannabis_management/js/login_location.js?v=4",
     # Logs the desk out after 45 minutes with no activity in any tab.
     "/assets/cannabis_management/js/idle_logout.js?v=1",
-    # About dialog: "Website" links to alltechvirtual.com instead of frappe.io.
-    "/assets/cannabis_management/js/about_branding.js?v=1",
+    # About dialog: "Website" links to alltechvirtual.com instead of frappe.io,
+    # Frappe's source/blog/forum/social lines removed.
+    "/assets/cannabis_management/js/about_branding.js?v=2",
 ]
 
 

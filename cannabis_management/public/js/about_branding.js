@@ -1,9 +1,20 @@
 // About dialog: the "Website" line points at All Tech Virtual instead of
-// frappe.io. Frappe's about.js hard-codes that link in the dialog's HTML (it is
-// not translatable text), so the link is swapped right after the dialog is
-// built. The app title and the © line are handled server-side in branding/.
+// frappe.io, and Frappe's own source/blog/forum/social lines are removed.
+// Frappe's about.js hard-codes those links in the dialog's HTML (they are not
+// translatable text), so the dialog is edited right after it is built. The app
+// title and the © line are handled server-side in branding/.
 (function () {
 	const WEBSITE = "https://alltechvirtual.com";
+	// Each of these sits in its own <p>; the whole line goes.
+	const HIDDEN_LINKS = [
+		"https://github.com/frappe",
+		"https://frappe.io/blog",
+		"https://discuss.frappe.io",
+		"https://linkedin.com/company/frappe-tech",
+		"https://x.com/frappetech",
+		"https://www.youtube.com/@frappetech",
+		"https://www.instagram.com/frappetech",
+	];
 
 	frappe.provide("frappe.ui.misc");
 	const frappe_about = frappe.ui.misc.about;
@@ -13,10 +24,9 @@
 		const built_now = !frappe.ui.misc.about_dialog;
 		const result = frappe_about.apply(this, arguments);
 		if (built_now && frappe.ui.misc.about_dialog) {
-			$(frappe.ui.misc.about_dialog.body)
-				.find("a[href='https://frappe.io/']")
-				.attr("href", WEBSITE)
-				.text(WEBSITE);
+			const $body = $(frappe.ui.misc.about_dialog.body);
+			$body.find("a[href='https://frappe.io/']").attr("href", WEBSITE).text(WEBSITE);
+			HIDDEN_LINKS.forEach((href) => $body.find(`a[href='${href}']`).closest("p").remove());
 		}
 		return result;
 	};
