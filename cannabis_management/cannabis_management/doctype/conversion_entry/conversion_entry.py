@@ -307,14 +307,17 @@ class ConversionEntry(Document):
 
 		# ── Source (outgoing) items ───────────────────────────────────────────
 		total_source_value = 0.0
-		for item_code, qty in [
-			(row.raw_material_1, row.qty_rm_1),
-			(row.raw_material_2, row.qty_rm_2),
-			(row.raw_material_3, row.qty_rm_3),
-			(row.raw_material_4, row.qty_rm_4),
-			(row.raw_material_5, row.qty_rm_5),
-			(row.raw_material_6, row.qty_rm_6),
-			(row.raw_material_7, row.qty_rm_7),
+		# Each raw material carries its own Metrc Package onto its own Stock
+		# Entry line (custom_source_package), never onto the parent: one Repack
+		# consumes several packages and a single parent field could only name one.
+		for item_code, qty, package in [
+			(row.raw_material_1, row.qty_rm_1, row.metrc_package_1),
+			(row.raw_material_2, row.qty_rm_2, row.metrc_package_2),
+			(row.raw_material_3, row.qty_rm_3, row.metrc_package_3),
+			(row.raw_material_4, row.qty_rm_4, row.metrc_package_4),
+			(row.raw_material_5, row.qty_rm_5, row.metrc_package_5),
+			(row.raw_material_6, row.qty_rm_6, row.metrc_package_6),
+			(row.raw_material_7, row.qty_rm_7, row.metrc_package_7),
 		]:
 			if item_code and flt(qty) > 0:
 				val_rate = flt(frappe.db.get_value(
@@ -326,18 +329,23 @@ class ConversionEntry(Document):
 					"s_warehouse": row.source_warehouse,
 					"is_finished_item": 0, "allow_zero_valuation_rate": 1,
 				}
+				if package:
+					se_item["custom_source_package"] = package
 				se.append("items", se_item)
 				has_items = True
 
 		# ── Finished (incoming) items — distribute source value by qty ratio ──
+		# Same on the way out: the tag a finished good was given goes on that
+		# good's line (custom_target_package), so a two-output Repack keeps the
+		# two tags apart.
 		fg_pairs = [
-			(row.finished_good_1, row.qty_fg_1),
-			(row.finished_good_2, row.qty_fg_2),
-			(row.finished_good_3, row.qty_fg_3),
+			(row.finished_good_1, row.qty_fg_1, row.metrc_tag_fg_1),
+			(row.finished_good_2, row.qty_fg_2, row.metrc_tag_fg_2),
+			(row.finished_good_3, row.qty_fg_3, row.metrc_tag_fg_3),
 		]
-		total_fg_qty = sum(flt(qty) for _, qty in fg_pairs if qty and flt(qty) > 0)
+		total_fg_qty = sum(flt(qty) for _, qty, _tag in fg_pairs if qty and flt(qty) > 0)
 
-		for item_code, qty in fg_pairs:
+		for item_code, qty, tag in fg_pairs:
 			if item_code and flt(qty) > 0:
 				qty = flt(qty)
 				proportion   = qty / total_fg_qty if total_fg_qty else 0
@@ -348,6 +356,8 @@ class ConversionEntry(Document):
 					"t_warehouse": row.target_warehouse, "is_finished_item": 1,
 					"basic_rate": basic_rate, "basic_amount": basic_amount,
 				}
+				if tag:
+					se_item["custom_target_package"] = tag
 				se.append("items", se_item)
 				has_items = True
 
