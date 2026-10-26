@@ -49,11 +49,11 @@ REACH_OUT_FIELD = "custom_reach_out_status"
 NOT_REACHED_OUT = "Haven't Reached Out"
 REACHED_OUT = "Reached Out"
 REACH_OUT_STATUSES = [
-	NOT_REACHED_OUT,
+	REACHED_OUT,
 	"Ready to reach out",
 	"Ready to reach out - Sales Rep",
 	"Find Info",
-	REACHED_OUT,
+	NOT_REACHED_OUT,
 ]
 
 AR_SEGMENT_DOCTYPE = "AR Segment"

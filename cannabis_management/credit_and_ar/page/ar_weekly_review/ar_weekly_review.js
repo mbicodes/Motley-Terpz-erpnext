@@ -197,7 +197,7 @@ function arw_groups(page, pool) {
 			rows: pool.filter((r) => (r.segment || '') === k),
 		}));
 	} else if (mode === 'reach_out') {
-		// "Haven't Reached Out" first: that is the pile still to be worked.
+		// In REACH_OUT_STATUSES order (ar_legacy.py), Reached Out first.
 		groups = (page.arw.meta.reach_out_statuses || [ARW_NOT_REACHED]).map((k) => ({
 			key: k,
 			def: { full: k, desc: (ARW_REACH_OUT_DEF[k] || {}).desc || '' },
@@ -268,6 +268,7 @@ frappe.pages['ar-weekly-review'].on_page_load = function (wrapper) {
 				<div class="arw-seg" id="arw-ledgerseg">
 					<button data-ledger="New AR" class="on">${__('New AR')}</button>
 					<button data-ledger="Legacy AR">${__('Legacy AR')}</button>
+					<button data-ledger="all">${__('New + Legacy AR')}</button>
 				</div>
 				<div class="arw-spacer"></div>
 				<span class="arw-count" id="arw-count"></span>
@@ -392,7 +393,8 @@ function visible_rows(page) {
 	const ui = page.arw.ui;
 	const needle = (ui.search || '').toLowerCase();
 	return page.arw.rows.filter(function (r) {
-		if (r.ledger !== ui.ledger) return false;
+		// "all" is New + Legacy AR: both ledgers, still one row per ledger.
+		if (ui.ledger !== 'all' && r.ledger !== ui.ledger) return false;
 		if (needle && r.customer.toLowerCase().indexOf(needle) === -1) return false;
 		return true;
 	});
