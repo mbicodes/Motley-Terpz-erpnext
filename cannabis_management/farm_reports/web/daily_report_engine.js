@@ -674,7 +674,7 @@
         var dlg = h('dialog', { class: 'dr-dialog', 'aria-labelledby': 'dr-dlg-title' }, [
             h('div', { class: 'dr-dialog-head' }, [
                 h('h2', { id: 'dr-dlg-title', text: 'Data that would be saved' }),
-                h('p', { text: 'Preview mode: nothing was sent. In ERPNext this creates a submitted ' + CFG.doctype + '.' })
+                h('p', { text: 'Preview mode: nothing was sent. In MotleyERP this creates a submitted ' + CFG.doctype + '.' })
             ]),
             h('pre', { text: JSON.stringify(Object.assign({ doctype: CFG.doctype }, payload, CFG.submitOnSave ? { docstatus: 1 } : {}), null, 2) }),
             h('div', { class: 'dr-dialog-foot' }, [h('button', { type: 'button', class: 'dr-btn', text: 'Close', onclick: function () { dlg.close(); } })])

@@ -34,7 +34,7 @@ PAGES = [
 
 NOTIFICATION_MESSAGE = """<p>The {{ doc.doctype }} for {{ frappe.utils.formatdate(doc.report_date) }} was submitted by {{ frappe.db.get_value("User", doc.submitted_by, "full_name") or doc.submitted_by }}.</p>
 <p>The full report is attached as a PDF.</p>
-<p><a href="{{ frappe.utils.get_url_to_form(doc.doctype, doc.name) }}">Open {{ doc.name }} in ERPNext</a></p>
+<p><a href="{{ frappe.utils.get_url_to_form(doc.doctype, doc.name) }}">Open {{ doc.name }} in MotleyERP</a></p>
 """
 
 

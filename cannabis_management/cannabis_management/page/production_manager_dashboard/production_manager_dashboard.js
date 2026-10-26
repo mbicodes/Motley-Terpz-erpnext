@@ -404,7 +404,7 @@ frappe.pages['production-manager-dashboard'].on_page_load = function (wrapper) {
     <div>
       <div class="pm-brand-over">Masters Touch Manufacturing</div>
       <div class="pm-brand-name">Production Manager</div>
-      <div class="pm-brand-sub">Operational Control &nbsp;·&nbsp; ERPNext v15</div>
+      <div class="pm-brand-sub">Operational Control &nbsp;·&nbsp; MotleyERP</div>
     </div>
     <div class="pm-hdr-right">
       <div class="pm-hdr-period" id="pm-period-label">—</div>

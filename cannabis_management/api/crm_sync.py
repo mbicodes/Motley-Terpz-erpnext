@@ -82,7 +82,7 @@ def sync_now(lead_name=None):
     if lead_name:
         lead = frappe.get_value("CRM Lead", lead_name, ["custom_erp_customer"], as_dict=True)
         if not lead or not lead.custom_erp_customer:
-            frappe.throw("Lead has no linked ERPNext Customer (custom_erp_customer).")
+            frappe.throw("Lead has no linked MotleyERP Customer (custom_erp_customer).")
         _sync_lead(lead_name, lead.custom_erp_customer)
         frappe.db.commit()
         return f"synced {lead_name}"

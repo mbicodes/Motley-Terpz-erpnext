@@ -427,7 +427,7 @@ frappe.pages['manufacturing-dashboard'].on_page_load = function (wrapper) {
     <div>
       <div class="mtm-brand-over">Masters Touch Manufacturing</div>
       <div class="mtm-brand-name">Manufacturing at a Glance</div>
-      <div class="mtm-brand-sub">Production Intelligence &nbsp;·&nbsp; ERPNext v15</div>
+      <div class="mtm-brand-sub">Production Intelligence &nbsp;·&nbsp; MotleyERP</div>
     </div>
     <div class="mtm-hdr-right">
       <div class="mtm-hdr-period" id="mtm-period-label">—</div>

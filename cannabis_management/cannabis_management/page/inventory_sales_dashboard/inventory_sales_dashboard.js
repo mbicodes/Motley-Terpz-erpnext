@@ -1090,7 +1090,7 @@ frappe.pages['inventory-sales-dashboard'].on_page_load = function (wrapper) {
             ],
             delivered_invoiced_unlinked: [
                 'isd-alert-warn', '🔗',
-                `A Delivery Note and ${dCount} Sales Invoice${dCount!==1?'s':''} both exist for this customer, but the invoice${dCount!==1?'s were':' was'} created separately and ${dCount!==1?'are':'is'} not linked to the Delivery Note. Please verify this is correct or link them in ERPNext.`
+                `A Delivery Note and ${dCount} Sales Invoice${dCount!==1?'s':''} both exist for this customer, but the invoice${dCount!==1?'s were':' was'} created separately and ${dCount!==1?'are':'is'} not linked to the Delivery Note. Please verify this is correct or link them in MotleyERP.`
             ],
             invoiced_direct: [
                 'isd-alert-info', 'ℹ️',

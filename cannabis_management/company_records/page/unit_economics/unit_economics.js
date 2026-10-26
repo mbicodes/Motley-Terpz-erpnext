@@ -581,7 +581,7 @@ class UnitEconomics {
 						<td class="ue-num"><b>${money(t.ar_outstanding)}</b></td><td class="ue-num"><b>${money(t.ap_outstanding)}</b></td>
 						<td class="ue-num"><b>${money(t.inventory_value)}</b></td><td class="ue-num"><b>${money(t.customer_deposits)}</b></td></tr>
 						</tbody></table>
-						<p class="ue-dim" style="margin-top:8px">${__("Live from ERPNext — compare against the model's blue cells (booked revenue, AR, AP, inventory at cost, deposits) and update them.")}</p></div>`,
+						<p class="ue-dim" style="margin-top:8px">${__("Live from MotleyERP — compare against the model's blue cells (booked revenue, AR, AP, inventory at cost, deposits) and update them.")}</p></div>`,
 				});
 			},
 		});

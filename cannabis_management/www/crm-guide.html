@@ -398,7 +398,7 @@ table.cg-table tr:hover td { background: #fafafa; }
   <div class="cg-header">
     <div class="cg-header-logo">🌿</div>
     <div>
-      <div class="cg-header-eyebrow">Frappe CRM · ERPNext</div>
+      <div class="cg-header-eyebrow">Frappe CRM · MotleyERP</div>
       <h1>CRM User Guide</h1>
       <div class="cg-header-meta">
         <span>Motley Terpz</span> &amp; <span>TSBC Ranch</span>
@@ -421,7 +421,7 @@ table.cg-table tr:hover td { background: #fafafa; }
       <a href="#ar-report"><span class="cg-toc-num">10</span> Nikki's Weekly AR Report</a>
       <a href="#tiers"><span class="cg-toc-num">5</span> Relationship Tiers</a>
       <a href="#nightly-sync"><span class="cg-toc-num">11</span> Nightly Sync</a>
-      <a href="#live-data"><span class="cg-toc-num">6</span> ERPNext Live Data</a>
+      <a href="#live-data"><span class="cg-toc-num">6</span> MotleyERP Live Data</a>
       <a href="#pending"><span class="cg-toc-num">12</span> Pending Steps</a>
     </div>
   </div>
@@ -441,7 +441,7 @@ table.cg-table tr:hover td { background: #fafafa; }
         <tbody>
           <tr><td>4 Pipeline Kanban views</td><td>One per business line — Fresh Frozen, Rosin, Retail/Distro, Tolling</td></tr>
           <tr><td>Custom fields on every lead</td><td>Tiers, demand estimates, flags, ClickUp link, contact dates</td></tr>
-          <tr><td>Live AR data (nightly)</td><td>Balance, aging, last invoice, last payment, MTD & 8-week revenue pulled from ERPNext</td></tr>
+          <tr><td>Live AR data (nightly)</td><td>Balance, aging, last invoice, last payment, MTD & 8-week revenue pulled from MotleyERP</td></tr>
           <tr><td>AR enforcement</td><td>Blocked customers cannot have invoices or orders submitted</td></tr>
           <tr><td>COD enforcement</td><td>Muhammad gets a Slack alert whenever a COD customer is invoiced</td></tr>
           <tr><td>Nikki's weekly AR report</td><td>Emailed every Monday morning with all outstanding balances</td></tr>
@@ -590,14 +590,14 @@ table.cg-table tr:hover td { background: #fafafa; }
     <div class="cg-section-header">
       <div class="cg-section-num">6</div>
       <div class="cg-section-icon">🔄</div>
-      <h2>ERPNext Live Data (Auto-Synced)</h2>
+      <h2>MotleyERP Live Data (Auto-Synced)</h2>
     </div>
-    <p>The <strong>ERPNext — Live Data</strong> section at the bottom of the Motley Terpz tab shows financial data pulled from ERPNext every night. All fields are <strong>read-only</strong>.</p>
+    <p>The <strong>MotleyERP — Live Data</strong> section at the bottom of the Motley Terpz tab shows financial data pulled from MotleyERP every night. All fields are <strong>read-only</strong>.</p>
     <div class="cg-table-wrap">
       <table class="cg-table">
         <thead><tr><th>Field</th><th>What it shows</th></tr></thead>
         <tbody>
-          <tr><td><strong>ERPNext Customer</strong></td><td>The linked Customer record in ERPNext</td></tr>
+          <tr><td><strong>MotleyERP Customer</strong></td><td>The linked Customer record in MotleyERP</td></tr>
           <tr><td><strong>AR Balance</strong></td><td>Total outstanding invoice balance</td></tr>
           <tr><td><strong>AR Aging (days)</strong></td><td>How many days the oldest unpaid invoice is overdue</td></tr>
           <tr><td><strong>AR Status</strong></td><td>Clean / Watch / Overdue / Blocked</td></tr>
@@ -606,7 +606,7 @@ table.cg-table tr:hover td { background: #fafafa; }
           <tr><td><strong>Last Payment Date</strong></td><td>Date of the most recent payment received</td></tr>
           <tr><td><strong>MTD Revenue</strong></td><td>Revenue this calendar month</td></tr>
           <tr><td><strong>8-Week Trailing Revenue</strong></td><td>Total revenue over the past 8 weeks</td></tr>
-          <tr><td><strong>Payment Terms</strong></td><td>Customer's payment terms from ERPNext</td></tr>
+          <tr><td><strong>Payment Terms</strong></td><td>Customer's payment terms from MotleyERP</td></tr>
           <tr><td><strong>Last Synced</strong></td><td>Timestamp of last nightly sync</td></tr>
         </tbody>
       </table>
@@ -633,7 +633,7 @@ table.cg-table tr:hover td { background: #fafafa; }
     </div>
     <div class="cg-callout blue">
       <span class="cg-callout-icon">ℹ️</span>
-      <div>To link a CRM lead to an ERPNext customer, fill in the <strong>ERPNext Customer</strong> field on the lead card. The nightly sync picks it up automatically from that point on.</div>
+      <div>To link a CRM lead to an MotleyERP customer, fill in the <strong>MotleyERP Customer</strong> field on the lead card. The nightly sync picks it up automatically from that point on.</div>
     </div>
   </div>
 
@@ -676,7 +676,7 @@ table.cg-table tr:hover td { background: #fafafa; }
 
     <div class="cg-sub">How to unblock a customer</div>
     <div class="cg-steps">
-      <div class="cg-step"><div class="cg-step-num">1</div><div class="cg-step-body">Record outstanding payments in ERPNext via <strong>Payment Entry</strong> against the overdue invoices.</div></div>
+      <div class="cg-step"><div class="cg-step-num">1</div><div class="cg-step-body">Record outstanding payments in MotleyERP via <strong>Payment Entry</strong> against the overdue invoices.</div></div>
       <div class="cg-step"><div class="cg-step-num">2</div><div class="cg-step-body">The nightly sync will recalculate the AR Status.</div></div>
       <div class="cg-step"><div class="cg-step-num">3</div><div class="cg-step-body">The block lifts automatically once neither threshold condition is met.</div></div>
     </div>
@@ -702,7 +702,7 @@ table.cg-table tr:hover td { background: #fafafa; }
         <tbody>
           <tr><td>Customer name</td><td></td></tr>
           <tr><td>Invoice number and amount</td><td></td></tr>
-          <tr><td>Submitted by</td><td>The ERPNext user who submitted the invoice</td></tr>
+          <tr><td>Submitted by</td><td>The MotleyERP user who submitted the invoice</td></tr>
           <tr><td>Reminder message</td><td>"This customer is marked COD Only. Confirm cash was collected."</td></tr>
         </tbody>
       </table>
@@ -717,11 +717,11 @@ table.cg-table tr:hover td { background: #fafafa; }
       <div class="cg-section-icon">🔒</div>
       <h2>Tolling Pipeline — Access Control</h2>
     </div>
-    <p>The Tolling pipeline is hidden from most users. Only users with the <strong>"CRM Tolling Access"</strong> role assigned in ERPNext can see Tolling leads. All other users see Fresh Frozen, Rosin/Solventless, and Retail/Distro normally.</p>
+    <p>The Tolling pipeline is hidden from most users. Only users with the <strong>"CRM Tolling Access"</strong> role assigned in MotleyERP can see Tolling leads. All other users see Fresh Frozen, Rosin/Solventless, and Retail/Distro normally.</p>
 
     <div class="cg-sub">How to grant Tolling access</div>
     <div class="cg-steps">
-      <div class="cg-step"><div class="cg-step-num">1</div><div class="cg-step-body">In ERPNext go to: <strong>Settings → User</strong> → open the user's record.</div></div>
+      <div class="cg-step"><div class="cg-step-num">1</div><div class="cg-step-body">In MotleyERP go to: <strong>Settings → User</strong> → open the user's record.</div></div>
       <div class="cg-step"><div class="cg-step-num">2</div><div class="cg-step-body">In the <strong>Roles</strong> table, add the role <strong>CRM Tolling Access</strong>.</div></div>
       <div class="cg-step"><div class="cg-step-num">3</div><div class="cg-step-body">Save the user record. Access takes effect immediately.</div></div>
     </div>
@@ -780,7 +780,7 @@ send_now()</div>
       <div class="cg-section-icon">🌙</div>
       <h2>Nightly Sync — How It Works</h2>
     </div>
-    <p>Every weeknight (Mon–Fri) a background job runs and updates every CRM Lead that has an <strong>ERPNext Customer</strong> field filled in.</p>
+    <p>Every weeknight (Mon–Fri) a background job runs and updates every CRM Lead that has an <strong>MotleyERP Customer</strong> field filled in.</p>
 
     <div class="cg-sub">What gets synced</div>
     <div class="cg-table-wrap">
@@ -829,15 +829,15 @@ sync_now()</div>
         <span class="cg-pending-badge badge-manual">MANUAL</span>
         <div>
           <strong>Assign "CRM Tolling Access" role to Matt</strong><br>
-          <span style="font-size:13px;color:var(--gray)">ERPNext → Settings → User → Matt → Roles table → add CRM Tolling Access → Save</span>
+          <span style="font-size:13px;color:var(--gray)">MotleyERP → Settings → User → Matt → Roles table → add CRM Tolling Access → Save</span>
         </div>
       </div>
 
       <div class="cg-pending-item">
         <span class="cg-pending-badge badge-data">DATA</span>
         <div>
-          <strong>Link CRM Leads to ERPNext Customers</strong><br>
-          <span style="font-size:13px;color:var(--gray)">Open each lead → Motley Terpz tab → ERPNext — Live Data section → set ERPNext Customer. Required for nightly sync and AR enforcement to work.</span>
+          <strong>Link CRM Leads to MotleyERP Customers</strong><br>
+          <span style="font-size:13px;color:var(--gray)">Open each lead → Motley Terpz tab → MotleyERP — Live Data section → set MotleyERP Customer. Required for nightly sync and AR enforcement to work.</span>
         </div>
       </div>
 

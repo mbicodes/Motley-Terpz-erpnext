@@ -1,0 +1,169 @@
+<!-- MT branding: login logo badge + "Time's up" page that replaces Frappe's "Not Permitted / Log in to access this page" screen on /app routes -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* ---------- Login page: replace "Ki" badge with the Motley Terpz logo ---------- */
+  .auth-logo-float {
+    width: 168px !important;
+    height: 72px !important;
+    top: -36px !important;
+    padding: 10px 18px !important;
+    border-radius: 999px !important;
+    border: 4px solid #ffffff !important;
+    background: #ffffff url("/files/FULL_LOGO.png") center / contain no-repeat !important;
+    background-origin: content-box !important;
+    box-shadow: 0 10px 28px rgba(147, 51, 234, 0.22), 0 0 0 1px rgba(147, 51, 234, 0.10) !important;
+    font-size: 0 !important;
+    color: transparent !important;
+  }
+
+  /* ---------- Time's up page ---------- */
+  html.mt-to-check body { visibility: hidden; }
+  html.mt-timeout, html.mt-timeout body { margin: 0; padding: 0; min-height: 100vh; overflow-x: hidden; visibility: visible; }
+  .mt-to {
+    --to-ink: #0a1f1b;
+    --to-ink-2: #5b5470;
+    --to-purple: #9333ea;
+    --to-purple-2: #7e22ce;
+    --to-teal: #0f626a;
+    position: fixed; inset: 0; z-index: 99999;
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px;
+    font-family: "Outfit", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: var(--to-ink);
+    background: radial-gradient(circle at top left, #F3E8FF 0%, #DDD6FE 100%);
+    overflow: hidden;
+  }
+  .mt-to *, .mt-to *::before, .mt-to *::after { box-sizing: border-box; }
+  .mt-to__waves {
+    position: absolute; bottom: -10px; left: 0; width: 100%; height: 100%;
+    z-index: 0; pointer-events: none;
+    background-image:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 320'%3E%3Cpath fill='%239333ea' fill-opacity='0.4' d='M0,160L48,176C96,192,192,224,288,208C384,192,480,128,576,128C672,128,768,192,864,224C960,256,1056,256,1152,224C1248,192,1344,128,1392,96L1440,64L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z'%3E%3C/path%3E%3C/svg%3E"),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 320'%3E%3Cpath fill='%237e22ce' fill-opacity='0.5' d='M0,288L48,272C96,256,192,224,288,197.3C384,171,480,149,576,165.3C672,181,768,235,864,250.7C960,267,1056,245,1152,250.7C1248,256,1344,288,1392,304L1440,320L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z'%3E%3C/path%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: bottom;
+    background-size: cover;
+  }
+  .mt-to__dots {
+    position: absolute; top: 20px; left: 20px; width: 200px; height: 200px; z-index: 0;
+    background-image: radial-gradient(rgba(147, 51, 234, 0.15) 2px, transparent 2px);
+    background-size: 20px 20px;
+  }
+  .mt-to__card {
+    position: relative; z-index: 1;
+    width: 100%; max-width: 440px;
+    padding: 64px 36px 30px;
+    text-align: center;
+    background: #ffffff;
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(147, 51, 234, 0.14);
+    animation: mtToRise .55s cubic-bezier(.2,.8,.2,1) both;
+  }
+  .mt-to__logo {
+    position: absolute; top: -36px; left: 50%; transform: translateX(-50%);
+    width: 168px; height: 72px; padding: 10px 18px;
+    border-radius: 999px; border: 4px solid #ffffff;
+    background: #ffffff url("/files/FULL_LOGO.png") center / contain no-repeat;
+    background-origin: content-box;
+    box-shadow: 0 10px 28px rgba(147, 51, 234, 0.22), 0 0 0 1px rgba(147, 51, 234, 0.10);
+  }
+  .mt-to__clock {
+    width: 88px; height: 88px; margin: 0 auto 18px;
+    border-radius: 50%;
+    background: linear-gradient(145deg, #a855f7, var(--to-purple-2));
+    box-shadow: 0 14px 30px rgba(147, 51, 234, 0.30), 0 0 0 9px #f3e8ff;
+    display: grid; place-items: center;
+  }
+  .mt-to__clock svg { width: 48px; height: 48px; }
+  .mt-to__sand-top { transform-origin: 50% 0%; animation: mtToSandTop 3.2s ease-in-out infinite; }
+  .mt-to__sand-bot { transform-origin: 50% 100%; animation: mtToSandBot 3.2s ease-in-out infinite; }
+  .mt-to__glass { transform-origin: 50% 50%; animation: mtToFlip 3.2s ease-in-out infinite; }
+  .mt-to__badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    margin-bottom: 10px; padding: 5px 12px;
+    border-radius: 999px; background: #f3e8ff; color: var(--to-purple-2);
+    font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  }
+  .mt-to__badge::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--to-purple); }
+  .mt-to__title { margin: 0 0 8px; font-size: 30px; line-height: 1.15; font-weight: 700; color: var(--to-ink); }
+  .mt-to__text { margin: 0 auto 26px; max-width: 340px; font-size: 15px; line-height: 1.6; color: var(--to-ink-2); }
+  .mt-to__btn {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    width: 100%; min-height: 46px; padding: 12px 20px;
+    border: 0; border-radius: 8px;
+    background: var(--to-teal);
+    color: #fff; font: inherit; font-size: 15px; font-weight: 600; text-decoration: none;
+    box-shadow: 0 8px 20px rgba(15, 98, 106, 0.25);
+    transition: transform .2s ease, box-shadow .2s ease, background .2s ease;
+  }
+  .mt-to__btn:hover { background: #0c535a; transform: translateY(-1px); box-shadow: 0 12px 26px rgba(15, 98, 106, 0.32); color: #fff; text-decoration: none; }
+  .mt-to__btn:focus-visible { outline: 3px solid rgba(147, 51, 234, .45); outline-offset: 3px; }
+  .mt-to__btn svg { width: 18px; height: 18px; transition: transform .2s ease; }
+  .mt-to__btn:hover svg { transform: translateX(3px); }
+  .mt-to__return { margin: 14px 0 0; font-size: 13px; color: #8b85a0; }
+  .mt-to__return code {
+    font-family: inherit; font-weight: 600; color: var(--to-purple);
+    background: #f3e8ff; padding: 2px 8px; border-radius: 6px; word-break: break-all;
+  }
+
+  @keyframes mtToRise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+  @keyframes mtToSandTop { 0% { transform: scaleY(1); } 70%,100% { transform: scaleY(0); } }
+  @keyframes mtToSandBot { 0% { transform: scaleY(0); } 70%,100% { transform: scaleY(1); } }
+  @keyframes mtToFlip { 0%,78% { transform: rotate(0); } 92%,100% { transform: rotate(180deg); } }
+  @media (prefers-reduced-motion: reduce) { .mt-to__card, .mt-to__sand-top, .mt-to__sand-bot, .mt-to__glass { animation: none; } }
+  @media (max-width: 480px) {
+    .mt-to__card { padding: 58px 22px 24px; }
+    .mt-to__title { font-size: 26px; }
+    .mt-to__dots { display: none; }
+  }
+</style>
+<script>
+(function () {
+  if (!/^\/app(\/|$)/.test(location.pathname)) return;
+  var root = document.documentElement;
+  root.classList.add('mt-to-check');
+  var reveal = function () { root.classList.remove('mt-to-check'); };
+  setTimeout(reveal, 2500);
+
+  function render() {
+    var txt = (document.body && document.body.textContent) || '';
+    if (!(/Not Permitted/i.test(txt) && /Log in to access this page/i.test(txt))) { reveal(); return; }
+
+    var back = location.pathname + location.search + location.hash;
+    var loginUrl = '/login?redirect-to=' + encodeURIComponent(back);
+    var nice = location.pathname.replace(/^\/app\/?/, '').replace(/[-_]/g, ' ').split('/')[0] || 'home';
+    nice = nice.replace(/\b\w/g, function (c) { return c.toUpperCase(); }).replace(/</g, '&lt;');
+
+    document.title = "Time's up | Motley Terpz";
+    document.body.innerHTML =
+      '<main class="mt-to" role="main">' +
+        '<div class="mt-to__waves" aria-hidden="true"></div>' +
+        '<div class="mt-to__dots" aria-hidden="true"></div>' +
+        '<section class="mt-to__card" aria-labelledby="mtToTitle">' +
+          '<div class="mt-to__logo" role="img" aria-label="Motley Terpz"></div>' +
+          '<div class="mt-to__clock" aria-hidden="true">' +
+            '<svg viewBox="0 0 64 64" fill="none"><g class="mt-to__glass">' +
+              '<path d="M18 8h28M18 56h28" stroke="#fff" stroke-width="4" stroke-linecap="round"/>' +
+              '<path d="M21 9c0 12 9 15 9 23s-9 11-9 23M43 9c0 12-9 15-9 23s9 11 9 23" stroke="#fff" stroke-width="3.5" stroke-linecap="round"/>' +
+              '<path class="mt-to__sand-top" d="M24 14h16c-1 6-5 9-8 12-3-3-7-6-8-12z" fill="#f5d0fe"/>' +
+              '<path class="mt-to__sand-bot" d="M24 53h16c-1-6-5-9-8-12-3 3-7 6-8 12z" fill="#f5d0fe"/>' +
+            '</g></svg>' +
+          '</div>' +
+          '<span class="mt-to__badge">Session expired</span>' +
+          '<h1 class="mt-to__title" id="mtToTitle">Time\'s up!</h1>' +
+          '<p class="mt-to__text">You were signed out after 45 minutes of inactivity to keep your account secure. Log back in and we\'ll take you right back to where you left off.</p>' +
+          '<a class="mt-to__btn" href="' + loginUrl + '">Log in again' +
+            '<svg viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+          '</a>' +
+          '<p class="mt-to__return">You\'ll return to <code>' + nice + '</code></p>' +
+        '</section>' +
+      '</main>';
+    root.classList.add('mt-timeout');
+    reveal();
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', render);
+  else render();
+})();
+</script>

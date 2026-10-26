@@ -17,7 +17,7 @@ window.DR_CONFIG = {
     userField: 'submitted_by',
     activityUnit: 'Plants',
     previewUser: 'Gus (preview)',
-    previewNote: 'Preview mode: this page is not connected to ERPNext. Submitting shows the data that would be saved.',
+    previewNote: 'Preview mode: this page is not connected to MotleyERP. Submitting shows the data that would be saved.',
 
     /* Child table fieldnames */
     child: { photo: 'photo' },   // Daily Report Photo

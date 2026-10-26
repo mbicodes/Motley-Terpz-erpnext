@@ -243,7 +243,7 @@ def check_form_8300_trigger(doc, method):
             </table>
             <p><b>Form 8300 must be filed with the IRS within 15 days of this transaction.</b></p>
             <p><a href="{frappe.utils.get_url()}/app/cash-ledger-entry/{doc.name}">
-                Open Entry in ERPNext &rarr;
+                Open Entry in MotleyERP &rarr;
             </a></p>
         """,
     )
