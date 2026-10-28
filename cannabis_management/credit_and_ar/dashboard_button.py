@@ -1,6 +1,8 @@
 # Copyright (c) 2026, alltechvirtual.com and contributors
 # For license information, please see license.txt
-"""Puts an "AR Weekly Review" button in the dashboard header blocks.
+"""Puts an "AR Accountability" button (the ar-weekly-review page) in the
+dashboard header blocks, plus any EXTRA_BUTTONS for a block -- the CEO (Matt
+Dashboard) block also gets "Inventory Overview".
 
 Why this is a hook and not a one-off edit: the "Nikki" Custom HTML Block is
 shipped in fixtures/custom_html_block.json, so sync_fixtures rewrites it from
@@ -14,13 +16,14 @@ sync_fixtures. Same reasoning as customer_layout.enforce and
 notifications.install_notifications, which are wired up for the same reason.
 
 Idempotent: a block that already carries the button is left alone, so this is
-safe to run on every migrate.
+safe to run on every migrate. A block that already links to the page some
+other way gets no second button for it -- one button per page.
 """
 
 import frappe
 
 PAGE = "ar-weekly-review"
-LABEL = "AR Weekly Review"
+LABEL = "AR Accountability"  # the page's own title
 
 _ICON = (
 	'<svg viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7'
@@ -39,32 +42,43 @@ BLOCKS = {
 ACCENT = "#6b46c1"
 ACCENT_HOVER = "#59379f"
 
+_IOV_ICON = (
+	'<svg viewBox="0 0 24 24"><path d="M21 8 12 3 3 8v8l9 5 9-5V8z"/><path d="m3 8 9 5 9-5M12 13v8"/></svg>'
+)
 
-def _button_html(prefix):
+# Further header buttons per block, after the AR one:
+# (class suffix, page, label, icon, accent, accent hover).
+EXTRA_BUTTONS = {
+	"CEO": [("iov", "inventory-overview", "Inventory Overview", _IOV_ICON, "#2f7d4f", "#25663f")],
+}
+
+
+def _button_html(prefix, suffix="arw", page=PAGE, label=LABEL, icon=_ICON):
 	return (
-		f'      <button class="{prefix}-refresh-btn {prefix}-arw-btn"\n'
-		f'              title="Open the {LABEL} page"\n'
-		f'              onclick="frappe.set_route(\'{PAGE}\')">\n'
-		f'        {_ICON}\n'
-		f'        {LABEL}\n'
+		f'      <button class="{prefix}-refresh-btn {prefix}-{suffix}-btn"\n'
+		f'              title="Open the {label} page"\n'
+		f'              onclick="frappe.set_route(\'{page}\')">\n'
+		f'        {icon}\n'
+		f'        {label}\n'
 		f'      </button>\n'
 	)
 
 
-def _button_css(prefix):
+def _button_css(prefix, suffix="arw", label=LABEL, accent=ACCENT, hover=ACCENT_HOVER):
 	return f"""
 
-/* {LABEL} button — shares .{prefix}-refresh-btn's shape, accented so it reads
-   as the primary action in the header. Injected by
+/* {label} button — shares .{prefix}-refresh-btn's shape, accented so it reads
+   as an action in the header. Injected by
    credit_and_ar/dashboard_button.py on after_migrate. */
-.{prefix}-arw-btn {{
-  background: {ACCENT};
-  border-color: {ACCENT};
+.{prefix}-{suffix}-btn {{
+  background: {accent};
+  border-color: {accent};
   color: #fff;
+  margin-right: 8px;
 }}
-.{prefix}-arw-btn:hover {{
-  background: {ACCENT_HOVER};
-  border-color: {ACCENT_HOVER};
+.{prefix}-{suffix}-btn:hover {{
+  background: {hover};
+  border-color: {hover};
   color: #fff;
 }}
 """
@@ -92,19 +106,27 @@ def _install_one(block_name, prefix):
 		return
 
 	doc = frappe.get_doc("Custom HTML Block", block_name)
-	marker = f"{prefix}-arw-btn"
+	buttons = [("arw", PAGE, LABEL, _ICON, ACCENT, ACCENT_HOVER)] + EXTRA_BUTTONS.get(block_name, [])
 	changed = False
 
-	# The header's own Refresh button is the anchor — the new button goes
-	# immediately before it, inside the same actions row.
-	anchor = f'<button class="{prefix}-refresh-btn"'
-	if marker not in (doc.html or "") and anchor in (doc.html or ""):
-		doc.html = doc.html.replace(anchor, _button_html(prefix).lstrip() + "      " + anchor, 1)
-		changed = True
+	for suffix, page, label, icon, accent, hover in buttons:
+		if not frappe.db.exists("Page", page):
+			continue
+		marker = f"{prefix}-{suffix}-btn"
+		html = doc.html or ""
 
-	if f".{marker} {{" not in (doc.style or ""):
-		doc.style = (doc.style or "") + _button_css(prefix)
-		changed = True
+		# The header's own Refresh button is the anchor — each new button goes
+		# immediately before it, inside the same actions row, so they line up
+		# in list order. Skipped where the block already links to the page.
+		anchor = f'<button class="{prefix}-refresh-btn"'
+		linked = f'href="/app/{page}"' in html
+		if marker not in html and not linked and anchor in html:
+			doc.html = html.replace(anchor, _button_html(prefix, suffix, page, label, icon).lstrip() + "      " + anchor, 1)
+			changed = True
+
+		if marker in (doc.html or "") and f".{marker} {{" not in (doc.style or ""):
+			doc.style = (doc.style or "") + _button_css(prefix, suffix, label, accent, hover)
+			changed = True
 
 	if changed:
 		doc.flags.ignore_permissions = True
