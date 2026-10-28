@@ -117,6 +117,8 @@ def get_project_balances(item_group, company_condition, values, project=None):
             item_code,
             item_name,
             item_group,
+            propagation,
+            breeder,
             warehouse,
             LEAST(SUM(actual_qty), actual_qty_bin) AS actual_qty,
             ROUND(
@@ -130,6 +132,8 @@ def get_project_balances(item_group, company_condition, values, project=None):
                 sle.item_code,
                 i.item_name,
                 i.item_group,
+                i.custom_propagation AS propagation,
+                i.custom_breeder AS breeder,
                 sle.warehouse,
                 b.actual_qty AS actual_qty_bin,
                 COALESCE(sre.reserved_qty, 0) AS reserved_qty,
@@ -187,6 +191,8 @@ def get_bin_stock(company_condition, values):
             b.item_code,
             i.item_name,
             i.item_group,
+            i.custom_propagation AS propagation,
+            i.custom_breeder AS breeder,
             b.warehouse,
             b.actual_qty,
             COALESCE(sre.reserved_qty, 0) AS reserved_qty
