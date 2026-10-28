@@ -1,55 +1,63 @@
-/* Inventory Overview — the Physical Inventory Weekly sheet as a page.
-   Banded section headers and tier colours follow the spreadsheet so the two
-   read the same way; everything is scoped to .iov-root. */
+/* Inventory Overview — styled after the Rosin Menu Matt approved: a white card
+   per section, a solid green band naming each column, light zebra rows and a
+   bold "N strains" line at the foot. All three tiers share one green there, so
+   the amber/red tier colours of the spreadsheet are deliberately not used. */
 .iov-root{
-  --ink:#1f2430; --ink-dim:#767b8a; --line:#d9d9e0; --page:#fff;
-  --t1:#d9ead3; --t1-b:#6aa84f;
-  --t2:#fff2cc; --t2-b:#e0a800;
-  --t3:#f4cccc; --t3-b:#cc4125;
-  --flat:#d9ead3; --flat-b:#6aa84f;
-  background:var(--page); color:var(--ink); font-size:12.5px;
-  padding:14px 18px 60px;
+  --ink:#1f2430; --ink-dim:#8a8f99; --line:#e6e6ea;
+  --green:#2f7d4f; --zebra:#f7f8f7;
+  background:#fff; color:var(--ink);
+  font-size:13px; padding:18px 20px 60px;
+  -webkit-font-smoothing:antialiased;
 }
 .iov-root *{box-sizing:border-box;}
 
-.iov-top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px;}
-.iov-title{font-size:17px;font-weight:800;}
+.iov-top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:6px;}
+.iov-title{font-size:19px;font-weight:800;letter-spacing:-.2px;}
 .iov-sub{font-size:11.5px;color:var(--ink-dim);}
 .iov-spacer{flex:1;}
-.iov-btn{border:1px solid var(--line);background:#fff;color:var(--ink-dim);
-  border-radius:6px;padding:6px 13px;font-size:12px;font-weight:600;cursor:pointer;}
-.iov-btn.primary{background:#6b46c1;border-color:#6b46c1;color:#fff;}
+.iov-btn{border:1px solid var(--line);background:#fff;color:#5a6069;
+  border-radius:7px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;}
+.iov-btn:hover{background:#fafafa;}
+.iov-btn.primary{background:var(--green);border-color:var(--green);color:#fff;}
 
-/* the pink banner the sheet opens with */
-.iov-banner{background:#f7d6d8;border:1px solid var(--line);text-align:center;
-  font-size:15px;font-weight:800;padding:8px;margin-bottom:16px;}
+/* the line the printed menu opens with */
+.iov-banner{font-size:11.5px;color:var(--ink-dim);margin:0 0 20px;}
 
-/* one block = one boxed section of the sheet */
-.iov-block{border:2px solid #1f2430;margin-bottom:22px;}
-.iov-blockhead{text-align:center;font-weight:700;padding:5px 8px;
-  border-bottom:2px solid #1f2430;background:#fff;font-size:12.5px;}
-.iov-cols{display:flex;gap:0;flex-wrap:wrap;}
-.iov-col{flex:1 1 0;min-width:300px;border-right:1px solid var(--line);}
+/* one block = one card */
+.iov-block{border:1px solid var(--line);border-radius:10px;overflow:hidden;
+  margin-bottom:22px;box-shadow:0 1px 2px rgba(16,24,40,.04);}
+.iov-blockhead{font-weight:700;font-size:13px;padding:11px 14px;
+  background:#fcfcfd;border-bottom:1px solid var(--line);}
+
+.iov-cols{display:flex;flex-wrap:wrap;}
+.iov-col{flex:1 1 0;min-width:270px;border-right:1px solid var(--line);}
 .iov-col:last-child{border-right:none;}
-.iov-collabel{text-align:center;font-weight:700;padding:3px;font-size:12px;
-  border-bottom:1px solid var(--line);}
-.iov-col.t1 .iov-collabel{background:var(--t1);}
-.iov-col.t2 .iov-collabel{background:var(--t2);}
-.iov-col.t3 .iov-collabel{background:var(--t3);}
-.iov-col.flat .iov-collabel{background:var(--flat);}
+
+/* the green band naming the column */
+.iov-collabel{background:var(--green);color:#fff;text-align:center;
+  font-weight:700;font-size:12px;letter-spacing:.6px;text-transform:uppercase;
+  padding:7px 8px;}
 
 table.iov-table{width:100%;border-collapse:collapse;}
-table.iov-table th{text-align:left;font-size:10.5px;font-weight:700;padding:4px 7px;
-  border-bottom:1px solid var(--line);white-space:nowrap;color:var(--ink);}
-table.iov-table td{padding:4px 7px;border-bottom:1px solid #eee;white-space:nowrap;}
-table.iov-table tbody tr:hover{background:#f8f7fb;}
+table.iov-table th{text-align:left;font-size:10.5px;font-weight:600;
+  color:var(--ink-dim);padding:7px 14px;border-bottom:1px solid var(--line);
+  white-space:nowrap;background:#fff;}
+table.iov-table td{padding:7px 14px;border-bottom:1px solid #f2f2f4;
+  white-space:nowrap;font-size:12.5px;}
+table.iov-table tbody tr:nth-child(even) td{background:var(--zebra);}
+table.iov-table tbody tr:hover td{background:#eef4f0;}
 .iov-num{text-align:right;font-variant-numeric:tabular-nums;}
 th.iov-num{text-align:right;}
-.iov-batch{color:var(--ink-dim);}
+.iov-batch{color:var(--ink-dim);font-size:11.5px;}
 .iov-neg{color:#c0392b;font-weight:700;}
-.iov-empty{padding:12px 8px;color:var(--ink-dim);font-style:italic;font-size:11.5px;}
-tr.iov-total td{border-top:1px solid var(--line);font-weight:700;background:#fafafd;}
+.iov-empty{padding:16px 14px;color:var(--ink-dim);font-style:italic;font-size:11.5px;}
+
+/* the menu's closing line: strain count on the left, total on the right */
+tr.iov-total td{border-top:1.5px solid #d6d6dc;border-bottom:none;
+  font-weight:700;background:#fff !important;padding-top:9px;padding-bottom:10px;}
 
 .iov-loading{padding:50px;text-align:center;color:var(--ink-dim);}
-.iov-note{margin-top:16px;font-size:11px;color:var(--ink-dim);}
-@media (max-width:900px){ .iov-root .iov-col{min-width:100%;border-right:none;} }
+.iov-note{margin-top:18px;font-size:11px;color:var(--ink-dim);line-height:1.5;}
+@media (max-width:900px){ .iov-root .iov-col{min-width:100%;border-right:none;
+  border-bottom:1px solid var(--line);} }
+@media print{ .iov-top button{display:none;} .iov-block{break-inside:avoid;} }

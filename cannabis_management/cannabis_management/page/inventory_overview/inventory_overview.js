@@ -25,7 +25,7 @@ frappe.pages['inventory-overview'].on_page_load = function (wrapper) {
 				<button class="iov-btn" id="iov-print">${__('Print')}</button>
 				<button class="iov-btn primary" id="iov-refresh">${__('Refresh')}</button>
 			</div>
-			<div class="iov-banner">${__('Inventory Overview')}</div>
+			<div class="iov-banner" id="iov-banner"></div>
 			<div id="iov-blocks"><div class="iov-loading">${__('Loading stock…')}</div></div>
 			<div class="iov-note">
 				${__('Strain is the item name with its tier suffix removed. Source Batch is the Project the stock was posted against — this site tracks batches as Projects on the Stock Ledger, so stock posted without one shows as (no batch). Reserved follows ERPNext’s own commitments: Sales Orders, Work Orders, subcontracting and production plans.')}
@@ -45,6 +45,9 @@ function load(page) {
 			if (!r || !r.message) return;
 			page.iov.data = r.message;
 			page.main.find('#iov-sub').text(__('as of {0}', [r.message.as_of]));
+			page.main.find('#iov-banner').text(__(
+				'Available inventory as of {0}. Quantities in grams, subject to prior sale.',
+				[frappe.datetime.str_to_user(r.message.as_of)]));
 			render(page);
 		},
 	});
@@ -62,10 +65,10 @@ function render(page) {
 		const cols = b.sections.map((s) => {
 			const cls = IOV_TIER_CLASS[s.label] || 'flat';
 			const head = `<tr>
-				<th>${__('Strain Name')}</th>
+				<th>${__('Strain')}</th>
 				${b.multi_warehouse ? `<th>${__('Warehouse')}</th>` : ''}
 				<th>${__('Source Batch')}</th>
-				<th class="iov-num">${__('Qty')}</th>
+				<th class="iov-num">${__('Avail (g)')}</th>
 				${b.reserved ? `<th class="iov-num">${__('Reserved Qty')}</th>
 				                <th class="iov-num">${__('Available')}</th>` : ''}
 			</tr>`;
@@ -81,8 +84,12 @@ function render(page) {
 				</tr>`).join('')
 				: `<tr><td colspan="${(b.reserved ? 5 : 3) + (b.multi_warehouse ? 1 : 0)}" class="iov-empty">${__('Nothing in stock here.')}</td></tr>`;
 
+			// Distinct strains, not row count: one strain can hold several batches
+			// and the menu counts the strain once.
+			const strains = new Set(s.rows.map((r) => r.strain)).size;
 			const total = s.rows.length ? `<tr class="iov-total">
-					<td>${__('Total')}</td><td></td>${b.multi_warehouse ? '<td></td>' : ''}
+					<td>${strains} ${strains === 1 ? __('strain') : __('strains')}</td>
+					<td></td>${b.multi_warehouse ? '<td></td>' : ''}
 					<td class="iov-num">${num(s.total_qty)}</td>
 					${b.reserved ? `<td></td><td class="iov-num">${num(s.total_available)}</td>` : ''}
 				</tr>` : '';
