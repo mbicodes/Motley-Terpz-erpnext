@@ -1,0 +1,196 @@
+{
+ "autoname": "naming_series:",
+ "title_field": "name",
+ "track_changes": 1,
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "Manufacturing Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "Manufacturing User",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  }
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "options": "WPP-.YYYY.-.####",
+   "default": "WPP-.YYYY.-.####",
+   "hidden": 1,
+   "reqd": 0
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "plan_type",
+   "fieldtype": "Select",
+   "label": "Plan Type",
+   "options": "Daily\nWeekly\nCustom",
+   "default": "Weekly",
+   "reqd": 1
+  },
+  {
+   "fieldname": "from_date",
+   "fieldtype": "Date",
+   "label": "From Date",
+   "reqd": 1,
+   "default": "Today"
+  },
+  {
+   "fieldname": "to_date",
+   "fieldtype": "Date",
+   "label": "To Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "routing",
+   "fieldtype": "Link",
+   "label": "Routing",
+   "options": "Routing",
+   "read_only": 1
+  },
+  {
+   "fieldname": "planned_by",
+   "fieldtype": "Link",
+   "label": "Planned By",
+   "options": "User",
+   "default": "__user"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Draft\nIn Progress\nCompleted\nCancelled",
+   "default": "Draft",
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "totals_section",
+   "fieldtype": "Section Break",
+   "label": "Totals"
+  },
+  {
+   "fieldname": "total_washes",
+   "fieldtype": "Int",
+   "label": "Total Washes",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_planned_lbs",
+   "fieldtype": "Float",
+   "label": "Total Planned (lbs)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_expected_hash_g",
+   "fieldtype": "Float",
+   "label": "Expected Hash (g)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_expected_rosin_g",
+   "fieldtype": "Float",
+   "label": "Expected Rosin (g)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_actual_hash_g",
+   "fieldtype": "Float",
+   "label": "Actual Hash (g)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "total_actual_rosin_g",
+   "fieldtype": "Float",
+   "label": "Actual Rosin (g)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "summary_section",
+   "fieldtype": "Section Break",
+   "label": "Project Summary"
+  },
+  {
+   "fieldname": "project_summary",
+   "fieldtype": "HTML",
+   "label": "Project Summary"
+  },
+  {
+   "fieldname": "items_section",
+   "fieldtype": "Section Break",
+   "label": "Washes"
+  },
+  {
+   "fieldname": "items",
+   "fieldtype": "Table",
+   "label": "Washes",
+   "options": "Wash Production Plan Item"
+  }
+ ],
+ "doctype": "DocType",
+ "name": "Wash Production Plan",
+ "module": "Cannabis Management",
+ "engine": "InnoDB",
+ "owner": "Administrator",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "field_order": [
+  "naming_series",
+  "company",
+  "plan_type",
+  "from_date",
+  "to_date",
+  "routing",
+  "planned_by",
+  "status",
+  "totals_section",
+  "total_washes",
+  "total_planned_lbs",
+  "total_expected_hash_g",
+  "total_expected_rosin_g",
+  "total_actual_hash_g",
+  "total_actual_rosin_g",
+  "summary_section",
+  "project_summary",
+  "items_section",
+  "items"
+ ]
+}

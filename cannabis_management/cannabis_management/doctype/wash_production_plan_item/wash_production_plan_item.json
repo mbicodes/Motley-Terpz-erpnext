@@ -1,0 +1,201 @@
+{
+ "istable": 1,
+ "editable_grid": 1,
+ "fields": [
+  {
+   "fieldname": "planned_date",
+   "fieldtype": "Date",
+   "label": "Planned Date",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "fresh_frozen_item",
+   "fieldtype": "Link",
+   "label": "Fresh Frozen Item",
+   "options": "Item",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "item_name",
+   "fieldtype": "Data",
+   "label": "Item Name",
+   "fetch_from": "fresh_frozen_item.item_name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "source_freezer",
+   "fieldtype": "Link",
+   "label": "Source Freezer",
+   "options": "Warehouse",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "available_qty_lbs",
+   "fieldtype": "Float",
+   "label": "Available (lbs)",
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "stock_held_by",
+   "fieldtype": "Small Text",
+   "label": "Stock Held By",
+   "read_only": 1
+  },
+  {
+   "fieldname": "planned_qty_lbs",
+   "fieldtype": "Float",
+   "label": "Planned Qty (lbs)",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "planned_qty_grams",
+   "fieldtype": "Float",
+   "label": "Planned Qty (g)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "label": "Project",
+   "options": "Project",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "bubble_hash_item",
+   "fieldtype": "Link",
+   "label": "Bubble Hash Item",
+   "options": "Item"
+  },
+  {
+   "fieldname": "rosin_item",
+   "fieldtype": "Link",
+   "label": "Rosin Item",
+   "options": "Item"
+  },
+  {
+   "fieldname": "create_items",
+   "fieldtype": "Button",
+   "label": "Create Missing Items"
+  },
+  {
+   "fieldname": "expected_hash_yield",
+   "fieldtype": "Percent",
+   "label": "Expected Hash Yield %"
+  },
+  {
+   "fieldname": "expected_hash_g",
+   "fieldtype": "Float",
+   "label": "Expected Hash (g)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "expected_rosin_yield",
+   "fieldtype": "Percent",
+   "label": "Expected Rosin Yield %"
+  },
+  {
+   "fieldname": "expected_rosin_g",
+   "fieldtype": "Float",
+   "label": "Expected Rosin (g)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "row_status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Planned\nMR Created\nWashed\nCompleted\nSkipped",
+   "default": "Planned",
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "material_request",
+   "fieldtype": "Link",
+   "label": "Material Request",
+   "options": "Material Request",
+   "read_only": 1
+  },
+  {
+   "fieldname": "hash_work_order",
+   "fieldtype": "Link",
+   "label": "Hash Work Order",
+   "options": "Work Order",
+   "read_only": 1
+  },
+  {
+   "fieldname": "rosin_work_order",
+   "fieldtype": "Link",
+   "label": "Rosin Work Order",
+   "options": "Work Order",
+   "read_only": 1
+  },
+  {
+   "fieldname": "actual_hash_g",
+   "fieldtype": "Float",
+   "label": "Actual Hash (g)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "actual_hash_yield",
+   "fieldtype": "Percent",
+   "label": "Actual Hash Yield %",
+   "read_only": 1
+  },
+  {
+   "fieldname": "actual_rosin_g",
+   "fieldtype": "Float",
+   "label": "Actual Rosin (g)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "actual_rosin_yield",
+   "fieldtype": "Percent",
+   "label": "Actual Rosin Yield %",
+   "read_only": 1
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  }
+ ],
+ "doctype": "DocType",
+ "name": "Wash Production Plan Item",
+ "module": "Cannabis Management",
+ "engine": "InnoDB",
+ "owner": "Administrator",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "field_order": [
+  "planned_date",
+  "fresh_frozen_item",
+  "item_name",
+  "source_freezer",
+  "available_qty_lbs",
+  "stock_held_by",
+  "planned_qty_lbs",
+  "planned_qty_grams",
+  "project",
+  "bubble_hash_item",
+  "rosin_item",
+  "create_items",
+  "expected_hash_yield",
+  "expected_hash_g",
+  "expected_rosin_yield",
+  "expected_rosin_g",
+  "row_status",
+  "material_request",
+  "hash_work_order",
+  "rosin_work_order",
+  "actual_hash_g",
+  "actual_hash_yield",
+  "actual_rosin_g",
+  "actual_rosin_yield",
+  "notes"
+ ]
+}

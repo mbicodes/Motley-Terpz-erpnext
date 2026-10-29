@@ -1,0 +1,11 @@
+{
+ "add_total_row": 0,
+ "doctype": "Report",
+ "name": "Wash Plan vs Actual",
+ "module": "Cannabis Management",
+ "ref_doctype": "Wash Production Plan",
+ "report_name": "Wash Plan vs Actual",
+ "report_type": "Script Report",
+ "is_standard": "Yes",
+ "roles": [{"role": "System Manager"}, {"role": "Manufacturing Manager"}, {"role": "Manufacturing User"}]
+}

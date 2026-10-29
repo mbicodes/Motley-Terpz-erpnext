@@ -1,0 +1,113 @@
+{
+ "issingle": 1,
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "Manufacturing Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "Manufacturing User",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  }
+ ],
+ "fields": [
+  {
+   "fieldname": "default_company",
+   "fieldtype": "Link",
+   "label": "Default Company",
+   "options": "Company",
+   "default": "Master Touch Manufacturing"
+  },
+  {
+   "fieldname": "default_hash_yield",
+   "fieldtype": "Percent",
+   "label": "Default Hash Yield %",
+   "default": "2.5"
+  },
+  {
+   "fieldname": "default_rosin_yield",
+   "fieldtype": "Percent",
+   "label": "Default Rosin Yield %",
+   "default": "75"
+  },
+  {
+   "fieldname": "routing",
+   "fieldtype": "Link",
+   "label": "Routing",
+   "options": "Routing",
+   "default": "Fresh Frozen to CCR"
+  },
+  {
+   "fieldname": "fresh_frozen_item_group",
+   "fieldtype": "Link",
+   "label": "Fresh Frozen Item Group",
+   "options": "Item Group",
+   "default": "Fresh Frozen Main"
+  },
+  {
+   "fieldname": "bubble_hash_item_group",
+   "fieldtype": "Link",
+   "label": "Bubble Hash Item Group",
+   "options": "Item Group",
+   "default": "Bubble Hash"
+  },
+  {
+   "fieldname": "rosin_item_group",
+   "fieldtype": "Link",
+   "label": "Rosin Item Group",
+   "options": "Item Group",
+   "default": "Raw Rosin"
+  },
+  {
+   "fieldname": "freezers",
+   "fieldtype": "Table",
+   "label": "Freezers",
+   "options": "Wash Plan Freezer"
+  }
+ ],
+ "doctype": "DocType",
+ "name": "Wash Plan Settings",
+ "module": "Cannabis Management",
+ "engine": "InnoDB",
+ "owner": "Administrator",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "field_order": [
+  "default_company",
+  "default_hash_yield",
+  "default_rosin_yield",
+  "routing",
+  "fresh_frozen_item_group",
+  "bubble_hash_item_group",
+  "rosin_item_group",
+  "freezers"
+ ]
+}

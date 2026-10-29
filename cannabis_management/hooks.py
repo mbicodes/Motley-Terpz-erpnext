@@ -79,6 +79,7 @@ after_migrate = [
     "cannabis_management.credit_and_ar.notifications.install_notifications",
     "cannabis_management.credit_and_ar.dashboard_button.install",
     "cannabis_management.overrides.material_request_dashboard.install",
+    "cannabis_management.wash_plan_install.install",
     "cannabis_management.doc_hooks.job_card.install_custom_fields",
     "cannabis_management.api.manufacturing_process.install_custom_fields",
     "cannabis_management.doc_hooks.stock_reconciliation.install_custom_fields",
@@ -232,6 +233,8 @@ doc_events = {
         "before_submit": "cannabis_management.overrides.quotation_approval.before_submit",
     },
     "Material Request": {
+        "on_cancel": "cannabis_management.doc_hooks.wash_plan_sync.material_request_unlink",
+        "on_trash": "cannabis_management.doc_hooks.wash_plan_sync.material_request_unlink",
         "validate": "cannabis_management.doc_hooks.material_request.validate",
         "on_submit": "cannabis_management.doc_hooks.material_request.on_submit",
     },
@@ -249,10 +252,12 @@ doc_events = {
         ],
         "on_submit": [
             "cannabis_management.doc_hooks.stock_entry.carry_produced_qty_to_sibling_work_order",
+            "cannabis_management.doc_hooks.wash_plan_sync.stock_entry_sync",
             "cannabis_management.overrides.mr_run_status.on_stock_entry_change",
         ],
         "on_cancel": [
             "cannabis_management.overrides.mr_run_status.on_stock_entry_change",
+            "cannabis_management.doc_hooks.wash_plan_sync.stock_entry_sync",
         ],
     },
     "Sales Order": {
@@ -306,6 +311,7 @@ doc_events = {
         "before_submit": [
             "cannabis_management.overrides.warehouse_account_utils.validate_item_group_mapping",
         ],
+        "after_insert": "cannabis_management.doc_hooks.wash_plan_sync.work_order_after_insert",
     },
     "Work Order": {
         "before_submit": "cannabis_management.credit_and_ar.hold_engine.enforce_hold",
