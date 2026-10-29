@@ -43,7 +43,6 @@ def get_dashboard(company=None):
             "set_warehouse", "transaction_date", "status",
         ],
         order_by="creation desc",
-        limit=50,
     )
 
     mr_names = [m.name for m in mrs]

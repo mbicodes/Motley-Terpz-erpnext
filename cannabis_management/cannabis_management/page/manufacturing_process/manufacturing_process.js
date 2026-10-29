@@ -489,21 +489,27 @@ class ManufacturingRun {
 	// soon as its call resolves, instead of blocking the whole list. Runs
 	// already cached (e.g. re-shown after a filter change) render instantly
 	// instead of being re-fetched.
+	// Every run is listed (no cap), so details load a few at a time, in card
+	// order, instead of firing one request per card at once.
 	async _load_all_run_details(mrs) {
-		mrs.forEach(async (m) => {
-			if (this.runs[m.name]) {
-				this._render_run_card_body(m.name);
-				return;
-			}
-			try {
-				const run = await this.api("get_run_detail", { material_request: m.name });
-				this.runs[m.name] = run;
-				this._render_run_card_body(m.name);
-			} catch (e) {
-				this.$app.find(`.mc-run-card[data-mr="${m.name}"] .mc-run-card-body`)
-					.html(`<div class="mc-empty">Error: ${esc(e.message || e)}</div>`);
-			}
+		const queue = [];
+		mrs.forEach((m) => {
+			if (this.runs[m.name]) this._render_run_card_body(m.name);
+			else queue.push(m);
 		});
+		const load_next = async () => {
+			for (let m = queue.shift(); m; m = queue.shift()) {
+				try {
+					const run = await this.api("get_run_detail", { material_request: m.name });
+					this.runs[m.name] = run;
+					this._render_run_card_body(m.name);
+				} catch (e) {
+					this.$app.find(`.mc-run-card[data-mr="${m.name}"] .mc-run-card-body`)
+						.html(`<div class="mc-empty">Error: ${esc(e.message || e)}</div>`);
+				}
+			}
+		};
+		await Promise.all(Array.from({ length: 6 }, load_next));
 	}
 
 	async _refresh_one(mr_name, { quiet = false } = {}) {
