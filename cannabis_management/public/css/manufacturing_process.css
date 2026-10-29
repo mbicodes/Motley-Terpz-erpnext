@@ -1,7 +1,3 @@
-/* ── Manufacturing Process — single-page Work Order document trail ── */
-/* Same vars on :root too — document view popups (Work Order/BOM/etc.) render
-   as frappe.ui.Dialogs appended to <body>, outside .mp-dash, so they need
-   these custom properties to inherit from somewhere other than .mp-dash. */
 :root {
 	--mp-border:     #e2e8f0;
 	--mp-bg:         #f0f2f5;
@@ -57,7 +53,6 @@
 	margin: -15px -15px 0;
 }
 
-/* ── Header ── */
 .mp-header {
 	background: linear-gradient(135deg, var(--mp-navy) 0%, var(--mp-navy2) 100%);
 	color: #fff;
@@ -76,7 +71,6 @@
 .mp-brand-sub { font-size: 11.5px; color: #90a4ae; }
 .mp-hdr-right { display: flex; align-items: center; }
 
-/* ── Filter bar ── */
 .mp-fbar {
 	background: #fff; border-bottom: 1px solid var(--mp-border);
 	padding: 10px 28px; display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap;
@@ -92,14 +86,12 @@
 .mp-chip:hover { background: rgba(37,99,235,0.2); }
 .mp-empty-inline { color: var(--mp-muted); font-size: 12px; padding: 4px 0; }
 
-/* ── Body / empty state ── */
 #mp-body { padding: 22px 28px 0; }
 .mp-empty {
 	background: #fff; border: 1.5px dashed var(--mp-border); border-radius: var(--mp-r);
 	padding: 40px 24px; text-align: center; color: var(--mp-sec); font-size: 13px; max-width: 640px; margin: 30px auto;
 }
 
-/* ── Stepper ── */
 .mp-stepper { display: flex; align-items: center; margin-bottom: 22px; }
 .mp-step { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 90px; }
 .mp-step-dot {
@@ -116,7 +108,6 @@
 .mp-step-line-active { background: linear-gradient(90deg, var(--mp-emerald), var(--mp-border)); }
 @keyframes mp-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(8,145,178,0.4); } 50% { box-shadow: 0 0 0 5px rgba(8,145,178,0); } }
 
-/* ── Cards ── */
 .mp-card { background: var(--mp-surface); border: 1px solid var(--mp-border); border-radius: var(--mp-r); margin-bottom: 18px; overflow: hidden; }
 .mp-card-head {
 	display: flex; align-items: center; justify-content: space-between;
@@ -132,7 +123,6 @@
 .mp-cols { display: grid; grid-template-columns: 2fr 1fr; gap: 18px; }
 @media (max-width: 900px) { .mp-cols { grid-template-columns: 1fr; } }
 
-/* ── Work Order summary card ── */
 .mp-wo-top { display: flex; align-items: flex-start; justify-content: space-between; padding: 18px; }
 .mp-wo-item { display: flex; gap: 12px; align-items: center; }
 .mp-wo-img { width: 48px; height: 48px; border-radius: 8px; object-fit: cover; background: var(--mp-grey-dim); }
@@ -154,7 +144,6 @@
 .mp-kv { padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 12.5px; }
 .mp-kv:last-child { border-bottom: none; }
 
-/* ── Tables ── */
 .mp-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .mp-table th {
 	text-align: left; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
@@ -171,7 +160,6 @@
 .mp-link { color: var(--mp-blue); font-weight: 600; text-decoration: none; }
 .mp-link:hover { text-decoration: underline; }
 
-/* ── Badges ── */
 .mp-badge {
 	display: inline-block; font-size: 10.5px; font-weight: 700; padding: 3px 9px;
 	border-radius: 20px; letter-spacing: .02em; margin-right: 4px; white-space: nowrap;
@@ -183,21 +171,11 @@
 .mp-badge-emerald { background: var(--mp-emerald-dim); color: var(--mp-emerald); }
 .mp-badge-rose    { background: var(--mp-rose-dim);    color: var(--mp-rose); }
 
-/* ── Work Orders list (rows are clickable — pick one to drill into) ── */
 .mp-wo-row { cursor: pointer; }
 .mp-wo-row:hover { background: #f8fafc; }
 .mp-wo-row-selected { background: var(--mp-blue-dim) !important; }
 .mp-card-head .btn[disabled], .mp-add-group .btn[disabled] { opacity: .45; cursor: not-allowed; }
 
-/* ── Portal-compatibility fixes ──────────────────────────────────────────
- * These live here, not in the portal stylesheet, so the Desk and portal views
- * stay identical. Both correct rendering that Desk's own CSS happened to mask.
- */
-
-/* The Work Order / Material Request pickers are frappe.ui.form controls built
- * without a `label` in their df, so Frappe falls back to printing the raw
- * fieldname ("work_order", "material_request") next to the input. The .mp-flbl
- * headings above them already name the fields. */
 #mp-wo-filter .control-label,
 #mp-mr-filter .control-label,
 #mp-wo-filter .help-box,
@@ -205,9 +183,6 @@
   display: none !important;
 }
 
-/* A bare .btn has no background in the portal's bootstrap-4 build, which made
- * "+ New Material Request" render dark-on-dark against the header. Give the
- * secondary header button an explicit light treatment. */
 .mp-hdr-right .btn {
   background: rgba(255, 255, 255, .12);
   border: 1px solid rgba(255, 255, 255, .35);
@@ -220,7 +195,6 @@
   color: #fff;
 }
 
-/* …but never override the primary button, which already has its own colour. */
 .mp-hdr-right .btn.btn-primary {
   background: #0f766e;
   border-color: #0f766e;
@@ -231,7 +205,6 @@
   border-color: #115e56;
 }
 
-/* ── Start Timer widget (header) ──────────────────────────────────────── */
 .mp-timer-widget { display: flex; align-items: center; }
 
 .mp-timer-start-btn.btn {

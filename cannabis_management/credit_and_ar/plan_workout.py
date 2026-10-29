@@ -1,15 +1,3 @@
-"""Payment plans (§8) and workout accounts (§9) — resolutions on the one case.
-
-A **payment plan** splits a delinquent balance into a signed, ratified schedule.
-A missed installment is logged and notified, but it does not raise a second
-case — the one Active AR Case, already on Hard Hold, already stops new work.
-
-A **workout account** is prepaid only, forever, and its balance only moves down.
-A rising balance — or one that never shrinks — ends the workout and hands the
-case back to Finance to decide again, rather than closing it and opening
-another; there is still only ever one case per customer.
-"""
-
 import frappe
 from frappe import _
 from frappe.utils import add_days, add_months, flt, getdate, nowdate
@@ -28,24 +16,16 @@ TREND_SHRINKING = "Shrinking"
 TREND_FLAT = "Flat"
 TREND_RISING = "Rising"
 
-# Generate Plan — one due-date step per frequency. Custom is deliberately
-# absent: it has no step, since its dates are typed by hand (see
-# AR Case.installment_frequency).
 FREQUENCY_STEPS = {
 	"Weekly": lambda d: add_days(d, 7),
 	"Monthly": lambda d: add_months(d, 1),
 	"Bi-annually": lambda d: add_months(d, 6),
 }
 
-# A sane ceiling against a fat-fingered date range (e.g. Weekly over 20 years).
 MAX_GENERATED_INSTALLMENTS = 260
 
 
-# ── plan lifecycle ───────────────────────────────────────────────────────────
-
-
 def on_ar_case_update(doc, method=None):
-	"""Capture the invoices a plan covers, the moment the MD ratifies it."""
 	if doc.resolution != RESOLUTION_PAYMENT_PLAN or not doc.md_ratified:
 		return
 
@@ -56,15 +36,7 @@ def on_ar_case_update(doc, method=None):
 	_capture_plan_invoices(doc)
 
 
-# ── Generate Plan ────────────────────────────────────────────────────────────
-#
-# Weekly / Monthly / Bi-annually only — a Custom-frequency plan is entered by
-# hand (due dates, invoices and amounts all typed in), never through here. See
-# the description on AR Case.installment_frequency.
-
-
 def _installment_dates(start_date, end_date, frequency) -> list:
-	"""Due dates from Plan Start Date to Plan End Date, one per frequency step."""
 	step = FREQUENCY_STEPS.get(frequency)
 	if not step:
 		frappe.throw(
@@ -99,36 +71,12 @@ def generate_schedule(
 	plan_end_date: str | None = None,
 	installment_frequency: str | None = None,
 ):
-	"""§8 Generate Plan — compute the installment schedule from live invoices.
-
-	Pure computation, nothing is saved here: the client populates the Schedule
-	grid from the return value so Finance can review (and attach the signed
-	plan document) before hitting Save, which runs the usual validation.
-
-	``resolution`` / ``plan_start_date`` / ``plan_end_date`` /
-	``installment_frequency`` are taken from the caller (the open form) rather
-	than re-read from the database, since Finance may have just picked
-	"Payment Plan" and typed in the dates without saving yet — checking the
-	stale, already-saved case would refuse to generate a schedule for what is
-	plainly on screen. Each falls back to the saved case when omitted.
-
-	Due dates are Plan Start Date → Plan End Date stepped by Installment
-	Frequency. The customer's open, past-due invoices (oldest first — FIFO)
-	are drawn down evenly across those dates: an installment that outruns its
-	invoice keeps drawing from the next one on the list, so one installment
-	can straddle several invoices and one invoice can straddle several
-	installments.
-	"""
 	case = frappe.get_doc("AR Case", case_name)
 	case.check_permission("write")
 
 	resolution = resolution or case.resolution
 	if resolution != RESOLUTION_PAYMENT_PLAN:
 		frappe.throw(_("{0} is not on a Payment Plan.").format(case_name))
-
-	# No Credit Finance / System Manager gate here — anyone with write access
-	# to the case (checked above) can generate the schedule. Saving it still
-	# runs the full ARCase validation (signed document, MD ratification, etc).
 
 	plan_start_date = plan_start_date or case.plan_start_date
 	plan_end_date = plan_end_date or case.plan_end_date
@@ -144,9 +92,6 @@ def generate_schedule(
 	dates = _installment_dates(plan_start_date, plan_end_date, installment_frequency)
 	total = flt(sum(flt(row.outstanding_amount) for row in invoices))
 
-	# Even split across installments, the last one absorbing the rounding
-	# remainder so the schedule always foots exactly to the total — see
-	# ARCase._validate_payment_plan, which enforces that match on Save.
 	count = len(dates)
 	share = flt(round(total / count, 2))
 	amounts = [share] * (count - 1) + [flt(total - share * (count - 1), 2)]
@@ -183,14 +128,6 @@ def generate_schedule(
 
 
 def _open_plan_invoices(customer: str) -> list:
-	"""This customer's open, past-due invoices, oldest due date first.
-
-	The one FIFO order both plan ratification (below) and Generate Plan
-	(``generate_schedule``) draw down against. Only **past-due** invoices
-	count: the plan exists to work off a delinquent balance. An invoice that
-	is merely open, and still inside its terms, is current trading and stays
-	on the new book.
-	"""
 	return frappe.get_all(
 		"Sales Invoice",
 		filters={
@@ -206,11 +143,6 @@ def _open_plan_invoices(customer: str) -> list:
 
 
 def _capture_plan_invoices(case):
-	"""Ratification freezes which invoices belong to the plan.
-
-	Without this the two ledgers have no boundary — "plan money" would be a
-	label rather than a rule.
-	"""
 	invoices = _open_plan_invoices(case.customer)
 	if not invoices:
 		case.add_comment(
@@ -249,11 +181,6 @@ def get_active_plan(customer: str) -> dict | None:
 
 
 def plan_problems(customer: str) -> list[str]:
-	"""§8 — why a plan customer may not take new terms work, if anything.
-
-	All four must hold: the plan is ratified, nothing has been missed, a
-	*separate* credit line exists, and that line is approved.
-	"""
 	if utils.is_policy_exempt(customer):
 		return []
 
@@ -297,7 +224,6 @@ def plan_problems(customer: str) -> list[str]:
 
 
 def assert_plan_allows_terms(customer: str):
-	"""Throwing wrapper around :func:`plan_problems`."""
 	problems = plan_problems(customer)
 	if problems:
 		problems.append(
@@ -306,15 +232,7 @@ def assert_plan_allows_terms(customer: str):
 		utils.throw_consolidated(problems, "Payment Plan In Force")
 
 
-# ── plan default ─────────────────────────────────────────────────────────────
-
-
 def check_plan_installments():
-	"""Daily — a missed installment is logged and notified.
-
-	It does not raise a further hold: the case it belongs to is already on
-	Hard Hold and already stops new work.
-	"""
 	if not utils.require_policy_live("check_plan_installments"):
 		return
 
@@ -402,9 +320,6 @@ def _notify_missed_installment(case, rows):
 	)
 
 
-# ── workout ──────────────────────────────────────────────────────────────────
-
-
 def get_active_workout(customer: str) -> dict | None:
 	return get_active_case(customer, resolution=RESOLUTION_WORKOUT)
 
@@ -418,12 +333,6 @@ def required_paydown(workout: dict, order_total: float) -> float:
 
 
 def get_previous_workout_balance(workout: dict | None) -> float:
-	"""§9 Previous Balance.
-
-	The workout's Starting Balance for the first order submitted since it
-	began; otherwise the "Workout Balance at Order" snapshot saved on the
-	customer's last *submitted* order against this same case.
-	"""
 	if not workout:
 		return 0.0
 
@@ -440,19 +349,6 @@ def get_previous_workout_balance(workout: dict | None) -> float:
 
 
 def refresh_workout_balance(customer: str):
-	"""Recompute an active workout's Current Balance right away.
-
-	§9 step 8 — a payment against an old/overdue invoice should move the
-	balance immediately, not wait for the nightly ``review_workouts`` sweep.
-	Current Balance is simply live group exposure (exactly what the nightly
-	job also uses), so any receipt or refund that changes exposure is enough
-	reason to recompute here.
-
-	§9 step 9 — the moment the balance reaches zero this closes the case and
-	clears the customer's credit status outright. The nightly sweep never does
-	this on its own: it only ever *ends* a workout that is rising or stuck,
-	never closes one that has been paid off.
-	"""
 	if not customer or utils.is_policy_exempt(customer):
 		return
 
@@ -484,8 +380,6 @@ def refresh_workout_balance(customer: str):
 		case.save(ignore_permissions=True)
 
 		sync_customer_from_cases(case.customer)
-		# §9 step 9 — reaching zero clears the slate outright, not the usual
-		# Terms Approved / COD fallback sync_customer_from_cases would leave.
 		frappe.db.set_value(
 			"Customer", case.customer, "custom_credit_status", "", update_modified=False
 		)
@@ -501,7 +395,6 @@ def refresh_workout_balance(customer: str):
 
 
 def get_cleared_paydowns(sales_order: str) -> float:
-	"""Cleared Workout Paydown receipts booked against this order."""
 	from cannabis_management.credit_and_ar.sales_order_hooks import _is_cleared
 
 	rows = frappe.get_all(
@@ -518,8 +411,6 @@ def get_cleared_paydowns(sales_order: str) -> float:
 
 
 def review_workouts():
-	"""Daily — the balance only moves down. A rising, or unmoving, balance ends
-	the workout and hands the case back to Finance."""
 	if not utils.require_policy_live("review_workouts"):
 		return
 
@@ -565,9 +456,6 @@ def _review_one_workout(case_name, today, no_shrink_days, review_days):
 
 	case.flags.ignore_role_guards = True
 
-	# The balance only moves down. Above where it started ends the workout —
-	# back to Finance to decide the next step. The case itself stays Active
-	# and on hold throughout; there is no second case to raise.
 	if starting and current > starting + 0.01:
 		case.resolution = ""
 		case.save(ignore_permissions=True)
@@ -582,7 +470,6 @@ def _review_one_workout(case_name, today, no_shrink_days, review_days):
 		_notify_workout(case, _("Workout ended — the balance is rising"))
 		return
 
-	# Not shrinking within the no-shrink window → final demand and collections.
 	opened = getdate(case.opened_on or today)
 	if (
 		starting

@@ -314,7 +314,6 @@ def get_data(filters):
 def get_conditions(filters):
 	conditions = ""
 	if filters.get("params"):
-		# In case filters are wrapped in params (sometimes happens in JS)
 		filters = filters.get("params")
 
 	if filters.get("tolling_partner"):

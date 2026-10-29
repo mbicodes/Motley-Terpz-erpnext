@@ -1,24 +1,3 @@
-// Copyright (c) 2026, alltechvirtual.com and contributors
-// AR Hub — one receivables grid doing the work of AR Dashboard, Categorized AR
-// and AR Accountability. One row per customer:
-//   * AR Dashboard's balances, on-terms and overdue aging, Recon Status, the
-//     two Yes/No flags, Notebox and New AR;
-//   * Categorized AR's segment;
-//   * AR Accountability's debt level, weekly status and latest note.
-// Click a customer for its invoices (open and paid), every account field in one
-// place, this week's entry and the entry history.
-//
-// The look follows shadcn/ui (cards, tabs, outline inputs, badges, a data-table
-// toolbar, Lucide icons) in plain CSS: a desk page has no React/Tailwind build.
-// The columns that matter come first; the detailed breakdowns are in the
-// Columns menu, remembered per browser.
-//
-// Every save goes through the endpoint of the page that owns the field, with
-// that page's permission check (see ar_hub.py). The weekly review columns and
-// form only appear for AR Accountability's role.
-//
-// Wrapped in its own scope: desk page scripts share one window.
-
 (function () {
 const ARH_METHOD = 'cannabis_management.credit_and_ar.page.ar_hub.ar_hub.';
 const ARD_METHOD = 'cannabis_management.cannabis_management.page.ar_dashboard.ar_dashboard.';
@@ -27,8 +6,6 @@ const ARW_METHOD = 'cannabis_management.credit_and_ar.page.ar_weekly_review.ar_w
 const ALL_COMPANIES = '__ALL__';
 const BOOK_NEW = 'New AR';
 
-// Debt levels, worst first: the order the grid groups them in. One severity
-// scale everywhere a level shows: badge, group header, aging column.
 const TIERS = {
 	level3: { label: __('Level 3'), full: __('Level 3 — 60+ days overdue'), desc: __('Legal pursuit status.'),
 		color: 'var(--arh-red)', q: __('What is going on?') },
@@ -52,7 +29,6 @@ const STATUS_COLOR = {
 	'Payment Plan': 'var(--arh-orange)',
 	'No Longer In Business': 'var(--arh-red)',
 };
-// AR Dashboard's five built-in recon statuses; a status record's own colour wins.
 const RECON_COLOR = {
 	'Reconciled collecting money': 'var(--arh-green)',
 	'Reconciled trouble collecting money': 'var(--arh-amber)',
@@ -79,8 +55,6 @@ const SORTS = [
 const AGES = [['', __('Any invoice age')], ['90', __('Oldest 90+ days')], ['180', __('Oldest 180+ days')],
 	['270', __('Oldest 270+ days')], ['365', __('Oldest 1 year+')]];
 
-// Optional column sets for the Columns menu. Customer, Level, Outstanding,
-// Overdue, On terms and Oldest invoice always show.
 const COL_SETS = [
 	{ key: 'book', label: __('Legacy / New AR split'), on: true },
 	{ key: 'billing', label: __('Invoiced and paid'), on: false },
@@ -92,7 +66,6 @@ const COL_SETS = [
 ];
 const COLS_KEY = 'ar_hub_columns';
 
-// Lucide icons (ISC licence), as shadcn/ui uses them.
 const ICONS = {
 	chevron: '<path d="m9 18 6-6-6-6"/>',
 	down: '<path d="m6 9 6 6 6-6"/>',
@@ -122,7 +95,6 @@ const money_short = (n) => {
 };
 const dash = '<span class="arh-nil">—</span>';
 const cash = (n) => (Math.abs(n || 0) >= 0.005 ? money(n) : dash);
-// "2026-10-09" -> "Oct 9, 2026", built from the parts so no timezone shifts the day.
 const nice_date = (d) => {
 	const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(d || '');
 	return m ? new Date(+m[1], +m[2] - 1, +m[3]).toLocaleDateString('en-US',
@@ -132,7 +104,6 @@ const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 const options_html = (list, sel) => list.map((o) =>
 	`<option value="${esc(o[0])}"${o[0] === sel ? ' selected' : ''}>${esc(o[1])}</option>`).join('');
 const blank_filters = () => ({ search: '', segment: '', recon: '', level: '', status: '', age: '', min: '', hide_motley: false, bucket: '' });
-// Aging breakdown: the "not yet due" tile's key; overdue tiles use their bucket label.
 const TERMS_BUCKET = '__terms__';
 
 function load_cols() {
@@ -140,12 +111,12 @@ function load_cols() {
 	COL_SETS.forEach((s) => { cols[s.key] = s.on; });
 	try {
 		Object.assign(cols, JSON.parse(localStorage.getItem(COLS_KEY) || '{}'));
-	} catch (e) { /* storage blocked or unreadable: defaults */ }
+	} catch (e) {  }
 	return cols;
 }
 
 function save_cols(cols) {
-	try { localStorage.setItem(COLS_KEY, JSON.stringify(cols)); } catch (e) { /* storage blocked */ }
+	try { localStorage.setItem(COLS_KEY, JSON.stringify(cols)); } catch (e) {  }
 }
 
 frappe.pages['ar-hub'].on_page_load = function (wrapper) {
@@ -162,9 +133,9 @@ frappe.pages['ar-hub'].on_page_load = function (wrapper) {
 		group: 'tier',
 		sort: 'outstanding',
 		cols: load_cols(),
-		open: {},     // customer -> expanded
-		detail: {},   // customer -> 'loading' | 'error' | { paid_invoices, log }
-		edits: {},    // customer -> unsaved weekly entry
+		open: {},
+		detail: {},
+		edits: {},
 	};
 	page.arh = hub;
 
@@ -225,8 +196,6 @@ frappe.pages['ar-hub'].on_page_load = function (wrapper) {
 	load(hub);
 };
 
-// ---- data -------------------------------------------------------------------
-
 function load(hub) {
 	const seq = ++hub.seq;
 	if (hub.data) hub.page.main.find('.arh-status-text').text(__('Refreshing…'));
@@ -270,12 +239,9 @@ function find_row(hub, customer) {
 	return ((hub.data && hub.data.rows) || []).find((r) => r.customer === customer);
 }
 
-// The books (New AR / Legacy AR) a customer has money in, within the view.
 function books(r) { return r.ledgers || []; }
 function wk(r, book) { return (r.weekly || {})[book] || { tier: 'upcoming', statuses: [], status: '', note: '' }; }
 
-// The book whose weekly status speaks for the customer when only one can: the
-// one at the worse debt level, New AR on a tie.
 function primary_book(r) {
 	let best = null;
 	books(r).forEach((b) => {
@@ -312,14 +278,10 @@ function fill_options(hub) {
 	m.find('[data-k="group"]').html(options_html(GROUPS.filter((g) => d.can_weekly || g[0] !== 'status'), hub.group));
 }
 
-// ---- filtering, grouping ------------------------------------------------------
-
 function filters_active(hub) {
 	return Object.keys(hub.f).some((k) => !!hub.f[k]);
 }
 
-// keep_bucket=false leaves the aging-bucket filter out, so the aging breakdown
-// keeps showing the whole picture while one of its tiles filters the grid.
 function visible_rows(hub, keep_bucket = true) {
 	const f = hub.f;
 	const q = (f.search || '').trim().toLowerCase();
@@ -328,7 +290,6 @@ function visible_rows(hub, keep_bucket = true) {
 	return hub.data.rows.filter(function (r) {
 		if (q && r.customer.toLowerCase().indexOf(q) === -1
 			&& (r.customer_name || '').toLowerCase().indexOf(q) === -1) return false;
-		// AR Dashboard's "Remove Motley": by name, on top of the intercompany exclusion.
 		if (f.hide_motley && /motley/i.test(r.customer_name || r.customer)) return false;
 		if (f.segment && (f.segment === '__none__' ? !!r.segment : r.segment !== f.segment)) return false;
 		if (f.recon && (f.recon === '__none__' ? !!r.recon_status : r.recon_status !== f.recon)) return false;
@@ -354,8 +315,6 @@ function sort_rows(rows, by) {
 	});
 }
 
-// Keys from the live list first, then any value a customer still carries that
-// has since been disabled, so nobody drops out of the grid.
 function keys_with_extras(keys, rows, value_of) {
 	const out = keys.slice();
 	rows.forEach((r) => { const v = value_of(r); if (v && out.indexOf(v) === -1) out.push(v); });
@@ -394,8 +353,6 @@ function grouped(hub, rows) {
 	groups.forEach((g) => sort_rows(g.rows, hub.sort));
 	return groups;
 }
-
-// ---- columns ------------------------------------------------------------------
 
 function col_set_applies(hub, key) {
 	if (key === 'book') return hub.data.ar_mode === 'all';
@@ -445,7 +402,6 @@ function columns(hub) {
 	return cols;
 }
 
-// A value shown as a badge; a dropdown styled as one for someone who may edit it.
 function pick_html(kind, field, r, value, options, color, editable, printing) {
 	const label = (options.find((o) => o[0] === (value || '')) || [value, value])[1] || '—';
 	const style = value && color ? ` style="--c:${esc(color)}"` : '';
@@ -525,8 +481,6 @@ function cell(hub, c, r, printing) {
 	}
 }
 
-// ---- rendering ------------------------------------------------------------------
-
 function sync_filter_ui(hub) {
 	const m = hub.page.main;
 	m.find('[data-f]').each(function () {
@@ -578,14 +532,12 @@ function render(hub) {
 	Object.keys(hub.open).forEach((c) => { if (hub.open[c]) fetch_detail(hub, c); });
 }
 
-// The header and TOTALS rows stay put while the table scrolls.
 function freeze($wrap) {
 	let top = 0;
 	$wrap.children('table').children('thead').children('tr').each(function () {
 		$(this).children().css('top', top + 'px');
 		top += this.getBoundingClientRect().height;
 	});
-	// Expanded rows span the whole table; keep their panel the width of the view.
 	const w = $wrap[0].clientWidth;
 	if (w) $wrap.find('.arh-detail-in').css('width', (w - 1) + 'px');
 }
@@ -634,7 +586,6 @@ function table_html(hub, groups, printing) {
 	</table>`;
 }
 
-// Summary cards. The three that point at work still to do also filter the grid.
 function cards_html(hub, rows) {
 	const d = hub.data;
 	const sum = (list, k) => list.reduce((s, r) => s + (r[k] || 0), 0);
@@ -671,10 +622,6 @@ function cards_html(hub, rows) {
 	}).join('');
 }
 
-// AR Dashboard's aging breakdown: a distribution bar and one tile per bucket
-// (on terms, then each overdue bucket), over the customers the filters show.
-// Colours follow the debt levels; within a level the older buckets go darker.
-// A tile filters the grid to customers holding a balance in that bucket.
 function aging_html(hub, rows) {
 	const d = hub.data;
 	const amount = (r, key) => (key === TERMS_BUCKET ? r.on_terms : (r.buckets || {})[key]) || 0;
@@ -684,7 +631,6 @@ function aging_html(hub, rows) {
 	const tiles = [{ key: TERMS_BUCKET, label: __('On terms'), unit: __('not yet due'), tier: 'upcoming', shade: 100 }]
 		.concat(d.overdue.map((b) => {
 			seen[b.tier] = (seen[b.tier] || 0) + 1;
-			// 55% for a level's first bucket up to 100% for its last.
 			const n = per_tier[b.tier];
 			return { key: b.label, label: b.label, unit: __('overdue'), tier: b.tier,
 				shade: n > 1 ? Math.round(55 + 45 * (seen[b.tier] - 1) / (n - 1)) : 100 };
@@ -736,7 +682,6 @@ function detail_html(hub, r) {
 	const paid = loaded ? det.paid_invoices : [];
 	const show_book = d.ar_mode === 'all';
 
-	// Invoices: the open ones behind the row, then the fully paid ones.
 	const inv_row = (i, is_paid) => `<tr${is_paid ? ' class="is-paid"' : ''}>
 		<td><a class="arh-link" href="/app/sales-invoice/${encodeURIComponent(i.name)}" target="_blank" rel="noopener">${esc(i.name)}</a></td>
 		<td class="arh-muted">${esc(i.company)}</td>
@@ -766,7 +711,6 @@ function detail_html(hub, r) {
 		</table></div>
 	</section>`;
 
-	// Every customer field in one place, whatever columns are showing.
 	const fld = (label, html) => `<div class="arh-field"><label>${esc(label)}</label>${html}</div>`;
 	const acct_html = `<section class="arh-dcard">
 		<header><h4>${__('Account')}</h4><p>${d.can_edit_recon || d.can_edit_segment
@@ -786,7 +730,6 @@ function detail_html(hub, r) {
 
 	if (!d.can_weekly) return `<div class="arh-detail-grid">${inv_html}${acct_html}</div>`;
 
-	// This week's entry, for one book at a time.
 	const e = hub.edits[r.customer] || {};
 	const bs = books(r);
 	const book = bs.indexOf(e.book) !== -1 ? e.book : primary_book(r);
@@ -853,8 +796,6 @@ function cols_menu_html(hub) {
 		<button type="button" class="arh-menu-item" data-cols-reset>${__('Reset to default')}</button>`;
 }
 
-// ---- events -------------------------------------------------------------------
-
 function close_menus(hub) {
 	hub.page.main.find('.arh-menu').removeClass('is-open');
 	hub.page.main.find('[data-menu]').attr('aria-expanded', 'false');
@@ -891,8 +832,6 @@ function bind(hub) {
 		else sync_filter_ui(hub);
 	});
 
-	// A summary card that points at work to do filters the grid to it; again clears.
-	// Aging breakdown tiles: a second click on the same tile (or Clear) shows everyone again.
 	m.on('click', '.arh-agetile[data-bucket], .arh-aging-clear[data-bucket]', function () {
 		const b = $(this).attr('data-bucket');
 		hub.f.bucket = hub.f.bucket === b ? '' : b;
@@ -907,7 +846,6 @@ function bind(hub) {
 		render(hub);
 	});
 
-	// Menus: one open at a time; a click elsewhere or Escape closes them.
 	m.on('click', '[data-menu]', function (e) {
 		e.stopPropagation();
 		const k = $(this).attr('data-menu');
@@ -951,7 +889,6 @@ function bind(hub) {
 		else export_view(hub, act);
 	});
 
-	// A click on a customer row opens it, unless it was on one of its controls.
 	m.on('click', 'tr.arh-row', function (e) {
 		if ($(e.target).closest('select, a, input, textarea, button, label').length) return;
 		const customer = $(this).attr('data-customer');
@@ -978,14 +915,12 @@ function bind(hub) {
 			() => { row.new_ar_available = value; }, () => { this.checked = !value; });
 	});
 
-	// The weekly entry form keeps what is typed across re-renders.
 	m.on('input change', '.arh-detail [data-role]', function () {
 		const customer = $(this).attr('data-customer');
 		const role = $(this).attr('data-role');
 		const e = (hub.edits[customer] = hub.edits[customer] || {});
 		e[role] = this.type === 'checkbox' ? this.checked : $(this).val();
 		if (role === 'book') {
-			// Statuses depend on the book's debt level; drop one the new book does not offer.
 			const r = find_row(hub, customer);
 			if (r && wk(r, e.book).statuses.indexOf(e.status) === -1) e.status = '';
 			render(hub);
@@ -1071,10 +1006,6 @@ function save_week(hub, customer, $btn) {
 	});
 }
 
-// ---- export / print -----------------------------------------------------------
-
-// The server rebuilds every figure; the page only says which customers are in
-// view and in what order.
 function export_view(hub, file_format) {
 	if (!hub.data || !(hub.shown || []).length) {
 		frappe.msgprint(__('Nothing to export — no customers in view.'));

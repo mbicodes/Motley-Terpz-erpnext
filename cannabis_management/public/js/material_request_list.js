@@ -1,9 +1,3 @@
-// Manufacture runs carry their own status (overrides/mr_run_status.py):
-// In Progress once Work Orders are released, Completed once all of them are
-// produced. Core's indicator derives the label from per_ordered and never
-// reads status, so it kept showing "Pending" for these. Show them first,
-// and leave every other case to core. Frappe also uses this for the form's
-// status badge.
 (function () {
 	const settings = (frappe.listview_settings["Material Request"] = frappe.listview_settings["Material Request"] || {});
 	const core_indicator = settings.get_indicator;

@@ -1,17 +1,12 @@
-// Copyright (c) 2026, alltechvirtual.com and contributors
-// For license information, please see license.txt
-
 frappe.query_reports["CFO Income Statement Matrix"] = {
 	filters: [
 		{
-			// Leave blank to see every company
 			fieldname: "company",
 			label: __("Company"),
 			fieldtype: "Link",
 			options: "Company",
 		},
 		{
-			// Same switch as ERPNext's financial statements
 			fieldname: "filter_based_on",
 			label: __("Filter Based On"),
 			fieldtype: "Select",

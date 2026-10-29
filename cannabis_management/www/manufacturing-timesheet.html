@@ -22,10 +22,6 @@
 
 		[hidden] { display: none !important; }
 
-		/* ---------------------------------------------------------------- */
-		/* Board (default view: one job card per rostered employee)          */
-		/* ---------------------------------------------------------------- */
-
 		#screen-board {
 			width: 100%;
 			max-width: 1100px;
@@ -48,7 +44,6 @@
 			color: #aab3c8;
 		}
 
-		/* One section per board group; a group with no title has no heading. */
 		.board-group + .board-group {
 			margin-top: 30px;
 		}
@@ -162,17 +157,12 @@
 		.job-card .jc-btn.jc-end { background: linear-gradient(145deg, #ff7a4a, #b8452c); }
 		.job-card .jc-btn.jc-overtime { background: linear-gradient(145deg, #ef4444, #991b1b); }
 
-		/* Secondary option on a still-running card: ask for overtime before the 8h
-		   auto-cutoff ever reaches it, instead of only after. Smaller/quieter than
-		   the main End button on purpose - this is optional, End is not. */
 		.job-card .jc-btn.jc-early-overtime {
 			background: linear-gradient(145deg, #f59e0b, #b45309);
 			font-size: 13px;
 			padding: 9px;
 		}
 
-		/* Silences the siren for this employee without clearing the overtime
-		   request itself - the Request Overtime button stays right above it. */
 		.job-card .jc-btn.jc-silence {
 			background: linear-gradient(145deg, #4b5566, #2b323f);
 			font-size: 13px;
@@ -185,14 +175,11 @@
 			cursor: default;
 		}
 
-		/* Auto-ended at 8h, waiting on the employee to request overtime - loud on
-		   purpose (see playOvertimeAlarm), the card should be just as loud visually. */
 		.job-card.needs-overtime {
 			border-color: rgba(239, 68, 68, 0.7);
 			animation: needs-overtime-pulse 1.6s ease-in-out infinite;
 		}
 
-		/* Alarm stopped by hand: still clearly outstanding, just not shouting. */
 		.job-card.needs-overtime.silenced {
 			animation: none;
 			border-color: rgba(239, 68, 68, 0.35);
@@ -209,10 +196,6 @@
 			font-size: 11.5px;
 			color: #6f7891;
 		}
-
-		/* ---------------------------------------------------------------- */
-		/* Shared card-style layout for code/start/end/overtime/done screens */
-		/* ---------------------------------------------------------------- */
 
 		.layout {
 			margin: auto;
@@ -457,12 +440,7 @@
 		}
 	</style>
 
-	<!-- This page is a standalone document: it deliberately does not extend
-	     templates/web.html, so none of frappe's web bundle is loaded and
-	     `window.frappe` would otherwise not exist. Two consequences, both handled
-	     below, because every call this kiosk makes is a POST:
-
-	       1. frappe replaces the `<!-- csrf_token -->` comment (see
+	` comment (see
 	          website/page_renderers/base_template_page.py:add_csrf_token) with a
 	          script that ASSIGNS `frappe.csrf_token`. Without the stub object on
 	          the line before, that injected line is a ReferenceError.
@@ -478,16 +456,11 @@
 	<script>window.frappe = window.frappe || {};</script>
 	<!-- csrf_token -->
 	<script>
-		// A Guest session has no token, and the injected line above then renders
-		// python's None as the literal string "None". Harmless today (frappe skips
-		// the check entirely when the session holds no token) but it would send a
-		// junk token if that ever tightened, so normalise it to empty.
 		if (window.frappe.csrf_token === "None" || !window.frappe.csrf_token) window.frappe.csrf_token = "";
 	</script>
 </head>
 <body>
 
-	<!-- BOARD SCREEN (default: this kiosk's rostered employees as job cards) -->
 	<div id="screen-board">
 		<div class="board-header">
 			<h1>Master Touch Manufacturing</h1>
@@ -497,7 +470,6 @@
 		<div class="board-footer-note">Every attempt is recorded.</div>
 	</div>
 
-	<!-- CODE / START / END / OVERTIME / DONE — one central card, shown after a job-card tap -->
 	<div class="layout" id="flow-layout" hidden>
 
 		<div class="history-panel" id="history-panel" hidden>
@@ -507,7 +479,6 @@
 
 		<div class="card" id="kiosk-card">
 
-			<!-- CODE ENTRY -->
 			<section id="screen-code">
 				<div class="icon-badge">
 					<svg viewBox="0 0 24 24"><path d="M12 1a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V11a2 2 0 0 0-2-2h-1V6a5 5 0 0 0-5-5zm-3 8V6a3 3 0 0 1 6 0v3zm3 5a2 2 0 0 1 1 3.73V19a1 1 0 1 1-2 0v-1.27A2 2 0 0 1 12 14z"/></svg>
@@ -526,7 +497,6 @@
 				</form>
 			</section>
 
-			<!-- START SCREEN -->
 			<section id="screen-start" hidden>
 				<div class="icon-badge">
 					<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
@@ -549,7 +519,6 @@
 				<button type="button" class="btn secondary" id="start-cancel-btn">Cancel</button>
 			</section>
 
-			<!-- END SCREEN -->
 			<section id="screen-end" hidden>
 				<div class="icon-badge">
 					<svg viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg>
@@ -571,8 +540,6 @@
 				<button type="button" class="btn secondary" id="end-cancel-btn">Cancel</button>
 			</section>
 
-			<!-- OVERTIME REQUEST SCREEN (shown instead of Start once the kiosk has
-			     auto-ended this employee at 8 hours and they haven't asked yet) -->
 			<section id="screen-overtime" hidden>
 				<div class="icon-badge alert">
 					<svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-2h2zm0-4h-2V7h2z"/></svg>
@@ -593,7 +560,6 @@
 				<button type="button" class="btn secondary" id="overtime-cancel-btn">Back</button>
 			</section>
 
-			<!-- DONE SCREEN -->
 			<section id="screen-done" hidden>
 				<div class="icon-badge">
 					<svg viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>
@@ -611,30 +577,10 @@
 	(function () {
 		"use strict";
 
-		// A kiosk tablet should never be sitting on a stray authenticated session -
-		// someone logging into Desk on it once (to set it up, say) is enough to leave
-		// one behind, and besides being a security smell on a public floor device, an
-		// authenticated session enforces CSRF on every POST this page makes, which
-		// this guest page never sends a token for (see call() below) - so a leftover
-		// login used to make every board load/clock-in/out fail here. GET only, so
-		// this itself can never be blocked by that same CSRF check (frappe/auth.py
-		// only checks unsafe methods). Fire-and-forget: if it fails we're either
-		// already Guest or offline, and everything below still runs regardless.
 		fetch("/api/method/logout", { method: "GET", credentials: "same-origin" }).catch(function () {});
 
-		// Neutral path (nginx rewrites it to the real whitelisted method server-side -
-		// see the "location /kiosk-api/" block in the bench's nginx conf). Some
-		// client-side WiFi/network content filters silently block any request whose
-		// URL contains "cannabis" (this app's name), which used to fail every board
-		// load/clock-in/out here even though the page itself loaded fine.
 		var API = "/kiosk-api/";
 
-		// That nginx block lives in a file `bench setup nginx` regenerates, so it
-		// goes missing every time the conf is rebuilt and the whole board used to
-		// blank out with "Could not load the board". Falling back to the real
-		// method path keeps the kiosk working on its own; the neutral path is
-		// still tried first, so the content-filter dodge applies wherever nginx
-		// is wired up. See routeMissing in post() for how the two are told apart.
 		var API_DIRECT = "/api/method/cannabis_management.manufacturing_timesheet_kiosk.api.";
 		var apiBase = API;
 
@@ -703,8 +649,6 @@
 		}
 
 		function toLocalInputValue(date) {
-			// Default to *site* now: whatever is typed here is stored verbatim as a
-			// bare `from_time`, which the rest of the system reads on the site's clock.
 			var d = date ? new Date(date) : new Date(siteNowMs());
 			var pad = function (n) { return String(n).padStart(2, "0"); };
 			return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) +
@@ -715,10 +659,6 @@
 			return parseLocalDate(date).toLocaleString();
 		}
 
-		// Frappe sends dates as plain "YYYY-MM-DD[ HH:MM:SS]" strings with no
-		// time/zone. `new Date(str)` parses that as UTC, which - once read back via
-		// local get*() accessors - lands on the wrong side of midnight for any
-		// timezone behind UTC. Parse the components into a local-time Date instead.
 		function parseLocalDate(date) {
 			if (date instanceof Date) return date;
 			var parts = String(date).split(/[-T :.]/).map(Number);
@@ -777,29 +717,13 @@
 			});
 		}
 
-		// ---- Overtime alarm: a loud siren (Web Audio, no audio file needed) plus a
-		// spoken announcement naming the employee (Web Speech API), so it's heard
-		// even by someone not looking at the tablet. Re-fires on every board poll
-		// (30s) for as long as the employee stays unresolved (needs_request) - see
-		// announceOvertimeNeeded() below - by design, since the point is to keep
-		// making noise until someone acts, not to alert once and go quiet.
-		//
-		// The Stop Alarm button on the card is the way out of that loop: it cuts the
-		// current siren short and tells the server this employee's alarm is silenced
-		// (api.silence_overtime_alarm - a Check on the Timesheet, not a per-browser
-		// flag), so every kiosk board's next 30s poll stays quiet for them, not just
-		// the tablet that was tapped. It does NOT resolve the overtime - the card
-		// keeps its Request Overtime/End buttons so the employee (or whoever's at the
-		// kiosk) can still act whenever they get to it. ----
 		var audioCtx = null;
-		var activeAlarm = null;          // { osc, gain } of the siren currently sounding
-		var alarmSpeechTimer = null;     // pending announcement, cancellable before it speaks
+		var activeAlarm = null;
+		var alarmSpeechTimer = null;
 
 		function stopOvertimeAlarm() {
 			try {
 				if (activeAlarm) {
-					// Ramp the gain down over a few ms instead of stopping dead, which
-					// would put an audible click through the speaker.
 					var now = audioCtx.currentTime;
 					activeAlarm.gain.gain.cancelScheduledValues(now);
 					activeAlarm.gain.gain.setValueAtTime(activeAlarm.gain.gain.value, now);
@@ -819,14 +743,9 @@
 			try {
 				if (window.speechSynthesis) speechSynthesis.cancel();
 			} catch (e) {
-				// Speech synthesis unavailable - nothing to cancel.
 			}
 		}
 
-		// Stops the siren here immediately, and tells the server (silence_overtime_alarm)
-		// so every OTHER kiosk board's next poll (see announceOvertimeNeeded) reads the
-		// same silenced flag and stays quiet too - not just this tablet. Guest, no PIN:
-		// same reasoning as the button itself, see its click handler below.
 		function silenceOvertimeAlarm(employeeId) {
 			stopOvertimeAlarm();
 			return call("silence_overtime_alarm", { employee: employeeId });
@@ -850,7 +769,6 @@
 				gain.gain.setValueAtTime(0, now);
 				gain.gain.linearRampToValueAtTime(0.9, now + 0.05);
 
-				// Three up/down siren sweeps, ~1s each.
 				var t = now;
 				for (var i = 0; i < 3; i++) {
 					osc.frequency.setValueAtTime(600, t);
@@ -868,7 +786,6 @@
 					if (activeAlarm && activeAlarm.osc === osc) activeAlarm = null;
 				};
 			} catch (e) {
-				// Web Audio unavailable - the pulsing red card is still visible.
 			}
 
 			try {
@@ -878,25 +795,15 @@
 					);
 					utter.volume = 1;
 					utter.rate = 0.95;
-					// After the siren, not on top of it. Held in alarmSpeechTimer so
-					// Stop Alarm can cancel it before it ever speaks.
 					alarmSpeechTimer = setTimeout(function () {
 						alarmSpeechTimer = null;
 						speechSynthesis.speak(utter);
 					}, 3300);
 				}
 			} catch (e) {
-				// Speech synthesis unavailable - nothing else to do here.
 			}
 		}
 
-		// Scans the just-rendered board for anyone still needing an overtime request
-		// and sounds the alarm once per loadBoard() call (immediate load, plus every
-		// 30s refresh) for as long as they remain unresolved. `silenced` comes straight
-		// from the server (SILENCED_FIELD on their Timesheet, set by Stop Alarm on ANY
-		// board), so this stays in sync across every kiosk tablet, not just the one
-		// that silenced it - and clears itself the moment a fresh 8h-ending starts a
-		// new Timesheet, so that one is audible again.
 		function announceOvertimeNeeded(groups) {
 			var names = [];
 
@@ -911,10 +818,6 @@
 			if (names.length) playOvertimeAlarm(names.join(", "));
 		}
 
-		// How far this browser's clock sits from the server's, learned from the `Date`
-		// header every response carries. Applied before any time is read, so a tablet
-		// whose clock has drifted - or was never set - still shows the same figures as
-		// every other screen. Stays 0 until the first response, which is the board load.
 		var serverSkewMs = 0;
 
 		function noteServerTime(res) {
@@ -936,11 +839,8 @@
 				noteServerTime(res);
 				return res.text().then(function (text) {
 					var data = null;
-					try { data = JSON.parse(text); } catch (e) { /* not JSON */ }
+					try { data = JSON.parse(text); } catch (e) {  }
 					if (!res.ok) {
-						// An unrouted path answers with the site's HTML 404 page rather
-						// than a JSON error, which says this base path is not wired up -
-						// not that the call itself was rejected.
 						if (!data) {
 							var missing = new Error("Kiosk API unreachable (" + res.status + ")");
 							missing.routeMissing = true;
@@ -950,7 +850,7 @@
 						try {
 							var parsed = JSON.parse(msg);
 							msg = JSON.parse(parsed[0]).message;
-						} catch (e) { /* keep raw msg */ }
+						} catch (e) {  }
 						throw new Error(msg);
 					}
 					return data ? data.message : null;
@@ -966,10 +866,6 @@
 			});
 		}
 
-		// ---- Board ----
-		// Elapsed comes from the server (`elapsed_seconds`) and is only ticked forward
-		// locally between refreshes, so the tablet's timezone never enters the sum -
-		// a kiosk set to the wrong zone used to read hours off the true elapsed time.
 		function formatElapsed(totalSeconds) {
 			totalSeconds = Math.max(0, Math.floor(totalSeconds || 0));
 			var h = Math.floor(totalSeconds / 3600);
@@ -984,13 +880,6 @@
 			return Number(el.dataset.elapsedBase) + drift;
 		}
 
-		// `from_time` is a bare wall-clock string read off the plant's clock, so it can
-		// only be subtracted from a reading of that same clock. A tablet elsewhere that
-		// subtracts its own `Date.now()` folds the whole offset into every timer - a
-		// UTC+5 tablet showed 14:34 for a 34-minute session. Nothing local is trusted:
-		// the instant comes from the server (see serverSkewMs) and is then re-expressed
-		// on the plant's clock, so changing the viewer's timezone changes nothing here.
-		// Keep this in step with KIOSK_TIMEZONE in manufacturing_timesheet_kiosk/api.py.
 		var KIOSK_TZ = "America/Los_Angeles";
 		var siteClock = null;
 		try {
@@ -1005,24 +894,16 @@
 		}
 
 		function siteNowMs() {
-			// The server's instant, not the tablet's, re-expressed on the plant's clock.
 			var instant = new Date(Date.now() + serverSkewMs);
 			if (!siteClock) return instant.getTime();
 			var p = {};
 			siteClock.formatToParts(instant).forEach(function (part) { p[part.type] = part.value; });
-			// Built the same way parseLocalDate() builds `from_time`, so both land on
-			// one clock and their difference is the true elapsed time. `% 24` because
-			// some engines render midnight as hour "24" under hour12:false.
 			return new Date(
 				Number(p.year), Number(p.month) - 1, Number(p.day),
 				Number(p.hour) % 24, Number(p.minute), Number(p.second)
 			).getTime();
 		}
 
-		// How long this employee has been running, as of the moment the board loaded.
-		// `elapsed_seconds` is the server's own measurement and is preferred when the
-		// app worker is new enough to send it; otherwise measure it here, on the site's
-		// clock, rather than leaving the card stuck at 00:00:00.
 		function runningSeconds(emp) {
 			if (emp.elapsed_seconds != null) return Math.max(0, Number(emp.elapsed_seconds));
 			if (!emp.start_time) return 0;
@@ -1096,8 +977,6 @@
 			});
 			card.appendChild(btn);
 
-			// Secondary option on a running card: ask for overtime before the 8h
-			// auto-cutoff reaches it, without ending the session to do so.
 			if (earlyAvailable) {
 				var earlyBtn = document.createElement("button");
 				earlyBtn.type = "button";
@@ -1109,12 +988,7 @@
 				card.appendChild(earlyBtn);
 			}
 
-			// Extra buttons, only while this employee needs an overtime decision.
 			if (needsRequest) {
-				// "End" - the employee is done for the day, no overtime wanted. Goes
-				// through the same code screen as every other action; on success the
-				// server marks this Timesheet resolved (decline_overtime_request) so the
-				// prompt and alarm both stop for good, not just until the next 8h ending.
 				var endBtn = document.createElement("button");
 				endBtn.type = "button";
 				endBtn.className = "jc-btn jc-end";
@@ -1124,10 +998,6 @@
 				});
 				card.appendChild(endBtn);
 
-				// Stopping the siren leaves Request Overtime/End above untouched - the
-				// decision is still owed, it just stops being announced. Comes from the
-				// server (emp.overtime.silenced), so it's already in sync with whatever
-				// any other kiosk board did, on load and on every 30s refresh.
 				var silenced = !!emp.overtime.silenced;
 				if (silenced) card.classList.add("silenced");
 
@@ -1141,8 +1011,6 @@
 					stopBtn.disabled = true;
 					card.classList.add("silenced");
 					silenceOvertimeAlarm(emp.employee).catch(function () {
-						// Best-effort - the siren is already stopped here regardless; if
-						// the server call failed, the next poll just re-alarms as normal.
 					});
 				});
 				card.appendChild(stopBtn);
@@ -1151,8 +1019,6 @@
 			return card;
 		}
 
-		// `groups` is get_employee_board()'s reply: [{title, employees: [...]}, ...].
-		// A group with no title gets no heading - it sits under the page header.
 		function renderBoard(groups) {
 			els.boardGroups.innerHTML = "";
 
@@ -1245,9 +1111,6 @@
 		function showStartScreen(result) {
 			var prompt = result.overtime_prompt;
 
-			// An approved request clocks in from when it was asked for, not from now -
-			// the server backdates it either way (see _overtime_start_time), so show
-			// that time here rather than a "now" the session will never actually use.
 			var approvedFrom = prompt && prompt.state === "approved" && prompt.requested_at
 				? prompt.requested_at
 				: null;
@@ -1280,7 +1143,6 @@
 			els.overtimeHours.focus();
 		}
 
-		// ---- Code entry ----
 		els.codeCancelBtn.addEventListener("click", showBoard);
 
 		els.codeForm.addEventListener("submit", function (event) {
@@ -1298,12 +1160,7 @@
 					renderHistory(result.recent_timesheets);
 					els.historyPanel.hidden = false;
 
-					// The server's own state wins regardless of which button was tapped:
-					// if an overtime request is still needed, that's what shows - an
-					// employee who taps Start on a stale board still gets routed here.
 					if (result.overtime_prompt && result.overtime_prompt.state === "needs_request" && state.cardAction === "decline_overtime") {
-						// Tapped "End" on a needs-overtime card: no extra screen, just
-						// resolve it and confirm.
 						return call("decline_overtime_request", { token: state.token }).then(function () {
 							els.doneTitle.textContent = "All Set";
 							els.doneMessage.textContent = "Your day is marked complete. No overtime requested.";
@@ -1313,8 +1170,6 @@
 					} else if (result.overtime_prompt && result.overtime_prompt.state === "needs_request") {
 						showOvertimeScreen(result, false);
 					} else if (state.cardAction === "early_overtime" && result.open_session) {
-						// Tapped "Request Overtime" on a still-running card - the session
-						// itself isn't ending here, only the request is being sent.
 						showOvertimeScreen(result, true);
 					} else if (result.open_session) {
 						showEndScreen(result);
@@ -1356,7 +1211,6 @@
 		els.startActivityType.addEventListener("change", updateStartSaveState);
 		els.startTime.addEventListener("input", updateStartSaveState);
 
-		// ---- Start screen ----
 		els.startCancelBtn.addEventListener("click", showBoard);
 
 		els.startSaveBtn.addEventListener("click", function () {
@@ -1383,7 +1237,6 @@
 				});
 		});
 
-		// ---- End screen ----
 		els.endCancelBtn.addEventListener("click", showBoard);
 
 		els.endSaveBtn.addEventListener("click", function () {
@@ -1406,7 +1259,6 @@
 				});
 		});
 
-		// ---- Overtime request screen ----
 		els.overtimeCancelBtn.addEventListener("click", showBoard);
 
 		els.overtimeSubmitBtn.addEventListener("click", function () {

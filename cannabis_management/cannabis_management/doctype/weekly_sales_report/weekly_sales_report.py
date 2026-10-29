@@ -4,7 +4,6 @@ from frappe.model.document import Document
 
 class WeeklySalesReport(Document):
 	def before_save(self):
-		# Once acknowledged, lock all snapshot fields — only acknowledgment_notes may change
 		if not self.is_new() and self.is_acknowledged:
 			original = frappe.get_doc("Weekly Sales Report", self.name)
 			locked_fields = [

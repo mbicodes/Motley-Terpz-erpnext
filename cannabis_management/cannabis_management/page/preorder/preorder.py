@@ -1,6 +1,5 @@
 import frappe
 
-
 PACKAGED_ITEM_GROUPS = [
 	"Packaged goods",
 	"0.5g O2 Vape",
@@ -14,7 +13,6 @@ PACKAGED_ITEM_GROUPS = [
 
 @frappe.whitelist()
 def get_packaged_inventory(search_term=""):
-	"""Return packaged goods items with current stock levels."""
 	filters = {"item_group": ["in", PACKAGED_ITEM_GROUPS], "disabled": 0}
 	or_filters = {}
 	if search_term:
@@ -55,11 +53,6 @@ def get_packaged_inventory(search_term=""):
 
 @frappe.whitelist()
 def get_preorder(name):
-	"""Return one Preorder Entry shaped the way the form expects it.
-
-	Used to load an existing entry back into the page for editing. Permission
-	is checked explicitly -- frappe.get_doc does not do it on its own.
-	"""
 	doc = frappe.get_doc("Preorder Entry", name)
 	doc.check_permission("read")
 
@@ -88,8 +81,6 @@ def get_preorder(name):
 				"rate": r.rate,
 				"amount": r.amount,
 				"notes": r.notes,
-				# A row with no item_code was typed as free text; the form
-				# needs to know so it renders the "Custom item" badge again.
 				"is_custom": not r.item_code,
 			}
 			for r in doc.items
@@ -99,12 +90,6 @@ def get_preorder(name):
 
 @frappe.whitelist()
 def save_preorder(data, name=None):
-	"""Create a Preorder Entry from page form data, or update an existing one.
-
-	Passing `name` edits that entry in place instead of creating another. Only
-	drafts can be edited -- a submitted document is immutable in Frappe, so
-	say so plainly rather than letting doc.save() fail further down.
-	"""
 	import json
 
 	if isinstance(data, str):
@@ -116,8 +101,6 @@ def save_preorder(data, name=None):
 			frappe.throw(
 				frappe._("{0} is already submitted and can no longer be edited.").format(name)
 			)
-		# Rebuild the table from what the form sent rather than merging: the
-		# form owns the full row set, including deletions.
 		doc.set("items", [])
 	else:
 		doc = frappe.new_doc("Preorder Entry")
@@ -139,24 +122,15 @@ def save_preorder(data, name=None):
 		item_name = (row.get("item_name") or "").strip()
 		uom = (row.get("uom") or "").strip()
 
-		# A preorder row is allowed to name something we do not stock yet --
-		# reps regularly ask for a product before it exists as an Item. Both
-		# item_code and uom are Link fields, so anything that is not a real
-		# record has to be dropped or carried as free text, or doc.insert()
-		# fails link validation and the whole preorder is lost.
 		if item_code and not frappe.db.exists("Item", item_code):
 			item_name = item_name or item_code
 			item_code = None
 		if uom and not frappe.db.exists("UOM", uom):
 			uom = None
 
-		# Nothing identifying the row at all -- skip it rather than storing a
-		# blank line that no one can act on.
 		if not item_code and not item_name:
 			continue
 
-		# Amount is derived here rather than trusted from the client:
-		# Preorder Item.amount is read_only, so the form only ever previews it.
 		qty = frappe.utils.cint(row.get("qty"))
 		rate = frappe.utils.flt(row.get("rate"))
 
@@ -177,12 +151,6 @@ def save_preorder(data, name=None):
 
 @frappe.whitelist()
 def submit_preorder(name):
-	"""Submit a draft Preorder Entry.
-
-	Submitting is the point of no return for editing -- a submitted document
-	cannot be changed, only cancelled -- so refuse anything that is not still
-	a draft rather than letting doc.submit() raise something less readable.
-	"""
 	doc = frappe.get_doc("Preorder Entry", name)
 	if doc.docstatus != 0:
 		frappe.throw(
@@ -195,7 +163,6 @@ def submit_preorder(name):
 
 @frappe.whitelist()
 def get_recent_preorders(limit=20):
-	"""Return recent preorder entries for the listing panel."""
 	return frappe.get_all(
 		"Preorder Entry",
 		fields=[

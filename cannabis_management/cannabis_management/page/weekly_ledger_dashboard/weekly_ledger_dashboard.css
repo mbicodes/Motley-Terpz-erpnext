@@ -3,7 +3,6 @@
 	position: relative;
 }
 
-/* ── Hero ───────────────────────────────────────────────────────────── */
 .wld-hero {
 	background: linear-gradient(135deg, #1e1033 0%, #3b1a5c 55%, #5b2382 100%);
 	border-radius: 16px;
@@ -83,7 +82,6 @@
 	font-size: 11.5px;
 }
 
-/* ── Hero KPIs ──────────────────────────────────────────────────────── */
 .wld-kpis {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
@@ -125,7 +123,6 @@
 	gap: 5px;
 }
 
-/* ── Tags & pills ───────────────────────────────────────────────────── */
 .wld-tag {
 	display: inline-block;
 	padding: 2px 9px;
@@ -166,7 +163,6 @@
 .wld-type-sales { background: rgba(124, 58, 237, 0.12); color: #7c3aed; }
 .wld-type-ar { background: rgba(8, 145, 178, 0.12); color: #0891b2; }
 
-/* ── Progress bars ──────────────────────────────────────────────────── */
 .wld-progress {
 	height: 6px;
 	border-radius: 999px;
@@ -191,7 +187,6 @@
 .wld-bar-amber { background: #f59e0b; }
 .wld-bar-red { background: #ef4444; }
 
-/* ── Cards & layout ─────────────────────────────────────────────────── */
 .wld-grid {
 	display: grid;
 	grid-template-columns: 1fr 2fr;
@@ -226,7 +221,6 @@
 .wld-muted { color: var(--text-muted, #94a3b8); font-weight: 500; font-size: 12px; }
 .wld-strong { font-weight: 600; }
 
-/* ── Category progress list ─────────────────────────────────────────── */
 .wld-cat { margin-bottom: 12px; }
 
 .wld-cat-head {
@@ -239,7 +233,6 @@
 .wld-cat-name { font-weight: 600; }
 .wld-cat-nums { font-weight: 700; }
 
-/* ── Lines table ────────────────────────────────────────────────────── */
 .wld-table-wrap {
 	overflow: auto;
 	max-height: 460px;
@@ -275,7 +268,6 @@
 
 .wld-table tbody tr:hover { background: var(--bg-light-gray, #fafafa); }
 
-/* ── Loading / empty ────────────────────────────────────────────────── */
 .wld-empty {
 	padding: 44px 0;
 	text-align: center;

@@ -1,11 +1,3 @@
-"""
-Backward-compat shims for Frappe API changes.
-
-Frappe removed get_linked_docs / get_dynamic_linked_docs from
-frappe.model.delete_doc in ~v15.97.  Frappe CRM still imports them from there.
-We add them back as module-level attributes on every bench migrate (via the
-before_migrate hook) so CRM's after_migrate hook doesn't crash.
-"""
 import frappe
 
 

@@ -1,5 +1,3 @@
-
-// Render the attached receipt image in the preview panel on the right.
 function render_receipt_preview(frm) {
 	var field = frm.get_field('receipt_preview');
 	if (!field) return;
@@ -30,9 +28,6 @@ function render_receipt_preview(frm) {
 		'<div style="font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;' +
 		'color:var(--text-muted,#94a3b8);margin-bottom:6px;">' + __('Receipt') + '</div>' + inner + '</div>');
 }
-
-// Money In and Money Out are mutually exclusive — mirror of the server
-// validation in personal_cash_tracking.py, enforced live in the form.
 
 function toggle_money_fields(frm) {
 	var money_in = flt(frm.doc.money_in);

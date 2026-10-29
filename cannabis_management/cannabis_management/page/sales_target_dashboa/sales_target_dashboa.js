@@ -24,7 +24,6 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
         exportExcel: function () { downloadCSV(); },
     };
 
-    // ── Formatters ────────────────────────────────────────────────
     function fmtCurrency(val) {
         return '$ ' + parseFloat(val || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
@@ -32,7 +31,6 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
         return parseFloat(val || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
     }
 
-    // ── Shimmer helpers ───────────────────────────────────────────
     function shimmerKpi(id) {
         var el = rootEl.querySelector('#' + id);
         if (el) { el.classList.remove('loaded', 'error'); el.innerHTML = '<span class="sd-loader"></span>'; }
@@ -42,7 +40,6 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
         if (el) el.innerHTML = '<div class="sd-loading"><div class="sd-spinner"></div></div>';
     }
 
-    // ── Period bar ────────────────────────────────────────────────
     function setPeriodUI(period) {
         var labels = { daily: 'Today', weekly: 'This Week', monthly: 'This Month', last_month: 'Last Month' };
         rootEl.querySelectorAll('.sd-period-btn').forEach(function (btn) {
@@ -54,7 +51,6 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
         if (kl) kl.textContent = 'Pro-rated Target · ' + (labels[period] || period);
     }
 
-    // ── Matrix toggle ─────────────────────────────────────────────
     function setMatrixUI(mtx) {
         currentMatrix = mtx;
         rootEl.querySelectorAll('.sd-mtx-btn').forEach(function (btn) {
@@ -71,7 +67,6 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
         }
     }
 
-    // ── Value / Qty toggle ────────────────────────────────────────
     function setViewUI(view) {
         currentView = view;
         rootEl.querySelectorAll('.sd-view-btn').forEach(function (btn) {
@@ -80,7 +75,6 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
         if (matrixCache[currentMatrix]) renderMatrix('sd-matrix', matrixCache[currentMatrix]);
     }
 
-    // ── Matrix renderer (company-wise, fixed IG lists) ─────────
     function renderMatrix(containerId, matrix) {
         var el = rootEl.querySelector('#' + containerId);
         if (!el) return;
@@ -102,8 +96,6 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
         (matrix.products || []).forEach(function(p) { pByIG[p.item_group] = p; });
         var cig = matrix.company_ig_map || {};
 
-        // ── Fixed company + IG definitions ──────────────────────────
-        // m: null = catch-all "Others" (everything not in any named row for this company)
         var CDEFS = [
           { label:'Motley Terpz', cos:['Motley Terpz','MTPZ'],
             tot:'motley_totals', avg:'avg_motley',
@@ -121,8 +113,6 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
             tot:'tsbc_totals', avg:'avg_tsbc',
             color:'#059669', bg:'#f0fdf4', border:'#059669',
             igs:[
-              // Backend child_to_parent rollup aggregates all children
-              // (Fresh Frozen, Fresh Frozen - SHO, Fresh Frozen - BHO) into Fresh Frozen Main
               {d:'Fresh Frozen Main', m:['Fresh Frozen Main','Fresh Frozen - Main',
                                         'Fresh Frozen','Fresh Frozen - SHO','Fresh Frozen - BHO',
                                         'Frozen']},
@@ -146,7 +136,6 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
             ]},
         ];
 
-        // Helper: get rev/qty for a set of companies + match list, one column
         function getVal(coNames, matchSet, col) {
             var rev = 0, qty = 0;
             coNames.forEach(function(cn) {
@@ -164,7 +153,6 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
             return {rev:rev, qty:qty};
         }
 
-        // For "Others" (m:null): exclude everything in the named rows
         function getOthersVal(coNames, namedSets, col) {
             var rev = 0, qty = 0;
             var excluded = {};
@@ -184,7 +172,6 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
             return {rev:rev, qty:qty};
         }
 
-        // Target lookup: find first m-match in pByIG that has a target
         function getTarget(matchList) {
             if (!matchList) return null;
             for (var i=0; i<matchList.length; i++) {
@@ -200,7 +187,6 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
             return r>=1 ? 'sd-cell-green' : r>=0.7 ? 'sd-cell-amber' : actual > 0 ? 'sd-cell-red' : '';
         }
 
-        // ── Header ────────────────────────────────────────────────
         var html = '<table class="sd-matrix"><thead><tr>';
         html += '<th class="sd-matrix-th-product">Company / Item Group</th>';
         html += '<th class="sd-matrix-th-static">Target Units</th>';
@@ -219,10 +205,8 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
             cols.forEach(function(c){ grandTotals[c] += coTotals[c]||0; });
             grandAvg += coAvg;
 
-            // Precompute "named" match sets for Others exclusion
             var namedSets = co.igs.filter(function(r){return r.m!==null;}).map(function(r){return r.m;});
 
-            // Compute company-level target sums (exclude catch-all Others)
             var coTargetUnits = 0, coTargetRev = 0;
             co.igs.forEach(function(igDef) {
                 if (!igDef.m) return;
@@ -233,7 +217,6 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
                 }
             });
 
-            // ── Company header row ──────────────────────────────
             html += '<tr style="background:' + co.bg + ';border-top:2px solid ' + co.border + ';">';
             html += '<td class="sd-matrix-product" style="font-weight:800;color:' + co.color + ';border-right:1px solid #e2e8f0;">'
                   + frappe.utils.escape_html(co.label) + '</td>';
@@ -256,7 +239,6 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
                                + (coAvg > 0 ? fmtCurrency(coAvg) : '—') + '</td>';
             html += '</tr>';
 
-            // ── Item group sub-rows ─────────────────────────────
             co.igs.forEach(function(igDef) {
                 var p = getTarget(igDef.m);
                 var tgtRev   = (p && p.monthly_target) ? p.monthly_target / targetDiv : 0;
@@ -298,11 +280,10 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
             });
         });
 
-        // ── Compute target sums across all displayed rows ─────────
         var totalTargetUnits = 0, totalTargetRev = 0;
         CDEFS.forEach(function(co) {
             co.igs.forEach(function(igDef) {
-                if (!igDef.m) return;   // skip catch-all "Others"
+                if (!igDef.m) return;
                 var p = getTarget(igDef.m);
                 if (p) {
                     totalTargetUnits += (p.target_units   || 0) / targetDiv;
@@ -311,7 +292,6 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
             });
         });
 
-        // ── Grand Total ───────────────────────────────────────────
         html += '<tr class="sd-matrix-foot-grand-total"><td class="sd-matrix-product sd-matrix-foot-label">Total</td>';
         html += '<td class="sd-matrix-num sd-matrix-total-cell">' + (totalTargetUnits > 0 ? fmtQty(totalTargetUnits) : '—') + '</td>';
         html += '<td class="sd-matrix-num">—</td>';
@@ -326,7 +306,6 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
         el.innerHTML = html;
     }
 
-    // ── AR Matrix renderer ────────────────────────────────────────
     function renderArMatrix(containerId, ar, cols) {
         var el = rootEl.querySelector('#' + containerId);
         if (!el) return;
@@ -353,7 +332,6 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
         html += '<th class="sd-matrix-th-avg">Total Collected</th>';
         html += '</tr></thead><tbody>';
 
-        // ── Total AR (grayed, reference only) ─────────────────────
         html += '<tr style="opacity:.5">';
         html += '<td class="sd-matrix-product" style="color:#94a3b8;text-decoration:line-through;">Total AR</td>';
         html += '<td class="sd-matrix-num" style="text-decoration:line-through;">' + fmtCurrency(bal.total||0) + '</td>';
@@ -362,7 +340,6 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
         html += arTd(avg.total||0);
         html += '</tr>';
 
-        // ── Legacy AR balance row ─────────────────────────────────
         html += '<tr class="sd-ar-legacy">';
         html += '<td class="sd-matrix-product sd-ar-label-legacy">Legacy AR'
               + ' <span class="sd-ar-badge-legacy">pre-Jun 1</span></td>';
@@ -372,7 +349,6 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
         html += arTd(0);
         html += '</tr>';
 
-        // ── Total Legacy AR Collected (monthly) ───────────────────
         html += '<tr style="background:#fff5f5;">';
         html += '<td class="sd-matrix-product" style="padding-left:20px;color:#dc2626;font-weight:600;">'
               + 'Total Legacy AR Collected</td>';
@@ -390,7 +366,6 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
         html += arTd(legacyTotal);
         html += '</tr>';
 
-        // ── New AR (Jun 1 onwards) ────────────────────────────────
         html += '<tr class="sd-ar-good">';
         html += '<td class="sd-matrix-product sd-ar-label-good">New AR'
               + ' <span class="sd-ar-badge-good">Jun 1+</span></td>';
@@ -410,7 +385,6 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
         el.innerHTML = html;
     }
 
-    // ── Excel export ──────────────────────────────────────────────
     function downloadCSV() {
         var matrix = matrixCache[currentMatrix];
         if (!matrix || !matrix.columns || !matrix.products) {
@@ -452,7 +426,6 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
             });
         }
 
-        // ── Helpers ───────────────────────────────────────────────
         function he(s) {
             return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
         }
@@ -464,7 +437,6 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
         }
         function fmtTgt(v) { return fmtNum(v); }
 
-        // Cell builders
         function th(txt, extra) {
             return '<td class="hdr"' + (extra || '') + '>' + he(txt) + '</td>';
         }
@@ -480,7 +452,6 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
         }
         function blank(n) { var s = ''; for (var i=0;i<n;i++) s += '<td></td>'; return s; }
 
-        // ── Build HTML ────────────────────────────────────────────
         var periodLabel = currentMatrix.charAt(0).toUpperCase() + currentMatrix.slice(1);
         var dateStr     = new Date().toLocaleDateString(undefined, { year:'numeric', month:'short', day:'numeric' });
         var tgtColLabel = isQty ? targetLabel.replace('Target','Target Units') : targetLabel;
@@ -500,20 +471,15 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
             'body{font-family:Calibri,Arial,sans-serif;font-size:11pt;}',
             'table{border-collapse:collapse;width:100%;}',
             'td,th{border:1px solid #d1d5db;padding:5px 10px;vertical-align:middle;}',
-            /* Title row */
             '.title{background:#1e293b;color:#fff;font-size:14pt;font-weight:700;border:none;padding:10px 14px;}',
             '.sub{background:#334155;color:#94a3b8;font-size:9pt;border:none;padding:4px 14px;}',
-            /* Header */
             '.hdr{background:#1e293b;color:#fff;font-weight:700;font-size:10pt;text-align:center;white-space:nowrap;}',
             '.hdr-left{text-align:left;}',
-            /* Numbers */
             '.num{text-align:right;font-family:"Courier New",monospace;font-size:10pt;white-space:nowrap;}',
             '.tgt{background:#f5f0ff;font-weight:600;}',
-            /* Data cell colors */
             '.green{color:#065f46;background:#d1fae5;}',
             '.red{color:#991b1b;background:#fee2e2;}',
             '.amber{color:#92400e;background:#fef3c7;}',
-            /* Section rows */
             '.tgt-motley td{background:#ede9fe;font-weight:700;}',
             '.tgt-motley .lbl{color:#6d28d9;}',
             '.motley-total td{background:#f1f5f9;font-weight:700;border-top:2px solid #7c3aed;}',
@@ -524,7 +490,6 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
             '.tgt-tsbc .lbl{color:#15803d;}',
             '.tsbc-row td{background:#f0fdf4;font-weight:700;border-top:2px solid #059669;}',
             '.tsbc-row .lbl{color:#065f46;}',
-            /* Label cells */
             '.lbl{font-weight:600;white-space:nowrap;}',
             '.dim{color:#94a3b8;}',
             '</style></head><body>',
@@ -532,13 +497,11 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
 
         html += '<table>';
 
-        // ── Title rows ────────────────────────────────────────────
         var totalCols = 4 + cols.length + (showAvg ? 1 : 0);
         html += '<tr><td class="title" colspan="' + totalCols + '">Sales Target Dashboard &mdash; ' + he(periodLabel) + ' View</td></tr>';
         html += '<tr><td class="sub" colspan="' + totalCols + '">Exported ' + he(dateStr) + ' &nbsp;&bull;&nbsp; ' + he(currentView === 'qty' ? 'Quantity View' : 'Revenue View') + '</td></tr>';
         html += '<tr><td colspan="' + totalCols + '" style="border:none;height:4px;background:#fff;"></td></tr>';
 
-        // ── Header row ────────────────────────────────────────────
         html += '<tr>';
         html += th('Item Group', ' class="hdr hdr-left"');
         html += th('Target Units');
@@ -548,7 +511,6 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
         if (showAvg) html += th('Avg (8 Wks)');
         html += '</tr>';
 
-        // ── Motley product rows ───────────────────────────────────
         motleyProducts.forEach(function (p, i) {
             var bg = i % 2 === 0 ? '' : ' style="background:#f9fafb;"';
             html += '<tr' + bg + '>';
@@ -577,8 +539,6 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
             html += '</tr>';
         });
 
-
-        // ── Motley (target + actuals merged) ──────────
         html += '<tr class="motley-total">';
         html += td('Motley', 'lbl');
         html += td('', 'num'); html += td('', 'num');
@@ -592,10 +552,8 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
         if (showAvg) html += td(matrix.avg_motley > 0 ? fmtNum(matrix.avg_motley) : '—', 'num');
         html += '</tr>';
 
-        // ── Separator ──────────────────────────────
         html += '<tr class="sep"><td colspan="' + totalCols + '"></td></tr>';
 
-        // ── Fresh Frozen row ──────────────────────────
         if (ffProduct) {
             html += '<tr class="ff-row">';
             html += td(FF_KEY, 'lbl');
@@ -619,7 +577,6 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
             html += '</tr>';
         }
 
-        // ── TSBC (target + actuals merged) ────────────────────
         html += '<tr class="tsbc-row">';
         html += td('TSBC', 'lbl');
         html += td('—', 'num dim'); html += td('—', 'num dim');
@@ -639,10 +596,8 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
         }
         html += '</tr>';
 
-        // ── Separator ──────────────────────────────
         html += '<tr class="sep"><td colspan="' + totalCols + '"></td></tr>';
 
-        // ── Master Touch Manufacturing ──────────────
         html += '<tr style="background:#eef2ff;">';
         html += td('Master Touch Manufacturing', 'lbl');
         html += td('—', 'num dim'); html += td('—', 'num dim'); html += td('—', 'num dim');
@@ -653,7 +608,6 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
         if (showAvg) html += td(matrix.avg_mtm > 0 ? fmtNum(matrix.avg_mtm) : '—', 'num');
         html += '</tr>';
 
-        // ── LA Canna ────────────────────────────────
         html += '<tr style="background:#eef2ff;">';
         html += td('LA Canna', 'lbl');
         html += td('—', 'num dim'); html += td('—', 'num dim'); html += td('—', 'num dim');
@@ -664,10 +618,8 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
         if (showAvg) html += td(matrix.avg_la_canna > 0 ? fmtNum(matrix.avg_la_canna) : '—', 'num');
         html += '</tr>';
 
-        // ── Separator ──────────────────────────────
         html += '<tr class="sep"><td colspan="' + totalCols + '"></td></tr>';
 
-        // ── Total ───────────────────────────────────
         html += '<tr style="background:#1e293b;color:#fff;font-weight:700;">';
         html += '<td class="lbl" style="color:#fff;padding:7px 12px;">Total</td>';
         html += '<td></td><td></td><td></td>';
@@ -687,7 +639,6 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
 
         html += '</table></body></html>';
 
-        // ── Download ──────────────────────────────────────────────
         var blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
         var url  = URL.createObjectURL(blob);
         var a    = document.createElement('a');
@@ -699,7 +650,6 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
         URL.revokeObjectURL(url);
     }
 
-    // ── Data loading ──────────────────────────────────────────────
     function loadAll(period) {
         setPeriodUI(period);
         var territory = (rootEl.querySelector('#sd-territory') || {}).value || '';
@@ -785,7 +735,6 @@ frappe.pages['sales-target-dashboa'].on_page_load = function (wrapper) {
         });
     }
 
-    // ── Event listeners ───────────────────────────────────────────
     rootEl.querySelectorAll('.sd-mtx-btn').forEach(function (btn) {
         btn.addEventListener('click', function () { setMatrixUI(btn.dataset.mtx); });
     });

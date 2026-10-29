@@ -1,44 +1,3 @@
-# Copyright (c) 2015, Frappe Technologies Pvt. Ltd. and Contributors
-# License: GNU General Public License v3. See license.txt
-#
-# Duplicate of the "Profit and Loss Statement Child Accounts" report (same
-# package - see profit_and_loss_statement_child_accounts.py), purpose-built
-# for one difference: a fixed list of TSBC Ranch Expense accounts (job-
-# costing/labor-tracking buckets that don't represent real operating
-# expense for this statement) must not count towards Total Expense/Net
-# Profit at all for that company - not merely be hidden from display. Every
-# other company and every other account behaves exactly like the original
-# report; see EXCLUDED_ACCOUNTS_BY_COMPANY and get_data_excluding_accounts()
-# below for the only actual difference from that file.
-#
-# Restructures the standard Profit and Loss Statement into a multi-step
-# income statement: Income -> Total Income -> Cost of Goods Sold ->
-# Total COGS -> Gross Profit -> Expense (everything under the Expense root
-# that isn't COGS) -> Total Expense -> Net Profit.
-#
-# Parent/child accounts are kept exactly as they appear in the standard
-# report (real groups, real indentation, collapsible) - the only structural
-# change is that the Cost of Goods Sold branch is cut out of the Expense
-# tree and shown under its own heading instead of buried inside Expense.
-#
-# COGS accounts are identified from the chart of accounts rather than a
-# fixed account_type: for each company we find the Expense account(s) named
-# "Cost of Goods Sold"/"Cost of Goods Solds" and treat that account plus its
-# entire descendant branch as COGS. Everything else under Expense is a
-# regular expense. This matches how COGS is actually modeled per company in
-# this instance (sometimes a single leaf account, sometimes a large group
-# with many product-level child accounts).
-#
-# Every leaf account row is further expanded, in place, into its own
-# transactions (vouchers) - no navigating away to General Ledger - and every
-# voucher that carries its own item table (Sales/Purchase Invoice, Delivery
-# Note, Purchase Receipt, Stock Entry, Stock Reconciliation - see
-# VOUCHER_ITEM_DOCTYPE) is expanded one level further into its line items,
-# exactly like QuickBooks lets you drill from a statement all the way down to
-# the transaction (and, where there is one, the item) level. See
-# attach_transaction_rows() in financial_statements.py - shared with the
-# Detailed Balance Sheet report, which drills down the same way.
-
 import frappe
 from frappe import _
 from frappe.utils import cint, flt
@@ -54,12 +13,6 @@ from cannabis_management.cannabis_management.report.financial_statements import 
 	get_transaction_detail_columns,
 )
 
-# Reused unmodified from erpnext - only get_data() itself is re-implemented
-# below (get_data_excluding_accounts) to add one step: zeroing out a fixed
-# list of accounts' own balances, per company, before those balances get
-# rolled up into their parent groups and the report totals. Every other
-# piece of the calculation (GL entry fetching, parent accumulation, zero-
-# value filtering, the total row) is erpnext's own, untouched.
 from erpnext.accounts.report.financial_statements import (
 	accumulate_values_into_parents,
 	add_total_row,
@@ -74,9 +27,6 @@ from erpnext.accounts.report.financial_statements import (
 
 COGS_ACCOUNT_NAMES = ("Cost of Goods Sold", "Cost of Goods Solds")
 
-# Accounts that must not count towards Total Expense/Net Profit for these
-# companies at all, keyed by company name. Account names are the real
-# `tabAccount`.name values (already company-suffixed, e.g. "- TSBC").
 EXCLUDED_ACCOUNTS_BY_COMPANY = {
 	"TSBC Ranch": {
 		"Cultivation Supplies / Nutrients - TSBC",
@@ -102,16 +52,6 @@ def get_data_excluding_accounts(
 	ignore_accumulated_values_for_fy=False,
 	total=True,
 ):
-	"""Same steps as erpnext.accounts.report.financial_statements.get_data(),
-	except: right after each account's own GL-derived balance is computed
-	(calculate_values) and before it gets summed into its parent group
-	(accumulate_values_into_parents), any account named in
-	EXCLUDED_ACCOUNTS_BY_COMPANY for this company has its balance zeroed
-	out. Zeroing (rather than dropping the account from the tree) keeps
-	calculate_values from erroring on GL entries posted to it; the zero-
-	value filter further down then hides the now-empty row from the tree
-	exactly like any other account with no activity, and every ancestor
-	group/Total row above it rolls up correctly excluding it."""
 	accounts = get_accounts(company, root_type)
 	if not accounts:
 		return None
@@ -182,10 +122,6 @@ def execute(filters=None):
 		company=filters.company,
 	)
 
-	# Full account tree (real groups + leaves, indented exactly like the
-	# standard Profit and Loss Statement) - same as the standard report's own
-	# get_data(), except accounts in EXCLUDED_ACCOUNTS_BY_COMPANY are zeroed
-	# out before rolling up into their parents/totals for that company.
 	income_tree = get_data_excluding_accounts(
 		filters.company,
 		"Income",
@@ -213,15 +149,9 @@ def execute(filters=None):
 	total_income_row = income_tree[-2] if income_tree and len(income_tree) >= 2 else None
 	total_expense_all_row = expense_tree[-2] if expense_tree and len(expense_tree) >= 2 else None
 	if total_income_row:
-		# get_data()'s add_total_row doesn't flag is_total_row - add it so this
-		# row still bolds and sits at the root tree level like every other
-		# summary row we build below.
 		total_income_row["is_total_row"] = 1
 		total_income_row["indent"] = 0
 
-	# Body rows only: drop the root account row itself (our own "Income"/
-	# "Expense" section heading takes its place at the same indent level)
-	# and the trailing [total_row, blank] pair.
 	income_rows = income_tree[1:-2] if income_tree and len(income_tree) >= 2 else []
 	expense_rows = expense_tree[1:-2] if expense_tree and len(expense_tree) >= 2 else []
 
@@ -229,18 +159,10 @@ def execute(filters=None):
 		expense_rows, filters.company, period_list
 	)
 
-	# Sum only the anchor row(s) - each anchor's own "total"/period values are
-	# already the rolled-up sum of its whole branch, so summing every row in
-	# cogs_rows too would double-count everything beneath the anchor.
 	total_cogs_row = make_total_row(cogs_anchor_rows, period_list, _("Total Cost of Goods Sold"), currency)
 	gross_profit_row = make_diff_row(
 		total_income_row, total_cogs_row, period_list, _("Gross Profit"), currency
 	)
-	# Total Expense (ex-COGS) is derived by subtracting COGS from the
-	# authoritative combined Expense total, rather than summed independently
-	# from opex_rows - so Total COGS + Total Expense always equals the
-	# standard report's Total Expense exactly, and Net Profit below ties out
-	# to the standard report's Net Profit exactly.
 	total_expense_row = make_diff_row(
 		total_expense_all_row, total_cogs_row, period_list, _("Total Expense"), currency
 	)
@@ -248,47 +170,16 @@ def execute(filters=None):
 		gross_profit_row, total_expense_row, period_list, _("Net Profit"), currency
 	)
 
-	# Tag every COGS leaf/group row with which rate mode its own on-demand
-	# drill-down (get_account_drilldown() below) needs to request - done
-	# unconditionally (cheap, and harmless for callers that never look at
-	# it) so the caller never has to re-derive COGS branch membership itself.
 	for row in cogs_rows:
 		row["use_valuation_rate"] = 1
 
 	if filters.get("skip_transaction_drilldown"):
-		# The Profit and Loss (Drilldown) - TSBC custom Page (see
-		# cannabis_management/page/profit_and_loss_drilldown_tsbc/) renders
-		# its own plain HTML table and fetches a leaf account's transactions
-		# (and, for vouchers with an item table, their line items) on demand
-		# only once that account is actually expanded - see
-		# get_account_drilldown()/get_accounts_drilldown() below. Skipping
-		# attach_transaction_rows() here avoids building potentially
-		# thousands of transaction/item rows up front for accounts nobody
-		# ends up expanding, which is what made every report run slow
-		# regardless of how much of the tree the user actually looked at.
-		#
-		# Any OTHER caller of this report (e.g. the standard query-report
-		# viewer, which has no on-demand fetch mechanism of its own) doesn't
-		# set this filter, so it keeps getting the full eager drill-down
-		# exactly as before - this flag is opt-in, not a behavior change for
-		# anyone but our own Page.
 		pass
 	else:
-		# Expand every leaf account into its own transactions (and, for
-		# vouchers with an item table, their line items) as further-indented
-		# child rows in this same tree.
 		income_rows = attach_transaction_rows(income_rows, filters, period_list, currency)
-		# COGS is the one branch where the item drill-down shows valuation/cost
-		# rate instead of the selling rate - it's about what the stock actually
-		# cost, not what it was invoiced at.
 		cogs_rows = attach_transaction_rows(cogs_rows, filters, period_list, currency, use_valuation_rate=True)
 		opex_rows = attach_transaction_rows(opex_rows, filters, period_list, currency)
 
-	# Group/parent accounts roll up every descendant's amount - needed above
-	# for Total Income/COGS/Expense etc. to tie out, but confusing to display:
-	# a parent's number reads like its own balance stacked on top of its
-	# children's. Blank it for display only, after all of that arithmetic is
-	# already done, so only real leaf accounts show a figure.
 	blank_group_amounts(income_rows, period_list)
 	blank_group_amounts(cogs_rows, period_list)
 	blank_group_amounts(opex_rows, period_list)
@@ -351,23 +242,6 @@ def execute(filters=None):
 
 
 def split_cogs_branch(expense_rows, company, period_list):
-	"""Cut the Cost of Goods Sold branch(es) out of the Expense account tree.
-
-	expense_rows is the Expense tree (real groups + leaves, in the same
-	lft/pre-order the standard report uses, root already excluded). We locate
-	the topmost Expense account(s) actually named "Cost of Goods Sold"/
-	"Cost of Goods Solds" and cut out each one's entire branch - the account
-	row plus every row more indented than it that immediately follows,
-	which is exactly how frappe-datatable itself decides parent/child
-	grouping. Everything left behind is a regular expense.
-
-	Every ancestor group still left in Expense (e.g. "Direct Expenses",
-	"Stock Expenses") had the removed branch's value baked into its own
-	rolled-up total by accumulate_values_into_parents - so once the branch
-	is pulled out, we subtract it back out of each remaining ancestor too.
-	Otherwise those group subtotals would still include COGS while the
-	Total Expense row below them wouldn't, and the numbers wouldn't add up.
-	"""
 	anchor_names = get_cogs_anchor_account_names(company)
 
 	rows_by_account = {row.get("account"): row for row in expense_rows if row.get("account")}
@@ -401,12 +275,6 @@ def split_cogs_branch(expense_rows, company, period_list):
 
 
 def get_cogs_anchor_account_names(company):
-	"""Topmost Expense account(s) for this company that represent Cost of
-	Goods Sold. If one matching account contains another (e.g. a
-	"Cost of Goods Solds" group that itself has a nested "Cost of Goods
-	Sold" leaf inside it), keep only the outermost one so its branch is cut
-	out as a single unit instead of being sliced twice.
-	"""
 	anchors = frappe.db.sql(
 		"""
 		select name, lft, rgt from `tabAccount`
@@ -440,10 +308,6 @@ def subtract_from_ancestors(rows_by_account, anchor_row, period_list):
 
 
 def reindent_branches(rows, anchor_rows, new_anchor_indent):
-	"""Shift each extracted branch so its anchor row sits at
-	new_anchor_indent, preserving the relative depth of everything beneath
-	it (e.g. an anchor 3 levels deep with children 1 level further down
-	keeps that 1-level gap once re-based under the new heading)."""
 	anchor_ids = {id(row) for row in anchor_rows}
 	delta = 0
 	for row in rows:
@@ -461,10 +325,6 @@ def get_section_heading_row(account_name, period_list):
 		"is_total_row": 1,
 		"indent": 0,
 	}
-	# Blank out every amount column. frappe's Currency formatter routes
-	# anything falsy - including an unset key or "" - through format_currency,
-	# which coerces it to "0.00"; only a strict None (JSON null) short-
-	# circuits to a truly empty cell.
 	for period in period_list:
 		row[period.key] = None
 	row["total"] = None
@@ -618,16 +478,6 @@ def _get_drilldown_period_list_and_currency(filters):
 
 @frappe.whitelist()
 def get_account_drilldown(account, indent, filters, use_valuation_rate=0):
-	"""On-demand counterpart to attach_transaction_rows() for exactly ONE
-	leaf account - called by the Profit and Loss (Drilldown) - TSBC Page
-	only once that account is actually expanded (see
-	filters.skip_transaction_drilldown in execute() above), instead of
-	every leaf account's transactions/items being built and shipped to the
-	browser on every report run whether or not anyone ever looks at them.
-	Reuses attach_transaction_rows() itself unmodified against a
-	single-row placeholder list, so the returned rows are byte-for-byte
-	identical to what execute() used to return inline - just fetched
-	lazily."""
 	if not frappe.has_permission("GL Entry", "read"):
 		frappe.throw(_("Not permitted to view General Ledger entries"), frappe.PermissionError)
 
@@ -638,23 +488,13 @@ def get_account_drilldown(account, indent, filters, use_valuation_rate=0):
 	rows = attach_transaction_rows(
 		[placeholder], filters, period_list, currency, use_valuation_rate=cint(use_valuation_rate)
 	)
-	rows = rows[1:]  # drop the placeholder row - the caller already has it
+	rows = rows[1:]
 	blank_missing_transaction_detail_fields(rows)
 	return rows
 
 
 @frappe.whitelist()
 def get_accounts_drilldown(accounts, filters):
-	"""Bulk form of get_account_drilldown() for every leaf account at once -
-	used by the Page's "Expand All", which (unlike a single row's toggle)
-	genuinely does want every account's transactions, so this batches into
-	as few GL Entry queries as attach_transaction_rows() itself would use
-	(one per rate-mode - normal vs COGS valuation rate) rather than firing
-	one request per account.
-
-	`accounts` is a JSON list of {"account", "indent", "use_valuation_rate"}
-	objects (exactly what the Page already has for every not-yet-loaded leaf
-	row). Returns a dict keyed by account name."""
 	if not frappe.has_permission("GL Entry", "read"):
 		frappe.throw(_("Not permitted to view General Ledger entries"), frappe.PermissionError)
 
@@ -671,10 +511,6 @@ def get_accounts_drilldown(accounts, filters):
 		rows = attach_transaction_rows(
 			placeholders, filters, period_list, currency, use_valuation_rate=use_valuation_rate
 		)
-		# attach_transaction_rows() preserves input order and never
-		# interleaves - each placeholder's own row is immediately followed
-		# by (only) its own children - so splitting the flat result back
-		# into per-account buckets is a single linear walk.
 		placeholder_accounts = {p["account"] for p in placeholders}
 		current_account = None
 		for row in rows:

@@ -1,21 +1,3 @@
-# Copyright (c) 2026, alltechvirtual.com and contributors
-# For license information, please see license.txt
-"""AR Hub — one receivables grid doing the work of AR Dashboard, Categorized AR
-and AR Accountability.
-
-One row per customer. The money comes straight from Sales Invoice
-(outstanding_amount and due_date), which is where all three pages end up: AR
-Dashboard replaces the ERPNext report's figures with exactly these
-(_apply_si_outstanding), Categorized AR sums them and AR Accountability buckets
-them. Intercompany customers and company scope follow AR Dashboard and
-Categorized AR; aging buckets and debt levels are AR Accountability's own.
-
-Nothing here writes. Recon status, the two Yes/No flags, the notebox, New AR,
-the segment and the weekly entries are saved through those pages' own
-endpoints, with their own permission checks, so all four pages always show the
-same values.
-"""
-
 import frappe
 from frappe import _
 from frappe.utils import date_diff, flt, getdate, nowdate
@@ -54,8 +36,6 @@ AR_MODES = ("legacy", "new", "all")
 
 OVERDUE_LABELS = [b[1] for b in BUCKETS]
 
-# Days left before the due date, for invoices still on terms: AR Dashboard's
-# "New AR on Terms" columns. (key, label, upper bound; None = no bound)
 TERMS = (
 	("t1", "0-10", 10),
 	("t2", "10-20", 20),
@@ -64,14 +44,11 @@ TERMS = (
 
 
 def _require_access():
-	"""Whitelisted methods are reachable by anyone logged in, so re-check the
-	page's own roles. The weekly log has a stricter role, checked separately."""
 	if not frappe.get_doc("Page", PAGE).is_permitted():
 		frappe.throw(_("You are not permitted to view AR Hub."), frappe.PermissionError)
 
 
 def _can_weekly():
-	"""AR Accountability's role: who may see and file weekly entries."""
 	return WEEKLY_ROLE in frappe.get_roles()
 
 
@@ -80,7 +57,6 @@ def _mode(ar_mode):
 
 
 def _company_scope(company, permitted):
-	"""Companies to count, already narrowed to `permitted`. None = every company."""
 	if not company or company == ALL_COMPANIES:
 		return permitted
 	if company == "TMM Group":
@@ -105,7 +81,6 @@ def _terms_key(days_left):
 
 def _company_options(permitted):
 	companies = _scope_companies(frappe.get_all("Company", pluck="name", order_by="name"), permitted)
-	# TMM Group is a roll-up of TMM_GROUP_COMPANIES, as on AR Dashboard.
 	if "TMM Group" not in companies and _scope_companies(TMM_GROUP_COMPANIES, permitted):
 		companies.append("TMM Group")
 	return sorted(companies)
@@ -133,7 +108,6 @@ def _new_row(inv):
 
 
 def _build(ar_mode, company):
-	"""Every customer with an open balance in the chosen book and companies."""
 	ar_mode = _mode(ar_mode)
 	permitted = _permitted_companies()
 	scope = _company_scope(company, permitted)
@@ -154,9 +128,6 @@ def _build(ar_mode, company):
 	)
 
 	rows = {}
-	# A weekly entry is filed per customer + ledger across every company, and
-	# its status is validated against that tier (_snapshot_for). The status
-	# choices use the same scope, whatever the filters say.
 	weekly_tier = {}
 
 	for inv in invoices:
@@ -278,9 +249,6 @@ def _build(ar_mode, company):
 
 
 def _attach_account_fields(rows):
-	"""Notebox and New AR, the two AR Dashboard fields _attach_customer_info
-	does not carry. Either can be missing on a site that never ran
-	setup_ar_custom_fields."""
 	fields = {
 		"notebox": "custom_notebox",
 		"new_ar_available": "custom_new_ar_available",
@@ -300,16 +268,12 @@ def _attach_account_fields(rows):
 
 @frappe.whitelist()
 def get_data(ar_mode="all", company=None):
-	"""The whole grid in one call."""
 	_require_access()
 	return _build(ar_mode, company)
 
 
 @frappe.whitelist()
 def get_customer_detail(customer, ar_mode="all", company=None):
-	"""What an expanded row needs beyond the grid: the customer's fully paid
-	invoices (display only, as in AR Dashboard's dropdown) and, for AR
-	Accountability's role, the weekly entry history of the books in view."""
 	_require_access()
 	ar_mode = _mode(ar_mode)
 	scope = _company_scope(company, _permitted_companies())
@@ -337,7 +301,7 @@ def get_customer_detail(customer, ar_mode="all", company=None):
 		as_dict=True,
 	):
 		if abs(flt(inv.invoiced)) < 0.005:
-			continue  # $0 invoices (samples etc.) would read as "Paid" for nothing
+			continue
 		paid.append({
 			"name": inv.name,
 			"company": inv.company,
@@ -362,7 +326,6 @@ def get_customer_detail(customer, ar_mode="all", company=None):
 
 
 def _export_tables(data, customers):
-	"""Rows in the order the page shows them, limited to the customers it shows."""
 	by_name = {r["customer"]: r for r in data["rows"]}
 	if customers is None:
 		rows = data["rows"]
@@ -433,9 +396,6 @@ def _export_tables(data, customers):
 
 @frappe.whitelist()
 def export_view(ar_mode="all", company=None, customers=None, file_format="xlsx"):
-	"""The grid as the page shows it. The page sends the customers in view and
-	their order; every figure is recomputed here, so an export can never show
-	a balance the page would not."""
 	_require_access()
 	data = _build(ar_mode, company)
 	wanted = frappe.parse_json(customers) if customers else None

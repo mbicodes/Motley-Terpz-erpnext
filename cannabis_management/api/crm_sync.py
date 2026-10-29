@@ -1,32 +1,13 @@
-"""
-CRM Sync — nightly job (Mon–Fri).
-For every CRM Lead with custom_erp_customer set, pulls live AR/financial data
-from ERPNext and writes it back to the CRM Lead (read-only section).
-
-Fields synced per spec:
-  AR Balance · AR Aging (days) · AR Status · COD Flag
-  Last Invoice Date / Amount · Last Payment Date
-  MTD Revenue · 8-Week Trailing Revenue · Payment Terms · Last Synced
-
-AR Status computation (per FRAPPE CRM field spec):
-  Clean   — AR Balance = $0
-  Watch   — AR > $0, aging 1–30 days
-  Overdue — aging 31–90 days
-  Blocked — aging > 90 days
-"""
-
 import frappe
 from frappe.utils import flt, nowdate, getdate, now_datetime
 from datetime import timedelta
 
-
-BLOCKED_AR_THRESHOLD  = None  # disabled — no dollar blocking limit
+BLOCKED_AR_THRESHOLD  = None
 BLOCKED_AGING_DAYS    = 90
 OVERDUE_AGING_DAYS    = 30
 
 
 def sync_crm_ar_data():
-    """Scheduled nightly entry point."""
     if not frappe.db.exists("DocType", "CRM Lead"):
         return
     leads = frappe.get_all(
@@ -50,8 +31,6 @@ def sync_crm_ar_data():
 
 @frappe.whitelist()
 def get_ar_aging_buckets(customer):
-    """AR aging split into current / 1-30 / 31-60 / 61-90 / 90+ by due date,
-    for the account snapshot (Feature 6)."""
     rows = frappe.db.sql("""
         SELECT outstanding_amount AS amt, DATEDIFF(CURDATE(), due_date) AS days
         FROM `tabSales Invoice`
@@ -78,7 +57,6 @@ def get_ar_aging_buckets(customer):
 
 @frappe.whitelist()
 def sync_now(lead_name=None):
-    """Manual trigger from desk — sync a single lead or all leads."""
     if lead_name:
         lead = frappe.get_value("CRM Lead", lead_name, ["custom_erp_customer"], as_dict=True)
         if not lead or not lead.custom_erp_customer:
@@ -89,8 +67,6 @@ def sync_now(lead_name=None):
     sync_crm_ar_data()
     return "full sync done"
 
-
-# ── Core sync ─────────────────────────────────────────────────────────────────
 
 def _sync_lead(lead_name, customer):
     data = _compute_ar_data(customer)
@@ -113,11 +89,6 @@ def _sync_lead(lead_name, customer):
 
 
 def _compute_dormancy(last_invoice_date):
-    """Return (days_since_last_order, traffic_light_status).
-
-    Only applies when a customer has at least one invoice.
-    Green  < 30 days · Yellow 30–45 days · Red 45+ days
-    """
     if not last_invoice_date:
         return None, ""
 
@@ -132,7 +103,6 @@ def _compute_dormancy(last_invoice_date):
         return days, "Red"
 
 
-
 def _is_cod_customer(payment_terms):
     if not payment_terms:
         return False
@@ -142,7 +112,6 @@ def _is_cod_customer(payment_terms):
 def _compute_ar_data(customer):
     today = getdate(nowdate())
 
-    # ── AR balance + max aging ────────────────────────────────────────────────
     ar = frappe.db.sql("""
         SELECT
             COALESCE(SUM(outstanding_amount), 0)          AS balance,
@@ -156,8 +125,7 @@ def _compute_ar_data(customer):
     ar_balance  = flt(ar[0].balance)  if ar else 0.0
     aging_days  = int(ar[0].max_aging) if ar else 0
 
-    # ── AR Status ─────────────────────────────────────────────────────────────
-    if aging_days > BLOCKED_AGING_DAYS:  # AR balance threshold removed
+    if aging_days > BLOCKED_AGING_DAYS:
         ar_status = "Blocked"
     elif aging_days > OVERDUE_AGING_DAYS:
         ar_status = "Overdue"
@@ -166,7 +134,6 @@ def _compute_ar_data(customer):
     else:
         ar_status = "Clean"
 
-    # ── Last invoice ──────────────────────────────────────────────────────────
     last_inv = frappe.db.sql("""
         SELECT posting_date, grand_total
         FROM `tabSales Invoice`
@@ -175,7 +142,6 @@ def _compute_ar_data(customer):
         LIMIT 1
     """, customer, as_dict=True)
 
-    # ── Last payment ──────────────────────────────────────────────────────────
     last_pay = frappe.db.sql("""
         SELECT posting_date
         FROM `tabPayment Entry`
@@ -187,7 +153,6 @@ def _compute_ar_data(customer):
         LIMIT 1
     """, customer, as_dict=True)
 
-    # ── MTD revenue ───────────────────────────────────────────────────────────
     mtd_start = today.replace(day=1)
     mtd = frappe.db.sql("""
         SELECT COALESCE(SUM(grand_total), 0) AS rev
@@ -196,7 +161,6 @@ def _compute_ar_data(customer):
           AND posting_date BETWEEN %s AND %s
     """, (customer, str(mtd_start), str(today)), as_dict=True)
 
-    # ── 8-week trailing ───────────────────────────────────────────────────────
     eight_weeks_ago = today - timedelta(weeks=8)
     t8w = frappe.db.sql("""
         SELECT COALESCE(SUM(grand_total), 0) AS rev
@@ -205,7 +169,6 @@ def _compute_ar_data(customer):
           AND posting_date BETWEEN %s AND %s
     """, (customer, str(eight_weeks_ago), str(today)), as_dict=True)
 
-    # ── Payment terms ─────────────────────────────────────────────────────────
     pt = frappe.db.get_value("Customer", customer, "payment_terms") or ""
 
     return {

@@ -1,8 +1,3 @@
-/* =====================================================================
-   CONFIG: Nursery Daily Report (Gus)
-   Field names below must match the DocType. Change them here if your
-   DocType uses different fieldnames.
-   ===================================================================== */
 var YN = ['Yes', 'No'];
 
 window.DR_CONFIG = {
@@ -19,8 +14,7 @@ window.DR_CONFIG = {
     previewUser: 'Gus (preview)',
     previewNote: 'Preview mode: this page is not connected to MotleyERP. Submitting shows the data that would be saved.',
 
-    /* Child table fieldnames */
-    child: { photo: 'photo' },   // Daily Report Photo
+    child: { photo: 'photo' },
 
     sources: {},
     previewLists: {},

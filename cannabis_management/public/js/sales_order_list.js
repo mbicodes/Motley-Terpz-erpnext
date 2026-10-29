@@ -1,6 +1,3 @@
-// Render the custom_delivery_note_created column as a small truck icon
-// instead of a checkbox tick: green truck when a Delivery Note exists, grey
-// otherwise. Merge into (don't replace) ERPNext's existing list settings.
 frappe.listview_settings['Sales Order'] = frappe.listview_settings['Sales Order'] || {};
 
 (function () {
@@ -16,7 +13,6 @@ frappe.listview_settings['Sales Order'] = frappe.listview_settings['Sales Order'
 			<circle cx="18.5" cy="18.5" r="2.5"></circle>
 		</svg>`;
 
-	// Give each Logistic Status option its own indicator-pill color.
 	const logistic_status_colors = {
 		'Need to Schedule': 'red',
 		'Scheduled': 'orange',
@@ -26,7 +22,6 @@ frappe.listview_settings['Sales Order'] = frappe.listview_settings['Sales Order'
 		'Order Closed Out': 'green',
 	};
 
-	// Give each Sales Order Type (fieldname: custom_sales_order_type) option its own indicator-pill color.
 	const sales_order_type_colors = {
 		'Sales': 'blue',
 		'Samples': 'cyan',
@@ -37,9 +32,6 @@ frappe.listview_settings['Sales Order'] = frappe.listview_settings['Sales Order'
 		'Tolling': 'darkgrey',
 	};
 
-	// "Hide Cancelled" checkbox in the filter bar. It is not a Sales Order
-	// field, and FilterArea.get_standard_filters() turns every filter-bar
-	// control into a column filter, so swap it for docstatus != 2 there.
 	const is_hide_cancelled_filter = (f) =>
 		f && f[1] === 'docstatus' && f[2] === '!=' && String(f[3]) === '2';
 
@@ -65,8 +57,6 @@ frappe.listview_settings['Sales Order'] = frappe.listview_settings['Sales Order'
 			return filters;
 		};
 
-		// The list saves its filters per user, so a reload brings docstatus != 2
-		// back as an ordinary filter. Move it back onto the checkbox.
 		const saved = filter_area.filter_list.filters.filter(
 			(f) => f.field && is_hide_cancelled_filter(f.get_value())
 		);
@@ -77,7 +67,6 @@ frappe.listview_settings['Sales Order'] = frappe.listview_settings['Sales Order'
 		}
 	}
 
-	// Chain onto ERPNext's onload (Close / Re-open menu, bulk actions).
 	const erpnext_onload = so_settings.onload;
 	so_settings.onload = function (listview) {
 		erpnext_onload && erpnext_onload.call(this, listview);
@@ -85,8 +74,6 @@ frappe.listview_settings['Sales Order'] = frappe.listview_settings['Sales Order'
 		add_pipeline_button(listview);
 	};
 
-	// Jump to the Fulfillment Pipeline board (mt_dispatch page), for users
-	// whose roles open that page. The page has a "Sales Orders" button back.
 	function add_pipeline_button(listview) {
 		if (!(frappe.boot.page_info || {})['fulfillment-pipeline']) return;
 		listview.page.add_inner_button(__('Fulfillment Pipeline'), () =>

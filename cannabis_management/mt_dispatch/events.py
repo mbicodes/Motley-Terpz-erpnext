@@ -1,10 +1,3 @@
-"""Thread notes for what happens around an order without moving its stage.
-
-Its Sales Invoice, a Delivery Note made outside the flow, each Conversion Entry
-against it, and edits to its delivery details. Each one becomes a reply in the
-order's existing Slack thread (post.on_event) -- never a new top-level message.
-"""
-
 import frappe
 from frappe.utils import format_date, getdate
 
@@ -23,9 +16,6 @@ def _note(sales_order, what, **kwargs):
 		queue="short",
 		**kwargs,
 	)
-
-
-# ── Sales Invoice ────────────────────────────────────────────────────────────
 
 
 def _invoice_orders(si):
@@ -53,18 +43,11 @@ def on_si_cancel(doc, method=None):
 		_note(so_name, "invoice_cancelled", ref=doc.name)
 
 
-# ── Delivery Note ────────────────────────────────────────────────────────────
-
-
 def on_dn_insert(doc, method=None):
-	"""A note the flow itself made is announced by that step's own reply."""
 	if frappe.flags.get("mt_dispatch"):
 		return
 	for so_name, _cfg in _governed_orders(doc):
 		_note(so_name, "dn_created", ref=doc.name)
-
-
-# ── Conversion Entry ─────────────────────────────────────────────────────────
 
 
 def on_ce_change(doc, method=None):
@@ -74,9 +57,6 @@ def on_ce_change(doc, method=None):
 		return
 	what = "conversion_cancelled" if method == "on_cancel" else "conversion_submitted"
 	_note(doc.sales_order, what, ref=doc.name)
-
-
-# ── Sales Order edited after submit ──────────────────────────────────────────
 
 WATCHED_FIELDS = (
 	("delivery_date", "Delivery date"),

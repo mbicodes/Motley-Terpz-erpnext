@@ -1,12 +1,3 @@
-// Data Export dialog presets: adds a button next to Select All / Select
-// Mandatory / Unselect All that ticks a saved column set in one click.
-//
-// frappe.data_import.DataExporter lives in data_import_tools.bundle.js, which
-// Frappe loads lazily (frappe.require) when the dialog is first opened, so we
-// patch the class the moment the bundle assigns it via a property setter.
-//
-// The exporter writes columns in the order boxes were ticked, so each preset's
-// fieldnames are listed in the exact column order of the target file.
 (function () {
 	const PRESETS = {
 		"Sales Invoice": {

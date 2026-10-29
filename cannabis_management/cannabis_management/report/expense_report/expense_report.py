@@ -1,24 +1,3 @@
-# Copyright (c) 2015, Frappe Technologies Pvt. Ltd. and Contributors
-# License: GNU General Public License v3. See license.txt
-#
-# The TSBC Expense Report laid out by Expense Category instead of by account
-# head. Same filter bar, same period columns, same indented tree, same Total
-# row - only two things change:
-#
-#   * the first column holds the Expense Category (the ``custom_expense_category``
-#     link on Purchase Invoice Item and Journal Entry Account) rather than an
-#     account head, and
-#   * the figures come straight off those two child tables instead of the
-#     General Ledger. Every category lists the Purchase Invoices and Journal
-#     Entries behind it, one indented row per voucher number with its date.
-#
-# Amounts are net and in company currency: ``base_net_amount`` for a Purchase
-# Invoice Item (so a debit note / return subtracts, as it already carries a
-# negative amount) and ``debit - credit`` for a Journal Entry Account (so a
-# reversing entry subtracts too). Only submitted documents count, and only
-# lines that actually carry a category - an uncategorised line appears nowhere
-# on this report.
-
 import frappe
 from frappe import _
 from frappe.utils import flt, getdate
@@ -34,8 +13,6 @@ JOURNAL_ENTRY = "Journal Entry"
 
 
 def get_purchase_invoice_amounts(filters, from_date, to_date):
-	"""Categorised Purchase Invoice Item lines, as (category, voucher_no,
-	posting_date, amount) per invoice."""
 	conditions = ""
 	values = {
 		"company": filters.company,
@@ -74,12 +51,6 @@ def get_purchase_invoice_amounts(filters, from_date, to_date):
 
 
 def get_journal_entry_amounts(filters, from_date, to_date):
-	"""Categorised Journal Entry Account lines, as (category, voucher_no,
-	posting_date, amount) per entry.
-
-	``debit - credit`` so a reversal nets off, mirroring how a Purchase
-	Invoice return nets off on the other side.
-	"""
 	conditions = ""
 	values = {
 		"company": filters.company,
@@ -95,9 +66,6 @@ def get_journal_entry_amounts(filters, from_date, to_date):
 		conditions += " and account.project = %(project)s"
 		values["project"] = filters.get("project")
 
-	# Finance book handling, same rule the financial statements use: a chosen
-	# book shows that book's entries, plus the book-less ones when "Include
-	# Default FB Entries" is ticked.
 	if filters.get("finance_book"):
 		values["finance_book"] = filters.get("finance_book")
 		if filters.get("include_default_book_entries"):
@@ -130,8 +98,6 @@ def get_journal_entry_amounts(filters, from_date, to_date):
 
 
 def get_amounts_by_category(filters, period_list):
-	"""``{category: {(voucher_type, voucher_no, posting_date): {period_key: amount}}}``
-	for the whole date span."""
 	from_date = period_list[0]["from_date"]
 	to_date = period_list[-1]["to_date"]
 
@@ -165,8 +131,6 @@ def get_amounts_by_category(filters, period_list):
 def make_row(
 	label, amounts, period_list, currency, indent, accumulated=False, parent=None, is_total=False
 ):
-	"""One report row, filled period by period, with the running total applied
-	when 'Accumulated Values' is on and a Total column when it is shown."""
 	row = {
 		"expense_category": label,
 		"account_name": label,
@@ -196,9 +160,6 @@ def get_data(filters, period_list, currency):
 	accumulated = bool(filters.get("accumulated_values"))
 	amounts = get_amounts_by_category(filters, period_list)
 
-	# Every category on record, so the report reads the same from period to
-	# period, plus any category that has figures but no longer exists as a
-	# master record.
 	categories = frappe.get_all("Expense Category", pluck="name", order_by="name")
 	categories += sorted(set(amounts) - set(categories))
 
@@ -222,7 +183,6 @@ def get_data(filters, period_list, currency):
 
 		data.append(category_row)
 
-		# Oldest first, so each category reads down the year.
 		for voucher_type, voucher_no, posting_date in sorted(
 			by_voucher, key=lambda key: (key[2], key[1])
 		):
@@ -257,12 +217,6 @@ def get_data(filters, period_list, currency):
 
 
 def get_report_columns(filters, period_list):
-	"""erpnext's financial statement columns, with the account head swapped
-	out for the Expense Category and a Date column beside it.
-
-	Date goes second so the period columns keep their positions; the Growth
-	View formatter picks them out by position.
-	"""
 	columns = get_columns(
 		filters.periodicity, period_list, filters.accumulated_values, filters.company
 	)
@@ -296,8 +250,6 @@ def execute(filters=None):
 		company=filters.company,
 	)
 
-	# Figures are booked in company currency (base_net_amount / debit / credit),
-	# so that is what the report is stated in.
 	currency = frappe.get_cached_value("Company", filters.company, "default_currency")
 
 	data = get_data(filters, period_list, currency)
@@ -317,11 +269,8 @@ def get_report_summary(period_list, periodicity, data, currency, filters):
 	net_expense = 0.0
 
 	if data:
-		# The total row is the second-to-last, the blank spacer being last.
 		total_row = data[-2]
 		if filters.accumulated_values:
-			# with 'accumulated_values' on, the last period already carries the
-			# running total.
 			net_expense = flt(total_row.get(period_list[-1].key))
 		else:
 			net_expense = sum(flt(total_row.get(period.key)) for period in period_list)

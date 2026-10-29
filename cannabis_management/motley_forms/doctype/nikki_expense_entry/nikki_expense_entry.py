@@ -3,11 +3,7 @@ from frappe.model.document import Document
 
 
 class NikkiExpenseEntry(Document):
-
     def after_insert(self):
-        # PE creation is best-effort — a missing party_type or account config should
-        # never block ETE sync. Log the failure; the Server Script still creates/submits
-        # the ETE and updates balances regardless.
         try:
             self.create_payment_entry()
         except Exception:
@@ -15,14 +11,8 @@ class NikkiExpenseEntry(Document):
                 title=f"Nikki Expense Entry — PE creation skipped [{self.name}]",
                 message=frappe.get_traceback()
             )
-        # Expense Tracker Entry sync is handled by the "Nikki Expense → Expense Tracker
-        # Entry" Server Script (resolves the Cash Tracker Person as Nikki regardless of
-        # who keys in the entry). Calling _create_expense_tracker_entry() here too would
-        # only fail for non-Nikki sessions and spam the error log, so it is intentionally
-        # not invoked. The method is kept for reference / manual use.
 
     def _create_expense_tracker_entry(self):
-        """Mirror this submission into the unified Expense Tracker Entry."""
         try:
             is_money_in = self.money_in and float(self.money_in) > 0
             amount = float(self.money_in or 0) if is_money_in else float(self.money_out or 0)
@@ -31,7 +21,6 @@ class NikkiExpenseEntry(Document):
 
             direction = "Reimbursement" if is_money_in else "Expense"
 
-            # Resolve Cash Tracker Person for the submitting user
             person = frappe.db.get_value(
                 "Cash Tracker Person", {"user": frappe.session.user}, "name"
             )
@@ -45,7 +34,6 @@ class NikkiExpenseEntry(Document):
 
             employee = frappe.db.get_value("Cash Tracker Person", person, "employee")
 
-            # Map Nikki Expense Entry fields → Expense Tracker Entry
             exp = frappe.new_doc("Expense Tracker Entry")
             exp.date                = self.transaction_date
             exp.cash_tracker_person = person
@@ -58,10 +46,8 @@ class NikkiExpenseEntry(Document):
             exp.notes               = self.transaction_notes or ""
             exp.receipt             = self.receipt or None
             exp.approval_status     = "Pending"
-            # Skip receipt validation on insert — Nikki form handles it separately
             exp.flags.ignore_validate = True
             exp.insert(ignore_permissions=True)
-            # Submit immediately so balance hooks can see it (docstatus=1)
             frappe.db.set_value("Expense Tracker Entry", exp.name, "docstatus", 1)
 
             frappe.db.set_value(
@@ -138,7 +124,6 @@ class NikkiExpenseEntry(Document):
             pe.reference_date  = self.transaction_date if self.invoice_no else None
             pe.remarks         = self.transaction_notes or f"Auto-created from {self.name}"
 
-            # Party mapping
             pe.party_type = self.party_type or None
             if self.party_type == "Customer":
                 pe.party = self.customer or None

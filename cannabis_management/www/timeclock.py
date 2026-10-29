@@ -9,8 +9,6 @@ def get_context(context):
 	context.title = _("Time Clock")
 
 	if frappe.session.user == "Guest":
-		# Bounce to login rather than throwing — this page is meant to be opened
-		# cold from a phone bookmark.
 		frappe.local.flags.redirect_location = "/login?redirect-to=/timeclock"
 		raise frappe.Redirect
 

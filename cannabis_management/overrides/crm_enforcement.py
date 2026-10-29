@@ -1,20 +1,8 @@
-"""
-CRM AR Enforcement
-  - check_customer_blocked(): fires on Sales Invoice + Sales Order before_submit.
-    Blocked = oldest unpaid invoice > 90 days overdue only (AR balance threshold removed).
-    Non-admin → hard throw.  Admin → red warning (can proceed).
-    Always fires a Slack notification to Matt, Imran, and Nikki.
-
-  - crm_lead_query_conditions(): permission filter for CRM Lead.
-    Hides Tolling pipeline leads from users who lack the "CRM Tolling Access" role.
-"""
-
 import frappe
 from frappe import _
 from frappe.utils import flt
 
-
-BLOCKED_AR_THRESHOLD = None          # AR balance threshold disabled — no dollar limit
+BLOCKED_AR_THRESHOLD = None
 BLOCKED_AGING_DAYS   = 90
 
 BLOCKED_SLACK_USERS = [
@@ -25,8 +13,6 @@ BLOCKED_SLACK_USERS = [
 
 COD_NOTIFY_EMAIL = "mbi@alltechvirtual.com"
 
-
-# ── Doc hook: fires on Sales Invoice + Sales Order before_submit ──────────────
 
 def check_customer_blocked(doc, method=None):
     if not doc.customer:
@@ -51,13 +37,7 @@ def check_customer_blocked(doc, method=None):
         frappe.throw(msg, title=_("Customer Blocked — Submission Not Allowed"))
 
 
-# ── COD enforcement: notify Muhammad when a COD customer gets an invoice ─────
-
 def check_cod_customer(doc, method=None):
-    """
-    If the customer is flagged COD-only in CRM, send a Slack alert to Muhammad
-    so he can verify cash was collected before the invoice is posted.
-    """
     if not doc.customer or not frappe.db.exists("DocType", "CRM Lead"):
         return
     if not frappe.db.has_column("CRM Lead", "custom_erp_customer"):
@@ -127,8 +107,6 @@ def _send_cod_slack(doc):
         frappe.log_error(frappe.get_traceback(), "[crm_enforcement] COD Slack notification failed")
 
 
-# ── CRM Lead permission filter: hide Tolling from unauthorised users ──────────
-
 def crm_lead_query_conditions(user):
     if not user:
         user = frappe.session.user
@@ -142,8 +120,6 @@ def crm_lead_query_conditions(user):
         "OR `tabCRM Lead`.`custom_pipeline` = '')"
     )
 
-
-# ── Internal helpers ──────────────────────────────────────────────────────────
 
 def _is_customer_blocked(customer):
     row = frappe.db.sql("""
@@ -163,7 +139,6 @@ def _is_customer_blocked(customer):
     aging_days = int(row[0].max_aging or 0)
 
     reasons = []
-    # AR balance threshold is disabled — only block on aging
     if aging_days > BLOCKED_AGING_DAYS:
         reasons.append(f"oldest unpaid invoice is {aging_days} days overdue ({BLOCKED_AGING_DAYS}-day limit)")
 

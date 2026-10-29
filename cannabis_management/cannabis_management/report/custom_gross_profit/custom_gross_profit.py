@@ -1,6 +1,3 @@
-# Copyright (c) 2015, Frappe Technologies Pvt. Ltd. and Contributors
-# License: GNU General Public License v3. See license.txt
-
 from collections import OrderedDict
 
 import frappe
@@ -192,9 +189,7 @@ def execute(filters=None):
 def get_data_when_grouped_by_invoice(columns, gross_profit_data, filters, group_wise_columns, data):
 	column_names = get_column_names()
 
-	# to display item as Item Code: Item Name
 	columns[0] = "Sales Invoice:Link/Item:300"
-	# removing Item Code and Item Name columns
 	supplier_master_name = frappe.db.get_single_value("Buying Settings", "supp_master_name")
 	customer_master_name = frappe.db.get_single_value("Selling Settings", "cust_master_name")
 	if supplier_master_name == "Supplier Name" and customer_master_name == "Customer Name":
@@ -216,7 +211,6 @@ def get_data_when_grouped_by_invoice(columns, gross_profit_data, filters, group_
 		row.currency = filters.currency
 
 		for col in group_wise_columns.get(scrub(filters.group_by)):
-			# Map column fieldnames correctly, ensuring purchase columns are included
 			fieldname = column_names.get(col)
 			if fieldname:
 				row[fieldname] = src.get(col)
@@ -251,7 +245,6 @@ def get_data_when_not_grouped_by_invoice(gross_profit_data, filters, group_wise_
 
 	group_columns = group_wise_columns.get(scrub(filters.group_by))
 
-	# removing customer_name from group columns
 	customer_master_name = frappe.db.get_single_value("Selling Settings", "cust_master_name")
 	supplier_master_name = frappe.db.get_single_value("Buying Settings", "supp_master_name")
 
@@ -611,7 +604,6 @@ class GrossProfitGenerator:
 			if self.skip_row(row):
 				continue
 
-			# Skip trail rows — they are display-only SLE entries
 			if row.get("is_trail_row"):
 				self.grouped.setdefault(row.get(scrub(self.filters.group_by)), []).append(row)
 				continue
@@ -626,9 +618,7 @@ class GrossProfitGenerator:
 					row.delivery_note, frappe._dict()
 				)
 				row.item_row = row.dn_detail
-				# Update warehouse and base_amount from 'Packed Item' List
 				if product_bundles and not row.parent:
-					# For Packed Items, row.parent_invoice will be the Bundle name
 					product_bundle = product_bundles.get(row.parent_invoice)
 					if product_bundle:
 						for packed_item in product_bundle:
@@ -639,7 +629,6 @@ class GrossProfitGenerator:
 								row.warehouse = packed_item.warehouse
 								row.base_amount = packed_item.base_amount
 
-			# get buying amount
 			if row.item_code in product_bundles:
 				row.buying_amount = flt(
 					self.get_buying_amount_from_product_bundle(row, product_bundles[row.item_code]),
@@ -654,7 +643,6 @@ class GrossProfitGenerator:
 				buying_amount = 0
 				base_amount = 0
 
-			# get buying rate
 			if flt(row.qty):
 				row.buying_rate = flt(row.buying_amount / flt(row.qty), self.float_precision)
 				row.base_rate = flt(row.base_amount / flt(row.qty), self.float_precision)
@@ -669,7 +657,6 @@ class GrossProfitGenerator:
 				buying_amount += row.buying_amount
 				base_amount += row.base_amount
 
-			# calculate gross profit
 			row.gross_profit = flt(row.base_amount - row.buying_amount, self.currency_precision)
 			if row.base_amount:
 				row.gross_profit_percent = flt(
@@ -679,37 +666,30 @@ class GrossProfitGenerator:
 			else:
 				row.gross_profit_percent = 0.0
 
-			# attach purchase data to item rows
 			if self.is_not_invoice_row(row) and row.item_code:
 				purchase_records = self.purchase_data.get(row.item_code, [])
 				if purchase_records:
-					# Use the most recent purchase record
 					latest = purchase_records[0]
 					row.purchase_document = f"{latest.document_type}: {latest.document_name}"
 					row.purchase_date = latest.posting_date
 					row.supplier = latest.supplier
 					row.purchase_rate = latest.rate
 
-				# Attach new data via project/batch
 				project = row.get("project")
 				if project:
-					# Fresh Frozen Purchase Rate
 					ff_data = self.ff_purchase_data.get(project)
 					if ff_data:
 						row.ff_purchase_rate = ff_data.get("rate", 0)
 
-					# Yield percentages from Lab Tolling Data
 					yield_info = self.yield_data.get(project)
 					if yield_info:
 						row.ff_to_hash_yield = yield_info.get("ff_to_hash_yield", 0)
 						row.hash_to_rosin_yield = yield_info.get("hash_to_rosin_yield", 0)
 
-					# Repack valuation increase
 					repack_info = self.repack_data.get(project)
 					if repack_info:
 						row.repack_valuation_increase = repack_info.get("valuation_increase", 0)
 
-			# add to grouped
 			self.grouped.setdefault(row.get(scrub(self.filters.group_by)), []).append(row)
 
 		if self.grouped:
@@ -719,7 +699,6 @@ class GrossProfitGenerator:
 		if row.parent in self.returned_invoices and row.item_code in self.returned_invoices[row.parent]:
 			returned_item_rows = self.returned_invoices[row.parent][row.item_code]
 			for returned_item_row in returned_item_rows:
-				# returned_items 'qty' should be stateful
 				if returned_item_row.qty != 0:
 					if row.qty >= abs(returned_item_row.qty):
 						row.qty += returned_item_row.qty
@@ -843,7 +822,6 @@ class GrossProfitGenerator:
 
 	def calculate_buying_amount_from_sle(self, row, my_sle, parenttype, parent, item_row, item_code):
 		for i, sle in enumerate(my_sle):
-			# find the stock valution rate from stock ledger entry
 			if (
 				sle.voucher_type == parenttype
 				and parent == sle.voucher_no
@@ -858,11 +836,7 @@ class GrossProfitGenerator:
 		return 0.0
 
 	def get_buying_amount(self, row, item_code):
-		# IMP NOTE
-		# stock_ledger_entries should already be filtered by item_code and warehouse and
-		# sorted by posting_date desc, posting_time desc
 		if item_code in self.non_stock_items and (row.project or row.cost_center):
-			# Issue 6089-Get last purchasing rate for non-stock item
 			item_rate = self.get_last_purchase_rate(item_code, row)
 			return flt(row.qty) * item_rate
 
@@ -879,7 +853,6 @@ class GrossProfitGenerator:
 					row, my_sle, parenttype, parent, row.item_row, item_code
 				)
 			elif self.delivery_notes.get((row.parent, row.item_code), None):
-				#  check if Invoice has delivery notes
 				dn = self.delivery_notes.get((row.parent, row.item_code))
 				parenttype, parent, item_row, dn_warehouse = (
 					"Delivery Note",
@@ -1118,23 +1091,16 @@ class GrossProfitGenerator:
 				self.delivery_notes[(entry.sales_invoice, entry.item_code)] = entry
 
 	def group_items_by_invoice(self):
-		"""
-		Turns list of Sales Invoice Items to a tree of Sales Invoices with their Items as children.
-		Also adds stock movement trail sub-rows (indent 2) under each item.
-		"""
-
 		grouped = OrderedDict()
 		product_bundles = self.product_bundles.get("Sales Invoice", {})
 
 		for row in self.si_list:
-			# initialize list with a header row for each new parent
 			grouped.setdefault(row.parent, [self.get_invoice_row(row)]).append(
 				row.update(
 					{"indent": 1.0, "parent_invoice": row.parent, "invoice_or_item": row.item_code}
-				)  # descendant rows will have indent: 1.0 or greater
+				)
 			)
 
-			# Add stock movement trail sub-rows for this item
 			if row.item_code and row.warehouse:
 				trail = self.get_item_stock_trail(row.item_code, row.warehouse)
 				for sle_entry in trail:
@@ -1162,9 +1128,6 @@ class GrossProfitGenerator:
 					})
 					grouped.get(row.parent).append(trail_row)
 
-
-
-			# if item is a bundle, add it's components as seperate rows
 			if bundled_items := product_bundles.get(row.parent, {}).get(row.item_code):
 				for x in bundled_items:
 					bundle_item = self.get_bundle_item_row(row, x)
@@ -1176,7 +1139,6 @@ class GrossProfitGenerator:
 			self.si_list.extend(items)
 
 	def get_invoice_row(self, row):
-		# header row format
 		return frappe._dict(
 			{
 				"parent_invoice": "",
@@ -1303,9 +1265,6 @@ class GrossProfitGenerator:
 		)
 
 	def load_purchase_data(self):
-		"""Load purchase history for all sold items.
-		Fetches from Purchase Invoice and Purchase Receipt, keyed by item_code.
-		"""
 		self.purchase_data = {}
 		if not self.si_list:
 			return
@@ -1314,7 +1273,6 @@ class GrossProfitGenerator:
 		if not item_codes:
 			return
 
-		# Fetch from Purchase Invoices
 		pi_data = frappe.db.sql("""
 			SELECT
 				'Purchase Invoice' as document_type,
@@ -1333,7 +1291,6 @@ class GrossProfitGenerator:
 			ORDER BY pi.posting_date DESC
 		""", {"item_codes": item_codes}, as_dict=True)
 
-		# Fetch from Purchase Receipts
 		pr_data = frappe.db.sql("""
 			SELECT
 				'Purchase Receipt' as document_type,
@@ -1352,7 +1309,6 @@ class GrossProfitGenerator:
 			ORDER BY pr.posting_date DESC
 		""", {"item_codes": item_codes}, as_dict=True)
 
-		# Fetch from Stock Entry (fallback)
 		se_data = frappe.db.sql("""
 			SELECT
 				'Stock Entry' as document_type,
@@ -1372,15 +1328,11 @@ class GrossProfitGenerator:
 			ORDER BY se.posting_date DESC
 		""", {"item_codes": item_codes}, as_dict=True)
 
-		# Merge and group by item_code, most recent first
 		all_purchases = sorted(pi_data + pr_data + se_data, key=lambda x: x.posting_date, reverse=True)
 		for record in all_purchases:
 			self.purchase_data.setdefault(record.item_code, []).append(record)
 
 	def get_item_stock_trail(self, item_code, warehouse):
-		"""Fetch ALL Stock Ledger Entries for item_code + warehouse, sorted chronologically.
-		Used to build the stock movement trail sub-rows.
-		"""
 		if not item_code or not warehouse:
 			return []
 
@@ -1416,7 +1368,6 @@ class GrossProfitGenerator:
 		return self.sle[trail_key]
 
 	def load_ff_purchase_data(self):
-		"""Load fresh frozen purchase rates from Purchase Receipts, keyed by project."""
 		self.ff_purchase_data = {}
 		if not self.si_list:
 			return
@@ -1437,13 +1388,11 @@ class GrossProfitGenerator:
 			ORDER BY pr.posting_date DESC
 		""", {"projects": projects}, as_dict=True)
 
-		# Keep the most recent purchase rate per project
 		for record in ff_data:
 			if record.project not in self.ff_purchase_data:
 				self.ff_purchase_data[record.project] = record
 
 	def load_yield_data(self):
-		"""Load yield percentages from Lab Tolling Data, keyed by batch_no (project)."""
 		self.yield_data = {}
 		if not self.si_list:
 			return
@@ -1475,9 +1424,6 @@ class GrossProfitGenerator:
 				}
 
 	def load_repack_valuation_data(self):
-		"""Load repack valuation increase from Stock Entry (Repack), keyed by project.
-		Calculates: finished good basic_rate - raw material basic_rate.
-		"""
 		self.repack_data = {}
 		if not self.si_list:
 			return
@@ -1486,7 +1432,6 @@ class GrossProfitGenerator:
 		if not projects:
 			return
 
-		# Find Repack Stock Entries linked via Rosin Recording
 		repack_entries = frappe.db.sql("""
 			SELECT
 				rr.batch as project,
@@ -1504,7 +1449,6 @@ class GrossProfitGenerator:
 			ORDER BY se.posting_date DESC
 		""", {"projects": projects}, as_dict=True)
 
-		# Group by project and compute valuation increase
 		project_entries = {}
 		for entry in repack_entries:
 			project_entries.setdefault(entry.project, {}).setdefault(entry.stock_entry, []).append(entry)
@@ -1512,7 +1456,6 @@ class GrossProfitGenerator:
 		for project, se_groups in project_entries.items():
 			if project in self.repack_data:
 				continue
-			# Use the first (most recent) stock entry
 			for se_name, items in se_groups.items():
 				raw_rates = [flt(i.basic_rate) for i in items if i.s_warehouse and not i.t_warehouse]
 				finished_rates = [flt(i.basic_rate) for i in items if i.t_warehouse and not i.s_warehouse]

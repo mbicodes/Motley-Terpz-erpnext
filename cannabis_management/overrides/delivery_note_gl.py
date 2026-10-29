@@ -20,29 +20,18 @@ class CMDeliveryNote(DeliveryNote):
         )
         return apply_item_group_mapping(self, gl_entries, warehouse_account)
 
-    # ── File the stock GL under the Sales Invoice ────────────────────────────
-
     def _aligned_sales_invoice(self):
-        """Resolved once per submit; get_gl_dict is called once per GL row."""
         if not hasattr(self, "_cm_aligned_si"):
             self._cm_aligned_si = get_linked_sales_invoice(self)
         return self._cm_aligned_si
 
     def get_gl_dict(self, args, account_currency=None, item=None):
-        """Restamp the entry onto the linked Sales Invoice.
-
-        get_gl_dict is the single place core sets posting_date, fiscal_year,
-        voucher_type and voucher_no, which makes it the one honest seam for
-        this. Amounts and accounts are decided elsewhere and stay untouched.
-        """
         gl_dict = super().get_gl_dict(args, account_currency=account_currency, item=item)
 
         si = self._aligned_sales_invoice()
         if not si:
             return gl_dict
 
-        # fiscal_year has to follow the date, or the entry lands in the wrong
-        # year and period-close reports disagree with the ledger.
         from erpnext.accounts.utils import get_fiscal_year
 
         gl_dict.update(
@@ -58,20 +47,7 @@ class CMDeliveryNote(DeliveryNote):
         )
         return gl_dict
 
-    # ── Cancellation ────────────────────────────────────────────────────────
-
     def make_gl_entries(self, gl_entries=None, from_repost=False, via_landed_cost_voucher=False):
-        """Reverse restamped rows on cancel, and clear them before a repost.
-
-        Core reverses by (voucher_type, voucher_no) = (Delivery Note, name).
-        Restamped rows are filed under the Sales Invoice, so core finds nothing
-        and the stock goes back while the COGS stays booked. Reverse those by
-        origin first, then let core handle anything that stayed on this note.
-
-        A valuation repost has the same blind spot: it deletes this note's GL
-        by voucher and posts a fresh set, so the restamped rows would survive
-        next to the new ones and the COGS would be booked twice.
-        """
         if self.docstatus == 2:
             reverse_origin_entries(self.doctype, self.name)
         elif from_repost:
@@ -84,11 +60,6 @@ class CMDeliveryNote(DeliveryNote):
         )
 
     def make_gl_entries_on_cancel(self, from_repost=False):
-        """Core gates the reversal on GL existing under (doctype, name).
-
-        That check fails for a restamped note, so the reversal above would
-        never run. Call it directly when origin rows exist.
-        """
         has_origin_rows = frappe.get_all(
             "GL Entry",
             filters={
@@ -110,12 +81,6 @@ class CMDeliveryNote(DeliveryNote):
 
 
 def reverse_origin_entries(origin_type, origin_no):
-    """Reverse every restamped entry the way core cancels any voucher.
-
-    Rows are passed by name, so core flags only these as cancelled and not the
-    invoice's own rows that share the voucher number. Its reversing rows are
-    copies, so they keep the origin stamps too.
-    """
     from erpnext.accounts.general_ledger import make_reverse_gl_entries
 
     rows = frappe.db.sql(
@@ -133,12 +98,6 @@ def reverse_origin_entries(origin_type, origin_no):
 
 @frappe.whitelist()
 def get_accounting_ledger_route(delivery_note):
-    """Voucher and dates the Delivery Note's stock GL actually sits under.
-
-    When the stock GL was filed under the linked Sales Invoice, the note's own
-    number and date find nothing in the General Ledger, so point the report at
-    the invoice and the date it posted on instead.
-    """
     doc = frappe.get_doc("Delivery Note", delivery_note)
     doc.check_permission("read")
 

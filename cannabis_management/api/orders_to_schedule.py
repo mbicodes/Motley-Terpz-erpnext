@@ -2,9 +2,6 @@ import frappe
 
 @frappe.whitelist()
 def get_orders_need_to_schedule(page=1, page_size=10, logistic_status="Order Received", company="Motley Terpz", filters=None):
-    """
-    Fetch Sales Orders that need to be scheduled with pagination.
-    """
     page = int(page)
     page_size = int(page_size)
     offset = (page - 1) * page_size
@@ -30,7 +27,6 @@ def get_orders_need_to_schedule(page=1, page_size=10, logistic_status="Order Rec
     if filters.get("pickup_dropoff"):
         base_filters["custom_pickup_or_dropoff"] = filters["pickup_dropoff"]
 
-    # Common custom fields
     custom_fields_common = [
         "custom_notes_for_logistics", "custom_license", "custom_sales_stages",
         "custom_pickup_or_dropoff", "custom_actual_pickup_date_time", "custom_logistic_status",
@@ -38,7 +34,6 @@ def get_orders_need_to_schedule(page=1, page_size=10, logistic_status="Order Rec
         "custom_manifest", "custom_lbs_total"
     ]
 
-    # --- Fetch Sales Orders ---
     so_fields = ["name", "customer", "customer_name", "grand_total", "transaction_date as posting_date", "total_qty", "status", "owner", "delivery_date", "creation"]
     so_custom_fields = custom_fields_common + ["custom_distrolab_status", "custom_distro_lab_status"]
     for cf in so_custom_fields:
@@ -49,7 +44,6 @@ def get_orders_need_to_schedule(page=1, page_size=10, logistic_status="Order Rec
 
     combined = []
 
-    # Process Orders
     for order in orders:
         item = order.copy()
         item["doctype_"] = "Sales Order"
@@ -81,8 +75,4 @@ def get_orders_need_to_schedule(page=1, page_size=10, logistic_status="Order Rec
 
 @frappe.whitelist()
 def get_orders_need_to_schedule1(page=1, page_size=10, logistic_status="Order Received", company="Motley Terpz", filters=None):
-    """
-    Fetch Sales Orders that need to be scheduled with pagination.
-    This function is identical to get_orders_need_to_schedule to ensure consistency across all scheduling views.
-    """
     return get_orders_need_to_schedule(page, page_size, logistic_status, company, filters)

@@ -1,8 +1,3 @@
-# Gross Profit — Stock Items Only
-# Forked from erpnext.accounts.report.gross_profit.gross_profit
-# Change: load_invoice_items() filters AND item.is_stock_item = 1
-#         so service / non-stock lines are never included.
-
 from collections import OrderedDict
 
 import frappe

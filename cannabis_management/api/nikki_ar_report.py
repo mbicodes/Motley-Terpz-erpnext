@@ -1,31 +1,16 @@
-"""
-Nikki's Weekly AR Accountability Report
-Scheduled: Monday 8 AM UTC alongside the weekly sale report.
-
-Columns: Account | Tier | Outstanding AR | Oldest Invoice | Last Payment |
-         New Orders This Week | COD Flag
-
-Requires CRM Lead custom fields to be populated (custom_erp_customer,
-custom_relationship_tier, custom_cod_only).
-"""
-
 import frappe
 from frappe.utils import flt, nowdate, getdate
 from datetime import datetime, timedelta
 
-
 RECIPIENTS = ["nikki@motleyterpz.com"]
 CC         = ["matt@motleyterpz.com", "imran@motleyterpz.com"]
 
-LEGACY_CUTOFF      = "2026-06-01"   # invoices before June 1 = Legacy AR; June 1+ = New AR
-LEGACY_AR_TARGET   = 2_000_000.0   # estimated total legacy balance to collect
-LEGACY_MONTHLY_PACE = 400_000.0    # required monthly pace to clear by harvest
+LEGACY_CUTOFF      = "2026-06-01"
+LEGACY_AR_TARGET   = 2_000_000.0
+LEGACY_MONTHLY_PACE = 400_000.0
 
-
-# ── Entry points ──────────────────────────────────────────────────────────────
 
 def send_nikki_ar_report():
-    """Scheduled entry point."""
     if not frappe.db.exists("DocType", "CRM Lead"):
         return
     try:
@@ -39,7 +24,6 @@ def send_nikki_ar_report():
 
 @frappe.whitelist()
 def send_now(week_start=None, week_end=None, recipients=None):
-    """Manual trigger from desk."""
     if not frappe.db.exists("DocType", "CRM Lead"):
         frappe.throw("Frappe CRM is not installed.")
     today = getdate(nowdate())
@@ -66,10 +50,7 @@ def _send(week_start, week_end, recipients, cc=None):
     )
 
 
-# ── Data ─────────────────────────────────────────────────────────────────────
-
 def _get_ar_data(week_start, week_end):
-    """One row per customer with outstanding AR > 0, plus Legacy/Current split."""
     return frappe.db.sql("""
         SELECT
             si.customer,
@@ -111,7 +92,6 @@ def _get_ar_data(week_start, week_end):
 
 
 def _get_legacy_ar_stats():
-    """Legacy AR balance + collections this month (applied against legacy invoices)."""
     from frappe.utils import get_first_day
     today = getdate(nowdate())
     month_start = str(get_first_day(today))
@@ -148,8 +128,6 @@ def _get_legacy_ar_stats():
         "month_start":          month_start,
     }
 
-
-# ── HTML builder ──────────────────────────────────────────────────────────────
 
 def _build_html(rows, label, week_start, legacy_stats=None):
     total_ar    = sum(flt(r.outstanding_ar) for r in rows)
@@ -285,7 +263,6 @@ def _build_html(rows, label, week_start, legacy_stats=None):
 
 
 def _legacy_tracker(ls):
-    """Card showing Legacy AR balance vs monthly collection pace."""
     if not ls:
         return ""
     balance   = flt(ls.get("legacy_balance", 0))
@@ -398,8 +375,6 @@ def _ar_table(rows):
     </tr></tbody></table>"""
     return html
 
-
-# ── Utilities ─────────────────────────────────────────────────────────────────
 
 def _week_label(week_start, week_end):
     s = datetime.strptime(week_start, "%Y-%m-%d").strftime("%b %-d")

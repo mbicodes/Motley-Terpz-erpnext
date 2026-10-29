@@ -1,6 +1,3 @@
-# Copyright (c) 2026, alltechvirtual.com and contributors
-# For license information, please see license.txt
-
 import frappe
 from frappe.model.document import Document
 
@@ -10,8 +7,6 @@ class License(Document):
 		self.set_link_titles()
 
 	def set_link_titles(self):
-		"""Populate the read-only Link Title for each linked document row from the
-		target doctype's title field (falls back to the record name)."""
 		for row in self.links or []:
 			if not (row.link_doctype and row.link_name):
 				row.link_title = None

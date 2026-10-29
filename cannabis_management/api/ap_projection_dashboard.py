@@ -5,7 +5,7 @@ from frappe import _
 from frappe.utils import add_days, add_months, flt, get_first_day, get_last_day, getdate, nowdate
 
 ALLOWED_ROLES = ("System Manager", "Accounts Manager", "Accounts User")
-IN_SCOPE_ABBRS = ("MTM", "TSBC", "MT")  # Master Touch Manufacturing, TSBC Ranch, Motley Terpz
+IN_SCOPE_ABBRS = ("MTM", "TSBC", "MT")
 
 FREQUENCY_STEP = {
     "Daily": lambda d: add_days(d, 1),
@@ -108,10 +108,6 @@ def get_ap_projection(companies=None, forecast_days=60):
     detail_rows = []
     intercompany = _intercompany_suppliers()
 
-    # ── Layer 1: Outstanding Purchase Invoices (confirmed liability) ────────
-    # Intercompany invoices (supplier is itself another Company in the system,
-    # e.g. one entity billing another) are internal transfers, not real
-    # external AP, and must be excluded — same convention as ap_dashboard.py.
     outstanding_invoices = frappe.get_list(
         "Purchase Invoice",
         filters={"docstatus": 1, "outstanding_amount": [">", 0], "company": ["in", companies]},
@@ -137,7 +133,6 @@ def get_ap_projection(companies=None, forecast_days=60):
             }
         )
 
-    # ── Layer 2: Recurring AP projected from active Auto Repeat records ─────
     auto_repeats = frappe.get_list(
         "Auto Repeat",
         filters={"reference_doctype": "Purchase Invoice", "disabled": 0},

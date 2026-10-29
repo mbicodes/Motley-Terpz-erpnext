@@ -1,29 +1,22 @@
 import frappe
 from frappe.utils import getdate, add_days, now_datetime, nowdate
 
-
 NIKKI_EMAIL = "nikki@motleyterpz.com"
 MATT_EMAIL  = "matt@motleyterpz.com"
 IMRAN_EMAIL = "imran@motleyterpz.com"
 
 
 def generate_weekly_signoff():
-	"""
-	Runs every Monday at 8 AM UTC.
-	Creates a Weekly Sales Report for the previous Mon-Sun week
-	and emails Nikki asking for acknowledgment.
-	"""
 	today      = getdate(nowdate())
-	prev_sun   = add_days(today, -1)              # yesterday = last Sunday (runs on Monday)
-	prev_mon   = add_days(prev_sun, -6)            # 6 days before = last Monday
+	prev_sun   = add_days(today, -1)
+	prev_mon   = add_days(prev_sun, -6)
 	week_start = str(prev_mon)
 	week_end   = str(prev_sun)
 	report_name = f"WSR-{week_start}"
 
 	if frappe.db.exists("Weekly Sales Report", report_name):
-		return  # already generated
+		return
 
-	# compute snapshot numbers
 	from cannabis_management.cannabis_management.page.weekly_sales_order.weekly_sales_order import (
 		get_week_at_a_glance,
 	)
@@ -50,12 +43,8 @@ def generate_weekly_signoff():
 
 
 def send_acknowledgment_reminder():
-	"""
-	Runs every Tuesday at 8 AM UTC.
-	Alerts Matt and Imran if last week's report is still unacknowledged.
-	"""
 	today      = getdate(nowdate())
-	prev_sun   = add_days(today, -2)              # last Sunday
+	prev_sun   = add_days(today, -2)
 	prev_mon   = add_days(prev_sun, -6)
 	report_name = f"WSR-{prev_mon}"
 
@@ -81,7 +70,7 @@ def send_acknowledgment_reminder():
 	"""
 
 	try:
-		return  # email sending disabled
+		return
 		frappe.sendmail(
 			recipients=[MATT_EMAIL, IMRAN_EMAIL],
 			subject=subject,
@@ -111,7 +100,7 @@ def _notify_nikki(doc):
 		<p><a href="/app/weekly-sales-order">Open Weekly Dashboard</a></p>
 	"""
 	try:
-		return  # email sending disabled
+		return
 		frappe.sendmail(recipients=[NIKKI_EMAIL], subject=subject, message=message)
 	except Exception:
 		pass

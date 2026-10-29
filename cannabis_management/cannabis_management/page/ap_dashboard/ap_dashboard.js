@@ -11,7 +11,6 @@ frappe.pages["ap-dashboard"].on_page_load = function (wrapper) {
     $body.html('<div class="apd-root"></div>');
     var $root = $body.find(".apd-root");
 
-    // ── State ──────────────────────────────────────────────────────────────
     var state = {
         company: "All",
         period_days: 30,
@@ -23,13 +22,11 @@ frappe.pages["ap-dashboard"].on_page_load = function (wrapper) {
         expanded: {},
     };
 
-    // ── Initial render ─────────────────────────────────────────────────────
     $root.html(buildShell());
     bindControls();
     loadCompanies();
     loadData();
 
-    // ── Build DOM shell ───────────────────────────────────────────────────
     function buildShell() {
         return `
         <div class="apd-header">
@@ -89,7 +86,6 @@ frappe.pages["ap-dashboard"].on_page_load = function (wrapper) {
         `;
     }
 
-    // ── Bind controls ─────────────────────────────────────────────────────
     function bindControls() {
         $root.on("click", "#apd-company-seg .apd-seg-btn", function () {
             state.company = $(this).data("val");
@@ -128,7 +124,6 @@ frappe.pages["ap-dashboard"].on_page_load = function (wrapper) {
             if (state.data) renderTable(state.data);
         });
 
-        // ── Expand / collapse vendor row ──────────────────────────────────
         $root.on("click", ".apd-expand-btn", function (e) {
             e.preventDefault();
             e.stopPropagation();
@@ -150,7 +145,6 @@ frappe.pages["ap-dashboard"].on_page_load = function (wrapper) {
         });
     }
 
-    // ── Load invoices inline for a vendor ─────────────────────────────────
     function loadInvoicesForVendor(supplier, company, $parentRow) {
         $parentRow.next(".apd-invoice-detail-row").remove();
 
@@ -236,7 +230,6 @@ frappe.pages["ap-dashboard"].on_page_load = function (wrapper) {
         });
     }
 
-    // ── Load data ─────────────────────────────────────────────────────────
     function loadData() {
         if (state.loading) return;
         state.loading = true;
@@ -274,7 +267,6 @@ frappe.pages["ap-dashboard"].on_page_load = function (wrapper) {
         });
     }
 
-    // ── Render KPIs ───────────────────────────────────────────────────────
     function renderKPIs(k) {
         var company_ap = k.company_ap || {};
         var company_cards = Object.keys(company_ap).map(function (co) {
@@ -311,7 +303,6 @@ frappe.pages["ap-dashboard"].on_page_load = function (wrapper) {
         $("#apd-kpis").html(html);
     }
 
-    // ── Render Table ──────────────────────────────────────────────────────
     function renderTable(d) {
         var vendors = (d.vendors || []).slice();
 
@@ -416,7 +407,6 @@ frappe.pages["ap-dashboard"].on_page_load = function (wrapper) {
 
         $("#apd-table-wrap").html(tableHtml + '<div class="apd-loading" id="apd-loading" style="display:none"><div class="apd-spinner"></div><span>Loading…</span></div>');
 
-        // Re-expand any vendors that were expanded before re-render
         Object.keys(state.expanded).forEach(function (key) {
             var parts = key.split("::");
             var $btn = $root.find('.apd-expand-btn[data-supplier="' + escHtml(parts[0]) + '"][data-company="' + escHtml(parts[1]) + '"]');
@@ -433,7 +423,6 @@ frappe.pages["ap-dashboard"].on_page_load = function (wrapper) {
         });
     }
 
-    // ── Payment Terms Popup ───────────────────────────────────────────────
     function showPaymentTermsPopup(supplier) {
         frappe.call({
             method: "frappe.client.get_list",
@@ -492,7 +481,6 @@ frappe.pages["ap-dashboard"].on_page_load = function (wrapper) {
         });
     }
 
-    // ── Load companies dynamically ────────────────────────────────────────
     function loadCompanies() {
         frappe.call({
             method: "cannabis_management.api.ap_dashboard.get_companies",
@@ -507,7 +495,6 @@ frappe.pages["ap-dashboard"].on_page_load = function (wrapper) {
         });
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────
     function entityLabel(co) {
         if (!co) return "—";
         return co.split(" ")[0];

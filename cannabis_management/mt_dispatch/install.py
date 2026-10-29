@@ -1,14 +1,3 @@
-"""Fields and property setters this module owns.
-
-Created in code, re-asserted on every migrate. Deliberately not fixtures: a
-fixture export would drag in every unrelated Custom Field on Sales Order and
-rewrite them from whatever the exporting site happened to hold.
-
-Every Sales Order field here is allow_on_submit, because the order is already
-submitted for the whole of the flow. They are written with db_set inside
-transitions, never by saving the order.
-"""
-
 import frappe
 
 from cannabis_management.mt_dispatch import stages
@@ -21,10 +10,6 @@ def install():
 	install_property_setters()
 	install_roles()
 
-
-# Section 10. The role gives document access; the company's team table gives
-# the flow action. Both must pass. Fulfilment - Consolidated and the Accounts
-# roles already exist and already carry what fulfillment and finance need.
 ROLE_PERMS = {
 	"Compliance - Consolidated": {
 		"Sales Order": ["read"],
@@ -42,8 +27,6 @@ ROLE_PERMS = {
 
 
 def install_roles():
-	"""Create the three new roles and grant their rights. Idempotent: an
-	existing grant is left as it is, so hand-made changes survive a migrate."""
 	from frappe.permissions import add_permission, update_permission_property
 
 	for role, doctypes in ROLE_PERMS.items():
@@ -160,7 +143,6 @@ def install_custom_fields():
 					"allow_on_submit": 1,
 					"insert_after": "custom_stage_log",
 				},
-				# The Fulfillment Pipeline page (page/fulfillment_pipeline).
 				{
 					"fieldname": "custom_fulfillment_section",
 					"label": "Fulfillment",
@@ -238,7 +220,6 @@ def install_custom_fields():
 		},
 		ignore_validate=True,
 	)
-	# Nothing the flow writes belongs on an amended copy.
 	for fieldname in (
 		"custom_conversion_required", "custom_payment_verified", "custom_amount_paid",
 		"custom_hold_from_stage", "custom_hold_reason", "custom_released_by", "custom_released_on",
@@ -252,16 +233,6 @@ def install_custom_fields():
 
 
 def install_property_setters():
-	"""The stage Select's options, and the read-only that keeps people out of it.
-
-	Read-only is belt to flow.guard_stage_field's braces: the guard is what
-	actually stops an API write, this is what stops the field looking editable.
-	"""
-	# The Custom Field was created as virtual. A virtual field's options are
-	# evaluated as Python whenever the order is serialised -- which ERPNext
-	# does on every Delivery Note submit -- so the stage list raised a
-	# SyntaxError and release could not submit the note. The column is real;
-	# the flag was wrong.
 	cf = frappe.db.get_value("Custom Field", {"dt": "Sales Order", "fieldname": STAGE_FIELD}, ["name", "is_virtual"], as_dict=True)
 	if cf and cf.is_virtual and frappe.db.has_column("Sales Order", STAGE_FIELD):
 		frappe.db.set_value("Custom Field", cf.name, "is_virtual", 0)
@@ -278,17 +249,11 @@ def install_property_setters():
 		},
 		is_system_generated=False,
 	)
-	# Editable on drafts and submitted orders alike, as it was before dispatch.
-	# On a dispatch company the form script turns a pick into the matching
-	# transition and guard_stage_field rejects a direct save; elsewhere it is a
-	# plain field. No read_only_depends_on: drafts must stay editable too.
 	frappe.db.delete("Property Setter", {
 		"doc_type": "Sales Order", "field_name": STAGE_FIELD, "property": "read_only_depends_on",
 	})
 	for prop, value, ptype in (
 		("read_only", "0", "Check"),
-		# An amended order starts its own flow. Copying the cancelled order's
-		# stage would make on_submit think it is already on the board.
 		("no_copy", "1", "Check"),
 	):
 		frappe.make_property_setter(

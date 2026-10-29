@@ -1,14 +1,3 @@
-"""Two ledgers, never netted.
-
-A customer on a payment plan runs two books at once: the **plan** (the old debt
-being worked off) and the **new book** (current trading). Money for one must
-never quietly pay down the other — that is how a plan silently collapses while
-the reports still look healthy.
-
-Every customer receipt therefore carries a ledger, and allocations are confined
-to invoices belonging to that same ledger.
-"""
-
 import frappe
 from frappe import _
 from frappe.utils import flt, getdate, nowdate
@@ -20,14 +9,12 @@ from cannabis_management.credit_and_ar.doctype.ar_case.ar_case import (
 	STATUS_ACTIVE,
 )
 
-# Which invoice ledgers each receipt ledger is allowed to touch.
 ALLOWED_TARGETS = {
 	utils.LEDGER_NEW_BOOK: (utils.LEDGER_NEW_BOOK,),
 	utils.LEDGER_LEGACY: (utils.LEDGER_LEGACY,),
 	utils.LEDGER_PLAN: (utils.LEDGER_PLAN, utils.LEDGER_LEGACY),
 }
 
-# These never allocate against an invoice — they sit against a Sales Order.
 ORDER_LEDGERS = (utils.LEDGER_DEPOSIT, utils.LEDGER_WORKOUT_PAYDOWN)
 
 
@@ -45,12 +32,8 @@ def validate(doc, method=None):
 
 def on_submit(doc, method=None):
 	if doc.party_type == "Customer" and doc.party:
-		# The GL balance moves the moment this posts, whether it is a receipt
-		# or a refund — keep Current Exposure / Available Line live for it.
 		credit_engine.refresh_customer_exposure(doc.party)
 
-		# §9 step 8 — a payment against an old/overdue invoice should move a
-		# workout's Current Balance right away, not wait for the nightly sweep.
 		from cannabis_management.credit_and_ar import plan_workout
 
 		plan_workout.refresh_workout_balance(doc.party)
@@ -83,16 +66,7 @@ def _is_customer_receipt(doc) -> bool:
 	return doc.payment_type == "Receive" and doc.party_type == "Customer" and bool(doc.party)
 
 
-# ── ledger ───────────────────────────────────────────────────────────────────
-
-
 def _default_ledger(doc):
-	"""Derive the ledger when it is blank, rather than blocking the save.
-
-	Every customer receipt ends up carrying a ledger, but existing automation
-	that creates Payment Entries keeps working — the value is inferred from what
-	the receipt is actually paying.
-	"""
 	if doc.custom_ledger:
 		return
 
@@ -171,15 +145,9 @@ def _validate_order_link(doc):
 		)
 
 
-# ── allocations ──────────────────────────────────────────────────────────────
-
-
 def _validate_allocations(doc):
-	"""Confine a receipt to invoices on its own ledger."""
 	allowed = ALLOWED_TARGETS.get(doc.custom_ledger)
 	if not allowed:
-		# Deposit / Workout Paydown are unallocated on purpose: they sit against
-		# an order until it is invoiced.
 		if doc.custom_ledger in ORDER_LEDGERS:
 			_reject_allocations(doc)
 		return
@@ -238,11 +206,7 @@ def _reject_allocations(doc):
 		)
 
 
-# ── installments ─────────────────────────────────────────────────────────────
-
-
 def apply_to_installment(doc):
-	"""Settle the named installment, or the oldest one still owing."""
 	if not doc.custom_ar_case:
 		return
 
@@ -291,7 +255,6 @@ def apply_to_installment(doc):
 
 
 def _unapply_installment(doc):
-	"""Cancelling a plan receipt puts the installments back where they were."""
 	case = frappe.get_doc("AR Case", doc.custom_ar_case)
 	touched = False
 
@@ -312,16 +275,7 @@ def _unapply_installment(doc):
 	case.save(ignore_permissions=True)
 
 
-# ── Sales Invoice ledger stamping ────────────────────────────────────────────
-
-
 def stamp_invoice_ledger(doc, method=None):
-	"""Classify every invoice as it is written.
-
-	Legacy is anything dated before the policy effective date: collected on its
-	original terms, never charged a finance charge, and excluded from the
-	new-book cap, DSO and CEI.
-	"""
 	_stamp_payment_mode(doc)
 
 	if doc.get("custom_is_finance_charge"):
@@ -344,13 +298,6 @@ def stamp_invoice_ledger(doc, method=None):
 
 
 def _stamp_payment_mode(doc):
-	"""Carry the order's payment mode onto the invoice.
-
-	DSO and CEI measure *credit* sales only, so every invoice has to say whether
-	it was sold on terms or COD. The existing (and otherwise unused)
-	`custom_mode_of_payment` field on Sales Invoice carries it, rather than a
-	second field meaning the same thing.
-	"""
 	if doc.get("custom_mode_of_payment"):
 		return
 
@@ -372,7 +319,6 @@ def _stamp_payment_mode(doc):
 
 @frappe.whitelist()
 def get_plan_context(customer: str):
-	"""Tell the Payment Entry form whether this customer runs two books."""
 	plan = frappe.get_all(
 		"AR Case",
 		filters={

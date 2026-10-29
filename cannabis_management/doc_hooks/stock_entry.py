@@ -5,12 +5,6 @@ STANDARD_OP_COST_DESC = "Operating Cost as per Work Order / BOM"
 
 
 def sync_row_uom_with_item(doc, method=None):
-    """
-    Keep each item row's UOM consistent with the Item's current stock UOM.
-    Rows created before an item's UOM was corrected keep the stale value
-    (e.g. uom 'Nos' with conversion_factor 1 while the item is now 'Gram').
-    Rows with a real UOM conversion (factor != 1) are left untouched.
-    """
     for row in doc.get("items", []):
         if not row.item_code:
             continue
@@ -32,12 +26,6 @@ def sync_row_uom_with_item(doc, method=None):
 
 
 def populate_micron_finished_goods(doc, method=None):
-    """
-    For a Manufacture Stock Entry from a Work Order:
-    if any linked Job Card has micron_collection_detail rows with an `item` set,
-    replace the standard BOM-derived finished good with those items.
-    Cost is split proportionally (per gram) from total raw material value.
-    """
     if doc.purpose != "Manufacture" or not doc.work_order:
         return
 
@@ -51,7 +39,6 @@ def populate_micron_finished_goods(doc, method=None):
     for jc in job_cards:
         jc_doc = frappe.get_doc("Job Card", jc.name)
 
-        # Only use micron flow when the linked Operation has the flag enabled
         use_micron = bool(frappe.db.get_value(
             "Operation", jc_doc.operation, "custom_stock_entry_based_on_micron"
         )) if jc_doc.operation else False
@@ -67,9 +54,8 @@ def populate_micron_finished_goods(doc, method=None):
                 })
 
     if not micron_items:
-        return  # micron flow not enabled or no micron rows — use standard BOM finished good
+        return
 
-    # Get target warehouse, expense_account, and cost_center from existing FG item
     t_warehouse = None
     expense_account = None
     cost_center = None
@@ -94,7 +80,6 @@ def populate_micron_finished_goods(doc, method=None):
         if not cost_center:
             cost_center = co.get("cost_center") or ""
 
-    # Sum raw material value (source-only items)
     total_rm_value = sum(
         flt(i.basic_amount)
         for i in doc.items
@@ -104,10 +89,8 @@ def populate_micron_finished_goods(doc, method=None):
     total_grams = sum(r["qty"] for r in micron_items)
     rate_per_gram = (total_rm_value / total_grams) if total_grams else 0.0
 
-    # Remove standard finished good rows
     doc.items = [i for i in doc.items if not getattr(i, "is_finished_item", 0)]
 
-    # Add one row per micron item
     for row in micron_items:
         stock_uom = frappe.db.get_value("Item", row["item_code"], "stock_uom") or "Gram"
         doc.append("items", {
@@ -127,10 +110,6 @@ def populate_micron_finished_goods(doc, method=None):
             "cost_center": cost_center,
         })
 
-    # For Quantity is the input side: output plus process loss. Core derives
-    # the Work Order's produced qty as fg_completed_qty - process_loss_qty,
-    # and set_process_loss_qty has already copied the Job Cards' loss onto
-    # this entry by now (the controller's validate runs before this hook).
     doc.fg_completed_qty = flt(
         total_grams + flt(doc.process_loss_qty),
         frappe.get_precision("Stock Entry", "fg_completed_qty"),
@@ -138,14 +117,6 @@ def populate_micron_finished_goods(doc, method=None):
 
 
 def _build_cost_map(work_order_name, company):
-    """
-    Walk all submitted Job Cards for a Work Order.
-    For each time log row → workstation → Workstation Operating Cost components
-    → Operating Component Account (per company) → sum cost by expense_account.
-
-    Returns dict: { expense_account: {"amount": float, "label": component_name} }
-    Falls back to empty dict if no component-account mappings exist.
-    """
     cost_map = {}
 
     job_cards = frappe.get_all(
@@ -154,9 +125,8 @@ def _build_cost_map(work_order_name, company):
         fields=["name", "workstation"],
     )
 
-    # Cache lookups to avoid repeated DB hits
-    ws_components_cache = {}   # workstation → list of {operating_component, operating_cost}
-    comp_account_cache = {}    # (operating_component, company) → expense_account
+    ws_components_cache = {}
+    comp_account_cache = {}
 
     for jc in job_cards:
         jc_doc = frappe.get_doc("Job Card", jc.name)
@@ -203,19 +173,11 @@ def _build_cost_map(work_order_name, company):
 
 
 def set_operating_cost_accounts(doc, method=None):
-    """
-    On validate of a Manufacture Stock Entry:
-    Replace the single ERPNext operating cost row with per-expense-account rows
-    derived from Workstation Operating Cost components.
-    Falls back to wo.total_operating_cost on the default account if no mapping exists.
-    """
     if doc.purpose != "Manufacture" or not doc.work_order:
         return
 
     cost_map = _build_cost_map(doc.work_order, doc.company)
 
-    # Clear all additional costs — we fully own this field for Manufacture SEs.
-    # Clearing prevents duplicate rows when validate fires more than once.
     doc.additional_costs = []
 
     if cost_map:
@@ -229,7 +191,6 @@ def set_operating_cost_accounts(doc, method=None):
                     "exchange_rate": 1.0,
                 })
     else:
-        # Fallback: lump sum on default account
         wo = frappe.get_doc("Work Order", doc.work_order)
         wo_total = flt(wo.total_operating_cost)
         if wo_total and flt(wo.qty):
@@ -254,10 +215,6 @@ def set_operating_cost_accounts(doc, method=None):
 
 @frappe.whitelist()
 def get_wo_cost_breakdown(work_order, company, fg_completed_qty=None, wo_qty=None):
-    """
-    Returns per-expense-account cost breakdown for a Work Order's submitted Job Cards.
-    Called from Stock Entry JS on form open.
-    """
     cost_map = _build_cost_map(work_order, company)
 
     if cost_map:
@@ -267,7 +224,6 @@ def get_wo_cost_breakdown(work_order, company, fg_completed_qty=None, wo_qty=Non
             if info["amount"] > 0
         ]
 
-    # Fallback: wo.total_operating_cost proportional to fg qty
     wo_total = flt(frappe.db.get_value("Work Order", work_order, "total_operating_cost"))
     qty = flt(wo_qty) or flt(frappe.db.get_value("Work Order", work_order, "qty")) or 1
     fg_qty = flt(fg_completed_qty) or qty
@@ -289,15 +245,6 @@ def get_wo_cost_breakdown(work_order, company, fg_completed_qty=None, wo_qty=Non
 
 
 def carry_produced_qty_to_sibling_work_order(doc, method=None):
-    """
-    on_submit of a Manufacture entry. When a Material Request has more than one
-    Work Order and one of them finishes, the other that consumes its output
-    (e.g. Hash Processing -> Rosin Processing) should ask for what was actually
-    produced, not what the BOM planned. So once this entry's Work Order is
-    Completed, every sibling Work Order on the same Material Request that has a
-    required_items row for its production_item gets that row's required_qty set
-    to the completed Work Order's produced_qty.
-    """
     if doc.purpose != "Manufacture" or not doc.work_order:
         return
 

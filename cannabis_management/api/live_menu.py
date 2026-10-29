@@ -1,13 +1,10 @@
 import frappe
 
-# "Reserved" is the Inventory Dashboard's definition (live Stock Reservation
-# Entries), not Bin.reserved_qty, so both pages show the same available qty.
 from cannabis_management.api.inventory_dashboard import RESERVED_SUBQUERY
 
 
 @frappe.whitelist(allow_guest=True)
 def get_live_menu_groups():
-    """Fetch item groups configured for the live menu, ordered by sequence number."""
     frappe.response["no_cache"] = 1
 
     groups = frappe.db.sql("""
@@ -41,14 +38,6 @@ def get_live_menu_groups():
 
 @frappe.whitelist(allow_guest=True)
 def get_live_menu_items(item_group, menu_type=None):
-    """Fetch stock items for a group, filtered by warehouse and min quantity.
-
-    Args:
-        item_group: Item Group name
-        menu_type: 'extracts' filters to Main Storage - MTM,
-                   'fresh_frozen' filters to Hemet TSBC - TSBC,
-                   None/empty uses both warehouses
-    """
     frappe.response["no_cache"] = 1
 
     group_doc = frappe.db.get_value(
@@ -61,7 +50,6 @@ def get_live_menu_items(item_group, menu_type=None):
     min_qty = float(group_doc.get("custom_min_quantity") or 0)
     notes = group_doc.get("custom_dashboard_text") or ""
 
-    # Warehouse filter based on menu type
     if menu_type == "extracts":
         warehouse_condition = "AND b.warehouse = 'Main Storage - MTM'"
     elif menu_type == "fresh_frozen":
@@ -98,10 +86,6 @@ def get_live_menu_items(item_group, menu_type=None):
         as_dict=True,
     )
 
-    # Items whose item_name ends in "_6" must not show the BHO type badge
-    # on the fresh frozen live menu. The client JS derives the badge from
-    # item_group, so re-tag those items to the parent group here — this
-    # works even for visitors whose browser cached the old page JS.
     if str(item_group or "").lower().startswith("fresh frozen"):
         for item in items:
             if str(item.get("item_name") or "").strip().endswith("_6"):

@@ -1,10 +1,3 @@
-"""Phase 4 of the Credit & AR Control module — the stop-work engine.
-
-Adds the AR Case link fields (they need the DocType to exist first) and
-back-fills the hold flags on every customer from whatever cases are live, so the
-Customer roll-up is correct on the first run.
-"""
-
 import frappe
 
 

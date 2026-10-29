@@ -1,10 +1,3 @@
-"""What has been paid against a Sales Order, and the cached G5 result.
-
-`custom_amount_paid` and `custom_payment_verified` on the order are a cache so
-Slack messages can show the figure without recomputing. The gate itself always
-recomputes -- the cache is never trusted for the release decision.
-"""
-
 import frappe
 from frappe.utils import flt
 
@@ -13,23 +6,12 @@ from cannabis_management.mt_dispatch.settings import get_company_settings
 
 
 def required_amount(so):
-	"""What the order is owed, matching whatever total the customer sees."""
 	if so.get("disable_rounded_total"):
 		return flt(so.grand_total)
 	return flt(so.rounded_total or so.grand_total)
 
 
 def paid_amount(so):
-	"""Money in against this order.
-
-	Advances against the Sales Order are the primary measure -- the Slack
-	payment form always creates those. Invoices raised from the order are a
-	fallback for payments taken the ordinary way, against the invoice.
-
-	The two overlap: an advance allocated to an invoice shows up in both. Take
-	the larger of the two rather than the sum, or an allocated advance counts
-	twice and an unpaid order looks settled.
-	"""
 	paid = flt(so.advance_paid)
 
 	invoices = frappe.get_all(
@@ -59,11 +41,6 @@ def is_internal(so):
 
 
 def payment_gate_applies(so, cfg):
-	"""Whether G5 has anything to say about this order at all.
-
-	Terms orders are governed by credit approval (G0), not by money in the
-	bank, so the payment gate only ever looks at Cash On Delivery.
-	"""
 	if not cfg or not cfg.payment_gate_enabled:
 		return False
 	if so.get("custom_mode_of_payment") != stages.COD:
@@ -76,7 +53,6 @@ def payment_gate_applies(so, cfg):
 
 
 def payment_status(so, cfg=None):
-	"""(applies, paid, required, short) for one order."""
 	cfg = cfg or get_company_settings(so.company)
 	paid = paid_amount(so)
 	required = required_amount(so)
@@ -86,7 +62,6 @@ def payment_status(so, cfg=None):
 
 
 def refresh_payment_status(sales_order, notify_approvers=True):
-	"""Recompute the cache on one order. Returns True when it is now clear."""
 	if not frappe.db.exists("Sales Order", sales_order):
 		return False
 
@@ -119,12 +94,6 @@ def refresh_payment_status(sales_order, notify_approvers=True):
 
 
 def orders_touched_by(pe):
-	"""Every Sales Order a Payment Entry moves money against.
-
-	Sales Order references count directly. Sales Invoice references are mapped
-	back through Sales Invoice Item.sales_order, because paying the invoice is
-	how a COD order settles when finance works in the ERP rather than Slack.
-	"""
 	orders, invoices = set(), set()
 	for ref in pe.references or []:
 		if ref.reference_doctype == "Sales Order" and ref.reference_name:
@@ -145,6 +114,5 @@ def orders_touched_by(pe):
 
 
 def on_pe_change(doc, method=None):
-	"""Payment Entry submitted or cancelled -- refresh every order it touches."""
 	for name in orders_touched_by(doc):
 		refresh_payment_status(name)

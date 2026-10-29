@@ -1,7 +1,5 @@
 frappe.listview_settings['Safe Cash Tracking'] = {
 	onload: function (listview) {
-		// Open the Cash Tracking dashboard with the Safe tracker preselected
-		// and the date range set to the start of the current year through today.
 		listview.page.add_inner_button(__('Cash Tracking Dashboard'), function () {
 			frappe.route_options = {
 				tracker: 'safe',

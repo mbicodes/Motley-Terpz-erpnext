@@ -1,23 +1,3 @@
-"""Records where each user physically is when they log in (User Login Location).
-
-A row is written at login itself, located from the IP address, so every login
-has a location even if the user never answers the browser's permission prompt:
-
-1. ``on_session_creation`` (server) looks the request IP up in the local DB-IP
-   City Lite database, inserts the row (status IP Only), remembers the row for
-   this session in cache and sets a readable ``login_geo_pending`` cookie.
-2. ``public/js/login_location.js`` (desk and website) sees the cookie, asks the
-   browser for its position and posts it to ``record``, which upgrades the same
-   row to the device's position.
-
-The IP position needs no permission but is city-level at best, and wrong behind
-a VPN. ``record`` only accepts one post per session, and only for a session that
-was marked at login, so a caller cannot backfill or spam locations. If the user
-blocks location access the row is kept (status Denied, IP location) so the
-refusal itself is visible, and then the session ends: sharing location is a
-condition of being logged in.
-"""
-
 import json
 import os
 
@@ -27,22 +7,14 @@ from frappe.utils import flt, get_bench_path, now_datetime
 
 PENDING_COOKIE = "login_geo_pending"
 
-# Long enough for someone to answer the browser's permission prompt late.
 PENDING_TTL_SECONDS = 6 * 60 * 60
 
-# A fix worse than this (metres) is a network/IP guess, not a real position, and is
-# stored as Approximate so it can be filtered out.
 APPROXIMATE_ABOVE_M = 100
 
-# Not logged out on a refusal (the Denied row is still written). Administrator so
-# there is always a way back in to fix things; the rest are business exceptions.
 LOGOUT_EXEMPT_USERS = ("Administrator", "nikki@motleyterpz.com")
 
 STATUSES = ("Captured", "Approximate", "Denied", "Unavailable", "Not Supported")
 
-# DB-IP City Lite (CC BY 4.0, https://db-ip.com), refreshed monthly from
-# https://download.db-ip.com/free/dbip-city-lite-YYYY-MM.mmdb.gz. Override the
-# path with site_config "geoip_city_db".
 DEFAULT_GEOIP_DB = os.path.join(get_bench_path(), "geoip", "dbip-city-lite.mmdb")
 
 _geoip_reader = None
@@ -64,7 +36,6 @@ def _geojson_point(lat, lng):
 
 
 def lookup_ip(ip):
-	"""City, state, country and coordinates for an IP, or None. Never raises."""
 	global _geoip_reader
 	if not ip:
 		return None
@@ -125,7 +96,6 @@ def on_session_creation(login_manager):
 		doc.insert(ignore_permissions=True)
 		pending = doc.name
 	except Exception:
-		# Never block a login over this; record() falls back to a fresh row.
 		frappe.log_error(title="Login location: could not write the login row")
 
 	frappe.cache().set_value(_pending_key(frappe.session.sid), pending, expires_in_sec=PENDING_TTL_SECONDS)
@@ -148,8 +118,6 @@ def record(status, latitude=None, longitude=None, accuracy=None, error_message=N
 	if status not in STATUSES:
 		frappe.throw(_("Invalid status."))
 
-	# The row written at login; a session from before rows were written at login
-	# (or whose insert failed) holds the login time instead.
 	if frappe.db.exists("User Login Location", {"name": pending, "user": frappe.session.user}):
 		doc = frappe.get_doc("User Login Location", pending)
 	else:

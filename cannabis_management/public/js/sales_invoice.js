@@ -1,6 +1,3 @@
-// ── List View Settings ──────────────────────────────────────────────
-// Remove Frappe's default docstatus=1 filter and add a visible,
-// removable "Status != Cancelled" filter instead.
 frappe.listview_settings["Sales Invoice"] = {
     onload: function (listview) {
         (listview.filter_area.filter_list || [])
@@ -18,12 +15,10 @@ frappe.listview_settings["Sales Invoice"] = {
     },
 };
 
-// ── Form ────────────────────────────────────────────────────────────
 frappe.ui.form.on("Sales Invoice", {
 
     refresh: function (frm) {
 
-        // Material Transfer action — only on saved/submitted docs
         if (!frm.is_new()) {
             frm.add_custom_button(
                 __("Material Transfer"),
@@ -32,12 +27,10 @@ frappe.ui.form.on("Sales Invoice", {
             );
         }
 
-        // AR Policy: hide Print if customer outstanding > $20k (non-admin only)
         _check_print_access(frm);
     },
 
     customer: function (frm) {
-        // Re-evaluate print access whenever the customer field changes
         _check_print_access(frm);
     },
 
@@ -61,13 +54,9 @@ frappe.ui.form.on("Sales Invoice", {
     },
 });
 
-
-// ── AR Policy: print access check ───────────────────────────────────
-
 function _check_print_access(frm) {
     if (!frm.doc.customer) return;
 
-    // Admins always have print access — skip the check entirely
     if (
         frappe.user.has_role("System Manager") ||
         frappe.user.has_role("Administrator") ||
@@ -103,12 +92,10 @@ function _check_print_access(frm) {
 }
 
 function _hide_print_btn(frm) {
-    // frm.toolbar.print_btn is the standard Frappe toolbar print button
     if (frm.toolbar && frm.toolbar.print_btn) {
         frm.toolbar.print_btn.hide();
         return;
     }
-    // Fallback: find the print button in the page actions area
     frm.page.wrapper
         .find('.page-actions button, .page-head button')
         .filter(function () {
@@ -117,9 +104,6 @@ function _hide_print_btn(frm) {
         })
         .hide();
 }
-
-
-// ── Material Transfer dialog ─────────────────────────────────────────
 
 function show_material_transfer_dialog(frm) {
     let d = new frappe.ui.Dialog({
@@ -182,35 +166,17 @@ function show_material_transfer_dialog(frm) {
     d.show();
 }
 
-
-// ── Project picker: no filtering ─────────────────────────────────────────────
-// Core restricts Project by company, and on selling forms by customer too
-// (erpnext/public/js/utils/sales_common.js, controllers/buying.js). Projects
-// here are not company-scoped, so that hid valid choices. Cleared in refresh
-// so it lands after core's own setup_queries, which is where core sets it.
 frappe.ui.form.on('Sales Invoice', {
 	refresh(frm) {
 		frm.set_query('project', () => ({}));
 	},
 });
 
-
-// ── Inter-company counterpart ────────────────────────────────────────────────
-// A sale to an internal customer raises the matching purchase document in the
-// buying company. The buying side needs a Company, Warehouse and Project that
-// the sale does not carry, so they are asked for before the sale is committed.
-//
-// Defined behind a guard because all three selling forms ship this same block
-// and only one copy needs to win. Kept out of hooks.py deliberately: these
-// three files are already wired as doctype_js, so the feature ships without
-// touching a shared file.
 window.cannabis_management = window.cannabis_management || {};
 if (!cannabis_management.inter_company) {
 	cannabis_management.inter_company = {
 		METHOD: 'cannabis_management.inter_company.',
 
-		// form.js awaits before_submit, so returning a promise holds the submit
-		// open until the dialog is answered. Rejecting aborts the submit.
 		prompt(frm) {
 			const ns = cannabis_management.inter_company;
 			return new Promise((resolve, reject) => {
@@ -220,7 +186,7 @@ if (!cannabis_management.inter_company) {
 					callback: (r) => {
 						const info = (r && r.message) || {};
 						if (!info.internal) {
-							resolve();          // ordinary sale, nothing to raise
+							resolve();
 							return;
 						}
 						let answered = false;
@@ -256,7 +222,6 @@ if (!cannabis_management.inter_company) {
 								resolve();
 							},
 						});
-						// Closing the dialog means "don't submit".
 						d.$wrapper.on('hidden.bs.modal', () => {
 							if (!answered) {
 								frappe.validated = false;
@@ -270,8 +235,6 @@ if (!cannabis_management.inter_company) {
 			});
 		},
 
-		// Runs after the sale is safely submitted, in its own request — a failure
-		// here reports itself without undoing the sale.
 		create(frm) {
 			const ns = cannabis_management.inter_company;
 			const values = frm.__inter_company;
@@ -303,12 +266,8 @@ frappe.ui.form.on('Sales Invoice', {
 	},
 });
 
-// Undelivered COGS: the Journal Entries that booked COGS for quantity this
-// invoice billed but never shipped (Dr COGS / Cr Stock Adjustment, no stock
-// movement). See api/undelivered_cogs.py.
 frappe.ui.form.on('Sales Invoice', {
 	refresh(frm) {
-		// Finance asked for this for Motley Terpz only.
 		if (frm.doc.docstatus !== 1 || frm.doc.is_return || frm.doc.company !== 'Motley Terpz') return;
 		const name = frm.doc.name;
 		frappe

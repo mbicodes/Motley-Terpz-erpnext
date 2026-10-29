@@ -30,18 +30,17 @@ frappe.query_reports["IRS 8300 Filing Status"] = {
         return Object.assign(options, {
             getRowHTML(cells, props) {
                 const row_data = props.row;
-                // Find filing_status cell
                 const status_cell = cells.find(c => c && c.column &&
                     c.column.fieldname === 'filing_status');
                 const status = status_cell && status_cell.content;
 
                 let row_style = '';
                 if (status === 'Reported') {
-                    row_style = 'background-color: #d4edda;';  // green
+                    row_style = 'background-color: #d4edda;';
                 } else if (status === 'Overdue') {
-                    row_style = 'background-color: #f8d7da;';  // red
+                    row_style = 'background-color: #f8d7da;';
                 } else if (status === 'Pending') {
-                    row_style = 'background-color: #fff3cd;';  // yellow
+                    row_style = 'background-color: #fff3cd;';
                 }
 
                 return `<tr style="${row_style}">${cells.join('')}</tr>`;

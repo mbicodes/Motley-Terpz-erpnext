@@ -1,12 +1,6 @@
 import frappe
 from frappe import _
-# AR Policy disabled — import removed
-# from cannabis_management.doc_hooks.sales_invoice import check_ar_policy
 
-
-
-
-# Approver who must sign off on Payment-Terms Sales Orders.
 APPROVER_EMAIL = "muhammad@motleyterpz.com"
 
 
@@ -19,9 +13,6 @@ def validate(doc, method=None):
 
 
 def on_update(doc, method=None):
-    # Email the approver once, when the Sales Order first enters "Pending
-    # Approval" (on creation, or when it transitions into that state) — not on
-    # every subsequent save.
     if doc.custom_mode_of_payment != "Payment Terms":
         return
     if doc.custom_approval_status != "Pending Approval":
@@ -33,14 +24,10 @@ def on_update(doc, method=None):
 
 
 def before_submit(doc, method=None):
-    # AR policy disabled
-    # check_ar_policy(doc)
-
     if doc.custom_mode_of_payment != "Payment Terms":
         return
 
     if "HOO" in frappe.get_roles(frappe.session.user):
-        # HOO submitting = implicit approval; stamp status before save
         doc.custom_approval_status = "Approved"
         return
 
@@ -92,7 +79,6 @@ def _send_print_to_creator(doc):
 
 
 def _send_approval_email(doc):
-    """Email the approver that a Payment-Terms Sales Order needs sign-off."""
     try:
         site_url = frappe.utils.get_url()
         so_link = f"{site_url}/app/sales-order/{doc.name}"

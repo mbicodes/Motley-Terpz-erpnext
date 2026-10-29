@@ -1,23 +1,7 @@
-"""
-Backend for the "Sales Daily Sync" top sections of the
-"Sales Target and Inventory Dashboard" Custom HTML Block.
-
-  get_cod_deliveries_last_7_days -> COD orders shipped in the last 7 days.
-      Delivery Notes posted in the last 7 days whose linked Sales Order
-      (via Delivery Note Item.against_sales_order) has rows in its
-      payment_schedule child table (COD per business rule, since the
-      site has no dedicated "COD" Payment Term).
-
-  get_predicted_vs_actual       -> Predicted vs actual money in (last 7 days).
-      Submitted Sales Invoices posted in the last 7 days with
-      outstanding_amount > 0: expected = grand_total,
-      received = grand_total - outstanding_amount.
-"""
 import datetime
 import frappe
 from frappe.utils import add_days, nowdate, flt, getdate
 
-# Rolling window shared by the two top sections.
 WINDOW_DAYS = 7
 
 
@@ -35,7 +19,6 @@ def get_cod_deliveries_last_7_days():
 
     rows = []
     for dn in dns:
-        # Sales Orders this Delivery Note was created against
         sos = frappe.get_all(
             "Delivery Note Item",
             filters={"parent": dn.name},
@@ -43,7 +26,6 @@ def get_cod_deliveries_last_7_days():
         )
         sos = sorted({s for s in sos if s})
 
-        # keep only SOs that have a payment_schedule (COD per spec)
         cod_sos = [
             so for so in sos
             if frappe.db.exists("Payment Schedule", {"parent": so, "parenttype": "Sales Order"})
@@ -73,7 +55,6 @@ def get_predicted_vs_actual():
     to_date = nowdate()
     from_date = add_days(to_date, -WINDOW_DAYS)
 
-    # Totals across outstanding invoices in the last 7 days
     agg = frappe.db.sql(
         """
         SELECT
@@ -122,15 +103,11 @@ def get_predicted_vs_actual():
         "to_date": str(to_date),
     }
 
-
-# Shared AR definitions live in api.jamie so every dashboard agrees on the rules.
 from cannabis_management.api.jamie import LEGACY_AR_CUTOFF, _get_excluded_customers
 
-# "TMM Group" aggregates these companies (mirrors the AR Dashboard page).
 TMM_GROUP_COMPANIES = ["Motley Terpz", "TSBC Ranch"]
 ALL_COMPANIES = "All Companies"
 
-# Common WHERE clause that strips company / internal / intercompany customers.
 _AR_CUST_FILTER = """
       AND si.customer NOT IN %(exc)s
       AND COALESCE(c.is_internal_customer, 0) = 0
@@ -140,7 +117,6 @@ _AR_CUST_FILTER = """
 
 
 def _companies_for_scope(company):
-    """Resolve the company filter -> list of company names, or None for all."""
     if not company or company == ALL_COMPANIES:
         return None
     if company == "TMM Group":
@@ -150,12 +126,8 @@ def _companies_for_scope(company):
 
 @frappe.whitelist()
 def get_ar_companies():
-    """Company options for the AR section dropdown (mirrors the AR Dashboard page)."""
     companies = frappe.get_all("Company", pluck="name", order_by="name")
     options = [ALL_COMPANIES]
-    # "TMM Group" is treated as the virtual Motley Terpz + TSBC Ranch group
-    # (mirrors the AR Dashboard page), so list it once and drop any real
-    # company literally named "TMM Group".
     if set(TMM_GROUP_COMPANIES) <= set(companies) or "TMM Group" in companies:
         options.append("TMM Group")
     options.extend([c for c in companies if c != "TMM Group"])
@@ -164,17 +136,8 @@ def get_ar_companies():
 
 @frappe.whitelist()
 def get_ar_week_summary(company=None):
-    """
-    AR Dashboard KPIs for the current week (Monday -> today), scoped to `company`
-    (a Company name, "TMM Group", "All Companies", or None = all):
-      1. legacy_ar_balance           — current outstanding on pre-cutoff invoices ("What is our legacy AR at?")
-      2. legacy_collected_week       — payments received this week against legacy invoices
-      3. post_legacy_accumulated_week— new (post-cutoff) AR invoiced this week
-      4. ar_paid_down_week           — total payments received this week against any AR
-    Legacy = Sales Invoice posting_date < LEGACY_AR_CUTOFF (2026-06-01); post-legacy = >=.
-    """
     today = getdate(nowdate())
-    week_start = today - datetime.timedelta(days=today.weekday())   # Monday of this week
+    week_start = today - datetime.timedelta(days=today.weekday())
     excluded = _get_excluded_customers()
     cutoff = getdate(LEGACY_AR_CUTOFF)
 
@@ -183,7 +146,6 @@ def get_ar_week_summary(company=None):
     cos = tuple(scope) if scope else None
     base = {"exc": excluded, "cos": cos}
 
-    # ── 1. Legacy AR outstanding balance (snapshot now) ──────────────────────
     legacy_bal = frappe.db.sql(f"""
         SELECT COALESCE(SUM(si.outstanding_amount), 0) AS bal
         FROM `tabSales Invoice` si
@@ -196,7 +158,6 @@ def get_ar_week_summary(company=None):
     """, {**base, "cutoff": LEGACY_AR_CUTOFF}, as_dict=True)
     legacy_ar_balance = flt(legacy_bal[0].bal) if legacy_bal else 0.0
 
-    # ── 2 & 4. Collections received THIS WEEK (split legacy vs all) ───────────
     pay_rows = frappe.db.sql(f"""
         SELECT per.allocated_amount AS amt, si.posting_date AS inv_date
         FROM `tabPayment Entry Reference` per
@@ -219,7 +180,6 @@ def get_ar_week_summary(company=None):
         if inv_date < cutoff:
             legacy_collected += amt
 
-    # ── 3. Post-legacy AR accumulated this week (new invoices raised this week) ─
     acc = frappe.db.sql(f"""
         SELECT COALESCE(SUM(si.grand_total), 0) AS amt
         FROM `tabSales Invoice` si
@@ -242,13 +202,10 @@ def get_ar_week_summary(company=None):
         "week_end": str(today),
     }
 
-
 RECON_UNRECONCILED = "Unreconciled"
 
 
 def _unreconciled_rows(company):
-    """Per-customer legacy AR (invoiced/paid/outstanding) for customers flagged
-    Unreconciled, scoped to `company`. Numbers match the AR Dashboard page."""
     scope = _companies_for_scope(company)
     company_clause = "" if scope is None else "AND si.company IN %(cos)s"
     cos = tuple(scope) if scope else None
@@ -296,11 +253,6 @@ def _record_snapshot(company, count, outstanding, d):
 
 @frappe.whitelist()
 def get_unreconciled_customers(company=None):
-    """
-    Table of Unreconciled customers (Customer | Invoiced | Paid | Outstanding) for
-    the selected company, plus the current count and a day-over-day trend recorded
-    in AR Recon Snapshot.
-    """
     company = company or ALL_COMPANIES
     today = getdate(nowdate())
     week_start = today - datetime.timedelta(days=today.weekday())
@@ -309,7 +261,6 @@ def get_unreconciled_customers(company=None):
     count = len(rows)
     outstanding_total = sum(r["outstanding"] for r in rows)
 
-    # Record today's snapshot for this scope (so the trend builds even between scheduler runs)
     try:
         _record_snapshot(company, count, outstanding_total, today)
         frappe.db.commit()
@@ -343,7 +294,6 @@ def get_unreconciled_customers(company=None):
 
 
 def snapshot_unreconciled():
-    """Daily scheduler hook: snapshot the unreconciled count for every company scope."""
     today = getdate(nowdate())
     for company in get_ar_companies():
         rows = _unreconciled_rows(company)

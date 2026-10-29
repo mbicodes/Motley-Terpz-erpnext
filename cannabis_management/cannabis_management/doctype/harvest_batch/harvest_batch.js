@@ -1,9 +1,5 @@
-// Copyright (c) 2026, alltechvirtual.com and contributors
-// For license information, please see license.txt
-
 frappe.ui.form.on("Harvest Batch", {
 	dry_weight(frm) {
-		// Live preview of the derived weights/status; the server recomputes on save.
 		const wet = flt(frm.doc.wet_weight);
 		const dry = flt(frm.doc.dry_weight);
 		frm.set_value("moisture_loss_pct", dry && wet ? ((wet - dry) / wet) * 100 : null);

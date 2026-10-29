@@ -1,13 +1,8 @@
-# Copyright (c) 2026, alltechvirtual.com and contributors
-# For license information, please see license.txt
-
 import frappe
 from frappe import _
 from frappe.model.document import Document
 from frappe.utils import flt, nowdate
 
-# Plant Batch Input Log only allows these three input types — map the wider
-# Additive Template genetics set onto them.
 INPUT_TYPE_MAP = {
 	"Nutrient": "Nutrient",
 	"Fertilizer": "Fertilizer",
@@ -36,9 +31,7 @@ class AdditiveApplication(Document):
 	def on_cancel(self):
 		self.cancel_material_issue()
 
-	# ── validation / compute ─────────────────────────────────────────────────
 	def set_target_doctypes(self):
-		"""Every target row is scoped to the chosen Applied To Type."""
 		for row in self.targets or []:
 			row.target_doctype = self.applied_to_type
 			if row.target_doctype and row.target_name:
@@ -72,7 +65,6 @@ class AdditiveApplication(Document):
 		)
 		return flt(rate)
 
-	# ── on submit actions ────────────────────────────────────────────────────
 	def create_material_issue(self):
 		company = frappe.db.get_value(
 			"Warehouse", self.additive_lines[0].source_warehouse, "company"
@@ -108,8 +100,6 @@ class AdditiveApplication(Document):
 				se.cancel()
 
 	def apply_cost_to_targets(self):
-		"""Split cost + quantity evenly across every target and attribute it —
-		Plant Batches get a per-line Input Log row, Plants get accumulated_cost."""
 		n = len(self.targets)
 		if not n:
 			return

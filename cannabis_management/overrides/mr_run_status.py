@@ -1,18 +1,3 @@
-"""Manufacture Material Request status that follows its production run.
-
-A run is one Manufacture-type Material Request plus the Work Orders released
-from it (Release on the Manufacturing Process page, or the Work Order button
-on the Material Request form). Its status reads:
-
-* In Progress -- at least one Work Order has been submitted against it;
-* Completed   -- every one of those Work Orders has been fully produced.
-
-Before any Work Order exists, core's own status (Pending, ...) is left alone.
-Core recomputes Material Request status from a fixed map whenever the request
-is updated, so the status is re-asserted there too (CMMaterialRequest), not
-only when a Work Order or its Manufacture entry changes.
-"""
-
 import frappe
 from erpnext.stock.doctype.material_request.material_request import MaterialRequest
 from frappe.custom.doctype.property_setter.property_setter import make_property_setter
@@ -23,8 +8,6 @@ COMPLETED = "Completed"
 
 
 def install():
-	"""Add the two statuses to Material Request's options, then bring every
-	released run up to date. Idempotent."""
 	options = frappe.get_meta("Material Request").get_field("status").options.split("\n")
 	missing = [s for s in (IN_PROGRESS, COMPLETED) if s not in options]
 	if missing:
@@ -51,15 +34,12 @@ def _add_options(options):
 
 
 def work_order_done(wo):
-	"""Fully produced. Process loss counts, as in core's own completion check:
-	a micron run that lost 120 g of 510 g is done at 390 g produced."""
 	return wo.status == "Completed" or (
 		flt(wo.qty) > 0 and flt(wo.produced_qty) + flt(wo.process_loss_qty) >= flt(wo.qty)
 	)
 
 
 def run_status(mr):
-	"""In Progress / Completed for a released run, else None."""
 	if mr.material_request_type != "Manufacture" or mr.docstatus != 1:
 		return None
 	if mr.status in ("Stopped", "Cancelled"):
@@ -88,7 +68,6 @@ def on_work_order_change(doc, method=None):
 
 
 def on_stock_entry_change(doc, method=None):
-	"""A Manufacture entry is what moves a Work Order to fully produced."""
 	if doc.purpose == "Manufacture" and doc.work_order:
 		sync(frappe.db.get_value("Work Order", doc.work_order, "material_request"))
 

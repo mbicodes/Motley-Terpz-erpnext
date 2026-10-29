@@ -1,6 +1,3 @@
-// Copyright (c) 2026, alltechvirtual.com and contributors
-// For license information, please see license.txt
-
 const CONNECTION_TOOL_API =
 	"cannabis_management.cannabis_management.doctype.connection_tool.connection_tool";
 
@@ -21,7 +18,6 @@ frappe.ui.form.on("Connection Tool", {
 	},
 
 	refresh(frm) {
-		// rows only ever come from Find Connections
 		frm.fields_dict.links.grid.cannot_add_rows = true;
 		frm.fields_dict.links.grid.refresh();
 
@@ -39,7 +35,6 @@ frappe.ui.form.on("Connection Tool", {
 		frm.add_custom_button(__("Find Connections"), () =>
 			connection_tool_call(frm, "find_connections", {}, __("Finding connections..."))
 		);
-		// Swap btn-default out, or the skin's .btn-default:hover overrides the colour.
 		if (has("Linked")) {
 			frm.add_custom_button(__("Break Connections"), () => connection_tool_act(frm, "break"))
 				.removeClass("btn-default")

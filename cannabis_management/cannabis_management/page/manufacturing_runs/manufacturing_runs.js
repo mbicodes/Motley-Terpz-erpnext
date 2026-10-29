@@ -1,7 +1,3 @@
-// Manufacturing Dashboard — "Run" = Job Card (see manufacturing_runs.py header
-// comment for why). Every number rendered here comes from a live query; there
-// is no sample/mock data anywhere in this file.
-
 frappe.pages['manufacturing-runs'].on_page_load = function (wrapper) {
 	let page = frappe.ui.make_app_page({
 		parent: wrapper,
@@ -13,10 +9,8 @@ frappe.pages['manufacturing-runs'].on_page_load = function (wrapper) {
 const MRD_METHOD = 'cannabis_management.cannabis_management.page.manufacturing_runs.manufacturing_runs';
 const MRD_STATUS_COLORS = { Completed: '#10b981', Open: '#3b82f6', 'In Progress': '#f59e0b' };
 const MRD_SUBOP_COLORS = { Completed: '#10b981', 'In Progress': '#3b82f6', Pending: '#f59e0b' };
-// Yield quantities are shown in grams everywhere on this page.
 const fmt_g = (grams) => `${format_number(flt(grams), null, 2)} g`;
 const MRD_TYPE_COLORS = ['#7c3aed', '#0ea5e9', '#f59e0b', '#ef4444', '#10b981', '#6366f1'];
-// Runs by Operation: one dot colour per employee.
 const MRD_OP_COLORS = ['#7c3aed', '#0ea5e9', '#f59e0b', '#ef4444', '#10b981', '#6366f1', '#ec4899', '#14b8a6', '#84cc16', '#f97316'];
 
 class ManufacturingRunsDashboard {
@@ -37,7 +31,7 @@ class ManufacturingRunsDashboard {
 
 	monday_of(date_str) {
 		let d = frappe.datetime.str_to_obj(date_str);
-		let day = (d.getDay() + 6) % 7; // 0 = Monday
+		let day = (d.getDay() + 6) % 7;
 		d.setDate(d.getDate() - day);
 		return frappe.datetime.obj_to_str(d).slice(0, 10);
 	}
@@ -152,7 +146,6 @@ class ManufacturingRunsDashboard {
 			</div>
 		`);
 
-		// Back to the Manufacturing Process page (the runs themselves).
 		$(`<button class="mrd-process-btn" title="Open Manufacturing Process"><i class="ti ti-settings-automation" aria-hidden="true"></i> Switch to Manufacturing Process</button>`)
 			.appendTo(this.page.main.find('.mrd-header-controls'))
 			.on('click', () => frappe.set_route('manufacturing-process'));
@@ -190,7 +183,6 @@ class ManufacturingRunsDashboard {
 			this.reload_all();
 			this.page.main.find('.mrd-week-btn').dropdown('toggle');
 		});
-		// Run # / Batch / Item: three Link filters on the table only.
 		this.make_runs_link_filter('.mrd-filter-run', 'Material Request', 'run', 'Run #',
 			() => ({ filters: { material_request_type: 'Manufacture', docstatus: 1 } }));
 		this.make_runs_link_filter('.mrd-filter-batch', 'Project', 'batch', 'Batch');
@@ -207,11 +199,6 @@ class ManufacturingRunsDashboard {
 		});
 	}
 
-	// Company/Project/Item are rendered as real Frappe Link controls
-	// (search-as-you-type against the actual doctype), restricted via
-	// get_query to only the values that actually appear on a Job Card —
-	// picking anything else would always show an empty dashboard. Date
-	// filters stay as the dropdown/date-range picker built in render_shell.
 	load_filter_options() {
 		frappe.call({
 			method: `${MRD_METHOD}.get_filter_options`,
@@ -251,8 +238,6 @@ class ManufacturingRunsDashboard {
 		});
 	}
 
-	// Like make_link_filter, but for the Runs Detail table: changing one only
-	// reloads the table, not the whole dashboard.
 	make_runs_link_filter(selector, doctype, fieldname, placeholder, get_query) {
 		let control = frappe.ui.form.make_control({
 			df: {
@@ -329,16 +314,11 @@ class ManufacturingRunsDashboard {
 					'<span class="mrd-stat-note">(Material Requests created)</span>',
 			},
 			{
-				// Washed counts Hash runs whose Wash Cycle is done, so it can be
-				// lower than the Hash runs started -- say "of N" so it reads
-				// against that total.
 				label: 'Washed',
 				value: s.washed_count,
 				extra: `<span class="mrd-stat-note">${hash_runs !== null ? `of ${hash_runs} Hash run${hash_runs === 1 ? '' : 's'} &middot; ` : ''}`
 					+ `${format_number(s.washed_pounds, null, 2)} lb &middot; ${format_number(s.washed_grams, null, 2)} g</span>`,
 			},
-			// Yields, each over the runs that have the output it needs -- the
-			// same figures as the Runs Detail columns, for the whole period.
 			...[
 				['Hash Yield', 'hash', 'hash out of raw material'],
 				['Rosin Yield', 'rosin', 'rosin out of raw material'],
@@ -362,10 +342,6 @@ class ManufacturingRunsDashboard {
 		`).join(''));
 	}
 
-	// Who worked what: each employee, with the operations they logged time
-	// on underneath (time and runs), busiest first. Yield is per process, not
-	// per person, so it sits once at the top -- Wash Cycle for Hash, Press
-	// Run for Rosin (yield_by_type from the server).
 	render_op_work() {
 		let data = this.data.operation_breakdown || { rows: [] };
 		const STEP_ORDER = ['Wash Cycle', 'Collection & Weigh', 'Freeze Drying', 'Bubble Sifting',
@@ -410,7 +386,6 @@ class ManufacturingRunsDashboard {
 			</div>`).join('') : '<div class="mrd-empty">No time logged in this period</div>');
 	}
 
-	// 95 -> "1h 35m"; under a minute shows seconds so short test logs aren't "0m".
 	fmt_mins(mins) {
 		mins = flt(mins);
 		if (mins > 0 && mins < 1) return `${Math.round(mins * 60)}s`;
@@ -477,9 +452,6 @@ class ManufacturingRunsDashboard {
 		);
 	}
 
-	// The chart fills its card: the row stretches every card to the tallest
-	// one beside it (Suboperation Status), so the height is read off the
-	// card once the old chart is cleared, and again on window resize.
 	render_weekday_chart() {
 		if (!this.data) return;
 		let rows = this.data.started_vs_completed;
@@ -490,7 +462,7 @@ class ManufacturingRunsDashboard {
 		let $card = $(el).closest('.mrd-card');
 		let title = $card.find('.mrd-card-title').outerHeight(true) || 0;
 		let padding = $card.innerHeight() - $card.height();
-		const LEGEND = 40;  // frappe.Chart draws its legend below the given height
+		const LEGEND = 40;
 		let height = Math.max(220, Math.floor($card.innerHeight() - padding - title - LEGEND));
 		if (!this._weekday_resize_bound) {
 			this._weekday_resize_bound = true;
@@ -532,8 +504,6 @@ class ManufacturingRunsDashboard {
 			let color = MRD_STATUS_COLORS[({ Open: 'Open', Completed: 'Completed' }[status]) || 'In Progress'] || '#94a3b8';
 			return `<span class="mrd-status-pill" style="background:${color}22;color:${color}">${frappe.utils.escape_html(status)}</span>`;
 		};
-		// Micron weights are grams; a run that collected nothing at a size
-		// shows a dash rather than a misleading 0.0.
 		let grams = (v) => (v ? `${v} g` : '-');
 		let body = rows.length ? rows.map((r) => `
 			<tr>

@@ -1,13 +1,5 @@
-/* =====================================================
-   WAREHOUSE OVERVIEW — Frappe Page CSS  (v3)
-   Place at: your_app/your_app/warehouse_overview/warehouse_overview.css
-===================================================== */
-
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600&display=swap');
 
-/* ── FRAPPE PAGE OVERRIDES ─────────────────────────── */
-/* Remove default Frappe white background and padding so our dark
-   theme fills the entire viewport. */
 [data-page-container="warehouse-overview"] .main-section,
 [data-page-container="warehouse-overview"] .page-body,
 [data-page-container="warehouse-overview"] .container.page-body,
@@ -20,7 +12,6 @@
     max-width: 100% !important;
 }
 
-/* ── ROOT TOKENS ───────────────────────────────────── */
 :root {
     --wo-bg:          #070c18;
     --wo-bg-2:        #0d1528;
@@ -57,7 +48,6 @@
     --wo-glow-gold:   0 0 28px rgba(245,200,66,0.14);
 }
 
-/* ── PAGE SHELL ────────────────────────────────────── */
 .wo-page {
     font-family: 'Inter', sans-serif;
     min-height: 100vh;
@@ -71,7 +61,6 @@
     box-sizing: border-box;
 }
 
-/* ── HEADER ────────────────────────────────────────── */
 .wo-header {
     display: flex;
     justify-content: space-between;
@@ -118,7 +107,6 @@
     padding-top: 6px;
 }
 
-/* ── BUTTONS ───────────────────────────────────────── */
 .wo-btn {
     display: inline-flex;
     align-items: center;
@@ -155,7 +143,6 @@
     border-color: rgba(255,255,255,0.22);
 }
 
-/* ── COMPANY PILLS ─────────────────────────────────── */
 .wo-company-bar {
     display: flex;
     align-items: center;
@@ -220,7 +207,6 @@
     box-shadow: 0 0 24px rgba(245,200,66,0.28);
 }
 
-/* ── SUMMARY STRIP ─────────────────────────────────── */
 .wo-summary-strip {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -286,7 +272,6 @@
     transition: all 0.4s ease;
 }
 
-/* ── FILTER BAR ────────────────────────────────────── */
 .wo-filter-bar {
     display: flex;
     align-items: center;
@@ -361,14 +346,12 @@
 }
 .wo-select:focus { border-color: rgba(0,229,190,0.4); }
 
-/* ── GRID WRAPPER ───────────────────────────────────── */
 .wo-grid {
     display: flex;
     flex-direction: column;
     gap: 0;
 }
 
-/* ── SECTION HEADINGS (All Companies view) ──────────── */
 .wo-section-heading {
     display: flex;
     align-items: center;
@@ -399,7 +382,6 @@
     margin-left: 4px;
 }
 
-/* ── SECTION GRID ────────────────────────────────────── */
 .wo-section-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(min(100%, 500px), 1fr));
@@ -407,7 +389,6 @@
     margin-bottom: 8px;
 }
 
-/* ── WAREHOUSE CARD ──────────────────────────────────── */
 .wo-card {
     background: var(--wo-surface);
     border: 1px solid var(--wo-border);
@@ -459,7 +440,6 @@
     to   { opacity: 1; transform: translateY(0); }
 }
 
-/* Card top section */
 .wo-card-top {
     display: flex;
     justify-content: space-between;
@@ -520,7 +500,6 @@
     50%      { opacity: 0.4; transform: scale(0.7); }
 }
 
-/* Three-stat strip */
 .wo-card-stats {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -549,7 +528,6 @@
 .wo-card-stat.stat-items .wo-card-stat-value { color: var(--wo-sky);  }
 .wo-card-stat.stat-groups .wo-card-stat-value { color: var(--wo-coral);}
 
-/* Group accordion area */
 .wo-card-groups {
     padding: 12px 14px;
     display: flex; flex-direction: column; gap: 8px;
@@ -604,7 +582,6 @@
 }
 .wo-group-header.is-open .wo-group-chevron { transform: rotate(180deg); }
 
-/* Items — hidden by default (collapsed) */
 .wo-group-items {
     display: none;
     flex-direction: column;
@@ -654,7 +631,6 @@
 .wo-item-status.status-low { background: var(--wo-gold); box-shadow: 0 0 6px rgba(245,200,66,0.4); }
 .wo-item-status.status-out { background: var(--wo-coral); box-shadow: 0 0 6px rgba(255,107,107,0.4); }
 
-/* ── TYPE BADGES (BHO / SHO) ──────────────────────── */
 .wo-type-badge {
     display: inline-block;
     font-size: 9px; font-weight: 700;
@@ -665,13 +641,11 @@
 .wo-type-bho { background: rgba(56,189,248,0.15); color: var(--wo-sky); }
 .wo-type-sho { background: rgba(245,200,66,0.15); color: var(--wo-gold); }
 
-/* ── NO ITEMS ──────────────────────────────────────── */
 .wo-no-items {
     font-size: 12px; color: var(--wo-dim);
     padding: 14px; text-align: center;
 }
 
-/* ── GROUP SWATCHES ─────────────────────────────────── */
 .swatch-0  { background: #00e5be; }
 .swatch-1  { background: #f5c842; }
 .swatch-2  { background: #ff6b6b; }
@@ -685,7 +659,6 @@
 .swatch-10 { background: #4ade80; }
 .swatch-11 { background: #e879f9; }
 
-/* ── STATES ─────────────────────────────────────────── */
 .wo-loading {
     display: flex; flex-direction: column; align-items: center;
     justify-content: center; padding: 80px 20px; gap: 18px;
@@ -711,7 +684,6 @@
 .wo-empty-title { font-family: 'Outfit', sans-serif; font-size: 18px; font-weight: 700; color: var(--wo-muted); margin-bottom: 6px; }
 .wo-empty-sub   { font-size: 13px; color: var(--wo-dim); }
 
-/* ── RESPONSIVE ─────────────────────────────────────── */
 @media (max-width: 768px) {
     .wo-page { padding: 16px 14px 48px; }
     .wo-header { margin-bottom: 18px; }

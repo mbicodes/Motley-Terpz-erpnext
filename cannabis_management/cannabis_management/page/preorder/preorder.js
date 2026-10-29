@@ -23,10 +23,6 @@ frappe.pages["preorder"].on_page_show = function () {
 	poLoadRecent();
 };
 
-// ─────────────────────────────────────────────────────
-// PAGE HTML
-// ─────────────────────────────────────────────────────
-
 const PO_PAGE_HTML = `
 <div class="po-page">
 
@@ -211,10 +207,6 @@ const PO_PAGE_HTML = `
 </div>
 `;
 
-// ─────────────────────────────────────────────────────
-// REGION AUTO-DETECT
-// ─────────────────────────────────────────────────────
-
 function poGuessRegion(address) {
 	const m = address.match(/\b(9\d{4})\b/);
 	if (!m) return "";
@@ -230,12 +222,6 @@ function poGuessRegion(address) {
 	return "Other";
 }
 
-// ─────────────────────────────────────────────────────
-// ITEM TABLE HELPERS
-// ─────────────────────────────────────────────────────
-
-// Amount is always derived, never typed: Preorder Item.amount is read_only in
-// the doctype and the server recomputes it on save. This is only the preview.
 function poAmount(item) {
 	return (parseFloat(item.rate) || 0) * (parseInt(item.qty, 10) || 0);
 }
@@ -319,9 +305,6 @@ function poAddItem(inv) {
 	poRenderItems();
 }
 
-// Add a row for something that is not in the catalog. item_code stays empty --
-// it is a Link to Item on Preorder Item, so free text cannot live there; the
-// typed text travels as item_name and the server keeps item_code blank.
 function poAddCustomItem(text) {
 	text = (text || "").trim();
 	if (!text) return;
@@ -345,8 +328,6 @@ function poAddCustomItem(text) {
 	poRenderItems();
 }
 
-// Enter in the search box: prefer a real catalog match over a custom row, so
-// typing a full SKU and hitting Enter does not silently create free text.
 function poAddTypedTerm(term) {
 	term = (term || "").trim();
 	if (!term) return;
@@ -357,10 +338,6 @@ function poAddTypedTerm(term) {
 	if (exact) poAddItem(exact);
 	else poAddCustomItem(term);
 }
-
-// ─────────────────────────────────────────────────────
-// PICKER DROPDOWN
-// ─────────────────────────────────────────────────────
 
 function poCustomOptionHtml(term) {
 	term = (term || "").trim();
@@ -401,17 +378,11 @@ function poRenderPicker(results, term) {
 	dd.classList.add("open");
 }
 
-// ─────────────────────────────────────────────────────
-// EVENTS
-// ─────────────────────────────────────────────────────
-
 function poBindEvents() {
-	// Set today as default order date
 	var today = frappe.datetime.get_today();
 	var el = document.getElementById("po-order-date");
 	if (el) el.value = today;
 
-	// Load companies into dropdown
 	frappe.call({
 		method: "frappe.client.get_list",
 		args: { doctype: "Company", fields: ["name"], limit_page_length: 20 },
@@ -427,7 +398,6 @@ function poBindEvents() {
 		},
 	});
 
-	// Address → Region auto-detect
 	var addrTimeout;
 	$("#po-address").on("input", function () {
 		clearTimeout(addrTimeout);
@@ -443,7 +413,6 @@ function poBindEvents() {
 		}, 400);
 	});
 
-	// Item search with picker
 	var searchTimeout;
 	$("#po-item-search").on("input", function () {
 		clearTimeout(searchTimeout);
@@ -464,8 +433,6 @@ function poBindEvents() {
 		}, 200);
 	});
 
-	// Enter adds whatever is typed -- a catalog match if there is one,
-	// otherwise a custom free-text row.
 	$("#po-item-search").on("keydown", function (e) {
 		if (e.key !== "Enter") return;
 		e.preventDefault();
@@ -474,7 +441,6 @@ function poBindEvents() {
 		$("#po-picker-dropdown").removeClass("open").empty();
 	});
 
-	// Click picker option
 	$(document).on("click", ".po-picker-option", function () {
 		var customText = $(this).attr("data-custom");
 		if (customText !== undefined) {
@@ -486,15 +452,12 @@ function poBindEvents() {
 		$("#po-picker-dropdown").removeClass("open").empty();
 	});
 
-	// Close picker on outside click
 	$(document).on("click", function (e) {
 		if (!$(e.target).closest(".po-picker-wrap").length) {
 			$("#po-picker-dropdown").removeClass("open");
 		}
 	});
 
-	// Qty / Rate edits. Both re-render so the row's Amount and the order
-	// total stay in step -- amount is derived, never entered directly.
 	$(document).on("change", ".po-item-qty", function () {
 		var idx = $(this).closest("tr").data("idx");
 		window._po.items[idx].qty = parseInt($(this).val(), 10) || 1;
@@ -508,26 +471,21 @@ function poBindEvents() {
 		poRenderItems();
 	});
 
-	// Remove item
 	$(document).on("click", ".po-remove-item", function () {
 		var idx = $(this).closest("tr").data("idx");
 		window._po.items.splice(idx, 1);
 		poRenderItems();
 	});
 
-	// Browse inventory button (opens full list)
 	$("#po-browse-items").on("click", function () {
 		poRenderPicker(window._po.inventory.slice(0, 30));
 		$("#po-item-search").focus();
 	});
 
-	// Save
 	$("#po-save-btn").on("click", poSave);
 
-	// Clear
 	$("#po-clear-btn").on("click", poClear);
 
-	// Right pane: Download saves the PDF, Edit loads the entry into the form.
 	$(document).on("click", ".po-download-preorder", function (e) {
 		e.stopPropagation();
 		poDownloadPdf($(this).data("name"));
@@ -543,27 +501,19 @@ function poBindEvents() {
 		poSubmitPreorder($(this).data("name"));
 	});
 
-	// Leave edit mode without saving.
 	$(document).on("click", "#po-cancel-edit", function () {
 		poClear();
 	});
 
-	// Collapse/expand the entries pane. Only has a visible effect on narrow
-	// screens, where the CSS hides the list unless .is-open is set.
 	$(document).on("click", "#po-side-toggle", function () {
 		$(this).closest(".po-side").toggleClass("is-open");
 	});
 
-	// The entry id still opens the full form, for anything the page cannot do.
 	$(document).on("click", ".po-entry-id", function () {
 		var name = $(this).closest(".po-entry").data("name");
 		if (name) frappe.set_route("Form", "Preorder Entry", name);
 	});
 }
-
-// ─────────────────────────────────────────────────────
-// LOAD DATA
-// ─────────────────────────────────────────────────────
 
 function poLoadInventory() {
 	frappe.call({
@@ -601,8 +551,6 @@ function poEntryCardHtml(row) {
 	var cls = st === 1 ? "po-status-submitted" : st === 2 ? "po-status-cancelled" : "po-status-draft";
 	var label = st === 1 ? "Submitted" : st === 2 ? "Cancelled" : "Draft";
 	var editing = window._po.editing === row.name;
-	// Only a draft can be edited -- Frappe will not let a submitted or
-	// cancelled document change, so do not offer a button that cannot work.
 	var draftBtns = st === 0
 		? '<button class="po-entry-btn po-edit-preorder" data-name="' + esc(row.name) + '">' +
 		  '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
@@ -626,14 +574,8 @@ function poEntryCardHtml(row) {
 		"</div></div>";
 }
 
-// ─────────────────────────────────────────────────────
-// PRINT / PDF
-// ─────────────────────────────────────────────────────
-
 var PO_PRINT_FORMAT = "Preorder Entry - Motley";
 
-// Renders the Motley format server-side and hands back a real PDF, so the
-// browser can open it in its viewer or save it straight to disk.
 function poPdfUrl(name) {
 	return (
 		"/api/method/frappe.utils.print_format.download_pdf" +
@@ -652,19 +594,11 @@ function poDownloadPdf(name) {
 	document.body.appendChild(a);
 	a.click();
 	document.body.removeChild(a);
-	// The PDF is rendered server-side, so the file can take a moment to
-	// arrive and the click itself shows nothing. Say what is happening, and
-	// hold it long enough to still be there when the download lands.
 	frappe.show_alert({
 		message: "Downloading <b>" + frappe.utils.escape_html(name) + ".pdf</b>",
 		indicator: "blue",
 	}, 10);
 }
-
-
-// ─────────────────────────────────────────────────────
-// EDIT AN EXISTING ENTRY
-// ─────────────────────────────────────────────────────
 
 function poEditPreorder(name) {
 	frappe.call({
@@ -706,8 +640,6 @@ function poEditPreorder(name) {
 	});
 }
 
-// Reflects edit mode in the header: the save button becomes an update, and a
-// banner offers a way out without saving.
 function poSyncEditState() {
 	var editing = window._po.editing;
 	var btn = document.getElementById("po-save-btn");
@@ -721,7 +653,6 @@ function poSyncEditState() {
 	banner.style.display = editing ? "" : "none";
 }
 
-// Submit is the point of no return for editing, so confirm first.
 function poSubmitPreorder(name) {
 	frappe.confirm(
 		"Submit <b>" + frappe.utils.escape_html(name) + "</b>?<br><br>" +
@@ -734,8 +665,6 @@ function poSubmitPreorder(name) {
 				freeze_message: "Submitting " + name + "...",
 				callback: function (r) {
 					if (!r.message) return;
-					// If this is the entry open in the form, editing it is no
-					// longer possible -- drop out of edit mode.
 					if (window._po.editing === name) poClear();
 					frappe.show_alert({
 						message: "Preorder <b>" + frappe.utils.escape_html(name) + "</b> submitted",
@@ -747,10 +676,6 @@ function poSubmitPreorder(name) {
 		}
 	);
 }
-
-// ─────────────────────────────────────────────────────
-// SAVE / CLEAR
-// ─────────────────────────────────────────────────────
 
 function poSave() {
 	var data = {

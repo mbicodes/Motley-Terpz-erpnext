@@ -1,13 +1,11 @@
 import frappe
 from frappe.model.document import Document
 
-# Shared with Motley Cash Tracking — identical money/person rules.
 from cannabis_management.cash_management.doctype.motley_cash_tracking.motley_cash_tracking import (
     get_person_for_user,
     validate_money_in_out,
 )
 
-# Transaction types that must reference a Sales Order
 INVOICE_REQUIRED_TYPES = (
     "Motley - Hardware",
     "Client - Hardware",
@@ -26,11 +24,6 @@ class TSBCCashTracking(Document):
             )
 
     def validate_tsbc_allowed(self):
-        """Only people flagged "Allow For TSBC" on their Cash Tracker Person may
-        file TSBC entries. Checked against the person ON THE DOCUMENT, not the
-        session user, so an admin filing on someone's behalf still respects the
-        flag. Cash admins filing for themselves are covered by can_use_tsbc.
-        """
         from cannabis_management.cash_management.permissions import (
             can_use_tsbc,
             person_allows_tsbc,

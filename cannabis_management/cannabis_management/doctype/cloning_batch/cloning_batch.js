@@ -1,10 +1,6 @@
-// Copyright (c) 2026, alltechvirtual.com and contributors
-// For license information, please see license.txt
-
 frappe.ui.form.on("Cloning Batch", {
 
     setup(frm) {
-        // Target Warehouse filter: sirf selected company ke warehouses show hon
         frm.set_query("target_warehouse", function () {
             return {
                 filters: {
@@ -20,8 +16,6 @@ frappe.ui.form.on("Cloning Batch", {
     },
 
     company(frm) {
-        // Company change hone par purana warehouse clear kar do
-        // taake dusri company ka warehouse selected na reh jaye
         frm.set_value("target_warehouse", null);
     },
 
@@ -37,7 +31,6 @@ frappe.ui.form.on("Cloning Batch", {
         calculate_totals(frm);
     }
 });
-
 
 frappe.ui.form.on("Cloning Batch Clone Detail", {
 
@@ -55,7 +48,6 @@ frappe.ui.form.on("Cloning Batch Clone Detail", {
 
 });
 
-
 function calculate_totals(frm) {
 
     let total_clones = 0;
@@ -64,12 +56,10 @@ function calculate_totals(frm) {
         total_clones += cint(row.quantity);
     });
 
-    // Total Labor Cost
     let labour_cost =
         flt(frm.doc.labour_hours) *
         flt(frm.doc.labour_rate);
 
-    // Agar ye fields DocType mein hain to update karega
     if (frm.fields_dict.total_labor_cost) {
         frm.set_value("total_labor_cost", labour_cost);
     }
@@ -89,16 +79,13 @@ function calculate_totals(frm) {
         );
     }
 
-    // Total Clones Taken (KPI)
     frm.set_value("total_clones_taken", total_clones);
 
-    // Rooting Success % (KPI)
     frm.set_value(
         "rooting_success_rate",
         total_clones > 0 ? (flt(frm.doc.clones_rooted) / total_clones) * 100 : 0
     );
 
-    // Clones / Hour (Labor Efficiency KPI)
     frm.set_value(
         "clones_per_hour",
         flt(frm.doc.labour_hours) > 0 ? total_clones / flt(frm.doc.labour_hours) : 0

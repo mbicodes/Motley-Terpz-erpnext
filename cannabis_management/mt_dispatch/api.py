@@ -1,8 +1,3 @@
-"""Whitelisted entry points: the Sales Order form's stage buttons, and the
-lookups the pickers need. The Slack layer calls flow.transition() directly
-after frappe.set_user(), so it does not come through here.
-"""
-
 import frappe
 from frappe import _
 
@@ -13,14 +8,11 @@ from cannabis_management.mt_dispatch.settings import get_company_settings, team_
 
 @frappe.whitelist()
 def act(sales_order, action, expected_stage=None, payload=None):
-	"""Run one transition as the logged-in user."""
 	return flow.transition(sales_order, action, expected_stage, payload, source="ERP")
 
 
 @frappe.whitelist()
 def board(sales_order):
-	"""Everything the form needs to draw its buttons: current stage, what this
-	user may do from here, and the payment position."""
 	so = frappe.get_doc("Sales Order", sales_order)
 	so.check_permission("read")
 
@@ -41,8 +33,6 @@ def board(sales_order):
 			continue
 		if t.flags and not is_admin and not (held & set(t.flags)):
 			continue
-		# Same rule as the Slack buttons: Release only when paid, the override
-		# only when not. Payment is only worth offering while money is owed.
 		if action == "release" and unpaid and not is_admin:
 			continue
 		if action in ("release_override", "record_payment") and not unpaid:
@@ -77,15 +67,7 @@ def board(sales_order):
 
 
 def blocked_reason(so, cfg, action, t, is_admin=False):
-	"""Why this step would be refused right now, or None.
-
-	The same guards transition() runs, so the form can say what is missing
-	before the click instead of raising an error after it. Guards only read.
-	upload_manifest's guard checks the upload itself, so before the dialog only
-	the note it attaches to can be checked.
-	"""
 	if is_admin:
-		# The gates don't apply to Administrator; only a missing note does.
 		if action in ("upload_manifest", "release", "release_override") and not gates.draft_delivery_note(so.name):
 			return _("No draft Delivery Note for this order.")
 		return None
@@ -103,7 +85,6 @@ def blocked_reason(so, cfg, action, t, is_admin=False):
 
 @frappe.whitelist()
 def stage_counts(company=None):
-	"""Open orders per stage. Backs /board and the workspace number cards."""
 	filters = {"docstatus": 1, "custom_logistic_status": ["in", stages.ALL_STAGES]}
 	if company:
 		filters["company"] = company

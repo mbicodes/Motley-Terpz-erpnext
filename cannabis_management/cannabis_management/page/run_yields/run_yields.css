@@ -1,8 +1,3 @@
-/* Run Yields — same shadcn-style tokens as AR Hub: neutral surfaces, 1px
-   borders, outline inputs. Colour is used for meaning only: the Hash / Rosin /
-   Yield column groups, the run status, and which filters are applied. Dark
-   mode follows the desk theme. */
-
 .ry {
 	--ry-bg: var(--fg-color, #ffffff);
 	--ry-fg: var(--text-color, #09090b);
@@ -40,12 +35,10 @@
 .ry-small { font-size: 11.5px; margin-top: 2px; font-weight: 400; }
 .ry-nil { color: var(--ry-muted-fg); opacity: 0.55; }
 
-/* ---- header --------------------------------------------------------------- */
 .ry-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
 .ry-sub { margin: 0; color: var(--ry-muted-fg); font-size: 13.5px; }
 .ry-actions { display: flex; gap: 8px; }
 
-/* ---- buttons -------------------------------------------------------------- */
 .ry-btn {
 	display: inline-flex; align-items: center; justify-content: center; gap: 6px;
 	height: 36px; padding: 0 12px;
@@ -62,7 +55,6 @@
 .ry-btn-icon { width: 36px; padding: 0; }
 .ry-btn[hidden] { display: none; }
 
-/* ---- summary cards -------------------------------------------------------- */
 .ry-cards { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
 .ry-card { background: var(--ry-bg); border: 1px solid var(--ry-border); border-radius: 12px; padding: 14px 16px; }
 .ry-card-label { font-size: 13px; font-weight: 500; color: var(--ry-muted-fg); }
@@ -72,7 +64,6 @@
 .ry-card.t-rosin .ry-card-value { color: var(--ry-rosin); }
 .ry-card.t-yield .ry-card-value { color: var(--ry-yield); }
 
-/* ---- panel + filter toolbar ----------------------------------------------- */
 .ry-panel { background: var(--ry-bg); border: 1px solid var(--ry-border); border-radius: 12px; overflow: hidden; }
 .ry-toolbar {
 	display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 14px;
@@ -97,7 +88,6 @@
 .ry-input:hover, .ry-range:hover { border-color: color-mix(in srgb, var(--ry-fg) 22%, var(--ry-border)); }
 .ry-input:focus, .ry-range:focus-within { border-color: var(--ry-primary); box-shadow: 0 0 0 3px var(--ry-ring); }
 
-/* own chevron instead of the browser's arrow */
 .ry-select {
 	appearance: none; -webkit-appearance: none;
 	padding-right: 32px; cursor: pointer; text-overflow: ellipsis;
@@ -108,7 +98,6 @@
 	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%23a1a1aa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' viewBox='0 0 24 24'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
 }
 
-/* an applied filter is outlined in the accent colour */
 .ry-input.is-active, .ry-range.is-active {
 	border-color: color-mix(in srgb, var(--ry-primary) 55%, var(--ry-border));
 	background-color: color-mix(in srgb, var(--ry-primary) 5%, var(--ry-bg));
@@ -133,13 +122,11 @@
 .ry-count { font-size: 13px; color: var(--ry-muted-fg); white-space: nowrap; }
 .ry-count b { color: var(--ry-fg); font-weight: 600; }
 
-/* ---- table ---------------------------------------------------------------- */
 .ry-scroll { overflow: auto; max-height: calc(100vh - 300px); min-height: 220px; }
 table.ry-table { width: 100%; min-width: max-content; border-collapse: separate; border-spacing: 0; font-variant-numeric: tabular-nums; }
 .ry-table th, .ry-table td { padding: 10px 12px; border-bottom: 1px solid var(--ry-border); white-space: nowrap; text-align: left; vertical-align: middle; }
 .ry-table .is-num { text-align: right; }
 
-/* group bar: Run details / Hash (g) / Rosin (g) / Yield */
 .ry-table thead th { position: sticky; z-index: 2; }
 .ry-table thead .ry-groups th {
 	top: 0; padding: 8px 12px;
@@ -151,7 +138,6 @@ table.ry-table { width: 100%; min-width: max-content; border-collapse: separate;
 }
 .ry-table thead .ry-groups th.g-run { text-align: left; }
 
-/* column headings: sortable, the sorted one in the accent colour */
 .ry-table thead .ry-cols th {
 	top: var(--ry-group-h, 35px);
 	padding-top: 9px; padding-bottom: 9px;
@@ -171,7 +157,6 @@ table.ry-table { width: 100%; min-width: max-content; border-collapse: separate;
 .ry-table .ry-cols th.is-desc .ry-sort::after { content: '↓'; opacity: 1; color: var(--ry-primary); }
 .ry-table .ry-cols th.is-asc, .ry-table .ry-cols th.is-desc { color: var(--ry-primary); }
 
-/* column groups: coloured group bar, tinted headings, divider where a group starts */
 .ry-table .g-hash { --ry-g: var(--ry-hash); --ry-gt: var(--ry-hash-tint); }
 .ry-table .g-rosin { --ry-g: var(--ry-rosin); --ry-gt: var(--ry-rosin-tint); }
 .ry-table .g-yield { --ry-g: var(--ry-yield); --ry-gt: var(--ry-yield-tint); }
@@ -186,7 +171,6 @@ table.ry-table { width: 100%; min-width: max-content; border-collapse: separate;
 .ry-table .c-hash_150u, .ry-table .c-rosin_150u, .ry-table .c-hash_yield { border-left: 1px solid var(--ry-border); }
 .ry-table tbody td.c-hash_to_rosin_yield { font-weight: 600; color: var(--ry-yield); }
 
-/* Run # stays in view while scrolling sideways */
 .ry-table .ry-groups th:first-child, .ry-table .ry-cols th:first-child,
 .ry-table tbody td:first-child, .ry-table tfoot td:first-child {
 	position: sticky; left: 0; z-index: 1;
@@ -204,7 +188,6 @@ table.ry-table { width: 100%; min-width: max-content; border-collapse: separate;
 .ry-table tfoot td { position: sticky; bottom: 0; background: color-mix(in srgb, var(--ry-muted) 85%, var(--ry-bg)); font-weight: 600; border-top: 1px solid color-mix(in srgb, var(--ry-fg) 16%, var(--ry-border)); border-bottom: none; }
 .ry-table tfoot td.g-yield { background: color-mix(in srgb, var(--ry-gt) 70%, var(--ry-muted)); }
 
-/* ---- status badges -------------------------------------------------------- */
 .ry-badge { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 8px; border-radius: 6px; border: 1px solid; font-size: 12px; font-weight: 500; }
 .ry-badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .ry-badge.is-completed { color: var(--ry-rosin); border-color: color-mix(in srgb, var(--ry-rosin) 30%, transparent); background: var(--ry-rosin-tint); }
@@ -214,7 +197,6 @@ table.ry-table { width: 100%; min-width: max-content; border-collapse: separate;
 .ry-empty { padding: 56px 16px; text-align: center; color: var(--ry-muted-fg); }
 .ry-empty[hidden] { display: none; }
 
-/* ---- small screens -------------------------------------------------------- */
 @media (max-width: 1100px) {
 	.ry-cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }

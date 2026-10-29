@@ -4,10 +4,6 @@ from frappe.utils import add_days, today, getdate
 CASH_THRESHOLD = 10000
 
 
-# ─────────────────────────────────────────────────────────────────────
-# CORE LOGIC
-# ─────────────────────────────────────────────────────────────────────
-
 def check_cash_threshold(doc, method):
     if doc.payment_type != "Receive":
         return
@@ -66,10 +62,6 @@ def get_cash_modes():
     return modes or ["Cash"]
 
 
-# ─────────────────────────────────────────────────────────────────────
-# SCHEDULED JOBS
-# ─────────────────────────────────────────────────────────────────────
-
 def check_overdue_filings():
     overdue = frappe.get_all(
         "IRS Form 8300 Log",
@@ -93,7 +85,6 @@ def send_january_notices():
     if not (now.month == 1 and now.day == 31):
         return
 
-    # Never send notice for suspicious activity filings — IRS rule
     logs = frappe.get_all(
         "IRS Form 8300 Log",
         filters={
@@ -125,13 +116,8 @@ def send_january_notices():
     frappe.db.commit()
 
 
-# ─────────────────────────────────────────────────────────────────────
-# WHITELISTED FUNCTIONS
-# ─────────────────────────────────────────────────────────────────────
-
 @frappe.whitelist()
 def get_8300_status_for_payment(payment_entry_name):
-    """Called by Payment Entry client script to get linked 8300 log."""
     log = frappe.db.sql("""
         SELECT
             name, payer_name, cash_amount, filing_status,
@@ -148,7 +134,6 @@ def get_8300_status_for_payment(payment_entry_name):
 
 @frappe.whitelist()
 def get_8300_attachment_for_payment(payment_entry_name):
-    """Check if a Form 8300 file is already attached to this Payment Entry."""
     file = frappe.db.get_value(
         "File",
         {
@@ -187,7 +172,6 @@ def mark_8300_as_filed(log_name, status, filing_date=None,
 
 @frappe.whitelist()
 def scan_payment_for_8300(payment_entry_name):
-    """Manually run the 8300 check against a specific Payment Entry."""
     pe = frappe.get_doc("Payment Entry", payment_entry_name)
 
     if pe.payment_type != "Receive":
@@ -219,7 +203,6 @@ def scan_payment_for_8300(payment_entry_name):
 
 @frappe.whitelist()
 def bulk_scan_cash_payments(limit=50):
-    """Scan N cash payment entries and create 8300 logs where needed."""
     cash_modes = get_cash_modes()
     if not cash_modes:
         return {"error": "No Cash modes of payment found in system"}
@@ -272,7 +255,6 @@ def bulk_scan_cash_payments(limit=50):
 
 @frappe.whitelist()
 def run_8300_scan_and_report(limit=200):
-    """Scan existing cash Payment Entries, create logs, return report data."""
     cash_modes = get_cash_modes()
     if not cash_modes:
         frappe.throw("No Cash type Modes of Payment found.")
@@ -326,7 +308,6 @@ def run_8300_scan_and_report(limit=200):
 
 @frappe.whitelist()
 def get_customer_cash_total(customer, months_back=12):
-    """Check total cash received from a customer over N months."""
     cash_modes = get_cash_modes()
     start_date = add_days(today(), -int(months_back) * 30)
 
@@ -369,21 +350,12 @@ def get_customer_cash_total(customer, months_back=12):
 
 @frappe.whitelist()
 def reset_and_initialize_8300_logs():
-    """
-    ⚠️  DESTRUCTIVE — deletes ALL existing IRS Form 8300 Log records
-    then re-scans every qualifying submitted Payment Entry (Receive type,
-    Customer party, Cash mode, > $10,000) and creates fresh logs.
-
-    Run via:
-        bench execute cannabis_management.cannabis_management.utils.irs_8300.reset_and_initialize_8300_logs
-    """
     if not frappe.has_permission("IRS Form 8300 Log", "delete"):
         frappe.throw(
             "You do not have permission to reset 8300 logs.",
             frappe.PermissionError
         )
 
-    # ── 1. Delete all existing logs ───────────────────────────────────
     existing_logs = frappe.get_all("IRS Form 8300 Log", pluck="name")
     deleted_count = 0
 
@@ -404,7 +376,6 @@ def reset_and_initialize_8300_logs():
 
     frappe.db.commit()
 
-    # ── 2. Fetch all qualifying Payment Entries ───────────────────────
     cash_modes = get_cash_modes()
     if not cash_modes:
         return {
@@ -434,7 +405,6 @@ def reset_and_initialize_8300_logs():
         "modes":     tuple(cash_modes)
     }, as_dict=True)
 
-    # ── 3. Create logs ────────────────────────────────────────────────
     created_count = 0
     skipped_count = 0
     errors        = []
@@ -458,7 +428,6 @@ def reset_and_initialize_8300_logs():
 
     frappe.db.commit()
 
-    # ── 4. Return summary ─────────────────────────────────────────────
     logs_created = frappe.get_all(
         "IRS Form 8300 Log",
         fields=[

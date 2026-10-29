@@ -1,12 +1,3 @@
-"""Posting: what goes to Slack after each transition.
-
-notify.on_transition resolves the company and hands over here once a bot
-token exists. Everything we may need to edit later -- the thread parent, each
-approval DM, the dispatch post, exception posts -- is remembered as a
-Dispatch Slack Message row on the order, so a later transition can chat.update
-it in place.
-"""
-
 import time
 
 import frappe
@@ -48,9 +39,6 @@ VERBS = {
 }
 
 SYSTEM_ACTIONS = {"enter_flow", "conversions_done", "conversion_progress", "backfill", "invoice_close"}
-
-
-# ── message rows ─────────────────────────────────────────────────────────────
 
 
 def message_rows(so_name, kind=None, open_only=False):
@@ -101,9 +89,6 @@ def close_rows(so_name):
 	)
 
 
-# ── audiences ────────────────────────────────────────────────────────────────
-
-
 def mention_users(users):
 	out = []
 	for user in users:
@@ -133,7 +118,6 @@ def stage_log_users(so_name):
 
 
 def mentions_for(action, so, cfg):
-	"""Section 9: who the thread reply tags."""
 	rep = [blocks.sales_rep_user(so)]
 	if action in ("enter_flow", "backfill"):
 		return fulfillment_mentions(cfg) + mention_users(users_with_flag(cfg, stages.COMPLIANCE) + rep)
@@ -154,15 +138,7 @@ def mentions_for(action, so, cfg):
 	return []
 
 
-# ── thread ───────────────────────────────────────────────────────────────────
-
-
 def ensure_thread(so, cfg):
-	"""The thread for an order, posting its parent the first time.
-
-	An amended order carries on in the thread of the order it replaces, so a
-	cancel-and-amend never starts a second conversation about the same order.
-	"""
 	row = thread_row(so.name)
 	if row:
 		return row
@@ -177,9 +153,6 @@ def ensure_thread(so, cfg):
 
 
 def owns_thread(so_name, row):
-	"""False once an amendment has taken the thread over: the parent message
-	then shows the amendment, and a late job for the old order must not
-	overwrite it."""
 	latest = frappe.get_all(
 		"Dispatch Slack Message",
 		filters={"kind": THREAD_PARENT, "channel": row.channel, "ts": row.ts},
@@ -191,9 +164,6 @@ def owns_thread(so_name, row):
 
 
 def post_to(so, cfg, channel_key, text, blks=None):
-	"""Post into the order's own thread when `channel_key` names the thread's
-	channel (or no channel). A company that keeps a separate channel for it
-	gets a top-level post there instead. Returns (channel, ts)."""
 	target = cfg.get(channel_key)
 	row = ensure_thread(so, cfg)
 	if row and (not target or target == row.channel):
@@ -221,15 +191,7 @@ def reply(so, cfg, text, blks=None):
 	return client.post(row.channel, text, blks, thread_ts=row.ts)
 
 
-# ── the entry point notify calls ─────────────────────────────────────────────
-
-
 def on_transition(sales_order, action, users=None, channel=None, **kwargs):
-	# Serialise jobs for one order, so two quick transitions never both post a
-	# thread parent. The commit comes first on purpose: notify has already
-	# read from the database, and under REPEATABLE READ those reads pinned a
-	# snapshot from before the lock. Without a fresh transaction the second job
-	# waits for the lock and then still cannot see the first job's thread row.
 	frappe.db.commit()
 	frappe.db.get_value("Sales Order", sales_order, "name", for_update=True)
 	so = frappe.get_doc("Sales Order", sales_order)
@@ -246,13 +208,7 @@ def on_transition(sales_order, action, users=None, channel=None, **kwargs):
 	refresh_parent(so, cfg)
 
 	line = _line(so, action, actor, kwargs)
-	# A new order's conversion check is the thread parent itself, so only a
-	# conversion flagged later gets it again as a reply.
 	if action == "flag_conversion" and blocks.stock_check(so, cfg).need:
-		# A new order, or one just flagged for conversion, that the warehouse
-		# is short of: show fulfillment what is missing instead of a one-line
-		# update. Nothing short means no conversion message -- the ordinary
-		# reply below goes out instead.
 		others = [] if action == "flag_conversion" else mention_users(
 			users_with_flag(cfg, stages.COMPLIANCE) + [blocks.sales_rep_user(so)]
 		)
@@ -262,7 +218,6 @@ def on_transition(sales_order, action, users=None, channel=None, **kwargs):
 		client.post(row.channel, text, blks, thread_ts=row.ts)
 		line = None
 	if line:
-		# Enter-flow already shows everything on the parent; its reply is the tag list.
 		text, blks = blocks.stage_update(
 			so, cfg, line, mentions_for(action, so, cfg), with_buttons=action not in ("enter_flow", "backfill")
 		)
@@ -336,16 +291,7 @@ def _line(so, action, actor, kwargs):
 	return f"{who} {verb} · {at}{via} → *{stage}*"
 
 
-# ── thread notes: things that happen around an order ─────────────────────────
-
-
 def on_event(sales_order, what, ref=None, actor=None, **kwargs):
-	"""A reply in the order's thread for something that moves no stage -- its
-	Sales Invoice, a Delivery Note, a Conversion Entry, an edited date.
-
-	Same locking as on_transition. An order that never came onto the board, or
-	finished before it had a thread, gets no thread just for this.
-	"""
 	frappe.db.commit()
 	frappe.db.get_value("Sales Order", sales_order, "name", for_update=True)
 	so = frappe.get_doc("Sales Order", sales_order)
@@ -371,9 +317,6 @@ def on_event(sales_order, what, ref=None, actor=None, **kwargs):
 	frappe.db.commit()
 	if what == "dn_created":
 		_refresh_homes(cfg)
-
-
-# ── approval DMs ─────────────────────────────────────────────────────────────
 
 
 def approvers(cfg, include_backup=False):
@@ -412,7 +355,6 @@ def refresh_approval_dms(sales_order, released_by=None):
 
 
 def on_payment_cleared(sales_order):
-	"""A COD order that is now paid in full: the DMs grow a Release button."""
 	refresh_approval_dms(sales_order)
 	so = frappe.get_doc("Sales Order", sales_order)
 	cfg = get_company_settings(so.company)
@@ -420,9 +362,6 @@ def on_payment_cleared(sales_order):
 		refresh_parent(so, cfg)
 		frappe.db.commit()
 		_refresh_homes(cfg)
-
-
-# ── dispatch and exceptions ──────────────────────────────────────────────────
 
 
 def post_dispatch(so, cfg):
@@ -449,7 +388,6 @@ def post_exception(so, cfg, title, detail, show_resume=False):
 
 
 def refresh_exceptions(so, cfg):
-	"""Hold posts lose their Resume button once the order has moved on."""
 	for row in message_rows(so.name, EXCEPTION_POST, open_only=True):
 		try:
 			client.update(
@@ -459,9 +397,6 @@ def refresh_exceptions(so, cfg):
 			frappe.db.set_value("Dispatch Slack Message", row.name, "closed", 1, update_modified=False)
 		except SlackError:
 			pass
-
-
-# ── App Home ─────────────────────────────────────────────────────────────────
 
 
 def _refresh_homes(cfg):
@@ -476,15 +411,7 @@ def _refresh_homes(cfg):
 				frappe.log_error(f"MT Dispatch: App Home refresh failed for {row.user}", "MT Dispatch Slack")
 
 
-# ── one-off: threads for orders that were open before go-live ────────────────
-
-
 def post_open_threads(company, limit=None):
-	"""Post a thread for every open order at one company that has none yet.
-
-	Run by hand once the channels are ready:
-	bench --site <site> execute cannabis_management.mt_dispatch.slack.post.post_open_threads --kwargs "{'company': 'Master Touch Manufacturing'}"
-	"""
 	cfg = get_company_settings(company)
 	if not cfg:
 		print(f"{company} is not enabled for dispatch.")
@@ -504,7 +431,7 @@ def post_open_threads(company, limit=None):
 		ensure_thread(so, cfg)
 		frappe.db.commit()
 		posted += 1
-		time.sleep(1.1)  # chat.postMessage allows about one message per second per channel
+		time.sleep(1.1)
 		if limit and posted >= int(limit):
 			break
 	print(f"{posted} thread(s) posted for {company}.")

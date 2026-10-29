@@ -1,15 +1,3 @@
-"""Turn a submitted cash-tracking entry into a Payment Entry or a Journal Entry.
-
-Both cash-tracking doctypes (Motley / Personal) are pure capture forms — they
-record that money moved, with no GL effect of their own. These builders are what
-an accountant uses afterwards to post the movement, pre-filled from the capture
-form so nothing is re-typed.
-
-Nothing here saves anything: each function returns an UNSAVED document that the
-form-side JS routes to, so the accountant reviews and submits it by hand. That is
-deliberate — accounts and amounts are theirs to confirm.
-"""
-
 import frappe
 from frappe.utils import flt
 
@@ -19,7 +7,6 @@ SOURCE_DOCTYPES = (
 
 
 def _get_source(source_doctype, source_name):
-    """Load the capture form, refusing anything unexpected or unsubmitted."""
     if source_doctype not in SOURCE_DOCTYPES:
         frappe.throw(f"{source_doctype} is not a cash tracking doctype.")
 
@@ -31,7 +18,6 @@ def _get_source(source_doctype, source_name):
 
 
 def _amount_and_direction(doc):
-    """(amount, is_money_in). Money In = cash received, Money Out = cash paid."""
     money_in, money_out = flt(doc.money_in), flt(doc.money_out)
     if money_in:
         return money_in, True
@@ -39,7 +25,6 @@ def _amount_and_direction(doc):
 
 
 def _notes(doc):
-    """The free-text field differs between the two doctypes."""
     return doc.get("transaction_notes") or doc.get("reason") or ""
 
 
@@ -53,12 +38,6 @@ def _remark(doc):
 
 
 def _account_mapping(doc):
-    """Cash / contra accounts configured for this company + transaction type.
-
-    Returns (cash_account, contra_account); either may be None when no Cash
-    Account Mapping row exists, in which case the accountant picks the accounts
-    on the generated document.
-    """
     company = doc.get("business")
     txn_type = doc.get("transaction_type")
     mapping = None
@@ -79,13 +58,6 @@ def _account_mapping(doc):
 
 
 def _stamp_source(target, doc):
-    """Point the new document back at the cash entry it came from.
-
-    A remark naming the source is not enough to act on: the Post / Unpost buttons
-    on the finished Payment Entry or Journal Entry need to find the cash entry
-    again in order to tick it. Written only where the fields exist, so a site
-    that has not synced the customization yet still gets a working document.
-    """
     for fieldname, value in (
         ("custom_cash_tracking_doctype", doc.doctype),
         ("custom_cash_tracking_entry", doc.name),
@@ -94,17 +66,7 @@ def _stamp_source(target, doc):
             target.set(fieldname, value)
 
 
-# ── Payment Entry ─────────────────────────────────────────────────────────────
-
 def _payment_reference(doc):
-    """What a Payment Entry should actually be raised against, as (doctype, name).
-
-    A Sales Order that has already been invoiced cannot take a payment — ERPNext
-    refuses with "Can only make payment against unbilled Sales Order", because
-    the money is owed on the invoice. So prefer an unpaid Sales Invoice raised
-    from that order, fall back to the order itself while it is still unbilled,
-    and give up (returning None) when neither applies.
-    """
     sales_order = doc.get("invoice_number")
     if not sales_order:
         return None, None
@@ -132,8 +94,6 @@ def _payment_reference(doc):
 
 
 def _bare_payment_entry(doc, amount, is_money_in):
-    """Payment Entry with no reference document — company, date, amount, and
-    whatever accounts the Cash Account Mapping can supply."""
     pe = frappe.new_doc("Payment Entry")
     pe.payment_type = "Receive" if is_money_in else "Pay"
     pe.company = doc.get("business")
@@ -153,15 +113,6 @@ def _bare_payment_entry(doc, amount, is_money_in):
 
 @frappe.whitelist()
 def make_payment_entry(source_doctype, source_name):
-    """Payment Entry pre-filled from a cash tracking entry.
-
-    When the entry points at a Sales Order we hand off to ERPNext's own
-    get_payment_entry() against the right reference (see _payment_reference), so
-    party, accounts, currencies and the allocation row are built exactly as they
-    are from the source document itself — then this entry's date and amount are
-    layered on top. Anything ERPNext refuses falls back to the bare build rather
-    than failing the click.
-    """
     doc = _get_source(source_doctype, source_name)
     amount, is_money_in = _amount_and_direction(doc)
 
@@ -174,14 +125,11 @@ def make_payment_entry(source_doctype, source_name):
             pe = get_payment_entry(ref_doctype, ref_name)
             pe.posting_date = doc.transaction_date
             if amount:
-                # Re-allocate to what was actually collected, never above the
-                # outstanding amount ERPNext computed for the reference.
                 pe.paid_amount = amount
                 pe.received_amount = amount
                 for ref in pe.references:
                     ref.allocated_amount = min(flt(ref.outstanding_amount) or amount, amount)
         except Exception:
-            # e.g. nothing left outstanding by the time the button is clicked.
             pe = None
             if hasattr(frappe, "clear_messages"):
                 frappe.clear_messages()
@@ -198,26 +146,11 @@ def make_payment_entry(source_doctype, source_name):
 
 
 def _cash_mode_of_payment():
-    """The plain "Cash" Mode of Payment, if it exists.
-
-    Deliberately an exact-name match: this site also has account-specific cash
-    modes ("Petty Cash - Jamie", "1104-Nikki Expense Tracker") and picking one of
-    those at random would attach the wrong account to someone else's payment.
-    """
     return frappe.db.get_value("Mode of Payment", {"name": "Cash", "enabled": 1}, "name")
 
 
-# ── Journal Entry ─────────────────────────────────────────────────────────────
-
 @frappe.whitelist()
 def make_journal_entry(source_doctype, source_name):
-    """Journal Entry pre-filled from a cash tracking entry.
-
-    Money In debits the cash account and credits the contra; Money Out is the
-    mirror. Accounts come from Cash Account Mapping (company + transaction type)
-    and are simply left blank when no mapping exists — the rows and the amounts
-    are still there, so the accountant only fills in the two accounts.
-    """
     doc = _get_source(source_doctype, source_name)
     amount, is_money_in = _amount_and_direction(doc)
     cash_account, contra_account = _account_mapping(doc)
@@ -228,7 +161,6 @@ def make_journal_entry(source_doctype, source_name):
     je.posting_date = doc.transaction_date
     je.user_remark = _remark(doc)
 
-    # Cash side first, then the contra side, so the accountant reads it top-down.
     if is_money_in:
         rows = [(cash_account, amount, 0), (contra_account, 0, amount)]
     else:
@@ -245,10 +177,7 @@ def make_journal_entry(source_doctype, source_name):
     return je.as_dict()
 
 
-# ── Sales Order picker ────────────────────────────────────────────────────────
-
 def _money(amount, currency=None):
-    """"$24,150.00" — symbol tight against the amount, thousands separated."""
     symbol = None
     if currency:
         symbol = frappe.db.get_value("Currency", currency, "symbol")
@@ -258,16 +187,6 @@ def _money(amount, currency=None):
 @frappe.whitelist()
 @frappe.validate_and_sanitize_search_inputs
 def sales_order_query(doctype, txt, searchfield, start, page_len, filters):
-    """Link-field search for Invoice # (Sales Order), with the total as currency.
-
-    Same columns as the stock Sales Order lookup, in the same order — this
-    exists only so the amount at the end of each dropdown line reads
-    "$24,150.00" instead of a bare "24150.0".
-
-    Uses get_list rather than raw SQL so the caller's own permissions and User
-    Permissions still apply: a rep restricted to two companies must not start
-    seeing every company's orders just because the picker was customised.
-    """
     orders = frappe.get_list(
         "Sales Order",
         filters={"docstatus": ["<", 2]},
@@ -299,16 +218,8 @@ def sales_order_query(doctype, txt, searchfield, start, page_len, filters):
     ]
 
 
-# ── Post / Unpost ─────────────────────────────────────────────────────────────
-
 @frappe.whitelist()
 def get_post_state(voucher_doctype, voucher_name):
-    """What the Post / Unpost buttons on a voucher should show.
-
-    Returns the linked cash entry, whether it is already marked processed, and
-    whether this user may change that — so the form can hide the buttons from
-    everyone outside Finance rather than offering an action that gets refused.
-    """
     from cannabis_management.cash_management.permissions import can_mark_processed
 
     if voucher_doctype not in ("Payment Entry", "Journal Entry"):
@@ -339,12 +250,6 @@ def get_post_state(voucher_doctype, voucher_name):
 
 @frappe.whitelist()
 def set_posted(voucher_doctype, voucher_name, posted):
-    """Post / Unpost — tick the linked cash entry from the voucher itself.
-
-    The same tick the Cash Tracking page offers, reached from the other end: once
-    the Payment Entry or Journal Entry is submitted, Finance marks the cash entry
-    posted without going looking for it.
-    """
     from cannabis_management.cash_management.permissions import can_mark_processed
 
     if not can_mark_processed():

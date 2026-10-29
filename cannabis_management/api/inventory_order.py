@@ -1,26 +1,9 @@
-"""Draft Sales Orders from the Inventory Dashboard's order cart.
-
-The dashboard (Web Page "mtm-inventory-dashboard") lets a logged-in user pick
-items from any item group into a cart and save them as a draft Sales Order.
-A Sales Order belongs to one company, and Fresh Frozen sits in a TSBC Ranch
-warehouse while the rest sit in MTM's, so a mixed cart becomes one draft per
-company. Everything runs as the user: insert() applies the usual Sales Order
-permissions, permlevels and validate hooks (the credit gate lets any draft
-through; it only stops at submit).
-
-The popup is locked behind one shared access code. The code lives in the
-site config (bench set-config inventory_order_access_code <code>), not in
-git or the page, and every call that reads or writes order data checks it.
-"""
-
 import hmac
 
 import frappe
 from frappe import _
 from frappe.utils import flt, getdate, nowdate
 
-# Select fields the popup offers, with their options read from Sales Order meta
-# so a new option added on the form shows up here without a code change.
 POPUP_SELECT_FIELDS = (
     "custom_sales_order_type",
     "custom_mode_of_payment",
@@ -32,7 +15,6 @@ POPUP_SELECT_FIELDS = (
 PAYMENT_TERMS_MODE = "Payment Terms"
 
 ACCESS_CODE_CONF_KEY = "inventory_order_access_code"
-# Wrong codes per user before the popup locks for CODE_LOCKOUT_SECONDS.
 MAX_CODE_FAILURES = 10
 CODE_LOCKOUT_SECONDS = 600
 
@@ -42,15 +24,12 @@ def _code_failures_key():
 
 
 def _code_is_valid(code):
-    """True for the right code. Counts wrong ones, and refuses every attempt
-    (right or wrong) once a user has MAX_CODE_FAILURES in the lockout window."""
     expected = str(frappe.conf.get(ACCESS_CODE_CONF_KEY) or "").strip()
     if not expected:
         frappe.throw(_("The order access code has not been set up."))
 
     cache = frappe.cache()
     key = _code_failures_key()
-    # expires=True: read Redis every time, never a per-request local copy.
     failures = int(cache.get_value(key, expires=True) or 0)
     if failures >= MAX_CODE_FAILURES:
         frappe.throw(_("Too many wrong codes. Try again in 10 minutes."))
@@ -85,14 +64,10 @@ def get_order_form_options():
             "reqd": df.reqd,
         }
 
-    # Sales Order Item rate sits at permlevel 1 (Sales Manager only), so the
-    # popup's Rate column is offered only to users who could type it on the form.
     can_set_rate = frappe.new_doc("Sales Order").has_permlevel_access_to(
         "rate", df=frappe.get_meta("Sales Order Item").get_field("rate"), permission_type="write"
     )
 
-    # A line's company comes from its warehouse, whose name ends in the
-    # company abbreviation, so the popup keys currencies by abbreviation.
     currencies = {}
     for c in frappe.get_all("Company", fields=["abbr", "default_currency"]):
         currencies[c.abbr] = {
@@ -160,7 +135,6 @@ def create_draft_sales_orders(items, details, code=None):
     if not items:
         frappe.throw(_("The order has no items."))
 
-    # Company of each line comes from its warehouse; keep the cart's order.
     by_company = {}
     for row in items:
         row = frappe._dict(row)
@@ -173,7 +147,6 @@ def create_draft_sales_orders(items, details, code=None):
         if not company:
             frappe.throw(_("Warehouse {0} for {1} does not exist.").format(row.warehouse, row.item_code))
         line = {"item_code": row.item_code, "qty": qty, "warehouse": row.warehouse}
-        # Without permlevel-1 access insert() blanks this again, as on the form.
         if flt(row.rate) > 0:
             line["rate"] = flt(row.rate)
         by_company.setdefault(company, []).append(line)
@@ -207,8 +180,6 @@ def create_draft_sales_orders(items, details, code=None):
         for r in rows:
             so.append("items", dict(r, delivery_date=details.delivery_date))
 
-        # Same as ERPNext's own mappers: fill customer, price list and item
-        # details (rate from the price list) before the first save.
         so.set_missing_values()
         so.calculate_taxes_and_totals()
         so.insert()

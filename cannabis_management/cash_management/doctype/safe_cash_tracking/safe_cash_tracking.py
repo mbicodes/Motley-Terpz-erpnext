@@ -1,7 +1,6 @@
 import frappe
 from frappe.model.document import Document
 
-# Shared with Motley Cash Tracking — identical money/person rules.
 from cannabis_management.cash_management.doctype.motley_cash_tracking.motley_cash_tracking import (
     INVOICE_REQUIRED_TYPES,
     get_person_for_user,
@@ -10,9 +9,6 @@ from cannabis_management.cash_management.doctype.motley_cash_tracking.motley_cas
 
 
 class SafeCashTracking(Document):
-    """Cash put into (Money In) or taken out of (Money Out) the safe, with the
-    same transaction type, Sales Order and business as Motley Cash Tracking."""
-
     def validate(self):
         self.set_person_links()
         self.validate_safe_allowed()
@@ -23,9 +19,6 @@ class SafeCashTracking(Document):
             )
 
     def validate_safe_allowed(self):
-        """Only people flagged "Allow For Safe" on their Cash Tracker Person may
-        file Safe entries — checked against the person on the document, as for
-        TSBC, so an admin filing on someone's behalf still respects the flag."""
         from cannabis_management.cash_management.permissions import (
             can_use_safe,
             person_allows_safe,

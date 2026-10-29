@@ -3,7 +3,6 @@ from frappe.model.document import Document
 
 
 class NikkiCashLedgerEntry(Document):
-
     def validate(self):
         if self.amount and self.amount <= 0:
             frappe.throw("Amount must be greater than zero.")

@@ -1,60 +1,11 @@
-# Copyright (c) 2026, alltechvirtual.com and contributors
-# For license information, please see license.txt
-#
-# A management-style Income Statement laid out the way an accountant hands a
-# draft P&L to management, rather than the standard chart-of-accounts rollup:
-# Revenue -> Cost of Sales (COGS matched to inventory issued, direct
-# production costs, less product capitalized to inventory) -> Gross Profit
-# -> Operating Expenses (Payroll & benefits, G&A, Selling & distribution) ->
-# Operating Income -> Finance Costs -> Net Income, each line tagged with a
-# Note number. See management_income_statement.html for the print layout
-# this is modelled on.
-#
-# WHY A CLASSIFIER INSTEAD OF A FIXED ACCOUNT LIST: this report is
-# company-selectable, but no two companies in this instance organise their
-# chart of accounts the same way (e.g. TSBC Ranch's "Direct Labor" group
-# mixes payroll accounts in with farm-labor accounts). Hardcoding one
-# company's account names - as several other TSBC-only reports in this
-# module deliberately do - would silently return empty/wrong lines for every
-# other company. Instead, every Income/Expense leaf account with activity in
-# the period is classified into exactly one statement line by
-# classify_expense_leaf() below, using (in order): an explicit per-company
-# override list for lines with no reliable general rule, keywords in the
-# account's own name, its immediate parent group's name, and whether it
-# falls under the company's "Cost of Goods Sold"/"Cost of Goods Solds"
-# branch. Every leaf lands in exactly one bucket, so the lines always add up
-# to the company's real Total Income/Expense for the period - but the SPLIT
-# across lines is a best-effort approximation, not a book-perfect
-# reclassification. Treat this as a management draft, not an audited
-# statement - see get_methodology_notes() for the full disclosure, which
-# also prints at the bottom of the report.
-
 import frappe
 from frappe import _
 from frappe.utils import flt, formatdate, getdate
 
-# Same convention as profit_and_loss_statement_child_accounts_tsbc.py's
-# COGS_ACCOUNT_NAMES - kept as its own copy here (matched case-insensitively)
-# rather than imported, so this report doesn't depend on that report's
-# internals.
 COGS_ACCOUNT_NAMES = ("cost of goods sold", "cost of goods solds")
 
-# Group account names (matched case-insensitively, wherever they sit inside
-# the COGS branch) that hold the accounts actually driven by stock
-# valuation/issue - as opposed to direct labor/overhead accounts that also
-# happen to sit under Cost of Goods Sold in some charts of accounts. Add
-# more here if another company's chart uses a different name for the same
-# idea. If none of these are found for a company, the whole COGS branch is
-# reported as "matched to inventory issued" rather than split further.
 STOCK_COGS_SUBGROUP_NAMES = ("stock expenses", "inventory cogs")
 
-# No company in this instance currently has a GL account/contra entry that
-# captures "harvested product capitalized to inventory" on its own - in the
-# source workpapers this report is modelled on, that figure is a manual
-# inventory-valuation adjustment, not something derivable from GL Entry.
-# Add {"Company Name": {"Account - ABC", ...}} here if/when one exists;
-# until then this line reports 0 for every company and the underlying cost
-# simply stays inside the Cost of Sales lines above it.
 CAPITALIZED_TO_INVENTORY_ACCOUNTS = {}
 
 INTEREST_KEYWORDS = ("interest",)
@@ -119,9 +70,6 @@ def compute_income_statement(company, from_date, to_date):
 
 	cogs_ranges = get_cogs_branch_ranges(company)
 	stock_cogs_ranges = get_named_subgroup_ranges(company, cogs_ranges, STOCK_COGS_SUBGROUP_NAMES)
-	# No stock-specific subgroup found for this company's chart of accounts -
-	# don't split the branch at all; report all of it as "matched to
-	# inventory issued" rather than guessing at a split with no basis.
 	if not stock_cogs_ranges:
 		stock_cogs_ranges = cogs_ranges
 
@@ -178,11 +126,6 @@ def compute_income_statement(company, from_date, to_date):
 
 
 def get_period_leaf_balances(company, from_date, to_date):
-	"""Every Income/Expense leaf account for `company` with GL activity in
-	[from_date, to_date] (posted, non-cancelled), its net movement
-	(debit - credit, so Expense accounts come back positive and Income
-	accounts negative), and enough of its chart-of-accounts position
-	(lft/rgt/parent) to classify it in classify_expense_leaf() below."""
 	return frappe.db.sql(
 		"""
 		select
@@ -205,11 +148,6 @@ def get_period_leaf_balances(company, from_date, to_date):
 
 
 def get_cogs_branch_ranges(company):
-	"""lft/rgt ranges of every top-level 'Cost of Goods Sold'/'Cost of Goods
-	Solds' group account for this company (case-insensitive). Skips any
-	anchor already contained inside another (a "Cost of Goods Solds" group
-	with a nested "Cost of Goods Sold" leaf/group of its own) so the branch
-	isn't double-selected."""
 	anchors = frappe.db.sql(
 		"""
 		select name, lft, rgt from `tabAccount`
@@ -232,8 +170,6 @@ def get_cogs_branch_ranges(company):
 
 
 def get_named_subgroup_ranges(company, branch_ranges, names):
-	"""lft/rgt ranges of any group account, inside `branch_ranges`, whose own
-	name matches (case-insensitive) one of `names`."""
 	if not branch_ranges:
 		return []
 
@@ -252,10 +188,6 @@ def get_named_subgroup_ranges(company, branch_ranges, names):
 
 
 def classify_expense_leaf(row, company, cogs_ranges, cogs_matched_ranges):
-	"""Return which statement line this one Expense leaf account's period
-	balance belongs to. Every leaf falls into exactly one bucket - see the
-	module docstring for the ordered rules and why this is a best-effort
-	approximation rather than a definitive reclassification."""
 	name = (row.account_name or "").lower()
 	parent = (row.parent_account or "").lower()
 

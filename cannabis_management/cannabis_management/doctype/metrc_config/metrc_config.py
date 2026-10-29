@@ -9,16 +9,6 @@ class MetrcConfig(Document):
 
 @frappe.whitelist()
 def test_connection():
-	"""Test the configured Base URL + API Key against Metrc.
-
-	Metrc auth is HTTP Basic (vendor/integrator key : user key). This doctype
-	holds the vendor key and, optionally, a user key of its own; if the user
-	key field here is blank, falls back to the existing Metrc Settings (the
-	first active facility), when that doctype is present.
-
-	The test is a single GET /facilities/v2 — read-only, so it is safe to run
-	even against the production endpoint (it never writes anything to Metrc).
-	"""
 	import requests
 
 	cfg = frappe.get_single("Metrc Config")
@@ -57,7 +47,6 @@ def test_connection():
 
 
 def _existing_user_key():
-	"""First active facility's User API key from Metrc Settings, if present."""
 	if not frappe.db.exists("DocType", "Metrc Settings"):
 		return None
 	try:

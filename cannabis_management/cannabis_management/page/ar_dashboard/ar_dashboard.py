@@ -2,40 +2,13 @@ import frappe
 from contextlib import contextmanager
 from frappe.utils import nowdate
 
-
 RECON_EDIT_ROLES    = ("Account Manager", "System Manager", "Administrator")
 
-# Roles whose holders see org-wide AR numbers (all companies), identical to
-# what Administrator sees. Without this, Company User Permissions silently
-# zero out non-permitted companies (e.g. matt@motleyterpz.com has Company
-# permissions for only TSBC Ranch / Motley Terpz / TMM Group, so Master Touch
-# Manufacturing, MTPZ and LA Canna invoices vanish from his totals)edw.
 ORG_WIDE_VIEW_ROLES = ("Account Receivable", "System Manager", "CEO")
 
 
 @contextmanager
 def _elevated_view():
-    """Temporarily elevate to Administrator for the whole report fetch.
-
-    Two reasons this is required:
-
-      1. Company User Permissions would otherwise silently zero out
-         non-permitted companies for ORG_WIDE_VIEW_ROLES holders.
-      2. ERPNext's Accounts Receivable report calls
-         frappe.get_list("Sales Invoice") and frappe.get_list("Journal Entry")
-         internally (accounts_receivable.py :: get_invoice_details), both of
-         which are permission-checked. Without elevation, opening this page
-         would require Journal Entry read — i.e. the Accounts User / Accounts
-         Manager / Auditor role — even though the page never shows a Journal
-         Entry. Page access alone must be enough to view this dashboard.
-
-    Because elevation bypasses Company User Permissions, every caller MUST
-    scope the query itself via _permitted_companies() — see get_ar_data.
-
-    DO NOT REMOVE: get_ar_data must stay wrapped in this context manager.
-    Anything permission-sensitive for the real user (e.g. _can_edit_recon,
-    _permitted_companies) must be computed BEFORE entering it.
-    """
     user = frappe.session.user
     if user == "Administrator":
         yield
@@ -48,16 +21,6 @@ def _elevated_view():
 
 
 def _permitted_companies():
-    """Which companies the current user may see AR for.
-
-    Returns None for "every company" (Administrator and ORG_WIDE_VIEW_ROLES
-    holders), otherwise the list of Company names the user is restricted to by
-    their Company User Permissions. Since _elevated_view() runs the report as
-    Administrator, this is what keeps a page-only user (no Accounts roles)
-    scoped to their own entities instead of suddenly seeing everything.
-
-    Must be called BEFORE entering _elevated_view().
-    """
     user = frappe.session.user
     if user == "Administrator" or set(frappe.get_roles(user)).intersection(ORG_WIDE_VIEW_ROLES):
         return None
@@ -67,12 +30,10 @@ def _permitted_companies():
         filters={"user": user, "allow": "Company"},
         pluck="for_value",
     )
-    # No Company User Permission at all = unrestricted, same as core Frappe.
     return sorted(set(allowed)) or None
 
 
 def _scope_companies(companies, permitted):
-    """Intersect a company list with `permitted` (None = no restriction)."""
     if permitted is None:
         return list(companies)
     return [c for c in companies if c in permitted]
@@ -80,11 +41,6 @@ TMM_GROUP_COMPANIES = ["Motley Terpz", "TSBC Ranch"]
 LEGACY_CUTOFF       = "2026-05-31"
 NEW_AR_START        = "2026-06-01"
 
-
-# The original five. These are no longer the source of truth - that is the
-# "AR Recon Status" doctype, one record per status - but they remain as the seed
-# for a fresh site and as the fallback if the doctype is not installed yet, so
-# the dashboard cannot break in the window between deploying code and migrating.
 ALLOWED_RECON_STATUSES = (
     "",
     "Reconciled collecting money",
@@ -98,11 +54,6 @@ RECON_STATUS_DOCTYPE = "AR Recon Status"
 
 
 def get_recon_statuses():
-    """Statuses offered in the dashboard dropdown, in display order.
-
-    ``[{"value": <status>, "label": <status>, "color": <hex or None>}]``. The
-    blank "not set" option is added by the front end; it is not a record.
-    """
     fallback = [{"value": s, "label": s, "color": None} for s in ALLOWED_RECON_STATUSES[1:]]
 
     if not frappe.db.exists("DocType", RECON_STATUS_DOCTYPE):
@@ -115,20 +66,12 @@ def get_recon_statuses():
         order_by="display_order asc, creation asc",
     )
     if not rows:
-        # An empty list would leave the dashboard with no statuses at all, which
-        # is never what someone wants - treat it as "not configured".
         return fallback
 
     return [{"value": r["name"], "label": r["name"], "color": r.get("color") or None} for r in rows]
 
 
 def sync_recon_status_options(exclude=None):
-    """Point the Customer form's own Select at the current status list.
-
-    Called from the AR Recon Status controller so the Customer field and the
-    dashboard dropdown can never disagree. ``exclude`` drops a record that is
-    mid-delete and so still readable.
-    """
     values = [s["value"] for s in get_recon_statuses() if s["value"] != exclude]
     options = "\n".join([""] + values)
 
@@ -143,12 +86,6 @@ def sync_recon_status_options(exclude=None):
 
 
 def seed_recon_statuses():
-    """Create a record per original status. Idempotent; safe to re-run.
-
-    Colour is deliberately left blank: the dashboard already styles these five
-    by name, and setting a colour here would override that styling and change
-    how they look.
-    """
     if not frappe.db.exists("DocType", RECON_STATUS_DOCTYPE):
         return
 
@@ -161,10 +98,6 @@ def seed_recon_statuses():
             "display_order": (i + 1) * 10,
         }).insert(ignore_permissions=True)
 
-# Yes/No columns edited inline on the dashboard. Key = the name the row payload
-# and the front-end use; value = the Customer custom field it is stored in.
-# Both are plain Selects rather than Checks so "not answered yet" stays
-# distinguishable from "No" — a blank cell means nobody has said either way.
 AR_FLAG_FIELDS = {
     "onboarding": "custom_onboarding",
     "company_made_contact": "custom_company_made_contact",
@@ -172,21 +105,10 @@ AR_FLAG_FIELDS = {
 
 ALLOWED_FLAG_VALUES = ("", "Yes", "No")
 
-
-# Legacy fallback — customer records that predate is_internal_customer/represents_company
-# being set consistently. Keep in sync with cannabis_management.api.jamie.INTERNAL_CUSTOMERS.
 _INTERNAL_CUSTOMER_FALLBACK = ("Motley Terpz", "MT", "MTPZ")
 
 
 def _internal_customer_names():
-    """Return every customer name that represents an in-house entity rather than a
-    real external buyer, so intercompany transfers never show up as AR:
-      1. Every Company name (exact match)
-      2. Every Customer flagged is_internal_customer = 1
-      3. Every Customer linked to a company via represents_company
-      4. The legacy fallback list (e.g. "MTPZ" — a real Customer row with
-         is_internal_customer left at 0, so bucket 2 alone misses it)
-    """
     company_names = frappe.db.sql_list("SELECT name FROM `tabCompany`")
     internal = frappe.db.sql_list("""
         SELECT name FROM `tabCustomer`
@@ -226,7 +148,6 @@ def _compute_totals(rows, ranges):
 
 
 def _strip_cross_company_rows(rows, company):
-    """Remove Sales Invoice rows whose company field doesn't match the selected company."""
     si_nos = [r["voucher_no"] for r in rows if r.get("voucher_type") == "Sales Invoice"]
     if not si_nos:
         return rows
@@ -243,15 +164,6 @@ def _strip_cross_company_rows(rows, company):
 
 
 def _apply_si_outstanding(rows, ranges, report_date):
-    """
-    Replace the GL-derived outstanding AND aging bucket values with figures
-    derived from si.outstanding_amount / si.due_date for every Sales Invoice row,
-    then drop rows that are fully paid.
-
-    The ERPNext AR report reads from GL Entry, which diverges from
-    si.outstanding_amount when payments are applied without full GL clearance.
-    si.outstanding_amount is the authoritative paid/unpaid signal.
-    """
     si_nos = [r["voucher_no"] for r in rows if r.get("voucher_type") == "Sales Invoice"]
     if not si_nos:
         return rows
@@ -266,18 +178,14 @@ def _apply_si_outstanding(rows, ranges, report_date):
     from frappe.utils import date_diff, getdate
     as_of = getdate(report_date or nowdate())
 
-    # Build aging thresholds from ranges: range1 covers 0..limits[0], range2 limits[0]..limits[1], …
-    # _build_ranges("30,60,90,120") → [0-30, 30-60, 60-90, 90-120, 120+]
-    # We derive limits by parsing each label.
     range_keys = [r["key"] for r in ranges]
 
     def _bucket_key(days_overdue):
-        """Return the range key for a given days-overdue value (0 = current/not yet due)."""
         prev = 0
         for i, rng in enumerate(ranges):
             label = rng["label"]
             if "+" in label:
-                return rng["key"]   # last bucket catches everything remaining
+                return rng["key"]
             try:
                 _, upper = label.split("-")
                 upper = int(upper)
@@ -297,12 +205,11 @@ def _apply_si_outstanding(rows, ranges, report_date):
                 continue
             actual = float(si.outstanding_amount or 0)
             if actual <= 0.01:
-                continue    # fully paid — exclude
+                continue
 
             r = dict(r)
             r["outstanding"] = actual
 
-            # Recalculate aging bucket: zero all ranges, then put actual in correct bucket
             due = getdate(str(si.due_date)) if si.due_date else as_of
             days_overdue = max(date_diff(as_of, due), 0)
             for key in range_keys:
@@ -362,8 +269,6 @@ def init_page():
     companies = _scope_companies(
         frappe.get_all("Company", pluck="name", order_by="name"), permitted
     )
-    # TMM Group is a virtual roll-up of TMM_GROUP_COMPANIES — offer it only when
-    # the user may see at least one of its member companies.
     if "TMM Group" not in companies and _scope_companies(TMM_GROUP_COMPANIES, permitted):
         companies.append("TMM Group")
     companies.sort()
@@ -378,16 +283,6 @@ def init_page():
 @frappe.whitelist()
 def get_ar_data(company, report_date=None, customer=None, ageing_based_on="Due Date",
                 range_str="7, 15, 21, 30, 60, 90, 120", ar_mode="legacy"):
-    """Whitelisted entry point. Computes user-specific flags and the user's
-    company scope FIRST, then runs the whole report fetch inside
-    _elevated_view() so dashboard-role users (Matt/CEO etc.) always see the
-    same org-wide numbers as Administrator, and so page-only users never need
-    Accounts / Journal Entry DocPerms just to read this dashboard.
-
-    DO NOT edit report logic here — edit _get_ar_data below. This wrapper must
-    stay intact so future changes cannot accidentally drop the elevation or the
-    company scoping that elevation makes necessary.
-    """
     can_edit_recon = _can_edit_recon()
     permitted = _permitted_companies()
 
@@ -410,9 +305,6 @@ def _get_ar_data(company, report_date=None, customer=None, ageing_based_on="Due 
                  range_str="7, 15, 21, 30, 60, 90, 120", ar_mode="legacy", permitted=None):
     ranges = _build_ranges(range_str)
 
-    # Aging "as of" date. Legacy aging is computed relative to TODAY (not clamped
-    # to the May-31 cutover) — LEGACY_CUTOFF is only used below to classify which
-    # invoices are legacy (posting_date <= cutoff), never to freeze the aging date.
     if ar_mode == "legacy":
         if not report_date:
             report_date = nowdate()
@@ -443,7 +335,6 @@ def _get_ar_data(company, report_date=None, customer=None, ageing_based_on="Due 
         rows = _strip_cross_company_rows(rows, company)
         rows = _apply_si_outstanding(rows, ranges, report_date)
 
-    # Apply mode date filter and strip intercompany rows in one pass
     internal = _internal_customer_names()
     if ar_mode == "legacy":
         rows = [r for r in rows
@@ -453,9 +344,6 @@ def _get_ar_data(company, report_date=None, customer=None, ageing_based_on="Due 
         rows = [r for r in rows
                 if r.get("party") not in internal]
     else:
-        # New AR: keep new invoices as-is, AND keep legacy invoices so legacy
-        # customers appear in the New AR view too — but flag them and zero their
-        # aging buckets so the legacy amount never enters the aging/term breakdown.
         kept = []
         for r in rows:
             if r.get("party") in internal:
@@ -471,12 +359,6 @@ def _get_ar_data(company, report_date=None, customer=None, ageing_based_on="Due 
                 kept.append(lr)
         rows = kept
 
-    # In modes that show the on-terms (0-10 / 10-20 / 20-30) breakdown, an invoice
-    # that is NOT yet past its due date belongs only in those term columns — clear
-    # its overdue aging buckets so the same amount never also appears in the red
-    # 0-30/30-60/... columns. Once the due date passes, the amount drops out of the
-    # term columns and shows in the overdue buckets. (Legacy mode keeps standard
-    # ERPNext aging, where the first bucket includes current + 0-30 overdue.)
     if ar_mode in ("new", "all"):
         from frappe.utils import getdate
         as_of = getdate(report_date)
@@ -489,15 +371,12 @@ def _get_ar_data(company, report_date=None, customer=None, ageing_based_on="Due 
 
     totals = _compute_totals(rows, ranges)
 
-    # Attach reconciliation status, the AR flags and new_ar_available from Customer master
     unique_parties = list({r["party"] for r in rows if r.get("party")})
     blank_info = {"recon": "", "new_ar_available": False, "notebox": ""}
     blank_info.update({key: "" for key in AR_FLAG_FIELDS})
     cust_info = {}
     if unique_parties:
         fetch_fields = ["name", "custom_reconciliation_status", "custom_notebox"]
-        # The AR flags and custom_new_ar_available are added via
-        # setup_ar_custom_fields; fetch them silently if they exist.
         optional = list(AR_FLAG_FIELDS.values()) + ["custom_new_ar_available"]
         try:
             cust_rows = frappe.get_all(
@@ -542,14 +421,6 @@ def _get_ar_data(company, report_date=None, customer=None, ageing_based_on="Due 
 
 
 def _paid_invoices(rows, company, permitted, report_date, ar_mode):
-    """Fully paid invoices of every customer listed, for their dropdown.
-
-    The receivable rows above only carry invoices that still have a balance, so
-    a customer's dropdown would otherwise never show what they paid off. These
-    are display-only: they never enter the client totals, the TOTALS row or the
-    aging buckets. Same company scope and AR-mode window as the rows; returns
-    and $0 invoices excluded, and anything already listed as open is skipped.
-    """
     parties = sorted({r.get("party") for r in rows if r.get("party")})
     if not parties or not company or company == "__ALL__":
         return {}
@@ -589,7 +460,7 @@ def _paid_invoices(rows, company, permitted, report_date, ar_mode):
             continue
         invoiced = float(inv.invoiced or 0)
         if abs(invoiced) < 0.005:
-            continue  # $0 invoices (samples etc.) would read as "Paid" for nothing
+            continue
         balance = float(inv.outstanding_amount or 0)
         out.setdefault(inv.customer, []).append({
             "voucher_no": inv.name,
@@ -605,9 +476,6 @@ def _paid_invoices(rows, company, permitted, report_date, ar_mode):
 
 @frappe.whitelist()
 def update_recon_status(party, status):
-    """Update custom_reconciliation_status on the Customer master.
-    Restricted to users with the Account Manager role (plus System Manager / Administrator).
-    """
     if not _can_edit_recon():
         frappe.throw(
             "You do not have permission to change the reconciliation status. "
@@ -615,8 +483,6 @@ def update_recon_status(party, status):
             frappe.PermissionError,
         )
 
-    # Validated against the live list, so a status added today is accepted today.
-    # "" is always allowed - it is how a status is cleared.
     allowed = {""} | {s["value"] for s in get_recon_statuses()}
     if status not in allowed:
         frappe.throw("Invalid reconciliation status")
@@ -631,11 +497,6 @@ def update_recon_status(party, status):
 
 @frappe.whitelist()
 def update_ar_flag(party, field, value):
-    """Set one of the inline Yes/No columns (Onboarding, Company Made Contact).
-
-    `field` is the payload key, not a fieldname — it is looked up in
-    AR_FLAG_FIELDS so a caller can never steer this at an arbitrary column.
-    """
     if not _can_edit_recon():
         frappe.throw(
             "You do not have permission to change this field.",
@@ -654,8 +515,6 @@ def update_ar_flag(party, field, value):
 
 @frappe.whitelist()
 def update_notebox(party, value):
-    """Save free-text notes to the custom_notebox field on the Customer master.
-    The note persists until changed, and rides along in every export."""
     if not _can_edit_recon():
         frappe.throw(
             "You do not have permission to edit notes.",
@@ -669,11 +528,6 @@ def update_notebox(party, value):
 
 
 def _company_condition(alias, company, permitted=None):
-    """Build a (sql_fragment, extra_params) pair scoping `alias`.company to the
-    selected filter, matching the page's existing All Entities / TMM Group /
-    single-company semantics, further narrowed to `permitted` (None = every
-    company). Returns ("", {}) only when the user may see every company and
-    All Entities is selected."""
     if not company or company == "__ALL__":
         companies = None if permitted is None else list(permitted)
     elif company == "TMM Group":
@@ -683,15 +537,12 @@ def _company_condition(alias, company, permitted=None):
 
     if companies is None:
         return "", {}
-    # Empty = nothing permitted; an impossible name keeps the query valid and empty.
     return f"AND {alias}.company IN %(cc_companies)s", {
         "cc_companies": tuple(companies) or ("__none__",)
     }
 
 
 def _month_labels(start_month, end_month):
-    """['2026-01', '2026-02', ...] inclusive, from start_month through end_month
-    (both 'YYYY-MM' strings)."""
     y, m = (int(x) for x in start_month.split("-"))
     ey, em = (int(x) for x in end_month.split("-"))
     months = []
@@ -705,9 +556,6 @@ def _month_labels(start_month, end_month):
 
 
 def _trailing_weekly_blocks_since(start_date, as_of, weeks=4):
-    """Fixed 7-day blocks anchored at start_date (e.g. June 1), returning only
-    the most recent `weeks` blocks up to as_of. The final block is clipped to
-    as_of so a partial current week still shows real numbers, not padding."""
     from frappe.utils import add_days, getdate
 
     start_date = getdate(start_date)
@@ -729,27 +577,12 @@ def _trailing_weekly_blocks_since(start_date, as_of, weeks=4):
 
 @frappe.whitelist()
 def get_monthly_ar_collection(company=None):
-    """Whitelisted entry point — see get_ar_data's docstring for why this must
-    stay wrapped in _elevated_view() and why the company scope has to be
-    resolved before entering it. Do not edit report logic here."""
     permitted = _permitted_companies()
     with _elevated_view():
         return _get_monthly_ar_collection(company, permitted)
 
 
 def _get_monthly_ar_collection(company=None, permitted=None):
-    """Month-wise cash collected against Legacy AR (invoices posted on/before
-    2026-05-31) vs New AR (invoices posted on/after 2026-06-01), split by
-    Cash vs Bank (by the receiving account's account_type — same convention
-    used by the Sales Overview / Weekly Cash Ledger pages), plus the Legacy
-    AR balance at each month end (which can only shrink — no new legacy
-    invoices are ever created after the cutoff).
-
-    Only real Payment Entries (money actually received) count here — no
-    credit notes / write-offs / journal adjustments.
-
-    Intercompany customers are excluded from every query below.
-    """
     internal = _internal_customer_names()
     internal_tuple = tuple(internal) if internal else ("__none__",)
 
@@ -760,9 +593,6 @@ def _get_monthly_ar_collection(company=None, permitted=None):
         **company_params,
     }
 
-    # ── Cash received: Payment Entry allocations against Sales Invoices ───────
-    # receipt_type is Cash only when the receiving account is flagged
-    # account_type='Cash' in the Chart of Accounts; everything else is Bank.
     collection_rows = frappe.db.sql(f"""
         SELECT
             DATE_FORMAT(pe.posting_date, '%%Y-%%m') AS month,
@@ -781,7 +611,6 @@ def _get_monthly_ar_collection(company=None, permitted=None):
         GROUP BY month, ar_type, receipt_type
     """, params, as_dict=True)
 
-    # ── Legacy total invoiced (fixed) — anchor for the shrinking balance ──────
     si_company_cond, si_company_params = _company_condition("si", company, permitted)
     si_params = {"internal": internal_tuple, "legacy_cutoff": LEGACY_CUTOFF, **si_company_params}
     legacy_total_invoiced = frappe.db.sql(f"""
@@ -793,7 +622,6 @@ def _get_monthly_ar_collection(company=None, permitted=None):
           {si_company_cond}
     """, si_params)[0][0]
 
-    # ── Assemble month grid ────────────────────────────────────────────────────
     today = nowdate()
     all_months = sorted({r.month for r in collection_rows})
     start_month = min(all_months) if all_months else today[:7]
@@ -824,7 +652,6 @@ def _get_monthly_ar_collection(company=None, permitted=None):
             "new_bank": round(row["new_bank"], 2),
         })
 
-    # ── Trailing 4 weekly blocks since June 1 (weekly granularity) ────────────
     weekly_blocks = _trailing_weekly_blocks_since(NEW_AR_START, today, weeks=4)
     weekly_rows = []
     if weekly_blocks:
@@ -891,7 +718,6 @@ def _get_monthly_ar_collection(company=None, permitted=None):
 
 @frappe.whitelist()
 def update_new_ar_available(party, value):
-    """Toggle the custom_new_ar_available flag on the Customer master."""
     if not _can_edit_recon():
         frappe.throw(
             "You do not have permission to change New AR status.",
@@ -906,7 +732,6 @@ def update_new_ar_available(party, value):
 
 @frappe.whitelist()
 def export_ar_excel_data(rows_json, filename):
-    """Generate a multi-sheet .xlsx: one 'All' sheet + one sheet per recon status that has data."""
     import json
     import base64
     from io import BytesIO
@@ -917,21 +742,18 @@ def export_ar_excel_data(rows_json, filename):
     if not all_rows:
         frappe.throw("No data to export")
 
-    # rows_json = [header, ...data..., TOTAL row]
     header    = all_rows[0]
-    data_rows = all_rows[1:]   # keep the TOTAL row — JS already built it correctly
+    data_rows = all_rows[1:]
 
-    # Sheet definitions: (recon_status_value, sheet_name, tab_color_hex)
     SHEETS = [
-        ("",                                    "No Status",               "9CA3AF"),  # grey
-        ("Reconciled collecting money",         "Reconciled (Collecting)", "16A34A"),  # green
-        ("Reconciled trouble collecting money", "Reconciled (Trouble)",    "D97706"),  # amber
-        ("Unreconciled",                        "Unreconciled",            "DC2626"),  # red
-        ("Dispute",                             "Dispute",                 "7C3AED"),  # purple
-        ("Adjustment",                          "Adjustment",              "3B82F6"),  # blue
+        ("",                                    "No Status",               "9CA3AF"),
+        ("Reconciled collecting money",         "Reconciled (Collecting)", "16A34A"),
+        ("Reconciled trouble collecting money", "Reconciled (Trouble)",    "D97706"),
+        ("Unreconciled",                        "Unreconciled",            "DC2626"),
+        ("Dispute",                             "Dispute",                 "7C3AED"),
+        ("Adjustment",                          "Adjustment",              "3B82F6"),
     ]
 
-    # Shared styles
     thin         = Side(style="thin", color="D1D5DB")
     border       = Border(top=thin, bottom=thin, left=thin, right=thin)
     header_font  = Font(bold=True, color="FFFFFF", size=11)
@@ -944,7 +766,6 @@ def export_ar_excel_data(rows_json, filename):
         if tab_color:
             ws.sheet_properties.tabColor = tab_color
 
-        # Header row
         ws.append(header)
         for cell in ws[1]:
             cell.font = header_font
@@ -952,7 +773,6 @@ def export_ar_excel_data(rows_json, filename):
             cell.alignment = header_align
             cell.border = border
 
-        # Data rows — last row is the TOTAL row already built by JS
         for r_idx, row in enumerate(sheet_data, 2):
             is_total = str(row[0] or "").upper() == "TOTAL"
             ws.append(row)
@@ -968,7 +788,6 @@ def export_ar_excel_data(rows_json, filename):
                 if is_num:
                     cell.number_format = '"$"#,##0.00'
 
-        # Auto-width columns
         for col in ws.columns:
             letter = col[0].column_letter
             width  = max((len(str(cell.value or "")) for cell in col), default=0)
@@ -978,20 +797,16 @@ def export_ar_excel_data(rows_json, filename):
 
     wb = openpyxl.Workbook()
 
-    # First sheet: All records
     ws_all = wb.active
     ws_all.title = "All"
     ws_all.sheet_properties.tabColor = "1D4ED8"
     write_sheet(ws_all, data_rows)
 
-    # One sheet per recon status (only if it has data)
-    # Exclude the TOTAL row from per-status sheets; add a fresh TOTAL row at the end
     non_total = [r for r in data_rows if str(r[0] or "").upper() != "TOTAL"]
     for status_val, sheet_name, tab_color in SHEETS:
         subset = [r for r in non_total if str(r[1] or "") == status_val]
         if not subset:
             continue
-        # Build a totals row for this subset: sum all numeric columns
         totals_row = []
         for c_idx in range(len(header)):
             if c_idx == 0:
@@ -1014,16 +829,11 @@ def export_ar_excel_data(rows_json, filename):
 
 @frappe.whitelist()
 def setup_ar_custom_fields():
-    """Create / update custom fields required by the AR dashboard.
-    Call once after deploying: bench --site <site> call
-    cannabis_management.cannabis_management.page.ar_dashboard.ar_dashboard.setup_ar_custom_fields
-    """
     if not _can_edit_recon():
         frappe.throw("Administrator access required.", frappe.PermissionError)
 
     recon_options = "\n".join([""] + [s["value"] for s in get_recon_statuses()])
 
-    # Update existing reconciliation status field options
     existing = frappe.db.get_value(
         "Custom Field",
         {"dt": "Customer", "fieldname": "custom_reconciliation_status"},
@@ -1043,10 +853,6 @@ def setup_ar_custom_fields():
             "insert_after": "customer_name",
         }).insert(ignore_permissions=True)
 
-    # Onboarding / Company Made Contact — the two inline Yes/No columns.
-    # These replaced the old POC column on the dashboard. custom_poc itself is
-    # deliberately left in place: 108 customers still carry a Company/Nikki
-    # value there and it means something different, so it is not reused.
     flag_options = "\n".join(ALLOWED_FLAG_VALUES)
     flag_labels = {
         "custom_onboarding": "Onboarding",
@@ -1075,7 +881,6 @@ def setup_ar_custom_fields():
             }).insert(ignore_permissions=True)
         previous = fieldname
 
-    # New AR Available flag
     if not frappe.db.exists("Custom Field", {"dt": "Customer", "fieldname": "custom_new_ar_available"}):
         frappe.get_doc({
             "doctype": "Custom Field",
@@ -1090,12 +895,8 @@ def setup_ar_custom_fields():
     frappe.db.commit()
     return {"status": "ok", "message": "AR custom fields created/updated successfully."}
 
-
-# ─── Emailed aging report ─────────────────────────────────────────────────────
-
 AR_REPORT_RECIPIENT = "nikki@motleyterpz.com"
 
-# Labels for the subject / filename / body, per AR Mode.
 _AR_MODE_LABELS = {
     "legacy": "Legacy AR",
     "new": "New AR",
@@ -1105,13 +906,6 @@ _AR_MODE_LABELS = {
 
 @frappe.whitelist()
 def get_ar_email_recipients():
-    """Enabled users with a usable email address, for the report dialog's picker.
-
-    Returns ``[{"value": <email>, "description": <full name>}]``. The email is
-    used rather than the User's name because a User can be named something that
-    is not an address at all ("Administrator"), and it is the address the mail
-    actually needs.
-    """
     if frappe.session.user != "Administrator":
         frappe.throw(
             frappe._("Only the Administrator can email the AR aging report."),
@@ -1137,13 +931,6 @@ def get_ar_email_recipients():
 
 
 def _resolve_recipients(recipients):
-    """The addresses to send to, validated against this site's users.
-
-    The picker only offers real users, and this re-checks it: the endpoint is
-    Administrator-only but it should still not be usable to mail an arbitrary
-    address. An empty pick keeps the historical default so an API caller that
-    predates the picker behaves as it always did.
-    """
     if isinstance(recipients, str):
         recipients = (
             frappe.parse_json(recipients)
@@ -1171,7 +958,6 @@ def _resolve_recipients(recipients):
 
 
 def _render_ar_pdf(html):
-    """wkhtmltopdf render, shared by the preview and the send."""
     from frappe.utils.pdf import get_pdf
 
     return get_pdf(
@@ -1190,22 +976,6 @@ def _render_ar_pdf(html):
 
 @frappe.whitelist()
 def email_ar_pdf(html, mode, company=None, report_date=None, recipients=None, preview=0):
-    """Render the sheet HTML the dashboard sends us into a PDF and email it.
-
-    The HTML is built client-side from the table already on screen (columns
-    trimmed to the agreed set, the spreadsheet letter/row decoration stripped,
-    stylesheets inlined) so the attachment is exactly what the operator is
-    looking at. Doing the layout here instead would mean a second renderer to
-    keep in step with the page for no gain.
-
-    With ``preview`` set nothing is emailed: the same bytes that would have been
-    attached come back base64-encoded, so the report can be checked in the
-    browser before it goes to anyone.
-
-    Administrator only - the button is hidden for everyone else, but the check
-    has to live here too, since hiding a button is not a permission. It also
-    matters because wkhtmltopdf is handed caller-supplied markup.
-    """
     if frappe.session.user != "Administrator":
         frappe.throw(
             frappe._("Only the Administrator can email the AR aging report."),
@@ -1214,8 +984,6 @@ def email_ar_pdf(html, mode, company=None, report_date=None, recipients=None, pr
 
     label = _AR_MODE_LABELS.get(mode, "AR")
     as_of = report_date or nowdate()
-    # "__ALL__" is the company filter's consolidated-view sentinel; it must not
-    # reach the subject line or the filename as raw text.
     scope = "All Entities" if (not company or company == "__ALL__") else company
 
     pdf = _render_ar_pdf(html)

@@ -1,6 +1,3 @@
-# Copyright (c) 2026, alltechvirtual.com and contributors
-# For license information, please see license.txt
-
 import frappe
 from frappe import _
 from frappe.model.document import Document
@@ -13,18 +10,6 @@ class AllLabTollingData(Document):
 
 @frappe.whitelist()
 def get_stock_balance_items(project, warehouse):
-	"""
-	Returns items with positive stock balance for a given project + warehouse.
-	Runs the Stock Balance Report with project and warehouse filters
-	and returns item_code + bal_qty for each result row.
-
-	Args:
-		project: Batch No value (used as Project filter)
-		warehouse: Source Bloom value (used as Warehouse filter)
-
-	Returns:
-		list of dicts: [{"item_code": "...", "bal_qty": ...}, ...]
-	"""
 	if not project or not warehouse:
 		return []
 
@@ -40,7 +25,6 @@ def get_stock_balance_items(project, warehouse):
 
 	_columns, data = execute(filters)
 
-	# Return only items with positive balance qty
 	return [
 		{
 			"item_code": row.get("item_code"),

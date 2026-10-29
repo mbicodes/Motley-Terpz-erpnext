@@ -1,21 +1,3 @@
-// Adds an "Export All Accounts (General Ledger)" action to the standard
-// erpnext "Profit and Loss Statement" report.
-//
-// Clicking it re-runs the same filters currently applied on the P&L
-// (company, fiscal year / date range, cost center, project, finance book,
-// presentation currency, etc.) against the standard "General Ledger"
-// report once per account shown on the P&L, and downloads a single Excel
-// workbook with one sheet ("page") per account — the same data you'd get
-// by clicking an account row to drill into its General Ledger, just done
-// for every account in one export.
-//
-// Patched onto the shared erpnext.financial_statements.onload for the same
-// reasons documented in financial_statements_child_accounts_link.js:
-// frappe.ready() doesn't exist on the desk, and
-// frappe.query_reports["Profit and Loss Statement"] isn't populated until
-// the report script is lazily fetched, so there is nothing to patch until
-// erpnext.bundle.js has already run.
-
 (function () {
 	function add_export_action_to_profit_and_loss() {
 		if (
@@ -80,11 +62,6 @@
 		var accounts = [];
 
 		rows.forEach(function (row) {
-			// Real accounts always set is_group explicitly to 0 or 1. Synthetic
-			// summary rows ("Total Income (Credit)", "Profit for the year", ...)
-			// leave is_group undefined but still set `.account` to a quoted
-			// label (e.g. "'Total Income (Credit)'"), which would otherwise
-			// slip through and blow up the General Ledger call server-side.
 			if (!row || !row.account || row.is_group !== 0) return;
 			if (row.account.charAt(0) === "'") return;
 			if (seen[row.account]) return;
@@ -95,8 +72,6 @@
 		return accounts;
 	}
 
-	// erpnext.bundle.js normally wins the race, but don't depend on script order:
-	// retry once the DOM is ready and once the desk signals app_ready.
 	if (!add_export_action_to_profit_and_loss()) {
 		$(document).ready(add_export_action_to_profit_and_loss);
 		$(document).on("app_ready", add_export_action_to_profit_and_loss);

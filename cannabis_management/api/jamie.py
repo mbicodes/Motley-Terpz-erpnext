@@ -15,22 +15,12 @@ def _get_date_range(period):
     else:
         return None, None
 
+INTERNAL_CUSTOMERS = ('Motley Terpz', 'MT', 'MTPZ')
 
-INTERNAL_CUSTOMERS = ('Motley Terpz', 'MT', 'MTPZ')  # legacy fallback only
-
-# Trading companies whose Sales/AR roll up into the dashboard KPIs (intercompany
-# excluded separately via _get_excluded_customers()).
 KPI_COMPANIES = ('Motley Terpz', 'TSBC Ranch', 'Master Touch Manufacturing')
 
 
 def _get_excluded_customers():
-    """
-    Returns a tuple of customer names that must never appear in any dashboard:
-      1. Every Company name (exact match — TSBC Ranch, MTM, LA Canna Distro, etc.)
-      2. Every Customer flagged is_internal_customer = 1
-      3. Every Customer linked to a company via represents_company
-    Safe to call per-request — tabCompany is tiny (< 20 rows).
-    """
     company_names = frappe.db.sql_list("SELECT name FROM `tabCompany`")
     internal = frappe.db.sql_list("""
         SELECT name FROM `tabCustomer`
@@ -40,15 +30,12 @@ def _get_excluded_customers():
     excluded = set(company_names) | set(internal) | set(INTERNAL_CUSTOMERS)
     return tuple(excluded) if excluded else ('__none__',)
 
-# Tolling actuals come from a specific item, not an item group
 TOLLING_ROW_KEY  = "Tolling"
 TOLLING_ITEM_CODE = "toll-processing-fee"
 
-# "Other" aggregates BHO (all descendants) — add more groups here as needed
 OTHER_ROW_KEY       = "Other"
 OTHER_SOURCE_GROUPS = ["BHO"]
 
-# Fixed display order matching the Excel layout (names match exact item group names in ERPNext)
 DISPLAY_ORDER = [
     "Packaged goods",
     "Rosins",
@@ -62,12 +49,7 @@ DISPLAY_ORDER = [
 ]
 
 
-# ─────────────────────────────────────────────────────────
-# Helpers — Item Group hierarchy
-# ─────────────────────────────────────────────────────────
-
 def _get_target_detail_fields():
-    """Fields to fetch from Target Detail, including the SI flag if it exists."""
     fields = ["item_group", "target_qty", "average_rate", "target_amount"]
     try:
         meta = frappe.get_meta("Target Detail")
@@ -79,14 +61,6 @@ def _get_target_detail_fields():
 
 
 def _build_descendants_map(parent_item_groups):
-    """
-    For a list of parent item groups, return:
-      child_to_parent: dict mapping every descendant (and the parent itself) -> parent
-      all_descendants: flat list of all descendant item group names
-
-    Uses a recursive CTE on parent_item_group so it works even when the Item Group
-    nested-set (lft/rgt) is inconsistent (e.g. a child inserted outside its parent's range).
-    """
     child_to_parent = {}
     all_descendants = []
 
@@ -112,10 +86,6 @@ def _build_descendants_map(parent_item_groups):
 
     return child_to_parent, all_descendants
 
-
-# ─────────────────────────────────────────────────────────
-# Sales Invoices
-# ─────────────────────────────────────────────────────────
 
 @frappe.whitelist()
 def get_sales_by_period(period='monthly'):
@@ -165,11 +135,6 @@ def get_sales_by_period(period='monthly'):
     }
 
 
-# ─────────────────────────────────────────────────────────
-# AR / AP / Batches / Timesheets / Samples / Bank
-# (unchanged — keeping them as-is)
-# ─────────────────────────────────────────────────────────
-
 @frappe.whitelist()
 def get_ar_summary():
     if not frappe.has_permission('Sales Invoice', 'read'):
@@ -191,8 +156,6 @@ def get_ar_detail(period='overall'):
     if not frappe.has_permission('Sales Invoice', 'read'):
         frappe.throw('Not permitted', frappe.PermissionError)
     from_date, to_date = _get_date_range(period)
-    # Restrict to the three trading companies and exclude intercompany
-    # (internal-customer) invoices.
     conditions = ('si.docstatus = 1 AND si.outstanding_amount > 0 '
                   'AND si.company IN %(companies)s '
                   'AND si.customer NOT IN %(internal_customers)s')
@@ -291,9 +254,6 @@ def get_ap_by_supplier():
 
 @frappe.whitelist()
 def get_batches_in_production():
-    # Read-only aggregate for the dashboard KPI (count of active batches/projects).
-    # No hard Project-permission gate so dashboard users (e.g. Nikki) who don't
-    # hold Project read can still see the count.
     return frappe.db.sql("""
         SELECT p.name, p.project_name, p.company, p.status,
                p.expected_start_date, p.expected_end_date, p.percent_complete
@@ -339,13 +299,8 @@ def get_timesheets_by_period(period='monthly'):
     """, args, as_dict=True)
 
 
-# ── Sample Giveaway / Legacy aliases / Bank payments unchanged ──
-
 @frappe.whitelist()
 def get_sample_giveaway(period='monthly', month_offset=0):
-    # Pull sample orders from SALES ORDERS where the order type is Samples or
-    # Marketing (custom_sales_order_type). Was previously reading Sales Invoices
-    # with custom_order_type='Samples' only.
     if not frappe.has_permission('Sales Order', 'read'):
         frappe.throw('Not permitted', frappe.PermissionError)
     month_offset = cint(month_offset)
@@ -498,12 +453,6 @@ def get_bank_payments_received(from_date, to_date, payment_type='Bank'):
 
 @frappe.whitelist()
 def get_matt_bank_matrix(mode='monthly'):
-    """
-    Bank/cash-incoming totals for Matt's Sales Dashboard.
-    Queries GL Entry debit on Bank-type accounts matched to a Customer party,
-    aggregated into the shared Matt-dashboard period columns
-    (monthly = months YTD + last 4 week blocks / weekly / daily).
-    """
     import datetime as dt_mod
     from frappe.utils import getdate, flt as _flt
 
@@ -545,8 +494,6 @@ def get_matt_bank_matrix(mode='monthly'):
                 continue
             pd  = r.posting_date if isinstance(r.posting_date, dt_mod.date) else getdate(str(r.posting_date))
             amt = _flt(r.amount)
-            # No break: in monthly mode the trailing week blocks overlap the
-            # month columns and each matching column gets the value.
             for label, fd, td in col_ranges:
                 if fd <= pd <= td:
                     totals_dict[label] += amt
@@ -556,7 +503,6 @@ def get_matt_bank_matrix(mode='monthly'):
 
     combined = {l: bank_totals[l] + cash_totals[l] for l in col_labels}
 
-    # Grand totals over non-overlapping columns only
     total_labels = [c["label"] for c in _matt_total_columns(columns, mode)]
 
     return {
@@ -570,10 +516,6 @@ def get_matt_bank_matrix(mode='monthly'):
         "grand_total":  sum(combined[l] for l in total_labels),
     }
 
-
-# ─────────────────────────────────────────────────────────
-# Sales Dashboard
-# ─────────────────────────────────────────────────────────
 
 @frappe.whitelist()
 def get_sales_territories():
@@ -589,17 +531,11 @@ def get_sales_territories():
 
 @frappe.whitelist()
 def get_sales_dashboard_data(period='weekly', territory=None, company=None):
-    """
-    KPI summary: pro-rated targets vs actuals.
-    Now uses Item Group descendants rollup (parents → children) and respects
-    Target Detail.sales_invoice_ flag.
-    """
     import datetime as dt_mod
     from frappe.utils import getdate, get_first_day, flt as _flt
 
     today = getdate(nowdate())
 
-    # Date window
     if period == 'daily':
         from_date = to_date = str(today)
         window_days = 1
@@ -622,7 +558,6 @@ def get_sales_dashboard_data(period='weekly', territory=None, company=None):
         window_days = (today - month_start).days + 1
         period_label = 'This Month'
 
-    # Resolve fiscal year
     target_fy = None
     fy_days = 365
     if territory:
@@ -654,8 +589,6 @@ def get_sales_dashboard_data(period='weekly', territory=None, company=None):
             fy_days = (getdate(str(target_fy.year_end_date)) -
                        getdate(str(target_fy.year_start_date))).days + 1
 
-    # Targets — fetch ALL fiscal years so every configured row always appears.
-    # Current-FY rows take priority when deduplicating by item_group.
     targets = []
     si_parent_groups = []
     if territory:
@@ -694,10 +627,8 @@ def get_sales_dashboard_data(period='weekly', territory=None, company=None):
             if from_si:
                 si_parent_groups.append(t.item_group)
 
-    # Build child→parent map for SI-tracked targets
     child_to_parent, all_si_item_groups = _build_descendants_map(si_parent_groups)
 
-    # Actuals — only for SI targets, scoped by descendant item groups
     actuals_map = {}
     if all_si_item_groups:
         actuals_raw = frappe.db.sql("""
@@ -728,7 +659,6 @@ def get_sales_dashboard_data(period='weekly', territory=None, company=None):
             actuals_map[parent_ig]['qty'] += _flt(r.total_qty)
             actuals_map[parent_ig]['rev'] += _flt(r.total_rev)
 
-    # Build product rows
     products, total_target, total_actual = [], 0.0, 0.0
     for t in targets:
         ig = t['item_group']
@@ -756,8 +686,6 @@ def get_sales_dashboard_data(period='weekly', territory=None, company=None):
         })
         total_target += p_target
 
-    # Actual Revenue counts every item sold (Distillate, BHO etc. included even without a
-    # target row), same scope as the Monthly Revenue Matrix total.
     total_actual = _flt(frappe.db.sql("""
         SELECT SUM(sii.base_net_amount)
         FROM `tabSales Invoice Item` sii
@@ -789,28 +717,19 @@ def get_sales_dashboard_data(period='weekly', territory=None, company=None):
         "pending_invoices": pending_count,
     }
 
-
-LEGACY_AR_CUTOFF    = "2026-06-01"   # pre-June 1 = Legacy AR; June 1 onwards = New AR
+LEGACY_AR_CUTOFF    = "2026-06-01"
 LEGACY_AR_TARGET    = 2_000_000.0
 LEGACY_MONTHLY_PACE = 400_000.0
 
 
 @frappe.whitelist()
 def get_ar_matrix(mode='monthly'):
-    """
-    AR tracking matrix for the sales dashboard.
-    Rows: Total AR | Legacy AR (pre-Jun 1) | New AR (Jun 1+)
-    Columns: shared Matt-dashboard period columns
-    (monthly = months YTD + last 4 week blocks / weekly / daily).
-    Values: amount collected from each AR category within each period.
-    """
     import datetime as dt_mod
     from frappe.utils import getdate, get_first_day, get_last_day, flt as _flt
 
     today = getdate(nowdate())
     excluded = _get_excluded_customers()
 
-    # ── Current AR balance snapshots ──────────────────────────────────────────
     def _bal(extra_where, args=None):
         rows = frappe.db.sql(f"""
             SELECT COALESCE(SUM(si.outstanding_amount), 0) AS bal
@@ -830,13 +749,11 @@ def get_ar_matrix(mode='monthly'):
     legacy_ar = _bal("AND si.posting_date < %(cutoff)s",  {"cutoff": LEGACY_AR_CUTOFF})
     new_ar    = _bal("AND si.posting_date >= %(cutoff)s", {"cutoff": LEGACY_AR_CUTOFF})
 
-    # ── Build period columns — same scheme as the revenue matrix toggle ───────
     all_columns = _matt_period_columns(mode, today)
 
     min_date = min(c["from_date"] for c in all_columns) if all_columns else str(today)
     max_date = max(c["to_date"]   for c in all_columns) if all_columns else str(today)
 
-    # ── Collections per period via Payment Entry Reference ────────────────────
     pay_rows = frappe.db.sql("""
         SELECT
             pe.posting_date,
@@ -856,7 +773,6 @@ def get_ar_matrix(mode='monthly'):
           AND si.customer NOT IN (SELECT name FROM `tabCompany`)
     """, {"s": min_date, "e": max_date, "exc": excluded}, as_dict=True)
 
-    # Bucket into period columns
     cutoff_date = getdate(LEGACY_AR_CUTOFF)
 
     col_labels = [c["label"] for c in all_columns]
@@ -875,8 +791,6 @@ def get_ar_matrix(mode='monthly'):
 
         is_legacy = inv_date < cutoff_date
 
-        # No break: in monthly mode the trailing week blocks overlap the
-        # month columns and each matching column gets the value.
         for label, fd, td in col_ranges:
             if fd <= pd <= td:
                 totals[label] += amt
@@ -885,7 +799,6 @@ def get_ar_matrix(mode='monthly'):
                 else:
                     new_ar_coll[label] += amt
 
-    # ── Monthly pace target per column (same frac logic as revenue matrix) ────
     pace_by_col = {}
     for c in all_columns:
         fd = getdate(c["from_date"]); td = getdate(c["to_date"])
@@ -894,7 +807,6 @@ def get_ar_matrix(mode='monthly'):
         frac = col_days / float(month_days)
         pace_by_col[c["label"]] = LEGACY_MONTHLY_PACE * frac
 
-    # Row totals / averages over non-overlapping columns only
     total_labels = [c["label"] for c in _matt_total_columns(all_columns, mode)]
     n = len(total_labels)
     def _row_total(d): return sum(d[l] for l in total_labels)
@@ -944,7 +856,6 @@ def get_dashboard_inventory(company=None):
         ORDER BY stock_value DESC
     """, as_dict=True)
 
-
 HEMET_WAREHOUSES = [
     'Hemet TSBC - TSBC',
 ]
@@ -952,7 +863,6 @@ HEMET_WAREHOUSES = [
 
 @frappe.whitelist()
 def get_hemet_storage_lbs():
-    """Returns current pounds physically at Hemet across approved warehouses."""
     row = frappe.db.sql("""
         SELECT
             ROUND(SUM(
@@ -971,11 +881,6 @@ def get_hemet_storage_lbs():
 
 
 def _calendar_blocks_before(date, count):
-    """
-    Return `count` most-recent fixed-7-day calendar blocks ending at or before `date`.
-    Blocks are defined as:  days 1-7 (week 1), 8-14 (week 2), 15-21 (week 3), 22-end (week 4).
-    The last block of any month stretches to the last day of that month so all revenue is captured.
-    """
     import calendar as _cal
     import datetime as _dt
 
@@ -1014,15 +919,6 @@ def _calendar_blocks_before(date, count):
 
 
 def _matt_period_columns(mode, today=None):
-    """
-    Column scheme shared by all Matt-dashboard matrices, matching the
-    revenue matrix (section 1) exactly:
-      monthly: one column per month YTD + last 4 fixed calendar-week blocks
-      weekly:  last 8 fixed calendar-week blocks
-      daily:   Mon-Fri of the current calendar week (up to today)
-    Note: in monthly mode the trailing week blocks overlap the month columns,
-    so totals must be computed over the col_type == 'monthly' subset only.
-    """
     import datetime as dt_mod
     from frappe.utils import getdate, get_last_day
 
@@ -1063,8 +959,6 @@ def _matt_period_columns(mode, today=None):
 
 
 def _matt_total_columns(columns, mode):
-    """Columns that participate in row totals / averages (excludes the
-    overlapping week blocks appended in monthly mode)."""
     if (mode or 'monthly').lower() == 'monthly':
         return [c for c in columns if c.get('col_type') == 'monthly']
     return columns
@@ -1072,19 +966,11 @@ def _matt_total_columns(columns, mode):
 
 @frappe.whitelist()
 def get_sales_matrix(territory=None):
-    """
-    Monthly/Weekly/Daily revenue matrices.
-    Targets live on parent item groups; actuals live on child item groups.
-    Rolls up via Item Group nested set. Respects Target Detail.sales_invoice_:
-    targets with sales_invoice_ = 0 still appear as rows but pull no SI actuals
-    (other data sources to be wired up later).
-    """
     import datetime as dt_mod
     from frappe.utils import getdate, get_first_day, get_last_day, flt as _flt
 
     today = getdate(nowdate())
 
-    # Settings
     try:
         settings = frappe.get_single("Sales Dashboard Settings")
         monthly_oh = _flt(settings.monthly_overhead) or 35000.0
@@ -1093,7 +979,6 @@ def get_sales_matrix(territory=None):
         monthly_oh = 35000.0
         default_margin_pct = 40.0
 
-    # Resolve fiscal year
     target_fy = None
     if territory:
         fy_today = frappe.db.sql("""
@@ -1120,8 +1005,6 @@ def get_sales_matrix(territory=None):
             if fy_latest:
                 target_fy = fy_latest[0]
 
-    # Targets — fetch ALL fiscal years so every configured row always appears.
-    # Current-FY rows take priority when deduplicating by item_group.
     targets_raw = []
     if territory:
         all_td = frappe.get_all(
@@ -1137,7 +1020,6 @@ def get_sales_matrix(territory=None):
                 seen_ig[ig] = t
             elif target_fy and t.fiscal_year == target_fy.name:
                 seen_ig[ig] = t
-        # Re-sort by DISPLAY_ORDER then by original idx to preserve Territory row order
         def _td_sort(t):
             ig = t.item_group
             try:
@@ -1162,12 +1044,11 @@ def get_sales_matrix(territory=None):
         if from_si:
             si_parent_groups.append(t.item_group)
 
-    # Ensure Tolling + Other always appear as rows even if not in Territory targets
     if TOLLING_ROW_KEY not in target_index:
         target_index[TOLLING_ROW_KEY] = {
             "target_units": 4000,
             "avg_price": 35,
-            "target_rev": 4000 * 35,   # 140,000 monthly
+            "target_rev": 4000 * 35,
             "from_sales_invoice": True,
     }
     if OTHER_ROW_KEY not in target_index:
@@ -1176,28 +1057,21 @@ def get_sales_matrix(territory=None):
             "target_rev": 0, "from_sales_invoice": True,
         }
 
-    # Build excluded-customer list once for all queries in this request
     excluded_customers = _get_excluded_customers()
 
-    # Tolling actuals come from item_code, not item_group — exclude from group lookup
     si_parent_groups_adj = [g for g in si_parent_groups if g != TOLLING_ROW_KEY]
 
-    # BHO + Distillate feed into "Other" — add them to the group lookup
     for og in OTHER_SOURCE_GROUPS:
         if og not in si_parent_groups_adj:
             si_parent_groups_adj.append(og)
 
-    # Build child→parent rollup map
     child_to_parent, all_si_item_groups = _build_descendants_map(si_parent_groups_adj)
 
-    # Override: every BHO/Distillate descendant maps to "Other"
     for og in OTHER_SOURCE_GROUPS:
         _, og_descs = _build_descendants_map([og])
         for d in og_descs:
             child_to_parent[d] = OTHER_ROW_KEY
 
-    # Build columns
-    # Monthly: one col per month YTD + last 4 fixed calendar-week blocks
     monthly_columns = []
     for m in range(1, today.month + 1):
         mstart = today.replace(month=m, day=1)
@@ -1209,14 +1083,11 @@ def get_sales_matrix(territory=None):
             "is_full": mend == mend_dt,
             "col_type": "monthly",
         })
-    # 4 most-recent fixed 7-day calendar blocks (days 1-7, 8-14, 15-21, 22-end)
     for blk in _calendar_blocks_before(today, 4):
         monthly_columns.append(blk)
 
-    # Weekly: last 8 fixed calendar-week blocks
     weekly_columns = _calendar_blocks_before(today, 8)
 
-    # Daily: Mon–Fri of the current calendar week (÷20 working days/month)
     daily_columns = []
     week_monday = today - dt_mod.timedelta(days=today.weekday())
     for d in range(5):
@@ -1249,7 +1120,6 @@ def get_sales_matrix(territory=None):
     min_date = min(r[0] for r in all_ranges)
     max_date = max(r[1] for r in all_ranges)
 
-    # Queries — item-group-based actuals (BHO/Distillate now included via all_si_item_groups)
     if all_si_item_groups:
         rev_rows = frappe.db.sql("""
             SELECT si.posting_date, si.company,
@@ -1299,7 +1169,6 @@ def get_sales_matrix(territory=None):
     else:
         rev_rows, cogs_rows, company_rev_rows = [], [], []
 
-    # All-companies, all item groups — used to build the company_ig_map (company-wise display)
     all_company_ig_rows = frappe.db.sql("""
         SELECT si.posting_date, si.company,
                COALESCE(i.item_group, 'Other') AS item_group,
@@ -1314,8 +1183,6 @@ def get_sales_matrix(territory=None):
         GROUP BY si.posting_date, si.company, i.item_group
     """, {'s': min_date, 'e': max_date, 'ic': excluded_customers}, as_dict=True) if min_date and max_date else []
 
-    # MTM + LA Canna: all items, no item-group filter (separate companies).
-    # Intercompany / internal customers excluded like every other revenue query.
     mtm_lacanna_rows = frappe.db.sql("""
         SELECT si.posting_date, si.company,
                SUM(sii.base_net_amount) AS rev
@@ -1328,7 +1195,6 @@ def get_sales_matrix(territory=None):
         GROUP BY si.posting_date, si.company
     """, {'s': min_date, 'e': max_date, 'ic': excluded_customers}, as_dict=True) if min_date and max_date else []
 
-    # Tolling: actuals by specific item_code (toll-processing-fee), not item_group
     toll_rows = frappe.db.sql("""
         SELECT si.posting_date,
                %(toll_key)s AS item_group,
@@ -1348,8 +1214,6 @@ def get_sales_matrix(territory=None):
 
     rev_rows = list(rev_rows) + list(toll_rows)
 
-    # Build month cols and rolling-week sub-cols in separate passes so they don't
-    # steal each other's rows (month dates overlap with the weekly sub-cols).
     _month_only = [c for c in monthly_columns if c.get('col_type') == 'monthly']
     _week_subs  = [c for c in monthly_columns if c.get('col_type') == 'weekly']
     _m1 = _build_matrix(_month_only, target_index, rev_rows, cogs_rows,
@@ -1376,7 +1240,6 @@ def get_sales_matrix(territory=None):
 
 
 def _merge_company_ig(a, b):
-    """Merge two company_ig_map dicts (from different column sets)."""
     result = {}
     for co in set(a) | set(b):
         result[co] = {}
@@ -1393,18 +1256,15 @@ def _merge_company_ig(a, b):
 
 
 def _merge_matrices(a, b):
-    """Concatenate two matrices (different column sets, same products) into one."""
     merged_cols  = a["columns"] + b["columns"]
     merged_dates = a["column_dates"] + b["column_dates"]
 
-    # Merge simple column-keyed dicts
     def _md(*dicts):
         out = {}
         for d in dicts:
             out.update(d)
         return out
 
-    # Merge per-product data
     a_by_ig = {p["item_group"]: p for p in a["products"]}
     b_by_ig = {p["item_group"]: p for p in b["products"]}
     all_igs  = list(dict.fromkeys(
@@ -1536,7 +1396,6 @@ def _build_matrix(columns, target_index, rev_rows, cogs_rows,
     totals = {col: 0.0 for col in col_labels}
     cogs   = {col: 0.0 for col in col_labels}
 
-    # Bucket revenue — roll child item group up to parent target
     for r in rev_rows:
         if not r.posting_date:
             continue
@@ -1551,7 +1410,6 @@ def _build_matrix(columns, target_index, rev_rows, cogs_rows,
                 totals[label] += _flt(r.rev)
                 break
 
-    # COGS by date (no rollup needed — just date bucketing)
     for r in cogs_rows:
         if not r.posting_date:
             continue
@@ -1595,7 +1453,6 @@ def _build_matrix(columns, target_index, rev_rows, cogs_rows,
                     la_canna_totals[label] += _flt(r.rev)
                 break
 
-    # company_ig_map: {company_name: {item_group: {col: {qty, rev}}}}
     company_ig_map = {}
     for r in (all_company_ig_rows or []):
         if not r.posting_date:
@@ -1614,10 +1471,8 @@ def _build_matrix(columns, target_index, rev_rows, cogs_rows,
                 company_ig_map[co][ig][label]["rev"]  += _flt(r.rev)
                 break
 
-    # TSBC frozen-sales target: 2,000 lbs/week @ $50/lb = $100K/week = $400K/month
     TSBC_MONTHLY_TARGET = 400_000.0
 
-    # Per-column aggregates — col_frac respects per-column granularity
     margin, margin_pct, oh = {}, {}, {}
     target_net, target_rev_by_col = {}, {}
     tsbc_target_by_col = {}
@@ -1629,8 +1484,8 @@ def _build_matrix(columns, target_index, rev_rows, cogs_rows,
             month_full_days = (getdate(str(get_last_day(fd))) - getdate(str(get_first_day(fd)))).days + 1
             col_frac = col_days / float(month_full_days)
         elif col_type == 'daily':
-            col_frac = col_days / 20.0   # 4 weeks × 5 working days
-        else:                            # 'weekly'
+            col_frac = col_days / 20.0
+        else:
             col_frac = col_days / 28.0
 
         oh[label] = monthly_oh * col_frac
@@ -1721,7 +1576,6 @@ def _build_matrix(columns, target_index, rev_rows, cogs_rows,
 
 @frappe.whitelist()
 def create_dashboard_item_groups():
-    """Create standard Sales Dashboard item groups if they don't already exist."""
     GROUPS = [
         "Packaged Goods", "Total Rosin", "Bubble Cured", "Tolling",
         "Static", "Gummies", "Pre-Rolls", "Other", "Frozen",
@@ -1744,8 +1598,6 @@ def create_dashboard_item_groups():
 
 @frappe.whitelist()
 def get_jamie_expense_summary():
-    """Returns expense summary for the currently logged-in user (Jamie).
-    Filters strictly by owner = session user — no Finance bypass."""
     user = frappe.session.user
     user_filter = "AND owner = {escaped_user}".format(escaped_user=frappe.db.escape(user))
 
@@ -1787,12 +1639,6 @@ def get_jamie_expense_summary():
 
 @frappe.whitelist()
 def get_matt_sales_matrix(territory=None):
-    """
-    Like get_sales_matrix but collapses all non-TSBC companies
-    (MTM, LA Canna, etc.) into the 'Motley Terpz' bucket in the
-    company_ig_map.  Used by the Matt sales target dashboard so that
-    item-group totals reflect ALL companies without a company breakdown.
-    """
     result = get_sales_matrix(territory=territory)
 
     MERGE_INTO_MOTLEY = {'Master Touch Manufacturing', 'LA Canna Distro'}
@@ -1810,7 +1656,6 @@ def get_matt_sales_matrix(territory=None):
                         bucket['qty'] += vals.get('qty', 0.0)
                         bucket['rev'] += vals.get('rev', 0.0)
 
-        # Roll MTM + LA Canna totals into motley_totals
         motley_tot = matrix.get('motley_totals', {})
         cols = matrix.get('columns', [])
         for src_key in ('mtm_totals', 'la_canna_totals'):

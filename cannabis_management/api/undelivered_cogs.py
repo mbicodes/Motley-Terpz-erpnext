@@ -1,44 +1,3 @@
-"""COGS for invoiced but undelivered quantity.
-
-Finance wants every billed unit to carry COGS in the period it was invoiced,
-whether or not it has shipped. Shipped units already have COGS through the
-Delivery Note (or the invoice itself with Update Stock). For the rest this
-posts a Journal Entry, dated on the invoice:
-
-    Dr  COGS (the invoice line's expense account)
-    Cr  Stock Adjustment Account (company default)
-
-No Stock Ledger Entry is made and no stock leaves a warehouse -- the
-undelivered units exist in the accounts only.
-
-How "delivered" is worked out, per Sales Invoice line (stock UOM):
-
-* Update Stock invoices: the line's own Stock Ledger Entries.
-* Delivery Note tied to the line directly, either way round (DN made from
-  the SI -> dni.si_detail, SI made from the DN -> sii.dn_detail).
-* Otherwise, both raised off the same Sales Order line: that line's delivered
-  quantity (on notes not tied to any invoice line directly) is handed out to
-  its invoices oldest first. Invoices before the period count too, so an
-  earlier invoice keeps first claim on what was shipped.
-
-Delivery Note returns are netted off the note they return; credit notes are
-netted off the invoice line they credit. Non-stock items and drop-shipped
-lines are left alone.
-
-Re-running is safe: each posted unit is recorded on its Journal Entry row
-(custom_si_detail / custom_cogs_qty) and subtracted the next time.
-
-General Ledger: the Journal Entry stays the source document (it is what gets
-cancelled and what carries the tracking), but its GL rows are filed under the
-Sales Invoice's own voucher -- the same restamp Delivery Note stock GL gets in
-overrides/si_cogs_alignment.py, with origin stamps naming the Journal Entry.
-The invoice's General Ledger then shows its revenue and all of its COGS.
-Before the Journal Entry cancels, its rows are handed back to it so core's
-reversal finds them.
-
-Finance asked for this for Motley Terpz only (COMPANIES).
-"""
-
 import frappe
 from frappe import _
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
@@ -61,7 +20,6 @@ MANAGER_ROLES = ("Accounts Manager", "System Manager")
 
 
 def install_custom_fields():
-	"""Idempotent; re-asserted on every migrate via after_migrate."""
 	create_custom_fields(
 		{
 			"Journal Entry": [
@@ -101,16 +59,12 @@ def install_custom_fields():
 	)
 
 
-# ── calculation ─────────────────────────────────────────────────────────────
-
-
 def _check_company(company):
 	if company not in COMPANIES:
 		frappe.throw(_("Undelivered COGS is only set up for {0}").format(", ".join(COMPANIES)))
 
 
 def _ensure_fields():
-	"""Create the tracking fields if a deploy skipped `bench migrate`."""
 	if not (
 		frappe.db.has_column("Journal Entry Account", ROW_LINE_FIELD)
 		and frappe.db.has_column("Journal Entry Account", ROW_QTY_FIELD)
@@ -122,7 +76,6 @@ def _ensure_fields():
 
 
 def get_lines(company, from_date, to_date):
-	"""One dict per stock line of the period's invoices, with the gap worked out."""
 	_check_company(company)
 	_ensure_fields()
 	lines = frappe.db.sql(
@@ -153,9 +106,6 @@ def get_lines(company, from_date, to_date):
 	delivered, delivered_value, source = _delivered(lines, details)
 	recognized = _already_recognized(details)
 
-	# Some lines carry a balance-sheet account (e.g. a WIP stock account) as
-	# their expense account. COGS must land in P&L, so those fall back to the
-	# company's default COGS account.
 	default_cogs = frappe.get_cached_value("Company", company, "default_expense_account")
 	accounts = {l.expense_account for l in lines if l.expense_account}
 	expense = set(
@@ -176,8 +126,6 @@ def get_lines(company, from_date, to_date):
 			l.amount = flt(l.remaining_qty * l.rate, 2)
 			l.status = "To Post" if l.amount else "No Valuation Rate"
 		elif l.remaining_qty < -QTY_TOLERANCE and l.recognized_qty:
-			# Shipped after its COGS was booked here: the note posted COGS
-			# again. Left for Finance to reverse rather than guessed at.
 			l.status = "Over-Recognized"
 		elif l.remaining_qty < -QTY_TOLERANCE:
 			l.status = "Over-Delivered"
@@ -187,7 +135,6 @@ def get_lines(company, from_date, to_date):
 
 
 def _credited_qty(details):
-	"""Credit-note quantity per original invoice line (negative)."""
 	if not details:
 		return {}
 	return dict(
@@ -205,7 +152,6 @@ def _credited_qty(details):
 
 
 def _delivered(lines, details):
-	"""Delivered qty, delivered stock value and a description, per invoice line."""
 	delivered, value, source = {}, {}, {}
 
 	def add(si_detail, qty, val, label):
@@ -214,7 +160,6 @@ def _delivered(lines, details):
 		if label:
 			source[si_detail] = ", ".join(filter(None, [source.get(si_detail), label]))
 
-	# 1. Update Stock invoices move stock themselves.
 	own = [l.si_detail for l in lines if l.update_stock]
 	if own:
 		for d, qty, val in frappe.db.sql(
@@ -229,7 +174,6 @@ def _delivered(lines, details):
 		):
 			add(d, flt(qty), flt(val), "Update Stock")
 
-	# 2. Delivery Notes tied to the invoice line directly.
 	detail_set = set(details)
 	by_dn_detail = {l.dn_detail: l.si_detail for l in lines if l.dn_detail}
 	direct = frappe.db.sql(
@@ -253,7 +197,6 @@ def _delivered(lines, details):
 		target, dn = note_rows[dni]
 		add(target, qty, val, dn)
 
-	# 3. Same Sales Order line, no direct link.
 	so_details = list(
 		{l.so_detail for l in lines if l.so_detail and not l.update_stock and l.si_detail not in direct_lines}
 	)
@@ -264,11 +207,9 @@ def _delivered(lines, details):
 
 
 def _note_qty(dn_item_names):
-	"""Net shipped qty and stock value per Delivery Note row, returns deducted."""
 	if not dn_item_names:
 		return {}
 	out = {}
-	# Stock value from the Stock Ledger so the rate matches what was booked.
 	for d, qty, val in frappe.db.sql(
 		"""
 		SELECT voucher_detail_no, -SUM(actual_qty), -SUM(stock_value_difference)
@@ -299,7 +240,6 @@ def _note_qty(dn_item_names):
 
 
 def _allocate_via_sales_order(so_details, add):
-	"""Share each order line's delivered qty among its invoices, oldest first."""
 	notes = frappe.db.sql(
 		"""
 		SELECT dni.name, dni.parent, dni.so_detail
@@ -312,7 +252,6 @@ def _allocate_via_sales_order(so_details, add):
 		as_dict=True,
 	)
 	if notes:
-		# A note row an invoice was made from belongs to that invoice alone.
 		claimed = set(
 			frappe.db.sql_list(
 				"""
@@ -335,7 +274,6 @@ def _allocate_via_sales_order(so_details, add):
 		if qty:
 			p["notes"].add(n.parent)
 
-	# Every invoice line on these order lines, any date, that relies on the order.
 	claimants = frappe.db.sql(
 		"""
 		SELECT sii.name, sii.so_detail, sii.stock_qty
@@ -382,8 +320,6 @@ def _already_recognized(details):
 
 
 def _rate(line, delivered_value):
-	"""Unit cost for the undelivered units, and where it came from."""
-	# What the shipped part of this same line actually cost.
 	if line.delivered_qty > QTY_TOLERANCE and flt(delivered_value) > 0:
 		return flt(delivered_value / line.delivered_qty, 6), "Delivered cost of this line"
 
@@ -421,11 +357,7 @@ def _rate(line, delivered_value):
 	return 0, ""
 
 
-# ── posting ─────────────────────────────────────────────────────────────────
-
-
 def post_entries(company, from_date, to_date, sales_invoice=None, notify=True):
-	"""Post one Journal Entry per invoice with an undelivered gap. Safe to re-run."""
 	defaults = frappe.db.get_value(
 		"Company", company, ["stock_adjustment_account", "default_expense_account", "cost_center"], as_dict=True
 	)
@@ -521,12 +453,8 @@ def enqueue_post(company, from_date, to_date):
 	return _("Posting started in the background. You will get a message when it finishes.")
 
 
-# ── Sales Invoice form ──────────────────────────────────────────────────────
-
-
 @frappe.whitelist()
 def get_invoice_status(sales_invoice):
-	"""The invoice's undelivered COGS entries, and what is still left to post."""
 	frappe.has_permission("Sales Invoice", "read", sales_invoice, throw=True)
 	_ensure_fields()
 	entries = frappe.get_list(
@@ -553,7 +481,6 @@ def get_invoice_status(sales_invoice):
 
 @frappe.whitelist()
 def post_for_invoice(sales_invoice):
-	"""Post the undelivered COGS of one invoice, from its form."""
 	frappe.only_for(MANAGER_ROLES)
 	si = frappe.db.get_value("Sales Invoice", sales_invoice, ["company", "posting_date", "docstatus"], as_dict=True)
 	if not si or si.docstatus != 1:
@@ -564,11 +491,7 @@ def post_for_invoice(sales_invoice):
 	return summary
 
 
-# ── General Ledger: file under the Sales Invoice ────────────────────────────
-
-
 def file_under_invoice(journal_entry, sales_invoice=None):
-	"""Restamp a Journal Entry's live GL rows onto its Sales Invoice's voucher."""
 	sales_invoice = sales_invoice or frappe.db.get_value("Journal Entry", journal_entry, JE_INVOICE_FIELD)
 	if not sales_invoice:
 		return 0
@@ -595,7 +518,6 @@ def file_under_invoice(journal_entry, sales_invoice=None):
 
 
 def move_back_to_journal_entry(journal_entry):
-	"""Undo file_under_invoice, so core's cancel can find the rows to reverse."""
 	frappe.db.sql(
 		"""
 		UPDATE `tabGL Entry`
@@ -611,7 +533,6 @@ def move_back_to_journal_entry(journal_entry):
 
 
 def restore_for_invoice(sales_invoice):
-	"""Re-post entries a repost of the invoice deleted along with its own rows."""
 	for je in frappe.get_all(
 		"Journal Entry", filters={JE_INVOICE_FIELD: sales_invoice, "docstatus": 1}, pluck="name"
 	):
@@ -638,8 +559,6 @@ def journal_entry_before_cancel(doc, method=None):
 
 
 def repost_ledger_validate(doc, method=None):
-	"""Core's repost looks rows up by the Journal Entry's own voucher and would
-	miss the ones filed under the invoice, booking the COGS twice."""
 	for row in doc.get("vouchers") or []:
 		if row.voucher_type == "Journal Entry" and frappe.db.get_value(
 			"Journal Entry", row.voucher_no, JE_INVOICE_FIELD
@@ -652,7 +571,6 @@ def repost_ledger_validate(doc, method=None):
 
 
 def backfill_gl(company="Motley Terpz"):
-	"""File already-submitted entries' GL under their invoices. Idempotent."""
 	_check_company(company)
 	moved = 0
 	for je in frappe.get_all(

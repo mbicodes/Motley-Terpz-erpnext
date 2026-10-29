@@ -1,6 +1,3 @@
-# Copyright (c) 2026, alltechvirtual.com and contributors
-# For license information, please see license.txt
-
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import frappe

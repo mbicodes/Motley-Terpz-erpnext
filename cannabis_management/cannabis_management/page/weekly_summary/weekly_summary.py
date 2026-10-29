@@ -3,8 +3,6 @@ from frappe.utils import today, getdate, add_days, flt, get_first_day, get_last_
 from datetime import timedelta
 import json
 
-
-# Categories and their corresponding Item Groups in the DB
 CATEGORY_MAPPINGS = {
     "Packaged goods": ["0.5g O2 Vape", "1g O2 Vapes", "1g Jarred Rosin", "3g Jarred Rosin"],
     "Total Rosin": ["VRR", "Primes", "Subprimes", "Full Spec", "Food Grade"],
@@ -12,20 +10,17 @@ CATEGORY_MAPPINGS = {
     "Gummies": ["Gummies"],
     "Services": ["Services"],
     "Distillate": ["DISTALLATE"],
-    "Fresh Frozen": [],  # Matched by LIKE pattern in get_category_for_item_group
+    "Fresh Frozen": [],
 }
 
 def get_category_for_item_group(item_group):
-    """Reverse lookup: get the display category for a given DB item group."""
     for cat, groups in CATEGORY_MAPPINGS.items():
         if item_group in groups:
             return cat
-    # Fresh Frozen items have varying item group names
     if item_group and "Fresh Frozen" in item_group:
         return "Fresh Frozen"
     return "Other"
 
-# Config for which categories show breakdown.
 BREAKDOWN_CONFIG = {
     "Total packaged goods produced": True,
     "Packaged goods": True,
@@ -34,24 +29,14 @@ BREAKDOWN_CONFIG = {
 }
 
 def get_breakdown_label(category, item_group, item_code=None, item_name=None):
-    """Determine what label to show in the drill-down (item group name)."""
     if category in BREAKDOWN_CONFIG and BREAKDOWN_CONFIG[category]:
         return item_group
     return None
-
 
 ALL_COMPANIES = "All Company"
 
 
 def get_companies_to_query(company):
-    """
-    Resolve the company filter to the list of companies to actually query.
-
-    `All Company` is a UI sentinel, not a Company record — it means every
-    company on the site. Otherwise, a parent/group company expands to itself
-    plus its direct children so the page shows the whole group, and anything
-    else is just itself.
-    """
     if company == ALL_COMPANIES:
         return frappe.get_all("Company", pluck="name")
 
@@ -66,7 +51,6 @@ def get_companies_to_query(company):
 
 
 def get_month_ranges(to_date):
-    """Get month ranges from Jan 1 of the year up to to_date month."""
     to_date = getdate(to_date)
     year = to_date.year
     months = []
@@ -86,7 +70,6 @@ def get_month_ranges(to_date):
     return months
 
 def get_trailing_weeks(to_date, count=4):
-    """Get the last N month-weeks ending at to_date."""
     to_date = getdate(to_date)
     weeks = []
 
@@ -124,14 +107,6 @@ def get_trailing_weeks(to_date, count=4):
 
 @frappe.whitelist()
 def get_weekly_summary(from_date=None, to_date=None, company=None, mode="value"):
-    """
-    Main API for Business Overview page.
-    Returns production, sales, revenue, inventory and money-collected data.
-    Columns: Consolidated months since Jan, then trailing 4 weeks.
-
-    When the selected company is a parent/group company (has child companies),
-    all child companies are automatically included so the figures are consolidated.
-    """
     if not to_date:
         to_date = today()
 
@@ -140,18 +115,14 @@ def get_weekly_summary(from_date=None, to_date=None, company=None, mode="value")
         if not company:
             company = frappe.db.get_single_value("Global Defaults", "default_company")
         if not company:
-            # No default configured anywhere — showing everything beats an error.
             company = ALL_COMPANIES
 
     to_date = getdate(to_date)
 
-    # Resolve the company to a list (parent company → all children included)
     companies = get_companies_to_query(company)
 
-    # 1. Monthly columns (January to to_date month)
     month_cols = get_month_ranges(to_date)
 
-    # 2. Trailing 4 weeks
     week_cols = get_trailing_weeks(to_date)
 
     all_cols = month_cols + week_cols
@@ -178,18 +149,11 @@ def get_weekly_summary(from_date=None, to_date=None, company=None, mode="value")
 
 
 def get_production_data(weeks, companies, is_value):
-    """
-    Get production data.
-    - Total Tolled/Washed: Out qty/value of Fresh Frozen items from Tolling Partner warehouses
-    - Total packaged goods produced: Finished goods from Packaged goods item groups
-    companies is always a list (one or more companies).
-    """
     rows = {
         "Total Tolled/Washed": {"totals": {}, "details": {}},
         "Total packaged goods produced": {"totals": {}, "details": {}},
     }
 
-    # Get all Tolling Partner warehouses across all relevant companies
     tolling_warehouses = frappe.get_all(
         "Warehouse",
         filters={"warehouse_type": "Tolling Partner", "company": ["in", companies]},
@@ -200,7 +164,6 @@ def get_production_data(weeks, companies, is_value):
     value_field_sle = "ABS(SUM(sle.stock_value_difference))" if is_value else "ABS(SUM(sle.actual_qty))"
 
     for week in weeks:
-        # 1. Total Tolled/Washed — Fresh Frozen items out of Tolling Partner warehouses
         if tolling_warehouses:
             tolled_data = frappe.db.sql("""
                 SELECT
@@ -223,7 +186,6 @@ def get_production_data(weeks, companies, is_value):
                 total_val += flt(r.val)
             rows["Total Tolled/Washed"]["totals"][week["label"]] = total_val
 
-        # 2. Total packaged goods produced
         packaged_groups = CATEGORY_MAPPINGS.get("Packaged goods", [])
 
         if packaged_groups:
@@ -267,12 +229,6 @@ def get_production_data(weeks, companies, is_value):
     }
 
 def get_sales_data(weeks, companies):
-    """
-    Get sales data from Sales Invoice grouped by item group.
-    ALWAYS returns QUANTITY — regardless of the mode toggle.
-    Excludes inter-company sales (customers with is_internal_customer = 1).
-    companies is always a list (one or more companies).
-    """
     rows = {}
     for cat in CATEGORY_MAPPINGS.keys():
         rows[cat] = {"totals": {}, "details": {}}
@@ -320,12 +276,6 @@ def get_sales_data(weeks, companies):
 
 
 def get_revenue_data(weeks, companies):
-    """
-    Get revenue data from Sales Invoice (net amount by item group).
-    ALWAYS returns VALUE — regardless of the mode toggle.
-    Excludes inter-company sales.
-    companies is always a list (one or more companies).
-    """
     rows = {}
     for cat in CATEGORY_MAPPINGS.keys():
         rows[cat] = {"totals": {}, "details": {}}
@@ -373,12 +323,6 @@ def get_revenue_data(weeks, companies):
 
 
 def get_inventory_data(weeks, companies, is_value):
-    """
-    Get inventory (stock balance) data grouped by item group.
-    Shows closing balance at end of each period.
-    Skips 'Services' group.
-    companies is always a list (one or more companies).
-    """
     rows = {}
     for cat in CATEGORY_MAPPINGS.keys():
         if cat != "Services":
@@ -426,10 +370,6 @@ def get_inventory_data(weeks, companies, is_value):
         "rows": rows
     }
 
-
-# Partial patterns used to match paid_to accounts for Money Collected.
-# LIKE matching is used so the same pattern works across companies
-# regardless of the company-code suffix (e.g. "- MT", "- MTPZ").
 MONEY_ACCOUNT_PATTERNS = {
     "Cash": "Petty Cash-Nikki",
     "Bank": "Bank-7008",
@@ -437,20 +377,6 @@ MONEY_ACCOUNT_PATTERNS = {
 
 
 def get_money_collected_data(weeks, companies):
-    """
-    Get money collected by summing GL Entry debits for the specific Cash and Bank
-    accounts defined in MONEY_ACCOUNT_PATTERNS.  Using GL Entry (same source as
-    the General Ledger report) ensures all voucher types — Payment Entry AND
-    Journal Entry — are included, so the figures match the GL exactly.
-
-    Account mapping per company:
-      Cash: Petty Cash-Nikki - MTPZ / Petty Cash-Nikki - MT / Petty Cash-Nikki - TSBC
-      Bank: Bank-7008 - MTPZ / Bank-7008 - MT / Bank-7008 - TSBC
-
-    When TMM Group (or any parent) is selected, all child companies are already
-    passed in via get_companies_to_query(), so the IN filter captures all accounts.
-    companies is always a list (one or more companies).
-    """
     rows = {
         "Cash": {"totals": {}, "details": {}},
         "Bank": {"totals": {}, "details": {}},
@@ -490,5 +416,4 @@ def get_money_collected_data(weeks, companies):
 
 @frappe.whitelist()
 def get_companies():
-    """Return list of companies for the filter dropdown."""
     return frappe.get_all("Company", pluck="name", order_by="name")

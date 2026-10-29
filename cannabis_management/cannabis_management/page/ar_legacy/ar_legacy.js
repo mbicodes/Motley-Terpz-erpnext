@@ -1,19 +1,3 @@
-// Categorized AR — receivables filed by whose relationship the account is.
-//
-// The AR Mode toggle switches which book is counted: Legacy (invoices up to the
-// cut-over), New AR (from the day after), or Legacy + New AR (both together). The segment itself lives on the
-// Customer and is NOT per-mode - toggling changes the money shown, not who owns
-// the relationship - so the same account keeps its segment in both views.
-//
-// Layout, in the order it is read:
-//   1. KPI cards — the size of the book, and how much of it is still unfiled.
-//   2. Segment cards — count and value per segment; click one to filter to it.
-//   3. Filters — search, company, age, minimum balance, sort.
-//   4. Sections — one per segment, each with its own subtotal.
-//
-// Changing a row's segment re-parents it immediately and recomputes every
-// total on the page, so the effect of the choice is visible without a reload.
-
 frappe.pages['ar-legacy'].on_page_load = function (wrapper) {
 	var page = frappe.ui.make_app_page({
 		parent: wrapper,
@@ -25,7 +9,7 @@ frappe.pages['ar-legacy'].on_page_load = function (wrapper) {
 
 	var state = {
 		rows: [], segments: [], segment_colors: {}, companies: [], can_edit: false,
-		ar_mode: 'legacy',   // unchanged default: this page was legacy-only before the toggle
+		ar_mode: 'legacy',
 		filters: { search: '', segment: '', company: '', age: '', min_amount: '', sort: 'outstanding' },
 		collapsed: {}
 	};
@@ -96,7 +80,6 @@ frappe.pages['ar-legacy'].on_page_load = function (wrapper) {
 		</div>
 	`);
 
-	// ---- helpers -------------------------------------------------------
 	function money(v, compact) {
 		v = v || 0;
 		if (compact && Math.abs(v) >= 1000) {
@@ -108,9 +91,6 @@ frappe.pages['ar-legacy'].on_page_load = function (wrapper) {
 
 	function esc(s) { return frappe.utils.escape_html(s == null ? '' : String(s)); }
 
-	// Segments added as AR Segment records carry their own accent. Set as an
-	// inline custom property so it overrides the per-slug rules in ar_legacy.css
-	// and so a segment the stylesheet has never heard of is still coloured.
 	function accent_attr(seg) {
 		var color = state.segment_colors[seg || ''];
 		return color ? ' style="--arl-accent:' + esc(color) + '"' : '';
@@ -119,12 +99,8 @@ frappe.pages['ar-legacy'].on_page_load = function (wrapper) {
 	function label_of(seg) { return seg || 'Unassigned'; }
 	function sum_of(rows) { return rows.reduce(function (a, r) { return a + (r.outstanding || 0); }, 0); }
 
-	// Segment order: Unassigned first — an unfiled account is the thing that
-	// still needs a decision — then the segments as declared server-side.
 	function all_segments() { return [''].concat(state.segments); }
 
-	// Everything except the segment filter, so the segment cards can show true
-	// counts while one of them is selected.
 	function rows_before_segment() {
 		var f = state.filters;
 		var q = (f.search || '').toLowerCase();
@@ -161,7 +137,6 @@ frappe.pages['ar-legacy'].on_page_load = function (wrapper) {
 		});
 	}
 
-	// ---- cards ---------------------------------------------------------
 	function render_cards() {
 		var rows = visible_rows();
 		var unassigned = rows.filter(function (r) { return !r.segment; });
@@ -221,7 +196,6 @@ frappe.pages['ar-legacy'].on_page_load = function (wrapper) {
 			: '');
 	}
 
-	// ---- table ---------------------------------------------------------
 	function options_html(selected) {
 		var out = ['<option value=""' + (selected ? '' : ' selected') + '>— Unassigned —</option>'];
 		state.segments.forEach(function (s) {
@@ -290,7 +264,6 @@ frappe.pages['ar-legacy'].on_page_load = function (wrapper) {
 		page.main.find('#arl-body').html(html || '<div class="arl-empty arl-empty-page">No accounts match these filters.</div>');
 	}
 
-	// ---- data ----------------------------------------------------------
 	function load() {
 		page.main.find('#arl-body').html('<div class="arl-loading"><div class="arl-spinner"></div><p>Loading ' +
 			({ new: 'new AR', all: 'legacy + new AR' }[state.ar_mode] || 'legacy') + ' accounts…</p></div>');
@@ -333,20 +306,14 @@ frappe.pages['ar-legacy'].on_page_load = function (wrapper) {
 		});
 	}
 
-	// The day New AR starts, for the note under the toggle. Kept next to the
-	// toggle rather than fetched: get_data already returns the legacy cut-off and
-	// this is simply the day after it.
 	var NEW_AR_START_LABEL = '2026-06-01';
 
-	// ---- events --------------------------------------------------------
 	page.main.on('click', '.arl-mode-btn', function () {
 		var mode = $(this).data('mode');
 		if (mode === state.ar_mode) return;
 		state.ar_mode = mode;
 		page.main.find('.arl-mode-btn').removeClass('is-active');
 		$(this).addClass('is-active');
-		// The segment filter is a Customer attribute and survives the switch; the
-		// rows do not, so they are re-fetched for the new window.
 		load();
 	});
 
@@ -358,7 +325,7 @@ frappe.pages['ar-legacy'].on_page_load = function (wrapper) {
 		if (!row) return;
 
 		var previous = row.segment || '';
-		row.segment = segment;      // optimistic — the row moves straight away
+		row.segment = segment;
 		render();
 
 		frappe.call({
@@ -419,17 +386,11 @@ frappe.pages['ar-legacy'].on_page_load = function (wrapper) {
 	});
 	page.main.find('#arl-refresh').on('click', function () { load(); });
 
-	// Exports exactly what the filters currently show, in the book the toggle
-	// is on. The server re-applies the same filters rather than taking rows
-	// from the browser, so an export can never show a balance the page would
-	// not.
 	function download(format) {
 		if (!state.rows.length) {
 			frappe.msgprint('Nothing to export yet — wait for the page to load.');
 			return;
 		}
-		// CSV carries the accounts grid alone; the per-segment totals are a
-		// second sheet, which a CSV cannot hold.
 		frappe.dom.freeze(format === 'csv' ? 'Building CSV…' : 'Building workbook…');
 		open_url_post(frappe.request.url, {
 			cmd: 'cannabis_management.cannabis_management.page.ar_legacy.ar_legacy.export_'

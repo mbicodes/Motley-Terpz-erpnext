@@ -12,10 +12,6 @@ def get_live_production_data(filters=None):
 	filters = frappe._dict(json.loads(filters) if isinstance(filters, str) else (filters or {}))
 	today = nowdate()
 
-	# Active job cards (Open / Work In Progress) always show regardless of the
-	# date window — a live monitor's job is to surface what's running right now,
-	# even if it was scheduled outside the selected range. The date filter still
-	# bounds everything else (e.g. Completed history).
 	conditions = [
 		"jc.docstatus != 2",
 		"(jc.status IN ('Open', 'Work In Progress') OR DATE(jc.expected_start_date) BETWEEN %(from_date)s AND %(to_date)s)",

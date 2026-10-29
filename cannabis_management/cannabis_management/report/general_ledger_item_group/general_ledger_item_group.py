@@ -1,32 +1,3 @@
-# Copyright (c) 2026, alltechvirtual.com and contributors
-# For license information, please see license.txt
-
-"""ERPNext's General Ledger with an Item Group column and filter.
-
-Every step is ERPNext's own report function, so filters, opening, totals and
-closing behave exactly as in General Ledger. The only additions sit around
-building the result:
-
-* each GL Entry is weighed per item group (what each group's lines are worth
-  on that account, debit and credit side apart);
-* with the filter set, an entry is cut down to the chosen groups' share
-  before opening and totals are computed;
-* once ERPNext has built (and, when Consolidated, merged) the rows, each row
-  is split into one row per item group, its amounts divided by those
-  weights. The last piece takes the rounding, so rows still add up exactly.
-
-GL Entry carries no item, so groups come from the voucher's item lines: a
-line's income / expense account, and the stock account its warehouse posts
-to (item-group mapping first, then the warehouse account). Stock sides are
-weighed by the line's Stock Ledger value, the rest by the line amount. A
-Delivery Note's stock GL filed under its Sales Invoice is matched through the
-origin voucher stamped on the entry. Two fallbacks cover older postings and
-operating costs: an entry on a warehouse's own stock account takes the lines
-in that warehouse, and a Stock Entry's additional costs take its finished
-items. Entries no item line posts to (receivables, taxes, payments, journals)
-stay one row with no item group.
-"""
-
 import frappe
 from frappe import _
 from frappe.utils import flt
@@ -38,7 +9,6 @@ from erpnext.stock import get_warehouse_account_map
 
 from cannabis_management.overrides.warehouse_account_utils import resolve_account
 
-# voucher type -> (item table, account fields, warehouse fields)
 ITEM_TABLES = {
 	"Sales Invoice": ("Sales Invoice Item", ("income_account", "expense_account"), ("warehouse",)),
 	"Purchase Invoice": ("Purchase Invoice Item", ("expense_account",), ("warehouse",)),
@@ -79,7 +49,6 @@ def execute(filters=None):
 	data = gl.get_data_with_opening_closing(filters, account_details, accounting_dimensions, gl_entries)
 	return columns, gl.get_result_as_list(split_rows(data), filters)
 
-
 AMOUNT_FIELDS = (
 	("debit", "credit"),
 	("debit_in_account_currency", "credit_in_account_currency"),
@@ -88,7 +57,6 @@ AMOUNT_FIELDS = (
 
 
 def tag_item_groups(gl_entries, filters):
-	"""Give each entry its per-group shares; with the filter, keep only those."""
 	if not gl_entries:
 		return gl_entries
 
@@ -137,7 +105,6 @@ def tag_item_groups(gl_entries, filters):
 
 
 def shares(weights, side):
-	"""Fractions per group for one side, falling back to the other, then equal."""
 	other = "cr" if side == "dr" else "dr"
 	for w in (weights[side], weights[other]):
 		total = sum(v for v in w.values() if v > 0)
@@ -147,7 +114,6 @@ def shares(weights, side):
 
 
 def keep_allowed(gle, allowed):
-	"""Cut the entry down to the chosen groups' share. False when nothing is left."""
 	for side, pos in (("dr", 0), ("cr", 1)):
 		part = {g: f for g, f in gle._shares[side].items() if g in allowed}
 		kept = sum(part.values())
@@ -164,7 +130,6 @@ def keep_allowed(gle, allowed):
 
 
 def split_rows(data):
-	"""One row per item group; amounts divided by the entry's shares."""
 	precision = frappe.get_precision("GL Entry", "debit") or 2
 	out = []
 	for row in data:
@@ -199,14 +164,10 @@ def split_rows(data):
 
 
 def get_voucher_account_weights(vouchers, company):
-	"""(voucher type, voucher no, account) -> {"groups", "dr": {group: w}, "cr": {group: w}}.
-
-	Returns (exact, fallback); fallback is only read when exact has no match.
-	"""
 	exact, fallback = {}, {}
 	warehouse_account = get_warehouse_account_map(company) if company else {}
 	ig_cache, wh_map_cache = {}, {}
-	finished = {}  # Stock Entry -> [(item group, amount)] of its finished items
+	finished = {}
 
 	def add(target, key, group, value):
 		entry = target.setdefault(key, {"groups": [], "dr": {}, "cr": {}})
@@ -253,7 +214,6 @@ def get_voucher_account_weights(vouchers, company):
 			amount = flt(line.get(amount_field))
 			net_stock, has_stock = 0.0, False
 
-			# Stock side: debit when stock came in, credit when it went out
 			for f in warehouse_fields:
 				wh = line.get(f)
 				wh_account = (warehouse_account.get(wh) or {}).get("account") if wh else None
@@ -274,9 +234,9 @@ def get_voucher_account_weights(vouchers, company):
 				if not account:
 					continue
 				if f == "income_account":
-					value = -amount  # income is credited
+					value = -amount
 				elif has_stock:
-					value = -net_stock  # cost / difference account is the stock side's mirror
+					value = -net_stock
 				else:
 					value = amount
 				add(exact, (vtype, line.parent, account), line.item_group, value)
@@ -284,7 +244,6 @@ def get_voucher_account_weights(vouchers, company):
 			if line.get("is_finished_item"):
 				finished.setdefault(line.parent, []).append((line.item_group, amount))
 
-	# Operating / additional costs of a Stock Entry belong to what it produced (credited)
 	if finished:
 		for cost in frappe.get_all(
 			"Landed Cost Taxes and Charges",

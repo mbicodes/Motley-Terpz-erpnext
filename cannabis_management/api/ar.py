@@ -1,14 +1,9 @@
-# apps/cannabis_management/cannabis_management/api/ar.py
-
 import json
 import frappe
 from frappe.utils import flt, nowdate
 
-# Receivable accounts that the AR Reconciliation considers.
-# Equivalent to the GL Report filter: account IN (...).
 DEFAULT_RECEIVABLE_ACCOUNTS = ["Debtors - MT", "Debtors - TSBC"]
 
-# Each entry: (display_label_for_table, [erpnext_customer_names_to_sum])
 AR_RECONCILIATION_ROWS = [
     ("1904 Provisions",                                ["1904 Provisions"]),
     ("A1 Extracts / The Creamery / 710 Tribe",         ["A1 Extracts - The Creamery", "The Creamery", "710 Tribe"]),
@@ -107,7 +102,6 @@ AR_RECONCILIATION_ROWS = [
 
 
 def _normalize_accounts(accounts):
-    """Accept list, JSON string, or comma-separated string."""
     if not accounts:
         return list(DEFAULT_RECEIVABLE_ACCOUNTS)
     if isinstance(accounts, (list, tuple)):
@@ -124,19 +118,6 @@ def _normalize_accounts(accounts):
 
 @frappe.whitelist()
 def get_ar_reconciliation(as_on_date=None, accounts=None):
-    """
-    AR Reconciliation summary — mirrors the General Ledger report's Balance
-    column (last value) when filtered by Party + receivable accounts.
-
-    Outstanding per row =
-        SUM(debit - credit) FROM `tabGL Entry`
-        WHERE party_type='Customer' AND party IN (...row's customers)
-          AND account IN (Debtors - MT, Debtors - TSBC)
-          AND posting_date <= as_on_date
-          AND is_cancelled = 0
-
-    Multiple ERPNext customers behind one display label are summed together.
-    """
     as_on_date = as_on_date or nowdate()
     accounts = _normalize_accounts(accounts)
 

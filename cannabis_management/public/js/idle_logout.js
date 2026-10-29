@@ -1,8 +1,3 @@
-// Logs the user out of the desk after IDLE_MINUTES without mouse, keyboard,
-// scroll or touch activity in any tab. A minute before, a dialog offers to stay
-// logged in. Activity is shared between tabs through localStorage, and checked
-// on load too, so coming back to a closed browser after the limit logs out at
-// once. Server side: idle_logout.py stamps the login time in a cookie.
 (function () {
 	const IDLE_MINUTES = 45;
 	const WARN_SECONDS = 60;
@@ -24,10 +19,8 @@
 	function read() {
 		try {
 			const v = JSON.parse(localStorage.getItem(STORE_KEY) || "null");
-			// Activity saved under an earlier login does not count for this one.
 			if (v && v.login_at === login_at()) return v.t;
 		} catch (e) {
-			// Storage blocked or garbage: fall through to "now".
 		}
 		return null;
 	}
@@ -37,7 +30,6 @@
 		try {
 			localStorage.setItem(STORE_KEY, JSON.stringify({ login_at: login_at(), t }));
 		} catch (e) {
-			// Private mode etc.: this tab still keeps its own clock.
 		}
 	}
 
@@ -65,7 +57,6 @@
 		if (frappe.app && frappe.app.logout) {
 			frappe.app.logout();
 		} else {
-			// Desk not booted yet (logging out on load): same call, plain redirect.
 			frappe.call({ method: "logout", callback: () => (window.location.href = "/login") });
 		}
 	}
@@ -96,7 +87,6 @@
 			])}</p>`
 		);
 		warning.onhide = () => {
-			// Closing the dialog any way counts as being there.
 			if (warning) {
 				warning = null;
 				on_activity();
@@ -120,7 +110,6 @@
 	function start() {
 		if (!window.frappe || !current_user() || current_user() === "Guest") return;
 
-		// Back after the limit (browser was closed, or the laptop slept): out now.
 		const stored = read();
 		if (stored && Date.now() - stored >= idle_ms) {
 			logout();
@@ -132,7 +121,6 @@
 			document.addEventListener(ev, on_activity, { capture: true, passive: true })
 		);
 		setInterval(check, CHECK_EVERY_MS);
-		// Timers are throttled in background tabs; re-check as soon as one is seen.
 		document.addEventListener("visibilitychange", () => {
 			if (document.visibilityState === "visible") check();
 		});

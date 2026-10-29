@@ -1,9 +1,3 @@
-// Payment Entry — two ledgers, never netted.
-//
-// A customer on a payment plan runs two books at once. Auto-allocation happily
-// spreads a receipt across both, which is exactly what the policy forbids, so
-// it is switched off for plan customers and the split is made deliberate.
-
 frappe.ui.form.on("Payment Entry", {
 	refresh(frm) {
 		render_plan_banner(frm);
@@ -49,7 +43,6 @@ function render_plan_banner(frm) {
 		callback: ({ message }) => {
 			if (!message || !message.plan) return;
 
-			// Auto-allocation would net plan money against the new book.
 			if (frm.doc.docstatus === 0 && frm.doc.allocate_payment_amount) {
 				frm.set_value("allocate_payment_amount", 0);
 			}

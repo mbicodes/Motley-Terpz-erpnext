@@ -9,8 +9,6 @@ EMOJIS = ["🏎", "🚙", "🛻", "🚜", "🏍", "🛵", "🚐", "🦖", "🐢"
 
 DEFAULT_CONFIG = {"reps": []}
 
-# Same company / item-group rows as the Sales Target dashboard. Each item group
-# (and everything under it) rolls into its line; anything unmatched goes to Others.
 LINES = [
     {"key": "packaged_goods", "label": "Packaged Goods", "company": "Motley Terpz", "item_groups": ["Packaged goods"]},
     {"key": "rosin", "label": "Rosin", "company": "Motley Terpz", "item_groups": ["Rosins", "Rosin"]},
@@ -28,8 +26,6 @@ TSBC = "TSBC Ranch"
 
 
 def _line(gmap, item_group, company):
-    """Line for an item sold by company. As on the Matt dashboard, TSBC Ranch only feeds the
-    TSBC lines and every other company only the Motley Terpz lines; the rest is Others."""
     key = gmap.get(item_group) or OTHERS
     return key if (LINE_COMPANY[key] == TSBC) == (company == TSBC) else OTHERS
 
@@ -57,9 +53,6 @@ def _can_edit():
 
 
 def _group_map():
-    """item group -> line key, walking parent_item_group (the lft/rgt tree is not reliable).
-    Groups above the lines (All Item Groups, Extracts Motley, ...) map to None: they span
-    several lines, so a target on them only counts toward the total."""
     parent = dict(frappe.db.sql("select name, parent_item_group from `tabItem Group`"))
     own = {ig: l["key"] for l in LINES for ig in l["item_groups"]}
     above = set()
@@ -96,8 +89,6 @@ def save_config(config):
 
 
 def _targets(start, end, gmap):
-    """Sales Person -> Target Detail qty/amount for start..end, in total and per line by the
-    row's item group. Targets are monthly; a month only partly in the range counts pro rata."""
     out = {}
     first = start.replace(day=1)
     while first <= end:
@@ -110,7 +101,6 @@ def _targets(start, end, gmap):
 
 
 def _month_targets(first, share, gmap, out):
-    """Add one month's targets (fiscal year covering it, or blank), scaled by share, into out."""
     month = first.strftime("%B")
     for t in frappe.db.sql(
         """
@@ -134,9 +124,6 @@ def _month_targets(first, share, gmap, out):
 
 
 def _sales_rows(doctype, first, last, company):
-    """Submitted item rows split per sales person by allocated %. The document's own Sales Team
-    is used; a document without one falls back to its Customer's Sales Team.
-    Same scope as the Matt sales target matrix: no returns, no internal/intercompany customers."""
     from cannabis_management.api.jamie import _get_excluded_customers
 
     date_field = "transaction_date" if doctype == "Sales Order" else "posting_date"
@@ -174,7 +161,6 @@ def _sales_rows(doctype, first, last, company):
 
 @frappe.whitelist()
 def get_race(from_date=None, to_date=None, company=None, basis="Sales Invoice"):
-    """Defaults to the current month, all companies. Returns everything the page renders."""
     if company == "All Companies":
         company = None
     today = getdate(nowdate())
@@ -254,9 +240,6 @@ def get_race(from_date=None, to_date=None, company=None, basis="Sales Invoice"):
 
 
 def _payments(first, last, company):
-    """Submitted Receive Payment Entries in the range. Same rule as the Matt dashboard's Total Collected:
-    only money allocated against Sales Invoices counts, internal/intercompany customers excluded.
-    Each invoice's share is credited to its Sales Team (else the customer's)."""
     from cannabis_management.api.jamie import _get_excluded_customers
 
     pes = frappe.db.sql(

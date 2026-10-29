@@ -1,7 +1,5 @@
-/* ===== Weekly Summary Page — Modern Sleek Theme ===== */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
-/* ---------- CSS Variables ---------- */
 :root {
     --ws-primary: #6366f1;
     --ws-primary-light: #818cf8;
@@ -18,7 +16,6 @@
     --ws-radius-sm: 10px;
     --ws-font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 
-    /* Section colors */
     --ws-production: #f59e0b;
     --ws-production-bg: #fffbeb;
     --ws-production-border: #fde68a;
@@ -36,7 +33,6 @@
     --ws-money-border: #bae6fd;
 }
 
-/* ---------- Container ---------- */
 .ws-container {
     max-width: 1440px;
     margin: 0 auto;
@@ -46,7 +42,6 @@
     min-height: 100vh;
 }
 
-/* ---------- Header ---------- */
 .ws-header {
     display: flex;
     align-items: center;
@@ -98,7 +93,6 @@
     gap: 10px;
 }
 
-/* ---------- Filter Bar ---------- */
 .ws-filter-bar {
     display: flex;
     align-items: flex-end;
@@ -154,7 +148,6 @@
     border-color: var(--ws-primary-light);
 }
 
-/* Toggle Switch (Quantity / Value) */
 .ws-toggle-container {
     display: flex;
     background: var(--ws-bg);
@@ -188,7 +181,6 @@
     color: var(--ws-primary);
 }
 
-/* Action Buttons */
 .ws-btn {
     padding: 9px 20px;
     border: none;
@@ -242,7 +234,6 @@
     box-shadow: 0 4px 16px rgba(16, 185, 129, 0.4);
 }
 
-/* ---------- Summary Cards ---------- */
 .ws-summary-cards {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
@@ -336,7 +327,6 @@
     background: #fef2f2;
 }
 
-/* ---------- Section ---------- */
 .ws-section {
     margin-bottom: 20px;
     border-radius: var(--ws-radius);
@@ -395,7 +385,6 @@
     opacity: 0.9;
 }
 
-/* ---------- Data Table ---------- */
 .ws-table-wrap {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
@@ -423,21 +412,15 @@
     z-index: 2;
 }
 
-/* Only apply Category-column styles to row 1's first th (the rowspan=2 Category header).
-   Row 2's first DOM th is "Jan" — it must NOT get min-width:200px or left-align,
-   otherwise the Jan column becomes oversized and its values appear shifted right. */
 .ws-table thead tr:first-child th:first-child {
     text-align: left;
     padding-left: 24px;
     min-width: 200px;
 }
 
-/* Header Groups */
 .ws-group-header-consolidated {
     background: #fef3c7 !important;
-    /* Amber 100 */
     color: #92400e !important;
-    /* Amber 800 */
     text-align: center !important;
     border-bottom: 2px solid #fde68a !important;
     font-size: 10px !important;
@@ -445,9 +428,7 @@
 
 .ws-group-header-trailing {
     background: #dbeafe !important;
-    /* Blue 100 */
     color: #1e40af !important;
-    /* Blue 800 */
     text-align: center !important;
     border-bottom: 2px solid #bfdbfe !important;
     font-size: 10px !important;
@@ -455,15 +436,12 @@
 
 .th-month {
     background: #fee2e2 !important;
-    /* Red 100 */
     color: #991b1b !important;
-    /* Red 800 */
     border-bottom: 2px solid #fecaca !important;
 }
 
 .th-week {
     background: #eff6ff !important;
-    /* Blue 50 */
     color: #1e40af !important;
     border-bottom: 2px solid #bfdbfe !important;
 }
@@ -524,7 +502,6 @@
     background: rgba(99, 102, 241, 0.08);
 }
 
-/* Sub-item rows */
 .ws-table tbody tr.ws-sub-row td:first-child {
     padding-left: 44px;
     font-weight: 500;
@@ -532,7 +509,6 @@
     font-size: 12.5px;
 }
 
-/* Category header row */
 .ws-table tbody tr.ws-category-row td {
     font-weight: 700;
     font-size: 13px;
@@ -541,7 +517,6 @@
     border-bottom: 1.5px solid var(--ws-border);
 }
 
-/* ---------- Expansion System ---------- */
 .ws-expand-row {
     cursor: pointer !important;
     transition: all 0.2s ease;
@@ -576,7 +551,6 @@
 
 .ws-detail-item {
     padding-left: 50px !important;
-    /* Indent sub-items */
     font-weight: 500 !important;
 }
 
@@ -584,7 +558,6 @@
     background: #f5f5f5 !important;
 }
 
-/* Totals row */
 .ws-table tfoot td {
     padding: 14px 16px;
     font-weight: 700;
@@ -603,12 +576,10 @@
     font-weight: 800;
 }
 
-/* Zero values */
 .ws-zero {
     color: #cbd5e1 !important;
 }
 
-/* ---------- Loading State ---------- */
 .ws-loading {
     display: flex;
     flex-direction: column;
@@ -640,7 +611,6 @@
     font-weight: 500;
 }
 
-/* ---------- Empty State ---------- */
 .ws-empty {
     display: flex;
     flex-direction: column;
@@ -670,7 +640,6 @@
     max-width: 400px;
 }
 
-/* ---------- Responsive ---------- */
 @media (max-width: 1400px) {
     .ws-summary-cards {
         grid-template-columns: repeat(3, 1fr);
@@ -717,7 +686,6 @@
     }
 }
 
-/* ---------- Primary Action Override ---------- */
 .page-container[data-page-name="weekly-summary"] .btn-primary-dark,
 .page-container[data-page-name="weekly-summary"] .btn-primary {
     background: linear-gradient(135deg, var(--ws-primary), var(--ws-primary-light)) !important;
@@ -725,7 +693,6 @@
     box-shadow: 0 2px 8px rgba(99, 102, 241, 0.25);
 }
 
-/* ---------- Scrollbar ---------- */
 .ws-table-wrap::-webkit-scrollbar {
     height: 6px;
 }
@@ -744,7 +711,6 @@
     background: var(--ws-text-muted);
 }
 
-/* ---------- Print / Export ---------- */
 @media print {
 
     .ws-filter-bar,

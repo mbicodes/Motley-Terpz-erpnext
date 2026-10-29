@@ -1,7 +1,3 @@
-# Copyright (c) 2013, Frappe Technologies Pvt. Ltd. and contributors
-# For license information, please see license.txt
-
-
 from collections import defaultdict
 
 import frappe
@@ -60,7 +56,6 @@ def execute(filters=None):
 	else:
 		data, report_summary = get_cash_flow_data(fiscal_year, companies, filters)
 
-	# Filter group accounts
 	for row in data:
 		if row and row.get("is_group") == 1:
 			account_name = row.get("account_name", "") or ""
@@ -135,7 +130,6 @@ def prepare_companywise_opening_balance(asset_data, liability_data, equity_data,
 	for company in companies:
 		opening_value = 0
 
-		# opening_value = Aseet - liability - equity
 		for data in [asset_data, liability_data, equity_data]:
 			if data:
 				account_name = get_root_account_name(data[0].root_type, company)
@@ -224,7 +218,6 @@ def get_cash_flow_data(fiscal_year, companies, filters):
 		)
 
 		if len(data) == 1:
-			# add first net income in operations section
 			if net_profit_loss:
 				net_profit_loss.update(
 					{"indent": 1, "parent_account": cash_flow_accounts[0]["section_header"]}
@@ -402,7 +395,6 @@ def calculate_values(accounts_by_name, gl_entries_by_account, companies, filters
 			if d:
 				debit, credit = 0, 0
 				for company in companies:
-					# check if posting date is within the period
 					if (
 						entry.company == company
 						or (filters.get("accumulated_in_group_company"))
@@ -436,7 +428,6 @@ def calculate_values(accounts_by_name, gl_entries_by_account, companies, filters
 
 
 def accumulate_values_into_parents(accounts, accounts_by_name, companies):
-	"""accumulate children's values in parent accounts"""
 	for d in reversed(accounts):
 		if d.parent_account:
 			account = d.parent_account_name
@@ -469,12 +460,6 @@ def get_account_heads(root_type, companies, filters):
 
 
 def update_parent_account_names(accounts):
-	"""Update parent_account_name in accounts list.
-
-	parent_name is `name` of parent account which could have other prefix
-	of account_number and suffix of company abbr. This function adds key called
-	`parent_account_name` which does not have such prefix/suffix.
-	"""
 	name_to_account_map = {}
 
 	for d in accounts:
@@ -546,7 +531,6 @@ def prepare_data(accounts, start_date, end_date, balance_must_be, companies, com
 	data = []
 
 	for d in accounts:
-		# add to output
 		has_value = False
 		total = 0
 		row = frappe._dict(
@@ -569,13 +553,11 @@ def prepare_data(accounts, start_date, end_date, balance_must_be, companies, com
 
 		for company in companies:
 			if d.get(company) and balance_must_be == "Credit":
-				# change sign based on Debit or Credit, since calculation is done using (debit - credit)
 				d[company] *= -1
 
 			row[company] = flt(d.get(company, 0.0), 3)
 
 			if abs(row[company]) >= get_zero_cutoff(filters.presentation_currency):
-				# ignore zero values
 				has_value = True
 				total += flt(row[company])
 
@@ -599,8 +581,6 @@ def set_gl_entries_by_account(
 	ignore_closing_entries=False,
 	root_type=None,
 ):
-	"""Returns a dict like { "account": [gl entries], ... }"""
-
 	company_lft, company_rgt = frappe.get_cached_value("Company", filters.get("company"), ["lft", "rgt"])
 
 	companies = frappe.db.sql(
@@ -693,7 +673,6 @@ def get_account_details(account):
 
 
 def validate_entries(key, entry, accounts_by_name, accounts):
-	# If an account present in the child company and not in the parent company
 	if key not in accounts_by_name:
 		args = get_account_details(entry.account)
 
@@ -715,7 +694,6 @@ def validate_entries(key, entry, accounts_by_name, accounts):
 		accounts_by_name.setdefault(key, args)
 
 		idx = len(accounts)
-		# To identify parent account index
 		for index, row in enumerate(accounts):
 			if row.parent_account_name == args.parent_account_name:
 				idx = index
@@ -770,7 +748,6 @@ def add_total_row(out, root_type, balance_must_be, companies, company_currency):
 	if "total" in total_row:
 		out.append(total_row)
 
-		# blank row after Total
 		out.append({})
 
 

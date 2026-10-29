@@ -1,19 +1,3 @@
-"""Server-side print blocking for unapproved Terms Sales Orders.
-
-Hiding the Print menu client-side is cosmetic — the print and PDF endpoints are
-whitelisted and reachable directly. These wrappers are registered in
-``hooks.py > override_whitelisted_methods`` and sit in front of every route that
-can render a document:
-
-* ``frappe.www.printview.get_html_and_style``   — the print preview
-* ``frappe.utils.print_format.download_pdf``    — Download PDF
-* ``frappe.utils.weasyprint.download_pdf``      — Print Designer formats
-* ``frappe.core.doctype.communication.email.make`` — emailing an attached format
-
-Each delegates to the original once the check passes, so behaviour for every
-other DocType is untouched.
-"""
-
 import json
 
 import frappe
@@ -36,23 +20,12 @@ OVER_LINE_MESSAGE = (
 	"Only an Account Manager can print it."
 )
 
-# Sentinel returned by _is_blocked for the over-the-line case, so _guard can show
-# the message above rather than the hold wording.
 OVER_LINE = "__over_line__"
 
-# Credit statuses that stop a Payment Terms order from printing outright,
-# independent of the approval workflow above.
-# COD sits here with the holds: a customer who has not been granted terms must
-# not be able to hand over a Payment Terms order on paper either. The guard that
-# uses this already fires only when custom_mode_of_payment is Payment Terms, so
-# a Cash On Delivery order for the same customer still prints.
 _PRINT_BLOCKING_STATUSES = (utils.STATUS_COD, utils.STATUS_HARD_HOLD, utils.STATUS_BLOCKED)
 
 
 def _is_blocked(doctype: str | None, name: str | None) -> tuple[bool, str | None]:
-	"""Returns (blocked, hold_status). hold_status is set only when the block
-	comes from the customer's credit status, so `_guard` can tailor the message.
-	"""
 	if doctype != "Sales Order" or not name:
 		return False, None
 
@@ -65,18 +38,12 @@ def _is_blocked(doctype: str | None, name: str | None) -> tuple[bool, str | None
 	if not so:
 		return False, None
 
-	# Only a draft is ever blocked. Once an order is submitted it has passed the
-	# credit gate, so it always prints, even if the customer later goes on hold
-	# or the line is used up.
 	if so.docstatus != 0:
 		return False, None
 
 	if int(so.custom_print_blocked or 0):
 		return True, None
 
-	# Checked live (not cached on the Sales Order) so a draft whose customer is
-	# moved to Hard Hold / Blocked after it was created is still caught, without
-	# needing a data patch to every existing Sales Order.
 	if so.custom_mode_of_payment == utils.MODE_TERMS and so.customer and not utils.is_policy_exempt(
 		so.customer
 	):
@@ -91,15 +58,6 @@ def _is_blocked(doctype: str | None, name: str | None) -> tuple[bool, str | None
 
 
 def _is_over_line(so, name) -> bool:
-	"""True when this order is worth more than the customer's remaining line and
-	the person asking is not an Account Manager.
-
-	The same rule that gates creation gates the paperwork: an order raised above
-	the line by an Account Manager is theirs to print, and nobody else can print
-	it into existence behind them. Checked live, so a draft that was inside the
-	line when raised stops printing once the line is consumed. Submitted orders
-	never reach this check.
-	"""
 	if not so.customer or utils.is_policy_exempt(so.customer):
 		return False
 
@@ -154,7 +112,6 @@ def _guard(doctype: str | None, name: str | None):
 
 
 def _resolve_doc_arg(doc, name):
-	"""printview passes either a doctype string plus name, or a serialised doc."""
 	if isinstance(doc, str) and name:
 		return doc, name
 
@@ -233,8 +190,6 @@ def weasyprint_download_pdf(doctype, name, print_format, letterhead=None):
 
 @frappe.whitelist()
 def make(doctype=None, name=None, print_html=None, print_format=None, **kwargs):
-	# Only block when a rendered copy of the order would actually be attached —
-	# a plain note against the Sales Order is still allowed.
 	if print_html or print_format:
 		_guard(doctype, name)
 

@@ -1,11 +1,5 @@
-/* ═══════════════════════════════════════════════════════════════════
-   Lizzy Dashboard  — fully self-contained (all nd-* tokens included)
-   ═══════════════════════════════════════════════════════════════════ */
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
 
-/* ════════════════════════════════════════════════
-   ROOT / DESIGN TOKENS
-   ════════════════════════════════════════════════ */
 .lizzy-dash {
   --border:          #e2e8f0;
   --border-hover:    #cbd5e1;
@@ -25,9 +19,6 @@
   min-height: 100vh;
 }
 
-/* ════════════════════════════════════════════════
-   HEADER
-   ════════════════════════════════════════════════ */
 .lizzy-dash .nd-header {
   display: flex;
   justify-content: space-between;
@@ -98,9 +89,6 @@
 }
 .lizzy-dash .nd-refresh-btn.spinning svg { animation: ndSpin 0.8s linear infinite; }
 
-/* ════════════════════════════════════════════════
-   SECTION LABEL
-   ════════════════════════════════════════════════ */
 .lizzy-dash .nd-section-label {
   font-size: 11px;
   font-weight: 600;
@@ -119,9 +107,6 @@
   opacity: 0.6;
 }
 
-/* ════════════════════════════════════════════════
-   KPI GRID
-   ════════════════════════════════════════════════ */
 .lizzy-dash .nd-kpi-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -176,9 +161,6 @@
   font-family: 'DM Mono', monospace;
 }
 
-/* ════════════════════════════════════════════════
-   SHIMMER / LOADING
-   ════════════════════════════════════════════════ */
 .lizzy-dash .nd-shimmer {
   display: inline-block;
   width: 80px; height: 28px;
@@ -197,9 +179,6 @@
   animation: ndSpin 0.7s linear infinite;
 }
 
-/* ════════════════════════════════════════════════
-   CARD
-   ════════════════════════════════════════════════ */
 .lizzy-dash .nd-card {
   background: #fff;
   border: 1px solid var(--border);
@@ -231,9 +210,6 @@
   white-space: nowrap;
 }
 
-/* ════════════════════════════════════════════════
-   TABLE
-   ════════════════════════════════════════════════ */
 .lizzy-dash .nd-table { width: 100%; border-collapse: collapse; }
 .lizzy-dash .nd-table thead th {
   font-size: 10.5px;
@@ -268,9 +244,6 @@
 }
 .lizzy-dash .nd-table a:hover { text-decoration: underline; }
 
-/* ════════════════════════════════════════════════
-   PAGINATION
-   ════════════════════════════════════════════════ */
 .lizzy-dash .nd-pagination {
   display: flex;
   align-items: center;
@@ -310,9 +283,6 @@
   text-align: center;
 }
 
-/* ════════════════════════════════════════════════
-   SECTION DIVIDER  (lizzy-specific)
-   ════════════════════════════════════════════════ */
 .lizzy-dash .lz-section-divider {
   display: flex;
   align-items: center;
@@ -345,9 +315,6 @@
   stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
 }
 
-/* ════════════════════════════════════════════════
-   VIEW-ALL LINK
-   ════════════════════════════════════════════════ */
 .lizzy-dash .lz-view-all-link {
   font-size: 11px;
   font-weight: 600;
@@ -358,9 +325,6 @@
 }
 .lizzy-dash .lz-view-all-link:hover { opacity: 0.7; text-decoration: underline; }
 
-/* ════════════════════════════════════════════════
-   PURCHASE REQUEST FORM
-   ════════════════════════════════════════════════ */
 .lizzy-dash .lz-pr-form-card { margin-bottom: 8px; }
 
 .lizzy-dash .lz-form-badge {
@@ -501,7 +465,6 @@
 }
 .lizzy-dash .lz-btn-secondary:hover { border-color: var(--border-hover); color: var(--text-primary); }
 
-/* Success state */
 .lizzy-dash .lz-pr-success {
   padding: 48px 32px 52px;
   text-align: center;
@@ -535,9 +498,6 @@
   justify-content: center;
 }
 
-/* ════════════════════════════════════════════════
-   ANIMATIONS
-   ════════════════════════════════════════════════ */
 @keyframes ndShimmer {
   0%   { background-position:  200% 0; }
   100% { background-position: -200% 0; }
@@ -548,9 +508,6 @@
   100% { opacity: 1; transform: scale(1) translateY(0); }
 }
 
-/* ════════════════════════════════════════════════
-   RESPONSIVE
-   ════════════════════════════════════════════════ */
 @media (max-width: 1024px) {
   .lizzy-dash .nd-kpi-grid { grid-template-columns: repeat(2, 1fr); }
 }

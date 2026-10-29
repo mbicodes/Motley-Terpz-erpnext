@@ -1,9 +1,3 @@
-"""Pairs raw punches into worked sessions with hours.
-
-This report exists because clocking Users rather than Employees means none of HRMS's
-attendance/timesheet reporting applies — the summary layer has to be built by hand.
-"""
-
 import frappe
 from frappe import _
 from frappe.utils import add_days, getdate, now_datetime, nowdate
@@ -49,8 +43,6 @@ def get_columns():
 
 def get_data(from_date, to_date, user=None):
 	punch_filters = {
-		# Reach a day earlier so an overnight session starting before the window is
-		# paired correctly, and two days later so its OUT is still in scope.
 		"time": ["between", [f"{add_days(from_date, -1)} 00:00:00", f"{add_days(to_date, 2)} 23:59:59"]]
 	}
 	if user:

@@ -1,27 +1,3 @@
-# Copyright (c) 2026, alltechvirtual.com and contributors
-# For license information, please see license.txt
-#
-# Data layer for the CFO Dashboard page (page/cfo_dashboard) and the
-# CFO Income Statement Matrix report. Implements the "Financial Dashboard -
-# ERPNext v15 Functional Mapping" spec: every figure resolves to GL Entry,
-# fetched ONCE per request as (account, month, project, cost center) sums and
-# then re-aggregated in Python for every period, statement and chart.
-#
-# Classification:
-#   * P&L lines reuse management_income_statement's expense classifier, so the
-#     split into Direct / Selling / G&A / Finance matches that report. On top
-#     of it, Depreciation accounts are tracked separately (for EBITDA) and
-#     "income tax" accounts become Tax. Income under an "Indirect Income"
-#     group is Other Income; every other Income leaf is Revenue.
-#   * Balance sheet categories come from account_type plus the chart's own
-#     "Current Assets" / "Current Liabilities" / "Loans" groups.
-#   * Cash flow is the indirect method built from balance movements, so it
-#     always reconciles to the actual change in Cash + Bank.
-#
-# Period Closing Voucher entries are excluded everywhere: they only move the
-# year's P&L into equity, and total equity is derived as Assets - Liabilities
-# (which already carries unclosed profit).
-
 import frappe
 from frappe import _
 from frappe.utils import add_days, add_months, flt, get_first_day, get_last_day, getdate, today
@@ -33,11 +9,8 @@ from cannabis_management.cannabis_management.report.management_income_statement.
 	get_named_subgroup_ranges,
 )
 
-# Status thresholds. "higher" metrics compare actual to a benchmark (Budget
-# when one exists, else prior year); ratios use absolute bands.
-VARIANCE_WATCH_PCT = -10.0  # below 0% -> Watchlist, below this -> Attention
+VARIANCE_WATCH_PCT = -10.0
 RATIO_BANDS = {
-	# ratio: (good_if, on_track_limit, watch_limit)
 	"current_ratio": ("high", 1.5, 1.0),
 	"cash_ratio": ("high", 0.5, 0.2),
 	"debt_to_equity": ("low", 1.0, 2.0),
@@ -74,9 +47,6 @@ METRICS = {
 }
 
 
-# ---------------------------------------------------------------- entry points
-
-
 @frappe.whitelist()
 def get_filter_defaults(company=None):
 	frappe.only_for(DASHBOARD_ROLES)
@@ -86,7 +56,6 @@ def get_filter_defaults(company=None):
 
 @frappe.whitelist()
 def get_fiscal_year_dates(fiscal_year):
-	"""Default date range for a fiscal year: its start to today (or its end, if already over)."""
 	start, end = frappe.db.get_value("Fiscal Year", fiscal_year, ["year_start_date", "year_end_date"])
 	to_date = min(getdate(end), max(getdate(start), getdate(today())))
 	return {"from_date": str(getdate(start)), "to_date": str(to_date)}
@@ -110,7 +79,6 @@ def get_dashboard(
 			frappe.throw(_("From Date and To Date are required for Date Range"))
 		fiscal_year = None
 	else:
-		# Fiscal Year mode: the year alone decides the dates
 		filter_based_on, from_date, to_date = "Fiscal Year", None, None
 	ctx = build_context(company, fiscal_year, from_date, to_date, project, cost_center)
 	currency, frappe.flags.cfo_currency_symbol = resolve_currency(ctx.companies)
@@ -144,9 +112,6 @@ def get_dashboard(
 	}
 
 
-# --------------------------------------------------------------------- context
-
-
 def get_default_fiscal_year(company=None):
 	try:
 		from erpnext.accounts.utils import get_fiscal_year
@@ -159,13 +124,6 @@ def get_default_fiscal_year(company=None):
 
 
 def build_context(company, fiscal_year, from_date, to_date, project=None, cost_center=None):
-	"""Every period the dashboard shows, derived from the selected date range:
-
-	* Period (ytd)  = From Date .. To Date
-	* FTM           = To Date's month, clipped to From Date
-	* Full Year     = trailing 12 months ending To Date
-	* PY            = any of the above shifted back one year
-	Fiscal Year only supplies the default range when dates are not given."""
 	fiscal_year = fiscal_year or get_default_fiscal_year(company)
 	defaults = get_fiscal_year_dates(fiscal_year)
 	from_date = getdate(from_date or defaults["from_date"])
@@ -173,8 +131,6 @@ def build_context(company, fiscal_year, from_date, to_date, project=None, cost_c
 	if from_date > to_date:
 		frappe.throw(_("From Date cannot be after To Date"))
 
-	# get_list honours Company user permissions, so a fenced user never sees
-	# another entity's books through "all companies"
 	allowed = frappe.get_list("Company", pluck="name", order_by="name")
 	if company and company not in allowed:
 		frappe.throw(_("Not permitted for Company {0}").format(company), frappe.PermissionError)
@@ -187,7 +143,6 @@ def build_context(company, fiscal_year, from_date, to_date, project=None, cost_c
 		fiscal_year=fiscal_year,
 		from_date=from_date,
 		to_date=to_date,
-		# kept under their old names: every section reads these
 		fy_start=from_date,
 		period_end=to_date,
 		project=project or None,
@@ -198,13 +153,11 @@ def build_context(company, fiscal_year, from_date, to_date, project=None, cost_c
 	)
 	ctx.py = shift_year
 	ctx.cost_centers = descendants("Cost Center", cost_center) if cost_center else None
-	# Earliest date anything needs: prior-year versions of every period
 	ctx.range_start = min(shift_year(ctx.full_year)[0], shift_year(ctx.ytd)[0], get_first_day(add_months(to_date, -23)))
 	return ctx
 
 
 def shift_year(rng):
-	"""Same period one year earlier; a month-end stays a month-end (Feb 29 -> Feb 28)."""
 	a, b = rng
 	end = add_months(b, -12)
 	if b == get_last_day(b):
@@ -234,7 +187,6 @@ def month_key(d):
 
 
 def month_windows(start, end):
-	"""(start, end) per calendar month overlapping [start, end], clipped to it."""
 	windows, d = [], get_first_day(start)
 	start, end = getdate(start), getdate(end)
 	while d <= end:
@@ -243,19 +195,12 @@ def month_windows(start, end):
 	return windows
 
 
-# ---------------------------------------------------------------------- ledger
-
-
 class Ledger:
-	"""GL sums for the whole request, classified once, queried many ways."""
-
 	def __init__(self, ctx):
 		self.ctx = ctx
 		self.load_accounts()
 		self.load_gl()
 		self.load_budget()
-
-	# -- accounts --------------------------------------------------------------
 
 	def load_accounts(self):
 		ctx = self.ctx
@@ -334,8 +279,6 @@ class Ledger:
 			return "other_ca"
 		return "other_nca"
 
-	# -- gl --------------------------------------------------------------------
-
 	def load_gl(self):
 		ctx = self.ctx
 		params = {"companies": ctx.companies, "start": ctx.range_start, "end": ctx.to_date}
@@ -349,7 +292,6 @@ class Ledger:
 			params,
 			as_dict=True,
 		)
-		# Daily sums, so any From/To Date slices exactly
 		rows = frappe.db.sql(
 			"""
 			select account, posting_date,
@@ -380,7 +322,6 @@ class Ledger:
 				self.bs_opening[cat] = self.bs_opening.get(cat, 0) + flt(r.net)
 				if r.account in self.current_liab:
 					self.current_liab_opening += flt(r.net)
-		# Unclosed P&L before the range is part of equity via Assets - Liabilities
 
 	def load_budget(self):
 		ctx = self.ctx
@@ -426,13 +367,7 @@ class Ledger:
 			)
 		}
 
-	# -- queries -----------------------------------------------------------------
-
 	def pl_lines(self, rng, dim=None, use_project_filter=True):
-		"""{line: natural-sign amount}; with `dim`, {dim_value: {line: amount}}.
-
-		Project / Cost Center filters apply to P&L only - balance sheet and
-		cash flow stay at company level (use_project_filter=False)."""
 		start, end = getdate(rng[0]), getdate(rng[1])
 		project = self.ctx.project if use_project_filter else None
 		cost_centers = self.ctx.cost_centers if use_project_filter else None
@@ -450,7 +385,6 @@ class Ledger:
 		return out
 
 	def budget_lines(self, rng):
-		"""Budget for the range; a part-month gets its share by days."""
 		out = {}
 		for a, b in month_windows(*rng):
 			ym = month_key(a)
@@ -468,7 +402,6 @@ class Ledger:
 		return sum(flt(r.debit) for r in self.bs_rows if r.cat == "debt" and start <= r.posting_date <= end)
 
 	def balances(self, as_of):
-		"""Category balances at close of `as_of` (natural sign)."""
 		as_of = getdate(as_of)
 		bal = dict(self.bs_opening)
 		cl = self.current_liab_opening
@@ -497,8 +430,6 @@ class Ledger:
 		d = {k: c[k] - o[k] for k in c}
 		operating = [
 			(_("Net Profit"), np),
-			# Accumulated depreciation carries a credit (negative) balance, so
-			# its growth is a negative movement that adds cash back
 			(_("Depreciation (non-cash)"), -d["acc_dep"]),
 			(_("Change in Receivables"), -d["receivable"]),
 			(_("Change in Inventory"), -d["inventory"]),
@@ -541,9 +472,6 @@ def derive_statement(lines):
 	return s
 
 
-# --------------------------------------------------------------------- helpers
-
-
 def pct(a, b):
 	return (flt(a) / flt(b) * 100.0) if flt(b) else None
 
@@ -553,7 +481,6 @@ def ratio(a, b):
 
 
 def variance_status(actual, benchmark):
-	"""On Track / Watchlist / Attention for a higher-is-better metric."""
 	if benchmark in (None, 0):
 		return "on_track" if flt(actual) >= 0 else "attention"
 	change = (flt(actual) - flt(benchmark)) / abs(flt(benchmark)) * 100.0
@@ -576,7 +503,6 @@ def sign_status(value):
 
 
 def fmt(v):
-	"""Short money text for notes, e.g. -$1.25M; symbol set per request."""
 	v = flt(v)
 	sign, v, symbol = ("-" if v < 0 else ""), abs(v), frappe.flags.cfo_currency_symbol or ""
 	for div, suffix in ((1e9, "B"), (1e6, "M"), (1e3, "K")):
@@ -586,7 +512,6 @@ def fmt(v):
 
 
 def resolve_currency(companies):
-	"""Shared default currency of the selected companies (None if they differ)."""
 	currencies = {frappe.get_cached_value("Company", c, "default_currency") for c in companies}
 	if len(currencies) != 1:
 		return None, ""
@@ -603,14 +528,10 @@ def kpi(label, value, status=None, kind="currency", compare=None):
 
 
 def bridge(start_label, start, steps, end_label, end):
-	"""Waterfall payload: first/last bars are totals, steps float between."""
 	bars = [{"label": start_label, "value": flt(start), "total": True}]
 	bars += [{"label": label, "value": flt(v)} for label, v in steps]
 	bars.append({"label": end_label, "value": flt(end), "total": True})
 	return bars
-
-
-# ------------------------------------------------------------------- page 1
 
 
 def executive_summary(data, ctx):
@@ -686,9 +607,6 @@ def cash_bridge(cf):
 	)
 
 
-# ------------------------------------------------------------------- page 2
-
-
 def ytd_review(data, ctx):
 	cy = data.statement(ctx.ytd)
 	py = data.statement(ctx.py(ctx.ytd))
@@ -713,9 +631,6 @@ def ytd_review(data, ctx):
 			}
 		)
 	return {"charts": charts, "brief": brief}
-
-
-# ------------------------------------------------------------------- page 3
 
 
 def variance_analysis(data, ctx, dimension, metric):
@@ -754,9 +669,6 @@ def variance_analysis(data, ctx, dimension, metric):
 		"rows": rows,
 	}
 
-
-# ------------------------------------------------------------------- page 4
-
 MATRIX_ROWS = [
 	("revenue", _("Revenue"), False),
 	("direct", _("Direct Costs"), False),
@@ -791,7 +703,6 @@ def income_statement_matrix(data, ctx):
 		for g in groups:
 			a, p = g["actual"][field], g["py"][field]
 			b = g["budget"][field] if g["budget"] else None
-			# For costs a positive variance is unfavourable; favourable flag drives colour
 			fav = (lambda d: d <= 0) if field in COST_ROWS else (lambda d: d >= 0)
 			row[g["key"]] = {
 				"actual": a,
@@ -804,9 +715,6 @@ def income_statement_matrix(data, ctx):
 			}
 		rows.append(row)
 	return {"groups": [{k: g[k] for k in ("key", "label", "period")} for g in groups], "rows": rows}
-
-
-# ------------------------------------------------------------------- page 5
 
 
 def bs_ratios(bs):
@@ -855,9 +763,6 @@ def fmt_ratio(v):
 	return "—" if v is None else f"{v:,.2f}x"
 
 
-# ------------------------------------------------------------------- page 6
-
-
 def dupont(s, bs):
 	margin = ratio(s.net_profit, s.revenue)
 	turnover = ratio(s.revenue, bs["total_assets"])
@@ -902,9 +807,6 @@ def roe_analysis(data, ctx):
 	return {"blocks": blocks, "bridge": bars, "notes": notes}
 
 
-# ------------------------------------------------------------------- page 7
-
-
 def cash_flow_analysis(data, ctx):
 	cf = data.cash_flow(ctx.ytd)
 	py = data.cash_flow(ctx.py(ctx.ytd))
@@ -945,11 +847,7 @@ def cash_flow_analysis(data, ctx):
 	}
 
 
-# ------------------------------------------------------------------- page 8
-
-
 def liquidity_analysis(data, ctx):
-	# Trailing 12 calendar months ending To Date (last one clipped to it)
 	labels, dscr, opex_cov = [], [], []
 	for rng in month_windows(get_first_day(add_months(ctx.to_date, -11)), ctx.to_date):
 		cf = data.cash_flow(rng)
@@ -986,15 +884,11 @@ def liquidity_analysis(data, ctx):
 	]
 	return {"labels": labels, "dscr": dscr, "opex_coverage": opex_cov, "quarters": quarters, "notes": notes}
 
-
-# ---------------------------------------------------------------------- export
-
 STATUS_TEXT = {"on_track": "On Track", "watch": "Watchlist", "attention": "Attention", "info": "", "na": "n/a"}
 
 
 @frappe.whitelist()
 def export_dashboard(**filters):
-	"""The whole dashboard as an .xlsx: one sheet per section, same numbers."""
 	from io import BytesIO
 
 	from openpyxl import Workbook
@@ -1007,7 +901,6 @@ def export_dashboard(**filters):
 	wb.remove(wb.active)
 	head_fill = PatternFill("solid", fgColor="1F3864")
 	head_font = Font(bold=True, color="FFFFFF")
-	# Excel number format carrying the currency symbol, negatives in brackets
 	symbol = (meta["currency_symbol"] or "").replace('"', "")
 	money = f'"{symbol}"#,##0;("{symbol}"#,##0)' if symbol else "#,##0;(#,##0)"
 
@@ -1067,7 +960,6 @@ def export_dashboard(**filters):
 			ws.append([n])
 		ws.append([])
 
-	# 1 Executive
 	ex = d["executive"]
 	ws = sheet("1 Executive Summary", "Executive Summary for CFO")
 	kpis(ws, "Income Statement", ex["income_kpis"])
@@ -1078,7 +970,6 @@ def export_dashboard(**filters):
 	bridge_table(ws, "Cash Flow Bridge", ex["cash_bridge"])
 	notes(ws, ex["notes"])
 
-	# 2 YTD
 	ws = sheet("2 YTD Performance", "YTD Performance Review")
 	header(ws, ["Metric", "PY", "Actual", "Budget", "Status"])
 	for c in d["ytd"]["charts"]:
@@ -1088,7 +979,6 @@ def export_dashboard(**filters):
 	for b in d["ytd"]["brief"]:
 		ws.append([f"[{STATUS_TEXT.get(b['status'], '')}] {b['text']}"])
 
-	# 3 Variance
 	v = d["variance"]
 	ws = sheet("3 Variance & Drivers", f"Variance and Driver Analysis – {v['metric_label']} by {v['dimension']}")
 	kpis(ws, v["metric_label"], v["kpis"])
@@ -1098,7 +988,6 @@ def export_dashboard(**filters):
 	ws.append([])
 	bridge_table(ws, "Contribution Bridge (PY → CY)", v["bridge"])
 
-	# 4 Income statement matrix
 	m = d["income_statement"]
 	ws = sheet("4 Income Statement", "Income Statement Analysis (FTM vs Period vs Full Year)")
 	subs = (("actual", "Actual"), ("py", "PY"), ("vs_py", "vs PY"), ("budget", "Budget"), ("vs_budget", "vs Budget"))
@@ -1106,7 +995,6 @@ def export_dashboard(**filters):
 	for r in m["rows"]:
 		row(ws, [r["label"]] + [r[g["key"]][k] for g in m["groups"] for k, _l in subs], bold=r["bold"])
 
-	# 5 Balance sheet
 	b = d["balance_sheet"]
 	ws = sheet("5 Balance Sheet", "Detailed Balance Sheet Analysis")
 	kpis(ws, "Ratios", b["cards"])
@@ -1120,7 +1008,6 @@ def export_dashboard(**filters):
 	bridge_table(ws, "Balance Sheet Contribution (Opening → Closing Net Assets)", b["bridge"])
 	notes(ws, b["notes"])
 
-	# 6 ROE
 	r6 = d["roe"]
 	ws = sheet("6 Return on Equity", "Return on Equity Analysis (DuPont)")
 	header(ws, ["Component", "Current", "PY", "Status"])
@@ -1130,7 +1017,6 @@ def export_dashboard(**filters):
 	bridge_table(ws, "ROE Movement (percentage points)", r6["bridge"], fmt="0.00")
 	notes(ws, r6["notes"])
 
-	# 7 Cash flow
 	c7 = d["cash_flow"]
 	ws = sheet("7 Cash Flow", "Detailed Cash Flow Statement Analysis")
 	kpis(ws, "Cash Flow KPIs", c7["cards"])
@@ -1144,7 +1030,6 @@ def export_dashboard(**filters):
 	bridge_table(ws, "Cash Flow Movement", c7["bridge"])
 	notes(ws, c7["notes"])
 
-	# 8 Liquidity
 	lq = d["liquidity"]
 	ws = sheet("8 Liquidity", "Detailed Liquidity Analysis")
 	header(ws, ["Month", "DSCR", "OPEX Coverage"])

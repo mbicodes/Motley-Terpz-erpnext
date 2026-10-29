@@ -2,13 +2,7 @@ import frappe
 from frappe.utils import today, now, add_days, getdate
 
 
-# ---------------------------------------------------------------------------
-# Cancel restriction (Motley / Personal Cash Tracking)
-# ---------------------------------------------------------------------------
-
 def restrict_cancel(doc, method):
-    """before_cancel guard: block cancellation unless the current user is a
-    cash admin (Administrator / MBI). Authoritative regardless of role perms."""
     from cannabis_management.cash_management.permissions import is_cash_admin
     if not is_cash_admin(frappe.session.user):
         frappe.throw(
@@ -18,10 +12,6 @@ def restrict_cancel(doc, method):
             title="Cancellation Not Allowed",
         )
 
-
-# ---------------------------------------------------------------------------
-# before_save helpers
-# ---------------------------------------------------------------------------
 
 def auto_fill_month(doc, method):
     if doc.date:
@@ -46,12 +36,7 @@ def validate_receipt_required(doc, method):
         )
 
 
-# ---------------------------------------------------------------------------
-# Running balance (Cash Ledger Entry only)
-# ---------------------------------------------------------------------------
-
 def update_running_balance(doc, method):
-    """Compute and store the running balance for this person at this entry."""
     result = frappe.db.sql(
         """
         SELECT running_balance FROM `tabCash Ledger Entry`
@@ -70,16 +55,10 @@ def update_running_balance(doc, method):
 
 
 def reverse_running_balance(doc, method):
-    """On cancel, recompute running balance — recalculation covers it via ledger."""
     pass
 
 
-# ---------------------------------------------------------------------------
-# Cash Balance Ledger recalculation
-# ---------------------------------------------------------------------------
-
 def update_cash_balance_ledger(doc, method):
-    """Recalculate all aggregates for the person and update Cash Balance Ledger."""
     p = doc.cash_tracker_person
 
     cash_in = frappe.db.sql(
@@ -165,16 +144,10 @@ def update_cash_balance_ledger(doc, method):
 
 
 def update_expense_balance(doc, method):
-    """Thin wrapper — expense entries share the same ledger recalc."""
     update_cash_balance_ledger(doc, method)
 
 
-# ---------------------------------------------------------------------------
-# Real-time balance broadcast
-# ---------------------------------------------------------------------------
-
 def publish_realtime_balance(doc, method):
-    """Push updated balance to the submitting user's browser via Socket.IO."""
     person_doc = frappe.db.get_value(
         "Cash Tracker Person",
         doc.cash_tracker_person,
@@ -197,12 +170,7 @@ def publish_realtime_balance(doc, method):
     )
 
 
-# ---------------------------------------------------------------------------
-# IRS Form 8300 compliance
-# ---------------------------------------------------------------------------
-
 def check_form_8300_trigger(doc, method):
-    """Auto-flag Cash In entries >= $10,000 and alert Finance."""
     if doc.direction != "Cash In" or doc.amount < 10000:
         return
 
@@ -214,7 +182,6 @@ def check_form_8300_trigger(doc, method):
         filters={"role": "Finance Manager"},
         pluck="parent",
     )
-    # deduplicate and filter out system users without email
     recipients = list(
         {
             u
@@ -248,7 +215,6 @@ def check_form_8300_trigger(doc, method):
         """,
     )
 
-    # Create a high-priority ToDo with 15-day deadline
     frappe.get_doc(
         {
             "doctype": "ToDo",
@@ -266,12 +232,7 @@ def check_form_8300_trigger(doc, method):
     ).insert(ignore_permissions=True)
 
 
-# ---------------------------------------------------------------------------
-# Scheduled job: daily overdue Form 8300 check
-# ---------------------------------------------------------------------------
-
 def check_overdue_form_8300():
-    """Runs daily. Alerts Finance of any unfiled Form 8300 entries past 15 days."""
     overdue_entries = frappe.db.sql(
         """
         SELECT name, cash_tracker_person, entity, amount, date,
@@ -332,12 +293,7 @@ def check_overdue_form_8300():
     )
 
 
-# ---------------------------------------------------------------------------
-# Accounting entry creation (Finance-only whitelisted methods)
-# ---------------------------------------------------------------------------
-
 def _resolve_accounts(company, transaction_type):
-    """Return (cash_account, contra_account) from Cash Account Mapping."""
     mapping = frappe.db.get_value(
         "Cash Account Mapping",
         {"company": company, "transaction_type": transaction_type},
@@ -355,7 +311,6 @@ def _resolve_accounts(company, transaction_type):
 
 @frappe.whitelist()
 def create_journal_entry(doctype, docname):
-    """Create a Journal Entry from a submitted Cash Ledger Entry or Expense Tracker Entry."""
     _assert_finance_role()
     doc = frappe.get_doc(doctype, docname)
 
@@ -404,7 +359,6 @@ def create_journal_entry(doctype, docname):
 
 @frappe.whitelist()
 def create_payment_entry(doctype, docname):
-    """Create a Payment Entry from a submitted Cash Ledger Entry or Expense Tracker Entry."""
     _assert_finance_role()
     doc = frappe.get_doc(doctype, docname)
 
@@ -424,7 +378,6 @@ def create_payment_entry(doctype, docname):
     pe.remarks = f"{doc.transaction_type} — {doc.notes or ''}"
     pe.mode_of_payment = "Cash"
 
-    # Link to Employee for payroll entries
     if doc.transaction_type == "Payroll" and doc.employee:
         pe.party_type = "Employee"
         pe.party = doc.employee
@@ -439,7 +392,6 @@ def create_payment_entry(doctype, docname):
 
 
 def _assert_finance_role():
-    """Raise PermissionError if current user lacks Finance Manager or Accounts Manager role."""
     allowed_roles = {"Finance Manager", "Accounts Manager", "System Manager"}
     user_roles = set(frappe.get_roles(frappe.session.user))
     if not allowed_roles.intersection(user_roles):

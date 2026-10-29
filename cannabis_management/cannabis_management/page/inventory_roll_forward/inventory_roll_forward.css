@@ -29,7 +29,6 @@
 .irf-table .irf-q { border-left: 1px solid var(--border-color); }
 .irf-table .irf-year { background: var(--subtle-fg); }
 
-/* Row labels stay in view while the months scroll */
 .irf-table .irf-sign, .irf-table .irf-label { position: sticky; background: var(--card-bg); z-index: 1; }
 .irf-table .irf-sign { left: 0; width: 44px; min-width: 44px; font-size: 11px; color: var(--text-muted); text-transform: lowercase; }
 .irf-table .irf-label { left: 44px; min-width: 170px; border-right: 1px solid var(--border-color); }

@@ -3,10 +3,6 @@ from frappe.utils import today, add_days
 
 
 def send_payment_schedule_reminders():
-    """
-    Runs daily. Sends email to the SO creator 14 days and 7 days before each
-    payment_schedule due_date on submitted Payment Terms Sales Orders.
-    """
     for days_ahead in (14, 7):
         target_date = add_days(today(), days_ahead)
         _send_reminders_for_date(target_date, days_ahead)

@@ -16,12 +16,10 @@ frappe.pages['live-production-monitor'].on_page_load = function (wrapper) {
 	var tickTimer = null;
 	var woControl, jcControl;
 
-	// ── Filter defaults ─────────────────────────────────────────────────────
 	root.querySelector('#lpm-from-date').value = frappe.datetime.add_days(frappe.datetime.get_today(), -7);
 	root.querySelector('#lpm-to-date').value = frappe.datetime.get_today();
 	root.querySelector('#lpm-last-refresh').textContent = 'Last refresh: —';
 
-	// ── Link-type filters (searchable, outside a form) ──────────────────────
 	woControl = frappe.ui.form.make_control({
 		parent: root.querySelector('#lpm-wo-filter'),
 		df: { fieldtype: 'Link', options: 'Work Order', fieldname: 'work_order', placeholder: __('Work Order') },
@@ -38,7 +36,6 @@ frappe.pages['live-production-monitor'].on_page_load = function (wrapper) {
 	jcControl.refresh();
 	jcControl.$input.on('change awesomplete-selectcomplete', loadData);
 
-	// ── Static filter wiring ──────────────────────────────────────────────
 	['#lpm-from-date', '#lpm-to-date', '#lpm-status', '#lpm-company', '#lpm-workstation', '#lpm-operation']
 		.forEach(function (sel) {
 			root.querySelector(sel).addEventListener('change', loadData);
@@ -52,7 +49,6 @@ frappe.pages['live-production-monitor'].on_page_load = function (wrapper) {
 		if (autoRefresh) startAutoRefresh(); else stopAutoRefresh();
 	});
 
-	// ── Complete / View actions (event delegation on the grid) ─────────────
 	root.querySelector('#lpm-grid').addEventListener('click', function (e) {
 		var btn = e.target.closest('.lpm-complete-btn');
 		if (!btn || btn.disabled) return;
@@ -68,7 +64,6 @@ frappe.pages['live-production-monitor'].on_page_load = function (wrapper) {
 
 	loadData();
 
-	// ── Helpers ──────────────────────────────────────────────────────────────
 	function startAutoRefresh() {
 		stopAutoRefresh();
 		refreshTimer = setInterval(loadData, AUTO_REFRESH_MS);
@@ -138,7 +133,6 @@ frappe.pages['live-production-monitor'].on_page_load = function (wrapper) {
 		if (values && values.indexOf(current) !== -1) select.value = current;
 	}
 
-	// ── KPIs ──────────────────────────────────────────────────────────────
 	function renderKPIs(k) {
 		if (!k) return;
 		root.querySelector('#lpm-kv-active').textContent = k.total_active;
@@ -149,7 +143,6 @@ frappe.pages['live-production-monitor'].on_page_load = function (wrapper) {
 		root.querySelector('#lpm-kv-jc').textContent = k.total_job_card;
 	}
 
-	// ── Job Card grid ────────────────────────────────────────────────────
 	var STATUS_CLASS = {
 		'Open': 'grey',
 		'Work In Progress': 'yellow',
@@ -243,7 +236,6 @@ frappe.pages['live-production-monitor'].on_page_load = function (wrapper) {
 		return h > 0 ? (h + 'h ' + rem + 'm') : (rem + ' min');
 	}
 
-	// ── Live ticking (independent of the 24s data refresh) ──────────────────
 	function tick() {
 		var now = new Date();
 		root.querySelectorAll('.lpm-elapsed[data-status="Work In Progress"]').forEach(function (el) {
@@ -268,7 +260,6 @@ frappe.pages['live-production-monitor'].on_page_load = function (wrapper) {
 		return pad(h) + ':' + pad(m) + ':' + pad(s);
 	}
 
-	// ── Complete Job Card (reuses ERPNext's own whitelisted endpoint) ───────
 	function completeJobCard(name, forQty, completedQty) {
 		frappe.prompt(
 			[{ fieldname: 'qty', fieldtype: 'Float', label: __('Completed Qty'), default: flt(forQty) - flt(completedQty), reqd: 1 }],
@@ -292,7 +283,6 @@ frappe.pages['live-production-monitor'].on_page_load = function (wrapper) {
 		);
 	}
 
-	// ── HTML shell ────────────────────────────────────────────────────────
 	function getLpmHTML() {
 		return `
 <div class="lpm-dash">

@@ -4,7 +4,6 @@ from frappe.utils import today
 
 
 class CashLedgerEntry(Document):
-
     def before_save(self):
         self._auto_fill_month()
         self._auto_fill_employee()

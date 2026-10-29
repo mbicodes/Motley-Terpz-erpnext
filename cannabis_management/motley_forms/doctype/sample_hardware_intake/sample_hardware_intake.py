@@ -1,18 +1,8 @@
-# Copyright (c) 2026, alltechvirtual.com and contributors
-# For license information, please see license.txt
-"""Sample Hardware Intake — the paper SOP form, filled in once on the web.
-
-The notification is sent from after_insert on this class rather than from a
-doc_events entry in hooks.py, deliberately: it keeps the form entirely
-self-contained, so it can be deployed without touching a shared file.
-"""
-
 import frappe
 from frappe import _
 from frappe.model.document import Document
 from frappe.utils import flt
 
-# Everyone who needs to see an intake the moment it is filed.
 NOTIFY = [
 	"nikki@motleyterpz.com",
 	"tori@motleyterpz.com",
@@ -20,15 +10,12 @@ NOTIFY = [
 	"leo@motleyterpz.com",
 ]
 
-# Free samples are capped at this; anything larger is management's call.
 FREE_SAMPLE_LIMIT_G = 5.0
 
 
 class SampleHardwareIntake(Document):
 	def validate(self):
 		self.total_grams = flt(self.units_of_hardware) * flt(self.size_per_unit_g)
-		# Recomputed on every save, so editing the order re-evaluates the gate
-		# instead of leaving a stale flag behind.
 		self.needs_approval = 1 if self.total_grams > FREE_SAMPLE_LIMIT_G else 0
 
 		if not self.needs_approval and not self.approval_status:
@@ -60,7 +47,6 @@ class SampleHardwareIntake(Document):
 				reference_name=self.name,
 			)
 		except Exception:
-			# A failed notification must never lose the submission itself.
 			frappe.log_error(
 				f"Sample Hardware Intake {self.name}: notification failed",
 				"Sample Hardware Intake",

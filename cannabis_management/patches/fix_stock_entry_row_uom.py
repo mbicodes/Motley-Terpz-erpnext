@@ -3,13 +3,6 @@ from frappe.utils import flt
 
 
 def execute():
-    """
-    Repair draft Stock Entry rows whose UOM no longer matches the Item's
-    stock UOM (items were created with 'Nos' and corrected later, but
-    existing rows kept the stale UOM). Only draft entries are touched;
-    submitted entries already posted their ledgers in the stock UOM.
-    Rows with a real UOM conversion (factor != 1) are left alone.
-    """
     rows = frappe.db.sql(
         """
         SELECT sed.name, sed.qty, i.stock_uom

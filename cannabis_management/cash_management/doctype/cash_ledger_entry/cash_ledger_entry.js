@@ -1,6 +1,5 @@
 frappe.ui.form.on("Cash Ledger Entry", {
     refresh(frm) {
-        // Auto-fill person from session user on new doc
         if (frm.is_new()) {
             frappe.db.get_value(
                 "Cash Tracker Person",
@@ -20,7 +19,6 @@ frappe.ui.form.on("Cash Ledger Entry", {
         const has_finance = frappe.user_roles.some(r => finance_roles.includes(r));
 
         if (frm.doc.docstatus === 1 && has_finance) {
-            // ── Create Payment Entry ──────────────────────────────────────────
             frm.add_custom_button(__("Create Payment Entry"), () => {
                 const doc = frm.doc;
                 const is_inflow = doc.direction === "Cash In";
@@ -31,9 +29,6 @@ frappe.ui.form.on("Cash Ledger Entry", {
                     + (doc.notes ? " — " + doc.notes : "")
                     + (employee ? " | Employee: " + employee : "");
 
-                // Only pre-fill stable fields — mode_of_payment / amounts / party_type
-                // are set after the form loads to avoid ERPNext clearing the party field
-                // and collapsing child-table sections.
                 frappe.route_options = {
                     payment_type:   is_inflow ? "Receive" : "Pay",
                     posting_date:   doc.date,
@@ -43,8 +38,6 @@ frappe.ui.form.on("Cash Ledger Entry", {
                     remarks:        remarks,
                 };
 
-                // Stash post-load values in a flag (no global-state race possible since
-                // Frappe navigates synchronously before the next user action).
                 window._cle_pe_pending = {
                     mode_of_payment:  "Cash",
                     paid_amount:      doc.amount,
@@ -55,8 +48,6 @@ frappe.ui.form.on("Cash Ledger Entry", {
 
                 frappe.new_doc("Payment Entry");
 
-                // Apply party + amounts after the PE form has finished loading.
-                // frappe.after_ajax fires after the next async cycle (form render).
                 frappe.after_ajax(function() {
                     const pending = window._cle_pe_pending;
                     if (!pending || !cur_frm || cur_frm.doctype !== "Payment Entry" || !cur_frm.is_new()) return;
@@ -66,8 +57,6 @@ frappe.ui.form.on("Cash Ledger Entry", {
 
                     if (pending.party_type) {
                         cur_frm.set_value("party_type", pending.party_type);
-                        // Wait for party_type's change event (which clears party) to settle,
-                        // then set party and amounts.
                         setTimeout(function() {
                             if (pending.party) cur_frm.set_value("party", pending.party);
                             cur_frm.set_value("paid_amount",     pending.paid_amount);
@@ -81,7 +70,6 @@ frappe.ui.form.on("Cash Ledger Entry", {
 
             }, __("Accounting"));
 
-            // ── Create Journal Entry ──────────────────────────────────────────
             frm.add_custom_button(__("Create Journal Entry"), () => {
                 const doc = frm.doc;
 
@@ -96,7 +84,6 @@ frappe.ui.form.on("Cash Ledger Entry", {
                 frappe.new_doc("Journal Entry");
             }, __("Accounting"));
 
-            // ── Link existing PE/JE ───────────────────────────────────────────
             if (!frm.doc.payment_entry && !frm.doc.journal_entry) {
                 frm.add_custom_button(__("Link Payment / Journal Entry"), () => {
                     const d = new frappe.ui.Dialog({
@@ -136,7 +123,6 @@ frappe.ui.form.on("Cash Ledger Entry", {
             }
         }
 
-        // Real-time balance listener
         frappe.realtime.on("cash_balance_update", (data) => {
             if (data.person === frm.doc.cash_tracker_person) {
                 frappe.show_alert({
@@ -146,7 +132,6 @@ frappe.ui.form.on("Cash Ledger Entry", {
             }
         });
 
-        // Form 8300 warning banner
         if (frm.doc.form_8300_required && !frm.doc.form_8300_filed) {
             frm.dashboard.add_comment(
                 "⚠️  IRS Form 8300 required for this transaction. Please file within 15 days of the transaction date.",

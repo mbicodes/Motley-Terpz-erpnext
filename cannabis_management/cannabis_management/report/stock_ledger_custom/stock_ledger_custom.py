@@ -1,7 +1,3 @@
-# Copyright (c) 2015, Frappe Technologies Pvt. Ltd. and Contributors
-# License: GNU General Public License v3. See license.txt
-
-
 import copy
 from collections import defaultdict
 
@@ -412,10 +408,6 @@ def get_stock_ledger_entries(filters, items):
 	for field in ["voucher_no", "project", "company"]:
 		if filters.get(field) and field not in inventory_dimension_fields:
 			value = filters.get(field)
-			# Voucher # is a multi-select, so it arrives as a list and has to match
-			# any of the chosen vouchers. Comparing a list with == silently returns
-			# nothing. The other two are still single-value, hence the isinstance
-			# check rather than an unconditional isin().
 			if isinstance(value, (list, tuple, set)):
 				query = query.where(sle[field].isin(list(value)))
 			else:
@@ -518,7 +510,6 @@ def get_item_details(items, sl_entries, include_uom):
 	return item_details
 
 
-# TODO: THIS IS NOT USED
 def get_sle_conditions(filters):
 	conditions = []
 	if filters.get("warehouse"):
@@ -625,7 +616,6 @@ def get_opening_balance(filters, columns, sl_entries):
 		}
 	)
 
-	# check if any SLEs are actually Opening Stock Reconciliation
 	for sle in list(sl_entries):
 		if (
 			sle.get("voucher_type") == "Stock Reconciliation"

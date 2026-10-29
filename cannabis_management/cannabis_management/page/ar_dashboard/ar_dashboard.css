@@ -1,12 +1,6 @@
-/* ============================================================
-   Accounts Receivable Dashboard — ar_dashboard.css
-   ============================================================ */
-
-/* ── Palette ───────────────────────────_───────────────────── */
 :root {
 	--ard-font: "Inter", "Helvetica Neue", Arial, sans-serif;
 
-	/* Status colours */
 	--ard-current:    #16a34a;
 	--ard-current-lt: #dcfce7;
 	--ard-current-bg: #f0fdf4;
@@ -19,12 +13,10 @@
 	--ard-60-lt:      #ffedd5;
 	--ard-60-bg:      #fff7ed;
 
-
 	--ard-90:         #dc2626;
 	--ard-90-lt:      #fee2e2;
 	--ard-90-bg:      #fef2f2;
 
-	/* UI */
 	--ard-primary:    #3b82f6;
 	--ard-primary-dk: #1d4ed8;
 	--ard-border:     #e5e7eb;
@@ -38,7 +30,6 @@
 	--ard-radius-sm:  6px;
 }
 
-/* ── Wrapper ───────────────────────────────────────────────── */
 .ard-container {
 	font-family: var(--ard-font);
 	color: var(--ard-text);
@@ -47,7 +38,6 @@
 	margin: 0 auto;
 }
 
-/* ── Page Header ───────────────────────────────────────────── */
 .ard-header {
 	display: flex;
 	align-items: flex-start;
@@ -55,7 +45,6 @@
 	margin-bottom: 20px;
 }
 
-/* ── Reconciliation Badge ─────────────────────────────────── */
 .ard-recon-badge {
 	display: inline-block;
 	padding: 2px 9px;
@@ -76,7 +65,6 @@
 	color: var(--ard-90);
 }
 
-/* ── Inline Recon Dropdown (in table) ─────────────────────── */
 .ard-th-recon {
 	min-width: 130px;
 }
@@ -91,7 +79,7 @@
 	width: 100%;
 	min-width: 110px;
 	height: 28px;
-	padding: 0 26px 0 8px;            /* room on the right for the custom caret */
+	padding: 0 26px 0 8px;
 	border: 1px solid var(--ard-border);
 	border-radius: 6px;
 	font-size: 11px;
@@ -102,9 +90,6 @@
 	color: var(--ard-muted);
 	transition: background-color .15s, color .15s, border-color .15s;
 	outline: none;
-	/* appearance:none is required for the status background-color to actually
-	   render on a native <select>'s closed control across browsers — without it
-	   the colour coding is silently ignored. Re-add a custom caret afterwards. */
 	-webkit-appearance: none;
 	-moz-appearance: none;
 	appearance: none;
@@ -121,7 +106,6 @@
 	cursor: wait;
 }
 
-/* ── Read-only Recon Badge (non-Account-Manager users) ────── */
 .ard-recon-readonly {
 	display: inline-block;
 	padding: 4px 12px;
@@ -193,7 +177,6 @@
 	padding: 3px 12px;
 }
 
-/* ── Filter Bar ────────────────────────────────────────────── */
 .ard-filter-bar {
 	display: flex;
 	flex-wrap: wrap;
@@ -299,7 +282,6 @@
 	color: #fff;
 }
 
-/* ── All Entities (consolidated — Entity column) ───────────── */
 .ard-th-entity {
 	white-space: nowrap;
 }
@@ -310,7 +292,6 @@
 	white-space: nowrap;
 }
 
-/* ── Loading ───────────────────────────────────────────────── */
 .ard-loading {
 	text-align: center;
 	padding: 60px 20px;
@@ -327,7 +308,6 @@
 }
 @keyframes ard-spin { to { transform: rotate(360deg); } }
 
-/* ── Empty State ───────────────────────────────────────────── */
 .ard-empty-state {
 	text-align: center;
 	padding: 60px 20px;
@@ -340,7 +320,6 @@
 	opacity: .4;
 }
 
-/* ── Summary Cards ─────────────────────────────────────────── */
 .ard-summary-row {
 	display: flex;
 	flex-wrap: wrap;
@@ -370,7 +349,6 @@
 .ard-card-paid::before        { background: var(--ard-current); }
 .ard-card-overdue::before     { background: #f59e0b; }
 
-/* % of AR Overdue card: amber by default, escalating to red as the share climbs */
 .ard-card-overdue .ard-card-value { color: #d97706; }
 .ard-card-overdue.ard-overdue-mid::before  { background: #ea580c; }
 .ard-card-overdue.ard-overdue-mid  .ard-card-value { color: #ea580c; }
@@ -398,7 +376,6 @@
 	letter-spacing: -.5px;
 }
 
-/* Range cards use status accent */
 .ard-card-range.bar-current { border-top: 3px solid var(--ard-current); }
 .ard-card-range.bar-30      { border-top: 3px solid var(--ard-30); }
 .ard-card-range.bar-60      { border-top: 3px solid var(--ard-60); }
@@ -413,7 +390,6 @@
 .ard-card-range.bar-60      .ard-card-value { color: var(--ard-60); }
 .ard-card-range.bar-90      .ard-card-value { color: var(--ard-90); }
 
-/* ── 4-Week Projection (upcoming due) ──────────────────────── */
 .ard-proj-wrap {
 	margin-bottom: 20px;
 	padding: 16px 18px;
@@ -476,7 +452,6 @@
 	margin-top: 4px;
 }
 
-/* Urgency colours: red = act now (≤7 days) … green = time left (22–30 days) */
 .ard-proj-red    { border-left-color: var(--ard-90);      background: var(--ard-90-bg); }
 .ard-proj-orange { border-left-color: var(--ard-60);      background: var(--ard-60-bg); }
 .ard-proj-yellow { border-left-color: var(--ard-30);      background: var(--ard-30-bg); }
@@ -487,20 +462,16 @@
 .ard-proj-yellow .ard-proj-value { color: var(--ard-30); }
 .ard-proj-green  .ard-proj-value { color: var(--ard-current); }
 
-/* Dim a bucket with nothing coming due */
 .ard-proj-card.ard-proj-empty {
 	background: var(--ard-surface);
 	opacity: .55;
 }
 .ard-proj-card.ard-proj-empty .ard-proj-value { color: var(--ard-muted); }
 
-/* ── New AR: extra "AR on terms" columns (shown only in New AR mode) ── */
-/* On-terms buckets: traffic-light green → yellow → orange (NOT red, to stay distinct from overdue reds) */
-.ard-good-green  { color: #16a34a; }   /* 0-10  — green  */
-.ard-good-yellow { color: #ca8a04; }   /* 10-20 — amber  */
-.ard-good-red    { color: #ea580c; }   /* 20-30 — orange (NOT red, avoids clash with overdue rose/red) */
+.ard-good-green  { color: #16a34a; }
+.ard-good-yellow { color: #ca8a04; }
+.ard-good-red    { color: #ea580c; }
 
-/* Total columns */
 .ard-na-total .ard-card-value,
 .ard-na-total  { font-weight: 700; }
 .ard-na-new    { color: var(--ard-primary-dk); font-weight: 600; }
@@ -508,16 +479,14 @@
 .ard-na-good   { color: var(--ard-current); }
 .ard-na-bad    { color: var(--ard-90); }
 
-/* Column-header tints */
 .ard-table th.ard-na-new      { background: #eff6ff; }
 .ard-table th.ard-na-legacy   { background: #f3f4f6; }
 .ard-table th.ard-na-good     { background: var(--ard-current-bg); }
 .ard-table th.ard-na-bad      { background: var(--ard-90-bg); }
-.ard-table th.ard-good-green  { background: #f0fdf4; }   /* green  */
-.ard-table th.ard-good-yellow { background: #fefce8; }   /* yellow */
-.ard-table th.ard-good-red    { background: #fff7ed; }   /* orange */
+.ard-table th.ard-good-green  { background: #f0fdf4; }
+.ard-table th.ard-good-yellow { background: #fefce8; }
+.ard-table th.ard-good-red    { background: #fff7ed; }
 
-/* Fill whole on-terms columns consistently */
 .ard-table td.ard-good-green,
 .ard-table th.ard-good-green  { background-color: #f0fdf4 !important; }
 .ard-table td.ard-good-yellow,
@@ -525,7 +494,6 @@
 .ard-table td.ard-good-red,
 .ard-table th.ard-good-red    { background-color: #fff7ed !important; }
 
-/* In New AR mode the overdue aging columns use escalating red shades (lightest → darkest) */
 .ard-newar-table th.ard-th-range.bar-current { color: #be123c; background: #fff1f2; }
 .ard-newar-table th.ard-th-range.bar-30      { color: #b91c1c; background: #fee2e2; }
 .ard-newar-table th.ard-th-range.bar-60      { color: #991b1b; background: #fecaca; }
@@ -547,7 +515,6 @@
 	background: #fff1f2;
 }
 
-/* ── Aging Distribution Bar ────────────────────────────────── */
 .ard-aging-bar-wrap {
 	background: var(--ard-surface);
 	border: 1px solid var(--ard-border);
@@ -616,7 +583,6 @@
 	color: var(--ard-muted);
 }
 
-/* ── Table ─────────────────────────────────────────────────── */
 .ard-table-wrap {
 	background: var(--ard-surface);
 	border: 1px solid var(--ard-border);
@@ -657,7 +623,6 @@
 }
 .ard-table th.ard-th-num { text-align: right; }
 
-/* Aging bucket column headers */
 .ard-th-range {
 	text-align: right;
 	line-height: 1.3;
@@ -670,8 +635,6 @@
 
 .ard-th-status { text-align: center; }
 
-/* Sticky first column — explicit bg required; "inherit" is transparent and lets
-   scrolled content bleed through */
 .ard-th-sticky,
 .ard-td-sticky {
 	position: sticky;
@@ -685,7 +648,6 @@
 	z-index: 3;
 }
 
-/* ── Excel-style grid: column letters (A,B,C…) + row numbers (1,2,3…) ── */
 .ard-grid-col,
 .ard-grid-corner {
 	background-color: #e2e8f0 !important;
@@ -697,16 +659,13 @@
 	line-height: 18px;
 	height: 22px;
 }
-/* letter strip pinned to the very top on vertical scroll */
 .ard-has-grid thead .ard-grid-colrow th {
 	top: 0;
 	z-index: 6;
 }
-/* the real header labels sit just below the 22px letter strip */
 .ard-has-grid thead tr:not(.ard-grid-colrow) th {
 	top: 22px;
 }
-/* row-number column: sticky to the far left */
 .ard-grid-rownum {
 	position: sticky;
 	left: 0;
@@ -730,13 +689,11 @@
 	left: 0;
 	z-index: 8;
 }
-/* shift the existing sticky Customer column to the right of the row-number column */
 .ard-has-grid .ard-th-sticky,
 .ard-has-grid .ard-td-sticky {
 	left: 38px;
 }
 
-/* Body rows */
 .ard-table tbody tr {
 	border-bottom: 1px solid var(--ard-border);
 	transition: background .1s;
@@ -744,7 +701,6 @@
 .ard-table tbody tr:hover                { background: #f8fafc; }
 .ard-table tbody tr:hover .ard-td-sticky { background-color: #f8fafc; }
 
-/* Customer group header row */
 .ard-customer-group-row td {
 	background-color: #f1f5f9;
 	font-weight: 700;
@@ -774,7 +730,6 @@
 .ard-expand-btn:hover      { color: var(--ard-primary); }
 .ard-expand-btn.ard-expanded { color: var(--ard-text); }
 
-/* Per-customer "copy summary" button */
 .ard-copy-btn {
 	background: none;
 	border: none;
@@ -827,7 +782,6 @@
 .ard-num   { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ard-outstanding { font-weight: 700; }
 
-/* Aging bucket cells */
 .ard-range-cell {
 	text-align: right;
 	font-variant-numeric: tabular-nums;
@@ -842,7 +796,6 @@
 .ard-range-cell.bar-60      { color: var(--ard-60);      background: var(--ard-60-bg); }
 .ard-range-cell.bar-90      { color: var(--ard-90);      background: var(--ard-90-bg); }
 
-/* Status badge */
 .ard-badge {
 	display: inline-block;
 	padding: 3px 10px;
@@ -858,25 +811,21 @@
 .badge-60      { background: var(--ard-60-lt);      color: var(--ard-60); }
 .badge-90      { background: var(--ard-90-lt);      color: var(--ard-90); }
 .badge-paid    { background: #dcfce7; color: #15803d; }
-/* Paid-off invoices in a client's dropdown: listed for reference, so muted */
 .ard-paid-row td { color: var(--ard-muted); }
 .ard-paid-row .ard-outstanding { color: var(--ard-muted); }
 
-/* Totals footer row */
 .ard-totals-row {
 	background: #f1f5f9;
 	border-top: 2px solid var(--ard-border);
 	font-weight: 700;
 }
 .ard-totals-row .ard-td-sticky { background-color: #f1f5f9; }
-/* Totals row mirrored at the top of the table (above the column headings) */
 .ard-top-totals { border-top: none; border-bottom: 2px solid var(--ard-border); }
 .ard-total-cell {
 	font-size: 13px;
 	color: var(--ard-text);
 }
 
-/* ── AR Mode Toggle ────────────────────────────────────────── */
 .ard-mode-toggle {
 	display: flex;
 	border: 1.5px solid var(--ard-border);
@@ -910,7 +859,6 @@
 	color: var(--ard-primary);
 }
 
-/* ── AR Mode chip (on summary card) ───────────────────────── */
 .ard-mode-chip {
 	display: inline-block;
 	padding: 1px 7px;
@@ -931,7 +879,6 @@
 	color: #1e40af;
 }
 
-/* ── Responsive ────────────────────────────────────────────── */
 @media (max-width: 900px) {
 	.ard-summary-row   { gap: 10px; }
 	.ard-card          { flex: 1 1 130px; padding: 12px 14px; }
@@ -945,7 +892,6 @@
 	.ard-btn-primary   { width: 100%; }
 }
 
-/* ── Extended reconciliation status colours ────────────────── */
 .ard-recon-trouble {
 	background: #fef3c7;
 	color: #92400e;
@@ -980,9 +926,6 @@
 	border-color: #3b82f6;
 }
 
-/* Statuses added since the original five (AR Recon Status records). Neutral by
-   default so a new one looks deliberate rather than unstyled; if its record
-   sets a Colour, an inline style overrides this. */
 .ard-recon-select.ard-recon-custom,
 .ard-recon-readonly.ard-recon-custom {
 	background-color: #f1f5f9;
@@ -990,7 +933,6 @@
 	border-color: #94a3b8;
 }
 
-/* ── Export dropdown ──────────────────────────────────────────── */
 .ard-export-dd {
 	position: relative;
 	display: inline-block;
@@ -1029,7 +971,6 @@
 	background: #eff6ff;
 }
 
-/* ── Yes/No columns (Onboarding, Company Made Contact) ────────── */
 .ard-th-flag {
 	min-width: 90px;
 	text-align: center;
@@ -1059,7 +1000,6 @@
 	color: var(--ard-muted);
 }
 
-/* ── New AR Available button ──────────────────────────────────── */
 .ard-th-new-ar {
 	min-width: 80px;
 	text-align: center;
@@ -1091,19 +1031,12 @@
 	border-color: var(--ard-current);
 }
 
-/* ── Detail column hide/show ─────────────────────────────────────────── */
-/* When ard-detail-hidden is on the data area, hide all D-K columns      */
-/* (ard-detail-col cells) and their matching letter strip cells.          */
 .ard-detail-hidden .ard-detail-col,
 .ard-detail-hidden .ard-detail-letter { display: none; }
 
-/* Invoice count in sticky cell: hidden by default, shown when compact   */
 .ard-invoice-count-compact { display: none; }
 .ard-detail-hidden .ard-invoice-count-compact { display: block; }
 
-/* ═══════════════════════════════════════════════════════════════════════
-   Spreadsheet skin — matches the AR recon Google Sheet
-   ═══════════════════════════════════════════════════════════════════════ */
 .ard-sheet .ard-invoice-count-compact { display: block; }
 
 .ard-sheet .ard-table {
@@ -1116,7 +1049,6 @@
 	border: 1px solid #d9d9d9;
 }
 
-/* Header rows: white sheet look, bold black labels, no uppercase */
 .ard-sheet .ard-table thead tr { background: #fff; border-bottom: none; }
 .ard-sheet .ard-table thead th { background-color: #fff; }
 .ard-sheet .ard-head-row th {
@@ -1133,7 +1065,6 @@
 .ard-sheet .ard-head-row th.ard-th-sticky { min-width: 230px; }
 .ard-sheet .ard-head-row th.ard-th-recon { min-width: 150px; }
 
-/* Column-specific header tints (sheet colors) */
 .ard-sheet .ard-head-row th.ard-col-legacy   { background-color: #fff8e1; color: #92400e; }
 .ard-sheet .ard-head-row th.ard-na-new       { background-color: #fff; color: #202124; }
 .ard-sheet .ard-head-row th.ard-na-total     { background-color: #fff; color: #202124; }
@@ -1143,10 +1074,6 @@
 .ard-sheet .ard-head-row th.ard-term-amber   { background-color: #fff8e1; color: #b45309; }
 .ard-sheet .ard-head-row th.ard-term-green   { background-color: #d9ead3; color: #38761d; }
 
-/* New AR mode only: every on-terms bucket reads green. An invoice still inside
-   its terms is in good standing whether 2 or 28 days remain, so the traffic
-   light was flagging healthy balances as a problem. Legacy + New keeps the
-   graded shading above, where the contrast against overdue columns matters. */
 .ard-sheet.ard-mode-new .ard-head-row th.ard-term-red,
 .ard-sheet.ard-mode-new .ard-head-row th.ard-term-amber,
 .ard-sheet.ard-mode-new .ard-head-row th.ard-term-green {
@@ -1154,14 +1081,12 @@
 	color: #38761d;
 }
 
-/* Overdue headers: graduated pinks, red labels */
 .ard-sheet .ard-head-row th.ard-th-range.bar-current { color: #cc0000; background: #fdf0ef; }
 .ard-sheet .ard-head-row th.ard-th-range.bar-30      { color: #cc0000; background: #fbe3e1; }
 .ard-sheet .ard-head-row th.ard-th-range.bar-60      { color: #b80000; background: #f8d4d1; }
 .ard-sheet .ard-head-row th.ard-th-range.bar-90      { color: #a60000; background: #f5c4c0; }
 .ard-sheet .ard-head-row th.ard-th-range.bar-120     { color: #940000; background: #f1b3ae; }
 
-/* Group band row (row 3 in the sheet) */
 .ard-sheet .ard-band-row th {
 	position: static;
 	padding: 4px 8px;
@@ -1176,7 +1101,6 @@
 .ard-sheet .ard-band-terms   { background-color: #fff2cc !important; color: #bf8f00; }
 .ard-sheet .ard-band-overdue { background-color: #f4cccc !important; color: #cc0000; }
 
-/* TOTALS row pinned at the top of the sheet */
 .ard-sheet .ard-top-totals td {
 	background-color: #f8f9fa;
 	font-weight: 700;
@@ -1187,7 +1111,6 @@
 }
 .ard-sheet .ard-top-totals .ard-td-sticky { background-color: #f8f9fa; }
 
-/* Body: white rows like the sheet (group rows carry the customer totals) */
 .ard-sheet .ard-customer-group-row td {
 	background-color: #fff;
 	border-top: 1px solid #d9d9d9;
@@ -1198,19 +1121,16 @@
 .ard-sheet .ard-customer-group-row:hover td             { background-color: #f5f8ff; }
 .ard-sheet .ard-customer-group-row:hover .ard-td-sticky { background-color: #f5f8ff; }
 
-/* Legacy AR column: light amber fill, amber values (sheet column H) */
 .ard-sheet td.ard-col-legacy {
 	background-color: #fff8e1 !important;
 	color: #b45309;
 	font-weight: 700;
 }
 
-/* On-terms columns: pink / cream / green fills */
 .ard-sheet td.ard-term-red   { background-color: #fce8e6 !important; color: #cc0000; font-weight: 600; }
 .ard-sheet td.ard-term-amber { background-color: #fff8e1 !important; color: #92400e; font-weight: 600; }
 .ard-sheet td.ard-term-green { background-color: #d9ead3 !important; color: #38761d; font-weight: 600; }
 
-/* New AR mode only — see the header rule above. */
 .ard-sheet.ard-mode-new td.ard-term-red,
 .ard-sheet.ard-mode-new td.ard-term-amber,
 .ard-sheet.ard-mode-new td.ard-term-green {
@@ -1219,11 +1139,9 @@
 	font-weight: 600;
 }
 
-/* Good / Bad standing value colors */
 .ard-sheet td.ard-na-good { color: #38761d; }
 .ard-sheet td.ard-na-bad  { color: #cc0000; }
 
-/* Overdue cells: graduated pinks with red values (lightest → darkest) */
 .ard-sheet .ard-range-cell.bar-current { color: #cc0000; background: #fdf0ef; font-weight: 600; }
 .ard-sheet .ard-range-cell.bar-30      { color: #cc0000; background: #fbe3e1; font-weight: 600; }
 .ard-sheet .ard-range-cell.bar-60      { color: #b80000; background: #f8d4d1; font-weight: 600; }
@@ -1231,7 +1149,6 @@
 .ard-sheet .ard-range-cell.bar-120     { color: #940000; background: #f1b3ae; font-weight: 600; }
 .ard-sheet .ard-range-cell.ard-range-zero { background: #fdf0ef; color: #d3a7a3; }
 
-/* Invoice detail rows (expanded) */
 .ard-sheet .ard-inv-meta {
 	font-size: 10px;
 	color: var(--ard-muted);
@@ -1239,14 +1156,12 @@
 	font-weight: 400;
 }
 
-/* 120+ bucket support outside the table (cards / aging bar / legend) */
 .ard-card-range.bar-120 { border-top: 3px solid #7f1d1d; }
 .ard-card-range.bar-120::before { display: none; }
 .ard-card-range.bar-120 .ard-card-value { color: #7f1d1d; }
 .ard-bar-seg.bar-120    { background: #7f1d1d; }
 .ard-legend-dot.bar-120 { background: #7f1d1d; }
 
-/* ── Editable Notebox column ─────────────────────────────────────────── */
 .ard-th-notebox { min-width: 160px; }
 .ard-td-notebox { padding: 4px 6px !important; vertical-align: top; }
 .ard-notebox-input {
@@ -1273,7 +1188,6 @@
 	box-shadow: 0 0 0 2px rgba(124, 58, 237, .15);
 	background: #fff;
 }
-/* Placeholder text when the note is empty */
 .ard-notebox-input:empty::before {
 	content: attr(data-placeholder);
 	color: var(--ard-muted);
@@ -1287,7 +1201,6 @@
 	word-break: break-word;
 }
 
-/* ─── Month-wise Collection: Legacy vs New AR ──────────────────────────────── */
 .ard-monthly-section {
 	margin-top: 24px;
 	padding-top: 20px;

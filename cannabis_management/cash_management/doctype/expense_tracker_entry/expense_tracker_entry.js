@@ -1,6 +1,5 @@
 frappe.ui.form.on("Expense Tracker Entry", {
     refresh(frm) {
-        // Auto-fill person from session user on new doc
         if (frm.is_new()) {
             frappe.db.get_value(
                 "Cash Tracker Person",
@@ -29,11 +28,9 @@ frappe.ui.form.on("Expense Tracker Entry", {
                 + (doc.notes ? " | " + doc.notes.substring(0, 80) : "")
                 + (employee ? " | Employee: " + employee : "");
 
-            // ── Create Payment Entry ─────────────────────────────────────────
-            // Navigates Finance to a new Pay entry pre-filled from this ETE.
             frm.add_custom_button(__("Create Payment Entry"), () => {
                 frappe.route_options = {
-                    payment_type:   "Pay",       // expenses & reimbursements both pay out
+                    payment_type:   "Pay",
                     posting_date:   doc.date,
                     company:        doc.company,
                     reference_no:   doc.name,
@@ -71,7 +68,6 @@ frappe.ui.form.on("Expense Tracker Entry", {
                 });
             }, __("Accounting"));
 
-            // ── Create Journal Entry ─────────────────────────────────────────
             frm.add_custom_button(__("Create Journal Entry"), () => {
                 frappe.route_options = {
                     company:      doc.company,
@@ -81,7 +77,6 @@ frappe.ui.form.on("Expense Tracker Entry", {
                 frappe.new_doc("Journal Entry");
             }, __("Accounting"));
 
-            // ── Link existing PE/JE ──────────────────────────────────────────
             if (!frm.doc.payment_entry && !frm.doc.journal_entry) {
                 frm.add_custom_button(__("Link Payment / Journal Entry"), () => {
                     const d = new frappe.ui.Dialog({
@@ -106,7 +101,6 @@ frappe.ui.form.on("Expense Tracker Entry", {
             }
         }
 
-        // Real-time balance listener
         frappe.realtime.on("cash_balance_update", (data) => {
             if (data.person === frm.doc.cash_tracker_person) {
                 frappe.show_alert({
@@ -116,7 +110,6 @@ frappe.ui.form.on("Expense Tracker Entry", {
             }
         });
 
-        // Receipt warning for Expense direction
         if (frm.doc.direction === "Expense" && !frm.doc.receipt && frm.doc.docstatus === 0) {
             frm.dashboard.add_comment(
                 "A receipt is required for Expense entries. Please attach it before submitting.",

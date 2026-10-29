@@ -5,7 +5,6 @@
 	font-family: inherit;
 }
 
-/* Header */
 .cdf-header {
 	display: flex;
 	justify-content: space-between;
@@ -34,7 +33,6 @@
 	max-width: 900px;
 }
 
-/* Section dividers */
 .cdf-section-bar {
 	display: flex;
 	align-items: center;
@@ -57,7 +55,6 @@
 .cdf-section-line { flex: 1; height: 1px; background: #ddd; }
 .cdf-section-caption { font-size: 12px; color: #777; font-style: italic; white-space: nowrap; }
 
-/* Harvest / Procurement cards */
 .cdf-card {
 	border: 1px solid #d8d8d8;
 	border-radius: 6px;
@@ -119,7 +116,6 @@
 .cdf-stat-value { font-size: 20px; font-weight: 700; color: #222; margin: 4px 0 2px; text-align: left; }
 .cdf-stat-caption { font-size: 11px; color: #888; }
 
-/* Placeholder / add-row hint */
 .cdf-placeholder-row {
 	border: 1px dashed #ccc;
 	border-radius: 6px;
@@ -130,7 +126,6 @@
 	margin-bottom: 18px;
 }
 
-/* Archived list rows */
 .cdf-archived-wrap { display: none; }
 .cdf-archived-wrap.cdf-open { display: block; }
 .cdf-archived-row {

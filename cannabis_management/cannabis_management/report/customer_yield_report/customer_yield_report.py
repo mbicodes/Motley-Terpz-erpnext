@@ -1,6 +1,3 @@
-# Copyright (c) 2026, alltechvirtual.com and contributors
-# For license information, please see license.txt
-
 import frappe
 from frappe.utils import flt
 
@@ -60,8 +57,6 @@ def get_rows(filters):
 
 
 def weighted(rows, pct_field, weight_field):
-	"""Average a % weighted by the quantity it was measured on; a plain average
-	when none of the rows carry that quantity."""
 	pairs = [(flt(r[pct_field]), flt(r[weight_field])) for r in rows if flt(r[pct_field])]
 	if not pairs:
 		return None
@@ -115,7 +110,6 @@ def summary(rows):
 		{"label": "Avg Rosin Yield %", "value": weighted(rows, "rosin_yield", "quantity") or 0,
 			"datatype": "Percent", "indicator": "Orange"},
 	]
-
 
 YIELD_COLUMNS = [
 	{"label": "Qty (LBS)", "fieldname": "quantity", "fieldtype": "Float", "width": 100},

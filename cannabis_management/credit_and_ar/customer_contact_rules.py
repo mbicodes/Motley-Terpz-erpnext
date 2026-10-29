@@ -1,22 +1,3 @@
-# Copyright (c) 2026, alltechvirtual.com and contributors
-# For license information, please see license.txt
-"""Customer contact rules.
-
-1. A new Customer's email address and phone number are optional, but when
-   given neither may already belong to a different customer. Administrator and
-   Muhammad are exempt (EXEMPT_USERS).
-2. A Payment Terms Sales Order cannot be saved until its customer can be
-   reached by email OR phone (a Cash On Delivery order does not need it). The Sales Order form asks for them as soon as a customer is picked
-   (public/js/sales_order.js) and stores them on the customer's primary Contact
-   through save_customer_contact(). A Policy Exempt customer is never asked:
-   like every other Sales Order gate in this module, it does not apply to them
-   (utils.is_policy_exempt).
-
-The email and phone on a Customer (email_id / mobile_no) are read-only copies
-of its primary Contact. ERPNext builds that Contact from them when a customer
-is created (the New Customer dialog fills them), so they are what rule 1 checks.
-"""
-
 import re
 
 import frappe
@@ -25,7 +6,6 @@ from frappe.utils import validate_email_address
 
 from cannabis_management.credit_and_ar import utils
 
-# Sales Order.custom_mode_of_payment value (credit_and_ar/utils.MODE_TERMS).
 MODE_TERMS = "Payment Terms"
 
 EXEMPT_USERS = {"Administrator", "muhammad@motleyterpz.com"}
@@ -36,7 +16,6 @@ def _is_exempt(user=None):
 
 
 def _bulk_operation():
-	"""Imports, patches and installs are not someone filling in a form."""
 	f = frappe.flags
 	return bool(f.in_import or f.in_patch or f.in_install or f.in_migrate)
 
@@ -46,17 +25,11 @@ def _norm_email(value):
 
 
 def _norm_phone(value):
-	"""Digits only, last 10: "+1 (555) 123-4567" and "555-123-4567" are one number."""
 	digits = re.sub(r"\D", "", value or "")
 	return digits[-10:] if len(digits) >= 10 else digits
 
 
 def find_duplicate(email=None, phone=None, exclude_customer=None):
-	"""Another customer already using this email or phone, as (label, customer).
-
-	Checks the Customer's own email/mobile and every Contact linked to a
-	customer, so a number filed on a secondary contact still counts.
-	"""
 	email, phone = _norm_email(email), _norm_phone(phone)
 	if not email and not phone:
 		return None
@@ -109,11 +82,7 @@ def _throw_duplicate(dup):
 	)
 
 
-# ── Rule 1: Customer ─────────────────────────────────────────────────────────
-
 def validate_customer(doc):
-	"""Called from customer_hooks.validate. Only new customers are checked: 300+
-	existing ones have no email or phone, and editing them must keep working."""
 	if not doc.is_new() or _bulk_operation() or _is_exempt():
 		return
 
@@ -126,10 +95,7 @@ def validate_customer(doc):
 		_throw_duplicate(dup)
 
 
-# ── Rule 2: Sales Order ──────────────────────────────────────────────────────
-
 def _customer_reachable(customer):
-	"""True when the customer has an email or phone on file anywhere."""
 	email, mobile = frappe.db.get_value("Customer", customer, ["email_id", "mobile_no"]) or (None, None)
 	if email or mobile:
 		return True
@@ -146,10 +112,8 @@ def _customer_reachable(customer):
 
 
 def validate_sales_order(doc):
-	"""Called from sales_order_hooks.validate, before its own early returns."""
 	if not doc.customer or _bulk_operation():
 		return
-	# Only a Payment Terms order needs a way to reach the customer.
 	if (doc.get("custom_mode_of_payment") or "") != MODE_TERMS:
 		return
 	if utils.is_policy_exempt(doc.customer):
@@ -169,7 +133,6 @@ def validate_sales_order(doc):
 
 @frappe.whitelist()
 def get_customer_contact(customer):
-	"""What the Sales Order popup pre-fills: the customer's current email and phone."""
 	frappe.has_permission("Customer", "read", doc=customer, throw=True)
 	email, mobile, contact = frappe.db.get_value(
 		"Customer", customer, ["email_id", "mobile_no", "customer_primary_contact"]
@@ -178,7 +141,6 @@ def get_customer_contact(customer):
 		"email": email or "",
 		"phone": mobile or "",
 		"contact": contact or "",
-		# Same test validate_sales_order applies, so the form agrees with the save.
 		"reachable": bool(email or mobile) or _customer_reachable(customer),
 		"exempt": utils.is_policy_exempt(customer),
 	}
@@ -186,8 +148,6 @@ def get_customer_contact(customer):
 
 @frappe.whitelist()
 def save_customer_contact(customer, email=None, phone=None):
-	"""Store the email/phone from the Sales Order popup on the customer's primary
-	Contact (created if missing) and return it for the order's Contact Person."""
 	if not (frappe.has_permission("Sales Order", "create") or frappe.has_permission("Sales Order", "write")):
 		frappe.throw(_("Not permitted"), frappe.PermissionError)
 	frappe.has_permission("Customer", "read", doc=customer, throw=True)
@@ -214,8 +174,6 @@ def save_customer_contact(customer, email=None, phone=None):
 			"links": [{"link_doctype": "Customer", "link_name": customer}],
 		})
 
-	# A Contact allows one primary email and one primary mobile, so the new value
-	# takes the flag from whatever held it.
 	if email:
 		existing = next((r for r in contact.email_ids if _norm_email(r.email_id) == _norm_email(email)), None)
 		for r in contact.email_ids:

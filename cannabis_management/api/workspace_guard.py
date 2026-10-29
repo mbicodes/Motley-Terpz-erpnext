@@ -1,20 +1,3 @@
-"""Permission filtering for workspace shortcuts that Frappe leaves open.
-
-`Workspace.is_item_allowed` (frappe/desk/desktop.py) filters `DocType`, `Page`
-and `Report` shortcuts against the viewer's permissions, but returns **True
-unconditionally** for `Dashboard` and `URL`. Since a workspace can only be
-linked as a `URL` shortcut, that means every user sees every workspace tile and
-every dashboard tile on a shared landing page, whether or not they can open them.
-
-Measured on this site before this guard: a user with four roles saw 36 tiles on
-Home, of which 18 — every workspace and dashboard tile — were shown to them
-regardless of access.
-
-This wraps `get_desktop_page` and drops those two kinds when the viewer cannot
-reach the target. Everything else is passed through untouched, and the original
-function still does the work.
-"""
-
 from json import dumps, loads
 
 import frappe
@@ -35,7 +18,6 @@ def get_desktop_page(page):
 		if items:
 			shortcuts["items"] = [item for item in items if _is_allowed(item)]
 	except Exception:
-		# A guard that breaks the desk is worse than one that lets a tile through.
 		frappe.log_error(frappe.get_traceback(), "Workspace shortcut guard failed")
 
 	return data
@@ -54,18 +36,10 @@ def _is_allowed(item) -> bool:
 	if item_type == "report":
 		return _report_allowed(item.get("link_to"))
 
-	# DocType and Page are filtered upstream against their own role tables.
 	return True
 
 
 def _report_allowed(name: str | None) -> bool:
-	"""A report the viewer cannot pull the data for is not a usable shortcut.
-
-	Frappe checks a Report's own `roles` table and stops there, so a report whose
-	roles are unset — or set generously — sails through even when the viewer has
-	no read access to its `ref_doctype`. Clicking it then fails with "No
-	permission for X", which is exactly the tile we should never have shown.
-	"""
 	if not name:
 		return True
 
@@ -87,17 +61,12 @@ def _report_ref_doctypes() -> dict:
 	return frappe.local._ws_guard_reports
 
 
-# ── URL shortcuts pointing at a workspace ────────────────────────────────────
-
-
 def _url_allowed(url: str) -> bool:
-	"""Only judge desk workspace links; leave every other URL alone."""
 	if not url.startswith("/app/"):
 		return True
 
 	slug = url[len("/app/") :].strip("/")
 	if not slug or "/" in slug:
-		# /app/sales-order/... is a document route, not a workspace.
 		return True
 
 	target = _workspace_by_slug().get(slug.lower())
@@ -126,7 +95,6 @@ def _workspace_by_slug() -> dict:
 
 
 def _workspace_permitted(row) -> bool:
-	"""The same test Frappe's own sidebar applies."""
 	if not row.public and row.for_user and row.for_user != frappe.session.user:
 		return False
 
@@ -143,11 +111,7 @@ def _workspace_permitted(row) -> bool:
 		return False
 
 
-# ── Dashboard shortcuts ──────────────────────────────────────────────────────
-
-
 def _dashboard_allowed(name: str | None) -> bool:
-	"""Readable only if the viewer can read the data behind one of its charts."""
 	if not name:
 		return True
 	if not frappe.has_permission("Dashboard", "read"):
@@ -160,7 +124,6 @@ def _dashboard_allowed(name: str | None) -> bool:
 		ignore_permissions=True,
 	)
 	if not charts:
-		# Nothing to judge it by; fall back to the DocType permission above.
 		return True
 
 	return any(chart in _readable_charts() for chart in charts)
@@ -183,9 +146,6 @@ def _readable_charts() -> set:
 	names = set()
 
 	for row in rows:
-		# A chart built on a report is governed by that report, not by a DocType —
-		# most of the charts on this site are exactly that, so judging only by
-		# document_type let every dashboard through.
 		if row.chart_type == "Report" or (not row.document_type and row.report_name):
 			if row.report_name and row.report_name in allowed_reports:
 				names.add(row.name)
@@ -193,7 +153,6 @@ def _readable_charts() -> set:
 
 		doctype = row.document_type
 		if not doctype:
-			# Custom source with nothing to judge it by — do not guess.
 			names.add(row.name)
 			continue
 
@@ -204,15 +163,6 @@ def _readable_charts() -> set:
 
 	frappe.local._ws_guard_charts = names
 	return names
-
-
-# ── section headings ─────────────────────────────────────────────────────────
-#
-# Home groups its tiles under one heading per type. Those headings live in the
-# workspace `content`, which the client reads from the sidebar payload — and
-# unlike the tiles themselves, headings are not permission-filtered. Someone who
-# can see no reports would otherwise land on a bare "Reports" heading with
-# nothing beneath it, which reads as a bug.
 
 SECTIONED_WORKSPACES = {"Home"}
 SECTION_PREFIX = "home_h_"
@@ -233,7 +183,6 @@ def get_workspace_sidebar_items():
 
 
 def _prune_empty_sections(page) -> str:
-	"""Drop any section heading whose tiles are all filtered out for this user."""
 	raw = page.get("content")
 	if not raw:
 		return raw
@@ -265,7 +214,6 @@ def _prune_empty_sections(page) -> str:
 			continue
 
 		if heading is None:
-			# Anything before the first section heading is left alone.
 			kept.append(block)
 			continue
 
@@ -281,7 +229,6 @@ def _prune_empty_sections(page) -> str:
 
 
 def _visible_shortcut_labels(page) -> set:
-	"""The tiles this user will actually be shown on that workspace."""
 	try:
 		workspace = Workspace(frappe._dict(page))
 		workspace.build_workspace()

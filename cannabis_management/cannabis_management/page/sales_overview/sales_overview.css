@@ -2,7 +2,6 @@
 	padding: 4px 8px 32px;
 }
 
-/* ── Header ─────────────────────────────────────────────────────────── */
 .svo-header {
 	display: flex;
 	align-items: center;
@@ -56,7 +55,6 @@
 	color: #fff;
 }
 
-/* ── Filter bar ─────────────────────────────────────────────────────── */
 .svo-filter-bar {
 	display: flex;
 	align-items: flex-end;
@@ -114,7 +112,6 @@
 	background: var(--bg-light-gray, #f3f3f3);
 }
 
-/* ── KPI cards ──────────────────────────────────────────────────────── */
 .svo-kpi-row {
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -170,7 +167,6 @@
 	color: #2563eb;
 }
 
-/* ── Charts ─────────────────────────────────────────────────────────── */
 .svo-charts-row {
 	display: grid;
 	grid-template-columns: 2fr 1fr;
@@ -198,7 +194,6 @@
 	margin-bottom: 4px;
 }
 
-/* ── Tabs & tables ──────────────────────────────────────────────────── */
 .svo-tabs {
 	display: flex;
 	gap: 4px;
@@ -278,7 +273,6 @@
 	padding: 8px 2px;
 }
 
-/* ── Loading / empty ────────────────────────────────────────────────── */
 .svo-loading {
 	display: flex;
 	flex-direction: column;

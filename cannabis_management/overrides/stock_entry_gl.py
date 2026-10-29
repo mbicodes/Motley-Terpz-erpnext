@@ -12,14 +12,6 @@ class CMStockEntry(StockEntry):
         super().validate()
 
     def apply_project_to_items(self):
-        """The entry's Project (Accounting Dimensions section) goes on every line.
-
-        It is set as the line's own Project and as the "Batch" inventory dimension,
-        which links to Project and is what each Stock Ledger Entry's project is read
-        from: Batch for the leg leaving a warehouse, To Batch for the leg arriving
-        in the target warehouse. Runs on every save and on submit, so changing the
-        entry's Project re-points all of its lines.
-        """
         if not self.project:
             return
         for d in self.get("items"):
@@ -29,22 +21,12 @@ class CMStockEntry(StockEntry):
                 d.to_batch = self.project
 
     def get_gl_entries(self, warehouse_account=None):
-        # ERPNext's StockEntry.get_gl_entries() declares warehouse_account as a required
-        # positional arg, but Repost Accounting Ledger's preview (generate_preview_data)
-        # calls doc.get_gl_entries() with no arguments for every voucher type except
-        # Purchase Receipt -> TypeError. Default to None and let the map be resolved
-        # from the company, exactly as StockController.get_gl_entries() does.
         if not warehouse_account:
             warehouse_account = get_warehouse_account_map(self.company)
         gl_entries = super().get_gl_entries(warehouse_account)
         return apply_item_group_mapping(self, gl_entries, warehouse_account)
 
     def set_total_incoming_outgoing_value(self):
-        """
-        Total Incoming Value = sum of basic_amount for items going INTO a warehouse.
-        Operating costs (additional_costs) are posted to GL separately and intentionally
-        excluded from the stock-valuation incoming total.
-        """
         self.total_incoming_value = self.total_outgoing_value = 0.0
         for d in self.get("items"):
             if d.t_warehouse:
@@ -54,10 +36,6 @@ class CMStockEntry(StockEntry):
         self.value_difference = self.total_incoming_value - self.total_outgoing_value
 
     def validate_fg_completed_qty(self):
-        # ERPNext's version iterates by item_code, so when multiple finished item codes
-        # are present (e.g. PR-0037 + SP-0010), process_loss_qty gets set on the first
-        # item and incorrectly double-counted on the second. Replace with a single-pass
-        # check that sums ALL finished items and handles float rounding.
         if self.purpose != "Manufacture" or not self.work_order:
             return super().validate_fg_completed_qty()
 
@@ -70,9 +48,6 @@ class CMStockEntry(StockEntry):
         )
         total = flt(total_fg + flt(self.process_loss_qty), precision)
 
-        # A micron-based entry saved before the fix carries For Quantity equal
-        # to the finished goods alone, with the Job Cards' loss on top of it.
-        # For Quantity is output plus loss, so correct it rather than refuse.
         if self.process_loss_qty and self.fg_completed_qty == total_fg:
             self.fg_completed_qty = total
 
@@ -89,7 +64,6 @@ class CMStockEntry(StockEntry):
             )
 
     def validate_finished_goods(self):
-        # If no work order, or all FG items match the WO production item, use standard validation
         if not self.work_order:
             return super().validate_finished_goods()
 
@@ -99,8 +73,6 @@ class CMStockEntry(StockEntry):
         if all(d.item_code == production_item for d in fg_items):
             return super().validate_finished_goods()
 
-        # Micron-based SE: FG items were substituted by populate_micron_finished_goods.
-        # Skip item-code mismatch and multi-FG checks; only enforce that at least one FG exists.
         if not fg_items:
             frappe.throw(
                 msg=_("There must be atleast 1 Finished Good in this Stock Entry"),

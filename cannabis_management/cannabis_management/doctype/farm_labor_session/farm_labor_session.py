@@ -1,6 +1,3 @@
-# Copyright (c) 2026, alltechvirtual.com and contributors
-# For license information, please see license.txt
-
 import frappe
 from frappe import _
 from frappe.model.document import Document
@@ -12,7 +9,6 @@ from cannabis_management.cannabis_management.doctype.farm_production_batch.farm_
 
 
 class FarmLaborSession(Document):
-
     def validate(self):
         self.calculate_totals()
         self.validate_warehouse_company()
@@ -29,10 +25,6 @@ class FarmLaborSession(Document):
             self.calculate_bucking_assembly_totals()
 
     def calculate_bucking_assembly_totals(self):
-        """Distru-style Assembly rollup: cost from Ingredients + Additional
-        Costs + labor, and Yield / Moisture Loss derived from Ingredient vs
-        Output quantities."""
-
         total_ingredient_cost = sum(flt(row.cost) for row in self.ingredients)
         total_additional_cost = sum(flt(row.amount) for row in self.additional_costs)
 
@@ -49,8 +41,6 @@ class FarmLaborSession(Document):
         self.moisture_loss_pct = ((qty_used - qty_produced) / qty_used * 100) if qty_used else 0
 
     def validate_warehouse_company(self):
-        """Ensure every Ingredient/Output warehouse belongs to the selected
-        company (Bucking only)."""
         if self.task_type != "Bucking" or not self.company:
             return
 
@@ -79,11 +69,6 @@ class FarmLaborSession(Document):
         update_linked_harvest(self)
 
     def get_additional_cost_account(self, cost_type):
-        """Resolve an expense account for a Bucking Additional Cost row.
-        Prefers the Company's own 'Farm {cost_type} - ABBR' account (matches
-        the farm companies' chart of accounts, e.g. 'Farm Equipment - TSBC');
-        falls back to the Company's Stock Adjustment account when no such
-        dedicated account exists (e.g. Packaging, Other)."""
         abbr = frappe.db.get_value("Company", self.company, "abbr")
         candidate = f"Farm {cost_type} - {abbr}" if abbr else None
         if candidate and frappe.db.exists("Account", candidate):
@@ -91,10 +76,6 @@ class FarmLaborSession(Document):
         return frappe.db.get_value("Company", self.company, "stock_adjustment_account")
 
     def create_bucking_stock_entry(self):
-        """Bucking is the Assembly-style task: multiple harvested Ingredients
-        consumed, multiple packaged Outputs produced. Planting and Deleaf
-        never reach this code path."""
-
         if not self.ingredients:
             frappe.throw(_("At least one Ingredient row is required for Bucking sessions."))
 
@@ -105,9 +86,6 @@ class FarmLaborSession(Document):
             frappe.throw(_("Company is required."))
 
         stock_entry = frappe.new_doc("Stock Entry")
-        # Repack (not Manufacture) — per client instruction, this Assembly
-        # is treated as a repack of harvested material into packaged
-        # output, not a BOM/Work Order-backed manufacture.
         stock_entry.stock_entry_type = "Repack"
         stock_entry.company = self.company
         stock_entry.posting_date = self.session_date or today()
@@ -146,10 +124,6 @@ class FarmLaborSession(Document):
                 },
             )
 
-        # Additional Costs (Bucking Additional Cost table) → Stock Entry's
-        # own Additional Costs table, so Packaging/Equipment/Other charges
-        # actually land on the finished-good valuation instead of being
-        # calculated on the session but dropped on the floor.
         missing_account = False
         for cost in self.additional_costs:
             amount = flt(cost.amount)
@@ -170,9 +144,6 @@ class FarmLaborSession(Document):
             )
 
         stock_entry.insert(ignore_permissions=True)
-        # Left in draft — same pattern as before, not auto-submitted. The
-        # harvested plant is METRC-tracked, not an ERPNext stock item, so
-        # there is no matching source-side transaction to submit against yet.
 
         if missing_account:
             frappe.msgprint(

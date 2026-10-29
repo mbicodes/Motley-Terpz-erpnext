@@ -5,20 +5,9 @@ from cannabis_management.cannabis_management.page.manufacturing_runs.manufacturi
     _build_run_row,
 )
 
-# All groups except Fresh Frozen are restricted to this company's warehouses
 MTM_COMPANY = "Master Touch Manufacturing"
 FRESH_FROZEN_GROUPS = ("Fresh Frozen", "Fresh Frozen - BHO", "Fresh Frozen - SHO")
 
-# What "Reserved" means here: the Stock Reservation Entry lifecycle, not
-# Bin.reserved_qty (Sales-Order-level projected qty -- committed the moment an
-# SO is submitted, regardless of whether anyone actually reserved stock for
-# it) and not Bin.reserved_stock directly (same number, but reading the raw
-# Bin column risks staleness if it isn't recalculated promptly).
-#
-# An SRE counts while it still holds stock: status Reserved / Partially
-# Reserved / Partially Delivered. It stops counting -- is released from this
-# dashboard -- the moment it's Cancelled, and a Partially Delivered entry only
-# counts what's left (reserved_qty - delivered_qty), not the original amount.
 RESERVED_SUBQUERY = """
     SELECT item_code, warehouse, SUM(reserved_qty - delivered_qty) AS reserved_qty
     FROM `tabStock Reservation Entry`
@@ -27,16 +16,6 @@ RESERVED_SUBQUERY = """
     GROUP BY item_code, warehouse
 """
 
-# Stock Ledger Entry.project is not reliable on its own: this site's "Batch"
-# Inventory Dimension targets "project", and ERPNext's dimension framework
-# (get_evaluated_inventory_dimension / update_inventory_dimensions in
-# erpnext/controllers/stock_controller.py) unconditionally overwrites
-# sl_dict["project"] with the item row's own dimension value -- down to
-# blank -- whenever that row has no "batch" value set, even if the row's own
-# `project` field and the document's header Project are both correctly
-# filled in. That silently drops items from their project's stock here.
-# Same fallback already proven in custom_profit_and_loss_statement.py:
-# recover the project from the voucher that actually generated the entry.
 VOUCHER_PROJECT_UNION = """
     SELECT 'Stock Entry' AS voucher_type, name AS voucher_no, project FROM `tabStock Entry`
     UNION ALL
@@ -66,13 +45,10 @@ def get_stock_by_item_group(item_group, project=None, _=None):
     else:
         items = get_bin_stock(company_condition, values)
 
-    # Collect all unique item_codes
     item_codes = list(set(item.item_code for item in items))
 
-    # Fetch yield data from Rosin Recording / Lab Tolling Data
     yield_map = get_yield_data_for_items(item_codes)
 
-    # Attach yield data to each item
     for item in items:
         code = item.item_code
         data = yield_map.get(code) or {}
@@ -96,20 +72,8 @@ def get_stock_by_item_group(item_group, project=None, _=None):
     }
 
 
-# Project is the "Batch" inventory dimension: it lives on Stock Ledger Entry,
-# not on Bin, so a project's stock is summed from the ledger. That sum is only
-# trusted where it agrees with what the dashboard shows:
-# - Stock Reconciliations never carry a project (their ledger rows have no
-#   project and actual_qty = 0), and some issues were posted with a project
-#   their receipts lack, so a project's ledger sum can be negative, or name
-#   stock that is no longer there.
-# - So a project counts only where its sum is positive on an item/warehouse
-#   the dashboard lists (Bin qty > 0), and never for more than that Bin holds.
 def get_project_balances(item_group, company_condition, values, project=None):
     project_condition = "AND eff_project = %s" if project else "AND eff_project != ''"
-    # Placeholder order in the SQL below: item_group, then company_condition's
-    # param (if any), then project_condition's param (if any) -- it now comes
-    # last since project_condition is applied outside the inner subquery.
     args = (item_group,) + tuple(values[1:]) + ((project,) if project else ())
     return frappe.db.sql("""
         SELECT
@@ -168,8 +132,6 @@ def get_project_stock(item_group, project, company_condition, values):
 
 
 def get_projects_with_stock(item_group, company_condition, values):
-    """Projects with stock showing in this group, each with the warehouses it
-    is in, so the filter can list only those in the chosen warehouse."""
     projects = {}
     for row in get_project_balances(item_group, company_condition, values):
         p = projects.setdefault(row.project, {"name": row.project, "warehouses": []})
@@ -213,12 +175,6 @@ def get_bin_stock(company_condition, values):
 
 
 def get_yield_data_for_items(item_codes):
-    """
-    Yield to Hash and Hash to Rosin per item code, comma-separated, plus the same
-    values as parts tagged with where they came from, so the dashboard can colour
-    them: lab figures (Lab Tolling Data, then manufacturing runs) and, after
-    those, what customers reported back (Customer Yield Feedback).
-    """
     if not item_codes:
         return {}
 
@@ -262,7 +218,6 @@ def _yield_entry(yield_map, item_code):
 
 
 def _add_yield(parts, value, customer=None, customer_name=None, colour=None):
-    """Append a non-zero value formatted as a %, once per source."""
     if value is None or value == "" or value == 0:
         return
     try:
@@ -281,16 +236,8 @@ def _add_yield(parts, value, customer=None, customer_name=None, colour=None):
 
 
 def add_run_yields(item_codes, yield_map):
-    """
-    Append each manufacturing run's Hash Yield and Hash to Rosin figures (the
-    Run Yields page, /app/run-yields) after the Lab Tolling values, oldest run
-    first. A run belongs to the item on its Material Request (one line each).
-    Rows come from manufacturing_runs._build_run_row, so the numbers match the
-    Run Yields page exactly.
-    """
     placeholders = ", ".join(["%s"] * len(item_codes))
 
-    # Same run selection as run_yields.get_runs: any non-cancelled Job Card.
     runs = frappe.db.sql("""
         SELECT wo.material_request AS run_id,
                MIN(mri.item_code) AS item_code,
@@ -309,12 +256,7 @@ def add_run_yields(item_codes, yield_map):
         _add_yield(entry["yield_to_hash"], row.get("hash_yield"))
         _add_yield(entry["hash_to_rosin"], row.get("hash_to_rosin_yield"))
 
-
-# Named colours for customer-reported yields (purple is ours, so it is not
-# here). A customer keeps its colour: they are handed out in the order
-# customers first reported a yield, so a new customer never shifts the rest.
 CUSTOMER_YIELD_COLOURS = [
-    # Solid fills, ordered so customers next to each other look nothing alike.
     {"color": "Blue", "fg": "#ffffff", "bg": "#2563eb", "swatch": "#2563eb"},
     {"color": "Green", "fg": "#ffffff", "bg": "#16a34a", "swatch": "#16a34a"},
     {"color": "Orange", "fg": "#ffffff", "bg": "#ea580c", "swatch": "#ea580c"},
@@ -342,11 +284,6 @@ def customer_yield_colours():
 
 
 def add_customer_yields(item_codes, yield_map):
-    """
-    Append the yields customers report back on material we sent them
-    (submitted Customer Yield Feedback), after the Lab Tolling and run values,
-    oldest first, each carrying its customer's colour.
-    """
     placeholders = ", ".join(["%s"] * len(item_codes))
 
     rows = frappe.db.sql("""
@@ -368,7 +305,6 @@ def add_customer_yields(item_codes, yield_map):
         colour = colours.get(row.customer) or CUSTOMER_YIELD_COLOURS[-1]
         for parts, value in ((entry["yield_to_hash"], row.yield_percentage),
                              (entry["hash_to_rosin"], row.hash_to_rosin)):
-            # A line marked Our Lab is our own figure, shown with the lab's.
             if row.yield_source == "Our Lab":
                 _add_yield(parts, value)
             else:
@@ -377,7 +313,6 @@ def add_customer_yields(item_codes, yield_map):
 
 @frappe.whitelist(allow_guest=True)
 def get_batch_warehouse_summary(item_group):
-    """Returns count of unique project (batch) dimensions per warehouse with positive stock."""
     data = frappe.db.sql("""
         SELECT
             warehouse,

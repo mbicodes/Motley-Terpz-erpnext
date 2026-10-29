@@ -1,6 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600&display=swap');
 
-/* ── FRAPPE PAGE OVERRIDES ─────────────────────────── */
 [data-page-container="preorder"] .main-section,
 [data-page-container="preorder"] .page-body,
 [data-page-container="preorder"] .container.page-body,
@@ -13,13 +12,7 @@
     max-width: 100% !important;
 }
 
-/* ── ROOT TOKENS ───────────────────────────────────── */
 :root {
-    /* Motley brand palette. The accent used to be teal; it now carries the
-       purple of the "Preorder Entry - Motley" print format (#7b2fbf) so the
-       screen and the printed sheet read as one document. --po-brand* are the
-       canonical names -- the --po-teal* aliases below are kept because rules
-       throughout this file already reference them. */
     --po-brand:       #b06cf5;
     --po-brand-dim:   #7b2fbf;
     --po-brand-deep:  #5f2494;
@@ -57,7 +50,6 @@
     --po-shadow-sm:   0 8px 24px rgba(0,0,0,0.28);
 }
 
-/* ── PAGE SHELL ────────────────────────────────────── */
 .po-page {
     font-family: 'Inter', sans-serif;
     min-height: 100vh;
@@ -71,7 +63,6 @@
     box-sizing: border-box;
 }
 
-/* ── HEADER ────────────────────────────────────────── */
 .po-header {
     display: flex;
     justify-content: space-between;
@@ -113,7 +104,6 @@
     padding-top: 10px;
 }
 
-/* ── BUTTONS ──────────────────────────────────────── */
 .po-btn {
     font-family: 'Inter', sans-serif;
     font-size: 13px;
@@ -156,7 +146,6 @@
     box-shadow: 0 6px 24px var(--po-gold-glow);
 }
 
-/* ── CARDS ────────────────────────────────────────── */
 .po-card {
     background: var(--po-surface);
     border: 1px solid var(--po-border);
@@ -182,7 +171,6 @@
     opacity: 0.7;
 }
 
-/* ── FORM GRID ────────────────────────────────────── */
 .po-form-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -237,7 +225,6 @@
     grid-column: 1 / -1;
 }
 
-/* ── REGION BADGE ─────────────────────────────────── */
 .po-region-badge {
     display: inline-block;
     font-size: 10px;
@@ -252,7 +239,6 @@
     vertical-align: middle;
 }
 
-/* ── ITEMS TABLE ──────────────────────────────────── */
 .po-items-toolbar {
     display: flex;
     justify-content: space-between;
@@ -378,7 +364,6 @@
     font-size: 13px;
 }
 
-/* ── ITEM PICKER DROPDOWN ─────────────────────────── */
 .po-picker-wrap { position: relative; }
 .po-picker-dropdown {
     position: absolute;
@@ -427,7 +412,6 @@
     font-size: 13px;
 }
 
-/* ── RECENT PREORDERS ─────────────────────────────── */
 .po-recent-table {
     width: 100%;
     border-collapse: collapse;
@@ -474,14 +458,12 @@
     color: var(--po-coral);
 }
 
-/* ── LAYOUT ───────────────────────────────────────── */
 .po-two-col {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 20px;
 }
 
-/* ── RESPONSIVE ───────────────────────────────────── */
 @media (max-width: 768px) {
     .po-page { padding: 16px 16px 40px; }
     .po-title { font-size: 24px; }
@@ -491,9 +473,6 @@
     .po-items-search { width: 100%; }
     .po-header { flex-direction: column; }
 }
-/* ── Custom (free-text) preorder items ─────────────────────────────── */
-/* A row whose item is not in the catalog: item_code is blank, so the SKU
-   line is replaced by a badge and the group/availability cells show a dash. */
 .po-items-table .po-item-custom-badge {
     display: inline-block;
     margin-top: 2px;
@@ -507,7 +486,6 @@
     letter-spacing: 0.03em;
     text-transform: uppercase;
 }
-/* The "Add <text>" entry pinned to the bottom of the picker. */
 .po-picker-option.po-picker-custom {
     border-top: 1px solid var(--po-border-2);
     background: var(--po-gold-glow);
@@ -515,9 +493,6 @@
 .po-picker-option.po-picker-custom:hover { background: var(--po-gold-dim); }
 .po-picker-option.po-picker-custom .po-picker-option-name { color: var(--po-gold); }
 
-/* ── Rate / Amount columns and the order total ─────────────────────── */
-/* Qty and Rate are the only editable cells; Amount is derived (qty x rate)
-   and the server recomputes it on save, so it renders as text, not an input. */
 .po-items-table .po-num { text-align: right; }
 .po-items-table input.po-item-rate {
     width: 92px;
@@ -549,8 +524,6 @@
     white-space: nowrap;
 }
 
-
-/* ── Two-pane shell: form left, existing entries right ─────────────── */
 .po-shell {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 330px;
@@ -559,7 +532,6 @@
 }
 .po-main { min-width: 0; }
 .po-side { min-width: 0; }
-/* Keeps the list in view while the form is scrolled. */
 .po-side-card { position: sticky; top: 16px; }
 
 .po-edit-banner {
@@ -583,7 +555,6 @@
     text-decoration: underline;
 }
 
-/* ── Entry cards in the right pane ─────────────────────────────────── */
 .po-entry-list { display: flex; flex-direction: column; gap: 8px; max-height: 70vh; overflow-y: auto; }
 .po-entry {
     border: 1px solid var(--po-border);
@@ -593,7 +564,6 @@
     transition: border-color 0.2s, background 0.2s;
 }
 .po-entry:hover { border-color: var(--po-border-2); background: var(--po-surface-2); }
-/* The entry currently loaded into the form. */
 .po-entry.is-editing {
     border-color: var(--po-brand);
     background: var(--po-teal-faint);
@@ -633,9 +603,6 @@
 @media (max-width: 1100px) {
     .po-shell { grid-template-columns: 1fr; }
     .po-side-card { position: static; }
-    /* Stacked, the pane would otherwise land under the whole form -- a long
-       unrolled list nobody scrolls to. Put it above the form instead, and
-       collapse it so it costs one line until it is wanted. */
     .po-side { order: -1; }
     .po-side-toggle { cursor: pointer; user-select: none; }
     .po-side-chevron { display: inline-block; margin-left: auto; transition: transform 0.2s; }
@@ -644,8 +611,6 @@
     .po-side.is-open .po-side-chevron { transform: rotate(180deg); }
 }
 
-/* The chevron and count are mobile affordances; the pane is always open on
-   a wide screen, so they would only be noise there. */
 .po-side-chevron { display: none; }
 .po-side-count {
     margin-left: 6px;
@@ -657,20 +622,14 @@
     font-weight: 700;
 }
 
-/* ── Mobile ────────────────────────────────────────────────────────── */
-/* The items table has 7 columns and will not fit a phone. Let it scroll
-   inside its card instead of widening the page -- a page-level overflow is
-   what pushes the whole form sideways and defeats the stacking rules below. */
 .po-table-scroll {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
 }
 .po-table-scroll .po-items-table { min-width: 640px; }
 
-/* Nothing may force the page wider than the phone. */
 .po-wrap { overflow-x: hidden; }
 
-/* Two form cards side by side stop being readable well before 768px. */
 @media (max-width: 900px) {
     .po-two-col { grid-template-columns: 1fr; }
     .po-form-grid { grid-template-columns: 1fr 1fr; }
@@ -683,13 +642,10 @@
     .po-header-right { width: 100%; display: flex; gap: 8px; }
     .po-header-right .po-btn { flex: 1; justify-content: center; }
     .po-title { font-size: 20px; }
-    /* Entry actions read better as full-width targets on a phone. */
     .po-entry-actions { flex-wrap: wrap; }
     .po-entry-btn { flex: 1; justify-content: center; padding: 7px 9px; }
 }
 
-/* Download leads on an entry card -- once an entry is saved it is the
-   action people reach for, on drafts and submitted entries alike. */
 .po-entry-btn.po-entry-btn-primary {
     border-color: var(--po-brand-dim);
     background: var(--po-teal-faint);

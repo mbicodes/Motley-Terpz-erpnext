@@ -35,7 +35,6 @@ def get_dashboard_data(from_date=None, to_date=None):
     rp = {"from_date": from_date, "to_date": to_date}
     tp = {"today": today}
 
-    # ── 1. KPIs — always live / current state ────────────────────────────
     active_wo = frappe.db.sql("""
         SELECT COUNT(*) AS cnt FROM `tabWork Order`
         WHERE docstatus = 1 AND status IN ('Not Started','In Process')
@@ -58,7 +57,6 @@ def get_dashboard_data(from_date=None, to_date=None):
           AND status NOT IN ('Completed','Stopped')
     """, tp, as_dict=True)
 
-    # ── 2. Operations breakdown ──────────────────────────────────────────
     operations = frappe.db.sql("""
         SELECT
             COALESCE(jc.operation, 'Unknown') AS operation,
@@ -74,7 +72,6 @@ def get_dashboard_data(from_date=None, to_date=None):
         LIMIT 10
     """, rp, as_dict=True)
 
-    # ── 3. Workstation utilization ───────────────────────────────────────
     workstations = frappe.db.sql("""
         SELECT
             COALESCE(jc.workstation, 'Unassigned')                       AS workstation,
@@ -91,7 +88,6 @@ def get_dashboard_data(from_date=None, to_date=None):
         LIMIT 12
     """, rp, as_dict=True)
 
-    # ── 4. Job Cards table ───────────────────────────────────────────────
     job_cards = frappe.db.sql("""
         SELECT
             jc.name,
@@ -119,7 +115,6 @@ def get_dashboard_data(from_date=None, to_date=None):
         LIMIT 30
     """, rp, as_dict=True)
 
-    # ── 5. WO Pipeline ───────────────────────────────────────────────────
     pipeline = frappe.db.sql("""
         SELECT
             wo.name,
@@ -143,7 +138,6 @@ def get_dashboard_data(from_date=None, to_date=None):
         LIMIT 25
     """, {**rp, **tp}, as_dict=True)
 
-    # ── 6. Micron ────────────────────────────────────────────────────────
     micron = []
     mt = _get_micron_table()
     if mt:
@@ -165,7 +159,6 @@ def get_dashboard_data(from_date=None, to_date=None):
         except Exception:
             micron = []
 
-    # ── 7. Employee time log ─────────────────────────────────────────────
     employees = frappe.db.sql("""
         SELECT
             jctl.employee,
@@ -184,7 +177,6 @@ def get_dashboard_data(from_date=None, to_date=None):
         LIMIT 10
     """, rp, as_dict=True)
 
-    # ── 8. LBS Washed (Hash Recording) ──────────────────────────────────────
     lbs_kpi = frappe.db.sql("""
         SELECT
             COALESCE(SUM(total_quantity), 0)  AS total_lbs,
@@ -207,7 +199,6 @@ def get_dashboard_data(from_date=None, to_date=None):
         ORDER BY dt
     """, rp, as_dict=True)
 
-    # ── 9. Logistics Pipeline (Sales Orders — live, not date-filtered) ────
     logistics_kpis = frappe.db.sql("""
         SELECT
             status,

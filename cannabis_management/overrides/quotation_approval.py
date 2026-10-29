@@ -1,35 +1,10 @@
-"""
-Quotation Approval — discount-threshold routing.
-
-Mirrors the Sales Order approval pattern (custom_approval_status + doc hooks)
-rather than the rigid native Workflow doctype, and extends it to tiered routing.
-
-Routing (effective overall discount off list price):
-    < 10%   → auto-approved (rep can submit/send)
-  10–20%   → Sales Manager approval
-   ≥ 20%   → Finance approval (Finance Manager / Accounts Manager)
-
-COD customers and customers past terms (oldest unpaid invoice > 30 days) route
-to Finance regardless of discount depth.
-
-Approver eligibility:
-  • Sales Manager tier — Sales Manager, Finance Manager, Accounts Manager,
-    Super Admin, Administrator.
-  • Finance tier — Finance Manager, Accounts Manager, Super Admin, Administrator.
-
-Notifications: approver group (email + Slack) when a quote enters approval;
-creator (email) on approve/reject; rejection reason is also posted to the linked
-CRM Deal timeline.
-"""
-
 import frappe
 from frappe import _
 from frappe.utils import flt, now_datetime
 
-# ── Thresholds & roles ──────────────────────────────────────────────────────
-AUTO_APPROVE_BELOW = 10.0      # < 10%  → no approval needed
-FINANCE_AT_OR_ABOVE = 20.0     # ≥ 20%  → Finance; [10, 20) → Sales Manager
-PAST_DUE_DAYS = 30             # oldest unpaid invoice older than this → Finance
+AUTO_APPROVE_BELOW = 10.0
+FINANCE_AT_OR_ABOVE = 20.0
+PAST_DUE_DAYS = 30
 
 LEVEL_MANAGER = "Sales Manager"
 LEVEL_FINANCE = "Finance"
@@ -41,24 +16,19 @@ SUPER_ROLES = {"Super Admin"}
 SLACK_CHANNEL = "#quotation-approvals"
 
 
-# ── Document hooks ──────────────────────────────────────────────────────────
-
 def validate(doc, method=None):
-    """Compute discount, decide required approval level, set status."""
     eff = _effective_discount_pct(doc)
     doc.custom_discount_pct_effective = eff
     level = _required_level(doc, eff)
     doc.custom_required_approval_level = level or ""
 
     if not level:
-        # No approval needed — auto-approve so the rep can submit/send.
         doc.custom_approval_status = "Approved"
         return
 
     status = doc.custom_approval_status
 
     if status == "Approved":
-        # Guard against a rep deepening the discount after approval.
         approved_disc = flt(doc.get("custom_approved_discount"))
         deepened = eff > approved_disc + 0.01
         escalated = _level_rank(level) > _level_rank(doc.get("custom_approved_level"))
@@ -67,7 +37,6 @@ def validate(doc, method=None):
             doc._notify_approvers = True
         return
 
-    # Blank, Pending or Rejected → (re)enter the approval queue.
     if status != "Pending Approval":
         doc.custom_approval_status = "Pending Approval"
         doc.custom_rejection_reason = None
@@ -80,8 +49,6 @@ def on_update(doc, method=None):
 
 
 def before_submit(doc, method=None):
-    """Block submission until approved. An eligible approver who submits the
-    quote directly is treated as giving approval (mirrors the SO/HOO pattern)."""
     eff = _effective_discount_pct(doc)
     level = _required_level(doc, eff)
     if not level:
@@ -96,8 +63,6 @@ def before_submit(doc, method=None):
         title=_("Approval Required"),
     )
 
-
-# ── Approve / Reject endpoints (called from the Quotation form buttons) ──────
 
 @frappe.whitelist()
 def approve_quotation(name):
@@ -139,8 +104,6 @@ def reject_quotation(name, reason=None):
 
 @frappe.whitelist()
 def get_deal_quotations(deal):
-    """Quotations linked to a CRM Deal, with approval state and whether the
-    current user may approve each one. Used by the CRM Deal page panel."""
     if not deal or not frappe.db.exists("CRM Deal", deal):
         return []
     if not frappe.has_permission("CRM Deal", "read", deal):
@@ -167,8 +130,6 @@ def get_deal_quotations(deal):
 
 @frappe.whitelist()
 def get_my_pending_approvals():
-    """Quotations awaiting approval that the current user is allowed to approve.
-    Powers the CRM 'Approvals' queue page."""
     rows = frappe.get_all(
         "Quotation",
         filters={"custom_approval_status": "Pending Approval", "docstatus": 0},
@@ -187,19 +148,12 @@ def get_my_pending_approvals():
     return out
 
 
-# ── Core logic ──────────────────────────────────────────────────────────────
-
 def _effective_discount_pct(doc):
-    """Overall discount off list price, capturing per-item AND header discounts.
-
-    base   = Σ(price_list_rate × qty)      (undiscounted list value)
-    final  = net_total                     (after item + additional discount, pre-tax)
-    """
     base = 0.0
     for it in (doc.items or []):
         plr = flt(it.price_list_rate)
         if plr <= 0:
-            plr = flt(it.rate)  # no price list → can't see line discount, degrade safely
+            plr = flt(it.rate)
         base += plr * flt(it.qty)
     if base <= 0:
         return 0.0
@@ -258,7 +212,6 @@ def _resolve_customer(doc):
 
 
 def _is_high_risk_customer(customer):
-    """COD flag or past terms (oldest unpaid invoice older than PAST_DUE_DAYS)."""
     pt = frappe.db.get_value("Customer", customer, "payment_terms") or ""
     if "cod" in pt.lower() or "cash on delivery" in pt.lower():
         return True
@@ -280,10 +233,7 @@ def _is_high_risk_customer(customer):
     return False
 
 
-# ── Notifications ────────────────────────────────────────────────────────────
-
 def _approver_users(level):
-    """Enabled users who may approve the given tier (excludes Administrator)."""
     roles = (FINANCE_APPROVER_ROLES if level == LEVEL_FINANCE else MANAGER_APPROVER_ROLES) | SUPER_ROLES
     users = frappe.get_all(
         "Has Role",
@@ -310,7 +260,6 @@ def _approver_emails(level):
 
 
 def _notify_inapp(users, subject, doc):
-    """Create desk in-app notifications (the bell) for the given users."""
     for u in users:
         try:
             frappe.get_doc({
@@ -361,21 +310,6 @@ def _notify_approvers(doc):
             )
         except Exception:
             frappe.log_error(frappe.get_traceback(), "[quotation_approval] approver email failed")
-
-    # Slack alert disabled for now — live site_config points slack_webhook_url at
-    # the conversions-motley webhook, so this was posting to the wrong channel.
-    # Re-enable once a dedicated webhook/channel is configured.
-    # _send_slack(
-    #     header="🧾 Quotation Pending Approval",
-    #     fields=[
-    #         ("Quotation", f"<{url}|{doc.name}>"),
-    #         ("Customer", doc.get("customer_name") or doc.get("party_name") or "—"),
-    #         ("Discount", f"{eff:.2f}%"),
-    #         ("Needs", f"{level} approval"),
-    #         ("Submitted by", creator),
-    #     ],
-    #     context="Open the quotation and click Approve or Reject.",
-    # )
 
 
 def _notify_creator(doc, approved, reason=None):
@@ -442,8 +376,6 @@ def _send_slack(header, fields, context=None):
         frappe.log_error(frappe.get_traceback(), "[quotation_approval] Slack notification failed")
 
 
-# ── Custom field installer (idempotent) ──────────────────────────────────────
-
 def install_quotation_approval_fields():
     from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 
@@ -473,7 +405,6 @@ def install_quotation_approval_fields():
             {"fieldname": "custom_approved_on", "fieldtype": "Datetime",
              "label": "Approved / Rejected On", "read_only": 1, "allow_on_submit": 1,
              "insert_after": "custom_approved_by"},
-            # Internal bookkeeping (hidden)
             {"fieldname": "custom_approved_discount", "fieldtype": "Float",
              "label": "Approved Discount", "read_only": 1, "hidden": 1, "allow_on_submit": 1,
              "insert_after": "custom_approved_on"},

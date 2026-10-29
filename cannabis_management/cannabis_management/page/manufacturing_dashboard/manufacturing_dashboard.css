@@ -1,4 +1,3 @@
-/* ── MTM Manufacturing Dashboard — Matt × Nikki theme ── */
 .mtm-dash {
   --mtm-border:      #e2e8f0;
   --mtm-border-hov:  #cbd5e1;
@@ -30,7 +29,6 @@
   padding-bottom: 32px;
 }
 
-/* ── HEADER — Nikki dark gradient ── */
 .mtm-header {
   background: linear-gradient(135deg, #0d1b2a 0%, #1b2f44 100%);
   color: #fff;
@@ -63,7 +61,6 @@
   border-radius: 20px; margin-top: 5px; letter-spacing: .5px;
 }
 
-/* ── FILTER BAR ── */
 .mtm-fbar {
   background: #fff; border-bottom: 1px solid var(--mtm-border);
   padding: 8px 28px; display: flex; gap: 10px;
@@ -97,7 +94,6 @@
   font-family: 'DM Mono', 'Courier New', monospace; padding-bottom: 1px;
 }
 
-/* ── KPI GRID (Matt sd-kpi style) ── */
 .mtm-kpi-grid {
   display: grid; grid-template-columns: repeat(4, 1fr);
   gap: 14px; padding: 20px 28px;
@@ -149,7 +145,6 @@
 }
 .mtm-kval.loaded { animation: mtmPop .3s cubic-bezier(.34,1.56,.64,1) both; }
 
-/* ── CHART ROWS ── */
 .mtm-crow1 {
   display: grid; grid-template-columns: 1fr 1fr 2fr;
   gap: 14px; padding: 0 28px 20px;
@@ -169,7 +164,6 @@
 }
 .mtm-psub { font-size: 10px; color: var(--mtm-muted); margin-bottom: 10px; }
 
-/* ── DONUT ── */
 .mtm-dwrap { display: flex; flex-direction: column; align-items: center; gap: 10px; }
 canvas.mtm-donut { width: 155px; height: 155px; display: block; }
 .mtm-dleg { display: flex; flex-direction: column; gap: 5px; width: 100%; margin-top: 4px; }
@@ -188,7 +182,6 @@ canvas.mtm-donut { width: 155px; height: 155px; display: block; }
 canvas.mtm-cchart { width: 100%; height: 195px; display: block; }
 canvas.mtm-bchart { width: 100%; height: 205px; display: block; }
 
-/* ── MICRON LADDER ── */
 .mtm-mrow { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .mtm-mlbl {
   font-family: 'DM Mono', 'Courier New', monospace;
@@ -230,7 +223,6 @@ canvas.mtm-bchart { width: 100%; height: 205px; display: block; }
 }
 .mtm-empty { color: var(--mtm-muted); font-size: 12px; padding: 20px 0; text-align: center; }
 
-/* ── WO TABLE ── */
 .mtm-wosec {
   margin: 0 28px 20px; background: #fff;
   border: 1px solid var(--mtm-border); border-radius: var(--mtm-r); overflow: hidden;
@@ -288,7 +280,6 @@ table.mtm-wot { width: 100%; border-collapse: collapse; font-size: 12px; }
 .mtm-spill.ns  { background: #f1f5f9; color: var(--mtm-muted); }
 .mtm-spill.qc  { background: var(--mtm-cyan-dim);    color: #0369a1; }
 
-/* ── CEO INTEL ── */
 .mtm-intel { padding: 0 28px 20px; }
 .mtm-intel-over {
   font-size: 10px; font-weight: 700; text-transform: uppercase;
@@ -321,7 +312,6 @@ table.mtm-wot { width: 100%; border-collapse: collapse; font-size: 12px; }
   font-family: 'DM Mono', 'Courier New', monospace;
 }
 
-/* ── FOOTER ── */
 .mtm-foot {
   padding: 10px 28px; display: flex; justify-content: space-between;
   border-top: 1px solid var(--mtm-border); background: #fff; margin: 0 0 0 0;
@@ -332,7 +322,6 @@ table.mtm-wot { width: 100%; border-collapse: collapse; font-size: 12px; }
   font-size: 10px; color: var(--mtm-muted);
 }
 
-/* ── CHART LEGEND ROW ── */
 .mtm-chart-legend {
   display: flex; gap: 14px; margin-top: 8px;
   font-size: 10px; color: var(--mtm-muted);
@@ -342,7 +331,6 @@ table.mtm-wot { width: 100%; border-collapse: collapse; font-size: 12px; }
   border-radius: 2px; margin-right: 4px; vertical-align: middle;
 }
 
-/* ── RESPONSIVE ── */
 @media (max-width: 1100px) { .mtm-kpi-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 900px) {
   .mtm-crow1, .mtm-crow2 { grid-template-columns: 1fr; }

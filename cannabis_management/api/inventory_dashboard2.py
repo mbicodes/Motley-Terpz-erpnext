@@ -2,7 +2,6 @@ import frappe
 
 @frappe.whitelist(allow_guest=True)
 def get_item_groups():
-	"""Fetch all item groups - accessible without login"""
 	groups = frappe.db.sql("""
 		SELECT 
 			ig.name,
@@ -16,5 +15,5 @@ def get_item_groups():
 		GROUP BY ig.name
 		ORDER BY ig.name
 	""", as_dict=True)
-	
+
 	return groups

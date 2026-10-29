@@ -1,29 +1,3 @@
-"""The Sales Order gate — COD / Terms / Sample routing.
-
-Order type is not a new field: it is derived from the two that already existed
-on Sales Order (see ``utils.resolve_order_type``).
-
-  Cash    → policy does not apply; ERPNext defaults are left alone, no hold block
-  Sample  → forced to zero value, no credit checks, no hold block
-  Terms   → the full gate, and blocked from submit *and print* until approved
-
-Per-order approval applies to every Terms order, every time — an approved credit
-line grants the *ability* to order on terms, not a standing approval.
-
-Cash orders were previously forced onto the "COD" payment terms template. They no
-longer are: a cash order carries no credit exposure, so the module leaves
-``payment_terms_template`` to ERPNext. Everything downstream that used to key off
-``payment_terms_template == "COD"`` (finance_charge, metrics, payment_entry_hooks)
-already treats an empty template identically, so nothing else had to change.
-
-``payment_schedule`` is still wiped for a cash order, though — see
-``_apply_cash`` — because a due-date schedule has nothing to track when the
-money arrives with the product.
-
-The single exception is the workout paydown, which still applies to cash — see
-``utils.is_cash_order`` and the README decision log.
-"""
-
 import frappe
 from frappe import _
 from frappe.utils import flt
@@ -31,15 +5,10 @@ from frappe.utils import flt
 from cannabis_management.credit_and_ar import ar_cap, credit_engine, customer_contact_rules, utils
 
 
-# ── entry points ─────────────────────────────────────────────────────────────
-
-
 def validate(doc, method=None):
 	if not doc.customer:
 		return
 
-	# Before the early returns below: no order goes ahead for a customer we
-	# cannot reach by email or phone, whatever its credit status.
 	customer_contact_rules.validate_sales_order(doc)
 
 	if utils.is_policy_exempt(doc.customer):
@@ -51,8 +20,6 @@ def validate(doc, method=None):
 	order_type = utils.resolve_order_type(doc)
 
 	if order_type == utils.ORDER_TYPE_COD:
-		# Short-circuit before the credit engine runs at all. A cash order needs no
-		# line summary, so there is no reason to compute one.
 		_apply_cash(doc)
 		_apply_workout_paydown(doc, order_type)
 		return
@@ -71,17 +38,12 @@ def validate(doc, method=None):
 def before_submit(doc, method=None):
 	order_type = utils.resolve_order_type(doc)
 
-	# The AR cap runs before the exemption check, and before everything else:
-	# it is the one rule a deposit, an approval or an exemption cannot buy past.
 	if order_type == utils.ORDER_TYPE_TERMS:
 		ar_cap.assert_under_cap(doc, ar_cap.order_credit_amount(doc), noun="order")
 
 	if utils.is_policy_exempt(doc.customer):
 		return
 
-	# Available Line, enforced on every payment mode including Cash on Delivery.
-	# Runs before the order-type split below precisely because COD used to walk
-	# straight past everything here.
 	_assert_within_available_line(doc)
 
 	if order_type == utils.ORDER_TYPE_SAMPLE:
@@ -92,15 +54,9 @@ def before_submit(doc, method=None):
 		_check_workout_paydown(doc)
 		return
 
-	# Everything that stops a Terms order lives here, not at save. A draft can
-	# always be written down; it is submitting that commits the exposure.
 	_assert_terms_allowed(doc)
 	_check_workout_paydown(doc)
 
-	# The credit line is checked *before* the approval status, deliberately. An
-	# over-limit order never auto-approves, so leaving this last meant the only
-	# error Sales ever saw was "awaiting approval" — true, but not the reason the
-	# order was stuck, and it sent them to the MD instead of to the number.
 	_check_deposit(doc)
 
 	if doc.custom_approval_status != utils.APPROVAL_APPROVED:
@@ -114,13 +70,7 @@ def before_submit(doc, method=None):
 
 
 def on_update(doc, method=None):
-	"""Keep the print block honest even if the status is changed elsewhere, and
-	keep the cached exposure figures live as billing percentage shifts."""
 	if doc.docstatus == 1 and doc.customer:
-		# per_billed moves as invoices are raised or cancelled against a
-		# submitted order — the unbilled credit portion (and so Current
-		# Exposure / Available Line on the Customer) shifts with it, even
-		# though the order itself is never re-submitted.
 		credit_engine.refresh_customer_exposure(doc.customer)
 
 	if doc.docstatus != 0 or utils.is_policy_exempt(doc.customer):
@@ -135,14 +85,10 @@ def on_update(doc, method=None):
 
 
 def on_submit(doc, method=None):
-	"""A submitted Terms order's unbilled portion now counts as exposure —
-	refresh the cached Current Exposure / Available Line on the Customer."""
 	if doc.customer:
 		credit_engine.refresh_customer_exposure(doc.customer)
 
 	if doc.custom_ar_case:
-		# §9 step 7 — the Previous Balance baseline for this customer's *next*
-		# workout order.
 		doc.db_set(
 			"custom_workout_balance_at_order",
 			credit_engine.get_current_exposure(doc.customer),
@@ -151,21 +97,11 @@ def on_submit(doc, method=None):
 
 
 def on_cancel(doc, method=None):
-	"""Mirror of on_submit — a cancelled order drops back out of exposure."""
 	if doc.customer:
 		credit_engine.refresh_customer_exposure(doc.customer)
 
 
-# ── Cash ─────────────────────────────────────────────────────────────────────
-
-
 def _clear_credit_fields(doc):
-	"""An exempt account carries no credit state at all.
-
-	The order behaves exactly as it did before this module existed — including
-	leaving `payment_terms_template` alone, so the exemption is a real carve-out
-	rather than a silently-still-COD order.
-	"""
 	doc.custom_approval_status = utils.APPROVAL_NOT_REQUIRED
 	doc.custom_print_blocked = 0
 	doc.custom_required_deposit = 0
@@ -181,21 +117,6 @@ def _default_payment_mode(doc):
 
 
 def _apply_cash(doc):
-	"""A cash order carries no credit state — and no credit behaviour.
-
-	This deliberately does **not** touch ``payment_terms_template``. Whatever
-	ERPNext or the user puts there stands.
-
-	``payment_schedule`` is the one exception: money on a Cash On Delivery order
-	arrives with the product, so there is nothing for a due-date schedule to
-	track. ERPNext's core ``validate`` (which runs before this hook) still builds
-	one from the Payment Terms Template whenever it's set or the order total
-	changes, so it is wiped again here on every save and submit rather than only
-	once — leaving it blank for as long as the order stays Cash On Delivery.
-
-	Only the module's own fields are reset otherwise, so an order flipped from
-	Terms to Cash does not carry stale approval or deposit state.
-	"""
 	doc.custom_approval_status = utils.APPROVAL_NOT_REQUIRED
 	doc.custom_print_blocked = 0
 	doc.custom_required_deposit = 0
@@ -204,15 +125,7 @@ def _apply_cash(doc):
 	doc.payment_schedule = []
 
 
-# ── Sample ───────────────────────────────────────────────────────────────────
-
-
 def _apply_sample(doc):
-	"""Zero value, enforced — not merely expected.
-
-	Stock still leaves inventory; a sample is a pricing decision, not an
-	inventory one. Holds do not block samples.
-	"""
 	changed = False
 	for item in doc.items:
 		if flt(item.rate) or flt(item.discount_percentage) or flt(item.discount_amount):
@@ -237,16 +150,6 @@ def _apply_sample(doc):
 
 
 def _assert_within_available_line(doc):
-	"""Refuse an order worth more than the customer's remaining line.
-
-	Applies to the statuses in utils.LINE_ENFORCED_STATUSES and to **every**
-	payment mode — Cash on Delivery included. Account Manager is the only way
-	through, which is also what unlocks printing (see print_guard).
-
-	The line is read live rather than from custom_available_line: that field is a
-	cached mirror refreshed by refresh_customer_exposure, and an order raised
-	between refreshes would otherwise be measured against a stale figure.
-	"""
 	status = frappe.db.get_value("Customer", doc.customer, "custom_credit_status")
 	if status not in utils.LINE_ENFORCED_STATUSES:
 		return
@@ -293,17 +196,7 @@ def _assert_zero_value(doc):
 		)
 
 
-# ── Terms ────────────────────────────────────────────────────────────────────
-
-
 def _validate_terms(doc, summary):
-	"""Save time — compute, stamp and **warn**. Nothing here blocks a draft.
-
-	Sales need to be able to write an order down while the credit file is still
-	being put together; the policy only has to bite before the order is
-	committed. Everything that refuses lives in ``_assert_terms_allowed``, which
-	runs at submit.
-	"""
 	application = credit_engine.get_active_credit_application(doc.customer)
 	doc.custom_credit_application = application.get("name") if application else None
 
@@ -327,14 +220,6 @@ def _validate_terms(doc, summary):
 
 
 def _qualifies_for_auto_approval(doc, summary) -> bool:
-	"""A Managing Director already signed off on this account's credit line —
-	an order that stays inside it does not need a second, per-order sign-off.
-
-	Anything that would still need a human — a hold, a freeze, an expired or
-	revoked line, a wrong term, an account on a plan or workout, or an order
-	that pushes exposure past the approved line — falls straight through to
-	the usual Pending Approval queue, unchanged.
-	"""
 	if frappe.db.get_value("Customer", doc.customer, "custom_credit_status") != (
 		utils.STATUS_TERMS_APPROVED
 	):
@@ -350,19 +235,11 @@ def _qualifies_for_auto_approval(doc, summary) -> bool:
 
 
 def _auto_approve_terms(doc):
-	"""Same end state as ``api.approve_terms`` — approved, print unblocked —
-	minus the human. ``custom_terms_approved_by`` still needs a real User for
-	the Link field; Administrator marks it as policy-driven rather than
-	claiming a person signed off who did not."""
 	doc.custom_approval_status = utils.APPROVAL_APPROVED
 	doc.custom_terms_approved_by = "Administrator"
 	doc.custom_terms_approved_on = frappe.utils.now_datetime()
 	doc.custom_terms_rejection_reason = None
 
-	# A brand-new document has no row in the database yet, so a Comment
-	# pointing at it as its reference would fail to link. Only log the
-	# comment for a document that already exists — new inserts still carry
-	# the same audit trail via the approved_by/approved_on stamp above.
 	if not doc.get("__islocal"):
 		doc.add_comment(
 			"Comment",
@@ -374,7 +251,6 @@ def _auto_approve_terms(doc):
 
 
 def _warn_terms_problems(doc):
-	"""Tell Sales now what will stop the order at submit — without stopping the save."""
 	problems = _terms_problems(doc)
 	if not problems:
 		return
@@ -392,22 +268,11 @@ def _warn_terms_problems(doc):
 
 
 def _assert_terms_allowed(doc):
-	"""Submit time — the same checks, now refusing.
-
-	Re-run live rather than trusted from the save: holds, freezes and credit
-	lines all move between drafting an order and committing it.
-	"""
 	problems = _terms_problems(doc)
 	utils.throw_consolidated(problems, "Terms Order Cannot Be Submitted")
 
 
 def _terms_problems(doc) -> list[str]:
-	"""Every reason a Terms order may not be committed, gathered in one pass.
-
-	Each check *returns* its problem rather than throwing, so the same list can
-	drive a non-blocking warning at save and a hard refusal at submit without
-	the two ever drifting apart.
-	"""
 	settings = utils.get_settings()
 
 	checks = (
@@ -427,17 +292,6 @@ def _terms_problems(doc) -> list[str]:
 
 
 def _problem_cod_status(doc) -> str | None:
-	"""A COD customer may not take Payment Terms.
-
-	COD is what every customer starts on, so this is the gate a new account has
-	to pass before it can buy on terms at all: Finance moves it to Terms Approved
-	once a credit line exists. Read live from the Customer rather than from
-	anything cached on the order, so moving an account back to COD stops its
-	drafted terms orders too.
-
-	Only reached for Terms orders — _terms_problems is not called for COD or
-	Sample orders — so a cash order from the same customer is unaffected.
-	"""
 	status = frappe.db.get_value("Customer", doc.customer, "custom_credit_status")
 	if status != utils.STATUS_COD:
 		return None
@@ -455,13 +309,11 @@ def _problem_terms_template(doc) -> str | None:
 
 
 def _problem_line(doc) -> str | None:
-	"""No approved credit line, or one that has expired or been revoked."""
 	blocker = credit_engine.describe_line_blocker(doc.customer)
 	return frappe.utils.strip_html(blocker).strip() if blocker else None
 
 
 def _problem_one_term_per_account(doc) -> str | None:
-	"""§5 — one term per account. Sales cannot pick a different template."""
 	approved = frappe.db.get_value("Customer", doc.customer, "custom_credit_terms_template")
 	if approved and doc.payment_terms_template and doc.payment_terms_template != approved:
 		return _(
@@ -485,7 +337,6 @@ def _problem_terms_ceiling(doc, settings) -> str | None:
 
 
 def _problem_workout(doc) -> str | None:
-	"""§9 — workout accounts are prepaid only, no exceptions."""
 	from cannabis_management.credit_and_ar import plan_workout
 
 	status = frappe.db.get_value("Customer", doc.customer, "custom_credit_status")
@@ -499,14 +350,12 @@ def _problem_workout(doc) -> str | None:
 
 
 def _problem_payment_plan(doc) -> list[str]:
-	"""§8 — a plan customer only gets terms on a healthy plan plus a fresh line."""
 	from cannabis_management.credit_and_ar import plan_workout
 
 	return plan_workout.plan_problems(doc.customer)
 
 
 def _problem_hold(doc) -> str | None:
-	"""A hard or immediate hold refuses. A warning only warns."""
 	from cannabis_management.credit_and_ar.doctype.ar_case.ar_case import get_hold_type
 
 	hold_type = get_hold_type(doc.customer)
@@ -529,8 +378,6 @@ def _problem_hold(doc) -> str | None:
 
 
 def _problem_freeze() -> str | None:
-	"""§11 — a freeze stops new unsecured exposure for everyone, good standing
-	included. The order has to be re-typed COD or prepaid."""
 	settings = utils.get_settings()
 	if not settings.company_freeze_active:
 		return None
@@ -543,18 +390,6 @@ def _problem_freeze() -> str | None:
 
 
 def _apply_workout_paydown(doc, order_type):
-	"""§9 — every order for a workout account carries a paydown.
-
-	Required Paydown:
-	  Fixed   = the case's Paydown Amount
-	  Percent = this order's Net Total × Paydown %
-
-	Previous Balance is the workout's Starting Balance for the first order
-	submitted since it began, otherwise the Workout Balance at Order snapshot
-	saved on the customer's last submitted order against this same case.
-	Paydown Made is how far the AR Case's live Current Balance has dropped
-	below that.
-	"""
 	from cannabis_management.credit_and_ar import plan_workout
 
 	if order_type == utils.ORDER_TYPE_SAMPLE:
@@ -593,7 +428,6 @@ def _apply_workout_paydown(doc, order_type):
 
 
 def _check_workout_paydown(doc):
-	"""Submit time — re-verified live, exactly like every other workout figure."""
 	from cannabis_management.credit_and_ar import plan_workout
 
 	required = flt(doc.custom_workout_paydown_required)
@@ -618,24 +452,6 @@ def _check_workout_paydown(doc):
 
 
 def _compute_required_deposit(doc, summary):
-	"""Total cleared deposit needed before this order can be submitted.
-
-	One reason only: §4 over-limit — the amount by which the order's *credit*
-	exposure exceeds the available line. No single-order exception at any amount.
-
-	The template's own up-front leg is deliberately **not** a deposit
-	requirement. A `50% down NETnn` term used to add its 50% here, which meant a
-	$10,000 order could not be submitted until $5,000 had cleared — a hard block
-	stock ERPNext does not have, where a due-immediately payment-schedule row is
-	a *due date*, not a gate on submitting the order. The schedule ERPNext builds
-	from the template still stands and the money is still owed on day zero; it is
-	simply collected and chased like any other due amount rather than held over
-	the order. See the decision log.
-
-	Only the deferred portion of a 50%-down order is credit, so only that
-	portion is measured against the line — that part is unchanged, because it is
-	an exposure measurement rather than a deposit demand.
-	"""
 	grand_total = flt(doc.grand_total)
 	credit_portion = utils.template_credit_portion(doc.payment_terms_template) / 100.0
 
@@ -654,8 +470,6 @@ def _compute_required_deposit(doc, summary):
 
 
 def _ar_source_label() -> str:
-	"""Name the receivable measure in the message, so nobody has to guess whether
-	the figure came from the ledger or from the invoice list."""
 	from cannabis_management.credit_and_ar import credit_engine
 
 	if credit_engine.get_ar_source() == credit_engine.AR_SOURCE_INVOICES:
@@ -664,13 +478,6 @@ def _ar_source_label() -> str:
 
 
 def _describe_over_limit(doc, summary, order_credit_exposure, over_limit, noun: str = "order") -> str:
-	"""The arithmetic, spelled out — approved limit, what is already committed,
-	what is left, what this order asks for, and the shortfall.
-
-	Sales' first question is always "over by how much?", so that figure leads and
-	is repeated at the bottom. The same text backs the orange warning at save and
-	the refusal at submit, so the two can never say different numbers.
-	"""
 	currency = doc.currency
 
 	def money(amount):
@@ -698,16 +505,7 @@ def _describe_over_limit(doc, summary, order_credit_exposure, over_limit, noun: 
 	)
 
 
-# ── deposits ─────────────────────────────────────────────────────────────────
-
-
 def get_cleared_deposits(sales_order: str) -> float:
-	"""Submitted, cleared customer receipts earmarked against this order.
-
-	"Cleared" means the bank has confirmed it: a clearance date, or an
-	instant mode of payment such as cash. A deposit that has not cleared is a
-	promise, not a payment.
-	"""
 	rows = frappe.get_all(
 		"Payment Entry",
 		filters={
@@ -737,14 +535,6 @@ def _is_cleared(row) -> bool:
 
 
 def _check_deposit(doc):
-	"""§4 — an order may not commit exposure past the approved line.
-
-	Recomputed live rather than trusted from the save: another order for the same
-	credit group may have been submitted, or an invoice paid, since this document
-	was written down. The refusal leads with the limit breach — that is what
-	actually stopped the order — and offers the cleared deposit as the way through
-	rather than presenting itself as a paperwork problem.
-	"""
 	summary = credit_engine.get_line_summary(doc.customer, exclude_sales_order=doc.name)
 	credit_portion = utils.template_credit_portion(doc.payment_terms_template) / 100.0
 	order_credit_exposure = flt(doc.grand_total) * credit_portion

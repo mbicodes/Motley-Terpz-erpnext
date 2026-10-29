@@ -1,15 +1,3 @@
-// Copyright (c) 2026, alltechvirtual.com and contributors
-// Conversion Workbench — "Conversion Workbench - Page Mapping (Developer Spec)", 7 Oct 2026.
-//
-// Pick raw materials from live stock on the left, press Convert, fill the
-// finished items by hand, and one Conversion Entry is created and submitted.
-// The page posts no stock itself; the entry's own on-submit logic makes the
-// Draft Repack Stock Entry exactly as it does from the form.
-//
-// Selection is held in a Map keyed by item + warehouse so it survives changing
-// group, searching and paging — the spec asks for items from several groups to
-// go into one conversion.
-
 const CWB = 'cannabis_management.cannabis_management.page.conversion_workbench.conversion_workbench.';
 const CWB_MAX_RAW = 7;
 const CWB_MAX_FINISHED = 3;
@@ -28,7 +16,7 @@ frappe.pages['conversion-workbench'].on_page_load = function (wrapper) {
 		search: '',
 		items: [],
 		groups: [],
-		selected: new Map(),      // "item|warehouse" -> row
+		selected: new Map(),
 		types: [],
 		start: 0,
 		exhausted: false,
@@ -62,15 +50,11 @@ frappe.pages['conversion-workbench'].on_page_load = function (wrapper) {
 		</div>
 	`);
 
-	// Bound before anything async: if the company lookup were to fail with the
-	// handlers inside its callback, the Convert button would simply do nothing.
 	bind(page);
 
 	frappe.call({ method: CWB + 'get_conversion_types' })
 		.then((r) => { page.cwb.types = (r && r.message) || []; });
 
-	// The allowed companies come from the server, not a list in here, so the
-	// picker cannot offer one the server would refuse.
 	frappe.call({ method: CWB + 'get_companies' })
 		.then((r) => {
 			const esc = frappe.utils.escape_html;
@@ -80,8 +64,6 @@ frappe.pages['conversion-workbench'].on_page_load = function (wrapper) {
 					`<div class="cwb-empty">${__('No companies are set up for the workbench.')}</div>`);
 				return;
 			}
-			// The user's default only wins if it is one of the workbench's own;
-			// otherwise the first (Master Touch Manufacturing) is the default.
 			if (names.indexOf(page.cwb.company) === -1) page.cwb.company = names[0];
 			page.main.find('#cwb-company').html(
 				names.map((n) => `<option value="${esc(n)}">${esc(n)}</option>`).join('')
@@ -99,8 +81,6 @@ function bind(page) {
 
 	page.main.find('#cwb-company').on('change', function () {
 		s.company = this.value;
-		// Warehouses and stock are per company, so a selection made under the
-		// previous one cannot be carried across.
 		s.selected.clear();
 		s.warehouse = '';
 		s.group = CWB_ALL;
@@ -115,7 +95,6 @@ function bind(page) {
 	let timer = null;
 	page.main.find('#cwb-search').on('input', function () {
 		s.search = this.value;
-		// Searching hits the server, so wait for a pause in typing.
 		clearTimeout(timer);
 		timer = setTimeout(() => load_items(page, true), 250);
 	});
@@ -136,7 +115,6 @@ function bind(page) {
 	page.main.find('#cwb-clear').on('click', () => { s.selected.clear(); render(page); });
 	page.main.find('#cwb-convert').on('click', () => open_convert(page));
 
-	// Scroll-to-load: the list asks for 200 rows at a time.
 	page.main.find('#cwb-list').on('scroll', function () {
 		if (s.loading || s.exhausted) return;
 		if (this.scrollTop + this.clientHeight >= this.scrollHeight - 120) load_items(page, false);
@@ -222,14 +200,11 @@ function toggle(page, key) {
 		frappe.msgprint(__('A Conversion Entry supports up to 7 raw materials.'));
 		return;
 	}
-	// One entry row carries one Source Warehouse, so a second warehouse cannot
-	// be stored even though the picker would happily show it.
 	const first = s.selected.values().next().value;
 	if (first && first.warehouse !== row.warehouse) {
 		frappe.msgprint(__('All raw materials must come from the same Source Warehouse.'));
 		return;
 	}
-	// Default quantity is the whole balance; the dialog is where it is edited.
 	s.selected.set(key, Object.assign({}, row, { qty: flt(row.actual_qty) }));
 	render(page);
 }
@@ -297,12 +272,6 @@ function render_selection(page) {
 			uoms.size === 1 ? ` (${format_number(total, null, 2)} ${esc([...uoms][0])})` : ''}</span>`);
 }
 
-
-// ── Convert dialog ───────────────────────────────────────────────────────────
-// Header fields mirror the Conversion Entry form, in the same order, so users
-// see nothing new. Raw rows arrive from the page selection; finished rows start
-// empty and are added by hand.
-
 function open_convert(page) {
 	const s = page.cwb;
 	if (!s.selected.size) return;
@@ -329,8 +298,6 @@ function open_convert(page) {
 			{ fieldname: 'cb_h2', fieldtype: 'Column Break' },
 			{ fieldname: 'conversion_status', fieldtype: 'Link', options: 'Conversion Status',
 				label: __('Conversion Status') },
-			// Customer and Supplier swap on Tolling, exactly as the Conversion
-			// Entry form does, so the two never both carry a value.
 			{ fieldname: 'customer', fieldtype: 'Link', options: 'Customer', label: __('Customer'),
 				depends_on: "eval:doc.reasons != 'Tolling'" },
 			{ fieldname: 'supplier', fieldtype: 'Link', options: 'Supplier', label: __('Supplier'),
@@ -438,10 +405,6 @@ function render_tables(page, d, state) {
 		<div class="cwb-totals" id="cwb-totals"></div>
 	`);
 
-	// A real Frappe Link control per finished-item cell, so the field behaves
-	// exactly like the form's Item field -- search, title display, the lot.
-	// (Frappe ships Awesomplete, not jQuery UI, so $.fn.autocomplete does not
-	// exist; calling it threw in here and the dialog never reached d.show().)
 	state._controls = [];
 	d.fields_dict.tables.$wrapper.find('.cwb-fin-item').each(function () {
 		const idx = cint($(this).attr('data-i'));
@@ -474,7 +437,6 @@ function render_totals(page, d, state) {
 	const allowed = (page.cwb && page.cwb.types) || [];
 	const ok = allowed.length ? allowed.indexOf(type) !== -1 : true;
 
-	// Totals use each item's own UOM; mixing them makes a single number a lie.
 	const sum = (rows, qty_of) => {
 		const uoms = new Set(rows.map((r) => r.stock_uom).filter(Boolean));
 		if (uoms.size > 1) return __('mixed units');
@@ -496,8 +458,6 @@ function submit_convert(page, d, state) {
 	const raws = state.raws.filter((r) => r.item_code);
 	const fins = state.finished.filter((f) => f.item_code);
 
-	// Browser copy of the spec's section 7. The server repeats every one of
-	// these; this exists so a mistake is caught before a round trip.
 	if (!raws.length || !fins.length) {
 		return frappe.msgprint(__('Select at least one raw material and one finished item.'));
 	}
@@ -539,7 +499,6 @@ function submit_convert(page, d, state) {
 	const gap = flt(fin_total - raw_total, 3);
 
 	const go = () => post_convert(page, d, v, raws, fins);
-	// Rule 10 warns, it does not block: losing mass is normal in extraction.
 	if (Math.abs(gap) > 0.0001) {
 		frappe.confirm(
 			__('Finished quantity differs from raw quantity by {0}. Continue?',
@@ -581,7 +540,6 @@ function post_convert(page, d, v, raws, fins) {
 			const m = r.message;
 			d.hide();
 			page.cwb.selected.clear();
-			// The counts and balances have moved, so both sides reload.
 			reload_all(page);
 
 			const links = [
@@ -601,8 +559,6 @@ function post_convert(page, d, v, raws, fins) {
 		},
 		error: () => {
 			frappe.dom.unfreeze();
-			// The server ran insert and submit in one transaction, so a failure
-			// has left nothing behind; the dialog stays open with its message.
 			d.enable_primary_action();
 		},
 	});

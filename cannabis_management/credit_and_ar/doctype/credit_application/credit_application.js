@@ -43,7 +43,6 @@ frappe.ui.form.on("Credit Application", {
 					ap_contact: message.custom_ap_contact_phone,
 					ap_contact_email: message.custom_ap_contact_email,
 				};
-				// Only fill blanks — never overwrite what the credit file already says.
 				Object.entries(map).forEach(([field, value]) => {
 					if (value && !frm.doc[field]) frm.set_value(field, value);
 				});

@@ -58,10 +58,6 @@ function dateRangeLabel() {
 	return frappe.datetime.str_to_user(ops_from_date) + " – " + frappe.datetime.str_to_user(ops_to_date);
 }
 
-// ---------------------------------------------------------------------------
-// Section A: Daily
-// ---------------------------------------------------------------------------
-
 function load_daily_summary(root) {
 	frappe.call({
 		method: `${OPS_APP_MODULE}.get_daily_summary`,
@@ -113,10 +109,6 @@ function dailyCardHTML(title, value, caption, target) {
 </div>';
 }
 
-// ---------------------------------------------------------------------------
-// Section B: Harvest Window
-// ---------------------------------------------------------------------------
-
 function load_harvest_window(root) {
 	frappe.call({
 		method: `${OPS_APP_MODULE}.get_harvest_window`,
@@ -148,10 +140,6 @@ function render_harvest_window(root, w) {
   </tbody>\
 </table>';
 }
-
-// ---------------------------------------------------------------------------
-// Section C: Labor Efficiency
-// ---------------------------------------------------------------------------
 
 var EFFICIENCY_CARDS = [
 	{ key: "clones", label: "Clones taken per person/hr", notes: "Propagation session log", archiveFn: archive_cloning },
@@ -240,10 +228,6 @@ function archive_task(root, task_type) {
 	});
 }
 
-// ---------------------------------------------------------------------------
-// Section D: Archived Sessions
-// ---------------------------------------------------------------------------
-
 function load_archived_sessions(root) {
 	frappe.call({
 		method: `${OPS_APP_MODULE}.get_archived_sessions`,
@@ -324,10 +308,6 @@ function archivedRowHTML(taskType, dateLabel, rate, target, dataAttr) {
   </div>\
 </div>';
 }
-
-// ---------------------------------------------------------------------------
-// Page HTML shell
-// ---------------------------------------------------------------------------
 
 function getOdfHTML() {
 	return '\

@@ -1,7 +1,6 @@
 import frappe
 from frappe.utils import flt, add_days, nowdate
 
-# Auto-detect micron child table (same candidates as traceability report)
 _MICRON_CANDIDATES = [
     "tabJob Card Micron Detail",
     "tabJob Card Micron",
@@ -40,7 +39,6 @@ def get_dashboard_data(from_date=None, to_date=None, company=""):
     company_jc  = ""
     company_se  = ""
 
-    # ── 1. Work Order KPIs ────────────────────────────────────────────────
     wo_kpis = frappe.db.sql(f"""
         SELECT
             COALESCE(SUM(wo.qty), 0)               AS planned_qty,
@@ -55,7 +53,6 @@ def get_dashboard_data(from_date=None, to_date=None, company=""):
     """, params, as_dict=True)
     w = wo_kpis[0] if wo_kpis else {}
 
-    # ── 2. Job Card KPIs ──────────────────────────────────────────────────
     jc_kpis = frappe.db.sql(f"""
         SELECT
             COUNT(*) AS jc_count,
@@ -68,7 +65,6 @@ def get_dashboard_data(from_date=None, to_date=None, company=""):
     """, params, as_dict=True)
     j = jc_kpis[0] if jc_kpis else {}
 
-    # ── 3. WO Status breakdown ────────────────────────────────────────────
     wo_status = frappe.db.sql(f"""
         SELECT wo.status, COUNT(*) AS cnt
         FROM `tabWork Order` wo
@@ -79,7 +75,6 @@ def get_dashboard_data(from_date=None, to_date=None, company=""):
         ORDER BY cnt DESC
     """, params, as_dict=True)
 
-    # ── 4. JC Status breakdown ────────────────────────────────────────────
     jc_status = frappe.db.sql(f"""
         SELECT jc.status, COUNT(*) AS cnt
         FROM `tabJob Card` jc
@@ -91,7 +86,6 @@ def get_dashboard_data(from_date=None, to_date=None, company=""):
         ORDER BY cnt DESC
     """, params, as_dict=True)
 
-    # ── 5. Throughput trend (daily) ───────────────────────────────────────
     throughput = frappe.db.sql(f"""
         SELECT
             DATE(wo.modified) AS dt,
@@ -106,7 +100,6 @@ def get_dashboard_data(from_date=None, to_date=None, company=""):
         LIMIT 14
     """, params, as_dict=True)
 
-    # ── 6. Micron distribution ────────────────────────────────────────────
     micron = []
     mt = _get_micron_table()
     if mt:
@@ -129,7 +122,6 @@ def get_dashboard_data(from_date=None, to_date=None, company=""):
         except Exception:
             micron = []
 
-    # ── 7. Cost breakdown from Manufacture SEs ────────────────────────────
     costs_rows = frappe.db.sql(f"""
         SELECT
             COALESCE(SUM(sed.basic_amount), 0)          AS raw_material_cost,
@@ -145,7 +137,6 @@ def get_dashboard_data(from_date=None, to_date=None, company=""):
     """, params, as_dict=True)
     cost = costs_rows[0] if costs_rows else {}
 
-    # ── 8. Employee productivity ──────────────────────────────────────────
     employees = frappe.db.sql(f"""
         SELECT
             jctl.employee,
@@ -177,7 +168,6 @@ def get_dashboard_data(from_date=None, to_date=None, company=""):
         qty = flt(emp.get("weighted_qty"))
         emp["qty_per_hour"] = round(qty / (mins / 60), 1) if mins > 0 else 0.0
 
-    # ── 9. Work Orders list ───────────────────────────────────────────────
     work_orders = frappe.db.sql(f"""
         SELECT
             wo.name,

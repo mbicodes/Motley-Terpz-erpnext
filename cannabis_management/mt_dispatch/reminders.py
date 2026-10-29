@@ -1,15 +1,3 @@
-"""The 15-minute reminder job and the morning digest.
-
-Age is counted in working minutes only, in the company's own timezone and
-work week. So an order that reaches Order Prepared at 16:50 on a Saturday,
-with a Mon–Sat 08:00–17:00 week, has 10 working minutes by Monday 08:00 --
-not a weekend's worth -- and nobody is reminded overnight or on a day off.
-
-Each reminder stamps last_reminded_on on the order's latest stage log row,
-and the same stage is only reminded again once another full threshold of
-working time has passed.
-"""
-
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -22,7 +10,6 @@ from cannabis_management.mt_dispatch.settings import get_company_settings, users
 
 DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
-# Section 9.2. Used for any company whose settings carry no reminder rows.
 DEFAULT_RULES = [
 	(stages.RECEIVED, 240, "fulfillment", None),
 	(stages.AWAITING_CONVERSION, 480, "fulfillment", None),
@@ -37,9 +24,6 @@ DEFAULT_RULES = [
 DIGEST_WINDOW_MINUTES = 15
 
 
-# ── working time ─────────────────────────────────────────────────────────────
-
-
 def company_tz(cfg):
 	try:
 		return ZoneInfo(cfg.get("timezone") or "America/Los_Angeles")
@@ -48,7 +32,6 @@ def company_tz(cfg):
 
 
 def to_local(dt, cfg):
-	"""A naive system-time datetime as an aware datetime in the company's zone."""
 	dt = get_datetime(dt)
 	if dt.tzinfo is None:
 		dt = dt.replace(tzinfo=ZoneInfo(get_system_timezone()))
@@ -70,7 +53,6 @@ def in_work_hours(local_dt, cfg):
 
 
 def working_minutes(start, end, cfg):
-	"""Working minutes between two system-time datetimes."""
 	if not start or not end:
 		return 0
 	a, b = to_local(start, cfg), to_local(end, cfg)
@@ -92,16 +74,12 @@ def working_minutes(start, end, cfg):
 	return int(total)
 
 
-# ── rules ────────────────────────────────────────────────────────────────────
-
-
 def rules(cfg):
 	rows = [
 		(r.stage, int(r.after_minutes or 0), r.notify, r.get("only_when") or None)
 		for r in cfg.get("reminders") or []
 	]
 	rows = rows or DEFAULT_RULES
-	# A zero or negative threshold would fire every fifteen minutes. Treat it as off.
 	return [r for r in rows if r[1] > 0 and r[0] and r[2]]
 
 
@@ -126,7 +104,6 @@ def applicable_rules(so, cfg, stage):
 def last_log(so_name):
 	rows = frappe.get_all(
 		"Dispatch Stage Log",
-		# "Got it" on the Fulfillment board logs a row but moves nothing.
 		filters={"parent": so_name, "parenttype": "Sales Order", "action": ["!=", "update_ack"]},
 		fields=["name", "at", "to_stage", "last_reminded_on"],
 		order_by="idx desc",
@@ -145,7 +122,6 @@ def open_orders(cfg):
 
 
 def due_rules(so, cfg, stage, log, now):
-	"""The rules whose threshold has passed and that were not already sent."""
 	age = working_minutes(log.at, now, cfg)
 	since_reminder = working_minutes(log.last_reminded_on, now, cfg) if log.last_reminded_on else None
 	due = []
@@ -159,7 +135,6 @@ def due_rules(so, cfg, stage, log, now):
 
 
 def overdue_orders(cfg, now=None):
-	"""(order, stage, working minutes) for everything past its first threshold."""
 	now = now or now_datetime()
 	out = []
 	for row in open_orders(cfg):
@@ -174,9 +149,6 @@ def overdue_orders(cfg, now=None):
 		if age >= min(thresholds):
 			out.append((row.name, row.stage, age))
 	return sorted(out, key=lambda r: -r[2])
-
-
-# ── the job ──────────────────────────────────────────────────────────────────
 
 
 def run():
@@ -197,7 +169,6 @@ def run():
 
 
 def run_company(cfg, now=None, sender=None):
-	"""One company's reminders. `sender` is injectable for tests."""
 	now = now or now_datetime()
 	local = to_local(now, cfg)
 	if not in_work_hours(local, cfg):
@@ -243,7 +214,6 @@ def send_reminder(so, cfg, stage, notify, age):
 		rows = post.message_rows(so.name, post.DISPATCH_POST)
 		thread = post.thread_row(so.name)
 		if rows and not (thread and rows[-1].channel == thread.channel):
-			# A separate dispatch channel: reply under the dispatch post there.
 			client.post(rows[-1].channel, line, thread_ts=rows[-1].ts)
 		else:
 			post.post_to(so, cfg, "dispatch_channel", line)
@@ -260,9 +230,6 @@ def send_reminder(so, cfg, stage, notify, age):
 		backups = [row.user for row in cfg.team or [] if row.backup_approver]
 		if backups:
 			post.send_approval_dms(so, cfg, users=backups)
-
-
-# ── digest ───────────────────────────────────────────────────────────────────
 
 
 def maybe_digest(cfg, local, now):

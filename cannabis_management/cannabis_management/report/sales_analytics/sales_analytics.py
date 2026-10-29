@@ -1,7 +1,3 @@
-# Copyright (c) 2013, Frappe Technologies Pvt. Ltd. and contributors
-# For license information, please see license.txt
-
-
 import frappe
 from frappe import _, scrub
 from frappe.query_builder import DocType
@@ -20,8 +16,7 @@ def _get_excluded_customers():
     """)
     return list(set(company_names) | set(internal) | {"MT", "MTPZ", "Motley Terpz"})
 
-
-INTERNAL_CUSTOMERS = _get_excluded_customers()  # evaluated at module load; refreshed on each bench reload
+INTERNAL_CUSTOMERS = _get_excluded_customers()
 
 
 def execute(filters=None):
@@ -76,7 +71,6 @@ class Analytics:
 		self.get_data()
 		self.get_chart_data()
 
-		# Skipping total row for tree-view reports
 		skip_total_row = 0
 
 		if self.filters.tree_type in ["Supplier Group", "Item Group", "Customer Group", "Territory"]:

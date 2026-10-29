@@ -5,10 +5,6 @@ from frappe.utils import flt
 
 @frappe.whitelist()
 def create_material_transfer_from_si(sales_invoice, source_warehouse, target_warehouse):
-    """
-    Create a draft Material Transfer Stock Entry from Sales Invoice items.
-    For each item, transfer min(requested_qty, available_qty) from source to target warehouse.
-    """
     if not sales_invoice or not source_warehouse or not target_warehouse:
         frappe.throw(_("Sales Invoice, Source Warehouse, and Target Warehouse are required."))
 
@@ -20,7 +16,7 @@ def create_material_transfer_from_si(sales_invoice, source_warehouse, target_war
     se = frappe.new_doc("Stock Entry")
     se.stock_entry_type = "Material Transfer"
     se.company = si.company or "Motley Terpz"
-    se.custom_sales_invoice_reference = sales_invoice  # optional link-back field
+    se.custom_sales_invoice_reference = sales_invoice
 
     has_items = False
     skipped_items = []
@@ -40,7 +36,6 @@ def create_material_transfer_from_si(sales_invoice, source_warehouse, target_war
         if not row.item_code:
             continue
 
-        # Skip rows where the invoice qty is zero
         if flt(row.qty) <= 0:
             continue
 
@@ -56,7 +51,6 @@ def create_material_transfer_from_si(sales_invoice, source_warehouse, target_war
             )
             continue
 
-        # Check available qty in source warehouse via Bin
         available_qty = flt(
             frappe.db.get_value(
                 "Bin",

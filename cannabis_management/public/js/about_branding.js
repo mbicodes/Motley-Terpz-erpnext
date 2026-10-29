@@ -1,11 +1,5 @@
-// About dialog: the "Website" line points at All Tech Virtual instead of
-// frappe.io, and Frappe's own source/blog/forum/social lines are removed.
-// Frappe's about.js hard-codes those links in the dialog's HTML (they are not
-// translatable text), so the dialog is edited right after it is built. The app
-// title and the © line are handled server-side in branding/.
 (function () {
 	const WEBSITE = "https://alltechvirtual.com";
-	// Each of these sits in its own <p>; the whole line goes.
 	const HIDDEN_LINKS = [
 		"https://github.com/frappe",
 		"https://frappe.io/blog",

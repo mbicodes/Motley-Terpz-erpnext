@@ -1,8 +1,3 @@
-/* =====================================================================
-   CONFIG: Farm Daily Report (Joe)
-   Field names below must match the DocType. Change them here if your
-   DocType uses different fieldnames.
-   ===================================================================== */
 var YNA = ['Yes', 'No', 'N/A (No plants in ground)'];
 var YN = ['Yes', 'No'];
 
@@ -20,17 +15,13 @@ window.DR_CONFIG = {
     previewUser: 'Joe (preview)',
     previewNote: 'Preview mode: this page is not connected to MotleyERP. Submitting shows the data that would be saved.',
 
-    /* Child table fieldnames */
     child: {
-        photo: 'photo',                     // Daily Report Photo
-        flc: 'flc', laborers: 'no_of_laborers',   // Daily Report FLC Labor
+        photo: 'photo',
+        flc: 'flc', laborers: 'no_of_laborers',
         activity: 'activity', people: 'no_of_people', quantity: 'quantity_completed',
-        uom: 'uom', perPerson: 'output_per_person'  // Daily Report Activity
+        uom: 'uom', perPerson: 'output_per_person'
     },
 
-    /* Where dropdown lists come from. A `method` source calls a whitelisted
-       method that returns [{value, label}]; the FLC list uses one so reporters
-       need no read permission on Supplier. */
     sources: {
         flc: { method: 'cannabis_management.farm_reports.api.get_flc_suppliers' },
         activity: { doctype: 'Farm Activity', value: 'name', label: 'name', filters: [['disabled', '=', 0]] }

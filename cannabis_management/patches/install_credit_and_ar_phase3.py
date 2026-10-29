@@ -1,13 +1,3 @@
-"""Phase 3 of the Credit & AR Control module — the Sales Order gate.
-
-Custom fields on Sales Order / Payment Entry / Sales Invoice, the property
-setters that make the payment mode mandatory and put terms behind permlevel 1,
-and permlevel-1 access for Credit Finance and the Managing Director.
-
-Also backfills ``custom_ledger`` on existing Sales Invoices so the Legacy split
-is correct from the first run. Idempotent.
-"""
-
 import frappe
 
 from cannabis_management.credit_and_ar import masters, utils
@@ -25,7 +15,6 @@ def execute():
 
 
 def _backfill_invoice_ledger():
-	"""Classify existing invoices once the policy date is known."""
 	effective_date = utils.policy_effective_date()
 	if not effective_date:
 		frappe.logger("credit_and_ar").info(
@@ -54,9 +43,6 @@ def _backfill_invoice_ledger():
 
 
 def _default_existing_sales_orders():
-	"""216 historical orders carry no payment mode. They were COD in practice —
-	the field is about to become mandatory, so say so explicitly rather than
-	leaving the gate to infer it."""
 	frappe.db.sql(
 		"""
 		UPDATE `tabSales Order`

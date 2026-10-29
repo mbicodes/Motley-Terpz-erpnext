@@ -1,10 +1,6 @@
-// Copyright (c) 2026, alltechvirtual.com and contributors
-// For license information, please see license.txt
-
 frappe.query_reports["Sales Invoice Delivery Report"] = {
 	filters: [
 		{
-			// Leave blank to see every company
 			fieldname: "company",
 			label: __("Company"),
 			fieldtype: "Link",
@@ -17,7 +13,6 @@ frappe.query_reports["Sales Invoice Delivery Report"] = {
 			default: frappe.datetime.add_months(frappe.datetime.get_today(), -1),
 			reqd: 1,
 			on_change: function (report) {
-				// Keep a one-month window: moving From Date moves To Date with it
 				const from_date = report.get_filter_value("from_date");
 				if (from_date) {
 					report.set_filter_value("to_date", frappe.datetime.add_months(from_date, 1));
@@ -44,7 +39,6 @@ frappe.query_reports["Sales Invoice Delivery Report"] = {
 			options: "Item",
 		},
 		{
-			// Delivery Notes in the period that have no Sales Invoice yet
 			fieldname: "include_unbilled_dn",
 			label: __("Include Not Invoiced Delivery Notes"),
 			fieldtype: "Check",

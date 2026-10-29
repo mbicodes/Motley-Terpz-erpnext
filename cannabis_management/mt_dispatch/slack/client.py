@@ -1,10 +1,3 @@
-"""A thin wrapper over the Slack Web API.
-
-Everything that talks to Slack goes through `api()`. It adds the bot token,
-backs off on HTTP 429 using Retry-After, and raises SlackError on any reply
-with ok = false so callers never have to inspect the envelope themselves.
-"""
-
 import json
 import time
 
@@ -65,21 +58,14 @@ def _call(method, http_method, params):
 
 
 def api(method, **params):
-	"""Call one Web API method with a JSON body."""
 	return _call(method, "POST", params)
 
 
 def api_get(method, **params):
-	"""GET form, for the read methods that take query parameters."""
 	return _call(method, "GET", params)
 
 
-# ── messages ─────────────────────────────────────────────────────────────────
-
-
 def post(channel, text, blocks=None, thread_ts=None):
-	"""chat.postMessage. Returns (channel, ts). The channel is the resolved
-	id, which for a DM is the D… conversation, not the user id passed in."""
 	data = api("chat.postMessage", channel=channel, text=text, blocks=blocks, thread_ts=thread_ts)
 	return data["channel"], data["ts"]
 
@@ -104,15 +90,11 @@ def open_dm(slack_user):
 
 
 def respond(response_url, text):
-	"""Ephemeral reply to whoever clicked, through the interaction's response_url."""
 	requests.post(
 		response_url,
 		json={"response_type": "ephemeral", "replace_original": False, "text": text},
 		timeout=TIMEOUT,
 	)
-
-
-# ── views ────────────────────────────────────────────────────────────────────
 
 
 def views_open(trigger_id, view):
@@ -125,9 +107,6 @@ def views_update(view_id, view, hash=None):
 
 def views_publish(slack_user, view):
 	return api("views.publish", user_id=slack_user, view=view)
-
-
-# ── users ────────────────────────────────────────────────────────────────────
 
 
 def lookup_by_email(email):
@@ -144,11 +123,7 @@ def user_info(slack_user):
 		return None
 
 
-# ── files ────────────────────────────────────────────────────────────────────
-
-
 def check_upload(file_obj):
-	"""None when a Slack file object is acceptable, else a message for the user."""
 	mimetype = (file_obj.get("mimetype") or "").lower()
 	filetype = (file_obj.get("filetype") or "").lower()
 	if mimetype not in ALLOWED_MIMETYPES and filetype not in ALLOWED_FILETYPES:
@@ -159,8 +134,6 @@ def check_upload(file_obj):
 
 
 def download_to_file(file_obj, attached_to_doctype=None, attached_to_name=None):
-	"""Fetch a Slack upload with the bot token and save it as a private File.
-	Returns the File's file_url."""
 	if not file_obj.get("url_private_download") and not file_obj.get("url_private"):
 		file_obj = {**api_get("files.info", file=file_obj["id"])["file"], **file_obj}
 
@@ -174,7 +147,6 @@ def download_to_file(file_obj, attached_to_doctype=None, attached_to_name=None):
 	content = r.content
 	if len(content) > MAX_UPLOAD_BYTES:
 		raise SlackError("files.download", "Files are limited to 20 MB.")
-	# Slack serves its sign-in page instead of the file when the token lacks files:read.
 	if content[:15].lower().startswith(b"<!doctype html"):
 		raise SlackError("files.download", "Slack refused the download. Check the files:read scope.")
 

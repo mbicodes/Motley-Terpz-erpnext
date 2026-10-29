@@ -1,10 +1,3 @@
-"""Request authentication for the four Slack endpoints.
-
-Every endpoint calls verify() first. A request is accepted only when its
-signature matches the signing secret over the exact raw body, its timestamp is
-within five minutes, and it comes from our own workspace.
-"""
-
 import hashlib
 import hmac
 import time
@@ -30,7 +23,6 @@ def expected_signature(secret, timestamp, body):
 
 
 def check_signature(secret, timestamp, body, signature, now=None):
-	"""The pure check, so tests can drive it without a request."""
 	if not secret:
 		raise SlackAuthError("signing secret not configured")
 	if not timestamp or not signature:
@@ -46,7 +38,6 @@ def check_signature(secret, timestamp, body, signature, now=None):
 
 
 def verify():
-	"""Check the current request's signature. Raises SlackAuthError."""
 	request = frappe.request
 	check_signature(
 		_globals().get_password("signing_secret", raise_exception=False),
@@ -57,7 +48,6 @@ def verify():
 
 
 def check_team(team_id):
-	"""Reject a correctly signed payload from any workspace but ours."""
 	expected = _globals().slack_team_id
 	if not expected or team_id != expected:
 		raise SlackAuthError("wrong workspace")

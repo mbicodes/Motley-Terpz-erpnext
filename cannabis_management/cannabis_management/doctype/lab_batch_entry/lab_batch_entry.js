@@ -3,39 +3,32 @@ frappe.ui.form.on("Lab Batch Entry", {
 		const filter = { company: ["in", ["Motley Terpz", "Master Touch Manufacturing"]] };
 		const tolling_filter = { company: ["in", ["Motley Terpz", "Master Touch Manufacturing"]], warehouse_type: "Tolling Partner" };
 
-		// Parent fields
 		frm.set_query("batchproject", () => ({ filters: filter }));
 		frm.set_query("tolling_partner", () => ({ filters: tolling_filter }));
 
-		// Child table fields
 		frm.set_query("batch_number", "lab_batch_entry_child", () => ({ filters: filter }));
 		frm.set_query("tolling_partner", "lab_batch_entry_child", () => ({ filters: tolling_filter }));
 	},
 	refresh(frm) {
-		// ── Hide/show amount_ran_grams column in child table ──
 		const grid = frm.fields_dict.lab_batch_entry_child && frm.fields_dict.lab_batch_entry_child.grid;
 		if (grid) {
 			if (frm.doc.docstatus === 0) {
-				// Hide on draft
 				grid.toggle_display("amount_ran_grams", false);
 				grid.toggle_display("pounds_ran", false);
 				grid.refresh();
 			} else {
-				// Show after submission
 				grid.toggle_display("amount_ran_grams", true);
 				grid.toggle_display("pounds_ran", true);
 				grid.refresh();
 			}
 		}
 
-		// ── "Fetch Details" button – visible on draft only ──
 		if (frm.doc.docstatus === 0) {
 			frm.add_custom_button(__("Fetch Details"), function () {
 				fetch_stock_balance_items(frm);
 			}).addClass("btn-primary");
 		}
 
-		// ── After submission: compute status and show action buttons ──
 		if (frm.doc.docstatus === 1) {
 			frappe.call({
 				method: "cannabis_management.cannabis_management.doctype.lab_batch_entry.lab_batch_entry.get_batch_status",
@@ -51,7 +44,6 @@ frappe.ui.form.on("Lab Batch Entry", {
 						"Rosin Produced": "green",
 					}[batch_status] || "blue");
 
-					// Hash Recording button: Batch Sent and Batch Run only
 					if (batch_status === "Batch Sent" || batch_status === "Batch Run") {
 						frm.add_custom_button(__("Hash Recording"), function () {
 							frappe.call({
@@ -68,7 +60,6 @@ frappe.ui.form.on("Lab Batch Entry", {
 						}, __("Actions"));
 					}
 
-					// Rosin Recording button: Hash Produced only
 					if (batch_status === "Hash Produced") {
 						frm.add_custom_button(__("Rosin Recording"), function () {
 							frappe.call({
@@ -104,7 +95,6 @@ frappe.ui.form.on("Lab Batch Entry Child", {
 	},
 });
 
-// ── Calculate total_quantity (sum of pounds_sent across child rows) ──
 function calculate_total_quantity(frm) {
 	let total = 0;
 	(frm.doc.lab_batch_entry_child || []).forEach(row => {
@@ -113,7 +103,6 @@ function calculate_total_quantity(frm) {
 	frm.set_value("total_quantity", flt(total, 4));
 }
 
-// ─── helper: fetch stock-balance rows ───────────────────────────────────────
 let _fetching_stock_balance = false;
 
 function fetch_stock_balance_items(frm) {
@@ -155,8 +144,6 @@ function fetch_stock_balance_items(frm) {
 			frm.dirty();
 			calculate_total_quantity(frm);
 		},
-		// Always release the guard - on the old code an error left it stuck
-		// at true, so every later click on Fetch Details did nothing at all.
 		always: function () {
 			_fetching_stock_balance = false;
 		},

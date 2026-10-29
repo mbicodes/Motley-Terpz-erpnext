@@ -1,11 +1,4 @@
-// Copyright (c) 2026, alltechvirtual.com and contributors
-// For license information, please see license.txt
-
-// Own scope: form scripts share the window, and AR Weekly Entry's script
-// declares a same-shaped const at the top level.
 (function () {
-	// Mirrors STATUSES_BY_TIER in ar_weekly_entry.py. The server enforces the same
-	// rule on validate; this only keeps the dropdown honest while typing.
 	const PAR_WE_STATUSES_BY_TIER = {
 		upcoming: ['Will Pay On Time'],
 		level1: ['Will Pay Immediately', 'Client Is Dodging Us', 'Need Reconciliation',
@@ -23,8 +16,6 @@
 
 		tier_snapshot: function (frm) {
 			let allowed = PAR_WE_STATUSES_BY_TIER[frm.doc.tier_snapshot];
-			// No tier recorded (a hand-made entry) — leave every option available
-			// rather than emptying the dropdown.
 			frm.set_df_property('status', 'options', ['']
 				.concat(allowed || [].concat.apply([], Object.values(PAR_WE_STATUSES_BY_TIER)))
 				.filter((v, i, a) => a.indexOf(v) === i)

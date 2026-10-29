@@ -1,9 +1,3 @@
-"""Terms & Credit Line Register.
-
-Every account that holds terms, with the paperwork behind it. If a line is live
-but the agreement is not on file, this report is where that shows up.
-"""
-
 import frappe
 from frappe import _
 from frappe.utils import flt

@@ -1,8 +1,3 @@
-// TSBC Ranch — Teardown weight entry (Section 7).
-//  • Scan Tag       — scan a physical tag; focuses that row's Weight field.
-//  • Total Weights  — enter one combined weight for a strain; splits evenly
-//                     across every Teardown Tag row of that strain.
-
 frappe.ui.form.on("Teardown", {
 	refresh(frm) {
 		if (frm.doc.docstatus === 0) {
@@ -16,7 +11,6 @@ frappe.ui.form.on("Teardown Tag", {
 	plant(frm, cdt, cdn) {
 		const row = locals[cdt][cdn];
 		if (!row.plant) return;
-		// strain auto-fetches via fetch_from; just warn on non-Flowering plants.
 		frappe.db.get_value("Plant", row.plant, "growth_phase").then((r) => {
 			const phase = (r.message || {}).growth_phase;
 			if (phase !== "Flowering") {
@@ -29,7 +23,6 @@ frappe.ui.form.on("Teardown Tag", {
 	weight(frm, cdt, cdn) {
 		const row = locals[cdt][cdn];
 		if (row.weight === undefined || row.weight === null || row.weight === "") return;
-		// Stamp the weigh time; count each re-weigh after the first.
 		if (row.weighed_at) {
 			frappe.model.set_value(cdt, cdn, "reweigh_count", cint(row.reweigh_count) + 1);
 		}

@@ -1,7 +1,3 @@
-# Copyright (c) 2026, alltechvirtual.com and contributors
-# For license information, please see license.txt
-
-
 import frappe
 from frappe import _
 from frappe.utils import cint
@@ -49,7 +45,6 @@ def execute(filters=None):
 		as_dict=True,
 	)
 
-	# Tolling agreements have no contract_type; skip them when that filter is set
 	if cint(filters.include_tolling if filters.include_tolling is not None else 1) and not filters.contract_type:
 		tolling_conditions = ["ta.active_to <= DATE_ADD(CURDATE(), INTERVAL %(window)s DAY)"]
 		if not filters.include_expired:

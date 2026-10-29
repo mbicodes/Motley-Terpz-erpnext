@@ -1,6 +1,3 @@
-# Copyright (c) 2026, alltechvirtual.com and contributors
-# For license information, please see license.txt
-
 import frappe
 from frappe import _
 from frappe.model.document import Document
@@ -12,13 +9,11 @@ from cannabis_management.cannabis_management.doctype.farm_production_batch.farm_
 
 
 class CloningBatch(Document):
-
     def validate(self):
         self.calculate_totals()
         self.validate_warehouse_company()
 
     def validate_warehouse_company(self):
-        """Ensure target warehouse belongs to the selected company."""
         if self.company and self.target_warehouse:
             warehouse_company = frappe.db.get_value(
                 "Warehouse", self.target_warehouse, "company"
@@ -32,8 +27,6 @@ class CloningBatch(Document):
                 )
 
     def calculate_totals(self):
-        """Calculate totals from Clone Details only."""
-
         total_clone_quantity = 0
 
         for row in self.clone_details or []:
@@ -43,13 +36,10 @@ class CloningBatch(Document):
         self.total_quantity = total_clone_quantity
         self.total_clones_produced = cint(total_clone_quantity)
 
-        # Labour Cost
         self.total_labor_cost = flt(self.labour_hours) * flt(self.labour_rate)
 
-        # Session Cost
         self.total_session_cost = flt(self.total_labor_cost)
 
-        # Cost Per Clone
         if self.total_clones_produced:
             self.cost_per_clone = (
                 self.total_session_cost / self.total_clones_produced
@@ -62,7 +52,6 @@ class CloningBatch(Document):
         update_linked_harvest(self)
 
     def get_labor_expense_account(self):
-        """Labor expense account (fixed)."""
         account_name = "Harvest Labor - TSBC"
 
         if not frappe.db.exists("Account", account_name):
@@ -75,7 +64,6 @@ class CloningBatch(Document):
         return account_name
 
     def create_stock_entry(self):
-
         if not self.target_warehouse:
             frappe.throw(_("Target Warehouse is required."))
 
@@ -93,9 +81,7 @@ class CloningBatch(Document):
 
         has_items = False
 
-        # Clone Details table se items map karna
         for row in self.clone_details or []:
-
             if not row.clone_item:
                 continue
 
@@ -118,7 +104,6 @@ class CloningBatch(Document):
         if not has_items:
             frappe.throw(_("Please add at least one Clone Detail."))
 
-        # Labor cost ko Additional Costs table mein add karna
         if flt(self.total_labor_cost) > 0:
             stock_entry.append(
                 "additional_costs",

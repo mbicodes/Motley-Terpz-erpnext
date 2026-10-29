@@ -1,6 +1,3 @@
-# Copyright (c) 2026, MBi and contributors
-# For license information, please see license.txt
-
 import frappe
 from frappe import _
 from frappe.model.document import Document
@@ -12,9 +9,6 @@ class DispatchCompanySettings(Document):
 		self.validate_unique_team()
 
 	def validate_separation_of_duties(self):
-		"""Whoever picks and packs an order does not get to release it, and
-		overriding the payment gate is an approver's power only. Enforced here
-		rather than in the flow, so a settings record can never express it."""
 		for row in self.team or []:
 			if row.fulfillment and row.approver:
 				frappe.throw(

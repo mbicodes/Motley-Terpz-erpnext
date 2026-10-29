@@ -1,6 +1,6 @@
 var LEGACY_CUTOFF = "2026-05-31";
 var NEW_AR_START  = "2026-06-01";
-var ALL_ENTITIES  = "__ALL__"; // Company-filter value that triggers the consolidated cross-entity view
+var ALL_ENTITIES  = "__ALL__";
 
 frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
     var page = frappe.ui.make_app_page({
@@ -14,9 +14,9 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
     page._ard_excl_motley = false;
     page._ard_new_ar_only = false;
     page._ard_can_edit    = false;
-    page._ard_ar_mode     = "all"; // default mode on open: "all" (Legacy + New combined)
-    page._ard_all_mode    = false;    // true while showing the consolidated all-entities view
-    page._ard_all_result  = null;     // merged result ({rows tagged with .company}) for re-render
+    page._ard_ar_mode     = "all";
+    page._ard_all_mode    = false;
+    page._ard_all_result  = null;
     page._ard_cols_hidden = false;
     page._ard_new_ar_only = false;
 
@@ -113,7 +113,6 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
 		</div>
 	`);
 
-    // ── Default the page to Legacy + New mode (UI only; data loads after companies) ──
     (function () {
         let today = frappe.datetime.get_today();
         page.main.find('#ard-all-btn').addClass('ard-mode-active');
@@ -124,35 +123,23 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
         page.main.find('#ard-subtitle').html('All AR &mdash; Legacy + New combined');
     })();
 
-    // ── Load companies ────────────────────────────────────────────────────────
     frappe.call({
         method: "cannabis_management.cannabis_management.page.ar_dashboard.ar_dashboard.init_page",
         callback: function (r) {
             if (!r.message) return;
             let sel = page.main.find('#ard-company');
             let default_company = frappe.defaults.get_user_default("Company") || "";
-            // "All" runs the consolidated cross-entity view (one row per client).
             sel.append(`<option value="${ALL_ENTITIES}">All Entities</option>`);
             r.message.companies.forEach(function (c) {
                 sel.append(`<option value="${c}" ${c === default_company ? 'selected' : ''}>${c}</option>`);
             });
-            // Default selection on open: All Entities (consolidated view).
             sel.val(ALL_ENTITIES);
             page._ard_can_edit = !!r.message.can_edit_recon;
             set_recon_statuses(page, r.message.recon_statuses);
             update_motley_btn_visibility(page);
-            // Auto-load now that the filters are ready (no Apply button).
             apply_filters(page);
-            // load_monthly_collection(page);  // month-wise collection disabled
         }
     });
-
-    // Month-wise Collection section follows the Company filter but is
-    // independent of the AR Mode toggle (it always shows Legacy + New side by side).
-    // month-wise collection disabled — re-enable together with the HTML section above.
-    // page.main.find('#ard-company').on('change', function () {
-    //     load_monthly_collection(page);
-    // });
 
     page.main.find('#ard-report-date').on('change', function () {
         page.main.find('#ard-report-date-display').text($(this).val());
@@ -167,7 +154,6 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
         apply_filters(page);
     });
 
-    // Status is a client-side filter on already-loaded rows — no reload needed.
     page.main.find('#ard-recon-filter').on('change', function () {
         if (page._ard_all_mode) render_all_entities(page);
         else render_view(page);
@@ -202,7 +188,6 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
         email_ar_report(page, 'new');
     });
 
-    // Per-customer copy (event delegation for dynamic rows)
     page.main.on('click', '.ard-copy-btn', function (e) {
         e.stopPropagation();
         copy_customer(page, $(this).data('party'));
@@ -219,7 +204,6 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
         render_view(page);
     });
 
-    // AR Mode toggle
     page.main.find('#ard-legacy-btn').on('click', function () {
         if (page._ard_ar_mode !== 'legacy') set_ar_mode(page, 'legacy');
     });
@@ -232,39 +216,30 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
         if (page._ard_ar_mode !== 'all') set_ar_mode(page, 'all');
     });
 
-    // Inline recon dropdown change (event delegation for dynamic rows)
     page.main.on('change', '.ard-recon-select', function () {
         handle_recon_change(page, $(this));
     });
 
-    // Inline Yes/No dropdown change (Onboarding, Company Made Contact)
     page.main.on('change', '.ard-flag-select', function () {
         handle_flag_change(page, $(this));
     });
 
-    // Inline Notebox edit — save on blur (focusout bubbles; blur does not) when
-    // the text changed.
     page.main.on('focusout', '.ard-notebox-input', function () {
         handle_notebox_change(page, $(this));
     });
 
-    // Filter: show only customers with New AR > 1.
-    // Applied automatically in New AR mode (see apply_filters); the button
-    // remains a manual toggle to widen the view back out.
     page.main.find('#ard-new-ar-only-btn').on('click', function () {
         set_new_ar_only(page, !page._ard_new_ar_only);
         if (page._ard_all_mode) render_all_entities(page);
         else render_view(page);
     });
 
-    // Hide / show detail columns (D–K toggle) — pure CSS, no re-render
     page.main.find('#ard-hide-cols-btn').on('click', function () {
         page._ard_cols_hidden = !page._ard_cols_hidden;
         update_hide_cols_btn(page);
         apply_col_visibility(page);
     });
 
-    // Export dropdown toggle
     page.main.find('#ard-export-toggle').on('click', function (e) {
         e.stopPropagation();
         page.main.find('#ard-export-menu').toggle();
@@ -276,18 +251,14 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
         page.main.find('#ard-export-menu').hide();
     });
 
-    // New AR Available toggle
     page.main.on('click', '.ard-new-ar-btn', function () {
         handle_new_ar_click(page, $(this));
     });
 
-    // Expand / collapse invoice rows per customer
     page.main.on('click', '.ard-expand-btn', function () {
         let $btn = $(this);
         let party = $btn.data('party');
         let isExpanded = $btn.hasClass('ard-expanded');
-        // Scope to this table so a customer appearing in both the Good and Bad
-        // AR tables toggles only within the clicked one.
         let $scope = $btn.closest('.ard-table-wrap');
         if (!$scope.length) $scope = page.main;
         $scope.find('.ard-invoice-row').filter(function () {
@@ -296,8 +267,6 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
         $btn.toggleClass('ard-expanded').html(isExpanded ? '&#9654;' : '&#9660;');
     });
 };
-
-// ─── Month-wise Collection: Legacy vs New AR ──────────────────────────────────
 
 function load_monthly_collection(page) {
     let area = page.main.find('#ard-monthly-area');
@@ -420,8 +389,6 @@ function render_monthly_collection(page, data) {
 	`);
 }
 
-// ─── AR Mode Switch ───────────────────────────────────────────────────────────
-
 function set_ar_mode(page, mode) {
     page._ard_ar_mode = mode;
     let $date = page.main.find('#ard-report-date');
@@ -431,11 +398,6 @@ function set_ar_mode(page, mode) {
         page.main.find('#ard-legacy-btn').addClass('ard-mode-active');
         page.main.find('#ard-new-btn').removeClass('ard-mode-active');
         page.main.find('#ard-all-btn').removeClass('ard-mode-active');
-        // Legacy aging is computed as of TODAY, not the May-31 cutover. The
-        // cutover only decides which invoices count as legacy (posting_date <=
-        // May 31); it must NOT clamp the aging date, or a May invoice wrongly
-        // shows as 0-30/30-60 instead of its true 60/90+ bucket. So default the
-        // picker to today and drop the old max=cutover clamp.
         $date.removeAttr('min').removeAttr('max');
         $date.val(today);
         page.main.find('#ard-report-date-display').text(today);
@@ -451,7 +413,6 @@ function set_ar_mode(page, mode) {
         }
         page.main.find('#ard-subtitle').html('New AR &mdash; invoices from June 1, 2026 onwards');
     } else {
-        // 'all' — Legacy + New combined, no date clamping
         page.main.find('#ard-all-btn').addClass('ard-mode-active');
         page.main.find('#ard-legacy-btn').removeClass('ard-mode-active');
         page.main.find('#ard-new-btn').removeClass('ard-mode-active');
@@ -461,23 +422,17 @@ function set_ar_mode(page, mode) {
         page.main.find('#ard-subtitle').html('All AR &mdash; Legacy + New combined');
     }
 
-    // Mode changed — reload immediately with the current filters.
-    // (apply_filters sets the New AR > 0 default for the new mode.)
     page._ard_result = null;
     page._ard_all_result = null;
     page._ard_excl_motley = false;
     apply_filters(page);
 }
 
-// ─── Visibility helpers ───────────────────────────────────────────────────────
-
 function update_motley_btn_visibility(page) {
     let company = page.main.find('#ard-company').val() || "";
     let is_tsbc = company.toLowerCase().indexOf("tsbc ranch") !== -1 || company === "TMM Group";
     page.main.find('#ard-motley-btn').toggle(is_tsbc && !!page._ard_result);
 }
-
-// ─── Recon Status Update ──────────────────────────────────────────────────────
 
 function handle_recon_change(page, $select) {
     if (!page._ard_can_edit) {
@@ -513,14 +468,6 @@ function handle_recon_change(page, $select) {
                 if (page._ard_result)     update_rows(page._ard_result.rows);
                 if (page._ard_all_result) update_rows(page._ard_all_result.rows);
 
-                // The <select> cell already reflects the new value + colour (see
-                // apply_recon_select_class above) and the in-memory rows are
-                // updated. Nothing else on the page depends on reconciliation
-                // status — the summary cards, aging bar and totals are all
-                // financial. So a full table rebuild (which throws the user back
-                // to the top of the page) is only warranted when a reconciliation
-                // FILTER is active and this row no longer matches it, i.e. the row
-                // must leave the current view. Even then, keep the scroll position.
                 let recon_filter = page.main.find('#ard-recon-filter').val();
                 if (recon_filter && recon_filter !== new_status) {
                     with_scroll_preserved(page, function () {
@@ -539,8 +486,6 @@ function handle_recon_change(page, $select) {
     });
 }
 
-// The original five are styled by name in ar_dashboard.css. Anything added
-// since is "custom": a neutral style, or the colour set on its record.
 function recon_cls_for(status) {
     if (status === 'Reconciled collecting money') return 'ard-recon-reconciled';
     if (status === 'Reconciled trouble collecting money') return 'ard-recon-trouble';
@@ -551,8 +496,6 @@ function recon_cls_for(status) {
     return 'ard-recon-custom';
 }
 
-// Inline style for a status that carries a colour of its own. Returned as a
-// style attribute so it beats the class, and empty for the built-in five.
 function recon_style_for(status) {
     let color = RECON_COLORS[status];
     if (!color) return '';
@@ -570,8 +513,6 @@ function apply_recon_select_class($select, status) {
         $select.css({ 'background-color': '', 'color': '', 'border-color': '' });
     }
 }
-
-// ─── New AR Available Toggle ──────────────────────────────────────────────────
 
 function handle_new_ar_click(page, $btn) {
     if (!page._ard_can_edit) {
@@ -612,8 +553,6 @@ function handle_new_ar_click(page, $btn) {
     });
 }
 
-// ─── Yes/No flag update (Onboarding, Company Made Contact) ─────────────────────
-
 var FLAG_LABELS = {
     onboarding:           "Onboarding",
     company_made_contact: "Company Made Contact",
@@ -638,8 +577,6 @@ function handle_flag_change(page, $select) {
             if (r.message) {
                 frappe.show_alert({ message: __("{0} updated", [label]), indicator: 'green' }, 3);
                 $select.attr('data-current', new_val);
-                // Keep the cached rows in step so the value survives a re-render
-                // and rides along in every export.
                 let update = function (rows) {
                     (rows || []).forEach(function (row) {
                         if (row.party === party) row[field] = new_val;
@@ -657,11 +594,8 @@ function handle_flag_change(page, $select) {
     });
 }
 
-// ─── Notebox Update ─────────────────────────────────────────────────────────────
-
 function handle_notebox_change(page, $input) {
     let old_val = $input.attr('data-current') || "";
-    // contenteditable div — read visible text, normalise stray whitespace.
     let new_val = ($input.text() || "").replace(/ /g, " ").trim();
 
     if (!page._ard_can_edit) {
@@ -670,7 +604,6 @@ function handle_notebox_change(page, $input) {
         return;
     }
 
-    // Nothing changed — don't hit the server.
     if (new_val === old_val) return;
 
     let party = $input.attr('data-party');
@@ -682,7 +615,6 @@ function handle_notebox_change(page, $input) {
             if (r.message) {
                 frappe.show_alert({ message: __("Note saved"), indicator: 'green' }, 2);
                 $input.attr('data-current', new_val);
-                // Persist into the loaded row data so re-renders and exports keep the note.
                 let update = function (rows) {
                     (rows || []).forEach(function (row) {
                         if (row.party === party) row.notebox = new_val;
@@ -699,9 +631,6 @@ function handle_notebox_change(page, $input) {
     });
 }
 
-// ─── Data Loading ─────────────────────────────────────────────────────────────
-
-// Sync the "New AR > 0" filter state and its button UI together.
 function set_new_ar_only(page, on) {
     page._ard_new_ar_only = !!on;
     let $btn = page.main.find('#ard-new-ar-only-btn');
@@ -712,13 +641,8 @@ function set_new_ar_only(page, on) {
     }
 }
 
-// Central refresh: routes to the consolidated view when "All Entities" is
-// selected, otherwise loads the single selected company. Called on every
-// filter change (no Apply button).
 function apply_filters(page) {
     page._ard_excl_motley = false;
-    // New AR mode opens pre-filtered to customers with New AR > 0 — what the
-    // "New AR > 0" button used to require a click for.
     set_new_ar_only(page, page._ard_ar_mode === 'new');
     if (page.main.find('#ard-company').val() === ALL_ENTITIES) {
         load_all_entities(page);
@@ -774,13 +698,10 @@ function load_ar_data(page) {
     });
 }
 
-// ─── Filtering helper ─────────────────────────────────────────────────────────
-
 function get_filtered_rows(page) {
     return filter_rows(page, page._ard_result, page._ard_excl_motley);
 }
 
-// Shared row-filtering logic, usable for either a single result or one entity in All-Entities mode.
 function filter_rows(page, result, excl_motley) {
     if (!result || !result.rows) return [];
 
@@ -827,25 +748,18 @@ function compute_view_totals(display_rows, ranges) {
     return view_totals;
 }
 
-// Share of outstanding AR that is past its due date (report date - due date > 0),
-// the same "bad standing" test classify_ar_row uses. Rows with no due date, or
-// due today/in the future, count toward the total but not the overdue amount.
 function compute_overdue(rows, report_date) {
     let total = 0, overdue = 0;
     (rows || []).forEach(function (row) {
         let amt = row.outstanding || 0;
         if (amt <= 0) return;
         total += amt;
-        let past = diff_days(report_date, row.due_date); // report - due; > 0 = overdue
+        let past = diff_days(report_date, row.due_date);
         if (past !== null && past > 0) overdue += amt;
     });
     return { overdue: overdue, total: total, pct: total > 0 ? (overdue / total) * 100 : 0 };
 }
 
-// ─── Rendering ────────────────────────────────────────────────────────────────
-
-// Walk up from `el` to the first ancestor that actually scrolls, falling back to
-// the document scrolling element (the desk usually scrolls the window).
 function get_scroll_parent(el) {
     while (el && el !== document.body && el !== document.documentElement) {
         let s = window.getComputedStyle(el);
@@ -855,9 +769,6 @@ function get_scroll_parent(el) {
     return document.scrollingElement || document.documentElement;
 }
 
-// Run a re-render without throwing the user back to the top of the page. The row
-// set can change (a filtered row leaving the view shortens the page), so restore
-// on the next frame as well, once layout has settled.
 function with_scroll_preserved(page, fn) {
     let start = (page.main && page.main[0]) ? page.main[0] : document.body;
     let scroller = get_scroll_parent(start);
@@ -898,8 +809,6 @@ function render_view(page) {
 
     let display_rows = get_filtered_rows(page);
 
-    // Headline metrics (cards, aging bar, projection) stay New-AR-only; the table
-    // also lists legacy customers, so its footer totals include legacy.
     let new_rows = display_rows.filter(function (r) { return !r.is_legacy; });
     let summary_totals = compute_view_totals(new_rows, ranges);
     let table_totals = compute_view_totals(display_rows, ranges);
@@ -915,9 +824,6 @@ function render_view(page) {
     show_export_buttons(page, display_rows.length > 0);
 }
 
-// ─── 4-Week Projection (forward-looking, by due date) ──────────────────────────
-// Buckets outstanding invoices by how many days until they fall due, relative to
-// the report ("as of") date. Closest = red (act now), furthest = green (time left).
 var PROJ_BUCKETS = [
     { key: "w1", label: "Week 1", sub: "Due in 1–7 days",   min: 0,  max: 7,  cls: "ard-proj-red" },
     { key: "w2", label: "Week 2", sub: "Due in 8–14 days",  min: 8,  max: 14, cls: "ard-proj-orange" },
@@ -930,7 +836,6 @@ function days_until_due(due_date, anchor_date) {
     let due = new Date(due_date);
     let anchor = new Date(anchor_date);
     if (isNaN(due) || isNaN(anchor)) return null;
-    // Normalise to midnight so partial days don't skew the bucket.
     due.setHours(0, 0, 0, 0);
     anchor.setHours(0, 0, 0, 0);
     return Math.round((due - anchor) / 86400000);
@@ -942,7 +847,7 @@ function compute_projection(display_rows, anchor_date) {
     display_rows.forEach(function (row) {
         if (!(row.outstanding > 0)) return;
         let d = days_until_due(row.due_date, anchor_date);
-        if (d === null || d < 0 || d > 30) return; // overdue or beyond the 30-day horizon
+        if (d === null || d < 0 || d > 30) return;
         for (let i = 0; i < PROJ_BUCKETS.length; i++) {
             let b = PROJ_BUCKETS[i];
             if (d >= b.min && d <= b.max) {
@@ -997,7 +902,6 @@ function build_summary_html(page, ranges, view_totals, overdue) {
     let mode_label = page._ard_ar_mode === 'legacy' ? 'Legacy AR' : (page._ard_ar_mode === 'new' ? 'New AR' : 'Legacy + New');
     let mode_cls   = page._ard_ar_mode === 'legacy' ? 'ard-mode-chip-legacy' : (page._ard_ar_mode === 'new' ? 'ard-mode-chip-new' : 'ard-mode-chip-all');
 
-    // % of outstanding AR that is past due. Highlighted red once it crosses 50%.
     let overdue_html = "";
     if (overdue) {
         let pct_cls = overdue.pct >= 50 ? "ard-overdue-high" : (overdue.pct >= 25 ? "ard-overdue-mid" : "");
@@ -1066,14 +970,8 @@ function render_aging_bar(page, ranges, view_totals) {
     page.main.find('#ard-aging-section').html(build_aging_html(page, ranges, view_totals));
 }
 
-// Filled from the AR Recon Status doctype by set_recon_statuses() on load, so a
-// status added there shows up here with no code change. The blank "not set"
-// entry is added here rather than being a record - it is how a status is
-// cleared, not a status.
 var RECON_OPTIONS = [{ value: "", label: "\u2014" }];
 
-// value -> colour, for statuses that set one. The original five set none and
-// keep their by-name styling in ar_dashboard.css.
 var RECON_COLORS = {};
 
 function set_recon_statuses(page, statuses) {
@@ -1086,7 +984,6 @@ function set_recon_statuses(page, statuses) {
         if (st.color) RECON_COLORS[st.value] = st.color;
     });
 
-    // Rebuild the Status filter, keeping whatever was selected if it survives.
     let $filter = page.main.find('#ard-recon-filter');
     let current = $filter.val() || "";
     $filter.empty().append('<option value="">All</option>');
@@ -1117,8 +1014,6 @@ function build_recon_cell(page, party, status, readonly) {
     return `<span class="${badge_cls}" title="Read-only — Account Manager role required to edit">${esc(label)}</span>`;
 }
 
-// Yes/No columns (Onboarding, Company Made Contact). Blank is kept as a real
-// option so "nobody has answered yet" stays distinct from an explicit "No".
 var YES_NO_OPTIONS = [
     { value: "",    label: "—" },
     { value: "Yes", label: "Yes" },
@@ -1139,10 +1034,6 @@ function build_flag_cell(page, party, field, value) {
 function build_notebox_cell(page, party, note) {
     let val = note || "";
     if (page._ard_can_edit) {
-        // Editable free-text note. Uses a contenteditable div (not a textarea) so
-        // the note flows to full height and prints cleanly in the PDF export.
-        // Saves to the Customer master on blur, then persists in the row data so
-        // it survives re-renders and rides along in every export.
         return `<div class="ard-notebox-input" contenteditable="true"
             data-party="${esc_attr(party)}" data-current="${esc_attr(val)}"
             data-placeholder="Add note…">${esc(val)}</div>`;
@@ -1150,20 +1041,18 @@ function build_notebox_cell(page, party, note) {
     return `<div class="ard-notebox-readonly">${esc(val)}</div>`;
 }
 
-// Resolve the active "as of" date for New-AR term bucketing.
 function get_report_date(page) {
     if (page._ard_all_mode && page._ard_all_result) return page._ard_all_result.report_date;
     if (page._ard_result) return page._ard_result.report_date;
     return page.main.find('#ard-report-date').val();
 }
 
-// Sum the New-AR term columns for a set of rows (used for group + grand totals).
 function na_sum(rows, anchor) {
     let s = { total: 0, new_ar: 0, legacy_ar: 0, good: 0, bad: 0, g1: 0, g2: 0, g3: 0 };
     rows.forEach(function (row) {
         let amt = row.outstanding || 0;
         if (amt <= 0) return;
-        if (row.is_legacy) return; // legacy AR is excluded from the term/aging breakdown
+        if (row.is_legacy) return;
         let info = classify_ar_row(row, anchor);
         s.total += amt;
         if ((row.posting_date || "") >= NEW_AR_START) s.new_ar += amt; else s.legacy_ar += amt;
@@ -1216,8 +1105,6 @@ function na_invoice_cells(row, anchor, split, show_legacy_col) {
 						<td class="ard-range-cell ard-term-green">${g3 > 0 ? fmt_cur(g3) : "\u2014"}</td>`;
 }
 
-// Paid invoices carry no balance, so every New-AR column is blank. Same cells
-// and classes as na_invoice_cells so the column shading lines up.
 function na_blank_cells(split, show_legacy_col) {
     let d = "\u2014";
     return `
@@ -1241,11 +1128,10 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
     }
 
     let show_terms = page._ard_ar_mode === 'new' || page._ard_ar_mode === 'all';
-    let split_ln = page._ard_ar_mode === 'all'; // Legacy+New: split Total AR into New vs Legacy
-    let show_legacy_col = page._ard_ar_mode === 'new'; // New AR: extra column showing legacy outstanding
+    let split_ln = page._ard_ar_mode === 'all';
+    let show_legacy_col = page._ard_ar_mode === 'new';
     let na_anchor = show_terms ? get_report_date(page) : null;
     let na_grand = show_terms ? na_sum(display_rows, na_anchor) : null;
-    // Fully paid invoices per customer (display-only, see _paid_invoices).
     let paid_map = ((page._ard_all_mode ? page._ard_all_result : page._ard_result) || {}).paid_invoices || {};
 
     let customer_order = [];
@@ -1274,7 +1160,6 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
     let total_invoices = display_rows.length;
     let grand_legacy = display_rows.reduce(function (a, r) { return a + (r.is_legacy ? (r.outstanding || 0) : 0); }, 0);
 
-    // ── Sheet-style header block: TOTALS row on top, group bands, then column headers ──
     let range_headers = ranges.map(function (r, idx) {
         return `<th class="ard-th-range ${range_status_class(idx)}">${r.label}<br><small>Days</small></th>`;
     }).join("");
@@ -1299,8 +1184,6 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
 
     let band_row = "";
     if (show_terms) {
-        // Customer, Recon, Onboarding, Company Made Contact, Invoiced, Paid,
-        // Outstanding (7) + the optional Legacy/New pair + Total AR, Good, Bad.
         let lead_cols = 7 + ((split_ln || show_legacy_col) ? 2 : 0) + 3;
         band_row = `
 					<tr class="ard-band-row">
@@ -1339,7 +1222,7 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
         let group = customer_groups[party];
 
         let sub = { invoiced: 0, paid: 0, outstanding: 0 };
-        let group_legacy = 0; // sum of this customer's legacy outstanding
+        let group_legacy = 0;
         ranges.forEach(function (r) { sub[r.key] = 0; });
         group.rows.forEach(function (row) {
             sub.invoiced += row.invoiced || 0;
@@ -1412,8 +1295,6 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
 			`;
         });
 
-        // Paid-off invoices, newest first, under the open ones. Same row class, so
-        // expand/collapse and the print/PDF rules treat them exactly alike.
         let paid_rows = (paid_map[party] || []).slice().sort(function (a, b) {
             return (b.posting_date || "").localeCompare(a.posting_date || "");
         });
@@ -1459,10 +1340,7 @@ function render_table(page, display_rows, view_totals) {
     );
 }
 
-// ─── Excel-style grid (column letters A,B,C… + row numbers 1,2,3…) ──────────────
-
 function col_letter(n) {
-    // 0 -> A, 25 -> Z, 26 -> AA, …
     let s = "";
     n = n + 1;
     while (n > 0) {
@@ -1473,22 +1351,16 @@ function col_letter(n) {
     return s;
 }
 
-// Decorate every rendered table with a spreadsheet grid: a top strip of column
-// letters and a sticky left column of row numbers. Column count is read from the
-// DOM so it works for every mode/column combination.
 function add_excel_grid(page) {
     page.main.find('#ard-data-area .ard-table').each(function () {
         let $table = $(this);
         if ($table.hasClass('ard-has-grid')) return;
 
-        // Measure columns from the heading row (the top totals row uses colspans).
         let $headRow = $table.find('thead tr.ard-head-row').first();
         if (!$headRow.length) $headRow = $table.find('thead tr').first();
         let ncols = $headRow.children().length;
         if (!ncols) return;
 
-        // Top strip: corner + one letter per column.
-        // Mark letter cells for detail columns so they hide/show together.
         let $ths = $headRow.children();
         let strip = '<th class="ard-grid-corner"></th>';
         $ths.each(function (i) {
@@ -1497,8 +1369,6 @@ function add_excel_grid(page) {
         });
         $table.find('thead').prepend('<tr class="ard-grid-colrow">' + strip + '</tr>');
 
-        // Number every row in order (skip the letter strip). thead rows get <th>,
-        // body/footer rows get <td>.
         let n = 1;
         $table.find('thead tr, tbody tr, tfoot tr').each(function () {
             let $tr = $(this);
@@ -1511,11 +1381,7 @@ function add_excel_grid(page) {
     });
 }
 
-// ─── All Entities (consolidated across every company, grouped by client) ───
-
 function load_all_entities(page) {
-    // Collect every real company from the dropdown. Skip the "All" sentinel and
-    // "TMM Group" (a roll-up of Motley Terpz + TSBC Ranch) to avoid double-counting.
     let companies = [];
     page.main.find('#ard-company option').each(function () {
         let v = $(this).val();
@@ -1587,7 +1453,7 @@ function load_all_entities(page) {
                 if (r.message) {
                     if (!ranges) ranges = r.message.ranges;
                     (r.message.rows || []).forEach(function (row) {
-                        row.company = company; // tag each invoice with its source entity
+                        row.company = company;
                         merged_rows.push(row);
                     });
                     let paid = r.message.paid_invoices || {};
@@ -1608,9 +1474,6 @@ function load_all_entities(page) {
     fetch_next();
 }
 
-// Render the consolidated view: one group per client, with that client's
-// invoices from every entity (TSBC, Motley, Master Touch, LA Canna ...) merged
-// together. The Entity column shows which company each invoice belongs to.
 function render_all_entities(page) {
     let result = page._ard_all_result;
     let area = page.main.find('#ard-data-area');
@@ -1630,14 +1493,11 @@ function render_all_entities(page) {
         return;
     }
 
-    // Headline metrics stay New-AR-only; the table footer includes legacy.
     let new_rows = display_rows.filter(function (r) { return !r.is_legacy; });
     let summary_totals = compute_view_totals(new_rows, ranges);
     let table_totals = compute_view_totals(display_rows, ranges);
     let overdue = compute_overdue(new_rows, result.report_date);
 
-    // Recon cells are read-only here (inline editing targets the single-company
-    // result); the final true enables the Entity column.
     area.html(`
         <div id="ard-summary-section">${build_summary_html(page, ranges, summary_totals, overdue)}</div>
         <div id="ard-projection-section">${build_projection_html(new_rows, result.report_date)}</div>
@@ -1649,12 +1509,6 @@ function render_all_entities(page) {
     show_export_buttons(page, true);
 }
 
-// ─── New AR term classification (drives the extra "AR on terms" columns) ────────
-// Only used when AR Mode = "New". An invoice is "on terms" (good standing) while
-// the report date is on/before its due date, bucketed by age since posting
-// (0-10 green, 10-20 yellow, 20-30 red). Once the due date passes it is "overdue"
-// (bad standing) — that amount stays in the existing overdue (range) columns.
-
 function diff_days(later, earlier) {
     if (!later || !earlier) return null;
     let l = new Date(later), e = new Date(earlier);
@@ -1665,26 +1519,20 @@ function diff_days(later, earlier) {
 }
 
 function classify_ar_row(row, report_date) {
-    let overdue = diff_days(report_date, row.due_date); // report - due (positive = past due)
+    let overdue = diff_days(report_date, row.due_date);
     if (overdue !== null && overdue > 0) {
         let bkey = overdue <= 30 ? "b1" : overdue <= 60 ? "b2" : overdue <= 90 ? "b3" : overdue <= 120 ? "b4" : "b5";
         return { section: "bad", bkey: bkey, days: overdue };
     }
-    // On terms — bucket by days LEFT until the due date, matching the recon
-    // sheet: 0-10 left = urgent (red), 10-20 left = amber, 20-30 left = green.
     let left = diff_days(row.due_date, report_date);
     if (left === null || left < 0) left = 0;
     let bkey = left <= 10 ? "g1" : left <= 20 ? "g2" : "g3";
     return { section: "good", bkey: bkey, days: left };
 }
 
-// ─── Copy to clipboard (formatted client summary) ──────────────────────────────
-
 var AR_COPY_HEADER = "📊 AR AGING REPORT — FULL CLIENT BREAKDOWN";
 var AR_COPY_SEP    = "━━━━━━━━━━━━━━━━━━━━━━";
 
-// The result + filtered rows currently on screen, whether single-company or the
-// consolidated All-Entities view.
 function current_result(page) {
     return (page._ard_all_mode && page._ard_all_result) ? page._ard_all_result : page._ard_result;
 }
@@ -1699,7 +1547,6 @@ function keycap(n) {
     return (n >= 0 && n <= 10) ? caps[n] : (n + ".");
 }
 
-// Whole-dollar money for the copy text (e.g. "$18,900", or "—" when empty).
 function fmt_money_short(v) {
     if (!v || Math.round(v) === 0) return "—";
     return "$" + Math.round(v).toLocaleString("en-US");
@@ -1790,62 +1637,39 @@ function copy_all(page) {
     copy_to_clipboard(text, aggs.length + " customer(s) copied to clipboard");
 }
 
-// Print/PDF stylesheet for the generated report, used by both the emailed copy
-// and the Export PDF download so the two are identical: landscape, sheet only
-// (summary cards, projection and aging bar hidden), compact cells, column tints
-// preserved. The old browser-print export that also used this was removed - it
-// produced a different, untrimmed document from the same page.
 function ard_print_css() {
     return (
         'body{padding:0;margin:0;background:#fff;}' +
-        // Kill centering/max-width so content starts at the left edge of the page
         '.ard-container{max-width:none!important;margin:0!important;padding:4px 6px!important;}' +
         '#ard-pdf-page{padding:0;}' +
-        // Purple logo banner at the very top (matches the Google Sheet header)
         '.ard-pdf-logo-banner{background:#5a1a9e;padding:12px 18px;margin:0 0 8px;text-align:left;}' +
         '.ard-pdf-logo-banner img{height:64px;width:auto;display:inline-block;}' +
-        // Hide interactive UI and the non-sheet dashboard sections
         '.ard-filter-bar,.ard-copy-btn,.ard-expand-btn,.ard-btn-secondary,.ard-btn-danger,' +
         '.ard-header-right,.ard-btn-group,' +
         '#ard-summary-section,#ard-projection-section,#ard-aging-section{display:none!important;}' +
-        // Sheet shows one row per customer — keep invoice detail rows collapsed
         '.ard-invoice-row{display:none!important;}' +
-        // Interactive controls print as plain text (recon / Yes-No flags / New AR / Notebox)
         '.ard-recon-select,.ard-flag-select{border:none!important;background:transparent!important;' +
           '-webkit-appearance:none;appearance:none;padding:0!important;}' +
         '.ard-new-ar-btn{border:none!important;background:transparent!important;padding:0!important;' +
           'color:#202124!important;font-weight:600;}' +
         '.ard-notebox-input,.ard-notebox-readonly{border:none!important;background:transparent!important;' +
           'padding:0!important;min-height:0!important;min-width:120px;}' +
-        // Notes may be long — let the Notebox column wrap instead of clipping
         '.ard-td-notebox,.ard-td-notebox *{white-space:normal!important;}' +
-        // Customer column: show only the customer name, readable size. Drop the
-        // "N invoice(s)" line and the sub-id, and let long names wrap.
         '.ard-invoice-count-compact,.ard-customer-group-id{display:none!important;}' +
         '.ard-td-sticky{white-space:normal!important;}' +
         '.ard-customer-group-name{font-size:9px!important;font-weight:700!important;white-space:normal!important;}' +
         '.ard-header{padding:4px 0!important;margin-bottom:4px!important;}' +
-        // Remove all scroll/height constraints so scrollWidth is accurate
         '.ard-table-wrap{overflow:visible!important;max-height:none!important;height:auto!important;' +
           'border:none!important;box-shadow:none!important;border-radius:0!important;}' +
         '.ard-table{width:auto!important;}' +
-        // Tight cells
         '.ard-table th,.ard-table td{font-size:7px!important;padding:1px 3px!important;white-space:nowrap;}' +
-        // Neutralise sticky positioning so nothing overlaps when laid flat
         '.ard-th-sticky,.ard-td-sticky,.ard-grid-rownum,.ard-grid-corner,' +
         '.ard-table thead th{position:static!important;left:auto!important;top:auto!important;box-shadow:none!important;}' +
-        // Keep the sheet column tints in the printed PDF
         '*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}' +
         '@page{size:landscape;margin:5mm;}'
     );
 }
 
-// Convert the (same-origin) logo to a data URI via canvas and hand it to `cb`,
-// so the purple banner is guaranteed to render with no dependency on the
-// consumer resolving /files. Falls back to the plain URL, then to null - a
-// missing logo must never block the report.
-// Current company logo. The hashed filename is what the File record points at;
-// replacing the logo means updating this path, not overwriting the file.
 function ard_with_logo(cb) {
     let img = new Image();
     img.crossOrigin = "anonymous";
@@ -1864,20 +1688,12 @@ function ard_with_logo(cb) {
     img.src = window.location.origin + '/files/FULL_LOGO295b72.png';
 }
 
-// Show/hide the export wrap based on whether data is on screen.
-// The sheet layout has no detail columns, so the Hide Columns D–K button stays hidden.
 function show_export_buttons(page, has_rows) {
     page.main.find('#ard-export-dd, #ard-new-ar-only-btn').toggle(!!has_rows);
     if (!has_rows) page.main.find('#ard-export-menu').hide();
     update_email_btn_visibility(page, has_rows);
 }
 
-// The "Email" buttons are Administrator-only, and only the one matching the AR
-// Mode on screen is shown - the PDF is built from that mode's columns, so
-// offering the other one here would just send the wrong layout. Both carry the
-// same label because only ever one of them is visible.
-// Hidden with no rows too: there would be nothing to attach.
-// This is convenience only; email_ar_pdf re-checks the user server-side.
 function update_email_btn_visibility(page, has_rows) {
     let is_admin = frappe.session.user === 'Administrator';
     let mode = page._ard_ar_mode;
@@ -1898,23 +1714,8 @@ function apply_col_visibility(page) {
     page.main.find('#ard-data-area').toggleClass('ard-detail-hidden', !!page._ard_cols_hidden);
 }
 
-// ─── Emailed aging report (Administrator only) ────────────────────────────────
-// Sends the mode's sheet to Nikki as a PDF laid out like the agreed recon sheet:
-// purple logo banner, then the table trimmed to the columns for that mode.
-//
-//   Legacy AR -> Customer | Invoiced | Paid | Outstanding | the 8 aging buckets
-//                (sheet columns A, E, F, G, H-O)
-//   New AR    -> Customer | New AR | Good standing | Bad standing
-//                | 0-10 / 10-20 / 20-30 on terms | the 8 overdue buckets
-//
-// The PDF is rendered server-side by wkhtmltopdf from markup built here, so the
-// attachment is exactly the table on screen rather than a second layout that
-// would have to be kept in step with this page.
+const AR_REPORT_RECIPIENT = "nikki@motleyterpz.com";
 
-const AR_REPORT_RECIPIENT = "nikki@motleyterpz.com";   // pre-selected, not enforced
-
-// The picker's options, fetched once and reused: the list is the site's enabled
-// users and does not change while the page is open.
 let ard_recipient_cache = null;
 
 function ard_recipient_options(cb) {
@@ -1928,38 +1729,22 @@ function ard_recipient_options(cb) {
     });
 }
 
-// Keep-or-drop for one heading cell. Driven off the classes the header row
-// already carries rather than column positions, so inserting a column upstream
-// cannot silently shift the selection.
 function ard_keep_column($th, mode) {
-    // Trailing interactive columns are never part of the report.
     if ($th.hasClass('ard-th-new-ar') || $th.hasClass('ard-th-notebox')) return false;
-    if ($th.hasClass('ard-th-sticky')) return true;   // Customer
-    if ($th.hasClass('ard-th-range')) return true;    // overdue / aging buckets
+    if ($th.hasClass('ard-th-sticky')) return true;
+    if ($th.hasClass('ard-th-range')) return true;
     if (mode === 'legacy') {
-        // Recon Status, Onboarding and Company Made Contact are dropped; these
-        // three are the only other money columns Legacy mode renders.
         return ['Invoiced', 'Paid', 'Outstanding'].indexOf($.trim($th.text())) !== -1;
     }
-    // New AR: the New AR total, the two standing columns and the on-terms trio.
-    // Legacy AR and Total AR are deliberately left out.
     return $th.hasClass('ard-na-new') || $th.hasClass('ard-na-good') || $th.hasClass('ard-na-bad')
         || $th.hasClass('ard-term-red') || $th.hasClass('ard-term-amber') || $th.hasClass('ard-term-green');
 }
 
-// Clone the on-screen sheet and reduce it to that mode's columns.
 function ard_build_report_table(page, mode) {
     let $src = page.main.find('#ard-data-area .ard-table').first();
     if (!$src.length) return null;
     let $t = $src.clone();
 
-    // Drop the spreadsheet decoration (A,B,C letter strip + row-number column);
-    // both are screen affordances with no place in a sent report.
-    //
-    // The sheet's own TOTALS row is KEPT (Ali asked for a totals row at the top,
-    // 2026-09-17). It sits at the top of the thead, carries one cell per column
-    // so the trimming below handles it like any other row, and its figures are
-    // the page's own view totals - so they always agree with what is on screen.
     $t.find('tr.ard-grid-colrow').remove();
     $t.find('.ard-grid-rownum, .ard-grid-corner').remove();
 
@@ -1973,11 +1758,6 @@ function ard_build_report_table(page, mode) {
     });
     if (!Object.keys(keep).length) return null;
 
-    // Every row is one cell per column except the band row ("New AR on Terms" /
-    // "OVERDUE NEW AR"), which uses colspans - so each banded cell is re-spanned
-    // to however many of the columns it covers actually survive, and dropped if
-    // none do. A row whose spans do not add up to the header width is left alone
-    // rather than mangled.
     $t.find('tr').each(function () {
         let $cells = $(this).children();
         let spans = 0;
@@ -1999,25 +1779,12 @@ function ard_build_report_table(page, mode) {
     return $t;
 }
 
-// Extra rules layered over ard_print_css() for the emailed copy only.
-//
-// The on-screen PDF export fits wide sheets by zooming the body from a script it
-// injects into the print window. wkhtmltopdf renders the emailed copy instead, so
-// that trick is not available and the table has to be made to fit outright:
-// table-layout:fixed shares the page width across the columns and the cells wrap
-// instead of nowrap. Without this the last aging buckets run off the right edge
-// and are silently clipped.
 function ard_report_css() {
     return '.ard-container{padding:0!important;margin:0!important;}' +
         '.ard-pdf-logo-banner{text-align:center;}' +
         '.ard-table{width:100%!important;table-layout:fixed!important;}' +
-        // Wrap at spaces only - word-break:break-word splits names mid-word
-        // ("CRFT Manufacturin g Inc."), which reads as a typo in a sent report.
         '.ard-table th,.ard-table td{font-size:7px!important;white-space:normal!important;' +
           'overflow:hidden;}' +
-        // Customer names are long, so that column gets the most room and drops to
-        // the same size as the rest (ard_print_css sets it to 9px for the browser
-        // export, which is too big once the width is shared out).
         '.ard-table th.ard-th-sticky,.ard-table td.ard-td-sticky{width:21%!important;}' +
         '.ard-customer-group-name{font-size:7px!important;}';
 }
@@ -2032,9 +1799,6 @@ function email_ar_report(page, mode) {
         return;
     }
 
-    // Pick the recipients, then send. Nikki is pre-selected because she is who
-    // this normally goes to, but anything on the site's user list can be chosen
-    // and several at once. email_ar_pdf re-validates the picks server-side.
     ard_recipient_options(function (options) {
         let d = new frappe.ui.Dialog({
             title: 'Email ' + label + ' report',
@@ -2072,28 +1836,17 @@ function email_ar_report(page, mode) {
             }
         });
 
-        // set_value goes through set_formatted_input, which is what fills
-        // `rows` and draws the pills - assigning to the control directly would
-        // show nothing.
         d.set_value('recipients', [AR_REPORT_RECIPIENT]);
         d.show();
     });
 }
 
-// Friendly name for an AR Mode; matches _AR_MODE_LABELS in ar_dashboard.py.
 function ard_mode_label(mode) {
     if (mode === 'legacy') return 'Legacy AR';
     if (mode === 'new') return 'New AR';
     return 'Legacy + New AR';
 }
 
-// The document handed to wkhtmltopdf. Shared by the emailed report and the
-// Export PDF download so a change to one can never drift from the other.
-//
-// Inline <style> blocks only, no <link>: wkhtmltopdf would otherwise have to
-// fetch every desk bundle over the network just to style the sheet. The table is
-// re-wrapped in its usual ancestors because every sheet rule is scoped under
-// .ard-sheet - and .ard-mode-new is what turns the on-terms columns green.
 function ard_report_document($table, mode, label, logo_src) {
     let styles = "";
     document.querySelectorAll('style').forEach(function (st) { styles += st.outerHTML; });
@@ -2112,8 +1865,6 @@ function ard_report_document($table, mode, label, logo_src) {
         '</div></div></div></body></html>';
 }
 
-// Download the PDF instead of mailing it: same render, preview=1 so the server
-// hands the bytes back rather than sending them anywhere.
 function ard_export_report(page) {
     let mode = page._ard_ar_mode;
     let label = ard_mode_label(mode);
@@ -2142,9 +1893,6 @@ function ard_export_report(page) {
     });
 }
 
-// Turn the base64 the server returns into a file the browser saves. A blob URL
-// is used rather than a data: URI because Chrome refuses to navigate to large
-// data: URLs, and these run to hundreds of KB.
 function ard_download_pdf(msg) {
     let bytes = atob(msg.content);
     let buf = new Uint8Array(bytes.length);
@@ -2184,10 +1932,6 @@ function ard_send_report(page, mode, label, $table, recipients) {
     });
 }
 
-// ─── Excel Export ─────────────────────────────────────────────────────────────
-// Format: Customer | Reconciliation Status | Legacy AR Outstanding | New AR Outstanding | Total
-// One summary row per customer. Backend generates a real .xlsx via openpyxl.
-
 function export_excel(page, use_all) {
     let res, display_rows, company;
 
@@ -2219,10 +1963,6 @@ function export_excel(page, use_all) {
     let show_company = !!use_all;
     let na_anchor    = show_terms ? get_report_date(page) : null;
 
-    // ── header row ──────────────────────────────────────────────────────────────
-    // Excel export is always a per-customer summary (one row per customer),
-    // regardless of the on-screen "Hide Columns D–K" toggle. Per-invoice-only
-    // columns (Invoice No., Type, dates, Status, Entity) are omitted.
     let header = ["Customer", "Recon Status", "Onboarding", "Company Made Contact",
         "Invoiced", "Paid", "Outstanding"];
     if (show_terms) {
@@ -2235,7 +1975,6 @@ function export_excel(page, use_all) {
     header.push("New AR");
     header.push("Notebox");
 
-    // ── group rows by customer ───────────────────────────────────────────────────
     let customer_order = [], customer_groups = {};
     display_rows.forEach(function (row) {
         let key = row.party;
@@ -2257,7 +1996,6 @@ function export_excel(page, use_all) {
         return (customer_groups[a].name || "").toLowerCase().localeCompare((customer_groups[b].name || "").toLowerCase());
     });
 
-    // ── build data rows ──────────────────────────────────────────────────────────
     let xrows = [header];
     let grand = { invoiced: 0, paid: 0, outstanding: 0 };
     ranges.forEach(function (r) { grand[r.key] = 0; });
@@ -2294,7 +2032,6 @@ function export_excel(page, use_all) {
             }
         });
 
-        // accumulate grand totals
         grand.invoiced    += sub.invoiced;
         grand.paid        += sub.paid;
         grand.outstanding += sub.outstanding;
@@ -2304,7 +2041,6 @@ function export_excel(page, use_all) {
             ['legacy_ar','new_ar','total','good','bad','g1','g2','g3'].forEach(function (k) { grand_na[k] += group_na[k]; });
         }
 
-        // one row per customer (always — collapsed summary)
         let r = [group.name, group.recon_status, group.onboarding, group.company_made_contact,
             sub.invoiced, sub.paid, sub.outstanding];
         if (show_terms && group_na) {
@@ -2318,7 +2054,6 @@ function export_excel(page, use_all) {
         xrows.push(r);
     });
 
-    // ── totals row ───────────────────────────────────────────────────────────────
     let totals = ["TOTAL", "", "", "", grand.invoiced, grand.paid, grand.outstanding];
     if (grand_na) {
         if (split_ln)        { totals.push(grand_na.legacy_ar, grand_na.new_ar); }
@@ -2326,8 +2061,8 @@ function export_excel(page, use_all) {
         totals.push(grand_na.total, grand_na.good, grand_na.bad, grand_na.g1, grand_na.g2, grand_na.g3);
     }
     ranges.forEach(function (r) { totals.push(grand[r.key]); });
-    totals.push("");  // New AR
-    totals.push("");  // Notebox
+    totals.push("");
+    totals.push("");
     xrows.push(totals);
 
     let date_str = page.main.find('#ard-report-date').val() || frappe.datetime.get_today();
@@ -2355,8 +2090,6 @@ function export_excel(page, use_all) {
         }
     });
 }
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function get_row_status(row, ranges) {
     let highest = -1;

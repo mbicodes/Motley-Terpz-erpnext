@@ -1,8 +1,5 @@
 frappe.ui.form.on('Conversion Entry', {
 	onload: function (frm) {
-		// Default the company on new entries, then run the company handler
-		// (applies warehouse filters). Guarded to new docs so opening an
-		// existing entry never overwrites its saved company.
 		if (frm.is_new() && !frm.doc.company) {
 			frm.set_value('company', 'Master Touch Manufacturing');
 			frm.trigger('company');
@@ -14,8 +11,6 @@ frappe.ui.form.on('Conversion Entry', {
 		_set_metrc_package_queries(frm);
 		_set_metrc_tag_queries(frm);
 
-		// A retired status stays readable on old entries but is not offered
-		// for new ones — see the Conversion Status doctype's `disabled` flag.
 		frm.set_query('conversion_status', function () {
 			return { filters: { disabled: 0 } };
 		});
@@ -40,8 +35,6 @@ frappe.ui.form.on('Conversion Entry', {
 			frappe.model.set_value(row.doctype, row.name, 'target_warehouse', '');
 		});
 	},
-
-	// ── Timer ─────────────────────────────────────────────────────────────────
 
 	prepare_timer_buttons: function (frm) {
 		frm.trigger('make_dashboard');
@@ -155,9 +148,9 @@ frappe.ui.form.on('Conversion Entry', {
 
 		if (frm.doc.started_time || frm.doc.current_time) {
 			if (frm.doc.timer_status === 'On Hold') {
-				updateStopwatch(currentIncrement);   // static — job is paused
+				updateStopwatch(currentIncrement);
 			} else {
-				initialiseTimer();                   // live — job is running
+				initialiseTimer();
 			}
 		}
 	},
@@ -179,9 +172,6 @@ frappe.ui.form.on('Conversion Entry', {
 	},
 });
 
-
-// ── Conversion Entry Time Log child events ────────────────────────────────────
-
 frappe.ui.form.on('Conversion Entry Time Log', {
 	from_time: function (frm, cdt, cdn) {
 		_calc_ce_time_mins(frm, cdt, cdn);
@@ -191,14 +181,10 @@ frappe.ui.form.on('Conversion Entry Time Log', {
 	},
 });
 
-// ── Conversion Entry Item child events ────────────────────────────────────────
-
 frappe.ui.form.on('Conversion Entry Item', {
 	conversion_type: function (frm, cdt, cdn) {
 		clear_hidden_fields_for_row(frm, cdt, cdn);
 	},
-	// Opening a row recomputes it, so a row saved before these fields existed
-	// -- or edited in another tab -- shows live figures rather than blanks.
 	form_render: function (frm, cdt, cdn) {
 		for (let n = 1; n <= 7; n++) _sync_grams(frm, cdt, cdn, n);
 		_micron_total(frm, cdt, cdn, 'bh');
@@ -237,16 +223,12 @@ frappe.ui.form.on('Conversion Entry Item', {
 	finished_good_3: function (frm, cdt, cdn) { _sync_item_group(cdt, cdn, 'finished_good_3', 'fg_3_item_group'); },
 });
 
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
 function _calc_ce_time_mins(frm, cdt, cdn) {
 	let row = frappe.get_doc(cdt, cdn);
 	if (!row.from_time || !row.to_time) return;
 	let mins = moment(row.to_time).diff(moment(row.from_time), 'minutes', true);
 	if (mins > 0) {
 		frappe.model.set_value(cdt, cdn, 'time_in_mins', flt(mins, 4));
-		// Recompute total
 		let total = (frm.doc.time_logs || []).reduce(function (s, r) {
 			return s + flt(r.time_in_mins);
 		}, 0);
@@ -325,10 +307,6 @@ function clear_hidden_fields_for_row(frm, cdt, cdn) {
 	}
 }
 
-
-// ── Raw Material picker ──────────────────────────────────────────────────────
-// Shows each item's quantity in that row's Source Warehouse, with the
-// in-stock items first. Server side: conversion_entry.raw_material_stock_query.
 const CE_RM_QUERY =
 	'cannabis_management.cannabis_management.doctype.conversion_entry.conversion_entry.raw_material_stock_query';
 
@@ -338,18 +316,12 @@ function _set_raw_material_queries(frm) {
 			const row = locals[cdt][cdn] || {};
 			return {
 				query: CE_RM_QUERY,
-				// Read live off the row, so changing Source Warehouse re-quotes
-				// the quantities on the next search without a reload.
 				filters: { warehouse: row.source_warehouse },
 			};
 		});
 	}
 }
 
-
-// ── Metrc Package picker ─────────────────────────────────────────────────────
-// Each Raw Material picks an Active Metrc Package of that same item.
-// validate() enforces the same two rules server-side.
 function _set_metrc_package_queries(frm) {
 	for (let n = 1; n <= 7; n++) {
 		frm.set_query('metrc_package_' + n, 'items', function (doc, cdt, cdn) {
@@ -362,11 +334,6 @@ function _set_metrc_package_queries(frm) {
 	}
 }
 
-// ── Metrc Tag picker (finished goods) ────────────────────────────────────────
-// A finished good leaves the conversion as a new package, so it takes a fresh
-// tag rather than an existing one: the list is Metrc Tags still Available.
-// Metrc Tag autonames on tag_code and carries muid in its search_fields, so
-// typing a MUID finds the tag and the MUID shows beside it in the dropdown.
 function _set_metrc_tag_queries(frm) {
 	for (let n = 1; n <= 3; n++) {
 		frm.set_query('metrc_tag_fg_' + n, 'items', function (doc, cdt, cdn) {
@@ -394,14 +361,6 @@ function _clear_stale_package(cdt, cdn, n) {
 	});
 }
 
-
-// ── Yields ───────────────────────────────────────────────────────────────────
-// Frozen to Hash % = Hash (g) / Frozen (g) * 100
-// Hash to Rosin %  = Rosin (g) / Hash (g) * 100
-// Frozen to Rosin % = Rosin (g) / Frozen (g) * 100
-// Frozen (g) is every Raw Material quantity in grams, so a multi-material row
-// yields against everything it consumed. validate() recomputes all of this
-// server-side; this is just so the figures move as you type.
 function _sync_yield(frm, cdt, cdn) {
 	const row = locals[cdt][cdn];
 	if (!row) return;
@@ -419,9 +378,6 @@ function _sync_yield(frm, cdt, cdn) {
 		'hash_to_rosin_pct', 'frozen_to_rosin_pct']);
 }
 
-// A read-only field in an open grid row keeps showing the value it was drawn
-// with, so the figure has to be pushed back onto the row form explicitly --
-// otherwise it only appears once the row is reopened or the document saved.
 function _repaint(frm, cdn, fieldnames) {
 	const grid = frm.get_field('items').grid;
 	const grid_row = (grid.grid_rows_by_docname || {})[cdn];
@@ -432,11 +388,6 @@ function _repaint(frm, cdn, fieldnames) {
 	});
 }
 
-
-// ── Microns ──────────────────────────────────────────────────────────────────
-// A tolling row records what was run: tick the product, tick each micron it was
-// run at, and enter the grams that came off it. Untick anything and the figures
-// below it are cleared, so a stale gram count can never outlive its tick.
 const _MICRON_SIZES = ['150u', '120u_73u', '45u'];
 
 function _micron_total(frm, cdt, cdn, prefix) {
@@ -471,12 +422,6 @@ function _micron_product_toggled(frm, cdt, cdn, prefix) {
 	_micron_total(frm, cdt, cdn, prefix);
 }
 
-
-// ── Gram equivalents ─────────────────────────────────────────────────────────
-// The pullable stock is held in LBS but the tolling floor thinks in grams, so
-// every Raw Material qty carries a read-only gram mirror. It is a display only:
-// qty_rm_N stays in the item's own UOM because the Stock Entry line uses it
-// verbatim, and writing grams there would issue 453x the stock.
 const _ce_uom_of_item = {};
 const _ce_grams_per_uom = {};
 
@@ -510,9 +455,6 @@ function _sync_grams(frm, cdt, cdn, n) {
 	const target = 'qty_rm_' + n + '_g';
 	const item = row['raw_material_' + n];
 	const qty = flt(row['qty_rm_' + n]);
-	// No item or no quantity means nothing to convert — and an item with no
-	// gram conversion on file (Nos, for instance) leaves the mirror empty
-	// rather than inventing a number.
 	if (!item || !qty) {
 		if (flt(row[target])) frappe.model.set_value(cdt, cdn, target, 0);
 		_sync_yield(frm, cdt, cdn);
@@ -527,13 +469,6 @@ function _sync_grams(frm, cdt, cdn, n) {
 		});
 }
 
-
-// ── Pull Items from Project ──────────────────────────────────────────────────
-// Asks for a Warehouse and, optionally, a Project. With a Project it lists what
-// was billed against that pair (Sales Invoice and Purchase Invoice lines both
-// carry project + warehouse); with the Warehouse alone it lists what is in
-// stock there. Whatever is ticked becomes Conversion Items rows — one row per
-// item, its quantity carried across.
 function _pull_project_items(frm) {
 	const d = new frappe.ui.Dialog({
 		title: __('Pull Items from Project'),
@@ -554,7 +489,6 @@ function _pull_project_items(frm) {
 		],
 		primary_action_label: __('Add Selected'),
 		primary_action() {
-			// The row takes the quantity typed in Qty to Pull, not the listed one.
 			const picked = d.$wrapper.find('.ce-pull-row:checked').map((i, el) => {
 				const item = JSON.parse($(el).attr('data-row'));
 				item.pull_qty = flt($(el).closest('tr').find('.ce-pull-qty').val());
@@ -570,10 +504,6 @@ function _pull_project_items(frm) {
 					[no_qty.map((it) => frappe.utils.escape_html(it.item_name)).join(', ')]));
 				return;
 			}
-			// A new Conversion Entry opens with an untouched first row, so pulled
-			// items would otherwise stack underneath an empty one that then fails
-			// its own mandatory checks. Only rows with nothing in them go: a row
-			// someone has started is never discarded.
 			const is_blank = (r) => !r.raw_material_1 && !r.finished_good_1
 				&& !flt(r.qty_rm_1) && !flt(r.qty_fg_1);
 			const grid = frm.get_field('items').grid;
@@ -582,8 +512,6 @@ function _pull_project_items(frm) {
 				if (grid_row) {
 					grid_row.remove();
 				} else {
-					// The grid has not rendered that row yet, so take it off the
-					// document directly and let the refresh below redraw.
 					frm.doc.items = frm.doc.items.filter((x) => x.name !== r.name);
 					frappe.model.clear_doc(r.doctype, r.name);
 				}
@@ -592,14 +520,10 @@ function _pull_project_items(frm) {
 
 			picked.forEach((item) => {
 				const row = frm.add_child('items', {
-					// One row per item: the puller picks the conversion type and
-					// the finished good, which this cannot know.
 					conversion_type: '1 to 1',
 					source_warehouse: d.get_value('warehouse'),
 					raw_material_1: item.item_code,
 					qty_rm_1: item.pull_qty,
-					// grams_per_unit comes from the server, so the row shows grams
-					// the moment it lands instead of waiting on a round trip.
 					qty_rm_1_g: flt(item.pull_qty * (item.grams_per_unit || 0), 2),
 				});
 				row.__ce_pulled = true;
@@ -625,12 +549,7 @@ function _pull_project_items(frm) {
 					: __('Nothing is in stock in that warehouse.')}</div>`);
 			return;
 		}
-		// With a Project the listed Qty is what was billed; without one it is the
-		// stock itself, so the Billed column would only repeat In Warehouse.
 		const billed = !!d.get_value('project');
-		// A server still on the older get_project_items sends neither stock_qty
-		// nor grams_per_unit. Without a project the listed qty is the stock, and
-		// grams per unit falls out of the grams it already sends.
 		items.forEach((it) => {
 			if (it.stock_qty == null && !billed) it.stock_qty = it.qty;
 			if (it.grams_per_unit == null) it.grams_per_unit = flt(it.qty) ? flt(it.grams) / flt(it.qty) : 0;
@@ -673,8 +592,6 @@ function _pull_project_items(frm) {
 		$area.find('.ce-pull-all').on('change', function () {
 			$area.find('.ce-pull-row').prop('checked', this.checked);
 		});
-		// Typing a quantity ticks the row; clearing it unticks. Pulling more
-		// than the warehouse holds is flagged, not blocked.
 		$area.find('.ce-pull-qty').on('input', function () {
 			const $tr = $(this).closest('tr');
 			const it = JSON.parse($tr.find('.ce-pull-row').attr('data-row'));
@@ -695,10 +612,6 @@ function _pull_project_items(frm) {
 		frappe.call({
 			method: 'cannabis_management.cannabis_management.doctype.conversion_entry.conversion_entry.get_project_items',
 			args: {
-				// No company: a warehouse belongs to exactly one, so the server
-				// reads it off the warehouse. Sending the form's company here is
-				// what used to blank the list — a new Conversion Entry defaults to
-				// Master Touch Manufacturing and hid every other company's invoices.
 				project: d.get_value('project') || null,
 				warehouse: d.get_value('warehouse'),
 			},
@@ -707,7 +620,6 @@ function _pull_project_items(frm) {
 	};
 
 	d.fields_dict.fetch.$input.on('click', fetch);
-	// Picking a value is usually enough — fetch without a second click.
 	d.fields_dict.warehouse.$input.on('change', () => setTimeout(fetch, 200));
 	d.fields_dict.project.$input.on('change', () => setTimeout(() => {
 		if (d.get_value('warehouse')) fetch();

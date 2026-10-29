@@ -26,7 +26,6 @@ function init_mbi(page, wrapper) {
 	});
 }
 
-/* ─── HTML skeleton ─────────────────────────────────────────────────────── */
 function get_mbi_html() {
 	return `
 <div class="mbi-header">
@@ -159,7 +158,6 @@ function mbi_section(id, body_id, title, icon_svg, badge_html, collapsed) {
 </div>`;
 }
 
-/* ─── Trigger report buttons ────────────────────────────────────────────── */
 var TRIGGER_TARGET_LABELS = {
 	'mbi':  'mbi@alltechvirtual.com',
 	'team': 'nikki@motleyterpz.com, matt@motleyterpz.com, imran@motleyterpz.com'
@@ -199,7 +197,6 @@ function wire_trigger_report(root) {
 	});
 }
 
-/* ─── Collapse / expand ─────────────────────────────────────────────────── */
 function wire_section_collapse(root) {
 	root.querySelectorAll('.mbi-section-header').forEach(function(hdr) {
 		hdr.addEventListener('click', function() {
@@ -209,7 +206,6 @@ function wire_section_collapse(root) {
 	});
 }
 
-/* ─── Company toggle ────────────────────────────────────────────────────── */
 function wire_company_toggle(root, state, page) {
 	root.querySelectorAll('.mbi-co-btn').forEach(function(btn) {
 		btn.addEventListener('click', function() {
@@ -221,7 +217,6 @@ function wire_company_toggle(root, state, page) {
 	});
 }
 
-/* ─── Tabs ──────────────────────────────────────────────────────────────── */
 function wire_tabs(root) {
 	root.querySelectorAll('.mbi-tab').forEach(function(tab) {
 		tab.addEventListener('click', function() {
@@ -237,7 +232,6 @@ function wire_tabs(root) {
 	});
 }
 
-/* ─── Load all sections ─────────────────────────────────────────────────── */
 function get_companies_arg(state) {
 	if (state.companies === 'tsbc') return ['TSBC Ranch'];
 	if (state.companies === 'mtm')  return ['Master Touch Manufacturing'];
@@ -302,7 +296,6 @@ function status_badge(status) {
 	return '<span class="mbi-badge ' + cls + '">' + frappe.utils.escape_html(status) + '</span>';
 }
 
-/* ─── 1. KPIs ───────────────────────────────────────────────────────────── */
 function load_kpis(root, co) {
 	var body = root.querySelector('#kpis-body');
 	body.innerHTML = '<div class="mbi-loading"><div class="mbi-spinner"></div>Loading…</div>';
@@ -331,7 +324,6 @@ function load_kpis(root, co) {
 	});
 }
 
-/* ─── 2. Logistics circuit ──────────────────────────────────────────────── */
 var STAGE_COLORS = ['#94a3b8','#2563eb','#d97706','#7c3aed','#0891b2','#059669','#1e293b'];
 var STAGES = ['Need to Schedule','Scheduled','Preparing','Prepared','Staged','Closed Out'];
 var CO_COLORS = {'TSBC Ranch': '#059669', 'Master Touch Manufacturing': '#7c3aed', 'Motley Terpz': '#d97706'};
@@ -376,7 +368,6 @@ function mbi_stage(color, num, label) {
 		'<div class="mbi-stage-arrow"></div></div>';
 }
 
-/* ─── 3. Sales documents ────────────────────────────────────────────────── */
 function load_docs(root, co) {
 	var body = root.querySelector('#docs-body');
 	body.innerHTML = '<div class="mbi-loading"><div class="mbi-spinner"></div>Loading…</div>';
@@ -500,7 +491,6 @@ function render_dn_table(rows) {
 	return html;
 }
 
-/* ─── 4. Gap lists ──────────────────────────────────────────────────────── */
 function load_gaps(root, co) {
 	var body = root.querySelector('#gaps-body');
 	body.innerHTML = '<div class="mbi-loading"><div class="mbi-spinner"></div>Loading…</div>';
@@ -542,7 +532,6 @@ function load_gaps(root, co) {
 	});
 }
 
-/* ─── 5. Invoices with payments ─────────────────────────────────────────── */
 function load_payments(root, co) {
 	var body = root.querySelector('#payments-body');
 	body.innerHTML = '<div class="mbi-loading"><div class="mbi-spinner"></div>Loading…</div>';
@@ -573,7 +562,6 @@ function load_payments(root, co) {
 	});
 }
 
-/* ─── 6. Cash & Bank — from Invoices ───────────────────────────────────── */
 function load_cashbank(root, co) {
 	var body = root.querySelector('#cashbank-body');
 	body.innerHTML = '<div class="mbi-loading"><div class="mbi-spinner"></div>Loading…</div>';
@@ -628,7 +616,6 @@ function load_cashbank(root, co) {
 	});
 }
 
-/* ─── 7. Conversion overview ────────────────────────────────────────────── */
 function load_conversion(root, co) {
 	var body = root.querySelector('#conversion-body');
 	body.innerHTML = '<div class="mbi-loading"><div class="mbi-spinner"></div>Loading…</div>';
@@ -655,7 +642,6 @@ function load_conversion(root, co) {
 	});
 }
 
-/* ─── 8. Item group totals ──────────────────────────────────────────────── */
 function load_item_groups(root, co) {
 	var body = root.querySelector('#itemgroups-body');
 	body.innerHTML = '<div class="mbi-loading"><div class="mbi-spinner"></div>Loading…</div>';
@@ -698,7 +684,6 @@ function load_item_groups(root, co) {
 	});
 }
 
-/* ─── 8b. Item Group Conversion ─────────────────────────────────────────── */
 function load_ig_conversion(root, co) {
 	var body = root.querySelector('#igconv-body');
 	body.innerHTML = '<div class="mbi-loading"><div class="mbi-spinner"></div>Loading…</div>';
@@ -758,7 +743,6 @@ function load_ig_conversion(root, co) {
 	});
 }
 
-/* ─── 9. Hardware counts ────────────────────────────────────────────────── */
 function load_hardware(root, co) {
 	var body = root.querySelector('#hardware-body');
 	body.innerHTML = '<div class="mbi-loading"><div class="mbi-spinner"></div>Loading…</div>';
@@ -804,7 +788,6 @@ function load_hardware(root, co) {
 	});
 }
 
-/* ─── 10. Tolling check ─────────────────────────────────────────────────── */
 function load_tolling(root) {
 	var body = root.querySelector('#tolling-body');
 	body.innerHTML = '<div class="mbi-loading"><div class="mbi-spinner"></div>Loading…</div>';
@@ -838,7 +821,6 @@ function load_tolling(root) {
 
 		var html = '';
 
-		// Summary strip
 		html += '<div style="display:flex;gap:12px;padding:12px 18px;background:#f8fafc;border-bottom:1.5px solid #e2e8f0;">' +
 			'<div style="display:flex;align-items:center;gap:8px;padding:8px 16px;border-radius:8px;background:#fee2e2;border:1px solid #fca5a5;">' +
 				'<span style="font-size:20px;font-weight:800;color:#e11d48;">' + shortage_sos.length + '</span>' +
@@ -854,7 +836,6 @@ function load_tolling(root) {
 			'</div>' +
 		'</div>';
 
-		// SO list — shortages first (already sorted by backend)
 		d.forEach(function(so, idx) {
 			var age = days_ago(so.transaction_date);
 			var age_color = age > 14 ? '#e11d48' : (age > 7 ? '#d97706' : '#64748b');
@@ -864,7 +845,6 @@ function load_tolling(root) {
 			var items_id  = 'tolling-items-' + idx;
 
 			html += '<div style="border-left:3px solid ' + so_border + ';background:' + so_bg + ';margin:8px 18px;border-radius:0 8px 8px 0;overflow:hidden;">' +
-				// SO header — clickable, collapsed by default
 				'<div class="tolling-so-hdr" data-items="' + items_id + '" ' +
 					'style="display:flex;align-items:center;gap:12px;padding:10px 14px;cursor:pointer;user-select:none;">' +
 					'<svg class="tolling-chevron" viewBox="0 0 24 24" style="width:14px;height:14px;flex-shrink:0;transition:transform 0.2s;color:#94a3b8;">' +
@@ -883,7 +863,6 @@ function load_tolling(root) {
 						: '<span style="font-size:10px;font-weight:700;color:#059669;background:#dcfce7;padding:2px 8px;border-radius:4px;">READY</span>') +
 					'<span style="font-size:10px;color:#94a3b8;margin-left:2px;">' + so.items.length + ' item' + (so.items.length !== 1 ? 's' : '') + '</span>' +
 				'</div>' +
-				// Items — hidden by default
 				'<div id="' + items_id + '" style="display:none;padding:0 0 4px 0;">' +
 				'<div style="display:grid;grid-template-columns:2fr 80px 80px 80px 130px;gap:0;' +
 					'padding:5px 14px;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.06em;border-top:1px solid rgba(0,0,0,0.06);">' +
@@ -912,7 +891,6 @@ function load_tolling(root) {
 
 		body.innerHTML = html;
 
-		// Wire collapse toggles
 		body.querySelectorAll('.tolling-so-hdr').forEach(function(hdr) {
 			hdr.addEventListener('click', function() {
 				var items = body.querySelector('#' + hdr.dataset.items);
@@ -925,7 +903,6 @@ function load_tolling(root) {
 	});
 }
 
-/* ─── 11. AR / AP ───────────────────────────────────────────────────────── */
 function load_arap(root, co) {
 	var body = root.querySelector('#arap-body');
 	body.innerHTML = '<div class="mbi-loading"><div class="mbi-spinner"></div>Loading…</div>';
@@ -966,7 +943,6 @@ function render_arap_panel(title, rows, color) {
 	return html;
 }
 
-/* ─── 12. Sales by type ─────────────────────────────────────────────────── */
 function load_sales_type(root, co) {
 	var body = root.querySelector('#salestype-body');
 	body.innerHTML = '<div class="mbi-loading"><div class="mbi-spinner"></div>Loading…</div>';

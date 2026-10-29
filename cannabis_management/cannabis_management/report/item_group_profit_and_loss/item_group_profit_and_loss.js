@@ -1,10 +1,3 @@
-// Copyright (c) 2026, alltechvirtual.com and contributors
-// For license information, please see license.txt
-//
-// Filter set mirrors the core Profit and Loss Statement, minus the ones that
-// only mean something when the columns are periods — periodicity, accumulated
-// values, and the Growth / Margin views. Here the columns are item groups.
-
 frappe.query_reports["Item Group Profit and Loss"] = {
 	filters: [
 		{
@@ -61,7 +54,6 @@ frappe.query_reports["Item Group Profit and Loss"] = {
 			mandatory_depends_on: "eval:doc.filter_based_on == 'Date Range'",
 		},
 		{
-			// Narrows the columns to this group and everything under it.
 			fieldname: "item_group",
 			label: __("Item Group"),
 			fieldtype: "Link",
@@ -107,15 +99,13 @@ frappe.query_reports["Item Group Profit and Loss"] = {
 	formatter: function (value, row, column, data, default_formatter) {
 		value = default_formatter(value, row, column, data);
 		if (column.fieldname === "account" && data && !data.indent) {
-			value = `<b>${value}</b>`;   // root rows: Income / Expense
+			value = `<b>${value}</b>`;
 		}
 		if (column.fieldname === "unallocated" && data && flt(data.unallocated)) {
-			// Money with no item behind it — worth noticing, not an error.
 			value = `<span style="color:var(--text-muted)">${value}</span>`;
 		}
 		return value;
 	},
 };
 
-// Accounting dimensions as filters, exactly as the core report does.
 erpnext.utils.add_dimensions("Item Group Profit and Loss", 10);

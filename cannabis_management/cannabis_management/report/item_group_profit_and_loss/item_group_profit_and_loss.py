@@ -1,35 +1,7 @@
-# Copyright (c) 2026, alltechvirtual.com and contributors
-# For license information, please see license.txt
-"""Profit and Loss with one column per Item Group.
-
-The stock Profit and Loss Statement puts periods across the top. This puts
-ITEM GROUPS there instead: the same account tree down the left, and for each
-account the money attributable to each item group.
-
-How an amount is attributed
----------------------------
-A GL Entry carries no item, so the split is taken from the documents that
-produced it. Every item row on an invoice, delivery note or stock entry
-already names both the P&L account it posts to (income_account /
-expense_account) and the item — and therefore the item group. Summing those
-rows by (account, item group) gives the split directly, with no apportioning
-or guesswork.
-
-Anything with no item behind it — journal entries, opening balances, a
-manually posted expense — cannot belong to an item group. Rather than hide it
-or spread it around, each account's GL total is taken from the ledger and the
-remainder lands in an "Unallocated" column. That is what makes the Total
-column reconcile exactly with the stock Profit and Loss Statement: the row
-always adds up, and anything unattributable is visible rather than silently
-dropped.
-"""
-
 import frappe
 from frappe import _
 from frappe.utils import flt
 
-# Item rows that name the P&L account they post to, per voucher type.
-# (child doctype, account field on the row, amount field)
 ITEM_SOURCES = [
 	("Sales Invoice", "Sales Invoice Item", "income_account", "base_net_amount"),
 	("Purchase Invoice", "Purchase Invoice Item", "expense_account", "base_net_amount"),
@@ -66,7 +38,6 @@ def execute(filters=None):
 
 
 def _resolve_period(filters):
-	"""Fiscal Year or Date Range, same choice the core report offers."""
 	if filters.get("filter_based_on") == "Fiscal Year":
 		if not (filters.get("from_fiscal_year") and filters.get("to_fiscal_year")):
 			frappe.throw(_("Select a start and end Fiscal Year."))
@@ -85,7 +56,6 @@ def _resolve_period(filters):
 
 
 def _as_list(value):
-	"""MultiSelectList arrives as a list, or as JSON when it comes over HTTP."""
 	if not value:
 		return []
 	if isinstance(value, str):
@@ -97,11 +67,6 @@ def _as_list(value):
 
 
 def _drop_empty_rows(data, columns):
-	"""Hide accounts with nothing in them, unless 'Show zero values' is on.
-
-	A parent is kept when any descendant survives, so the tree never loses its
-	structure — an account with money under it stays reachable.
-	"""
 	amount_fields = [c["fieldname"] for c in columns if c["fieldtype"] == "Currency"]
 
 	def has_money(row):
@@ -112,7 +77,6 @@ def _drop_empty_rows(data, columns):
 		if not has_money(row):
 			continue
 		keep[i] = True
-		# Walk back up to the root, marking every ancestor.
 		indent = row.get("indent", 0)
 		for j in range(i - 1, -1, -1):
 			if data[j].get("indent", 0) < indent:
@@ -123,10 +87,7 @@ def _drop_empty_rows(data, columns):
 	return [row for row, k in zip(data, keep) if k]
 
 
-# ── Accounts ─────────────────────────────────────────────────────────────────
-
 def _pl_accounts(company):
-	"""Income and Expense accounts for the company, parents included."""
 	rows = frappe.db.sql(
 		"""
 		select name, account_name, parent_account, is_group, root_type, lft, rgt
@@ -140,11 +101,8 @@ def _pl_accounts(company):
 
 
 def _sign(root_type):
-	# Income is credit-balanced, Expense debit-balanced; both shown positive.
 	return -1 if root_type == "Income" else 1
 
-
-# ── Ledger totals (the Total column, and what Unallocated is measured against) ─
 
 def _gl_totals(filters, accounts):
 	conds, values = _gl_conditions(filters)
@@ -181,8 +139,6 @@ def _gl_conditions(filters):
 			conds.append(f"gle.{field} in %({field})s")
 			values[field] = selected
 
-	# Same finance-book handling as the core statements: with "Include Default
-	# FB Entries" on, rows with no book are counted alongside the chosen one.
 	if filters.get("finance_book"):
 		if filters.get("include_default_book_entries"):
 			conds.append("(gle.finance_book in (%(finance_book)s, '') or gle.finance_book is null)")
@@ -202,7 +158,6 @@ def _gl_conditions(filters):
 
 
 def _accounting_dimensions():
-	"""Dimension fieldnames that exist as columns on GL Entry."""
 	names = [
 		frappe.scrub(d.fieldname or d.document_type)
 		for d in frappe.get_all("Accounting Dimension",
@@ -212,10 +167,7 @@ def _accounting_dimensions():
 	return [n for n in names if n in columns]
 
 
-# ── The item-group split ─────────────────────────────────────────────────────
-
 def _item_group_amounts(filters, accounts):
-	"""{account: {item_group: amount}} from the item rows themselves."""
 	root = {a.name: a.root_type for a in accounts}
 	out = {}
 
@@ -264,12 +216,6 @@ def _item_group_amounts(filters, accounts):
 
 
 def _visible_groups(filters, by_group):
-	"""Item groups that actually carry money, in a stable order.
-
-	Item Group has no company field, so "the company's item groups" is taken to
-	mean the ones with activity in this company and period — 60 empty columns
-	would be unreadable.
-	"""
 	seen = set()
 	for groups in by_group.values():
 		seen.update(groups.keys())
@@ -292,8 +238,6 @@ def _descendants(item_group):
 	}
 
 
-# ── Presentation ─────────────────────────────────────────────────────────────
-
 def _columns(groups):
 	cols = [{
 		"label": _("Account"), "fieldname": "account", "fieldtype": "Link",
@@ -312,13 +256,12 @@ def _columns(groups):
 
 
 def _rows(accounts, totals, by_group, groups):
-	"""Account tree, each leaf carrying its split; parents roll their children up."""
 	by_name = {a.name: a for a in accounts}
 	children = {}
 	for a in accounts:
 		children.setdefault(a.parent_account, []).append(a)
 
-	values = {}          # account -> {fieldname: amount}
+	values = {}
 
 	def compute(account):
 		own = {frappe.scrub(g): 0.0 for g in groups}
@@ -328,10 +271,6 @@ def _rows(accounts, totals, by_group, groups):
 		if not account.is_group:
 			split = by_group.get(account.name, {})
 			allocated = 0.0
-			# Item amounts are already positive on both sides — a sale's
-			# base_net_amount and a cost's are both stated as money, not as a
-			# debit/credit. The ledger sign is only needed where debit and
-			# credit are subtracted (see _gl_totals), not here.
 			for group, amount in split.items():
 				if group in groups:
 					own[frappe.scrub(group)] += amount

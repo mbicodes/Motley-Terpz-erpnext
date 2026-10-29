@@ -1,7 +1,3 @@
-# Copyright (c) 2015, Frappe Technologies Pvt. Ltd. and Contributors
-# License: GNU General Public License v3. See license.txt
-
-
 import frappe
 from frappe import _
 from frappe.utils import cint, flt
@@ -168,7 +164,6 @@ def get_provisional_profit_loss(
 
 
 def check_opening_balance(asset, liability, equity):
-	# Check if previous year balance sheet closed
 	opening_balance = 0
 	float_precision = cint(frappe.db.get_default("float_precision")) or 2
 	if asset:
@@ -199,7 +194,6 @@ def get_report_summary(
 	if filters.get("accumulated_values"):
 		period_list = [period_list[-1]]
 
-	# from consolidated financial statement
 	if filters.get("accumulated_in_group_company"):
 		period_list = get_filtered_list_for_consolidated_report(filters, period_list)
 

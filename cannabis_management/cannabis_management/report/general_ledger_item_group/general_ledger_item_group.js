@@ -1,6 +1,3 @@
-// Copy of ERPNext's General Ledger with an Item Group column and filter.
-// Filters are ERPNext's own (erpnext/accounts/report/general_ledger/general_ledger.js).
-
 frappe.query_reports["General Ledger Item Group"] = {
 	filters: [
 		{

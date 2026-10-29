@@ -12,10 +12,7 @@ class CreditPolicySettings(Document):
 		self._normalise_lists()
 
 	def on_update(self):
-		# Every transaction reads these settings; the cache must not go stale.
 		frappe.clear_document_cache("Credit Policy Settings", "Credit Policy Settings")
-
-	# ── validation ───────────────────────────────────────────────────────────
 
 	def _validate_thresholds(self):
 		if flt(self.total_ar_cap) < 0:
@@ -95,7 +92,6 @@ class CreditPolicySettings(Document):
 				)
 
 	def _normalise_lists(self):
-		"""Store comma-separated lists in a canonical form so string matching is reliable."""
 		if self.terms_requiring_md_exception:
 			self.terms_requiring_md_exception = ",".join(_split_csv(self.terms_requiring_md_exception))
 		if self.finance_charge_templates:

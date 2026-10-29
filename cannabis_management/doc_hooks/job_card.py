@@ -1,5 +1,3 @@
-# cannabis_management/hooks/job_card.py
-
 import frappe
 from frappe.utils import flt
 
@@ -7,15 +5,6 @@ MICRON_OPERATIONS = {"Wash", "Press"}
 
 
 def calculate_sub_op_costs(doc, method=None):
-    """
-    For each time_log row, resolve workstation via:
-      1. row.operation → Operation.workstation
-      2. doc.workstation  (Job Card header)
-      3. doc.operation  → Operation.workstation  (Job Card's main op)
-    Writes workstation, hourly rate, and sub-op cost on each row,
-    plus the total on the Job Card. Uses db.set_value so changes
-    persist even when called from on_submit.
-    """
     op_ws_cache = {}
     ws_rate_cache = {}
     wage_cache = {}
@@ -23,13 +12,10 @@ def calculate_sub_op_costs(doc, method=None):
     total = 0.0
     total_completed_qty = 0.0
 
-    # Resolved once: an un-migrated site has neither column, and every read or
-    # write of them would otherwise raise "Unknown column" and fail the save.
     has_labor_fields = _has_field("Job Card Time Log", "custom_labor_rate") and _has_field(
         "Job Card Time Log", "custom_labor_cost"
     )
 
-    # Pre-resolve the Job Card's own operation workstation as ultimate fallback
     jc_op_ws = ""
     if doc.get("operation"):
         jc_op = doc.operation
@@ -38,25 +24,20 @@ def calculate_sub_op_costs(doc, method=None):
         jc_op_ws = op_ws_cache[jc_op]
 
     for row in (doc.time_logs or []):
-        # 0. workstation picked explicitly for this time log (Start popup)
         ws_name = row.get("custom_workstation") or None
 
-        # 1. row-level operation
         if not ws_name and row.get("operation"):
             op = row.operation
             if op not in op_ws_cache:
                 op_ws_cache[op] = frappe.db.get_value("Operation", op, "workstation") or ""
             ws_name = op_ws_cache[op]
 
-        # 2. Job Card header workstation
         if not ws_name:
             ws_name = doc.workstation or ""
 
-        # 3. Job Card's main operation workstation
         if not ws_name:
             ws_name = jc_op_ws
 
-        # Resolve hourly rate
         hour_rate = 0.0
         if ws_name:
             if ws_name not in ws_rate_cache:
@@ -68,13 +49,9 @@ def calculate_sub_op_costs(doc, method=None):
         time_hrs = flt(row.get("time_in_mins") or 0) / 60.0
         machine_cost = time_hrs * hour_rate
 
-        # Operator's wage for these minutes, when the workstation is costed
-        # employee-wise. Zero otherwise, so the total is unchanged for every
-        # workstation that has not opted in.
         labor_rate, labor_cost = _labor_for_row(row, ws_name, wage_cache, ws_flag_cache)
         cost = round(machine_cost + labor_cost, 6)
 
-        # Write directly to child row in memory (picked up by validate → save)
         row.custom_workstation = ws_name
         row.custom_hour_rate = hour_rate
         row.custom_sub_op_cost = cost
@@ -85,17 +62,12 @@ def calculate_sub_op_costs(doc, method=None):
             "custom_sub_op_cost": cost,
         }
 
-        # Only touch the labour columns where they exist. On a site that has
-        # the app but has not migrated yet they do not, and writing them
-        # raises "Unknown column" from inside validate -- which fails the
-        # entire Job Card save, Start Timer included.
         if has_labor_fields:
             row.custom_labor_rate = labor_rate
             row.custom_labor_cost = labor_cost
             values["custom_labor_rate"] = labor_rate
             values["custom_labor_cost"] = labor_cost
 
-        # Also persist explicitly in case this runs from on_submit after the doc save
         if row.get("name") and not row.get("name", "").startswith("new-"):
             frappe.db.set_value("Job Card Time Log", row.name, values, update_modified=False)
 
@@ -109,7 +81,6 @@ def calculate_sub_op_costs(doc, method=None):
         "total_completed_qty": total_completed_qty,
     }, update_modified=False)
 
-    # On submit: roll up all submitted Job Cards for this Work Order → actual_operating_cost
     if doc.docstatus == 1 and doc.get("work_order"):
         wo_total = frappe.db.sql("""
             SELECT COALESCE(SUM(custom_sub_op_total_cost), 0)
@@ -123,24 +94,12 @@ def calculate_sub_op_costs(doc, method=None):
 
 
 def bypass_qty_to_manufacture_check(doc, method=None):
-    """
-    ERPNext blocks submit when total_completed_qty != for_quantity.
-    Set for_quantity = total_completed_qty so the check always passes.
-    """
     from frappe.utils import flt
     if flt(doc.total_completed_qty):
         doc.for_quantity = doc.total_completed_qty
 
 
 def sync_micron_total_to_time_log(doc, method=None):
-    """
-    Fired on:  before_validate, so core's validate then rolls the new figure
-               into total_completed_qty.
-
-    The micron bags are what the run produced, so their grams total is the
-    Completed Qty. It goes on the time log that already carries the output,
-    or the last time log when none does yet.
-    """
     rows = doc.get("custom_micron_collection_detail") or []
     logs = doc.get("time_logs") or []
     if doc.docstatus != 0 or not rows or not logs:
@@ -148,8 +107,6 @@ def sync_micron_total_to_time_log(doc, method=None):
 
     total = sum(flt(r.get("grams_collected")) for r in rows)
 
-    # Only when the grams changed: a Total Completed Qty typed by hand after
-    # the bags were weighed must survive later saves.
     before = doc.get_doc_before_save()
     if before and total == sum(
         flt(r.get("grams_collected")) for r in (before.get("custom_micron_collection_detail") or [])
@@ -159,10 +116,6 @@ def sync_micron_total_to_time_log(doc, method=None):
 
 
 def set_output_qty(doc, qty):
-    """Make the Job Card's Total Completed Qty `qty`: it goes on the time log
-    that already carries the output (else the last), and every other log is
-    cleared so the logs' sum -- which core copies into Total Completed Qty --
-    is exactly `qty`."""
     logs = doc.get("time_logs") or []
     if not logs:
         return
@@ -174,23 +127,11 @@ def set_output_qty(doc, qty):
 
 
 def validate(doc, method=None):
-    """
-    Fired on:  validate (every save)
-               on_submit (before the existing override)
-
-    Rules:
-      1. Only runs when doc.operation is "Wash" or "Press".
-      2. Per-row required field check fires on every save so errors
-         surface early.
-      3. Grams total vs total_completed_qty is enforced only when
-         status == "Completed".
-    """
     if doc.operation not in MICRON_OPERATIONS:
         return
 
     rows = doc.get("custom_micron_collection_detail") or []
 
-    # ── Per-row validation (every save) ─────────────────────────────────────
     for i, row in enumerate(rows, start=1):
         missing = []
         if not row.get("micron_size"):     missing.append("Micron Size")
@@ -210,7 +151,6 @@ def validate(doc, method=None):
                 title="Invalid Quantity"
             )
 
-    # ── Total reconciliation (Completed status only) ─────────────────────────
     if doc.status == "Completed":
         completed_qty = frappe.utils.flt(doc.total_completed_qty)
 
@@ -234,13 +174,6 @@ def validate(doc, method=None):
                 exc=frappe.ValidationError
             )
 
-# ── Employee-wise labour cost ───────────────────────────────────────────────
-#
-# A workstation can be billed for the machine alone, or for the machine plus
-# whoever ran it. Workstation.custom_employee_wise_labor_cost turns the second
-# on; when it is set, each time log picks up that employee's hourly wage and
-# adds the labour for the minutes logged on top of the workstation rate.
-
 WORKSTATION_LABOR_FLAG = "custom_employee_wise_labor_cost"
 EMPLOYEE_WAGE_FIELD = "custom_hourly_wage_rate"
 
@@ -252,7 +185,6 @@ TIME_LOG_FIELD_ORDER = [
 
 
 def install_custom_fields():
-    """Idempotent; re-asserted on every migrate via after_migrate."""
     from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 
     create_custom_fields(
@@ -292,8 +224,6 @@ def install_custom_fields():
         ignore_validate=True,
     )
 
-    # The grid's column order is pinned by a Property Setter, so new fields
-    # stay invisible until they are named in it.
     frappe.make_property_setter(
         {
             "doctype": "Job Card Time Log",
@@ -307,15 +237,6 @@ def install_custom_fields():
 
 
 def _has_field(doctype, fieldname):
-    """True when the custom field is actually on the doctype.
-
-    This code can reach a site that has pulled the app but not migrated yet,
-    where the column does not exist. Querying it then raises "Unknown column"
-    from inside validate, which fails the whole Job Card save -- including
-    Start Timer, which has nothing to do with labour costing. Checking the
-    meta first degrades to "feature off" instead of breaking the document.
-    frappe.get_meta is cached, so this costs nothing per row.
-    """
     try:
         return bool(frappe.get_meta(doctype).has_field(fieldname))
     except Exception:
@@ -323,8 +244,6 @@ def _has_field(doctype, fieldname):
 
 
 def _labor_for_row(row, ws_name, wage_cache, ws_flag_cache):
-    """(rate, cost) for a time log row -- zero unless the workstation asks
-    for employee-wise costing and the row names an employee."""
     if not ws_name or not row.get("employee"):
         return 0.0, 0.0
 

@@ -1,7 +1,3 @@
-// Conversion & Tolling dashboard. One server call returns both segments, so
-// flipping between Tolling and Conversion re-renders without a round trip.
-// All aggregation lives in conversion_dashboard.py.
-
 const CVD_API = 'cannabis_management.cannabis_management.page.conversion_dashboard.conversion_dashboard';
 
 frappe.pages['conversion-dashboard'].on_page_load = function (wrapper) {
@@ -20,15 +16,12 @@ class ConversionDashboard {
 		this.data = null;
 		this.charts = {};
 		this.page.set_secondary_action(__('Refresh'), () => this.load(), 'refresh');
-		// Pairs with the Dashboard button on the Conversion Entry list.
 		this.page.set_primary_action(__('See Conversion Entries'),
 			() => frappe.set_route('List', 'Conversion Entry'), 'list');
 		this.render_shell();
 		this.make_filters();
 		this.set_preset('90');
 	}
-
-	// ── Shell ─────────────────────────────────────────────────────────────
 
 	render_shell() {
 		this.$root = $(`
@@ -133,8 +126,6 @@ class ConversionDashboard {
 			this.render();
 		}).always(() => this.$body.removeClass('cvd-loading'));
 	}
-
-	// ── Render ────────────────────────────────────────────────────────────
 
 	render() {
 		if (!this.data) return;
@@ -352,8 +343,6 @@ class ConversionDashboard {
 			},
 		});
 	}
-
-	// ── Formatting ────────────────────────────────────────────────────────
 
 	fmt_n(v) { return format_number(v || 0, null, Number.isInteger(v) ? 0 : 1); }
 	fmt_g(v) { return format_number(v || 0, null, 0); }

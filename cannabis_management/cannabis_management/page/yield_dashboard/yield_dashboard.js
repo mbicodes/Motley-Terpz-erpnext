@@ -1,14 +1,3 @@
-// Copyright (c) 2026, alltechvirtual.com and contributors
-// Yield Dashboard — what every conversion actually returned.
-//
-// Yields come from the conversions themselves (Raw Material 1 in, Finished
-// Good 1 out, both in grams), not from the micron fields: those are new and
-// empty on every row today, while the conversions go back 264 entries.
-//
-// The headline per stage is weighted (total out / total in), not an average of
-// run percentages — otherwise a 4 lb run counts as much as a 60 lb one. The
-// mean is shown beside it, because a gap between the two is itself the signal.
-
 const YD_METHOD = 'cannabis_management.cannabis_management.page.yield_dashboard.yield_dashboard.';
 
 frappe.pages['yield-dashboard'].on_page_load = function (wrapper) {
@@ -27,7 +16,7 @@ frappe.pages['yield-dashboard'].on_page_load = function (wrapper) {
 			stage: '', search: '', hide_flagged: 0,
 		},
 		groupby: 'stage',
-		open: {},          // run key -> expanded?
+		open: {},
 	};
 
 	page.main.html(`
@@ -107,8 +96,6 @@ function bind(page) {
 		page.main.find('#yd-sourceseg button').removeClass('on');
 		$(this).addClass('on');
 		f.source = String($(this).attr('data-source') || '');
-		// Stage options differ per source, so a stage picked under one book must
-		// not silently filter everything out under the other.
 		f.stage = '';
 		load(page);
 	});
@@ -120,14 +107,11 @@ function bind(page) {
 		render(page);
 	});
 
-	// A run expands to one line per raw material it consumed.
 	page.main.on('click', '.yd-runline', function () {
 		const key = $(this).data('runkey');
 		page.yd.open[key] = !page.yd.open[key];
 		render(page);
 	});
-	// Stage and search are client-side: the rows are already here, and a round
-	// trip to narrow a list you can see is just latency.
 	page.main.find('#yd-stage').on('change', function () { f.stage = this.value; render(page); });
 	page.main.find('#yd-search').on('input', function () { f.search = this.value; render(page); });
 	page.main.find('#yd-hideflag').on('change', function () { f.hide_flagged = this.checked ? 1 : 0; render(page); });
@@ -186,7 +170,6 @@ function fill_selects(page) {
 		).join('')).val(f.company);
 	}
 
-	// Stages are rebuilt each load: which pairs exist depends on the date range.
 	const seen = [];
 	page.yd.runs.forEach((r) => {
 		if (!seen.some((s) => s.key === r.stage)) seen.push({ key: r.stage, label: r.stage_label });
@@ -216,8 +199,6 @@ function visible(page) {
 function g(n) { return Math.round(n || 0).toLocaleString('en-US'); }
 function pct(n) { return (n === null || n === undefined) ? '—' : n.toFixed(2) + '%'; }
 
-// Bands are stage-relative: 60% is a poor rosin press and an impossible hash
-// wash, so a fixed threshold would mislabel one of them.
 function pct_class(value, median) {
 	if (value === null || value === undefined || !median) return '';
 	if (value >= median * 1.1) return 'good';
@@ -265,8 +246,6 @@ function render_kpis(page, rows) {
 
 function render_stages(page, rows) {
 	const esc = frappe.utils.escape_html;
-	// Recomputed from the visible rows so the cards always agree with the table
-	// below them, even under a client-side stage or search filter.
 	const by = {};
 	rows.forEach((r) => {
 		const s = by[r.stage] = by[r.stage] || {
@@ -314,9 +293,6 @@ function render_stages(page, rows) {
 	}).join('') + '</div>');
 }
 
-// Yield per raw material, apportioning each run's output across its inputs by
-// their share of the input grams. Exact for a single-input run; an assumption
-// for a blend, so the blend count is shown beside it rather than hidden.
 function render_materials(page, rows) {
 	const esc = frappe.utils.escape_html;
 	const by = {};
@@ -342,8 +318,6 @@ function render_materials(page, rows) {
 		return;
 	}
 
-	// Median across materials, so a material is coloured against its peers
-	// rather than an absolute number that means different things per process.
 	const all = list.map((b) => b.in_g ? b.out_g / b.in_g * 100 : null).filter((v) => v !== null).sort((a, b) => a - b);
 	const med = all.length ? (all.length % 2 ? all[(all.length - 1) / 2]
 		: (all[all.length / 2 - 1] + all[all.length / 2]) / 2) : null;
@@ -384,7 +358,6 @@ function render_runs(page, rows) {
 		return;
 	}
 
-	// Median per stage, so a run is coloured against its own process.
 	const meds = {};
 	rows.forEach((r) => {
 		if (r.flag || r.yield_pct === null) return;
@@ -402,8 +375,6 @@ function render_runs(page, rows) {
 	const body = rows.map((r) => {
 		const key = r.source + '|' + r.row_id;
 		const open = !!page.yd.open[key];
-		// Expanding is worth offering only where there is more than one input to
-		// break out; a 1-to-1 run would just repeat the line above it.
 		const expandable = (r.materials || []).length > 1;
 		let html = `
 		<tr class="${r.flag ? 'yd-flagged' : ''}${expandable ? ' yd-runline' : ''}${open ? ' open' : ''}"

@@ -2,17 +2,6 @@ import frappe
 
 
 def update_sales_invoice_delivery_status(doc, method):
-    """
-    Updates the 'custom_delivery_note_created' checkbox on the linked Sales Invoice(s).
-
-    A Delivery Note may be linked to a Sales Invoice either:
-      1. Directly  — DN Item.against_sales_invoice points at the SI, or
-      2. Indirectly — DN Item.against_sales_order points at a Sales Order that the
-         Sales Invoice was also billed against (SI Item.sales_order).
-
-    Both paths flag the SI. We gather every SI affected by this DN through either
-    path and recompute its checkbox from scratch (so cancellations clear it too).
-    """
     affected_sis = set()
     sales_orders = set()
 
@@ -22,7 +11,6 @@ def update_sales_invoice_delivery_status(doc, method):
         if item.against_sales_order:
             sales_orders.add(item.against_sales_order)
 
-    # Sales Invoices billed against the same Sales Order(s) as this Delivery Note
     if sales_orders:
         for si_name in frappe.get_all(
             "Sales Invoice Item",
@@ -36,8 +24,6 @@ def update_sales_invoice_delivery_status(doc, method):
 
 
 def _recompute_delivery_note_created(si_name):
-    """Set custom_delivery_note_created based on whether any non-draft Delivery
-    Note is linked to the Sales Invoice, directly or via a shared Sales Order."""
     has_dn = _sales_invoice_has_delivery_note(si_name)
     frappe.db.set_value(
         "Sales Invoice", si_name, "custom_delivery_note_created", 1 if has_dn else 0
@@ -45,14 +31,12 @@ def _recompute_delivery_note_created(si_name):
 
 
 def _sales_invoice_has_delivery_note(si_name):
-    # 1. Direct link: a non-draft DN Item points straight at this Sales Invoice.
     if frappe.db.exists(
         "Delivery Note Item",
         {"against_sales_invoice": si_name, "docstatus": ["!=", 0]},
     ):
         return True
 
-    # 2. Indirect link: a non-draft DN Item shares a Sales Order with this SI.
     sales_orders = frappe.get_all(
         "Sales Invoice Item",
         filters={"parent": si_name, "sales_order": ["is", "set"]},
@@ -69,11 +53,6 @@ def _sales_invoice_has_delivery_note(si_name):
 
 
 def update_sales_order_delivery_status(doc, method):
-    """
-    Updates the 'custom_delivery_note_created' checkbox on the Sales Order(s) this
-    Delivery Note is raised against (DN Item.against_sales_order). Recompute from
-    scratch so cancellations clear the flag too.
-    """
     sales_orders = {
         item.against_sales_order for item in doc.items if item.against_sales_order
     }
@@ -82,8 +61,6 @@ def update_sales_order_delivery_status(doc, method):
 
 
 def _recompute_so_delivery_note_created(so_name):
-    """Set custom_delivery_note_created based on whether any submitted Delivery
-    Note is raised against the Sales Order."""
     has_dn = _sales_order_has_delivery_note(so_name)
     frappe.db.set_value(
         "Sales Order", so_name, "custom_delivery_note_created", 1 if has_dn else 0
@@ -91,7 +68,6 @@ def _recompute_so_delivery_note_created(so_name):
 
 
 def _sales_order_has_delivery_note(so_name):
-    # A submitted Delivery Note Item points at this Sales Order.
     return bool(
         frappe.db.exists(
             "Delivery Note Item",
@@ -101,13 +77,6 @@ def _sales_order_has_delivery_note(so_name):
 
 
 def backfill_sales_order_delivery_note_created():
-    """One-off correction for existing Sales Orders: recompute the
-    custom_delivery_note_created checkbox for every submitted Sales Order.
-
-    Run with:
-        bench --site <site> execute \
-          cannabis_management.overrides.delivery_note_hooks.backfill_sales_order_delivery_note_created
-    """
     so_names = frappe.get_all("Sales Order", filters={"docstatus": 1}, pluck="name")
 
     updated = 0
@@ -131,13 +100,6 @@ def backfill_sales_order_delivery_note_created():
 
 
 def backfill_delivery_note_created():
-    """One-off correction for previously created Sales Invoices: recompute the
-    custom_delivery_note_created checkbox for every submitted Sales Invoice.
-
-    Run with:
-        bench --site <site> execute \
-          cannabis_management.overrides.delivery_note_hooks.backfill_delivery_note_created
-    """
     si_names = frappe.get_all(
         "Sales Invoice", filters={"docstatus": 1}, pluck="name"
     )
@@ -161,30 +123,11 @@ def backfill_delivery_note_created():
     print(msg)
     return msg
 
-
 SAMPLE_EXPENSE_ACCOUNT_FIELD = "custom_sample_expense_account"
-# custom_sales_order_type's option is "Samples"; "Sample" is accepted too.
 SAMPLE_ORDER_TYPES = ("Samples", "Sample")
 
 
 def set_expense_head(doc, method):
-    """
-    Overrides each item's expense_account from Expense Head Settings, based on
-    the Sales Order Type of the Sales Order the item is raised against.
-
-    Wired on both Delivery Note (against_sales_order) and Sales Invoice
-    (sales_order) so the two behave the same way -- previously this only ran
-    on Delivery Note, and only ever looked at the first row's Sales Order,
-    silently leaving every other row (and any row from a different Sales
-    Order, e.g. on a consolidated document) on its item/company default
-    expense account instead of the configured one.
-
-    A Samples order takes the company's Sample Expense Account
-    (Company.custom_sample_expense_account) ahead of Expense Head Settings:
-    that settings table holds one account per type, which can belong to only
-    one company.
-    """
-
     if not doc.items:
         return
 

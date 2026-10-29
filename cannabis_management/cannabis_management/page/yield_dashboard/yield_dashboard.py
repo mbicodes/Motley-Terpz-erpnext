@@ -1,37 +1,3 @@
-# Copyright (c) 2026, alltechvirtual.com and contributors
-# For license information, please see license.txt
-"""Yield Dashboard — what every run actually returned, for Operations.
-
-Two sources, read the same way and shown side by side:
-
-    Conversion     Conversion Entry Item, Raw Material 1..7 in, Finished Good 1..3 out
-    Manufacturing  Stock Entry (Manufacture), consumed lines in, finished lines out
-
-Both normalise to grams through each item's own UOM, so a 50 lb input and a
-567 g output compare honestly. Yields are computed from the movements rather
-than from the micron fields on Conversion Entry Item: those exist and are read
-when filled, but are empty on every row today, so a dashboard built on them
-alone would show nothing.
-
-The three named stages are the ratios Operations asked for:
-
-    Frozen to Hash   Fresh Frozen -> Bubble Hash
-    Hash to Rosin    Bubble Hash  -> Rosin
-    Frozen to Rosin  Fresh Frozen -> Rosin, in one step
-
-They are matched on item group, because that is what distinguishes a run here:
-a tolling job is a chain, 60 lbs of frozen becoming 466 g of hash in one entry
-and 300 g of rosin in the next, so no single row holds a whole frozen-to-rosin
-yield. Every other pairing still appears under its own pair -- nothing is
-invisible for not having been named.
-
-Per-raw-material yields apportion a run's output across its inputs by their
-share of the input grams. For a single-input run that is exact; for a blend it
-is an assumption, so the counts behind each material say how many of each fed
-it. A run with a material that has no gram conversion gets no percentage at all
--- a partial denominator would read as a terrible yield rather than an unknown.
-"""
-
 import frappe
 from frappe import _
 from frappe.utils import flt, getdate, nowdate
@@ -46,7 +12,6 @@ PAGE_ROLES = ("Ops Manager", "Production Manager", "System Manager", "Accounts M
 SOURCE_CONVERSION = "Conversion"
 SOURCE_MANUFACTURING = "Manufacturing"
 
-# (stage key, label, RM group test, FG group test)
 STAGES = (
 	("frozen_hash", "Frozen to Hash",
 	 lambda g: g.startswith("Fresh Frozen"), lambda g: g == "Bubble Hash"),
@@ -56,15 +21,10 @@ STAGES = (
 	 lambda g: g.startswith("Fresh Frozen"), lambda g: "Rosin" in g),
 )
 
-# A pure extraction cannot return more than went in. Anything above this is a
-# keying error, not a good day, and Operations wants it surfaced rather than
-# averaged into the numbers.
 IMPOSSIBLE_YIELD_PCT = 100.0
 
 
 def _require_access():
-	"""The Page's `roles` only gate the route; these methods are reachable over
-	/api/method by any logged-in user, so the check is repeated here."""
 	if not set(PAGE_ROLES) & set(frappe.get_roles()):
 		frappe.throw(_("You are not permitted to view the Yield Dashboard."), frappe.PermissionError)
 
@@ -77,8 +37,6 @@ def _stage_for(rm_group, fg_group):
 
 
 class _Grams:
-	"""UOM -> grams, looked up once per UOM for the whole request."""
-
 	def __init__(self):
 		self._factors = {}
 
@@ -104,10 +62,6 @@ def _item_map(codes):
 
 
 def _build_run(meta, inputs, outputs, grams):
-	"""Shape one run from its input and output lines.
-
-	inputs/outputs: [(item_code, qty, uom, item_doc), ...]
-	"""
 	if not inputs or not outputs:
 		return None
 
@@ -136,7 +90,6 @@ def _build_run(meta, inputs, outputs, grams):
 
 	for line in in_lines:
 		line["share_pct"] = flt(line["grams"] / in_total * 100, 2) if in_total else None
-		# Output credited to this material in proportion to what it contributed.
 		line["out_grams"] = flt(out_total * line["grams"] / in_total, 2) if in_total else 0.0
 		line["yield_pct"] = (
 			flt(line["out_grams"] / line["grams"] * 100, 2)
@@ -163,13 +116,6 @@ def _build_run(meta, inputs, outputs, grams):
 
 
 def _conversion_runs(filters, grams):
-	"""One run per Conversion Entry Item, summed across every material it moved.
-
-	Reading only Raw Material 1 would divide a 2-to-1 run by half its feedstock
-	-- CONV-00225 puts in 10 g plus 20 g and takes out 100 g, which reads as
-	1000% if the second input is ignored. 473 rows carry a second raw material,
-	so this is the common case, not an edge one.
-	"""
 	conds = ["ce.docstatus = 1", "ifnull(i.raw_material_1,'') != ''",
 	         "ifnull(i.finished_good_1,'') != ''", "ifnull(i.qty_rm_1,0) > 0"]
 	values = {}
@@ -242,11 +188,6 @@ def _conversion_runs(filters, grams):
 
 
 def _manufacturing_runs(filters, grams):
-	"""One run per Manufacture Stock Entry: what it consumed against what it made.
-
-	Quantities come from transfer_qty in the item's stock UOM, not qty in the
-	line UOM, so a line entered in boxes still measures in grams.
-	"""
 	conds = ["se.docstatus = 1", "se.purpose = 'Manufacture'"]
 	values = {}
 	for key, clause in (("from_date", "se.posting_date >= %(from_date)s"),
@@ -323,7 +264,6 @@ def _median(values):
 
 
 def _roll_up(buckets):
-	"""Finish the statistics on a dict of accumulator buckets."""
 	out = []
 	for b in buckets.values():
 		pcts = b.pop("pcts")
@@ -339,12 +279,6 @@ def _roll_up(buckets):
 
 
 def _summarise(runs):
-	"""Per-stage totals. The headline is weighted, not an average of averages.
-
-	A mean of run percentages lets a 4 lb run count as much as a 60 lb one; the
-	weighted figure (total out / total in) is the yield the period actually
-	returned. Both are shown, because a gap between them is itself the signal.
-	"""
 	by = {}
 	for r in runs:
 		key = (r["source"], r["stage"])
@@ -373,12 +307,6 @@ def _summarise(runs):
 
 
 def _by_material(runs):
-	"""Yield per raw material, apportioning each run's output by input share.
-
-	Exact for a single-input run; an assumption for a blend, so `blended_runs`
-	says how many of the runs behind a material were blends. A material whose
-	run had no usable percentage contributes its grams but no ratio.
-	"""
 	by = {}
 	for r in runs:
 		if r["flag"]:

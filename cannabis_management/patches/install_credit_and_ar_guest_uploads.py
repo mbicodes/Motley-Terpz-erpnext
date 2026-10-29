@@ -1,16 +1,3 @@
-"""Let a public, anonymous applicant attach a file to the Credit Application
-Web Form.
-
-Frappe's file-upload endpoint (`frappe.handler.upload_file`) refuses Guest
-uploads unless System Settings explicitly allows it, and the legacy inline
-base64 attach path in `web_form.accept()` separately needs Guest to hold
-"create" on File. Without both, the Web Form's onboarding-packet Attach field
-throws a PermissionError on submit and the whole application fails to save —
-not just the attachment.
-
-Idempotent.
-"""
-
 import frappe
 from frappe.permissions import add_permission, update_permission_property
 

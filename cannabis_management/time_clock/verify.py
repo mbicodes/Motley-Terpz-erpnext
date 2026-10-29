@@ -1,11 +1,3 @@
-"""End-to-end verification for the Time Clock module.
-
-    bench --site <site> execute cannabis_management.time_clock.verify.run
-
-Creates a throwaway user, exercises punching, alternation, overnight pairing, notes
-and the report, then deletes everything it made. Safe to re-run.
-"""
-
 import datetime
 
 import frappe
@@ -32,7 +24,6 @@ def _dt(date, hour, minute=0):
 
 
 def _seed(user, when, log_type):
-	"""Insert a historical punch. Source=Manual so the portal debounce does not apply."""
 	doc = frappe.new_doc("User Checkin")
 	doc.user = user
 	doc.time = when
@@ -77,13 +68,11 @@ def run():
 	frappe.db.commit()
 
 	try:
-		# ── overnight shift: 11pm yesterday → 3am today is ONE session ──
 		_seed(TEST_USER, _dt(yesterday, 23, 0), "IN")
 		_seed(TEST_USER, _dt(today, 3, 0), "OUT")
-		_seed(TEST_USER, _dt(today, 5, 0), "IN")  # still open
+		_seed(TEST_USER, _dt(today, 5, 0), "IN")
 		frappe.db.commit()
 
-		# ── alternation: neighbour-aware in both directions ──
 		try:
 			_seed(TEST_USER, _dt(today, 6, 0), "IN")
 			_check("double IN rejected", False, "insert unexpectedly succeeded")
@@ -91,14 +80,11 @@ def run():
 			_check("double IN rejected", True)
 
 		try:
-			# Neighbour *before* 04:00 is the 03:00 OUT — must be caught even though
-			# this is a backdated insert, not the latest punch.
 			_seed(TEST_USER, _dt(today, 4, 0), "OUT")
 			_check("backdated double OUT rejected", False, "insert unexpectedly succeeded")
 		except frappe.ValidationError:
 			_check("backdated double OUT rejected", True)
 
-		# ── status as the user themselves ──
 		frappe.set_user(TEST_USER)
 		status = api.get_my_status()
 		_check("is_clocked_in after open IN", status["is_clocked_in"] is True)
@@ -114,21 +100,18 @@ def run():
 			f"{len(status['today_sessions'])} session(s)",
 		)
 
-		# ── punch via the API ──
 		punched = api.punch()
 		_check("punch recorded OUT", punched["punched"] == "OUT", punched["punched"])
 		_check("clocked out after punch", punched["is_clocked_in"] is False)
 		_check("next_action back to IN", punched["next_action"] == "IN")
 		frappe.db.commit()
 
-		# ── debounce: an immediate second punch is refused ──
 		try:
 			api.punch()
 			_check("debounce blocks instant re-punch", False, "second punch succeeded")
 		except frappe.ValidationError:
 			_check("debounce blocks instant re-punch", True)
 
-		# ── a user without the role cannot punch or read status ──
 		frappe.set_user(NO_ROLE_USER)
 		try:
 			api.get_my_status()
@@ -136,7 +119,6 @@ def run():
 		except frappe.PermissionError:
 			_check("role gate blocks non-member", True)
 
-		# ── notes: created, edited in place, removed ──
 		frappe.set_user(TEST_USER)
 		try:
 			api.set_day_note(user=TEST_USER, note="trying to note myself")
@@ -154,7 +136,6 @@ def run():
 		note_count = frappe.db.count("User Day Note", {"user": TEST_USER, "date": today})
 		_check("exactly one note row (no duplicates)", note_count == 1, f"{note_count} row(s)")
 
-		# ── roster reflects the note and the punch state ──
 		roster = api.get_roster()
 		row = next((r for r in roster["roster"] if r["user"] == TEST_USER), None)
 		_check("roster includes test user", row is not None)
@@ -169,7 +150,6 @@ def run():
 			frappe.db.count("User Day Note", {"user": TEST_USER, "date": today}) == 0,
 		)
 
-		# ── report pairs sessions and attributes overnight work to its start day ──
 		columns, rows = report.execute(
 			{"from_date": str(yesterday), "to_date": str(today), "user": TEST_USER}
 		)

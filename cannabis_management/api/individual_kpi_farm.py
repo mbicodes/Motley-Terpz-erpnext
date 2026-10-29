@@ -4,7 +4,6 @@ from frappe.utils import add_months, cint, today
 
 @frappe.whitelist()
 def get_employee_options():
-	"""Employees that have an Individual KPI profile configured."""
 	return frappe.db.sql(
 		"""
 		SELECT p.employee AS employee, e.employee_name AS label
@@ -18,10 +17,6 @@ def get_employee_options():
 
 @frappe.whitelist()
 def get_profile(employee):
-	"""Static job-description content (responsibilities, KPI/target/how-measured,
-	note, reports-to) — maintained via the Farm Employee KPI Profile doctype
-	rather than hardcoded in the page, so Matt/ops can edit it without a
-	code change."""
 	if not frappe.db.exists("Farm Employee KPI Profile", employee):
 		return None
 
@@ -50,13 +45,9 @@ def get_profile(employee):
 
 @frappe.whitelist()
 def get_actuals(employee, from_date=None, to_date=None):
-	"""Every KPI value this system can currently calculate for one employee,
-	over a date range (default: last 30 days). The page matches these
-	against each profile's kpi_targets.backend_key to fill in "Actual"."""
 	from_date = from_date or add_months(today(), -1)
 	to_date = to_date or today()
 
-	# --- Farm Daily Log based KPIs ---
 	logs = frappe.get_all(
 		"Farm Daily Log",
 		filters={
@@ -71,7 +62,6 @@ def get_actuals(employee, from_date=None, to_date=None):
 	dcc_pct = sum(1 for l in logs if l.dcc_ready_status == "Pass") / total_logs * 100
 	issues_same_day = sum(1 for l in logs if l.issue_reported)
 
-	# --- Farm-wide DCC status (shared compliance status, not employee specific) ---
 	all_logs = frappe.get_all(
 		"Farm Daily Log",
 		filters={"log_date": ["between", [from_date, to_date]]},
@@ -81,7 +71,6 @@ def get_actuals(employee, from_date=None, to_date=None):
 	farmwide_dcc_pct = sum(1 for l in all_logs if l.dcc_ready_status == "Pass") / total_all_logs * 100
 	farmwide_open_corrections = sum(l.metrc_open_corrections or 0 for l in all_logs)
 
-	# --- Farm Labor Session based KPIs ---
 	mix_ups = frappe.db.count(
 		"Farm Labor Session",
 		{
@@ -111,7 +100,6 @@ def get_actuals(employee, from_date=None, to_date=None):
 	bucking_rate = task_rate("Bucking")
 	planting_rate = task_rate("Planting")
 
-	# --- Cloning Batch based KPIs ---
 	clones_rate = (
 		frappe.db.sql(
 			"""
@@ -126,10 +114,6 @@ def get_actuals(employee, from_date=None, to_date=None):
 		or 0
 	)
 
-	# "Nursery tray log completion" — % of this employee's Cloning Batch
-	# entries that were actually submitted rather than left in Draft.
-	# Cloning Batch has no dedicated "log completed" field, so submission
-	# status is used as the proxy for a completed tray log.
 	tray_logs = frappe.get_all(
 		"Cloning Batch",
 		filters={
@@ -142,11 +126,6 @@ def get_actuals(employee, from_date=None, to_date=None):
 	total_tray_logs = len(tray_logs) or 1
 	tray_log_completion_pct = sum(1 for t in tray_logs if t.docstatus == 1) / total_tray_logs * 100
 
-	# --- Plant Batch Loss Log based KPI: Plant Loss Rate ---
-	# Plants this employee logged as lost, as a % of the plant counts of the
-	# Plant Batches those loss entries belong to (loss_date scoped to the
-	# same range as everything else here). Closes the previously
-	# "Not Tracked Yet" Plant Loss Rate row on the Individual KPI page.
 	loss_rows = frappe.db.sql(
 		"""
 		SELECT pbl.qty_lost, pbl.parent

@@ -9,11 +9,6 @@ def get_companies():
 
 @frappe.whitelist()
 def get_ap_data(company="All", period_days=30):
-    """
-    Returns KPI summary and per-vendor AP table for the AP Dashboard.
-
-    period_days: lookback window for "Paid This Period" column (default 30).
-    """
     period_days = int(period_days)
     today = nowdate()
     period_start = add_days(today, -period_days)
@@ -26,7 +21,6 @@ def get_ap_data(company="All", period_days=30):
         pe_company_filter = "AND pe.company = %s"
         company_params = [company]
 
-    # Build intercompany exclusion dynamically from all company names in DB
     all_company_names = frappe.get_all("Company", pluck="name")
     if all_company_names:
         ic_placeholders = ", ".join(["%s"] * len(all_company_names))
@@ -36,8 +30,6 @@ def get_ap_data(company="All", period_days=30):
         ic_filter = ""
         ic_params = []
 
-    # ── 1. Outstanding AP per vendor ──────────────────────────────────────────
-    # Exclude intercompany: supplier name matches another company in the system
     outstanding_rows = frappe.db.sql(
         """
         SELECT
@@ -61,7 +53,6 @@ def get_ap_data(company="All", period_days=30):
         as_dict=True,
     )
 
-    # ── 2. Paid this period per vendor ────────────────────────────────────────
     paid_params = [period_start] + company_params
     paid_rows = frappe.db.sql(
         """
@@ -85,13 +76,12 @@ def get_ap_data(company="All", period_days=30):
         key = (r.supplier, r.company)
         paid_map[key] = flt(r.paid_amount)
 
-    # ── 3. Build vendor table rows ────────────────────────────────────────────
     vendors = []
     for r in outstanding_rows:
         outstanding = flt(r.outstanding)
         credit = flt(r.credit_amount)
         paid = paid_map.get((r.supplier, r.company), 0.0)
-        live_balance = outstanding - paid  # balance after recent payments
+        live_balance = outstanding - paid
 
         if outstanding <= 0 and credit < 0:
             status = "CREDIT"
@@ -116,7 +106,6 @@ def get_ap_data(company="All", period_days=30):
             }
         )
 
-    # ── 4. KPI summary ────────────────────────────────────────────────────────
     total_ap = sum(flt(v["outstanding"]) for v in vendors if flt(v["outstanding"]) > 0)
     open_vendors = len({v["supplier"] for v in vendors if flt(v["outstanding"]) > 0})
     total_credits = sum(
@@ -124,14 +113,12 @@ def get_ap_data(company="All", period_days=30):
     )
     total_paid = sum(flt(v["paid_this_period"]) for v in vendors)
 
-    # Per-company breakdown — dynamic across all companies
     company_ap = {}
     for v in vendors:
         if flt(v["outstanding"]) > 0:
             co = v["company"]
             company_ap[co] = company_ap.get(co, 0.0) + flt(v["outstanding"])
 
-    # Scheduled payments: next 30 days from Payment Schedule
     sched_params = [today, add_days(today, 30)] + ic_params + company_params
     sched_rows = frappe.db.sql(
         """

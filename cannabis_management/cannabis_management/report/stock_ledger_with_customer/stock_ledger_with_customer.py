@@ -1,6 +1,3 @@
-# Copyright (c) 2026, alltechvirtual.com and contributors
-# For license information, please see license.txt
-
 import copy
 from collections import defaultdict
 
@@ -18,8 +15,6 @@ from erpnext.stock.utils import (
 	update_included_uom_in_report,
 )
 
-# voucher_type -> child table that carries the item rate, the parent field that holds the party,
-# whether that party is a customer or supplier, and which output column the rate belongs in
 VOUCHER_ITEM_MAP = {
 	"Sales Invoice": {
 		"child_doctype": "Sales Invoice Item",
@@ -179,9 +174,6 @@ def execute(filters=None):
 
 
 def update_voucher_party_and_rate(data):
-	"""Populate 'customer'/'supplier' and 'rate'/'purchase_rate' columns per row based on the
-	row's voucher_type: rate comes from that voucher's item child table, party from its parent doc."""
-
 	vouchers_by_type = defaultdict(set)
 	items_by_type = defaultdict(set)
 
@@ -763,7 +755,6 @@ def get_opening_balance(filters, columns, sl_entries):
 		}
 	)
 
-	# check if any SLEs are actually Opening Stock Reconciliation
 	for sle in list(sl_entries):
 		if (
 			sle.get("voucher_type") == "Stock Reconciliation"

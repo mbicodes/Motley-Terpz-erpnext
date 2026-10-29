@@ -1,6 +1,3 @@
-# Copyright (c) 2026, alltechvirtual.com and contributors
-# For license information, please see license.txt
-
 import frappe
 from frappe.model.document import Document
 from frappe.utils import flt
@@ -19,8 +16,6 @@ class CustomerYieldFeedback(Document):
 
 
 def calculate_row(row):
-	"""Fresh Frozen is sent in LBS; hash and rosin come back in grams.
-	A % typed in by hand is kept when the grams needed to work it out are missing."""
 	raw_g = flt(row.quantity) * GRAMS_PER_LB
 	if raw_g and flt(row.hash_qty):
 		row.yield_percentage = flt(row.hash_qty) / raw_g * 100

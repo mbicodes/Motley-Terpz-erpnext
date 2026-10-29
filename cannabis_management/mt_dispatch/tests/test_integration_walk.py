@@ -1,15 +1,3 @@
-"""One order, all the way through, against real data.
-
-The unit tests in test_dispatch_flow.py prove each rule in isolation. This
-proves the chain: a submitted Sales Order goes from Order Received to Order
-Closed Out, creating and submitting a real Delivery Note on the way, with the
-company actually enabled.
-
-Everything is put back in tearDown -- the note is cancelled and deleted, the
-order is restored to the stage and flags it was found with, and the settings
-record is removed. Run it as often as you like.
-"""
-
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
@@ -57,7 +45,6 @@ class TestDispatchWalk(FrappeTestCase):
 		frappe.db.commit()
 
 	def enable_company(self):
-		"""Enabled, with the payment gate off so the walk is about the stages."""
 		if frappe.db.exists("Dispatch Company Settings", COMPANY):
 			frappe.delete_doc("Dispatch Company Settings", COMPANY, force=1, ignore_permissions=True)
 		doc = frappe.get_doc(
@@ -74,7 +61,6 @@ class TestDispatchWalk(FrappeTestCase):
 		return doc
 
 	def pick_order(self):
-		"""A submitted order with nothing delivered and no note against it."""
 		for row in frappe.get_all(
 			"Sales Order",
 			filters={"docstatus": 1, "company": COMPANY, "status": ["not in", ["Closed", "Cancelled"]],
@@ -88,9 +74,6 @@ class TestDispatchWalk(FrappeTestCase):
 	def stage(self):
 		return frappe.db.get_value("Sales Order", self.so.name, flow.STAGE_FIELD)
 
-	# A real 1x1 PNG. Frappe parses uploads to scan for embedded scripts, so
-	# a file merely named .pdf with junk inside is rejected by the reader
-	# before it ever reaches the gate.
 	PNG_1x1 = (
 		"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
 	)
@@ -123,7 +106,6 @@ class TestDispatchWalk(FrappeTestCase):
 		self.assertTrue(frappe.db.exists("Delivery Note", self.dn_name))
 		self.assertEqual(frappe.db.get_value("Delivery Note", self.dn_name, "docstatus"), 0)
 
-		# A second note is refused while the first exists.
 		with self.assertRaises(GateError):
 			gates.one_delivery_note(frappe.get_doc("Sales Order", self.so.name), self.cfg)
 
@@ -138,10 +120,6 @@ class TestDispatchWalk(FrappeTestCase):
 			MANIFEST_NUMBER,
 		)
 
-		# Release submits the Delivery Note, which moves stock for real. On a
-		# copy of production the picked order often has none left, and ERPNext
-		# refuses. That is the warehouse talking, not the flow: everything the
-		# flow is responsible for has already happened by this point.
 		from erpnext.stock.stock_ledger import NegativeStockError
 
 		try:
@@ -159,7 +137,6 @@ class TestDispatchWalk(FrappeTestCase):
 		flow.transition(self.so.name, "mark_delivered")
 		self.assertEqual(self.stage(), stages.CLOSED_OUT)
 
-		# Only the rows this walk wrote. A real order may already carry history.
 		actions = [
 			r.action
 			for r in frappe.get_all(
@@ -169,8 +146,6 @@ class TestDispatchWalk(FrappeTestCase):
 			)
 			if r.name not in self.log_before
 		]
-		# enter_flow is only written when the order was not already at Order
-		# Received -- a real order picked for the walk may already be there.
 		self.assertEqual(
 			[a for a in actions if a != "enter_flow"],
 			["start_preparing", "mark_prepared", "create_delivery_note",

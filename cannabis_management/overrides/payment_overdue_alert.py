@@ -1,5 +1,5 @@
 import frappe
-from frappe.utils import fmt_money, formatdate  # fmt_money kept for friday_overdue_report
+from frappe.utils import fmt_money, formatdate
 import json
 import http.client
 import ssl
@@ -7,10 +7,6 @@ from urllib.parse import urlparse
 
 
 def on_sales_invoice_submit(doc, method):
-    """
-    Triggered when a Sales Order is submitted.
-    Sends a Slack notification with the order and delivery date (no pricing).
-    """
     order_url = frappe.utils.get_url("/app/sales-order/" + doc.name)
     delivery_fmt = formatdate(doc.delivery_date, "dd MMM yyyy") if doc.delivery_date else "N/A"
     order_date_fmt = formatdate(doc.transaction_date, "dd MMM yyyy")
@@ -52,7 +48,6 @@ def on_sales_invoice_submit(doc, method):
 
 
 def _send_slack(blocks, fallback_text):
-    """POST a Block Kit message to the Slack webhook configured in site_config."""
     webhook_url = frappe.conf.get("slack_webhook_url")
     if not webhook_url:
         frappe.log_error(

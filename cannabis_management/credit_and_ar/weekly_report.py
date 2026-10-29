@@ -1,13 +1,3 @@
-"""The Friday Credit & AR report to the MD and CEO (§13).
-
-One email, assembled from the same engines the desk reports use, so the numbers
-in the inbox and the numbers on screen can never disagree.
-
-New book and legacy are always shown **separately** — the whole point of §12 is
-that they are collected on different terms and measured against different
-thresholds.
-"""
-
 import frappe
 from frappe import _
 from frappe.utils import add_days, flt, getdate, nowdate
@@ -23,7 +13,6 @@ TDR = TD + "text-align:right;"
 
 
 def send_weekly_report():
-	"""Friday. Inert until the policy effective date is set."""
 	if not utils.require_policy_live("send_weekly_report"):
 		return
 
@@ -54,7 +43,6 @@ def send_weekly_report():
 
 @frappe.whitelist()
 def build_report() -> str:
-	"""Assemble the report body. Whitelisted so it can be previewed on demand."""
 	current = metrics.get_current_metrics()
 	week = _week_bounds()
 
@@ -220,7 +208,6 @@ def _legacy_recovered_this_week(week) -> float:
 
 
 def _new_ar_section(week) -> str:
-	"""New AR extended this week — good-standing accounts only, per §13."""
 	from cannabis_management.credit_and_ar.doctype.ar_case.ar_case import get_hold_type
 
 	rows = frappe.db.sql(

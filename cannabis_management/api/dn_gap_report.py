@@ -1,10 +1,3 @@
-"""
-DN Gap Report
-Scheduled: every day at 8 AM Pacific (15:00 UTC / PDT, 16:00 UTC / PST).
-Lists all Sales Orders and Sales Invoices that have no corresponding Delivery Note.
-Sent to: Nikki, Matt, Muhammad, Imran, bot@motleyterpz.com
-"""
-
 import frappe
 from frappe.utils import nowdate, fmt_money
 from datetime import datetime
@@ -55,8 +48,6 @@ def send_dn_gap_report():
 
 @frappe.whitelist()
 def send_now():
-    """Manual trigger from desk or console."""
-    # Bypass cache guard so it always fires when called manually
     today = nowdate()
     so_rows = _get_open_sos()
     si_rows = _get_sis_without_dn()
@@ -71,10 +62,7 @@ def send_now():
     return {"so_count": len(so_rows), "si_count": len(si_rows)}
 
 
-# ── Queries ────────────────────────────────────────────────────────────────────
-
 def _get_open_sos():
-    """Sales Orders that still have pending delivery (no full DN)."""
     return frappe.db.sql("""
         SELECT
             so.name,
@@ -94,7 +82,6 @@ def _get_open_sos():
 
 
 def _get_sis_without_dn():
-    """Sales Invoices that have no Delivery Note linked to any of their items."""
     return frappe.db.sql("""
         SELECT
             si.name,
@@ -117,15 +104,13 @@ def _get_sis_without_dn():
     """, {"cos": COMPANIES}, as_dict=True)
 
 
-# ── HTML builder ───────────────────────────────────────────────────────────────
-
 def _age_color(days):
     d = int(days or 0)
     if d > 30:
-        return "#dc2626"   # red
+        return "#dc2626"
     if d > 14:
-        return "#d97706"   # amber
-    return "#16a34a"       # green
+        return "#d97706"
+    return "#16a34a"
 
 
 def _build_email(today, so_rows, si_rows):
@@ -145,7 +130,6 @@ def _build_email(today, so_rows, si_rows):
             f'{company}</span>'
         )
 
-    # ── SO table ──────────────────────────────────────────────────────────────
     so_html = ""
     if so_rows:
         rows_html = ""
@@ -194,7 +178,6 @@ def _build_email(today, so_rows, si_rows):
           <tbody>{rows_html}</tbody>
         </table></div>"""
 
-    # ── SI table ──────────────────────────────────────────────────────────────
     si_html = ""
     if si_rows:
         rows_html = ""

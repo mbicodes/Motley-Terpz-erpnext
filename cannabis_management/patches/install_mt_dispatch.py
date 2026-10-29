@@ -1,14 +1,3 @@
-"""Move open orders onto the dispatch stages.
-
-Only submitted orders that are still live, and only in companies with an
-enabled Dispatch Company Settings record. Every order that moves gets one
-stage log row with source System, so the board has a starting point in its own
-audit trail. Nothing is posted to Slack from here -- threads for orders that
-were already open are posted by a separate command once the channels exist.
-
-Idempotent: an order already sitting on a new stage is left alone.
-"""
-
 import frappe
 
 from cannabis_management.mt_dispatch import gates, install, stages
@@ -66,7 +55,6 @@ def execute():
 
 
 def resolve_stage(row, current):
-	"""Where one order lands. Returns None to leave it alone."""
 	if row.status in ("Closed", "Cancelled"):
 		return None
 
@@ -77,13 +65,9 @@ def resolve_stage(row, current):
 	if not target:
 		return None
 
-	# A note already drafted means the order is further along than its old
-	# label says: Prepared with a draft note is really Delivery Note Ready.
 	if target == stages.PREPARED and gates.draft_delivery_note(row.name):
 		target = stages.DN_READY
 
-	# And a staged order whose manifest is already on that note is waiting to
-	# be released, not waiting to be manifested.
 	if target == stages.DN_READY:
 		so = frappe.get_doc("Sales Order", row.name)
 		cfg = get_company_settings(so.company)

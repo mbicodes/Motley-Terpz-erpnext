@@ -1,5 +1,3 @@
-
-// Render the attached receipt image in the preview panel on the right.
 function render_receipt_preview(frm) {
 	var field = frm.get_field('receipt_preview');
 	if (!field) return;
@@ -31,9 +29,6 @@ function render_receipt_preview(frm) {
 		'color:var(--text-muted,#94a3b8);margin-bottom:6px;">' + __('Receipt') + '</div>' + inner + '</div>');
 }
 
-// Money In and Money Out are mutually exclusive — mirror of the server
-// validation in safe_cash_tracking.py, enforced live in the form.
-
 function toggle_money_fields(frm) {
 	var money_in = flt(frm.doc.money_in);
 	var money_out = flt(frm.doc.money_out);
@@ -43,8 +38,6 @@ function toggle_money_fields(frm) {
 
 frappe.ui.form.on('Safe Cash Tracking', {
 	setup: function (frm) {
-		// Only people ticked "Allow For Safe" can be picked here — the server
-		// enforces the same rule in SafeCashTracking.validate_safe_allowed.
 		frm.set_query('cash_tracker_person', function () {
 			return { filters: { is_active: 1, allow_for_safe: 1 } };
 		});

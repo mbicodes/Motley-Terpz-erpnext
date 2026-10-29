@@ -3,11 +3,8 @@ from frappe import _
 from frappe.model.document import Document
 from frappe.utils import add_to_date, get_datetime, now_datetime
 
-# A double-tapped button must not become two punches. Only enforced for portal
-# punches — HR correcting history by hand may legitimately need close timestamps.
 DEBOUNCE_SECONDS = 60
 
-# Tolerance for a device clock running slightly ahead of the server.
 FUTURE_SKEW_MINUTES = 5
 
 
@@ -48,11 +45,6 @@ class UserCheckin(Document):
 			)
 
 	def validate_alternation(self):
-		"""IN and OUT must alternate relative to the punches on either side.
-
-		Checking both neighbours (rather than only the latest punch) is what lets HR
-		insert a forgotten OUT in the middle of history without tripping the rule.
-		"""
 		previous = self._neighbour("previous")
 		if previous and previous.log_type == self.log_type:
 			frappe.throw(

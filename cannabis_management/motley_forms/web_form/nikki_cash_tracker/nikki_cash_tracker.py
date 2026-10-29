@@ -6,10 +6,6 @@ def get_context(context):
 
 
 def after_insert(doc, http_form_doc):
-    """
-    Auto-fill cash_tracker_person, company, employee and leave as Draft
-    so Finance can review before submitting.
-    """
     user = frappe.session.user
 
     person = frappe.db.get_value("Cash Tracker Person", {"user": user}, "name")
@@ -23,7 +19,6 @@ def after_insert(doc, http_form_doc):
 
     employee = frappe.db.get_value("Cash Tracker Person", person, "employee")
 
-    # Resolve company from entity
     entity_company_map = {
         "Motley Terpz":              "Motley Terpz",
         "TSBC Ranch":                "TSBC Ranch",

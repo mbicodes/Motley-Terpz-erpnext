@@ -1,14 +1,3 @@
-"""Stock Reconciliation Item: the same Inventory Dimension layout as Stock Entry.
-
-A Stock Entry row shows the Batch dimension twice -- Source on the left, Target
-on the right. Stock Reconciliation has one warehouse per row, so it only ever
-got the source field. This lays the row out like Stock Entry: Source Batch, a
-column break, then Target Batch.
-
-Target Batch is recorded on the row only: ERPNext copies just the source
-dimension into the Stock Ledger Entry of a single-warehouse row.
-"""
-
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 
 DIMENSION_FIELDS = {
@@ -24,5 +13,4 @@ DIMENSION_FIELDS = {
 
 
 def install_custom_fields():
-    """Idempotent; re-asserted on every migrate via after_migrate."""
     create_custom_fields(DIMENSION_FIELDS, update=True)

@@ -1,17 +1,3 @@
-"""Finance charges on past-due balances (§6).
-
-Simple, non-compounding, pro-rated by day from the day *after* the due date, at
-the lower of the policy rate and any statutory ceiling.
-
-One hard exclusion, legal rather than arithmetic:
-
-* **Legacy invoices are never charged.** §12 — pre-policy balances are collected
-  on their original terms, with no retroactive fees.
-
-Finance charge invoices are excluded from DSO, CEI and the payment score: a late
-fee is a consequence of poor payment, not evidence of it.
-"""
-
 import frappe
 from frappe import _
 from frappe.utils import add_days, flt, getdate, nowdate
@@ -22,7 +8,6 @@ NET30_TEMPLATES = ("NET30", "50% down NET30")
 
 
 def apply_finance_charges():
-	"""Monthly. Leaves invoices in Draft unless Finance has opted into auto-submit."""
 	if not utils.require_policy_live("apply_finance_charges"):
 		return
 
@@ -62,7 +47,6 @@ def apply_finance_charges():
 
 
 def _effective_monthly_rate(settings) -> float:
-	"""The lower of the policy rate and the statutory ceiling."""
 	rate = flt(settings.monthly_rate)
 	ceiling = flt(settings.max_lawful_rate)
 	if ceiling:
@@ -87,7 +71,6 @@ def _template_qualifies(settings, template: str | None) -> bool:
 		return template in NET30_TEMPLATES
 	if settings.apply_to == "Per Payment Terms Template":
 		return template in utils.settings_list("finance_charge_templates")
-	# All Terms Invoices — anything that was actually extended on credit.
 	if not template or template == "COD":
 		return False
 	return utils.template_credit_days(template) > 0
@@ -119,7 +102,6 @@ def _charge_customer(customer: str, settings, rate: float, today):
 
 
 def _chargeable_invoices(customer: str, settings, today):
-	"""Every past-due invoice that may lawfully carry a charge, with its accrual."""
 	rows = frappe.get_all(
 		"Sales Invoice",
 		filters={
@@ -147,7 +129,6 @@ def _chargeable_invoices(customer: str, settings, today):
 	chargeable = []
 
 	for row in rows:
-		# §12 — legacy is collected on original terms, no retroactive charges.
 		if row.custom_ledger == utils.LEDGER_LEGACY:
 			continue
 		if effective_date and row.get("posting_date") and getdate(row.posting_date) < effective_date:
@@ -157,7 +138,6 @@ def _chargeable_invoices(customer: str, settings, today):
 		if not _template_qualifies(settings, row.payment_terms_template):
 			continue
 
-		# Charge from the day after the due date, never re-charging a period.
 		start = add_days(getdate(row.due_date), 1)
 		if row.custom_finance_charge_applied_upto:
 			applied_upto = getdate(row.custom_finance_charge_applied_upto)
@@ -171,7 +151,6 @@ def _chargeable_invoices(customer: str, settings, today):
 		if days <= 0:
 			continue
 
-		# Simple, non-compounding, pro-rated by day.
 		amount = flt(row.outstanding_amount) * (rate / 100.0) / 30.0 * days
 		if amount < 0.01:
 			continue
@@ -228,8 +207,6 @@ def _raise_charge_invoice(customer, company, lines, rate, settings, today):
 	if settings.auto_submit_finance_charges:
 		doc.submit()
 
-	# Stamp the source invoices so the same days are never charged twice —
-	# even if the run is repeated.
 	for line in lines:
 		frappe.db.set_value(
 			"Sales Invoice",

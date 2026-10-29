@@ -1,6 +1,3 @@
-# Copyright (c) 2026, alltechvirtual.com and contributors
-# For license information, please see license.txt
-
 import json
 
 import frappe
@@ -17,7 +14,6 @@ def _check_access():
 
 @frappe.whitelist()
 def get_model():
-	"""Return the saved input set (or None so the client seeds defaults)."""
 	_check_access()
 	raw = frappe.db.get_single_value("Unit Economics Model", "inputs_json")
 	return json.loads(raw) if raw else None
@@ -27,7 +23,7 @@ def get_model():
 def save_model(inputs):
 	_check_access()
 	if isinstance(inputs, str):
-		inputs = json.loads(inputs)  # validate it parses
+		inputs = json.loads(inputs)
 	doc = frappe.get_doc("Unit Economics Model")
 	doc.inputs_json = json.dumps(inputs, indent=1)
 	doc.save(ignore_permissions=True)
@@ -36,12 +32,6 @@ def save_model(inputs):
 
 @frappe.whitelist()
 def erp_snapshot(from_date=None):
-	"""Live ERP numbers for comparison against the model's blue cells.
-
-	Grouped by Company so Matt can eyeball each segment's inputs against
-	what ERPNext actually has booked. from_date defaults to Oct 1, 2025
-	(the model period start).
-	"""
 	_check_access()
 	from_date = from_date or "2025-10-01"
 
@@ -90,7 +80,6 @@ def erp_snapshot(from_date=None):
 	):
 		bucket(row.company)["inventory_value"] = flt(row.stock_value, 2)
 
-	# unallocated advances received from customers (pre-sold product deposits)
 	for row in frappe.db.sql(
 		"""SELECT company, SUM(unallocated_amount) AS advances
 		FROM `tabPayment Entry`

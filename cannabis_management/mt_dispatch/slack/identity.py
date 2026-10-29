@@ -1,10 +1,3 @@
-"""Slack user <-> ERP user.
-
-Matched by email and remembered on User.custom_slack_user_id, in both
-directions: users.lookupByEmail the first time we need to tag someone, and
-users.info the first time someone clicks.
-"""
-
 import frappe
 
 from cannabis_management.mt_dispatch.slack import client
@@ -13,7 +6,6 @@ NOT_LINKED = "Your Slack account isn't linked to an ERP user."
 
 
 def slack_id_for(user):
-	"""The Slack id for an ERP user, or None."""
 	if not user or user in ("Administrator", "Guest"):
 		return None
 	row = frappe.db.get_value("User", user, ["custom_slack_user_id", "email", "enabled"], as_dict=True)
@@ -29,7 +21,6 @@ def slack_id_for(user):
 
 
 def erp_user_for(slack_id):
-	"""The enabled ERP user behind a Slack id, or None."""
 	if not slack_id:
 		return None
 	user = frappe.db.get_value("User", {"custom_slack_user_id": slack_id, "enabled": 1}, "name")
@@ -51,7 +42,6 @@ def _remember(user, slack_id):
 
 
 def mention(user):
-	"""<@U…> when the person is in Slack, else their name in plain text."""
 	slack_id = slack_id_for(user)
 	if slack_id:
 		return f"<@{slack_id}>"

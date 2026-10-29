@@ -30,7 +30,6 @@ frappe.pages['sales-race'].on_page_load = function (wrapper) {
             parent: $f, df: Object.assign({ change: load }, df), render_input: true
         });
     }
-    // Select, not Link: a Link cannot offer an explicit "All Companies" entry.
     var ALL = 'All Companies';
     addFilter({ fieldname: 'company', label: 'Company', fieldtype: 'Select', options: [ALL], default: ALL });
     filters.company.set_value(ALL);
@@ -63,7 +62,7 @@ frappe.pages['sales-race'].on_page_load = function (wrapper) {
             method: 'cannabis_management.cannabis_management.page.sales_race.sales_race.get_race',
             args: args,
             callback: function (r) {
-                if (seq !== state.seq) return;  // a newer filter change is in flight
+                if (seq !== state.seq) return;
                 state.data = r.message;
                 render();
             }
@@ -92,7 +91,6 @@ frappe.pages['sales-race'].on_page_load = function (wrapper) {
         h += '<div class="sr-bar"><div class="sr-bar-fill" style="width:' + Math.min(100, pct(total, d.target_amount)) + '%"></div>' +
             '<div class="sr-pace-tick" style="left:' + pace + '%"></div></div>';
 
-        // race track
         h += '<div class="sr-track-wrap"><div class="sr-legend"><span><i class="sr-dot sr-blue-bg"></i>Pace line: where you should be today</span>' +
             '<span>🏁 Finish line: your quota</span></div>';
         d.reps.forEach(function (r) {
@@ -106,7 +104,6 @@ frappe.pages['sales-race'].on_page_load = function (wrapper) {
         });
         h += '</div>';
 
-        // scorecards
         h += '<div class="sr-sec-head"><h2>Scorecards</h2><span>Each product line vs. that rep\'s quota</span></div><div class="sr-cards">';
         d.reps.forEach(function (r, i) {
             h += '<div class="sr-card" style="border-top-color:' + colorOf[r.sales_person] + '"><div class="sr-card-head"><span class="sr-emoji">' + esc(r.emoji) +
@@ -121,7 +118,6 @@ frappe.pages['sales-race'].on_page_load = function (wrapper) {
         });
         h += '</div>';
 
-        // team by product
         h += '<div class="sr-panel"><div class="sr-sec-head tight"><h2>Team by product</h2><span>Company plan: ' +
             lines.map(function (l) { return money(l.plan); }).join(' · ') + '</span></div><div class="sr-team">';
         lines.forEach(function (l, li) {
@@ -132,7 +128,6 @@ frappe.pages['sales-race'].on_page_load = function (wrapper) {
         });
         h += '</div></div>';
 
-        // leaderboard
         h += '<div class="sr-panel flush"><table class="sr-table"><thead><tr><th>#</th><th>REP</th><th class="r">SO FAR</th><th class="r">QUOTA</th><th class="r">% DONE</th>' +
             '<th class="r">VS. PACE</th><th class="r">BEHIND #1</th><th class="r">LAST 7 DAYS</th><th class="r">LINES ON PACE</th></tr></thead><tbody>';
         d.reps.forEach(function (r, i) {
@@ -146,7 +141,6 @@ frappe.pages['sales-race'].on_page_load = function (wrapper) {
         });
         h += '</tbody></table></div>';
 
-        // badges
         h += '<div class="sr-badges">';
         if (leader && leader.sold > 0) h += badge('🥇 Leader', leader.sales_person);
         lines.forEach(function (l) {
@@ -157,7 +151,6 @@ frappe.pages['sales-race'].on_page_load = function (wrapper) {
         if (d.hottest) h += badge('🔥 Hottest this week:', d.hottest.rep + ' · ' + money(d.hottest.amount));
         h += '</div>';
 
-        // collection
         var pay = d.payments;
         h += '<div class="sr-sec-head"><h2>Collection</h2><span>' + pay.count + ' payment' + (pay.count === 1 ? '' : 's') +
             ' · ' + money(pay.total) + ' · allocated against Sales Invoices</span></div>';

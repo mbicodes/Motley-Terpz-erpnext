@@ -15,12 +15,10 @@ frappe.pages['manufacturing-dashboard'].on_page_load = function (wrapper) {
 	var preset   = 'all';
 	var refreshTimer = null;
 
-	// Seed filter inputs
 	root.querySelector('#mtm-from-date').value = fromDate;
 	root.querySelector('#mtm-to-date').value   = toDate;
 	root.querySelector('#mtm-last-refresh').textContent = 'Loading…';
 
-	// ── Wire up filter controls ──────────────────────────────────────────
 	root.querySelector('#mtm-refresh-btn').addEventListener('click', loadData);
 	root.querySelector('#mtm-from-date').addEventListener('change', function () {
 		fromDate = this.value; loadData();
@@ -40,13 +38,11 @@ frappe.pages['manufacturing-dashboard'].on_page_load = function (wrapper) {
 		loadData();
 	});
 
-	// Auto-refresh every 5 minutes
 	refreshTimer = setInterval(loadData, 5 * 60 * 1000);
 	$(wrapper).on('remove', function () { clearInterval(refreshTimer); });
 
 	loadData();
 
-	// ── Main data load ────────────────────────────────────────────────────
 	function loadData() {
 		if (preset === 'all') {
 			toDate = frappe.datetime.nowdate();
@@ -63,7 +59,6 @@ frappe.pages['manufacturing-dashboard'].on_page_load = function (wrapper) {
 				root.querySelector('#mtm-last-refresh').textContent =
 					'Last refresh: ' + now.toLocaleDateString() + ', ' +
 					now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-				// Draw canvas charts after layout settles
 				setTimeout(function () { drawAllCharts(r.message); }, 80);
 			},
 			error: function () {
@@ -72,7 +67,6 @@ frappe.pages['manufacturing-dashboard'].on_page_load = function (wrapper) {
 		});
 	}
 
-	// ── Formatters ────────────────────────────────────────────────────────
 	function fmtG(v) {
 		var n = parseFloat(v || 0);
 		if (n >= 1000) return (n / 1000).toFixed(2) + ' kg';
@@ -80,7 +74,6 @@ frappe.pages['manufacturing-dashboard'].on_page_load = function (wrapper) {
 	}
 	function fmtNum(v) { return parseFloat(v || 0).toLocaleString(undefined, { maximumFractionDigits: 1 }); }
 
-	// ── Loading shimmer ───────────────────────────────────────────────────
 	function setLoadingKPIs() {
 		['mtm-kv-planned','mtm-kv-produced','mtm-kv-remaining','mtm-kv-loss',
 		 'mtm-kv-jccount','mtm-kv-employees','mtm-kv-qph','mtm-kv-oee'].forEach(function (id) {
@@ -98,12 +91,10 @@ frappe.pages['manufacturing-dashboard'].on_page_load = function (wrapper) {
 		}
 	}
 
-	// ── Render functions ──────────────────────────────────────────────────
 	function renderDashboard(d) {
 		renderKPIs(d.kpis, d.costs, d.employees);
 		renderMicron(d.micron);
 		renderTable(d.work_orders);
-		// period label
 		var pl = root.querySelector('#mtm-period-label');
 		if (pl) pl.textContent = fromDate + ' – ' + toDate;
 	}
@@ -122,7 +113,6 @@ frappe.pages['manufacturing-dashboard'].on_page_load = function (wrapper) {
 		var empCount = (employees || []).length;
 		setKpi('mtm-kv-employees', empCount, 'Active this period');
 
-		// qty/hour: total weighted_qty / total hours
 		var totalWeightedQty = 0, totalMins = 0;
 		(employees || []).forEach(function (e) {
 			totalWeightedQty += parseFloat(e.weighted_qty || 0);
@@ -133,7 +123,6 @@ frappe.pages['manufacturing-dashboard'].on_page_load = function (wrapper) {
 			? (totalMins / totalWeightedQty).toFixed(2) : '—';
 		setKpi('mtm-kv-qph', qph, 'Time / Unit: ' + tpu + ' min');
 
-		// OEE proxy: completion% × 100 as a proxy (efficiency)
 		var oee = completionPct + '%';
 		var rawCost = parseFloat((costs || {}).raw_material || 0);
 		var opCost  = parseFloat((costs || {}).operating   || 0);
@@ -215,7 +204,6 @@ frappe.pages['manufacturing-dashboard'].on_page_load = function (wrapper) {
 		root.querySelector('#mtm-wo-rows').textContent = 'Rows: ' + rows.length;
 	}
 
-	// ── Canvas Charts ─────────────────────────────────────────────────────
 	var C = {
 		text: '#1e293b', sec: '#64748b', muted: '#94a3b8',
 		border: '#e2e8f0', bg: '#f1f5f9',
@@ -245,7 +233,6 @@ frappe.pages['manufacturing-dashboard'].on_page_load = function (wrapper) {
 		var start = -Math.PI / 2;
 
 		if (!total) {
-			// Empty state
 			ctx.beginPath(); ctx.arc(cx, cy, rad, 0, Math.PI * 2);
 			ctx.arc(cx, cy, rad * 0.56, Math.PI * 2, 0, true);
 			ctx.closePath(); ctx.fillStyle = '#f1f5f9'; ctx.fill();
@@ -261,11 +248,9 @@ frappe.pages['manufacturing-dashboard'].on_page_load = function (wrapper) {
 			});
 		}
 
-		// Hole
 		ctx.beginPath(); ctx.arc(cx, cy, rad * 0.56, 0, Math.PI * 2);
 		ctx.fillStyle = C.surface; ctx.fill();
 
-		// Centre label
 		ctx.fillStyle = C.text;
 		ctx.font = 'bold ' + Math.floor(rad * 0.44) + 'px "DM Mono","Courier New",monospace';
 		ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -274,7 +259,6 @@ frappe.pages['manufacturing-dashboard'].on_page_load = function (wrapper) {
 		ctx.fillStyle = C.muted;
 		ctx.fillText('total', cx, cy + rad * 0.24);
 
-		// Build legend HTML
 		if (legendId) {
 			var leg = root.querySelector('#' + legendId);
 			if (leg && segs.length) {
@@ -323,12 +307,10 @@ frappe.pages['manufacturing-dashboard'].on_page_load = function (wrapper) {
 			ctx.fillRect(x, pl.t + ch - pH, bw, pH);
 			ctx.fillStyle = C.emerald;
 			ctx.fillRect(x, pl.t + ch - prH, bw, prH);
-			// Date label
-			var dtLabel = String(d.dt || '').slice(5); // MM-DD
+			var dtLabel = String(d.dt || '').slice(5);
 			ctx.fillStyle = C.muted; ctx.font = '9px system-ui';
 			ctx.textAlign = 'center';
 			ctx.fillText(dtLabel, pl.l + colW * (i + 0.5), h - 6);
-			// Completion %
 			var pct = parseFloat(d.planned) > 0 ? Math.round(parseFloat(d.produced) / parseFloat(d.planned) * 100) : 0;
 			ctx.fillStyle = pct >= 90 ? C.emerald : pct >= 70 ? C.amber : C.rose;
 			ctx.font = 'bold 9px "Courier New"';
@@ -374,7 +356,6 @@ frappe.pages['manufacturing-dashboard'].on_page_load = function (wrapper) {
 			ctx.fillStyle = C.text; ctx.font = 'bold 9px "Courier New"';
 			ctx.textAlign = 'center';
 			ctx.fillText(qph.toFixed(1), pl.l + colW * (i + 0.5), pl.t + ch - bh - 5);
-			// Label: first name from employee_name, fall back to employee id
 			var fullName = String(d.employee_name || d.employee || '');
 			var nameParts = fullName.trim().split(/\s+/);
 			var lbl = nameParts[0] ? nameParts[0].slice(0, 11) : fullName.slice(0, 11);
@@ -384,7 +365,6 @@ frappe.pages['manufacturing-dashboard'].on_page_load = function (wrapper) {
 	}
 
 	function drawAllCharts(d) {
-		// WO Status donut — always show all 3 statuses
 		var WO_ORDER  = ['Not Started', 'In Process', 'Completed', 'Stopped'];
 		var WO_COLORS = { 'Not Started':'#94a3b8', 'In Process':'#d97706', 'Completed':'#059669', 'Stopped':'#e11d48' };
 		var woCounts  = {};
@@ -397,7 +377,6 @@ frappe.pages['manufacturing-dashboard'].on_page_load = function (wrapper) {
 		});
 		drawDonut('mtm-wo-donut', woSegs, woTotal, 'mtm-wo-leg');
 
-		// JC Status donut — always show all statuses
 		var JC_ORDER  = ['Open', 'Work In Progress', 'Completed', 'On Hold'];
 		var JC_COLORS = { 'Open':'#2563eb', 'Work In Progress':'#d97706', 'Completed':'#059669', 'On Hold':'#94a3b8' };
 		var jcCounts  = {};
@@ -410,14 +389,11 @@ frappe.pages['manufacturing-dashboard'].on_page_load = function (wrapper) {
 		});
 		drawDonut('mtm-jc-donut', jcSegs, jcTotal, 'mtm-jc-leg');
 
-		// Throughput trend
 		drawThroughput('mtm-throughput', d.throughput || []);
 
-		// Employee productivity
 		drawEmployees('mtm-emp-prod', d.employees || []);
 	}
 
-	// ── HTML template ─────────────────────────────────────────────────────
 	function getMtmDashHTML() {
 		return `
 <div class="mtm-dash">

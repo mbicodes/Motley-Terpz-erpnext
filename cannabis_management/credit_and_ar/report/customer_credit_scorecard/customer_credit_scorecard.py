@@ -1,10 +1,3 @@
-"""Customer Credit Scorecard — the MD's single source of truth for approving
-credit lines.
-
-One row per customer: how they pay, what they buy, what they owe, and what
-they are allowed to owe. Intercompany accounts are excluded throughout.
-"""
-
 import frappe
 from frappe import _
 from frappe.utils import flt
@@ -64,8 +57,6 @@ def get_data(filters):
 	paid_counts = _paid_invoice_counts(names)
 	legal_names = _legal_buyer_names(names)
 
-	# TSBC reports in pounds; Motley and Master Touch in grams. With no company
-	# filter both columns are shown so the MD can compare like for like.
 	company = filters.get("company")
 
 	from cannabis_management.credit_and_ar.doctype.ar_case.ar_case import get_hold_type
@@ -134,7 +125,6 @@ def _paid_invoice_counts(customers: list[str]) -> dict:
 
 
 def _legal_buyer_names(customers: list[str]) -> dict:
-	"""The exact legal buyer from the live credit file, where there is one."""
 	if not frappe.db.exists("DocType", "Credit Application"):
 		return {}
 
@@ -151,7 +141,6 @@ def _legal_buyer_names(customers: list[str]) -> dict:
 
 
 def get_chart(data):
-	"""Score distribution — where the book actually sits."""
 	if not data:
 		return None
 

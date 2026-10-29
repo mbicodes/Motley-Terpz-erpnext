@@ -663,7 +663,6 @@ frappe.pages['inventory-sales-dashboard'].on_page_load = function (wrapper) {
 </div><!-- /isd-wrap -->
     `);
 
-    // ── state ──
     const S = {
         group: null,
         items: [],
@@ -680,7 +679,6 @@ frappe.pages['inventory-sales-dashboard'].on_page_load = function (wrapper) {
         '0.5g O2 Vape':  'Conversion - MTM',
     };
 
-    // ── helpers ──
     function esc(s) {
         if (s === null || s === undefined) return '';
         return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
@@ -723,7 +721,6 @@ frappe.pages['inventory-sales-dashboard'].on_page_load = function (wrapper) {
         return '$' + parseFloat(v || 0).toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
     }
 
-    // ── group loading ──
     function loadGroups() {
         frappe.call({
             method: 'cannabis_management.cannabis_management.page.inventory_sales_dashboard.inventory_sales_dashboard.get_item_groups',
@@ -772,7 +769,6 @@ frappe.pages['inventory-sales-dashboard'].on_page_load = function (wrapper) {
         });
     }
 
-    // ── stock loading ──
     function loadStock(group) {
         S.group = group;
         S.items = [];
@@ -819,7 +815,6 @@ frappe.pages['inventory-sales-dashboard'].on_page_load = function (wrapper) {
         });
     }
 
-    // ── filters ──
     function resetFilters() {
         const defaultWh = GROUP_WH[S.group] || '__ALL__';
         S.filters = { search:'', warehouse: defaultWh, onlyAvailable:false, lowStockOnly:false, hasSales:false };
@@ -870,7 +865,6 @@ frappe.pages['inventory-sales-dashboard'].on_page_load = function (wrapper) {
         el.value = warehouses.includes(S.filters.warehouse) ? S.filters.warehouse : '__ALL__';
     }
 
-    // ── summary ──
     function setSummary(items) {
         let totalQty = 0, totalAvail = 0, low = 0;
         items.forEach(i => {
@@ -885,7 +879,6 @@ frappe.pages['inventory-sales-dashboard'].on_page_load = function (wrapper) {
         document.getElementById('isd-low-stock').textContent   = low;
     }
 
-    // ── table ──
     function renderTable(items) {
         if (!items.length) {
             document.getElementById('isd-table-wrap').innerHTML = `
@@ -975,7 +968,6 @@ frappe.pages['inventory-sales-dashboard'].on_page_load = function (wrapper) {
         }
     }
 
-    // ── expand panel builders ──
     function buildExpandPanel(item) {
         const entries = S.salesData[item.item_code];
         if (!entries || !entries.length) {
@@ -1126,7 +1118,6 @@ frappe.pages['inventory-sales-dashboard'].on_page_load = function (wrapper) {
         return m[s] || m.no_activity;
     }
 
-    // ── events ──
     document.getElementById('isd-table-wrap').addEventListener('click', function(e) {
         const td = e.target.closest('.isd-expand-td');
         if (td) toggleExpand(parseInt(td.dataset.idx), td);
@@ -1153,7 +1144,6 @@ frappe.pages['inventory-sales-dashboard'].on_page_load = function (wrapper) {
         gl.style.display = gl.style.display === 'none' ? '' : 'none';
     });
 
-    // ── CSV export ──
     function exportCSV() {
         if (!S.filtered.length) { frappe.show_alert({ message:'No rows to export', indicator:'orange' }); return; }
         const ff = isFreshFrozen();
@@ -1185,7 +1175,6 @@ frappe.pages['inventory-sales-dashboard'].on_page_load = function (wrapper) {
         frappe.show_alert({ message:'CSV exported', indicator:'green' });
     }
 
-    // ── init ──
     loadGroups();
 
     window.isdCopy = function(text) {

@@ -1,12 +1,3 @@
-/* =====================================================================
-   Daily report form engine (shared by Farm and Nursery pages)
-   Reads window.DR_CONFIG, renders the form, and saves to ERPNext via
-   the REST API. Opened outside ERPNext it runs in preview mode and
-   shows the data that would be saved instead of sending it.
-
-   install.py appends this file after each page's config in the Web
-   Page's Scripting > Javascript. Edit it here, not in the desk.
-   ===================================================================== */
 (function () {
     'use strict';
 
@@ -14,8 +5,6 @@
     var LIVE = typeof window.frappe !== 'undefined';
     var C = CFG.child;
 
-    /* Phone photos are 3 to 5 MB. They are scaled down before upload so they
-       go through on a weak farm signal and keep the emailed PDF small. */
     var PHOTO_MAX_SIDE = 1600;
     var PHOTO_QUALITY = 0.82;
 
@@ -36,7 +25,6 @@
         camera: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>'
     };
 
-    /* ---------- helpers ---------- */
     function h(tag, attrs, kids) {
         var n = document.createElement(tag);
         if (attrs) {
@@ -74,7 +62,6 @@
     function stripHtml(s) { var d = document.createElement('div'); d.innerHTML = s; return (d.textContent || '').trim(); }
     function slug(doctype) { return doctype.toLowerCase().replace(/\s+/g, '-'); }
 
-    /* ---------- ERPNext API ---------- */
     function parseError(j, status) {
         try {
             if (j && j._server_messages) {
@@ -82,7 +69,7 @@
                     try { return JSON.parse(m).message; } catch (e) { return m; }
                 }).join(' '));
             }
-        } catch (e) { /* fall through */ }
+        } catch (e) {  }
         if (j && j.exception) {
             var parts = String(j.exception).split(':');
             return stripHtml(parts.length > 1 ? parts.slice(1).join(':') : parts[0]);
@@ -112,7 +99,6 @@
             '&limit_page_length=0' + (extra || '');
     }
 
-    /* ---------- user ---------- */
     function currentUser() {
         if (!LIVE) return { id: 'preview', name: CFG.previewUser, guest: false };
         var id = getCookie('user_id') || (frappe.session && frappe.session.user) || 'Guest';
@@ -120,7 +106,6 @@
         return { id: id, name: getCookie('full_name') || id, guest: false };
     }
 
-    /* ---------- schema walking ---------- */
     function isVisible(q) { return !q.showIf || !!q.showIf(state); }
     function emptyValue(q) { return (q.type === 'photos' || /_table$/.test(q.type)) ? [] : ''; }
     function hasValue(q) {
@@ -147,7 +132,6 @@
         }
     }
 
-    /* ---------- controls ---------- */
     function buildChoice(q, id) {
         var group = h('div', { class: 'dr-choices', role: 'radiogroup', 'aria-labelledby': id + '-label' });
         var btns = q.options.map(function (opt) {
@@ -392,7 +376,6 @@
         flc_table: buildFlcTable, activity_table: buildActivityTable
     };
 
-    /* ---------- state changes ---------- */
     function setValue(field, v) {
         state[field] = v;
         byField[field].ctl.sync(v);
@@ -426,7 +409,6 @@
         updateProgress();
     }
 
-    /* ---------- validation ---------- */
     function showError(field, msg) {
         var rec = byField[field];
         rec.err.textContent = msg; rec.err.hidden = false;
@@ -484,7 +466,6 @@
         els.progress.appendChild(document.createTextNode(left === 1 ? ' question left' : ' questions left'));
     }
 
-    /* ---------- payload & submission ---------- */
     function buildPayload() {
         var doc = {};
         if (CFG.dateField) doc[CFG.dateField] = todayISO();
@@ -525,8 +506,6 @@
         els.submit.disabled = busy;
         els.submit.textContent = busy ? label : CFG.submitLabel;
     }
-    /* Resolves to a smaller JPEG, or to the original file when the browser
-       cannot decode it (for example HEIC on Android) or shrinking does not help. */
     function shrinkPhoto(file) {
         return new Promise(function (done) {
             var settled = false;
@@ -588,7 +567,6 @@
             return api('POST', base, doc);
         }
 
-        // With photos: save a draft, attach the photos to it, then submit.
         var withoutPhotos = {};
         Object.keys(doc).forEach(function (k) { if (photoFields().indexOf(k) === -1 && k !== 'docstatus') withoutPhotos[k] = doc[k]; });
         setBusy(true, 'Saving report');
@@ -624,7 +602,6 @@
         });
     }
 
-    /* ---------- screens ---------- */
     function showBanner(kind, msg) {
         els.banner.className = 'dr-banner' + (kind === 'error' ? ' is-error' : '');
         els.banner.setAttribute('role', kind === 'error' ? 'alert' : 'status');
@@ -723,7 +700,6 @@
         refresh();
     }
 
-    /* ---------- data loading ---------- */
     function loadLists() {
         var needs = { flc: false, activity: false };
         CFG.sections.forEach(function (s) { s.questions.forEach(function (q) {
@@ -758,7 +734,6 @@
         });
     }
 
-    /* ---------- boot ---------- */
     function init() {
         var root = document.getElementById('dr-app');
         if (!root || root.getAttribute('data-ready')) return;

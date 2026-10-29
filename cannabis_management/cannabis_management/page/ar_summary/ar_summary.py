@@ -1,34 +1,21 @@
-"""Accounts Receivable — summary + per-customer ledgers.
-
-Intercompany / internal-transfer invoices (is_internal_customer = 1, which Frappe
-shows with the "Internal Transfer" status) are excluded from every view and export.
-
-The ledger carries the Sales Order and Delivery Note the invoice was created against.
-Outstanding balances are shown in red (page and export). The Excel export carries two
-sheets: "Accounts Receivable" (summary) and "Customer Ledgers" (boxed blocks).
-"""
-
 import io
 
 import frappe
 from frappe.utils import flt, formatdate, get_url, nowdate
 
-# ---- summary sheet colours -------------------------------------------------
-YELLOW = "FFE699"   # Invoice Total
-GREEN = "C6EFCE"    # Paid / settled outstanding
-RED = "FFC7CE"      # outstanding still owed
-HEADER = "DDEBF7"   # header row
-RED_FONT = "C00000" # red text for outstanding balances
+YELLOW = "FFE699"
+GREEN = "C6EFCE"
+RED = "FFC7CE"
+HEADER = "DDEBF7"
+RED_FONT = "C00000"
 
-# ---- ledger sheet colours (match the Customer Ledgers screenshot) ----------
-NAVY = "1F3864"     # per-customer title band
-COLHDR = "D9D9D9"   # column-header row
-AMT = "E2EFDA"      # amount cells in data rows (light green)
+NAVY = "1F3864"
+COLHDR = "D9D9D9"
+AMT = "E2EFDA"
 TOTAL_YELLOW = "FFE699"
 
 
 def _conditions(company=None, from_date=None, to_date=None):
-    """Shared WHERE clause. Always drops internal / intercompany transfers."""
     conditions = ["docstatus = 1", "IFNULL(is_internal_customer, 0) = 0"]
     values = {}
     if company:
@@ -64,14 +51,10 @@ def _summary_rows(company=None, from_date=None, to_date=None):
 
 
 def _attach_references(invoices):
-    """Attach each invoice's Sales Order(s) — the SO it was created against, read
-    from the invoice item rows — and the Delivery Note(s) raised against those
-    Sales Orders (NOT the delivery_note stamped on the invoice item)."""
     names = [i["name"] for i in invoices]
     if not names:
         return
 
-    # 1. Sales Order(s) each invoice was created against.
     rows = frappe.db.sql(
         """
         SELECT parent, sales_order
@@ -86,7 +69,6 @@ def _attach_references(invoices):
         so_map.setdefault(r.parent, set()).add(r.sales_order)
         all_sos.add(r.sales_order)
 
-    # 2. Delivery Note(s) raised against those Sales Orders.
     so_to_dn = {}
     if all_sos:
         dn_rows = frappe.db.sql(
@@ -101,8 +83,6 @@ def _attach_references(invoices):
         for r in dn_rows:
             so_to_dn.setdefault(r.so, set()).add(r.dn)
 
-    # 3. Payment Entry(ies) made against each invoice, or against its Sales Order
-    #    (advances). Read from Payment Entry Reference; submitted payments only.
     inv_pe, so_pe = {}, {}
     pe_rows = frappe.db.sql(
         """
@@ -132,8 +112,6 @@ def _attach_references(invoices):
 
 
 def _ledger_groups(company=None, from_date=None, to_date=None):
-    """Per-invoice detail grouped by customer, groups sorted by outstanding
-    balance (highest first), matching the reference sheet."""
     where, values = _conditions(company, from_date, to_date)
     invoices = frappe.db.sql(
         f"""
@@ -162,7 +140,7 @@ def _ledger_groups(company=None, from_date=None, to_date=None):
             "paid": sum(flt(i.paid) for i in invs),
             "outstanding": sum(flt(i.outstanding) for i in invs),
         }
-        if totals["invoice_total"] <= 0:  # keep in step with the summary
+        if totals["invoice_total"] <= 0:
             continue
         result.append({
             "customer": customer,
@@ -203,10 +181,6 @@ def get_ledgers(company=None, from_date=None, to_date=None):
         "prepared": formatdate(nowdate(), "MMMM dd, yyyy"),
     }
 
-
-# ===========================================================================
-# Excel export — two sheets
-# ===========================================================================
 
 def _build_summary_sheet(ws, rows, prepared):
     from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
@@ -254,7 +228,6 @@ def _build_summary_sheet(ws, rows, prepared):
         it.fill = fill(YELLOW)
         if paid > 0:
             pd.fill = fill(GREEN)
-        # outstanding owed -> red; settled -> green
         if outstanding > 0:
             out.fill = fill(RED)
             out.font = Font(color=RED_FONT, bold=True)
@@ -279,8 +252,6 @@ def _build_summary_sheet(ws, rows, prepared):
 
 
 def _ref_cell(ws, row, col, names, doctype, border, fill_amt, left):
-    """Write a Sales Order / Delivery Note reference cell. Hyperlinks a single
-    reference; comma-joins multiples as plain text."""
     from openpyxl.styles import Font
 
     names = names or []
@@ -308,10 +279,10 @@ def _build_ledger_sheet(ws, groups, prepared):
         return PatternFill("solid", fgColor=hexcode)
 
     fill_amt = fill(AMT)
-    fill_ref = fill(AMT)  # light tint behind reference cells too (kept subtle/white-ish)
+    fill_ref = fill(AMT)
 
     ws.title = "Customer Ledgers"
-    LAST = 10  # A:J
+    LAST = 10
     ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=LAST)
     ws["A1"] = (f"Prepared {prepared} — each customer is its own boxed block, "
                 "sorted by outstanding balance (highest first)")
@@ -326,7 +297,6 @@ def _build_ledger_sheet(ws, groups, prepared):
         n = g["count"]
         label = f"{g['customer']}   ({n} invoice{'s' if n != 1 else ''})"
 
-        # customer title band (navy, white, merged A:J)
         ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=LAST)
         band = ws.cell(row=r, column=1, value=label)
         band.font = Font(bold=True, color="FFFFFF", size=11)
@@ -336,7 +306,6 @@ def _build_ledger_sheet(ws, groups, prepared):
             ws.cell(row=r, column=c).border = border
         r += 1
 
-        # column headers
         for c, h in enumerate(headers, start=1):
             cell = ws.cell(row=r, column=c, value=h)
             cell.font = Font(bold=True)
@@ -345,7 +314,6 @@ def _build_ledger_sheet(ws, groups, prepared):
             cell.alignment = center if c >= 5 else left
         r += 1
 
-        # invoice rows
         for inv in g["invoices"]:
             name_cell = ws.cell(row=r, column=1, value=inv["name"])
             name_cell.hyperlink = f"{get_url()}/app/sales-invoice/{inv['name']}"
@@ -371,7 +339,6 @@ def _build_ledger_sheet(ws, groups, prepared):
                 cell.fill = fill_amt
             out.number_format = money
             out.alignment = right
-            # outstanding owed -> red; settled -> green
             if flt(inv["outstanding"]) > 0:
                 out.fill = fill(RED)
                 out.font = Font(color=RED_FONT, bold=True)
@@ -384,7 +351,6 @@ def _build_ledger_sheet(ws, groups, prepared):
                 ws.cell(row=r, column=c).border = border
             r += 1
 
-        # per-customer TOTAL row (yellow); outstanding total in red
         t = g["totals"]
         ws.cell(row=r, column=1, value="TOTAL")
         for c in range(1, 7):
@@ -399,7 +365,7 @@ def _build_ledger_sheet(ws, groups, prepared):
         ws.cell(row=r, column=10).fill = fill(TOTAL_YELLOW)
         for c in range(1, LAST + 1):
             ws.cell(row=r, column=c).border = border
-        r += 2  # blank spacer between customers
+        r += 2
 
     widths = {"A": 22, "B": 20, "C": 20, "D": 24, "E": 13,
               "F": 13, "G": 14, "H": 14, "I": 14, "J": 13}

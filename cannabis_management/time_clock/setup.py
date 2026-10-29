@@ -1,25 +1,11 @@
-"""One-time setup helpers for the Time Clock module.
-
-Run after installing/migrating:
-
-    bench --site <site> execute cannabis_management.time_clock.setup.ensure_role
-    bench --site <site> execute cannabis_management.time_clock.setup.grant_all_enabled_users
-
-``grant_all_enabled_users`` is opt-in on purpose. Holding "Time Clock User" is what
-puts somebody on the roster, so bulk-granting is a deliberate decision rather than
-something that happens quietly on migrate.
-"""
-
 import frappe
 
 from cannabis_management.time_clock.api import TIME_CLOCK_ROLE
 
-# Never auto-grant to these — they are not people who clock in.
 EXCLUDED_USERS = ("Guest", "Administrator")
 
 
 def ensure_role():
-	"""Create the Time Clock User role if it does not exist."""
 	if frappe.db.exists("Role", TIME_CLOCK_ROLE):
 		print(f"Role '{TIME_CLOCK_ROLE}' already exists.")
 		return
@@ -33,7 +19,6 @@ def ensure_role():
 
 
 def grant_all_enabled_users():
-	"""Give every enabled human user the time clock role."""
 	ensure_role()
 
 	users = frappe.get_all(
@@ -61,7 +46,6 @@ def grant_all_enabled_users():
 
 
 def grant(user):
-	"""Give one user the time clock role."""
 	ensure_role()
 
 	doc = frappe.get_doc("User", user)

@@ -1,11 +1,4 @@
-// Shared list shell for the Cultivation pages (Plants / Teardowns / Harvests).
-// Same look and behaviour as Plant Batches: view dropdown, search, rows-per-page
-// pagination, "Showing x of y" footer, status badges, row action menu.
-// Built only on existing doctypes and fields.
-
 window.CultivationList = class CultivationList {
-	// cfg: {title, doctype, columns:[{label, field?, render?(row)}], fields:[], views:[{label, filters}],
-	//       search_field, actions:[{label, icon, handler(row, list)}], order_by, noun}
 	constructor(parent, cfg) {
 		this.cfg = cfg;
 		this.wrapper = $(parent);

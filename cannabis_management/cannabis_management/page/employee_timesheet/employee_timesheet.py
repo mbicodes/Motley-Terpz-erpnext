@@ -1,26 +1,3 @@
-# Copyright (c) 2026, alltechvirtual.com and contributors
-# For license information, please see license.txt
-"""Employee Timesheet — hours and overtime per employee, per shift day.
-
-Three things this has to get right:
-
-1. TIME ZONE. Frappe stores naive datetimes in the *site* time zone, which on
-   this bench is America/Adak — not where the work happens. Every timestamp is
-   converted to REPORT_TZ (California) before anything else looks at it, so a
-   shift is dated by the day it happened locally, and the 6am email really is
-   6am for the people reading it.
-
-2. SHIFT DAY, not calendar day. A shift that starts at 10pm and ends at 2am is
-   one night's work. Every session is attributed to the day it STARTED, so those
-   hours stay on the night they belong to instead of splitting across midnight.
-   A session starting before SHIFT_DAY_CUTOFF_HOUR is treated as a continuation
-   of the previous night for the same reason.
-
-3. OVERTIME is per shift day, not per session. Someone who works 5 hours, breaks,
-   then works 4 more has done 9 hours that day — one hour of it overtime — even
-   though neither session on its own passed 8.
-"""
-
 import datetime
 from zoneinfo import ZoneInfo
 
@@ -28,19 +5,12 @@ import frappe
 from frappe import _
 from frappe.utils import add_days, flt, get_datetime, getdate
 
-# Where the work actually happens. Everything user-facing is in this zone.
 REPORT_TZ = "America/Los_Angeles"
 
-# Hours past which a shift day counts as overtime.
 OVERTIME_AFTER_HOURS = 8.0
 
-# A session starting before this hour belongs to the previous shift day — it is
-# the tail of a night shift, not the start of a new one.
 SHIFT_DAY_CUTOFF_HOUR = 4
 
-# Pay runs Friday to Friday, fortnightly. This is a Friday; every pay period is
-# counted in 14-day steps from here, so the cycle survives year boundaries
-# without a stored calendar.
 PAY_PERIOD_ANCHOR = "2026-01-02"
 PAY_PERIOD_DAYS = 14
 
@@ -52,14 +22,11 @@ REPORT_RECIPIENTS = [
 ]
 
 
-# ── Time zone ────────────────────────────────────────────────────────────────
-
 def _site_tz():
 	return ZoneInfo(frappe.db.get_single_value("System Settings", "time_zone") or "UTC")
 
 
 def _to_report_tz(value):
-	"""Naive site-local datetime -> naive datetime in REPORT_TZ."""
 	if not value:
 		return None
 	dt = get_datetime(value)
@@ -67,7 +34,6 @@ def _to_report_tz(value):
 
 
 def report_now():
-	"""'Now' where the work happens, not where the server thinks it is."""
 	return datetime.datetime.now(ZoneInfo(REPORT_TZ)).replace(tzinfo=None)
 
 
@@ -76,16 +42,12 @@ def report_today():
 
 
 def _shift_day(started):
-	"""The day a session's hours belong to (see the module docstring)."""
 	if started.hour < SHIFT_DAY_CUTOFF_HOUR:
 		return (started - datetime.timedelta(days=1)).date()
 	return started.date()
 
 
-# ── Pay periods ──────────────────────────────────────────────────────────────
-
 def pay_period_for(day=None):
-	"""(start, end) of the fortnight containing `day`. Ends on a Friday."""
 	day = getdate(day or report_today())
 	anchor = getdate(PAY_PERIOD_ANCHOR)
 	elapsed = (day - anchor).days
@@ -94,19 +56,8 @@ def pay_period_for(day=None):
 	return start, add_days(start, PAY_PERIOD_DAYS - 1)
 
 
-# ── Aggregation ──────────────────────────────────────────────────────────────
-
 def _fetch_sessions(from_date, to_date, employee=None, include_open=False):
-	"""Timesheet Detail rows whose SHIFT DAY falls in range.
-
-	The SQL window is widened by a day at each end because a row is selected on
-	its shift day, which the time-zone shift and the night-shift rule can move
-	either side of its stored date. The precise filtering happens in Python once
-	each row has been converted and dated.
-	"""
 	docstatuses = (0, 1) if include_open else (1,)
-	# A timesheet with no employee is nobody's hours — it can't count towards
-	# anyone's pay or overtime, and a blank name would break the sort below.
 	conds = ["ts.docstatus in %(docstatuses)s", "ifnull(ts.employee, '') != ''"]
 	values = {
 		"docstatuses": docstatuses,
@@ -133,7 +84,6 @@ def _fetch_sessions(from_date, to_date, employee=None, include_open=False):
 
 
 def build_rows(from_date, to_date, employee=None, include_open=False, overtime_only=False):
-	"""One row per employee per shift day."""
 	from_date, to_date = getdate(from_date), getdate(to_date)
 	groups = {}
 
@@ -147,8 +97,6 @@ def build_rows(from_date, to_date, employee=None, include_open=False, overtime_o
 		if day < from_date or day > to_date:
 			continue
 
-		# An open session (still clocked in) carries no hours yet: the kiosk
-		# writes to_time = from_time as a placeholder on insert.
 		open_session = s.docstatus == 0 and ended and ended <= started
 		hours = 0.0 if open_session else flt(s.hours)
 
@@ -207,8 +155,6 @@ def summarise(rows):
 	}
 
 
-# ── Whitelisted API ──────────────────────────────────────────────────────────
-
 @frappe.whitelist()
 def get_timesheet(from_date=None, to_date=None, employee=None,
                   include_open=0, overtime_only=0):
@@ -238,19 +184,10 @@ def get_timesheet(from_date=None, to_date=None, employee=None,
 
 @frappe.whitelist()
 def get_pay_period(offset=0):
-	"""Pay period `offset` fortnights from the current one (0 = current, -1 = last)."""
 	start, _end = pay_period_for()
 	start = add_days(start, int(offset) * PAY_PERIOD_DAYS)
 	return {"from_date": str(start), "to_date": str(add_days(start, PAY_PERIOD_DAYS - 1))}
 
-
-# ── Scheduled email ──────────────────────────────────────────────────────────
-#
-# Sent at 6am California, which is 6pm Pakistan. The cron that calls this is
-# written in SITE time (America/Adak) — Adak and Los Angeles both follow US DST
-# rules, so the gap between them is a constant 2 hours all year and "0 4 * * *"
-# site-time is 6am California in both summer and winter. The job still derives
-# its own dates from REPORT_TZ rather than trusting the clock that woke it.
 
 def _html_table(rows, show_employee_totals=True):
 	if not rows:
@@ -301,10 +238,6 @@ def _html_table(rows, show_employee_totals=True):
 
 
 def build_email(day=None):
-	"""(subject, html) for the report covering `day` — yesterday by default.
-
-	On a Friday the pay period to date is appended, because Friday is pay day.
-	"""
 	day = getdate(day or add_days(report_today(), -1))
 	rows = build_rows(day, day, include_open=True)
 
@@ -339,7 +272,6 @@ def build_email(day=None):
 
 
 def send_daily_report():
-	"""Scheduler entry point — see the note above for the 6am California timing."""
 	day = add_days(report_today(), -1)
 	subject, message = build_email(day)
 
@@ -347,16 +279,13 @@ def send_daily_report():
 		recipients=REPORT_RECIPIENTS,
 		subject=subject,
 		message=message,
-		now=False,      # queued: a slow SMTP hop must not hold up the scheduler
+		now=False,
 	)
 	frappe.logger().info(f"Employee Timesheet report queued for {day} -> {REPORT_RECIPIENTS}")
 	return {"day": str(day), "recipients": REPORT_RECIPIENTS, "subject": subject}
 
 
-# ── PDF export ───────────────────────────────────────────────────────────────
-
 def _pdf_document(rows, from_date, to_date, employee=None):
-	"""Print-ready version of what the page shows, grouped by employee."""
 	s = summarise(rows)
 	th = ("padding:6px 8px;border-bottom:1.5px solid #d8dae3;text-align:left;font-size:9px;"
 	      "color:#6b7280;text-transform:uppercase;letter-spacing:.4px;")
@@ -435,7 +364,6 @@ def _pdf_document(rows, from_date, to_date, employee=None):
 @frappe.whitelist()
 def export_pdf(from_date=None, to_date=None, employee=None,
                include_open=0, overtime_only=0):
-	"""Download the current view as a PDF."""
 	if not frappe.has_permission("Timesheet", "read"):
 		frappe.throw(_("Not permitted"), frappe.PermissionError)
 

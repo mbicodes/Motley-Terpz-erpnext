@@ -1,13 +1,3 @@
-/* =====================================================
-   WAREHOUSE OVERVIEW — Frappe Page JS  (v4-fix)
-   Place at: cannabis_management/cannabis_management/
-             warehouse_overview/warehouse_overview.js
-
-   APIs:
-     • cannabis_management.cannabis_management.page.warehouse_overview.warehouse_overview.get_item_groups
-     • cannabis_management.cannabis_management.page.warehouse_overview.warehouse_overview.get_stock_by_item_group
-===================================================== */
-
 frappe.pages['warehouse-overview'].on_page_load = function (wrapper) {
     var page = frappe.ui.make_app_page({
         parent: wrapper,
@@ -15,29 +5,16 @@ frappe.pages['warehouse-overview'].on_page_load = function (wrapper) {
         single_column: true
     });
 
-    // Hide default Frappe page-head (we render our own header)
     $(wrapper).find('.page-head').hide();
 
-    // ── Inject the HTML directly ──────────────────────
-    // Frappe Page .html files are auto-loaded as the page wrapper,
-    // but frappe.render_template() looks in the template registry.
-    // Safest approach: inline the markup here.
     page.main.html(WO_PAGE_HTML);
 
-    // Kick off
     woBindEvents();
     woLoad();
 };
 
 frappe.pages['warehouse-overview'].on_page_show = function () {
-    // Data stays in memory. Uncomment to auto-refresh:
-    // woLoad();
 };
-
-
-// ─────────────────────────────────────────────────────
-// PAGE HTML TEMPLATE
-// ─────────────────────────────────────────────────────
 
 const WO_PAGE_HTML = `
 <div class="wo-page">
@@ -157,11 +134,6 @@ const WO_PAGE_HTML = `
 </div>
 `;
 
-
-// ─────────────────────────────────────────────────────
-// CONFIG  (mirrors inventory dashboard exactly)
-// ─────────────────────────────────────────────────────
-
 const WO_GROUP_ORDER = [
     'Fresh Frozen',
     'Primes',
@@ -210,11 +182,6 @@ const WO_SWATCH_COUNT = 12;
 let   WO_SWATCH_MAP   = {};
 let   WO_SWATCH_IDX   = 0;
 
-
-// ─────────────────────────────────────────────────────
-// STATE
-// ─────────────────────────────────────────────────────
-
 let WO_WAREHOUSES = [];
 
 let WO_FILTERS = {
@@ -223,11 +190,6 @@ let WO_FILTERS = {
     sortBy       : 'name',
     company      : 'all'
 };
-
-
-// ─────────────────────────────────────────────────────
-// HELPERS
-// ─────────────────────────────────────────────────────
 
 function woEsc(str) {
     if (str == null) return '';
@@ -322,11 +284,6 @@ function woSortGroupNames(names) {
     });
 }
 
-
-// ─────────────────────────────────────────────────────
-// AGGREGATES
-// ─────────────────────────────────────────────────────
-
 function woWarehouseTotalQty(wh) {
     let total = 0;
     (wh.groups || []).forEach(function (g) {
@@ -360,11 +317,6 @@ function woAllGroupCount(warehouses) {
     });
     return s.size;
 }
-
-
-// ─────────────────────────────────────────────────────
-// BINDINGS
-// ─────────────────────────────────────────────────────
 
 function woBindEvents() {
     const searchEl  = document.getElementById('wo-search-box');
@@ -429,11 +381,6 @@ function woResetFilters() {
         p.classList.toggle('wo-pill-active', p.dataset.company === 'all');
     });
 }
-
-
-// ─────────────────────────────────────────────────────
-// LOAD
-// ─────────────────────────────────────────────────────
 
 function woLoad() {
     const grid = document.getElementById('wo-grid');
@@ -536,11 +483,6 @@ function woFinalize(rows, anySuccess) {
     woRender();
 }
 
-
-// ─────────────────────────────────────────────────────
-// BUILD TREE
-// ─────────────────────────────────────────────────────
-
 function woBuildTree(rows) {
     const whMap = {};
 
@@ -583,11 +525,6 @@ function woBuildTree(rows) {
             };
         });
 }
-
-
-// ─────────────────────────────────────────────────────
-// RENDER
-// ─────────────────────────────────────────────────────
 
 function woRender() {
     let data = WO_WAREHOUSES.map(function (wh) {
@@ -711,11 +648,6 @@ function woRenderGrid(data) {
         });
     });
 }
-
-
-// ─────────────────────────────────────────────────────
-// CARD + GROUP RENDERING
-// ─────────────────────────────────────────────────────
 
 function woRenderCard(wh, idx) {
     const totalQty   = woWarehouseTotalQty(wh);

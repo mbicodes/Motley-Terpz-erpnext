@@ -4,9 +4,7 @@ from frappe.utils import add_days, today, getdate
 
 
 class IRSForm8300Log(Document):
-
     def before_save(self):
-        # Auto-set deadline from payment entry posting date
         if self.payment_entry and not self.transaction_date:
             self.transaction_date = frappe.db.get_value(
                 "Payment Entry", self.payment_entry, "posting_date"
@@ -15,7 +13,6 @@ class IRSForm8300Log(Document):
         if self.transaction_date and not self.filing_deadline:
             self.filing_deadline = add_days(self.transaction_date, 15)
 
-        # Auto-populate customer info from Payment Entry
         if self.payment_entry and not self.payer_name:
             pe = frappe.get_doc("Payment Entry", self.payment_entry)
             self.customer = pe.party
@@ -25,7 +22,6 @@ class IRSForm8300Log(Document):
             self.cash_amount = pe.paid_amount
             self.nature_of_transaction = "Cannabis retail sale"
 
-        # Check if attachment exists — auto set to Reported
         if self.name and not self.is_new():
             has_attachment = frappe.db.exists("File", {
                 "attached_to_doctype": "Payment Entry",
@@ -36,7 +32,6 @@ class IRSForm8300Log(Document):
                 if not self.filing_date:
                     self.filing_date = today()
 
-        # Flip to Overdue if deadline passed and still pending
         if self.filing_status == "Pending":
             if self.filing_deadline and getdate(self.filing_deadline) < getdate(today()):
                 self.filing_status = "Overdue"

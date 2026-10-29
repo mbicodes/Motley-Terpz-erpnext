@@ -1,6 +1,3 @@
-// Copyright (c) 2015, Frappe Technologies Pvt. Ltd. and Contributors
-// License: GNU General Public License v3. See license.txt
-
 frappe.query_reports["Profit and Loss Statement Child Accounts"] = $.extend({}, erpnext.financial_statements);
 
 erpnext.utils.add_dimensions("Profit and Loss Statement Child Accounts", 10);
@@ -37,10 +34,6 @@ frappe.query_reports["Profit and Loss Statement Child Accounts"]["filters"].push
 	}
 );
 
-// Point the "Financial Statements" dropdown at the child-accounts versions of
-// Balance Sheet / Cash Flow (via Consolidated Financial Statement Child Accounts'
-// "report" filter) instead of erpnext.financial_statements' default onload, which
-// links to the standard group-inclusive reports.
 frappe.query_reports["Profit and Loss Statement Child Accounts"].onload = function (report) {
 	let fiscal_year = erpnext.utils.get_fiscal_year(frappe.datetime.get_today());
 	var filters = report.get_values();
@@ -83,12 +76,6 @@ frappe.query_reports["Profit and Loss Statement Child Accounts"].onload = functi
 	}
 };
 
-// Same as erpnext.financial_statements' shared formatter, except bolding is
-// keyed off is_total_row (section headings, Total Income/COGS/Expense, Gross
-// Profit, Net Profit) instead of "no parent_account" - this report injects
-// synthetic heading/total rows (see profit_and_loss_statement_child_accounts.py)
-// that erpnext.financial_statements' own rule wasn't written to account for.
-// Rest of the formatter is unchanged.
 frappe.query_reports["Profit and Loss Statement Child Accounts"].formatter = function (
 	value,
 	row,
@@ -134,7 +121,6 @@ frappe.query_reports["Profit and Loss Statement Child Accounts"].formatter = fun
 	}
 
 	if (data && column.fieldname == this.name_field) {
-		// first column
 		value = data.section_name || data.account_name || value;
 
 		if (filter && filter?.text && filter?.type == "contains") {
@@ -143,35 +129,16 @@ frappe.query_reports["Profit and Loss Statement Child Accounts"].formatter = fun
 			}
 		}
 
-		// Deliberately no erpnext.financial_statements.open_general_ledger()
-		// link_onclick here: every account expands, in place, into its own
-		// transactions and (for Sales/Purchase Invoices) their line items -
-		// see attach_transaction_rows() in the .py - so there's no need to
-		// navigate away to General Ledger, and doing so would break anyway
-		// for the synthetic "account" ids on those transaction/item rows.
 		column.is_tree = true;
 
-		// Transaction rows carry a real voucher_type/voucher_no (see
-		// make_transaction_row() in the .py) - route straight to that
-		// document. Falling through to the default formatter would try to
-		// build a Link-to-Account href out of the row's synthetic, quoted
-		// "account" id, which isn't a real Account and would go nowhere.
 		if (data.voucher_type && data.voucher_no) {
 			return frappe.utils.get_form_link(data.voucher_type, data.voucher_no, true, value);
 		}
 
-		// Item drill-down rows (see make_item_row() in the .py) - route to
-		// the Item master they belong to.
 		if (data.item_code) {
 			return frappe.utils.get_form_link("Item", data.item_code, true, value);
 		}
 
-		// Real account rows (leaf or group - both carry is_group, unlike the
-		// synthetic heading/total/transaction/item rows above) should not
-		// navigate anywhere at all: they already expand in place into their
-		// own transactions, so return the plain label instead of falling
-		// through to default_formatter, which would otherwise build a
-		// Link-to-Account href out of the real, unquoted account name.
 		if (Object.prototype.hasOwnProperty.call(data, "is_group")) {
 			return value;
 		}

@@ -1,5 +1,3 @@
-// Fulfillment Pipeline: open Sales Orders as cards, one column per Logistic
-// Status. Backend: cannabis_management.mt_dispatch.fulfillment_board.
 (function () {
 	const API = "cannabis_management.mt_dispatch.fulfillment_board.";
 	const STAGE_COLORS = {
@@ -28,8 +26,6 @@
 	};
 	const qty = (v, uom) => num(v) + (uom ? " " + uom : "");
 
-	// "2026-10-15 09:38:00.123" -> local Date, ignoring the zone; the server's
-	// own "now" is parsed the same way, so the offset cancels out.
 	function parse_dt(s) {
 		const m = String(s || "").match(/(\d+)-(\d+)-(\d+)(?:[ T](\d+):(\d+):?(\d+)?)?/);
 		if (!m) return null;
@@ -39,7 +35,6 @@
 		const d = parse_dt(s);
 		return d ? d.getMonth() + 1 + "/" + d.getDate() : "";
 	}
-	// M/D, plus /YY when the date is not in the same year as `today`.
 	function md_y(s, today) {
 		const d = parse_dt(s),
 			t = parse_dt(today);
@@ -47,7 +42,6 @@
 		const base = d.getMonth() + 1 + "/" + d.getDate();
 		return t && t.getFullYear() !== d.getFullYear() ? base + "/" + String(d.getFullYear()).slice(-2) : base;
 	}
-	// Delivery date in the ERP's own date format (System Settings), e.g. 07-16-2026.
 	function due_date(c) {
 		return c.due ? frappe.datetime.str_to_user(c.due) : "-";
 	}
@@ -76,7 +70,6 @@
 			this.pending = {};
 
 			this.page.set_secondary_action(__("Refresh"), () => this.load(), "refresh");
-			// Back to the Sales Order list (which has a button to come here).
 			this.page.add_inner_button(__("Sales Orders"), () => frappe.set_route("List", "Sales Order"));
 			this.make_layout();
 			this.bind_events();
@@ -86,8 +79,6 @@
 				if (this.is_visible() && !this.busy()) this.load(true);
 			}, POLL_MS);
 		}
-
-		// ── layout ──────────────────────────────────────────────────────────
 
 		make_layout() {
 			this.$root = $(`
@@ -137,8 +128,6 @@
 			this.$pop = $('<div class="fp-pop"></div>').appendTo(document.body);
 		}
 
-		// ── data ────────────────────────────────────────────────────────────
-
 		load(quiet) {
 			if (this.loading) return;
 			this.loading = true;
@@ -172,7 +161,6 @@
 		}
 
 		put(card, so) {
-			// Replace, add or drop one card on the open board.
 			const name = (card && card.so) || so;
 			const i = this.open_cards.findIndex((c) => c.so === name);
 			if (!card) {
@@ -202,8 +190,6 @@
 				else this.dirty = true;
 			}, 1500);
 		}
-
-		// ── realtime ────────────────────────────────────────────────────────
 
 		bind_realtime() {
 			this.subscribe();
@@ -241,8 +227,6 @@
 		busy() {
 			return !!this.drag_so || $(".modal.show").length > 0;
 		}
-
-		// ── filters & stats ─────────────────────────────────────────────────
 
 		due_diff(c) {
 			const due = day_index(c.due),
@@ -288,7 +272,6 @@
 		}
 
 		render_stats() {
-			// Section 9: over the open pipeline, Released excluded.
 			const live = this.open_cards.filter((c) => c.status !== "Released");
 			const tile = (n, label, cls) =>
 				`<div class="fp-stat ${cls || ""}"><b>${n}</b><span>${label}</span></div>`;
@@ -302,8 +285,6 @@
 			this.$root.find(".fp-cxn").text(`(${this.cx_count || 0})`);
 		}
 
-		// ── board ───────────────────────────────────────────────────────────
-
 		render() {
 			this.render_companies();
 			this.render_stats();
@@ -315,9 +296,6 @@
 			const cols = cx ? ["Cancelled"] : this.stages;
 			const html = cols
 				.map((stage) => {
-					// Strict FIFO by creation: the oldest order is always on top. An
-					// "Order updated" card (e.g. its delivery date moved) keeps its
-					// place and only shows the banner.
 					const list = cards
 						.filter((c) => c.status === stage)
 						.sort((a, b) => (a.created < b.created ? -1 : a.created > b.created ? 1 : 0));
@@ -434,10 +412,6 @@
 			const due_diff = cx ? null : this.due_diff(c);
 			const due_cls = due_diff > 0 ? "late" : due_diff === 0 ? "today" : "";
 
-			// Reserve: stock lines still to ship and not yet reserved where they
-			// ship from. Fully reserved shows "Reserved", which offers to release
-			// it; anything partly reserved (or reserved in the wrong warehouse)
-			// gets a separate Unreserve next to Reserve.
 			let reserve_btn = "";
 			if (edit && this.can_reserve) {
 				const full = c.reserve_state === "full" && !(c.misplaced_total > 0);
@@ -526,8 +500,6 @@
 			</div>`;
 		}
 
-		// ── events ──────────────────────────────────────────────────────────
-
 		card_of(el) {
 			const so = $(el).closest(".fp-card").attr("data-so");
 			return (this.view === "cancelled" ? this.cx_cards : this.open_cards).find((c) => c.so === so);
@@ -544,7 +516,6 @@
 				me.load(true);
 			});
 
-			// card buttons
 			this.$board.on("click", "[data-ack]", function (e) {
 				e.stopPropagation();
 				me.hide_pop();
@@ -562,7 +533,6 @@
 				if (c) me.act(this.dataset.act, c);
 			});
 
-			// Stock reservation
 			this.$board.on("click", "[data-reserve]", function (e) {
 				e.stopPropagation();
 				me.hide_pop();
@@ -576,7 +546,6 @@
 				if (c) me.unreserve(c);
 			});
 
-			// Preview: the card's item/stock detail, opened from its button
 			this.$board.on("click", "[data-preview]", function (e) {
 				e.stopPropagation();
 				me.toggle_pop(this.dataset.preview);
@@ -588,12 +557,9 @@
 			$(document).on("keydown.fp_preview", (e) => {
 				if (e.key === "Escape") this.hide_pop();
 			});
-			// Follow the button when the page or a column scrolls (capture
-			// catches scrolls inside columns, which do not bubble).
 			window.addEventListener("scroll", () => this.place_pop(), true);
 			window.addEventListener("resize", () => this.place_pop());
 
-			// drag and drop
 			this.$board.on("dragstart", ".fp-card", function (e) {
 				me.drag_so = this.dataset.so;
 				this.classList.add("dragging");
@@ -628,8 +594,6 @@
 			});
 		}
 
-		// ── stage moves ─────────────────────────────────────────────────────
-
 		move(so, to) {
 			const c = this.find(so);
 			if (!c || c.status === to) return;
@@ -646,8 +610,6 @@
 				this.do_move(card, to);
 			};
 			if (!(c.blocked || {})[to]) return go(c);
-			// The block may be stale (rule changed, document made since the
-			// board loaded): ask the server before refusing.
 			this.fresh_card(so).then((fresh) => fresh && go(fresh));
 		}
 
@@ -685,8 +647,6 @@
 		}
 
 		move_dialog(c) {
-			// Always list the stages from a fresh card, never from what the
-			// board loaded minutes ago.
 			if (c) this.fresh_card(c.so).then((fresh) => fresh && this.show_move_dialog(fresh));
 		}
 
@@ -727,8 +687,6 @@
 				frappe.show_alert({ message: __("Marked as reviewed"), indicator: "green" }, 3);
 			});
 		}
-
-		// ── card actions ────────────────────────────────────────────────────
 
 		reserve(c) {
 			frappe.call({
@@ -863,8 +821,6 @@
 			});
 		}
 
-		// ── preview popup ───────────────────────────────────────────────────
-
 		toggle_pop(so) {
 			if (this.pop_so === so) return this.hide_pop();
 			const c = this.card_by_so(so);
@@ -881,8 +837,6 @@
 		}
 
 		sync_pop() {
-			// After a redraw: keep an open preview on its card with fresh data,
-			// or close it when the card has gone (moved off the board, filtered).
 			if (!this.pop_so) return;
 			const c = this.card_by_so(this.pop_so);
 			if (!c || !this.anchor()) return this.hide_pop();
@@ -899,7 +853,6 @@
 			const btn = this.anchor();
 			if (!btn) return this.hide_pop();
 			const r = btn.getBoundingClientRect();
-			// The button scrolled out of sight (page or column): close.
 			if (r.bottom < 0 || r.top > window.innerHeight || (r.width === 0 && r.height === 0)) {
 				return this.hide_pop();
 			}

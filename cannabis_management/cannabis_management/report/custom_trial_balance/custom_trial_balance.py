@@ -1,7 +1,3 @@
-# Copyright (c) 2015, Frappe Technologies Pvt. Ltd. and Contributors
-# License: GNU General Public License v3. See license.txt
-
-
 import frappe
 from frappe import _
 from frappe.query_builder.functions import Sum
@@ -179,7 +175,6 @@ def get_rootwise_opening_balances(filters, report_type, ignore_is_opening):
 			ignore_is_opening=ignore_is_opening,
 		)
 
-		# Report getting generate from the mid of a fiscal year
 		if getdate(last_period_closing_voucher[0].period_end_date) < getdate(add_days(filters.from_date, -1)):
 			start_date = add_days(last_period_closing_voucher[0].period_end_date, 1)
 			gle += get_opening_balance(
@@ -337,7 +332,6 @@ def calculate_values(accounts, gl_entries_by_account, opening_balances, show_net
 	for d in accounts:
 		d.update(init.copy())
 
-		# add opening
 		d["opening_debit"] = opening_balances.get(d.name, {}).get("opening_debit", 0)
 		d["opening_credit"] = opening_balances.get(d.name, {}).get("opening_credit", 0)
 
@@ -389,7 +383,6 @@ def prepare_data(accounts, filters, parent_children_map, company_currency):
 	data = []
 
 	for d in accounts:
-		# Prepare opening closing for group account
 		if parent_children_map.get(d.account) and filters.get("show_net_values"):
 			prepare_opening_closing(d)
 
@@ -411,7 +404,6 @@ def prepare_data(accounts, filters, parent_children_map, company_currency):
 			row[key] = flt(d.get(key, 0.0))
 
 			if abs(row[key]) >= get_zero_cutoff(company_currency):
-				# ignore zero values
 				has_value = True
 
 		row["has_value"] = has_value

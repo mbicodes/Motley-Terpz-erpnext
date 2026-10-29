@@ -1,4 +1,3 @@
-// ── Calculated fields in the child table (always read-only via JS) ────────
 const CALCULATED_FIELDS = [
 	"total_hash",
 	"total_rosin",
@@ -13,7 +12,6 @@ const CALCULATED_FIELDS = [
 	"raw_material_quantity"
 ];
 
-// ── Parent fields scoped to a company, with the doctype holding that company ──
 const COMPANY_SCOPED_FIELDS = [
 	["batch", "Project"],
 	["tolling_partner", "Warehouse"],
@@ -21,25 +19,20 @@ const COMPANY_SCOPED_FIELDS = [
 	["expense_account", "Account"]
 ];
 
-// ── Parent form: setup grid + fetch stock balance from master-level fields ──
 frappe.ui.form.on("Rosin Recording", {
 	onload(frm) {
 		setup_grid(frm);
 
-		// Every company-scoped link on this form follows the Company field.
-		// Company blank → no company filter is applied at all.
 		const company_filter = (extra) =>
 			Object.assign(frm.doc.company ? { company: frm.doc.company } : {}, extra || {});
 
 		const tolling_filter = () => company_filter({ warehouse_type: "Tolling Partner" });
 
-		// Parent fields
 		frm.set_query("batch", () => ({ filters: company_filter() }));
 		frm.set_query("tolling_partner", () => ({ filters: tolling_filter() }));
 		frm.set_query("target_warehouse", () => ({ filters: company_filter() }));
 		frm.set_query("expense_account", () => ({ filters: company_filter({ is_group: 0 }) }));
 
-		// Child table fields
 		frm.set_query("batch_no", "lab_tolling_data", () => ({ filters: company_filter() }));
 		frm.set_query("source_bloom", "lab_tolling_data", () => ({ filters: tolling_filter() }));
 		frm.set_query("prime_strain", "lab_tolling_data", () => ({ filters: {} }));
@@ -48,7 +41,6 @@ frappe.ui.form.on("Rosin Recording", {
 	refresh(frm) {
 		setup_grid(frm);
 
-		// Show "Physical Verification" button only after submission
 		if (frm.doc.docstatus === 1) {
 			frm.add_custom_button(__("Physical Verification"), function () {
 				create_physical_inventory_verification(frm);
@@ -56,7 +48,6 @@ frappe.ui.form.on("Rosin Recording", {
 		}
 	},
 
-	// ── Company changed: drop every value that belongs to a different company ──
 	company(frm) {
 		if (!frm.doc.company) return;
 
@@ -72,23 +63,19 @@ frappe.ui.form.on("Rosin Recording", {
 		});
 	},
 
-	// ── Auto-fetch stock balance when parent-level batch changes ──
 	batch(frm) {
 		fetch_stock_balance_items(frm);
 	},
 
-	// ── Auto-fetch stock balance when parent-level tolling_partner changes ──
 	tolling_partner(frm) {
 		fetch_stock_balance_items(frm);
 		fetch_expense_account(frm);
 	},
 
-	// ── Recalculate tolling_partner_charges when rate changes ──
 	rate_tolling_partner(frm) {
 		calculate_tolling_partner_charges(frm);
 	},
 
-	// Refresh all rows when parent expected_rosin_yield changes
 	expected_rosin_yield(frm) {
 		(frm.doc.lab_tolling_data || []).forEach(row => {
 			frappe.model.set_value(row.doctype, row.name, "expected_rosin_yield", frm.doc.expected_rosin_yield);
@@ -98,13 +85,11 @@ frappe.ui.form.on("Rosin Recording", {
 });
 
 function setup_grid(frm) {
-	// Make calculated fields read-only using the standard ERPNext API
 	CALCULATED_FIELDS.forEach(fieldname => {
 		frappe.meta.get_docfield("Lab Tolling Data", fieldname, frm.doc.name).read_only = 1;
 	});
 }
 
-// ── Fetch expense account from warehouse's custom_expense_account field ──
 function fetch_expense_account(frm) {
 	const tolling_partner = frm.doc.tolling_partner;
 	if (!tolling_partner) {
@@ -121,7 +106,6 @@ function fetch_expense_account(frm) {
 	});
 }
 
-// ── Calculate total_quantity (sum of pounds_sent across child rows) ──
 function calculate_total_quantity(frm) {
 	let total = 0;
 	(frm.doc.lab_tolling_data || []).forEach(row => {
@@ -130,34 +114,27 @@ function calculate_total_quantity(frm) {
 	frm.set_value("total_quantity", flt(total, 4));
 }
 
-// ── Calculate tolling_partner_charges = total_quantity * rate_tolling_partner ──
 function calculate_tolling_partner_charges(frm) {
 	const total_qty = flt(frm.doc.total_quantity);
 	const rate = flt(frm.doc.rate_tolling_partner);
 	frm.set_value("tolling_partner_charges", flt(total_qty * rate, 2));
 }
 
-// ── Child table: trigger recalculation on every manual input change ────────
 frappe.ui.form.on("Lab Tolling Data", {
 
-	// When a new row is added, calculations will run as fields are filled
 	lab_tolling_data_add(frm, cdt, cdn) {
-		// No manual lock needed as fields are handled via setup_grid
 	},
 
-	// When a row is removed, recalculate total_quantity
 	lab_tolling_data_remove(frm, cdt, cdn) {
 		calculate_total_quantity(frm);
 		calculate_tolling_partner_charges(frm);
 	},
 
-	// Pounds sent drives total_quantity
 	pounds_sent: (frm, cdt, cdn) => {
 		calculate_total_quantity(frm);
 		calculate_tolling_partner_charges(frm);
 	},
 
-	// Hash micron fields
 	"150u_hash": (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
 	"120u_hash": (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
 	"90u_hash": (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
@@ -165,7 +142,6 @@ frappe.ui.form.on("Lab Tolling Data", {
 	"45u_hash": (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
 	"25u_hash_copy": (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
 
-	// Rosin micron fields
 	"150u_rosin": (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
 	"120u_rosin": (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
 	"90u_rosin": (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
@@ -173,27 +149,21 @@ frappe.ui.form.on("Lab Tolling Data", {
 	"45u_rosin": (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
 	"25u_rosin": (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
 
-	// Amount Ran Grams drives Pounds Ran and all yield percentages
 	amount_ran_grams: (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
 
-	// Yield expectations drive raw_material_quantity
 	expected__yield__to_hash: (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
 	expected_hash_yield: (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
 	expected_rosin_yield: (frm, cdt, cdn) => recalculate(frm, cdt, cdn),
 });
 
-
-// ── Fetch stock balance items using parent-level fields ───────────────────
 let _fetching_stock_balance = false;
 
 function fetch_stock_balance_items(frm) {
-	// Prevent re-entry
 	if (_fetching_stock_balance) return;
 
 	const batch = frm.doc.batch;
 	const tolling_partner = frm.doc.tolling_partner;
 
-	// Wait until both parent-level fields are set
 	if (!batch || !tolling_partner) return;
 
 	_fetching_stock_balance = true;
@@ -212,10 +182,8 @@ function fetch_stock_balance_items(frm) {
 				return;
 			}
 
-			// Clear existing child table rows before populating
 			frm.doc.lab_tolling_data = [];
 
-			// Add a new row for each item returned
 			r.message.forEach((item) => {
 				const new_row = frm.add_child("lab_tolling_data");
 				new_row.strain_name = item.item_code;
@@ -234,15 +202,11 @@ function fetch_stock_balance_items(frm) {
 	});
 }
 
-
-// ── Core calculation logic for a single child row ─────────────────────────
 function recalculate(frm, cdt, cdn) {
 	const row = locals[cdt][cdn];
 
-	// Helper: safely parse a row field value as float
 	const f = (fieldname) => parseFloat(row[fieldname]) || 0;
 
-	// 1. Total Hash = sum of all hash micron fields
 	const micronsTotalHash =
 		f("150u_hash") +
 		f("120u_hash") +
@@ -253,7 +217,6 @@ function recalculate(frm, cdt, cdn) {
 
 	const totalHash = micronsTotalHash || f("total_hash");
 
-	// 2. Total Rosin = sum of all rosin micron fields
 	const micronsTotalRosin =
 		f("150u_rosin") +
 		f("120u_rosin") +
@@ -264,63 +227,49 @@ function recalculate(frm, cdt, cdn) {
 
 	const totalRosin = micronsTotalRosin || f("total_rosin");
 
-	// 3. Pounds Ran = Amount Ran Grams / 453.592
 	const amountRanGrams = f("amount_ran_grams");
 	const poundsRan = amountRanGrams
 		? parseFloat((amountRanGrams / 453.592).toFixed(4))
 		: 0;
 
-	// 4. Yield to Hash % = (Total Hash / Amount Ran Grams) * 100
 	const yieldToHash = amountRanGrams
 		? ((totalHash / amountRanGrams) * 100).toFixed(2) + "%"
 		: "0%";
 
-	// 5. Hash to Rosin % = (Total Rosin / Total Hash) * 100
 	const hashToRosin = totalHash
 		? parseFloat(((totalRosin / totalHash) * 100).toFixed(2))
 		: 0;
 
-	// NOTE: rosin_yield_ is manually entered — not calculated here
-
-	// 6. Actual Yield to Hash % = (Total Hash / Amount Ran Grams) * 100
 	const actualYieldToHash = amountRanGrams
 		? parseFloat(((totalHash / amountRanGrams) * 100).toFixed(2))
 		: 0;
 
-	// 7. Subprime Total Tolled = 45u Rosin + 150u Rosin
 	const subprime = f("45u_rosin") + f("150u_rosin");
 
-	// 8. Prime Inventory Total Tolled = 25u Rosin + 73u Rosin + 90u Rosin + 120u Rosin
 	const prime = f("25u_rosin") + f("73u_rosin") + f("90u_rosin") + f("120u_rosin");
 
-	// 9. Yield % = (Total Rosin / Total Hash) * 100
 	const yieldPct = totalHash
 		? parseFloat(((totalRosin / totalHash) * 100).toFixed(2))
 		: 0;
 
-	// 10. Actual Rosin Yield % = (Total Rosin / Total Hash) * 100
 	const actualRosinYield = totalHash
 		? parseFloat(((totalRosin / totalHash) * 100).toFixed(2))
 		: 0;
 
-	// 11. Raw Material Quantity (Pounds) using Actual Yields
 	let rawMaterialQty = f("pounds_ran");
 	if (actualYieldToHash > 0 && actualRosinYield > 0) {
 		rawMaterialQty = totalHash / (actualYieldToHash / 100) / 453.592 / (actualRosinYield / 100);
 	}
 
-	// Fallback/Ensure not zero
 	if (rawMaterialQty <= 0 && (totalHash > 0 || f("pounds_ran") > 0)) {
 		rawMaterialQty = f("pounds_ran") || 0;
 	}
 
-	// Cap at pounds_sent if calculation exceeds it
 	const poundsSent = f("pounds_sent");
 	if (rawMaterialQty > poundsSent && poundsSent > 0) {
 		rawMaterialQty = poundsSent;
 	}
 
-	// ── Write calculated values directly to the child row ─────────────────
 	const updates = {
 		total_hash: totalHash,
 		total_rosin: totalRosin,
@@ -342,8 +291,6 @@ function recalculate(frm, cdt, cdn) {
 	frm.fields_dict["lab_tolling_data"].grid.refresh();
 }
 
-
-// ── Create a draft Physical Inventory Verification from this Rosin Recording ──
 function create_physical_inventory_verification(frm) {
 	const child_rows = [];
 

@@ -96,9 +96,6 @@ def get_report_summary(data):
 	]
 
 
-# ── Cost Reconciliation (Opening / Purchase / Consumption / Closing / Sales / COGS) ──
-
-
 def get_cost_reconciliation_columns():
 	return [
 		{"label": _("Item Code"), "fieldname": "item_code", "fieldtype": "Link", "options": "Item", "width": 150},
@@ -153,8 +150,6 @@ def get_cost_reconciliation_data(filters):
 			),
 		)
 
-	# Opening / Closing — reuse ERPNext's own stock balance engine (same approach as
-	# this app's existing Custom Stock Balance report), aggregated across warehouses.
 	sb_filters = frappe._dict(
 		{"company": filters.get("company"), "from_date": filters.from_date, "to_date": filters.to_date}
 	)
@@ -175,7 +170,6 @@ def get_cost_reconciliation_data(filters):
 	def company_condition(parent_alias):
 		return f"AND {parent_alias}.company = %(company)s" if filters.get("company") else ""
 
-	# Purchases
 	purchase_rows = frappe.db.sql(
 		f"""
 		SELECT
@@ -197,10 +191,6 @@ def get_cost_reconciliation_data(filters):
 		b.purchase_qty += flt(r.qty)
 		b.purchase_value += flt(r.value)
 
-	# Consumption — raw material issued for production. In this business that flow
-	# runs through Repack / Manufacture / Material Issue stock entries; only the pure
-	# outgoing leg (s_warehouse set, t_warehouse empty) counts as consumption — a leg
-	# with both set is an internal transfer, not material leaving the tracked stock.
 	consumption_rows = frappe.db.sql(
 		f"""
 		SELECT
@@ -225,8 +215,6 @@ def get_cost_reconciliation_data(filters):
 		b.consumption_qty += flt(r.qty)
 		b.consumption_value += flt(r.value)
 
-	# Sales + COGS — COGS uses Sales Invoice Item's own incoming_rate, the same
-	# valuation ERPNext itself books to the Cost of Goods Sold account on submit.
 	sales_rows = frappe.db.sql(
 		f"""
 		SELECT

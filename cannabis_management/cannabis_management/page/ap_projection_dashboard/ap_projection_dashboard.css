@@ -1,4 +1,3 @@
-/* ── AP Projection Dashboard ─────────────────────────────────────────────── */
 :root {
 	--apj-bg: #f8fafc;
 	--apj-card: #ffffff;
@@ -24,7 +23,6 @@
 	min-height: 100vh;
 }
 
-/* ── Header ─────────────────────────────────────────────────────────────── */
 .apj-header {
 	display: flex;
 	align-items: center;
@@ -54,7 +52,6 @@
 
 .apj-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
-/* ── Segment buttons ────────────────────────────────────────────────────── */
 .apj-seg {
 	display: flex;
 	background: rgba(255, 255, 255, .1);
@@ -92,7 +89,6 @@
 }
 .apj-refresh-btn:hover { background: rgba(255, 255, 255, .18); }
 
-/* ── KPI cards ──────────────────────────────────────────────────────────── */
 .apj-kpis {
 	display: grid;
 	grid-template-columns: repeat(3, 1fr);
@@ -129,7 +125,6 @@
 }
 @keyframes apj-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
-/* ── Cards ──────────────────────────────────────────────────────────────── */
 .apj-card {
 	background: var(--apj-card);
 	border: 1px solid var(--apj-border);
@@ -148,7 +143,6 @@
 }
 .apj-card-title { font-size: 14px; font-weight: 700; color: var(--apj-text); }
 
-/* ── Legend ─────────────────────────────────────────────────────────────── */
 .apj-legend { display: flex; gap: 16px; font-size: 12px; color: var(--apj-text-secondary); }
 .apj-legend-item { display: flex; align-items: center; gap: 6px; }
 .apj-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
@@ -157,7 +151,6 @@
 
 .apj-empty { text-align: center; color: var(--apj-text-muted); font-size: 12px; padding: 30px 10px; }
 
-/* ── Table controls ─────────────────────────────────────────────────────── */
 .apj-table-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .apj-seg-sm .apj-seg-btn { color: var(--apj-text-secondary); }
 .apj-seg-sm .apj-seg-btn.active { background: var(--apj-purple-dark); color: #fff; }
@@ -176,7 +169,6 @@
 }
 .apj-search:focus { border-color: var(--apj-purple-light); }
 
-/* ── Table ──────────────────────────────────────────────────────────────── */
 .apj-table-wrap { overflow-x: auto; }
 .apj-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .apj-table thead th {
@@ -201,7 +193,6 @@
 .apj-pill-outstanding { background: var(--apj-purple-pale); color: var(--apj-purple-dark); }
 .apj-pill-recurring { background: #f3e8ff; color: #6d28d9; border: 1px dashed #c4b5fd; }
 
-/* ── Responsive ─────────────────────────────────────────────────────────── */
 @media (max-width: 900px) {
 	.apj-kpis { grid-template-columns: 1fr; }
 }

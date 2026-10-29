@@ -1,6 +1,3 @@
-// Copyright (c) 2026, alltechvirtual.com and contributors
-// For license information, please see license.txt
-
 frappe.query_reports["Sales Invoice COGS Report"] = {
 	filters: [
 		cannabis.reports.company_filter({ reqd: 1 }),

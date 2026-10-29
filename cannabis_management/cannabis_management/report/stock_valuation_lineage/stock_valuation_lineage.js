@@ -1,6 +1,3 @@
-// Copyright (c) 2026, alltechvirtual.com and contributors
-// For license information, please see license.txt
-
 frappe.query_reports["Stock Valuation Lineage"] = {
 	filters: [
 		{
@@ -62,7 +59,6 @@ frappe.query_reports["Stock Valuation Lineage"] = {
 		},
 	],
 
-	// Colour-code each phase and indent visually so the back-trace reads as a tree.
 	formatter: function (value, row, column, data, default_formatter) {
 		value = default_formatter(value, row, column, data);
 		if (column.fieldname === "phase" && data) {

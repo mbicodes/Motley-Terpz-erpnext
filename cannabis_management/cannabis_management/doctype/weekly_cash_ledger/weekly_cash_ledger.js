@@ -1,6 +1,3 @@
-// Live-recalculate the summary lenses as lines are edited, mirroring
-// weekly_cash_ledger.py (server recomputes authoritatively on save).
-
 function wcl_money(row) {
 	return flt(row.amount) || flt(row.expected_amount);
 }
@@ -51,7 +48,6 @@ function wcl_recalc(frm) {
 		inbound_value: sum(inbound), inbound_orders: inbound.length,
 	});
 
-	// per-category actuals (new sales only)
 	var by_cat = {};
 	sales.forEach(function (r) {
 		if (r.category) by_cat[r.category] = (by_cat[r.category] || 0) + wcl_money(r);

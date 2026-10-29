@@ -1,17 +1,5 @@
-"""The notification matrix (§17).
-
-Most rows are already emailed directly by the engine that raises them, because
-they carry computed context an alert cannot express — exposure, available line,
-score, the release basis. Those are listed below for the record.
-
-What is left are **in-desk alerts** that are better as native `Notification`
-records: they appear in the notification bell, respect each user's preferences,
-and can be edited without a deploy.
-"""
-
 import frappe
 
-# Handled in code, with computed context — do not duplicate as Notifications.
 CODE_HANDLED = {
 	"Terms Sales Order submitted for approval": "credit_and_ar.api._email_approval_request",
 	"Terms Sales Order approved / rejected": "credit_and_ar.api._email_decision",
@@ -30,7 +18,6 @@ CODE_HANDLED = {
 	"Finance charges assessed": "finance_charge._notify",
 	"Friday report": "weekly_report.send_weekly_report",
 }
-
 
 NOTIFICATIONS = [
 	{
@@ -145,19 +132,6 @@ NOTIFICATIONS = [
 
 
 def install_notifications():
-	"""Create the module's notifications, and keep their conditions correct.
-
-	Conditions are re-asserted on every run rather than only at creation. The app
-	ships these same records in fixtures/notification.json, and that fixture still
-	carries conditions written against AR Case.case_type — a field the single-case
-	refactor removed. A stale condition is not cosmetic: "AR Case Opened" fires on
-	insert, so evaluating it throws AttributeError and **no AR Case can be created
-	at all** — the nightly sweep, limit breaches, returned payments, broken
-	promises and licence expiry all fail silently into the error log.
-
-	Wired to after_migrate, which Frappe runs *after* sync_fixtures, so whatever
-	the fixture re-imports is corrected immediately afterwards.
-	"""
 	for spec in NOTIFICATIONS:
 		if frappe.db.exists("Notification", spec["name"]):
 			_sync_condition(spec)
@@ -182,11 +156,6 @@ def install_notifications():
 
 
 def _sync_condition(spec):
-	"""Point an existing Notification's condition back at the spec in this file.
-
-	A spec with no condition means "always fire"; the stored value is cleared to
-	match rather than left as whatever was there before.
-	"""
 	wanted = spec.get("condition") or ""
 	current = frappe.db.get_value("Notification", spec["name"], "condition") or ""
 	if current == wanted:

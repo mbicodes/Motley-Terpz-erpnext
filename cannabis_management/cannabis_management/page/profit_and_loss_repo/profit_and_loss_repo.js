@@ -11,7 +11,6 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
     $body.html('<div id="pnl-root"></div>');
     var $root = $("#pnl-root");
 
-    // ── State ───────────────────────────────────────────────────────────────
     var state = {
         company: frappe.defaults.get_user_default("Company") || "",
         filter_based_on: "Fiscal Year",
@@ -41,7 +40,6 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
         chart_instance: null,
     };
 
-    // ── Inject CSS ──────────────────────────────────────────────────────────
     if (!document.getElementById("pnl-styles")) {
         var style = document.createElement("style");
         style.id = "pnl-styles";
@@ -608,7 +606,6 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
         document.head.appendChild(style);
     }
 
-    // ── Load Chart.js ────────────────────────────────────────────────────────
     function ensureChartJs(cb) {
         if (window.Chart) { cb(); return; }
         var s = document.createElement("script");
@@ -617,7 +614,6 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
         document.head.appendChild(s);
     }
 
-    // ── Helpers ──────────────────────────────────────────────────────────────
     function fmt_currency(val, currency) {
         if (val === "" || val === null || val === undefined) return "";
         var n = parseFloat(val) || 0;
@@ -642,7 +638,6 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
         return state.presentation_currency || frappe.defaults.get_default("currency") || "USD";
     }
 
-    // ── Build Shell HTML ─────────────────────────────────────────────────────
     function buildShell() {
         return `
         <div class="pnl-header">
@@ -746,7 +741,6 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
         `;
     }
 
-    // ── Render body content ──────────────────────────────────────────────────
     function renderResults() {
         var $b = $("#pnl-body");
         if (state.loading) {
@@ -766,13 +760,11 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
         renderChart();
         bindTableEvents();
 
-        // Footer
         $("#pnl-gen-time").text(frappe.datetime.now_datetime());
         $("#pnl-company-name").text(state.company);
         $("#pnl-footer").show();
     }
 
-    // ── KPI Cards ────────────────────────────────────────────────────────────
     function buildKpiCards(currency) {
         var summary = state.summary || [];
         var net_income = 0, net_expense = 0, net_profit = 0;
@@ -816,7 +808,6 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
         `;
     }
 
-    // ── Chart Card ────────────────────────────────────────────────────────────
     function buildChartCard() {
         var period = state.from_fiscal_year || state.period_start_date || "";
         if (state.to_fiscal_year && state.to_fiscal_year !== state.from_fiscal_year) period += " – " + state.to_fiscal_year;
@@ -919,7 +910,6 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
                 }
             });
 
-            // chart type toggle
             $(".pnl-chart-tab").off("click").on("click", function() {
                 $(".pnl-chart-tab").removeClass("active");
                 $(this).addClass("active");
@@ -929,12 +919,10 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
         });
     }
 
-    // ── Visible columns (skip hidden like 'currency') ─────────────────────────
     function getVisibleColumns() {
         return (state.columns || []).filter(function(c) { return !c.hidden; });
     }
 
-    // ── Table Card ────────────────────────────────────────────────────────────
     function buildTableCard(currency) {
         var colHeaders = buildColumnHeaders();
         var rows = buildTableRows(currency);
@@ -979,14 +967,6 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
         return html;
     }
 
-    // The backend (custom_profit_and_loss_statement.py) deliberately blanks
-    // out every group/section row's own Currency values — its accumulated
-    // total is only meant to be read off the child rows sitting visibly
-    // beneath it. When the user collapses that group those child rows
-    // disappear, so there's nothing left showing where its money went. This
-    // re-derives the rolled-up total on the client by summing every leaf
-    // descendant for a given column, recursing through any nested subgroups
-    // so a multi-level collapse still adds up correctly.
     function sumCollapsedGroupValue(accountKey, fieldname, childrenByParent) {
         var children = childrenByParent[accountKey] || [];
         var total = 0;
@@ -1002,11 +982,6 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
         return total;
     }
 
-    // Growth-view period columns hold a period-over-period % that is NOT
-    // meaningfully additive across sibling accounts (each is computed against
-    // its own previous-period value, a different base per account) — see
-    // erpnext's compute_growth_view_data. Report-view currency and
-    // Margin-view % (both expressed against one common base) sum correctly.
     function canSumForCollapse(fieldname) {
         if (state.selected_view === "Growth") return fieldname === "total";
         return true;
@@ -1034,9 +1009,6 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
 
             var accountName = row.account_name || row.section_name || "";
             var isQtyRow = row.is_qty_row === 1;
-            // Stock quantity rows carry their own labels ("Total Inward
-            // Quantity", ...) — they must never be picked up as P&L total /
-            // section rows, or they'd render in the dark total band.
             var isTotal = !isQtyRow && (accountName.includes("Total") || accountName.includes("total"));
             var isNetProfit = accountName.includes("Profit for the year") || accountName.includes("Profit / Loss");
             var isGroup = row.is_group === 1;
@@ -1044,19 +1016,15 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
             var isBlank = !accountName;
             var indent = parseInt(row.indent) || 0;
 
-            // Search filter
             if (search && accountName.toLowerCase().indexOf(search) === -1) continue;
 
-            // Visibility based on expand state — walk up the full ancestor chain
             if (!isNetProfit && !isTotal && !isSection && !isQtyRow && !isBlank) {
                 var parentKey = row.parent_account || row.parent_section || "";
-                if (!parentKey) continue; // safety: non-section with no parent, skip
-                // Hide if ANY ancestor is collapsed
+                if (!parentKey) continue;
                 var ancestor = parentKey;
                 var hidden = false;
                 while (ancestor) {
                     if (state.expanded[ancestor] === false) { hidden = true; break; }
-                    // find the parent row to walk up further
                     var parentRow = null;
                     for (var pi = 0; pi < rows.length; pi++) {
                         if (rows[pi] && (rows[pi].account === ancestor || rows[pi].section === ancestor)) {
@@ -1079,17 +1047,9 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
 
             html += '<tr class="' + rowClass + '" data-account="' + escHtml(accountName) + '" data-row-idx="' + i + '">';
 
-            // Account name cell
             var indentPx = indent * 18;
             var toggleHtml = "";
             var iconHtml = "";
-            // Real ledger accounts (leaf or group) carry a `.account` value.
-            // Synthetic summary rows (Total Income/Expense, Net Profit) instead
-            // have it quoted (e.g. "'Total Income (Credit)'") — see
-            // financial_statements.py's get_net_profit_loss/get_data totals —
-            // so those are excluded from GL drill-through, matching how
-            // erpnext's own financial_statements.js formatter decides whether
-            // to wire up `open_general_ledger`.
             var isClickableAccount = !!(row.account && typeof row.account === "string" && row.account.charAt(0) !== "'");
             var nameSpanClass = isClickableAccount ? " class=\"pnl-account-link\"" : "";
 
@@ -1114,7 +1074,6 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
                 '<span' + nameSpanClass + '>' + escHtml(accountName) + '</span>' +
                 '</div></td>';
 
-            // Value cells
             var accountKeyForSum = isGroup ? (row.account || row.section || accountName) : null;
             var isCollapsedGroup = accountKeyForSum && state.expanded[accountKeyForSum] === false;
 
@@ -1137,10 +1096,6 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
                 var numClass = "";
 
                 if (isQtyRow) {
-                    // Stock quantities, not money — always shown as plain
-                    // numbers regardless of the Report/Growth/Margin view
-                    // toggle (the backend never rewrites these rows for
-                    // Growth/Margin, so their values are always absolute).
                     var qn = parseFloat(val) || 0;
                     formatted = fmt_number(qn);
                     numClass = qn > 0 ? "num-positive" : qn < 0 ? "num-negative" : "num-zero";
@@ -1156,7 +1111,7 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
                             formatted = (n >= 0 ? "+" : "") + n + "%";
                             numClass = n > 0 ? "num-positive" : n < 0 ? "num-negative" : "num-zero";
                         }
-                    } else { // Margin
+                    } else {
                         formatted = n + "%";
                         numClass = n > 0 ? "num-positive" : n < 0 ? "num-negative" : "num-zero";
                     }
@@ -1177,15 +1132,9 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
         return html;
     }
 
-    // ── Drill through to General Ledger with the currently selected filters ───
-    // Mirrors erpnext.financial_statements.open_general_ledger (financial_statements.js)
-    // so the behaviour matches the standard Profit and Loss Statement report.
     function openGeneralLedger(row) {
         if (!row) return;
 
-        // Rows in the Indirect Income / Indirect Expense recap sections carry
-        // a synthetic tree key in `account` ("<account>::recap") and the real
-        // Account name in `gl_account` — drill through on the real one.
         var account = row.gl_account || row.account;
         if (!account) return;
 
@@ -1217,9 +1166,7 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
         });
     }
 
-    // ── Table event binding ───────────────────────────────────────────────────
     function bindTableEvents() {
-        // Toggle expand/collapse
         $("#pnl-tbody").off("click", ".pnl-toggle").on("click", ".pnl-toggle", function(e) {
             e.stopPropagation();
             var acct = $(this).data("acct");
@@ -1232,12 +1179,10 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
         });
         bindAccountLinkClick();
 
-        // Search
         $("#pnl-search").off("input").on("input", function() {
             rebuildTableBody(getCurrency(), $(this).val());
         });
 
-        // Expand / Collapse all
         $("#pnl-expand-all").off("click").on("click", function() {
             (state.data || []).forEach(function(r) {
                 if (r && r.is_group === 1) {
@@ -1257,18 +1202,15 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
             rebuildTableBody(getCurrency());
         });
 
-        // View pills (Growth/Margin/Report quick switch without re-running)
         $("#pnl-view-pills").off("click", ".pnl-view-pill").on("click", ".pnl-view-pill", function() {
             $(".pnl-view-pill").removeClass("active");
             $(this).addClass("active");
             var v = $(this).data("view");
             state.selected_view = v;
             $("#pnl-view").val(v);
-            // Re-run the report with the new view so backend computes Growth/Margin correctly
             runReport();
         });
 
-        // Export CSV
         $("#pnl-export-btn").off("click").on("click", function() {
             exportCsv();
         });
@@ -1276,7 +1218,6 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
 
     function rebuildTableBody(currency, searchText) {
         $("#pnl-tbody").html(buildTableRows(currency, searchText));
-        // re-bind toggle events
         $("#pnl-tbody").off("click", ".pnl-toggle").on("click", ".pnl-toggle", function(e) {
             e.stopPropagation();
             var acct = $(this).data("acct");
@@ -1286,13 +1227,11 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
         bindAccountLinkClick();
     }
 
-    // ── CSV Export ────────────────────────────────────────────────────────────
     function exportCsv() {
         var rows = state.data || [];
         var cols = getVisibleColumns();
         var lines = [];
 
-        // Header
         lines.push(cols.map(function(c) { return '"' + (c.label || "") + '"'; }).join(","));
 
         rows.forEach(function(row) {
@@ -1311,9 +1250,7 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
         a.click();
     }
 
-    // ── Load metadata ─────────────────────────────────────────────────────────
     function loadMetadata() {
-        // Load companies
         frappe.db.get_list("Company", { fields: ["name"], limit: 100 }).then(function(res) {
             var $s = $("#pnl-company");
             $s.empty();
@@ -1327,7 +1264,6 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
             }
         });
 
-        // Load fiscal years
         frappe.db.get_list("Fiscal Year", { fields: ["name", "year_start_date", "year_end_date"], order_by: "year_start_date desc", limit: 50 }).then(function(res) {
             state.fiscal_years = res || [];
             var $from = $("#pnl-from-fy");
@@ -1339,7 +1275,6 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
                 $to.append('<option value="' + escHtml(fy.name) + '">' + escHtml(fy.name) + '</option>');
             });
 
-            // Default to current fiscal year
             var today = frappe.datetime.get_today();
             var currentFy = null;
             for (var i = 0; i < (res || []).length; i++) {
@@ -1355,11 +1290,9 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
                 $from.val(currentFy);
                 $to.val(currentFy);
             }
-            // Auto-run once defaults are ready
             scheduleRun();
         });
 
-        // Load currencies
         frappe.db.get_list("Currency", { fields: ["name"], filters: [["enabled", "=", 1]], limit: 200 }).then(function(res) {
             var $c = $("#pnl-currency");
             $c.empty();
@@ -1370,14 +1303,12 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
         });
     }
 
-    // ── Debounced auto-run (300 ms after last change) ─────────────────────────
     var autoRunTimer = null;
     function scheduleRun() {
         clearTimeout(autoRunTimer);
         autoRunTimer = setTimeout(function() { runReport(); }, 300);
     }
 
-    // ── Bind filter controls ──────────────────────────────────────────────────
     function bindControls() {
         $("#pnl-company").on("change", function() { state.company = $(this).val(); scheduleRun(); });
         $("#pnl-filter-based-on").on("change", function() {
@@ -1398,7 +1329,6 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
 
         $("#pnl-run-btn").on("click", function() { clearTimeout(autoRunTimer); runReport(); });
 
-        // Enter key on any filter
         $(".pnl-filters-panel").on("keydown", function(e) {
             if (e.key === "Enter") { clearTimeout(autoRunTimer); runReport(); }
         });
@@ -1414,7 +1344,6 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
         }
     }
 
-    // ── Run Report ────────────────────────────────────────────────────────────
     function runReport() {
         if (!state.company) { frappe.msgprint("Please select a Company."); return; }
         if (state.filter_based_on === "Fiscal Year" && !state.from_fiscal_year) {
@@ -1483,7 +1412,6 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
         });
     }
 
-    // ── Bootstrap ─────────────────────────────────────────────────────────────
     $root.html(buildShell());
     loadMetadata();
     bindControls();

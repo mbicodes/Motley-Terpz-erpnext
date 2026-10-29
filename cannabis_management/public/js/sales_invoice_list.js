@@ -1,6 +1,3 @@
-// Render the custom_delivery_note_created column as a small truck icon
-// instead of a checkbox tick: green truck when a Delivery Note exists, blank
-// otherwise. Merge into (don't replace) ERPNext's existing list settings.
 frappe.listview_settings['Sales Invoice'] = frappe.listview_settings['Sales Invoice'] || {};
 
 (function () {

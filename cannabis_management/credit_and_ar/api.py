@@ -1,9 +1,3 @@
-"""Whitelisted endpoints for the Credit & AR module.
-
-Every endpoint is role-guarded server-side. The client buttons are convenience,
-never the control.
-"""
-
 import frappe
 from frappe import _
 from frappe.utils import flt, now_datetime
@@ -13,9 +7,6 @@ from cannabis_management.credit_and_ar import credit_engine, utils
 APPROVER_ROLES = ("Managing Director", "Ops Manager", "System Manager")
 
 TODO_DESCRIPTION = "Approve Terms Sales Order {0} — {1}"
-
-
-# ── guards ───────────────────────────────────────────────────────────────────
 
 
 def _get_order(sales_order: str):
@@ -41,14 +32,6 @@ def _require_approver():
 
 
 def _notify_dispatch(sales_order: str):
-	"""Let the dispatch flow know a Terms order just cleared credit.
-
-	It cannot find this out for itself. Approval is written with db_set, which
-	updates the column and runs no document events at all -- so neither
-	on_update_after_submit nor any other hook fires, and the order would sit
-	outside the flow forever. Failures here are logged and swallowed: dispatch
-	must never be able to block a credit decision.
-	"""
 	try:
 		from cannabis_management.mt_dispatch.flow import on_terms_approved
 
@@ -60,12 +43,8 @@ def _notify_dispatch(sales_order: str):
 		)
 
 
-# ── endpoints ────────────────────────────────────────────────────────────────
-
-
 @frappe.whitelist()
 def request_terms_approval(sales_order: str):
-	"""Send a Terms order to the MD and Ops Manager, and block its print."""
 	doc = _get_order(sales_order)
 	doc.check_permission("write")
 
@@ -143,7 +122,6 @@ def reject_terms(sales_order: str, reason: str):
 			"custom_terms_rejection_reason": reason,
 			"custom_terms_approved_by": frappe.session.user,
 			"custom_terms_approved_on": now_datetime(),
-			# Print stays blocked — a rejected Terms order must not leave the building.
 			"custom_print_blocked": 1,
 		},
 		update_modified=False,
@@ -164,7 +142,6 @@ def reject_terms(sales_order: str, reason: str):
 
 @frappe.whitelist()
 def release_ar_case(case_name: str, release_basis: str, notes: str | None = None):
-	"""Lift a hold. Credit Finance only; every basis is verified live."""
 	from cannabis_management.credit_and_ar import hold_engine
 
 	return hold_engine.release_case(case_name, release_basis, notes)
@@ -172,7 +149,6 @@ def release_ar_case(case_name: str, release_basis: str, notes: str | None = None
 
 @frappe.whitelist()
 def raise_manual_case(customer: str, trigger_reason: str, trigger_details: str):
-	"""Finance or the MD opening a case by hand — suspected fraud, insolvency signs."""
 	from cannabis_management.credit_and_ar import hold_engine
 	from cannabis_management.credit_and_ar.doctype.ar_case.ar_case import get_active_case
 
@@ -198,7 +174,6 @@ def raise_manual_case(customer: str, trigger_reason: str, trigger_details: str):
 
 @frappe.whitelist()
 def refresh_ar_case(case_name: str):
-	"""Recompute the live past-due figures on a case."""
 	from cannabis_management.credit_and_ar.doctype.ar_case.ar_case import sync_customer_from_cases
 
 	doc = frappe.get_doc("AR Case", case_name)
@@ -221,7 +196,6 @@ def refresh_ar_case(case_name: str):
 
 @frappe.whitelist()
 def get_credit_summary(customer: str, sales_order: str | None = None):
-	"""Feed the Sales Order sidebar without a second round of queries."""
 	summary = credit_engine.get_line_summary(customer, exclude_sales_order=sales_order)
 	standing = (
 		frappe.db.get_value(
@@ -249,21 +223,12 @@ def get_credit_summary(customer: str, sales_order: str | None = None):
 
 @frappe.whitelist()
 def get_customer_hold_type(customer: str) -> str:
-	"""The customer's current hold type, derived from their active AR Case.
-
-	Replaces the removed ``custom_hold_type`` field for the Customer form banner,
-	which can no longer read the value straight off ``frm.doc``.
-	"""
 	from cannabis_management.credit_and_ar.doctype.ar_case.ar_case import get_hold_type
 
 	return get_hold_type(customer)
 
 
-# ── helpers ──────────────────────────────────────────────────────────────────
-
-
 def _approver_users() -> list[str]:
-	"""The MD and the Ops Manager, falling back to role membership."""
 	named = [utils.routed_user("managing_director"), utils.routed_user("ops_manager")]
 	users = utils.dedupe_recipients(named)
 	if users:

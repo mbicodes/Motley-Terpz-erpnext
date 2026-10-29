@@ -1,14 +1,8 @@
 import frappe
 
 
-# ── Cash Management ───────────────────────────────────────────────────────────
-
 @frappe.whitelist()
 def get_cash_summary():
-    """
-    Returns cash on hand, net owed, and pending count for the logged-in user.
-    Used by the Nikki Dashboard custom HTML block number cards.
-    """
     user = frappe.session.user
     person = frappe.db.get_value("Cash Tracker Person", {"user": user}, "name")
     if not person:
@@ -45,10 +39,6 @@ def get_cash_summary():
 
 @frappe.whitelist()
 def get_nikki_cash_entries(limit=20):
-    """
-    Returns the most recent Cash Ledger Entries and Expense Tracker Entries
-    for the logged-in user — used by the dashboard transaction list.
-    """
     user = frappe.session.user
     person = frappe.db.get_value("Cash Tracker Person", {"user": user}, "name")
     if not person:
@@ -111,14 +101,8 @@ def get_nikki_cash_entries(limit=20):
     return rows[:int(limit)]
 
 
-# ── Accounts Receivable ───────────────────────────────────────────────────────
-
 @frappe.whitelist()
 def get_ar_by_client():
-    """
-    Accounts Receivable grouped by Bill To (customer).
-    Returns unpaid / partially paid Sales Invoices.
-    """
     if not frappe.has_permission("Sales Invoice", "read"):
         frappe.throw("Not permitted", frappe.PermissionError)
 
@@ -146,10 +130,6 @@ def get_ar_by_client():
 
 @frappe.whitelist()
 def get_all_invoices(limit=25, offset=0, search=None):
-    """
-    All submitted Sales Invoices — read-only reference view.
-    Supports optional search by customer name or invoice ID.
-    """
     if not frappe.has_permission("Sales Invoice", "read"):
         frappe.throw("Not permitted", frappe.PermissionError)
 
@@ -188,9 +168,6 @@ def get_all_invoices(limit=25, offset=0, search=None):
 
 @frappe.whitelist()
 def get_ar_summary():
-    """
-    Top-level AR numbers for the KPI cards.
-    """
     if not frappe.has_permission("Sales Invoice", "read"):
         frappe.throw("Not permitted", frappe.PermissionError)
 

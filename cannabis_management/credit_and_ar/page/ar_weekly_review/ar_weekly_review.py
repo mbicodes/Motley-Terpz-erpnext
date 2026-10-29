@@ -1,18 +1,3 @@
-# Copyright (c) 2026, alltechvirtual.com and contributors
-# For license information, please see license.txt
-"""AR Accountability (formerly AR Weekly Review) — server side.
-
-Tier and outstanding amount are never stored per customer (spec §3): they are
-recomputed from Sales Invoice on every load, which is what makes an account
-slide from Upcoming into Level 1 the day it passes its due date without any
-batch job.
-
-The New AR / Legacy AR split follows option (b) of spec §5 — derived from
-posting_date against the project-wide cutover — because Sales Invoice.custom_ledger
-is unset on effectively every invoice. NEW_AR_START is imported rather than
-re-declared so this page can never drift from the rest of the AR code.
-"""
-
 import frappe
 from frappe import _
 from frappe.utils import flt, getdate, nowdate
@@ -38,38 +23,20 @@ from cannabis_management.credit_and_ar.doctype.ar_weekly_entry.ar_weekly_entry i
 	week_start,
 )
 
-# Only holders of this role may see the page or call its methods. Kept to Nikki
-# and Matt (plus Administrator, which holds every role) - the AR review is their
-# working list, and the notes on it are written for them.
 PAGE_ROLE = "AR Weekly Review"
 
 
 def _require_access():
-	"""Re-state the page's role restriction for the whitelisted methods.
-
-	The Page doc's `roles` only gate the route: every method below is reachable
-	over /api/method by ANY logged-in user regardless of who can open the page,
-	so without this the restriction would be cosmetic. Administrator holds every
-	role and so needs no special case.
-	"""
 	if PAGE_ROLE not in frappe.get_roles():
 		frappe.throw(
 			_("You are not permitted to view AR Accountability."),
 			frappe.PermissionError,
 		)
 
-
-# ── Customer fields shown as dropdowns on this page ──────────────────────────
-# Recon Status, Onboarding and Company Made Contact are the AR Dashboard's
-# columns; Segment is Categorized AR's. They are the same Customer fields those
-# pages edit, saved through the same endpoints with the same edit rights, so a
-# change on any of the three pages shows on the others.
 RECON_FIELD = "custom_reconciliation_status"
 
 
 def _attach_customer_info(rows):
-	"""Put each customer's five values on its rows; return the option lists and
-	edit rights the page needs to draw the dropdowns."""
 	wanted = {"recon_status": RECON_FIELD, "segment": SEGMENT_FIELD, "reach_out": REACH_OUT_FIELD}
 	wanted.update(AR_FLAG_FIELDS)
 	present = {k: f for k, f in wanted.items() if frappe.db.has_column("Customer", f)}
@@ -84,7 +51,6 @@ def _attach_customer_info(rows):
 		values = info.get(r["customer"], {})
 		for k in wanted:
 			r[k] = values.get(k, "")
-		# Blank only on a customer created before the field: nobody has called.
 		r["reach_out"] = r["reach_out"] or NOT_REACHED_OUT
 
 	segments = get_segments()
@@ -101,17 +67,13 @@ def _attach_customer_info(rows):
 
 
 def _customer_columns(r):
-	"""The five values as export cells, in the column order of _export_tables."""
 	return [r.get("recon_status") or "", r.get("onboarding") or "",
 	        r.get("company_made_contact") or "", r.get("segment") or UNASSIGNED,
 	        r.get("reach_out") or NOT_REACHED_OUT]
 
-
 LEDGER_NEW = "New AR"
 LEDGER_LEGACY = "Legacy AR"
 
-# (upper bound in days overdue, label, tier). None = no upper bound.
-# Matches the bucket table in spec §3 and the badges in the mockup.
 BUCKETS = (
 	(7, "0-7 days", "level1"),
 	(15, "7-15 days", "level1"),
@@ -124,12 +86,10 @@ BUCKETS = (
 )
 ON_TERMS = ("On terms", "upcoming")
 
-# Worst-first, so "which tier does this row get" is just a max().
 TIER_RANK = {"upcoming": 0, "level1": 1, "level2": 2, "level3": 3}
 
 
 def _bucket_for(days_overdue):
-	"""Return (label, tier) for a number of days past due. <= 0 is not yet due."""
 	if days_overdue <= 0:
 		return ON_TERMS
 	for upper, label, tier in BUCKETS:
@@ -150,7 +110,6 @@ def _ledger_for(posting_date):
 
 
 def _open_invoices():
-	"""Every submitted, still-outstanding, non-intercompany Sales Invoice."""
 	internal = _internal_customers()
 	rows = frappe.db.sql(
 		"""
@@ -166,13 +125,6 @@ def _open_invoices():
 
 
 def _build_rows(ledger=None):
-	"""The §3 aggregation.
-
-	One row per customer + ledger + portion, where portion is "upcoming" (nothing
-	yet due) or "overdue". The two are kept apart deliberately: an on-terms
-	balance and an overdue balance for the same customer need different
-	conversations, and only one of them is moving.
-	"""
 	today = getdate(nowdate())
 	groups = {}
 
@@ -205,7 +157,6 @@ def _build_rows(ledger=None):
 		amount = flt(inv.outstanding_amount)
 		g["amount"] += amount
 		g["invoice_count"] += 1
-		# The invoices behind the row, for the expanded view.
 		g["invoices"].append({
 			"name": inv.name,
 			"company": inv.company,
@@ -219,7 +170,6 @@ def _build_rows(ledger=None):
 		b = g["_buckets"].setdefault(label, {"label": label, "amount": 0.0, "tier": tier})
 		b["amount"] += amount
 
-		# Row tier / days badge always describe the worst bucket present.
 		if TIER_RANK[tier] >= TIER_RANK[g["tier"]]:
 			g["tier"] = tier
 		if _bucket_rank(label) >= _bucket_rank(g["days"]):
@@ -228,7 +178,6 @@ def _build_rows(ledger=None):
 	rows = []
 	for g in groups.values():
 		g["breakdown"] = sorted(g.pop("_buckets").values(), key=lambda b: _bucket_rank(b["label"]))
-		# Oldest due date first: the invoice that has been waiting longest leads.
 		g["invoices"].sort(key=lambda i: (i["due_date"] or "9999-12-31", i["name"]))
 		rows.append(g)
 
@@ -246,11 +195,6 @@ def _bucket_rank(label):
 
 
 def _latest_entries():
-	"""Most recent AR Weekly Entry per customer+ledger, plus how many exist.
-
-	Status is keyed on customer + ledger (spec §3), not per portion — so an
-	account's upcoming and overdue rows share one weekly log.
-	"""
 	rows = frappe.db.sql(
 		"""
 		select e.customer, e.ledger, e.status, e.week_of, e.qa, e.plan, e.notes
@@ -273,7 +217,6 @@ def _latest_entries():
 
 	out = {}
 	for r in rows:
-		# max(week_of) can tie if two entries were filed the same week; last wins.
 		out[(r.customer, r.ledger)] = {
 			"current_status": r.status or "",
 			"latest_note": r.qa or r.plan or r.notes or "",
@@ -285,7 +228,6 @@ def _latest_entries():
 
 @frappe.whitelist()
 def get_ar_weekly_review(ledger=None):
-	"""Method 1 (spec §4): the whole grid in one call."""
 	_require_access()
 	rows = _build_rows(ledger)
 	latest = _latest_entries()
@@ -309,7 +251,6 @@ def get_ar_weekly_review(ledger=None):
 
 @frappe.whitelist()
 def get_ar_weekly_log(customer, ledger):
-	"""Method 2 (spec §4): full history for one customer+ledger, newest first."""
 	_require_access()
 	return frappe.get_all(
 		"AR Weekly Entry",
@@ -326,11 +267,6 @@ def get_ar_weekly_log(customer, ledger):
 @frappe.whitelist()
 def add_ar_weekly_entry(customer, ledger, status, qa=None, plan=None, notes=None,
                         contact=None, email=None, need_three_way_call=0):
-	"""Method 3 (spec §4): file this week's entry.
-
-	week_of, tier_snapshot and amount_snapshot are all computed here — never
-	taken from the client — so the log stays honest even if the page is stale.
-	"""
 	_require_access()
 
 	if not status:
@@ -358,12 +294,6 @@ def add_ar_weekly_entry(customer, ledger, status, qa=None, plan=None, notes=None
 
 
 def _snapshot_for(customer, ledger):
-	"""Worst tier and total outstanding for a customer+ledger right now.
-
-	A customer can hold an upcoming row and an overdue row at once; the log
-	records the worst tier and the combined balance, which is what someone
-	reading the history later actually wants to know.
-	"""
 	tier, amount = "upcoming", 0.0
 	for r in _build_rows(ledger):
 		if r["customer"] != customer or r["ledger"] != ledger:
@@ -372,7 +302,6 @@ def _snapshot_for(customer, ledger):
 		if TIER_RANK[r["tier"]] > TIER_RANK[tier]:
 			tier = r["tier"]
 	return tier, amount
-
 
 TIER_LABELS = {
 	"upcoming": "Upcoming Terms Due",
@@ -383,12 +312,6 @@ TIER_LABELS = {
 
 
 def _export_tables(ledger=None):
-	"""The three tables behind both exports: the grid, the aging, and the log.
-
-	Both ledgers are exported, not just the one on screen. The Ledger column is
-	there to filter on, and an export that silently dropped half the book would
-	be a worse failure than one extra column.
-	"""
 	rows = _build_rows(ledger)
 	latest = _latest_entries()
 	for r in rows:
@@ -441,7 +364,6 @@ def _export_tables(ledger=None):
 
 @frappe.whitelist()
 def export_xlsx(ledger=None):
-	"""Workbook: the grid, the aging behind it, and the weekly log."""
 	_require_access()
 	grid, aging, log = _export_tables(ledger)
 	send_xlsx(
@@ -456,7 +378,6 @@ def export_xlsx(ledger=None):
 
 @frappe.whitelist()
 def export_csv(ledger=None):
-	"""The receivables grid only -- see send_csv on why the rest is xlsx-only."""
 	_require_access()
 	grid, _aging, _log = _export_tables(ledger)
 	send_csv(_("AR Accountability {0}").format(nowdate()), grid)

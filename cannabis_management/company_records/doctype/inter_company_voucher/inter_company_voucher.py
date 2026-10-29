@@ -1,6 +1,3 @@
-# Copyright (c) 2026, alltechvirtual.com and contributors
-# For license information, please see license.txt
-
 import frappe
 from frappe import _
 from frappe.model.document import Document
@@ -20,10 +17,6 @@ class InterCompanyVoucher(Document):
 
 	def on_cancel(self):
 		self.cancel_linked_journal_entries()
-
-	# ------------------------------------------------------------------
-	# Validation
-	# ------------------------------------------------------------------
 
 	def validate_allocations(self):
 		if not self.allocations:
@@ -97,10 +90,6 @@ class InterCompanyVoucher(Document):
 		for row in self.allocations:
 			by_company.setdefault(row.company, []).append(row)
 		return by_company
-
-	# ------------------------------------------------------------------
-	# Journal Entry generation
-	# ------------------------------------------------------------------
 
 	def create_intercompany_journal_entries(self):
 		by_company = self.get_allocations_by_company()
@@ -199,10 +188,6 @@ class InterCompanyVoucher(Document):
 		je.submit()
 
 		return (company, "Receiving Company", je.name, amount)
-
-	# ------------------------------------------------------------------
-	# Cancellation
-	# ------------------------------------------------------------------
 
 	def cancel_linked_journal_entries(self):
 		for row in self.journal_entries:

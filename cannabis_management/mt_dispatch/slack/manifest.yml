@@ -1,5 +1,3 @@
-# Slack app manifest (spec section 7). Paste into api.slack.com -> Create New App -> From a manifest.
-# The URLs point at the live site. For staging, replace erp.motleyterpz.io with stage.alltechvirtual.com.
 display_information:
   name: MT Dispatch
   description: Order release for TMM Group

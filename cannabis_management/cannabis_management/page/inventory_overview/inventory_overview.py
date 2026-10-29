@@ -1,29 +1,3 @@
-# Copyright (c) 2026, alltechvirtual.com and contributors
-# For license information, please see license.txt
-"""Inventory Overview — the Physical Inventory Weekly sheet, served live.
-
-One block per section of the sheet, each a warehouse crossed with a set of item
-groups. The whole layout is the BLOCKS table below: a block's warehouse, its
-groups and whether it shows Reserved are one line each, so a section can be
-re-pointed without touching the query underneath.
-
-Two columns in the sheet have no field of their own and are derived:
-
-* Strain Name is the item name. In this data the strain is the name --
-  "Moonbow - T1", "ALCATRAZ OG - T1" -- with the tier as a suffix, which is
-  stripped for display so the same strain reads the same in every block.
-* Batch is the Project, shown by its Project Name, and only in the Fresh
-  Frozen blocks (`batch: True`); every other block shows one row per item.
-  Project is this site's batch inventory dimension: it sits on Stock Ledger
-  Entry, not on Bin, so a batch's quantity is summed from the ledger and capped
-  at what the Bin actually holds. Stock posted without a project shows under
-  "(no batch)" rather than vanishing.
-
-Reserved follows ERPNext's own projected_qty on Bin -- Sales Order, Work Order,
-subcontract and production-plan commitments -- so it agrees with the inventory
-dashboard rather than offering a second opinion.
-"""
-
 import re
 
 import frappe
@@ -43,22 +17,14 @@ RESERVED_SQL = """(
   + COALESCE(b.reserved_qty_for_production_plan, 0)
 )"""
 
-# Fresh Frozen is three groups on this site; the sheet treats them as one.
 FRESH_FROZEN = ("Fresh Frozen", "Fresh Frozen - BHO", "Fresh Frozen - SHO")
 
-# Freezers 1-4 as the sheet names them. "Freezer 3 - MTM" holds stock in Bin
-# but has no Warehouse record of its own, so it is matched by name here rather
-# than looked up -- dropping it would hide real inventory.
 FREEZERS = ["Freezer - MTM", "Freezer 2 - MTM", "Freezer 3 - MTM", "Freezer 4 - MTM"]
 
-# Stock held at Nature's -- MTM's warehouse there only.
 NATURES = ["Natures Lab - MTM"]
 
-# `groups` value meaning every item group.
 ALL_GROUPS = "*"
 
-# The sheet's sections, top to bottom. `groups` None means "one sub-table per
-# tier"; a list means a single sub-table under `label`.
 BLOCKS = [
 	{"key": "ready_to_sell", "title": "Ready to Sell Qty - Main Storage Warehouse",
 	 "warehouses": ["Main Storage - MTM"], "groups": None, "reserved": True},
@@ -85,17 +51,12 @@ BLOCKS = [
 	 "warehouses": ["Work In Progress - MTM"], "groups": list(FRESH_FROZEN),
 	 "label": "Fresh Frozen", "reserved": False, "batch": True},
 
-	# Four freezers, four columns. split_by_warehouse gives each its own
-	# sub-table, so the column heading names the freezer and the rows inside
-	# need no warehouse of their own -- the same shape the tier blocks use.
 	{"key": "ff_freezers",
 	 "title": "Fresh Frozen Sitting in Freezers - Freezer 1-4 warehouse",
 	 "warehouses": FREEZERS, "groups": list(FRESH_FROZEN),
 	 "label": "Fresh Frozen", "reserved": False, "split_by_warehouse": True,
 	 "batch": True},
 
-	# Everything at Nature's, a box per batch (Nature Batch 26, 27, 28 ...),
-	# so the box names the batch and each row its type (BHO / SHO).
 	{"key": "natures", "title": "Nature's Lab - MTM",
 	 "warehouses": NATURES, "groups": ALL_GROUPS, "reserved": False,
 	 "split_by_batch": True, "show_uom": True, "show_type": True},
@@ -109,14 +70,6 @@ def _require_access():
 
 
 def _strain(item_name, item_code, groups):
-	"""The strain, without the group or tier suffix the item name carries.
-
-	Names arrive as "Moonbow - T1", "Triangle Punch - Rosin",
-	"Cherry Gusher - bubble hash" -- the same strain written three ways. The
-	suffix is matched case-insensitively against the block's own groups, each
-	word of them, and the tier short forms, so one strain reads identically
-	wherever it appears.
-	"""
 	name = (item_name or item_code or "").strip()
 	if " - " not in name:
 		return name
@@ -126,7 +79,6 @@ def _strain(item_name, item_code, groups):
 	for g in list(groups) + list(TIERS):
 		candidates.add(g.lower())
 		candidates.add(g.replace("Tier ", "T").lower())
-		# "Raw Rosin" should also strip a bare "Rosin"
 		for word in g.split():
 			if len(word) > 2:
 				candidates.add(word.lower())
@@ -139,13 +91,11 @@ def _group_condition(groups):
 
 
 def _batch_sort_key(label):
-	"""Nature Batch 9 before Nature Batch 26; (no batch) last."""
 	m = re.search(r"(\d+)\s*$", label or "")
 	return (label == NO_BATCH, re.sub(r"\d+\s*$", "", label or "").lower(), int(m.group(1)) if m else 0)
 
 
 def _bin_rows(warehouses, groups):
-	"""Stock on hand across the block's warehouses and item groups."""
 	if not groups or not warehouses:
 		return []
 	return frappe.db.sql(
@@ -164,13 +114,6 @@ def _bin_rows(warehouses, groups):
 
 
 def _batch_split(warehouses, groups):
-	"""{item_code: [(project, qty), ...]} -- the sheet's Source Batch column.
-
-	Read from the ledger because Project is a dimension there, not a Bin field.
-	Capped per item at the Bin quantity, for the same reason the inventory
-	dashboard caps it: issues have been posted against projects their receipts
-	lack, so a raw ledger sum can exceed or outlive the stock it names.
-	"""
 	if not groups or not warehouses:
 		return {}
 	rows = frappe.db.sql(
@@ -194,7 +137,6 @@ def _batch_split(warehouses, groups):
 
 
 def _project_names(projects):
-	"""{project: Project Name} -- the batch as people know it, not PROJ-0123."""
 	projects = [p for p in set(projects) if p and p != NO_BATCH]
 	if not projects:
 		return {}
@@ -204,7 +146,6 @@ def _project_names(projects):
 
 
 def _rows_for(warehouses, groups, show_batch=False):
-	"""One display row per item and warehouse, split by batch when show_batch."""
 	bins = _bin_rows(warehouses, groups)
 	batches = _batch_split(warehouses, groups) if show_batch else {}
 	out = []
@@ -214,7 +155,6 @@ def _rows_for(warehouses, groups, show_batch=False):
 		reserved = flt(b.reserved_qty)
 		parts = batches.get((b.item_code, b.warehouse)) or [(NO_BATCH, on_hand)]
 
-		# Never let the ledger claim more than the bin holds.
 		total = sum(q for _p, q in parts) or on_hand
 		scale = min(1.0, on_hand / total) if total else 0
 
@@ -232,8 +172,6 @@ def _rows_for(warehouses, groups, show_batch=False):
 				"uom": b.stock_uom,
 				"source_batch": project,
 				"qty": share,
-				# Reserved is a bin-level figure; it is apportioned across the
-				# batches of that item in proportion to what each holds.
 				"reserved_qty": flt(reserved * (share / on_hand), 3) if on_hand else 0,
 			})
 
@@ -257,12 +195,9 @@ def get_overview():
 				sections.append({"label": tier,
 				                 "rows": _rows_for(cfg["warehouses"], [tier], show_batch)})
 		elif cfg.get("split_by_warehouse"):
-			# A column per warehouse, listed even when empty: an empty freezer
-			# is information, and a column that vanishes moves the others.
 			for wh in cfg["warehouses"]:
 				sections.append({"label": wh, "rows": _rows_for([wh], groups, show_batch)})
 		elif cfg.get("split_by_batch"):
-			# The box names the batch, so its rows need no batch column.
 			by_batch = {}
 			for r in _rows_for(cfg["warehouses"], groups, True):
 				by_batch.setdefault(r["source_batch"], []).append(r)
@@ -280,8 +215,6 @@ def get_overview():
 		blocks.append({
 			"key": cfg["key"], "title": cfg["title"],
 			"warehouses": cfg["warehouses"],
-			# A per-row warehouse column is only needed where a block spans
-			# several warehouses without splitting them into columns.
 			"multi_warehouse": (len(cfg["warehouses"]) > 1
 			                    and not cfg.get("split_by_warehouse")),
 			"reserved": cfg["reserved"],

@@ -1,16 +1,3 @@
-"""Daily AR Dashboard email: 1 PM California, to Nikki with Matt / Muhammad / Imran on CC.
-
-Sends the two PDFs the dashboard's manual Email button sends - Legacy AR and
-New AR, All Entities - in one email. The manual button is untouched.
-
-The manual PDF is built in the browser (ar_dashboard.js: build_table_html, then
-ard_build_report_table trims it to the mode's columns). A scheduled job has no
-browser, so this module builds that same trimmed sheet server-side from the
-same get_ar_data rows, with the page's own stylesheet and the same print /
-report CSS, and renders it with the same _render_ar_pdf. If the sheet layout in
-ar_dashboard.js changes, mirror it in _sheet_html below.
-"""
-
 import base64
 import os
 from datetime import date
@@ -39,9 +26,6 @@ DASH = "—"
 
 
 def send_scheduled_ar_report():
-	"""Cron entry. Fires at 11:00 site time (America/Adak), which is 13:00 in
-	California all year because both follow US DST. Re-checks the California
-	clock anyway so a site timezone change cannot move the send silently."""
 	from zoneinfo import ZoneInfo
 
 	from frappe.utils import get_system_timezone, now_datetime
@@ -60,8 +44,6 @@ def send_scheduled_ar_report():
 
 
 def send_ar_dashboard_email(to=None, cc=None):
-	"""Build both sheets and send one email. Safe to call by hand for an
-	immediate send (``to`` / ``cc`` override the defaults)."""
 	to = to or TO
 	cc = CC if cc is None else cc
 	as_of = nowdate()
@@ -86,23 +68,13 @@ def send_ar_dashboard_email(to=None, cc=None):
 		attachments=attachments,
 		reference_doctype="Page",
 		reference_name="ar-dashboard",
-		# Without this the CC list is only a delivery list, not a header: frappe
-		# sends one copy per address, fills `To:` with that copy's own recipient
-		# and writes NO `Cc:` header at all (email_body.py). So Matt's copy read
-		# "To: matt@..." - i.e. sent directly to him - and nobody could see that
-		# Nikki was the addressee. "header" writes the real lists instead, the
-		# same in every copy: To: Nikki, CC: the four below.
 		expose_recipients="header",
 		now=True,
 	)
 	return {"to": to, "cc": cc, "files": [a["fname"] for a in attachments]}
 
 
-# ─── Data: the page's All Entities load, per mode ────────────────────────────
-
-
 def _load_rows(mode, as_of):
-	"""load_all_entities: every company except the TMM Group roll-up, merged."""
 	companies = [c for c in ard.init_page()["companies"] if c not in ("TMM Group", "__ALL__")]
 	rows, ranges = [], None
 	for company in companies:
@@ -116,7 +88,6 @@ def _load_rows(mode, as_of):
 
 
 def _filter_rows(rows, mode):
-	"""filter_rows with the page's defaults: New AR mode opens with New AR > 0 on."""
 	rows = [r for r in rows if (r.get("outstanding") or 0) > 0]
 	if mode == "new":
 		new_ar = {}
@@ -159,9 +130,6 @@ def _na_sum(rows, anchor):
 	return s
 
 
-# ─── Markup: build_table_html already trimmed by ard_build_report_table ──────
-
-
 def _cur(v):
 	return "${:,.2f}".format(v or 0)
 
@@ -185,7 +153,6 @@ def _sums(rows, ranges):
 
 
 def _row_cells(mode, sums, na, name_html):
-	"""One sheet row: Customer, the mode's money columns, then the aging buckets."""
 	cells = ['<td class="ard-td-sticky">{0}</td>'.format(name_html)]
 	if mode == "legacy":
 		cells += [
@@ -262,7 +229,6 @@ def _sheet_html(mode, rows, ranges, as_of):
 
 
 def _print_css():
-	"""ard_print_css() + ard_report_css() from ar_dashboard.js, verbatim."""
 	return (
 		"body{padding:0;margin:0;background:#fff;}"
 		".ard-container{max-width:none!important;margin:0!important;padding:4px 6px!important;}"
@@ -281,7 +247,6 @@ def _print_css():
 		".ard-table thead th{position:static!important;left:auto!important;top:auto!important;box-shadow:none!important;}"
 		"*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}"
 		"@page{size:landscape;margin:5mm;}"
-		# ard_report_css
 		".ard-container{padding:0!important;margin:0!important;}"
 		".ard-pdf-logo-banner{text-align:center;}"
 		".ard-table{width:100%!important;table-layout:fixed!important;}"
@@ -300,7 +265,6 @@ def _logo_data_uri():
 
 
 def build_report_document(mode, as_of=None):
-	"""ard_report_document(): the full HTML handed to wkhtmltopdf."""
 	as_of = as_of or nowdate()
 	rows, ranges = _load_rows(mode, as_of)
 	label = ard._AR_MODE_LABELS[mode]

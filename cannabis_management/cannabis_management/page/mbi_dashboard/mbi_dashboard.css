@@ -1,4 +1,3 @@
-/* ── MBI Dashboard — inherits sd-dash token system ─────────────────────── */
 .mbi-dash {
   --sd-border: #e2e8f0; --sd-border-hover: #cbd5e1;
   --sd-text-primary: #1e293b; --sd-text-secondary: #64748b; --sd-text-muted: #94a3b8;
@@ -16,7 +15,6 @@
   color: var(--sd-text-primary);
 }
 
-/* ── Page header ────────────────────────────────────────────────────────── */
 .mbi-header {
   display: flex; align-items: center; justify-content: space-between;
   flex-wrap: wrap; gap: 12px; margin-bottom: 24px;
@@ -37,7 +35,6 @@
   50%      { box-shadow: 0 0 0 6px rgba(16,185,129,0); }
 }
 
-/* ── Company toggle ─────────────────────────────────────────────────────── */
 .mbi-co-toggle {
   display: flex; gap: 4px; background: #fff;
   border: 1px solid var(--sd-border); border-radius: 8px; padding: 3px;
@@ -53,7 +50,6 @@
 .mbi-co-btn.mtm.active   { background: var(--sd-violet); }
 .mbi-co-btn.both.active  { background: #1e293b; }
 
-/* ── Section wrapper ────────────────────────────────────────────────────── */
 .mbi-section {
   background: #fff; border: 1px solid var(--sd-border);
   border-radius: var(--sd-radius); overflow: hidden; margin-bottom: 16px;
@@ -89,7 +85,6 @@
 .mbi-section-body { padding: 0; }
 .mbi-section.collapsed .mbi-section-body { display: none; }
 
-/* ── KPI row ────────────────────────────────────────────────────────────── */
 .mbi-kpi-row {
   display: grid; grid-template-columns: repeat(7, 1fr);
   gap: 0; border-bottom: 1px solid var(--sd-border);
@@ -113,7 +108,6 @@
 }
 .mbi-kpi-sub { font-size: 10px; color: var(--sd-text-muted); margin-top: 3px; }
 
-/* ── Logistics Circuit ──────────────────────────────────────────────────── */
 .mbi-circuit { padding: 20px 18px; }
 .mbi-circuit-track {
   display: flex; align-items: stretch; gap: 0;
@@ -149,7 +143,6 @@
 }
 .mbi-stage:last-child .mbi-stage-arrow { display: none; }
 
-/* ── Tab panel ──────────────────────────────────────────────────────────── */
 .mbi-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--sd-border); }
 .mbi-tab {
   padding: 10px 18px; font-size: 12px; font-weight: 600;
@@ -170,7 +163,6 @@
 .mbi-tab-panel { display: none; }
 .mbi-tab-panel.active { display: block; }
 
-/* ── Data tables ────────────────────────────────────────────────────────── */
 .mbi-tbl-wrap { overflow-x: auto; max-width: 100%; }
 .mbi-tbl {
   width: 100%; border-collapse: collapse;
@@ -195,7 +187,6 @@
 }
 .mbi-tbl tfoot td:first-child { text-align: left; }
 
-/* ── Status badges ──────────────────────────────────────────────────────── */
 .mbi-badge {
   display: inline-block; padding: 2px 8px; border-radius: 10px;
   font-size: 10px; font-weight: 700; font-family: 'DM Sans', sans-serif;
@@ -208,7 +199,6 @@
 .mbi-badge-violet { background: var(--sd-violet-dim); color: var(--sd-violet); }
 .mbi-badge-muted  { background: #f1f5f9; color: var(--sd-text-muted); }
 
-/* ── Gap lists ──────────────────────────────────────────────────────────── */
 .mbi-gap-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--sd-border); }
 .mbi-gap-col { background: #fff; }
 .mbi-gap-col-header {
@@ -218,7 +208,6 @@
 }
 .mbi-gap-col-body { max-height: 320px; overflow-y: auto; }
 
-/* ── Conversion flow ────────────────────────────────────────────────────── */
 .mbi-conv-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 0; }
 .mbi-conv-step {
   padding: 16px 14px; border-right: 1px solid var(--sd-border);
@@ -236,18 +225,15 @@
 }
 .mbi-conv-bar { height: 100%; border-radius: 2px; background: var(--conv-color); transition: width 0.6s ease; }
 
-/* ── Item group totals ──────────────────────────────────────────────────── */
 .mbi-ig-tbl thead th:not(:first-child) { text-align: right; }
 .mbi-ig-tbl td:not(:first-child) { text-align: right; }
 
-/* ── Cash / Bank payments ───────────────────────────────────────────────── */
 .mbi-pay-kpi-row { display: grid; grid-template-columns: repeat(4,1fr); border-bottom: 1px solid var(--sd-border); }
 .mbi-pay-kpi { padding: 14px 16px; border-right: 1px solid var(--sd-border); }
 .mbi-pay-kpi:last-child { border-right: none; }
 .mbi-pay-label { font-size: 10px; font-weight: 700; color: var(--sd-text-muted); text-transform: uppercase; letter-spacing: 0.07em; }
 .mbi-pay-value { font-size: 20px; font-weight: 800; font-family: 'DM Mono', monospace; margin-top: 4px; }
 
-/* ── AR/AP panels ───────────────────────────────────────────────────────── */
 .mbi-arap-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
 .mbi-arap-panel { border-right: 1px solid var(--sd-border); }
 .mbi-arap-panel:last-child { border-right: none; }
@@ -259,7 +245,6 @@
 .mbi-arap-total { font-size: 14px; font-weight: 800; font-family: 'DM Mono', monospace; }
 .mbi-arap-body { max-height: 320px; overflow-y: auto; }
 
-/* ── Loading / empty ────────────────────────────────────────────────────── */
 .mbi-loading {
   display: flex; align-items: center; justify-content: center; padding: 36px;
   color: var(--sd-text-muted); font-size: 13px; gap: 10px;
@@ -272,18 +257,15 @@
 @keyframes mbiSpin { to { transform: rotate(360deg); } }
 .mbi-empty { padding: 28px; text-align: center; color: var(--sd-text-muted); font-size: 13px; }
 
-/* ── Link cells ─────────────────────────────────────────────────────────── */
 .mbi-link {
   color: var(--sd-blue); text-decoration: none; font-weight: 600;
   border-bottom: 1px dashed rgba(37,99,235,0.3); transition: color 0.1s;
 }
 .mbi-link:hover { color: #1d4ed8; border-bottom-color: #1d4ed8; }
 
-/* ── Overdue / shortage flags ───────────────────────────────────────────── */
 .mbi-overdue { color: var(--sd-rose); font-weight: 700; }
 .mbi-shortage-row { background: #fff5f5 !important; }
 
-/* ── Export btn ─────────────────────────────────────────────────────────── */
 .mbi-export-btn {
   display: flex; align-items: center; gap: 5px;
   padding: 5px 12px; border: 1px solid var(--sd-border); border-radius: 8px;
@@ -293,7 +275,6 @@
 }
 .mbi-export-btn:hover { background: #f1f5f9; color: var(--sd-emerald); border-color: var(--sd-emerald); }
 
-/* ── Trigger report ─────────────────────────────────────────────────────── */
 .mbi-trigger-row { display: flex; gap: 14px; flex-wrap: wrap; padding: 18px 18px 10px; }
 .mbi-trigger-btn {
   flex: 1; min-width: 280px; display: flex; align-items: center; gap: 14px;
@@ -339,7 +320,6 @@
 }
 .mbi-trigger-note svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2; flex-shrink: 0; }
 
-/* ── Responsive ─────────────────────────────────────────────────────────── */
 @media (max-width: 1100px) {
   .mbi-kpi-row { grid-template-columns: repeat(4,1fr); }
   .mbi-conv-grid { grid-template-columns: repeat(2,1fr); }

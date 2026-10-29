@@ -1,21 +1,8 @@
-"""The 350–800 payment score (§15).
-
-The MD's single number for whether an account deserves a line. Every weight and
-anchor is a module constant so the model can be retuned without touching the
-logic.
-
-Excluded throughout: intercompany customers, sample orders, and finance-charge
-invoices — a late fee is a consequence of poor payment, and letting it feed back
-into the score would double-count the same behaviour.
-"""
-
 import frappe
 from frappe import _
 from frappe.utils import add_days, add_months, flt, getdate, now_datetime, nowdate
 
 from cannabis_management.credit_and_ar import utils
-
-# ── the model ────────────────────────────────────────────────────────────────
 
 SCORE_FLOOR = 350
 SCORE_CEILING = 800
@@ -26,7 +13,6 @@ WEIGHT_TENURE_VOLUME = 60
 WEIGHT_STANDING = 40
 PENALTY_CAP = 100
 
-# (days late relative to due date, points). Interpolated linearly between.
 TIMING_ANCHORS = [
 	(-5, 250),
 	(0, 210),
@@ -72,9 +58,6 @@ def band_for(score: int | None) -> str:
 	return "COD Only"
 
 
-# ── the daily job ────────────────────────────────────────────────────────────
-
-
 def update_customer_payment_scores():
 	if not utils.require_policy_live("update_customer_payment_scores"):
 		return
@@ -100,15 +83,6 @@ def update_customer_payment_scores():
 
 
 def _store(customer: str, result: dict):
-	"""Write the score back onto the Customer.
-
-	§15 asks for a *null* score below the minimum invoice count, but Frappe
-	creates Int columns as ``NOT NULL DEFAULT 0`` — a null cannot be stored
-	there. So **`custom_score_band` is the authoritative signal**: a band of
-	"Insufficient History" means there is no score, and a stored 0 must be
-	rendered as "—", never as a real reading. Every report in this module keys
-	off the band for exactly that reason.
-	"""
 	frappe.db.set_value(
 		"Customer",
 		customer,
@@ -125,12 +99,8 @@ def _store(customer: str, result: dict):
 	)
 
 
-# ── scoring ──────────────────────────────────────────────────────────────────
-
-
 @frappe.whitelist()
 def score_customer(customer: str) -> dict:
-	"""Score one customer. Returns the components too, so the model is auditable."""
 	paid = _paid_invoices(customer)
 	volume_g = _weekly_volume_grams(customer)
 
@@ -151,7 +121,6 @@ def score_customer(customer: str) -> dict:
 
 	total_value = flt(sum(row["amount"] for row in paid)) or 1.0
 
-	# Value-weighted: a large invoice paid late says more than a small one.
 	avg_days = flt(sum(row["days_late"] * row["amount"] for row in paid) / total_value)
 	on_time = flt(len([row for row in paid if row["days_late"] <= 0]) / len(paid) * 100)
 
@@ -185,7 +154,6 @@ def score_customer(customer: str) -> dict:
 
 
 def _interpolate(days_late: float) -> float:
-	"""Linear interpolation between the timing anchors, clamped at both ends."""
 	first_days, first_points = TIMING_ANCHORS[0]
 	if days_late <= first_days:
 		return float(first_points)
@@ -208,11 +176,6 @@ def _interpolate(days_late: float) -> float:
 
 
 def _paid_invoices(customer: str) -> list[dict]:
-	"""Fully-settled invoices in the window, with how late each one was paid.
-
-	The settlement date comes from the ledger — the last receipt allocated to
-	the invoice — because `Sales Invoice` records no payment date of its own.
-	"""
 	since = add_months(getdate(nowdate()), -LOOKBACK_MONTHS)
 
 	invoices = frappe.get_all(
@@ -359,15 +322,7 @@ def _penalties(customer: str) -> float:
 	return min(total, PENALTY_CAP)
 
 
-# ── volume ───────────────────────────────────────────────────────────────────
-
-
 def _weekly_volume_grams(customer: str) -> float:
-	"""Trailing four-week average, normalised to grams.
-
-	Reported in pounds for TSBC Ranch and grams for Motley Terpz and Master
-	Touch; both figures are stored so the report can pick.
-	"""
 	since = add_days(getdate(nowdate()), -VOLUME_WEEKS * 7)
 
 	rows = frappe.db.sql(

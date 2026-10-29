@@ -1,7 +1,3 @@
-# Copyright (c) 2015, Frappe Technologies Pvt. Ltd. and Contributors
-# License: GNU General Public License v3. See license.txt
-
-
 import frappe
 from frappe import _
 from frappe.query_builder.functions import IfNull
@@ -51,8 +47,6 @@ def execute(filters=None):
 
 
 def get_columns(filters):
-	"""return columns based on filters"""
-
 	columns = [
 		_("Item") + ":Link/Item:100",
 		_("Item Name") + "::100",

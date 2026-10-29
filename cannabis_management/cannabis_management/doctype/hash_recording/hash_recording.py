@@ -14,23 +14,17 @@ class HashRecording(Document):
 
 	def calculate_totals(self):
 		self.total_quantity = sum(flt(row.pound_sent) for row in self.table_smqw)
-		
-		# Sync expected yields from parent to child rows if empty
+
 		for row in self.table_smqw:
 			if not row.expected_yield_to_hash:
 				row.expected_yield_to_hash = self.expected_hash_yield
 
-		# Only calculate if fields exist (we'll add them to JSON in next step)
 		if hasattr(self, 'rate_tolling_partner'):
 			self.tolling_partner_charges = flt(self.total_quantity) * flt(self.rate_tolling_partner)
 
 
 @frappe.whitelist()
 def get_stock_balance_items(project, warehouse):
-	"""
-	Returns items with positive stock balance for a given project + warehouse.
-	Runs the Stock Balance Report with project and warehouse filters.
-	"""
 	if not project or not warehouse:
 		return []
 
@@ -46,7 +40,6 @@ def get_stock_balance_items(project, warehouse):
 
 	_columns, data = execute(filters)
 
-	# Return only items with positive balance qty
 	return [
 		{
 			"item_code": row.get("item_code"),
@@ -71,7 +64,6 @@ def create_rosin_recording(hash_recording_name):
 	if hash_rec.docstatus != 1:
 		frappe.throw(_("Hash Recording must be submitted before creating a Rosin Recording."))
 
-	# Use correct field name: hash_reference
 	existing = frappe.db.exists("Rosin Recording", {"hash_reference": hash_rec.name})
 	if existing:
 		frappe.throw(_("A Rosin Recording <b>{0}</b> already exists for this Hash Recording.").format(existing))
@@ -112,7 +104,6 @@ def create_rosin_recording(hash_recording_name):
 
 @frappe.whitelist()
 def get_hash_recording_status(hash_recording_name):
-	"""Return computed status of a Hash Recording (used by JS client)."""
 	doc = frappe.get_doc("Hash Recording", hash_recording_name)
 
 	if doc.docstatus == 2:
@@ -120,7 +111,6 @@ def get_hash_recording_status(hash_recording_name):
 	if doc.docstatus == 0:
 		return "Draft"
 
-	# Check if Rosin Recording exists
 	rosin_exists = frappe.db.exists("Rosin Recording", {"hash_reference": doc.name})
 	if rosin_exists:
 		return "Rosin Created"

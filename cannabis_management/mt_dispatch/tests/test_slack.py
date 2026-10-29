@@ -1,13 +1,3 @@
-"""Slack layer tests: request verification, button rules, modal validation,
-the reminder clock, and how a click reaches transition().
-
-None of these talk to Slack. The Web API client is patched wherever a code
-path would reach it, and notify.slack_enabled() is off in test mode, so a test
-run never posts to the real channels.
-
-Test IDs map to the acceptance table in the developer spec.
-"""
-
 import json
 from datetime import datetime
 from unittest import mock
@@ -25,9 +15,6 @@ LA = ZoneInfo("America/Los_Angeles")
 
 
 class FakeDoc:
-	"""Stands in for a Sales Order. frappe._dict won't do: its .items is the
-	dict method, where a Document's is the child rows."""
-
 	def __init__(self, **values):
 		self.__dict__.update(values)
 
@@ -88,8 +75,6 @@ def order(stage, mode=stages.COD, total=14860, advance=0, **overrides):
 
 
 def system_naive(y, m, d, hh, mm=0):
-	"""A wall-clock time in Los Angeles, as the naive system-time datetime
-	the stage log stores."""
 	aware = datetime(y, m, d, hh, mm, tzinfo=LA)
 	return aware.astimezone(ZoneInfo(get_system_timezone())).replace(tzinfo=None)
 
@@ -254,18 +239,16 @@ class TestModalValidation(FrappeTestCase):
 class TestWorkingClock(FrappeTestCase):
 	def test_counts_only_inside_work_hours(self):
 		c = cfg()
-		# Tue 16:00 -> Wed 09:00 LA: one hour Tuesday, one hour Wednesday.
 		self.assertEqual(reminders.working_minutes(system_naive(2026, 9, 29, 16), system_naive(2026, 9, 30, 9), c), 120)
 
 	def test_t16_nothing_counts_overnight_or_on_sunday(self):
 		c = cfg()
-		# Sat 17:00 -> Mon 08:00: Saturday closed, Sunday off, Monday not open yet.
 		self.assertEqual(reminders.working_minutes(system_naive(2026, 10, 3, 17), system_naive(2026, 10, 5, 8), c), 0)
 
 	def test_outside_hours_the_job_does_nothing(self):
 		c = cfg()
-		self.assertFalse(reminders.in_work_hours(datetime(2026, 10, 4, 10, tzinfo=LA), c))  # Sunday
-		self.assertFalse(reminders.in_work_hours(datetime(2026, 9, 29, 20, tzinfo=LA), c))  # evening
+		self.assertFalse(reminders.in_work_hours(datetime(2026, 10, 4, 10, tzinfo=LA), c))
+		self.assertFalse(reminders.in_work_hours(datetime(2026, 9, 29, 20, tzinfo=LA), c))
 		self.assertTrue(reminders.in_work_hours(datetime(2026, 9, 29, 10, tzinfo=LA), c))
 
 	def test_zero_minute_rules_are_ignored(self):
@@ -282,7 +265,7 @@ class TestWorkingClock(FrappeTestCase):
 		log = frappe._dict(at=reached, last_reminded_on=None)
 
 		_age, due = reminders.due_rules(so, c, stages.PREPARED, log, system_naive(2026, 9, 29, 10, 45))
-		self.assertEqual(due, [])  # 105 working minutes
+		self.assertEqual(due, [])
 
 		now = system_naive(2026, 9, 29, 11, 15)
 		_age, due = reminders.due_rules(so, c, stages.PREPARED, log, now)
@@ -350,7 +333,7 @@ class TestConversionCheck(FrappeTestCase):
 		with mock.patch.object(blocks.frappe.db, "get_value", side_effect=lambda dt, f, fld: bins[f["item_code"]]):
 			check = blocks.stock_check(self.so())
 		self.assertEqual(check.need, ["• *Grape Belts* (`I-SHORT`) — need *28.00 Gram* (required 28.00, available 0.00)"])
-		self.assertEqual(check.ok, ["• *Food Grade* (`I-OK`) — ok (606.00 Gram)"])  # both lines summed
+		self.assertEqual(check.ok, ["• *Food Grade* (`I-OK`) — ok (606.00 Gram)"])
 
 	def test_header_and_fulfillment_tag(self):
 		with mock.patch.object(blocks.frappe.db, "get_value", return_value=0):
@@ -387,7 +370,6 @@ class TestConversionMessageOnlyWhenShort(FrappeTestCase):
 		return sent
 
 	def test_new_order_does_not_repeat_the_conversion_message(self):
-		# On a new order the thread parent itself is the conversion message.
 		self.assertFalse(any("onversion" in t for t in self.run_enter_flow(["\u2022 short"])))
 
 	def test_flagged_conversion_gets_the_message_when_short(self):

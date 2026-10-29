@@ -1,6 +1,3 @@
-// Copyright (c) 2026, alltechvirtual.com and contributors
-// For license information, please see license.txt
-
 frappe.query_reports["Sales Document Links"] = {
 	filters: [
 		{
@@ -31,8 +28,6 @@ frappe.query_reports["Sales Document Links"] = {
 			options: "Customer",
 		},
 		{
-			// Trace one document end to end: pick it here and the report shows
-			// only the chain it belongs to.
 			fieldname: "sales_order",
 			label: __("Sales Order"),
 			fieldtype: "Link",
@@ -51,7 +46,6 @@ frappe.query_reports["Sales Document Links"] = {
 			options: "Sales Invoice",
 		},
 		{
-			// The gaps are usually the point of running this.
 			fieldname: "link_status",
 			label: __("Link Status"),
 			fieldtype: "Select",

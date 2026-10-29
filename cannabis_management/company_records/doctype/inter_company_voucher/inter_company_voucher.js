@@ -1,6 +1,3 @@
-// Copyright (c) 2026, alltechvirtual.com and contributors
-// For license information, please see license.txt
-
 frappe.ui.form.on("Inter Company Voucher", {
 	setup(frm) {
 		frm.set_query("bank_account", () => ({

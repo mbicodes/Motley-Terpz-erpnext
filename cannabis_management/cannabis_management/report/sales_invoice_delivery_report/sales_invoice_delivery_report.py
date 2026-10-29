@@ -1,6 +1,3 @@
-# Copyright (c) 2026, alltechvirtual.com and contributors
-# For license information, please see license.txt
-
 import frappe
 from frappe import _
 from frappe.utils import cint, flt
@@ -56,7 +53,6 @@ def get_data(filters):
 	for row in data:
 		row.income_account = pick_posted_account([row._line_income_account], si_income.get(row.sales_invoice))
 		if row.update_stock:
-			# No Delivery Note: the invoice itself posted the cost of the stock
 			row.cost_account = pick_posted_account([row._line_expense_account], si_cost.get(row.sales_invoice))
 		else:
 			row.cost_account = pick_posted_account(
@@ -74,7 +70,6 @@ def get_data(filters):
 
 def get_invoice_rows(filters):
 	conditions = ["si.docstatus = 1", "si.posting_date BETWEEN %(from_date)s AND %(to_date)s"]
-	# "All Company" arrives with no company key (stripped by api.report_filters)
 	if filters.company:
 		conditions.append("si.company = %(company)s")
 	if filters.customer:
@@ -106,7 +101,6 @@ def get_invoice_rows(filters):
 	invoices = list({d.sales_invoice for d in items})
 	sales_orders = list({d.sales_order for d in items if d.sales_order})
 
-	# Delivery Note rows linked either directly to the invoice or to its Sales Order
 	dn_rows = frappe.db.sql(
 		"""
 		SELECT dni.parent AS delivery_note, dn.posting_date AS delivery_note_date,
@@ -131,7 +125,6 @@ def get_invoice_rows(filters):
 			by_so_detail.setdefault(d.so_detail, []).append(d)
 			by_so_item.setdefault((d.against_sales_order, d.item_code), []).append(d)
 
-	# Delivery Note rows referenced from the invoice item but not fetched above
 	missing = {d.dn_detail for d in items if d.delivery_note and d.dn_detail and d.dn_detail not in by_dn_detail}
 	missing_dn_rows = {
 		d.dn_detail: d
@@ -163,7 +156,6 @@ def get_invoice_rows(filters):
 				expense_account=dn_row.expense_account)]
 			source = "Invoice Item"
 
-		# Delivery Note's own qty / rate / amount, summed across every DN row matched to this line
 		dn_qty = sum(flt(d.qty) for d in dns)
 		dn_amount = sum(flt(d.amount) for d in dns)
 
@@ -193,13 +185,6 @@ def get_invoice_rows(filters):
 
 
 def get_unbilled_dn_rows(filters):
-	"""Delivery Note lines in the period that no submitted Sales Invoice has billed yet.
-
-	Same scope as ERPNext's "To Bill": no returns, no closed notes. A line counts as
-	invoiced when an invoice points at it (dn_detail / against_sales_invoice) or, for an
-	invoice made straight from the Sales Order, when ERPNext has allocated billed_amt
-	to it. Zero-value lines never get billed_amt, so they fall back to the SO link.
-	"""
 	conditions = [
 		"dn.docstatus = 1", "dn.is_return = 0", "dn.status != 'Closed'",
 		"dn.posting_date BETWEEN %(from_date)s AND %(to_date)s",
@@ -254,7 +239,6 @@ def get_unbilled_dn_rows(filters):
 
 
 def find_delivery_notes(row, by_dn_detail, by_si_detail, by_si_item, by_so_detail, by_so_item):
-	"""Invoice's own DN link first, then DNs made from the invoice, then DNs of its Sales Order."""
 	if row.dn_detail and row.dn_detail in by_dn_detail:
 		return [by_dn_detail[row.dn_detail]], "Invoice Item"
 	if by_si_detail.get(row.si_detail):
@@ -270,7 +254,6 @@ def find_delivery_notes(row, by_dn_detail, by_si_detail, by_si_item, by_so_detai
 
 
 def get_sle_valuation(keys):
-	"""Actual valuation rate booked in the Stock Ledger for each voucher line."""
 	if not keys:
 		return {}
 	rows = frappe.db.sql(
@@ -288,7 +271,6 @@ def get_sle_valuation(keys):
 	result = {}
 	for r in rows:
 		if (r.voucher_no, r.voucher_detail_no) in keys:
-			# Outgoing rate = value moved / qty moved; fall back to running valuation rate
 			result[(r.voucher_no, r.voucher_detail_no)] = (
 				abs(flt(r.value) / flt(r.qty)) if flt(r.qty) else flt(r.valuation_rate)
 			)
@@ -296,13 +278,6 @@ def get_sle_valuation(keys):
 
 
 def get_posted_accounts(invoices, delivery_notes):
-	"""Income / expense accounts that actually carry a GL Entry for each voucher.
-
-	GL Entry is summed per account, not per item line, so a line's own account
-	is only trusted when the voucher really posted to it. A Delivery Note's cost
-	may be filed under its Sales Invoice (overrides/si_cogs_alignment.py); the
-	origin fields on those rows still name the Delivery Note.
-	"""
 	si_income, si_cost, dn_cost = {}, {}, {}
 	if invoices:
 		for r in frappe.db.sql(
@@ -343,7 +318,6 @@ def get_posted_accounts(invoices, delivery_notes):
 
 
 def pick_posted_account(line_accounts, posted):
-	"""The line's own account if the voucher posted to it, else what it did post."""
 	if not posted:
 		return None
 	matched = [a for a in dict.fromkeys(line_accounts) if a in posted]

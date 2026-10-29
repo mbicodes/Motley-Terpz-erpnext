@@ -1,18 +1,9 @@
-"""
-License / METRC compliance flags (Feature 18).
-
-Stores each customer's license number, license type and expiry date, and raises
-a compliance WARNING (not a hard block) when a Quotation or Sales Order is built
-for a customer whose license is expired or expiring within EXPIRY_WARN_DAYS.
-"""
-
 import frappe
 from frappe import _
 from frappe.utils import getdate, nowdate, date_diff
 
 EXPIRY_WARN_DAYS = 30
 
-# Common California cannabis license types — editable via the field's options.
 LICENSE_TYPES = "\n".join([
     "", "Type 1 - Cultivation (Specialty Outdoor)", "Type 1A - Cultivation (Specialty Indoor)",
     "Type 2 - Cultivation (Small Outdoor)", "Type 3 - Cultivation (Outdoor)",
@@ -25,7 +16,6 @@ LICENSE_TYPES = "\n".join([
 
 
 def check_license(doc, method=None):
-    """Warn (do not block) if the customer's license is expired / expiring soon."""
     customer = doc.get("customer")
     if not customer:
         return

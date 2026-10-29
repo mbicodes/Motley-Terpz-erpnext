@@ -1,7 +1,3 @@
-/* Sample Hardware Intake — styled to match the printed SOP form.
-   Loaded automatically by Frappe: a <web form>.css beside the module is
-   injected as context.style (see web_form.py add_custom_context_and_script). */
-
 :root{
   --mt-purple:#4c1d95;
   --mt-purple-mid:#6d28d9;
@@ -15,13 +11,11 @@
 
 body{ background:#faf9fe; }
 
-/* The stock page title duplicates the banner below it. */
 .web-form-header .web-form-title,
 .web-form-header .indicator-pill{ display:none !important; }
 
 .web-form-container{ max-width:860px; margin:0 auto; }
 
-/* ── Banner: logo left, title right, purple rule under ───────────────────── */
 .web-form-introduction{ margin:0 0 26px; }
 .mt-banner{
   display:flex; align-items:center; justify-content:space-between; gap:20px;
@@ -37,14 +31,12 @@ body{ background:#faf9fe; }
 }
 .mt-rule{ height:9px; background:var(--mt-purple); border-radius:0 0 3px 3px; }
 
-/* ── Card ────────────────────────────────────────────────────────────────── */
 .web-form-body, .web-form{ background:transparent; border:none; box-shadow:none; }
 .web-form-wrapper{
   background:#fff; border:1px solid var(--mt-line); border-radius:10px;
   padding:26px 28px 8px; counter-reset: mtsec;
 }
 
-/* ── Numbered section headings, as on the paper form ─────────────────────── */
 .web-form-wrapper .form-section .section-head{
   counter-increment: mtsec;
   display:flex; align-items:center; gap:10px;
@@ -62,7 +54,6 @@ body{ background:#faf9fe; }
 .web-form-wrapper .form-section .section-head.collapsed{ border-bottom:1px solid var(--mt-line); }
 .web-form-wrapper .form-section{ margin-bottom:6px; }
 
-/* ── Fields ──────────────────────────────────────────────────────────────── */
 .web-form-wrapper .control-label{
   font-size:10px !important; font-weight:700; letter-spacing:.7px;
   text-transform:uppercase; color:var(--mt-dim); margin-bottom:5px;
@@ -78,7 +69,6 @@ body{ background:#faf9fe; }
 .web-form-wrapper textarea.form-control{ min-height:96px; resize:vertical; }
 .web-form-wrapper .frappe-control{ margin-bottom:17px; }
 
-/* Checkboxes sit in a row like the printed tick boxes. */
 .web-form-wrapper .checkbox .label-area{
   font-size:13.5px; font-weight:600; color:var(--mt-ink);
   text-transform:none; letter-spacing:0;
@@ -87,7 +77,6 @@ body{ background:#faf9fe; }
   width:16px; height:16px; accent-color:var(--mt-purple); margin-right:7px;
 }
 
-/* ── Submit ──────────────────────────────────────────────────────────────── */
 .web-form-footer .btn-primary, .web-form-container .btn-primary{
   background:var(--mt-purple); border-color:var(--mt-purple);
   font-weight:700; letter-spacing:.3px; padding:10px 26px; border-radius:6px;
@@ -95,7 +84,6 @@ body{ background:#faf9fe; }
 .web-form-footer .btn-primary:hover, .web-form-container .btn-primary:hover{
   background:var(--mt-purple-mid); border-color:var(--mt-purple-mid);
 }
-
 
 @media (max-width:640px){
   .mt-banner{ flex-direction:column; align-items:flex-start; }

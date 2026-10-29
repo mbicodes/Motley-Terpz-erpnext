@@ -1,14 +1,3 @@
-"""Backend for the Fulfillment Pipeline page (page/fulfillment_pipeline).
-
-One card per open Sales Order, one column per Logistic Status. Every stage move
-goes through flow.set_stage, so the stage log, the order's Slack thread and the
-board all see the same move. The board's own drag rules are in _guard(); the
-page draws a red drop zone from the same messages, and move_stage re-checks
-them server side against fresh data.
-
-Spec: fulfillment_pipeline_mapping.md (sections referenced below).
-"""
-
 import json
 
 import frappe
@@ -42,7 +31,6 @@ from cannabis_management.mt_dispatch.stages import (
 
 STAGE_FIELD = flow.STAGE_FIELD
 
-# Section 3. Order Closed Out is never shown; Cancelled is its own tab.
 BOARD_STAGES = [
 	RECEIVED,
 	AWAITING_CONVERSION,
@@ -54,14 +42,12 @@ BOARD_STAGES = [
 	ON_HOLD,
 ]
 
-# Section 1.
 VIEW_ROLES = {
 	"Fulfilment",
 	"Fulfilment - Consolidated",
 	"Tori S - Consolidated",
 	"Matt Schneider - Consolidated",
 	"System Manager",
-	# Added to the page's roles on 2026-10-19 (view only).
 	"Manufacturing Manager",
 }
 EDIT_ROLES = {
@@ -72,9 +58,6 @@ EDIT_ROLES = {
 }
 
 CANCELLED_DAYS = 60
-# Stages where the shortage result is still written back to
-# custom_conversion_required. Once the Delivery Note exists the flag is left
-# alone, so stock moving elsewhere later cannot re-flag a shipped order.
 WRITE_CONVERSION_FLAG = (RECEIVED, AWAITING_CONVERSION, PREPARING, PREPARED)
 GRAM_UOMS = {"gram", "grams", "g", "gm", "gms"}
 PULL_SHEET_GAP_ROWS = 7
@@ -112,9 +95,6 @@ FIELDS = [
 ]
 
 
-# ── access ───────────────────────────────────────────────────────────────────
-
-
 def can_view(user=None):
 	user = user or frappe.session.user
 	return user == "Administrator" or bool(set(frappe.get_roles(user)) & VIEW_ROLES)
@@ -136,7 +116,6 @@ def _require(edit=False):
 
 
 def _open_so(sales_order, for_update=False):
-	"""The order, checked for read access and for being on the board."""
 	so = frappe.get_doc("Sales Order", sales_order, for_update=for_update)
 	so.check_permission("read")
 	if so.docstatus != 1:
@@ -146,12 +125,8 @@ def _open_so(sales_order, for_update=False):
 	return so
 
 
-# ── reading the board ────────────────────────────────────────────────────────
-
-
 @frappe.whitelist()
 def get_board(view="open"):
-	"""Every card for one tab. Section 2 decides which orders show."""
 	_require()
 	cancelled = view == "cancelled"
 	rows = _cancelled_rows() if cancelled else _open_rows()
@@ -170,7 +145,6 @@ def get_board(view="open"):
 
 @frappe.whitelist()
 def get_card(sales_order):
-	"""One card, fresh. None when the order is no longer on the open board."""
 	_require()
 	if not frappe.db.exists("Sales Order", sales_order):
 		return None
@@ -180,9 +154,6 @@ def get_card(sales_order):
 
 
 def _board_companies():
-	"""Companies on the dispatch flow. A company with no enabled Dispatch
-	Company Settings is not on the flow (see settings.py), so its orders stay
-	off the board -- e.g. Motley Terpz, whose open orders all predate June."""
 	return frappe.get_all("Dispatch Company Settings", filters={"enabled": 1}, pluck="name") or ["-"]
 
 
@@ -195,7 +166,6 @@ def _open_rows(name=None):
 	]
 	if name:
 		filters.append(["name", "=", name])
-	# get_list, not get_all: a user fenced to one company sees only its orders.
 	return frappe.get_list(
 		"Sales Order", filters=filters, fields=FIELDS, order_by="creation asc", limit_page_length=0
 	)
@@ -203,8 +173,6 @@ def _open_rows(name=None):
 
 def _cancelled_rows(names_only=False):
 	since = add_days(nowdate(), -CANCELLED_DAYS)
-	# A cancelled order that was amended lives on as its amendment, which is
-	# on the open board; only orders that really ended belong on this tab.
 	superseded = frappe.get_all(
 		"Sales Order",
 		filters={"amended_from": ["is", "set"], "modified": [">=", since]},
@@ -280,8 +248,6 @@ def _bins(item_codes):
 
 
 def _reservations(item_codes):
-	"""{(item, warehouse): {sales order: qty still reserved}} from open Stock
-	Reservation Entries. Section 4: stock held for OTHER orders is not available."""
 	if not item_codes:
 		return {}
 	rows = frappe.db.sql(
@@ -304,8 +270,6 @@ def _reservations(item_codes):
 
 
 def _sre_by_row(names):
-	"""{Sales Order Item name: {warehouse: stock qty still held}} from these
-	orders' own open Stock Reservation Entries (reserved minus delivered)."""
 	out = {}
 	if not names:
 		return out
@@ -326,7 +290,6 @@ def _sre_by_row(names):
 
 
 def _open_sres(so_name):
-	"""This order's Stock Reservation Entries that still hold stock."""
 	return [
 		r
 		for r in frappe.get_all(
@@ -345,14 +308,11 @@ def _open_sres(so_name):
 
 
 def _qty_label(by_unit):
-	"""{unit: qty} as "500 g + 20 LBS", so grams and pounds are never added up."""
 	parts = [_qty_text(q, u) for u, q in by_unit.items() if q > EPSILON]
 	return " + ".join(parts) or "0"
 
 
 def _conversion_targets(names):
-	"""{so: {item: [target warehouse]}} from submitted Conversion Entries --
-	gates.conversion_targets for many orders at once."""
 	rows = frappe.db.sql(
 		"""
 		select ce.sales_order, cei.target_warehouse,
@@ -430,8 +390,6 @@ def _stage_logs(names):
 
 
 def _entered_at(logs):
-	"""Section 5: when the order entered the flow. The first enter_flow row, or
-	failing that the first stage move of any kind."""
 	for row in logs:
 		if row.action == "enter_flow" and row.at:
 			return get_datetime(row.at)
@@ -464,9 +422,6 @@ def _versions(rows, logs):
 	return out
 
 
-# ── one card ─────────────────────────────────────────────────────────────────
-
-
 def _unit(uom):
 	return "g" if (uom or "").strip().lower() in GRAM_UOMS else (uom or "")
 
@@ -477,16 +432,11 @@ def _qty_text(value, uom):
 
 
 def _lines(r, its, ctx):
-	"""Per (item, warehouse) on the order: what is still to ship, what the
-	warehouse can give it, and the gap. Section 4's conversion badge."""
 	lines = {}
 	so_targets = ctx.targets.get(r.name, {})
 	for it in its:
 		row_wh = it.warehouse or r.set_warehouse
 		need = max(flt(it.qty) - flt(it.delivered_qty), 0) * (flt(it.conversion_factor) or 1)
-		# Same rule as gates.delivery_warehouse: a line with stock reserved ships
-		# from the reservation's warehouse; otherwise goods this order converted
-		# ship from the Conversion Entry's target when it holds the quantity.
 		sre = ctx.row_sre.get(it.name) or {}
 		wh = row_wh
 		if sre:
@@ -513,8 +463,6 @@ def _lines(r, its, ctx):
 		)
 		line.ordered += flt(it.stock_qty)
 		line.need += need
-		# Only stock held where the line ships from counts as reserved for it;
-		# anything held elsewhere is "misplaced" and can only be released.
 		line.reserved += sre.get(wh, 0)
 		line.misplaced += sum(q for w, q in sre.items() if w != wh)
 
@@ -556,8 +504,6 @@ def _stage_at(r, logs):
 
 
 def _update_banner(r, its, versions):
-	"""Section 5: what changed on the items or the date since the order entered
-	the flow and since the last "Got it". Newest first."""
 	ack = get_datetime(r.custom_update_ack_on) if r.custom_update_ack_on else None
 	rows_by_name = {it.name: it for it in its}
 	notes, latest = [], None
@@ -574,7 +520,6 @@ def _update_banner(r, its, versions):
 
 
 def _md(value):
-	"""A date in the ERP's own format (System Settings), as the board shows it."""
 	try:
 		return formatdate(getdate(value))
 	except Exception:
@@ -619,14 +564,10 @@ def _diff_notes(raw, rows_by_name):
 
 
 def _cod_unpaid(r):
-	"""COD with money still owed. The cached gate result for dispatch
-	companies; computed directly where there is no dispatch record to keep it."""
 	if r.custom_mode_of_payment != stages.COD:
 		return False
 	cfg = get_company_settings(r.company)
 	if cfg:
-		# Same rule as dispatch's G5: no gate (switched off, internal
-		# customer, nothing owed) means nothing to wait for.
 		if not payments.payment_gate_applies(r, cfg):
 			return False
 		return not cint(r.custom_payment_verified)
@@ -641,7 +582,6 @@ def _card(r, its, ctx, versions, cancelled=False):
 	if cancelled:
 		status = CANCELLED
 	else:
-		# An order with no stage (or a retired one) sits at the entry point.
 		status = raw_stage if raw_stage in BOARD_STAGES else RECEIVED
 
 	lines = _lines(r, its, ctx)
@@ -650,7 +590,6 @@ def _card(r, its, ctx, versions, cancelled=False):
 	dns = ctx.dns.get(r.name, [])
 	logs = ctx.logs.get(r.name, [])
 	units = {line["uom"] for line in lines}
-	# Stock reservation: what this order holds vs what it still has to ship.
 	stock_lines = [line for line in lines if line["is_stock"] and line["need"] > EPSILON]
 	reserved_by_unit, todo_by_unit, held_by_unit = {}, {}, {}
 	for line in stock_lines:
@@ -724,13 +663,10 @@ def _card(r, its, ctx, versions, cancelled=False):
 
 
 def _guard(card, to):
-	"""Section 6 drag guards. Returns why the move is refused, or ""."""
 	if to == card["status"]:
 		return ""
 	if to == PREPARING and card["needs_conv"] and card["conv"] != "submitted":
 		return _("Submit the Conversion Entry before preparing this order.")
-	# No pull-sheet rule on Order Prepared: the team drags freely and the
-	# card's "Pull sheet" step only shows whether one is filed (user, 2026-10-19).
 	if to == DN_READY and not card["dn"]:
 		return _("Create the Delivery Note first.")
 	if to == RELEASED:
@@ -743,8 +679,6 @@ def _guard(card, to):
 
 
 def _sync_conversion_flag(r, card):
-	"""Section 4: keep custom_conversion_required equal to the badge, so list
-	view and Slack read the same answer."""
 	if r.docstatus != 1 or r.get(STAGE_FIELD) not in WRITE_CONVERSION_FLAG:
 		return
 	want = 1 if card["needs_conv"] else 0
@@ -753,13 +687,9 @@ def _sync_conversion_flag(r, card):
 
 
 def _fresh_card(sales_order):
-	"""The card for an order this request already holds a lock on."""
 	rows = frappe.get_all("Sales Order", filters={"name": sales_order}, fields=FIELDS)
 	cards = _build(rows, write_flags=False)
 	return cards[0] if cards else None
-
-
-# ── actions ──────────────────────────────────────────────────────────────────
 
 
 def _notify(sales_order, action):
@@ -774,13 +704,11 @@ def _notify(sales_order, action):
 
 
 def _touch(sales_order):
-	"""Redraw this card on every open board (set_stage does this for moves)."""
 	frappe.publish_realtime("mt_fulfillment_update", {"sales_order": sales_order}, after_commit=True)
 
 
 @frappe.whitelist(methods=["POST"])
 def move_stage(sales_order, to_stage, reason=None):
-	"""Drag a card to a column (section 6)."""
 	_require(edit=True)
 	if to_stage not in BOARD_STAGES:
 		frappe.throw(_("{0} is not a column on the board.").format(to_stage))
@@ -795,7 +723,6 @@ def move_stage(sales_order, to_stage, reason=None):
 		frappe.throw(_("A reason is required to put an order on hold."))
 
 	if to_stage == RELEASED and get_company_settings(so.company):
-		# The gate decides on fresh money, never the cached flag alone.
 		payments.refresh_payment_status(so.name, notify_approvers=False)
 
 	card = _fresh_card(so.name)
@@ -815,8 +742,6 @@ def move_stage(sales_order, to_stage, reason=None):
 
 	flow.set_stage(so, to_stage, "board_move", "ERP", note=reason or None)
 
-	# Slack gets the step it already knows how to post, so a hold still lands
-	# in exceptions and a release still posts to dispatch.
 	if to_stage == ON_HOLD:
 		_notify(so.name, "hold")
 	elif current == ON_HOLD:
@@ -831,7 +756,6 @@ def move_stage(sales_order, to_stage, reason=None):
 
 @frappe.whitelist(methods=["POST"])
 def attach_pull_sheet(sales_order, file_url):
-	"""The filled sheet, uploaded onto the order, marks the Pull sheet step done."""
 	_require(edit=True)
 	so = _open_so(sales_order)
 	if not file_url or not frappe.db.exists("File", {"file_url": file_url}):
@@ -854,7 +778,6 @@ def attach_pull_sheet(sales_order, file_url):
 
 @frappe.whitelist(methods=["POST"])
 def ack_update(sales_order):
-	"""Section 5: "Got it" clears the Order Updated banner."""
 	_require(edit=True)
 	so = _open_so(sales_order)
 	so.db_set(
@@ -873,8 +796,6 @@ def _stock_reservation_on():
 
 
 def _can_reserve(ptypes=("create", "submit")):
-	"""ERPNext's own Stock Reservation Entry rights. The board does not lift them:
-	a board editor without them sees no Reserve button, and the server says why."""
 	return can_edit() and all(frappe.has_permission("Stock Reservation Entry", p) for p in ptypes)
 
 
@@ -890,22 +811,6 @@ def _require_reserve_rights(ptypes):
 
 @frappe.whitelist(methods=["POST"])
 def reserve_stock(sales_order):
-	"""Reserve available stock for every line still to ship ("Reserve" button).
-
-	ERPNext's own Sales Order reservation does the work, so its rules (partial
-	reservation, stock available after other orders' reservations, non-stock
-	items skipped) and its messages apply unchanged.
-
-	The reservation must sit where the Delivery Note will ship the line from,
-	or ERPNext refuses the note ("Stock Reservation Warehouse Mismatch"):
-	- a line already on a Delivery Note is reserved in that note's warehouse;
-	- otherwise in gates.delivery_warehouse(follow_reservation=False), i.e.
-	  where the line would ship on stock alone.
-	Stock this order holds for a line in any other warehouse is released first
-	and asked for again in the right one. An order whose shortage still waits
-	on its Conversion Entry is refused, as "+ DN" is: the converted goods land
-	in another warehouse.
-	"""
 	_require(edit=True)
 	_require_reserve_rights(("create", "submit"))
 	_stock_reservation_on()
@@ -951,7 +856,6 @@ def reserve_stock(sales_order):
 		open_qty = need - held_here
 		if open_qty <= EPSILON:
 			continue
-		# ERPNext reserves only lines ticked "Reserve Stock" (allow_on_submit).
 		if not row.reserve_stock:
 			row.db_set("reserve_stock", 1, update_modified=False)
 		details.append({"sales_order_item": row.name, "warehouse": ship, "qty_to_reserve": open_qty / cf})
@@ -977,10 +881,6 @@ def reserve_stock(sales_order):
 
 @frappe.whitelist(methods=["POST"])
 def unreserve_stock(sales_order):
-	"""Release the order's Stock Reservation Entries that still hold stock.
-
-	Delivered entries are left alone, as ERPNext's own Unreserve dialog does.
-	"""
 	_require(edit=True)
 	_require_reserve_rights(("cancel",))
 	_stock_reservation_on()
@@ -995,7 +895,6 @@ def unreserve_stock(sales_order):
 
 @frappe.whitelist(methods=["POST"])
 def conversion_action(sales_order):
-	"""What "+ Conv." should do: open the existing draft, or start a new one."""
 	_require(edit=True)
 	so = _open_so(sales_order)
 	draft = frappe.db.get_value(
@@ -1011,14 +910,6 @@ def conversion_action(sales_order):
 
 @frappe.whitelist(methods=["POST"])
 def make_conversion_entry(source_name):
-	"""A new Conversion Entry for the order's short lines, opened in the form.
-
-	Returned unsaved, like the Sales Order form's own Create > Conversion
-	Entry: Conversion Entry's validate requires Raw Material 1 on every row,
-	and the raw materials are for the team to pick (Scan Metrc Tag does this),
-	so an empty draft cannot be saved. It becomes a draft on the team's first
-	save. The order moves to Awaiting Conversion now.
-	"""
 	_require(edit=True)
 	so = _open_so(source_name, for_update=True)
 	card = _fresh_card(so.name)
@@ -1054,7 +945,6 @@ def make_conversion_entry(source_name):
 
 @frappe.whitelist(methods=["POST"])
 def make_dn(sales_order):
-	"""Section 6 "+ DN": a draft Delivery Note from the order, or the one it has."""
 	_require(edit=True)
 	so = _open_so(sales_order, for_update=True)
 
@@ -1072,8 +962,6 @@ def make_dn(sales_order):
 	if not dn.items:
 		frappe.throw(_("Nothing is left to deliver on {0}.").format(so.name))
 
-	# Ship each line from where its goods are (see gates.delivery_warehouse),
-	# as the dispatch flow's own builder does.
 	targets = gates.conversion_targets(so.name)
 	so_rows = {row.name: row for row in so.items}
 	for item in dn.items:
@@ -1086,8 +974,6 @@ def make_dn(sales_order):
 
 	dn.insert()
 
-	# flow.dn_after_insert has already moved a dispatch company's order; this
-	# covers the rest (and an order sitting On Hold is left where it is).
 	stage = frappe.db.get_value("Sales Order", so.name, STAGE_FIELD)
 	if stage in flow.BEFORE_DN or stage not in stages.ALL_STAGES:
 		so.set(STAGE_FIELD, stage)
@@ -1098,11 +984,7 @@ def make_dn(sales_order):
 	return {"name": dn.name}
 
 
-# ── automatic moves (section 6) ──────────────────────────────────────────────
-
-
 def on_si_submit(doc, method=None):
-	"""A Released order that is now fully invoiced leaves the board."""
 	orders = []
 	for row in doc.items or []:
 		if row.get("sales_order") and row.sales_order not in orders:
@@ -1122,9 +1004,6 @@ def on_si_submit(doc, method=None):
 		)
 
 
-# ── Lab Pull Sheet print format (section 8) ──────────────────────────────────
-
-
 def _mdy(value):
 	if not value:
 		return "-"
@@ -1133,7 +1012,6 @@ def _mdy(value):
 
 
 def lab_pull_sheet(doc):
-	"""Jinja method for the "Lab Pull Sheet" print format."""
 	so_name = doc.name if hasattr(doc, "name") else doc.get("name")
 	rows = frappe.get_all("Sales Order", filters={"name": so_name}, fields=FIELDS)
 	short = []
@@ -1153,7 +1031,6 @@ def lab_pull_sheet(doc):
 		"date": _mdy(nowdate()),
 		"delivery_date": _mdy(doc.get("delivery_date")),
 		"rows": lines,
-		# Blank rows under each strain, one per extra tag pulled for it.
 		"gap_rows": PULL_SHEET_GAP_ROWS,
 		"total": _qty_text(total, units.pop() if len(units) == 1 else ""),
 		"short": short,

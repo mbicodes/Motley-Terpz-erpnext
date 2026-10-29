@@ -1,9 +1,3 @@
-"""Create the Credit and AR module and its roles.
-
-Runs pre_model_sync: the Module Def and the roles referenced by Credit Policy
-Settings' permissions must exist before that DocType is synced.
-"""
-
 import frappe
 
 from cannabis_management.credit_and_ar.masters import install_roles

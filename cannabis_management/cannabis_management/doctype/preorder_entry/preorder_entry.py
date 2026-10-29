@@ -5,7 +5,6 @@ from frappe.model.document import Document
 class PreorderEntry(Document):
 	pass
 
-
 PACKAGED_ITEM_GROUPS = [
 	"Packaged goods",
 	"0.5g O2 Vape",
@@ -39,7 +38,6 @@ def get_packaged_goods_items(search_term="", limit=40):
 
 @frappe.whitelist()
 def get_packaged_goods_stock():
-	"""Return current stock for all packaged goods items."""
 	items = frappe.get_all(
 		"Item",
 		filters={"item_group": ["in", PACKAGED_ITEM_GROUPS], "disabled": 0},

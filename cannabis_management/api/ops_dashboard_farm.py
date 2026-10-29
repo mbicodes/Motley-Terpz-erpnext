@@ -6,10 +6,6 @@ def _resolve_range(from_date, to_date):
     return (from_date or today(), to_date or today())
 
 
-# ---------------------------------------------------------------------------
-# Section A: Daily
-# ---------------------------------------------------------------------------
-
 @frappe.whitelist()
 def get_daily_summary(from_date=None, to_date=None):
     from_date, to_date = _resolve_range(from_date, to_date)
@@ -49,14 +45,8 @@ def get_daily_summary(from_date=None, to_date=None):
     }
 
 
-# ---------------------------------------------------------------------------
-# Section B: Harvest Window
-# ---------------------------------------------------------------------------
-
 @frappe.whitelist()
 def get_harvest_window(from_date=None, to_date=None):
-    """Single seasonal KPI: total lbs taken down across all harvest events
-    in range, against the seasonal Current Target set in Farm Settings."""
     from_date, to_date = _resolve_range(from_date, to_date)
 
     rows = frappe.get_all(
@@ -73,10 +63,6 @@ def get_harvest_window(from_date=None, to_date=None):
         "count": len(rows),
     }
 
-
-# ---------------------------------------------------------------------------
-# Section C: Labor Efficiency — Active Sessions
-# ---------------------------------------------------------------------------
 
 @frappe.whitelist()
 def get_labor_efficiency(from_date=None, to_date=None):
@@ -135,11 +121,6 @@ def archive_labor_sessions(task_type, from_date=None, to_date=None):
         frappe.db.set_value("Farm Labor Session", n, "status", "Archived")
     frappe.db.commit()
     return len(names)
-
-
-# ---------------------------------------------------------------------------
-# Section D: Archived Sessions
-# ---------------------------------------------------------------------------
 
 TASK_TARGET_FIELD = {
     "Planting": "planting_rate_target",

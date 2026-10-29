@@ -1,22 +1,9 @@
-// Shared form behaviour for the two cash-tracking capture forms
-// (Motley Cash Tracking / Personal Cash Tracking). Loaded via app_include_js so
-// both doctype scripts can call into it — see cash_management/doctype/*/*.js.
-//
-// Three things live here:
-//   1. "Open Sales Order" — jumps to the linked Sales Order in a new tab.
-//   2. Post-submit "Actions" menu — Payment Entry / Journal Entry, built server
-//      side in cash_management/accounting_entries.py.
-//   3. The Sales Order picker query, whose only job is showing the order total
-//      as currency ("$24,150.00") instead of a bare number.
-
 frappe.provide('cannabis.cash_tracking');
 
 (function () {
 	var API = 'cannabis_management.cash_management.accounting_entries.';
 	var SO_BUTTON = 'Open Sales Order';
 
-	// The Sales Order link field renders its dropdown from this query so the
-	// grand total in the description carries a $ sign.
 	function set_sales_order_query(frm) {
 		if (!frm.fields_dict.invoice_number) return;
 		frm.set_query('invoice_number', function () {
@@ -24,8 +11,6 @@ frappe.provide('cannabis.cash_tracking');
 		});
 	}
 
-	// Present whenever a Sales Order is linked, draft or submitted — opens in a
-	// new tab so the half-filled cash entry is never navigated away from.
 	function refresh_sales_order_button(frm) {
 		frm.remove_custom_button(__(SO_BUTTON));
 		if (!frm.doc.invoice_number) return;
@@ -36,9 +21,6 @@ frappe.provide('cannabis.cash_tracking');
 		}).addClass('btn-primary-light');
 	}
 
-	// Hand off to the server builder, then route to the unsaved result. Same
-	// shape as frappe.model.open_mapped_doc, but passes the source doctype so one
-	// endpoint can serve both capture forms.
 	function build_target(frm, method, label) {
 		frappe.call({
 			method: API + method,
@@ -53,8 +35,6 @@ frappe.provide('cannabis.cash_tracking');
 		});
 	}
 
-	// Only after submit, and only for people who may create the target doctype —
-	// so a cash tracker without Journal Entry rights is not shown a dead button.
 	function add_action_buttons(frm) {
 		if (frm.doc.docstatus !== 1) return;
 
@@ -72,18 +52,15 @@ frappe.provide('cannabis.cash_tracking');
 	}
 
 	cannabis.cash_tracking = {
-		// Call from the doctype's setup handler.
 		setup: function (frm) {
 			set_sales_order_query(frm);
 		},
 
-		// Call from the doctype's refresh handler.
 		refresh: function (frm) {
 			refresh_sales_order_button(frm);
 			add_action_buttons(frm);
 		},
 
-		// Call from the invoice_number field handler.
 		invoice_number: function (frm) {
 			refresh_sales_order_button(frm);
 		}

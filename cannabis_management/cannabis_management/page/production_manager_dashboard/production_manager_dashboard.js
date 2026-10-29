@@ -18,7 +18,6 @@ frappe.pages['production-manager-dashboard'].on_page_load = function (wrapper) {
 	root.querySelector('#pm-to-date').value   = toDate;
 	root.querySelector('#pm-last-refresh').textContent = 'Loading…';
 
-	// ── Helpers ───────────────────────────────────────────────────────────
 	function getWeekStart() {
 		var d = new Date();
 		var day = d.getDay();
@@ -33,7 +32,6 @@ frappe.pages['production-manager-dashboard'].on_page_load = function (wrapper) {
 		return (m / 60).toFixed(1) + ' hr';
 	}
 
-	// ── Filter wiring ─────────────────────────────────────────────────────
 	root.querySelector('#pm-refresh-btn').addEventListener('click', loadData);
 	root.querySelector('#pm-from-date').addEventListener('change', function () {
 		preset = 'custom'; fromDate = this.value; loadData();
@@ -60,7 +58,6 @@ frappe.pages['production-manager-dashboard'].on_page_load = function (wrapper) {
 
 	loadData();
 
-	// ── Load ──────────────────────────────────────────────────────────────
 	function loadData() {
 		if (preset === 'week' || preset === 'today' || preset === 'all') {
 			toDate = frappe.datetime.nowdate();
@@ -105,7 +102,6 @@ frappe.pages['production-manager-dashboard'].on_page_load = function (wrapper) {
 		});
 	}
 
-	// ── KPIs ──────────────────────────────────────────────────────────────
 	function renderKPIs(k) {
 		function set(id, val, sub) {
 			var el = root.querySelector('#' + id);
@@ -116,12 +112,10 @@ frappe.pages['production-manager-dashboard'].on_page_load = function (wrapper) {
 		set('pm-kv-openjc',  k.open_jc,      'Open + Work In Progress');
 		set('pm-kv-output',  fmtNum(k.today_output), 'grams produced today');
 		set('pm-kv-overdue', k.overdue_wo,   'planned_end_date < today');
-		// Highlight overdue card red when > 0
 		var card = root.querySelector('#pm-overdue-card');
 		if (card) { card.classList.toggle('overdue', parseInt(k.overdue_wo) > 0); }
 	}
 
-	// ── Operations horizontal bar (canvas) ────────────────────────────────
 	function drawOpsChart(data) {
 		var c = root.querySelector('#pm-ops-canvas');
 		if (!c || !data || !data.length) return;
@@ -148,20 +142,17 @@ frappe.pages['production-manager-dashboard'].on_page_load = function (wrapper) {
 			var y   = pl.t + i * (ch / n) + (ch / n - bh) / 2;
 			var bw  = (parseFloat(row.total_mins) / mx) * cw;
 
-			// Operation label
 			ctx.fillStyle = '#64748b'; ctx.font = '11px "DM Sans",system-ui';
 			ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
 			var lbl = String(row.operation || 'Unknown');
 			if (lbl.length > 16) lbl = lbl.slice(0, 15) + '…';
 			ctx.fillText(lbl, pl.l - 6, y + bh / 2);
 
-			// Bar
 			ctx.fillStyle = COLORS[i % COLORS.length];
 			ctx.beginPath();
 			ctx.roundRect ? ctx.roundRect(pl.l, y, bw, bh, 3) : ctx.rect(pl.l, y, bw, bh);
 			ctx.fill();
 
-			// Value label
 			ctx.fillStyle = '#1e293b'; ctx.font = 'bold 11px "DM Mono","Courier New"';
 			ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
 			var hrs = (parseFloat(row.total_mins) / 60).toFixed(1);
@@ -169,7 +160,6 @@ frappe.pages['production-manager-dashboard'].on_page_load = function (wrapper) {
 		}
 	}
 
-	// ── Workstations ──────────────────────────────────────────────────────
 	function renderWorkstations(data) {
 		var wrap = root.querySelector('#pm-ws-grid');
 		if (!wrap) return;
@@ -188,7 +178,6 @@ frappe.pages['production-manager-dashboard'].on_page_load = function (wrapper) {
 		}).join('');
 	}
 
-	// ── Micron ────────────────────────────────────────────────────────────
 	function renderMicron(micronData) {
 		var wrap = root.querySelector('#pm-micron-ladder');
 		if (!wrap) return;
@@ -230,7 +219,6 @@ frappe.pages['production-manager-dashboard'].on_page_load = function (wrapper) {
 		wrap.innerHTML = html;
 	}
 
-	// ── Employees ─────────────────────────────────────────────────────────
 	function renderEmployees(data) {
 		var tbody = root.querySelector('#pm-emp-tbody');
 		if (!tbody) return;
@@ -251,7 +239,6 @@ frappe.pages['production-manager-dashboard'].on_page_load = function (wrapper) {
 		}).join('');
 	}
 
-	// ── Job Cards table ───────────────────────────────────────────────────
 	function renderJobCards(data) {
 		var tbody = root.querySelector('#pm-jc-tbody');
 		if (!tbody) return;
@@ -272,7 +259,6 @@ frappe.pages['production-manager-dashboard'].on_page_load = function (wrapper) {
 		root.querySelector('#pm-jc-rows').textContent = 'Rows: ' + data.length;
 	}
 
-	// ── WO Pipeline ───────────────────────────────────────────────────────
 	function renderPipeline(data) {
 		var tbody = root.querySelector('#pm-pipe-tbody');
 		if (!tbody) return;
@@ -301,7 +287,6 @@ frappe.pages['production-manager-dashboard'].on_page_load = function (wrapper) {
 		root.querySelector('#pm-pipe-rows').textContent = 'Rows: ' + data.length;
 	}
 
-	// ── LBS Washed ────────────────────────────────────────────────────────
 	function renderLbsWashed(d) {
 		if (!d) return;
 		function setChip(id, val) { var el = root.querySelector('#' + id); if (el) el.textContent = val; }
@@ -347,18 +332,15 @@ frappe.pages['production-manager-dashboard'].on_page_load = function (wrapper) {
 			ctx.beginPath();
 			if (ctx.roundRect) { ctx.roundRect(x, pl.t + ch - bh, bw, bh, [3, 3, 0, 0]); } else { ctx.rect(x, pl.t + ch - bh, bw, bh); }
 			ctx.fill();
-			// Value above bar
 			ctx.fillStyle = '#1e293b'; ctx.font = 'bold 10px "DM Mono","Courier New"';
 			ctx.textAlign = 'center';
 			ctx.fillText(fmtNum(row.total_lbs), pl.l + colW * (i + 0.5), pl.t + ch - bh - 5);
-			// Date label
 			var lbl = String(row.dt || '').slice(5);
 			ctx.fillStyle = '#94a3b8'; ctx.font = '9px system-ui';
 			ctx.fillText(lbl, pl.l + colW * (i + 0.5), H - 7);
 		});
 	}
 
-	// ── Logistics ─────────────────────────────────────────────────────────
 	function renderLogistics(d) {
 		if (!d) return;
 		var COLORS = { 'To Deliver and Bill':'#2563eb','To Deliver':'#059669','To Bill':'#d97706','Draft':'#94a3b8' };
@@ -394,7 +376,6 @@ frappe.pages['production-manager-dashboard'].on_page_load = function (wrapper) {
 		root.querySelector('#pm-log-rows').textContent = 'Rows: ' + d.orders.length;
 	}
 
-	// ── HTML ──────────────────────────────────────────────────────────────
 	function getPmHTML() {
 		return `
 <div class="pm-dash">

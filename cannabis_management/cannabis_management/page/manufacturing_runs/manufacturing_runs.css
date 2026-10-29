@@ -122,7 +122,6 @@
 
 .mrd-stat-row {
 	display: grid;
-	/* Runs Planned, Washed, Hash / Rosin / Hash to Rosin Yield */
 	grid-template-columns: repeat(5, 1fr);
 	gap: 14px;
 	margin-bottom: 16px;
@@ -421,7 +420,6 @@
 	}
 }
 
-/* A card whose chart takes the full height the row gives it. */
 .mrd-card-fill {
 	display: flex;
 	flex-direction: column;
@@ -431,7 +429,6 @@
 	min-height: 220px;
 }
 
-/* Runs by Operation: who worked each operation, under its legend row. */
 .mrd-op-employee {
 	display: flex;
 	justify-content: space-between;
@@ -442,8 +439,6 @@
 }
 .mrd-op-employee-none { font-style: italic; }
 
-/* Runs by Operation spans the whole row (the width of three cards): donut on
-   the left, each operation with its employees laid out in columns. */
 .mrd-card-wide {
 	grid-column: 1 / -1;
 }
@@ -463,7 +458,6 @@
 	min-width: 0;
 }
 
-/* Yield line under Wash Cycle / Press Run in Runs by Operation. */
 .mrd-op-yield {
 	padding: 2px 0 4px 18px;
 	font-size: 12px;
@@ -479,7 +473,6 @@
 	color: var(--text-color);
 }
 
-/* Runs by Operation: taller and roomier, so each employee's block reads openly. */
 .mrd-card-wide {
 	min-height: 460px;
 	padding: 20px 24px;
@@ -498,7 +491,6 @@
 .mrd-card-wide .mrd-op-employee { font-size: 12px; padding-top: 4px; padding-bottom: 4px; }
 .mrd-card-wide .mrd-op-yields { margin-bottom: 18px; font-size: 13px; }
 
-/* Switch to the Manufacturing Process page. */
 .mrd-process-btn {
 	display: inline-flex;
 	align-items: center;

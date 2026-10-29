@@ -3,7 +3,6 @@ from frappe.utils import nowdate
 
 MBI_COMPANIES = ('TSBC Ranch', 'Master Touch Manufacturing', 'Motley Terpz')
 
-# 'Fresh Frozen - BHO' is merged into 'Fresh Frozen' at query time
 MBI_ITEM_GROUPS = (
     'Fresh Frozen', 'Fresh Frozen - SHO',
     'Primes', 'Subprimes', 'Full Spec', 'Food Grade', 'VRR',
@@ -12,7 +11,6 @@ MBI_ITEM_GROUPS = (
     '1g Jarred Rosin', '3g Jarred Rosin',
 )
 
-# Groups that are aliased/merged before aggregation
 _IG_ALIAS = {'Fresh Frozen - BHO': 'Fresh Frozen'}
 
 MBI_CONV_GROUPS = (
@@ -49,15 +47,10 @@ def _cos(companies=None):
 
 
 def _intercompany_filter():
-    """SQL fragment to exclude intercompany invoices."""
     return "(COALESCE(inter_company_invoice_reference, '') = '')"
 
-
-# Subquery used in every query to exclude internal customers
 _NOT_INTERNAL = "(SELECT name FROM `tabCustomer` WHERE is_internal_customer = 1)"
 
-
-# ── KPI Summary ───────────────────────────────────────────────────────────────
 
 @frappe.whitelist()
 def get_summary_kpis(companies=None):
@@ -154,8 +147,6 @@ def get_summary_kpis(companies=None):
     }
 
 
-# ── Logistics Circuit ─────────────────────────────────────────────────────────
-
 @frappe.whitelist()
 def get_logistics_circuit(companies=None):
     cos = _cos(companies)
@@ -187,8 +178,6 @@ def get_logistics_circuit(companies=None):
 
     return result
 
-
-# ── Sales Documents ───────────────────────────────────────────────────────────
 
 @frappe.whitelist()
 def get_sales_orders(companies=None, limit=100):
@@ -260,8 +249,6 @@ def get_delivery_notes(companies=None, limit=100):
     """, {"cos": cos, "limit": limit}, as_dict=True)
 
 
-# ── Gap Lists ─────────────────────────────────────────────────────────────────
-
 @frappe.whitelist()
 def get_gap_lists(companies=None):
     cos = _cos(companies)
@@ -324,8 +311,6 @@ def get_gap_lists(companies=None):
     }
 
 
-# ── Invoices with Payments ────────────────────────────────────────────────────
-
 @frappe.whitelist()
 def get_invoices_with_payments(companies=None, limit=100):
     cos = _cos(companies)
@@ -354,8 +339,6 @@ def get_invoices_with_payments(companies=None, limit=100):
         LIMIT %(limit)s
     """, {"cos": cos, "limit": limit}, as_dict=True)
 
-
-# ── Cash & Bank — pulled from Invoices ───────────────────────────────────────
 
 @frappe.whitelist()
 def get_cash_bank_payments(companies=None):
@@ -387,8 +370,6 @@ def get_cash_bank_payments(companies=None):
         "total_outstanding": total_outstanding,
     }
 
-
-# ── Conversion Overview ───────────────────────────────────────────────────────
 
 @frappe.whitelist()
 def get_conversion_overview(companies=None):
@@ -431,12 +412,9 @@ def get_conversion_overview(companies=None):
     }
 
 
-# ── Item Group Totals ─────────────────────────────────────────────────────────
-
 @frappe.whitelist()
 def get_item_group_totals(companies=None):
     cos = _cos(companies)
-    # query includes aliased groups too so their data gets merged
     ig_query = MBI_ITEM_GROUPS + tuple(_IG_ALIAS.keys())
 
     so_rows = frappe.db.sql("""
@@ -488,8 +466,6 @@ def get_item_group_totals(companies=None):
 
     return [merged[g] for g in MBI_ITEM_GROUPS]
 
-
-# ── Item Group Conversion ─────────────────────────────────────────────────────
 
 @frappe.whitelist()
 def get_item_group_conversion(companies=None):
@@ -543,8 +519,6 @@ def get_item_group_conversion(companies=None):
     }
 
 
-# ── Hardware Counts (Vape Conversion) ────────────────────────────────────────
-
 @frappe.whitelist()
 def get_hardware_counts(companies=None):
     cos = _cos(companies)
@@ -588,8 +562,6 @@ def get_hardware_counts(companies=None):
         for r in stock_rows
     ]
 
-
-# ── Tolling Check (MTM) ───────────────────────────────────────────────────────
 
 @frappe.whitelist()
 def get_tolling_check():
@@ -657,12 +629,9 @@ def get_tolling_check():
         so["shortage_count"] = sum(1 for i in items if not i["covered"])
         result.append(so)
 
-    # SOs with shortages first, then date asc
     result.sort(key=lambda x: (not x["has_shortage"], x["transaction_date"]))
     return result
 
-
-# ── AR / AP Summary ───────────────────────────────────────────────────────────
 
 @frappe.whitelist()
 def get_ar_ap_summary(companies=None):
@@ -707,8 +676,6 @@ def get_ar_ap_summary(companies=None):
         "ap_overdue": sum(float(r.overdue or 0) for r in ap),
     }
 
-
-# ── Sales by Type ─────────────────────────────────────────────────────────────
 
 @frappe.whitelist()
 def get_sales_by_type(companies=None):

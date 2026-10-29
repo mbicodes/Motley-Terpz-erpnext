@@ -5,7 +5,6 @@ frappe.pages["timesheet-dashboard"].on_page_load = function (wrapper) {
 		single_column: true,
 	});
 
-	// ─── CSS ───────────────────────────────────────────────────────────────────
 	$(`<style>
 		@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
 
@@ -173,7 +172,6 @@ frappe.pages["timesheet-dashboard"].on_page_load = function (wrapper) {
 		.tsd-no-sel p { font-size: 15px; margin: 0; }
 	</style>`).appendTo("head");
 
-	// ─── Skeleton HTML ─────────────────────────────────────────────────────────
 	$(wrapper).find(".page-content").html(`
 		<div class="tsd-root">
 			<div class="tsd-sidebar">
@@ -197,7 +195,6 @@ frappe.pages["timesheet-dashboard"].on_page_load = function (wrapper) {
 		</div>
 	`);
 
-	// ─── Helpers ───────────────────────────────────────────────────────────────
 	const AVATAR_COLORS = [
 		"#5c6ac4","#00848e","#de3618","#9c6ade","#006fbb",
 		"#c05717","#108043","#bf0711","#47c1bf","#f49342",
@@ -227,12 +224,10 @@ frappe.pages["timesheet-dashboard"].on_page_load = function (wrapper) {
 		return isNaN(n) ? "–" : frappe.format(n, { fieldtype: "Currency" });
 	};
 
-	// ─── State ─────────────────────────────────────────────────────────────────
 	let allEmployees = [], activeEmpId = null, allRows = [], monthOnly = false;
 	const monthStart = frappe.datetime.month_start();
 	const today      = frappe.datetime.get_today();
 
-	// ─── Only show specific employees ────────────────────────────────────────────
 	frappe.call({
 		method: "frappe.client.get_list",
 		args: {
@@ -278,7 +273,6 @@ frappe.pages["timesheet-dashboard"].on_page_load = function (wrapper) {
 		);
 	});
 
-	// ─── Load employee data via page Python method ─────────────────────────────
 	function loadEmployee(empId, empName) {
 		activeEmpId = empId;
 		allRows = [];
@@ -314,7 +308,6 @@ frappe.pages["timesheet-dashboard"].on_page_load = function (wrapper) {
 			renderTable();
 		});
 
-		// ── Calls the @frappe.whitelist() method in timesheet_dashboard.py ──────
 		frappe.call({
 			method: "cannabis_management.cannabis_management.page.timesheet_dashboard.timesheet_dashboard.get_employee_timesheet_details",
 			args: { employee: empId },
@@ -329,7 +322,6 @@ frappe.pages["timesheet-dashboard"].on_page_load = function (wrapper) {
 		});
 	}
 
-	// ─── Render table ──────────────────────────────────────────────────────────
 	function renderTable() {
 		if (!allRows.length) { renderEmpty(); return; }
 
@@ -340,7 +332,6 @@ frappe.pages["timesheet-dashboard"].on_page_load = function (wrapper) {
 			})
 			: [...allRows];
 
-		// Sort descending — SQL already does this but re-sort after client filter
 		rows.sort((a, b) => new Date(b.from_time || 0) - new Date(a.from_time || 0));
 
 		$("#tsd-period-lbl").text(

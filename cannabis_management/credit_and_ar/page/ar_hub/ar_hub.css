@@ -1,7 +1,3 @@
-/* AR Hub — shadcn/ui look in plain CSS: neutral surfaces, 1px borders, 8-12px
-   radii, outline inputs, tinted badges and a data-table toolbar. Surface and
-   text tokens come from Frappe's theme variables, so dark mode follows the desk. */
-
 .arh {
 	--arh-bg: var(--fg-color, #ffffff);
 	--arh-fg: var(--text-color, #09090b);
@@ -14,7 +10,6 @@
 	--arh-ring: rgba(109, 40, 217, 0.28);
 	--arh-shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.05);
 	--arh-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
-	/* severity and status inks, dark enough for small text on white */
 	--arh-red: #b91c1c;
 	--arh-orange: #c2410c;
 	--arh-amber: #b45309;
@@ -51,7 +46,6 @@
 .arh-link { color: var(--arh-fg); font-weight: 500; text-decoration: underline; text-decoration-color: var(--arh-border); text-underline-offset: 3px; }
 .arh-link:hover { text-decoration-color: currentColor; }
 
-/* ---- buttons ---------------------------------------------------------------- */
 .arh-btn {
 	display: inline-flex;
 	align-items: center;
@@ -79,7 +73,6 @@
 .arh-btn:disabled { opacity: 0.5; cursor: default; }
 .arh-btn-icon { width: 36px; padding: 0; }
 
-/* ---- inputs ---------------------------------------------------------------- */
 .arh-input {
 	height: 36px;
 	padding: 0 12px;
@@ -108,7 +101,6 @@ select.arh-pick {
 .arh-input::placeholder { color: var(--arh-muted-fg); }
 textarea.arh-input { display: block; height: auto; min-height: 64px; padding: 8px 12px; line-height: 1.45; resize: vertical; }
 
-/* filters: dashed until set, like shadcn's faceted filters */
 .arh-filter { max-width: 190px; border-style: dashed; box-shadow: none; }
 .arh-filter.is-set {
 	border-style: solid;
@@ -154,7 +146,6 @@ textarea.arh-input { display: block; height: auto; min-height: 64px; padding: 8p
 .arh-check input { width: 16px; height: 16px; margin: 0; accent-color: var(--arh-primary); }
 .arh-check { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 13px; font-weight: 500; cursor: pointer; }
 
-/* ---- top bar: AR mode tabs, company, menus ------------------------------------ */
 .arh-top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .arh-tabs { display: inline-flex; gap: 2px; padding: 3px; border-radius: 10px; background: var(--arh-muted); }
 .arh-tab {
@@ -214,7 +205,6 @@ textarea.arh-input { display: block; height: auto; min-height: 64px; padding: 8p
 .arh-menu-check input { width: 15px; height: 15px; margin: 0; accent-color: var(--arh-primary); }
 .arh-menu-sep { height: 1px; margin: 4px -4px; background: var(--arh-border); }
 
-/* ---- summary cards ---------------------------------------------------------- */
 .arh-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin: 16px 0; }
 .arh-card {
 	display: flex;
@@ -243,7 +233,6 @@ textarea.arh-input { display: block; height: auto; min-height: 64px; padding: 8p
 .arh-card.is-active { border-color: var(--arh-primary); box-shadow: 0 0 0 3px var(--arh-ring); }
 .arh-card-act { display: inline-flex; align-items: center; gap: 4px; color: var(--arh-primary); font-size: 12px; font-weight: 500; white-space: nowrap; }
 
-/* ---- aging breakdown (AR Dashboard's bucket cards + distribution bar) -------- */
 .arh-aging-card {
 	margin: 0 0 16px;
 	padding: 14px 16px 16px;
@@ -286,7 +275,6 @@ textarea.arh-input { display: block; height: auto; min-height: 64px; padding: 8p
 .arh-agetile-value { font-size: 15px; font-weight: 600; color: var(--arh-age-fg); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .arh-agetile-sub { font-size: 11.5px; color: var(--arh-muted-fg); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* ---- the table panel -------------------------------------------------------- */
 .arh-panel { overflow: hidden; border: 1px solid var(--arh-border); border-radius: 12px; background: var(--arh-bg); box-shadow: var(--arh-shadow-xs); }
 .arh-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px; }
 .arh-reset { display: none; }
@@ -328,7 +316,6 @@ table.arh-table { width: 100%; min-width: max-content; border-collapse: separate
 .arh-table > thead > .arh-totals > td { background: color-mix(in srgb, var(--arh-muted) 85%, var(--arh-bg)); font-weight: 600; border-bottom-color: color-mix(in srgb, var(--arh-fg) 18%, var(--arh-border)); }
 .arh-total-label { font-weight: 600; }
 
-/* customer column stays put while the table scrolls sideways */
 .arh-table > thead > tr > .c-customer,
 .arh-table > tbody > tr > .c-customer {
 	position: sticky;
@@ -360,7 +347,6 @@ tr.arh-row:hover .arh-ext,
 .arh-sub.is-aging { color: var(--arh-amber); }
 .arh-sub.is-old { color: var(--arh-red); font-weight: 500; }
 
-/* money columns: colour only where it carries meaning */
 .arh-table td.c-outstanding { font-weight: 600; }
 .arh-table td.c-overdue { color: var(--arh-red); }
 .arh-table td.c-on_terms { color: var(--arh-green); }
@@ -375,7 +361,6 @@ tr.arh-row:hover .arh-ext,
 .arh-table td.c-od-level3 { color: var(--arh-red); }
 .arh-table td .arh-nil { color: var(--arh-muted-fg); }
 
-/* group headers */
 .arh-table > tbody > tr.arh-grp > td {
 	padding: 0;
 	border-bottom: 1px solid var(--arh-border);
@@ -399,7 +384,6 @@ tr.arh-row:hover .arh-ext,
 }
 .arh-grp-amt { font-weight: 600; font-variant-numeric: tabular-nums; }
 
-/* ---- badges and the inline pickers ------------------------------------------ */
 .arh-badge,
 .arh-pick {
 	--c: var(--arh-slate);
@@ -436,7 +420,6 @@ select.arh-pick { padding-right: 26px; background-position: right 7px center; ba
 .arh-book { flex: none; width: 46px; color: var(--arh-muted-fg); font-size: 11.5px; font-weight: 500; }
 .arh-note { max-width: 260px; overflow: hidden; text-overflow: ellipsis; color: var(--arh-muted-fg); }
 
-/* ---- expanded customer ------------------------------------------------------- */
 .arh-table > tbody > tr.arh-detail > td { padding: 0; border-bottom: 1px solid var(--arh-border); background: color-mix(in srgb, var(--arh-muted) 70%, var(--arh-bg)); }
 .arh-detail-in { position: sticky; left: 0; max-width: 100vw; padding: 4px 16px 16px; white-space: normal; }
 .arh-detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }

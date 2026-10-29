@@ -1,6 +1,3 @@
-// Copyright (c) 2026, alltechvirtual.com and contributors
-// For license information, please see license.txt
-
 frappe.ui.form.on("Farm Labor Session", {
 
     setup(frm) {
@@ -57,8 +54,6 @@ frappe.ui.form.on("Farm Labor Session", {
     }
 });
 
-// --- Ingredients ---------------------------------------------------------
-
 frappe.ui.form.on("Bucking Ingredient", {
     source_item(frm, cdt, cdn) {
         fetch_ingredient_cost(frm, cdt, cdn);
@@ -85,8 +80,6 @@ frappe.ui.form.on("Bucking Ingredient", {
     }
 });
 
-// --- Outputs --------------------------------------------------------------
-
 frappe.ui.form.on("Bucking Output", {
     qty_produced(frm) {
         calculate_bucking_totals(frm);
@@ -100,8 +93,6 @@ frappe.ui.form.on("Bucking Output", {
         calculate_bucking_totals(frm);
     }
 });
-
-// --- Additional Costs -------------------------------------------------------
 
 frappe.ui.form.on("Bucking Additional Cost", {
     amount(frm) {

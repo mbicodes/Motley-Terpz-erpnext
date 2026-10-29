@@ -1,12 +1,3 @@
-"""Document events this module needs, merged into the app's own.
-
-Wired this way rather than by editing the four doc_events blocks in hooks.py
-directly: Sales Order, Delivery Note, Payment Entry and Conversion Entry all
-already carry handlers from other modules, several as bare strings rather than
-lists. Merging in code appends without touching a line anyone else owns, and
-normalises the string form so no existing handler is ever dropped.
-"""
-
 MT_DISPATCH_DOC_EVENTS = {
 	"Sales Order": {
 		"on_submit": ["cannabis_management.mt_dispatch.flow.on_so_submit"],
@@ -17,9 +8,6 @@ MT_DISPATCH_DOC_EVENTS = {
 		"before_update_after_submit": ["cannabis_management.mt_dispatch.flow.guard_stage_field"],
 		"on_cancel": ["cannabis_management.mt_dispatch.flow.on_so_cancel"],
 	},
-	# Delivery Notes are made and submitted the ordinary way; nothing blocks
-	# them (gates.dn_before_insert / dn_before_submit are no longer wired).
-	# These hooks only keep the order's stage and Slack thread in step.
 	"Delivery Note": {
 		"after_insert": [
 			"cannabis_management.mt_dispatch.flow.dn_after_insert",
@@ -57,7 +45,6 @@ MT_DISPATCH_DOC_EVENTS = {
 
 
 def extend_doc_events(doc_events):
-	"""Merge in place. Appends, never replaces."""
 	for doctype, events in MT_DISPATCH_DOC_EVENTS.items():
 		target = doc_events.setdefault(doctype, {})
 		for event, handlers in events.items():
@@ -67,9 +54,7 @@ def extend_doc_events(doc_events):
 			target[event] = list(existing) + [h for h in handlers if h not in existing]
 	return doc_events
 
-
 MT_DISPATCH_CRON = {
-	# Section 9.1: reminders every 15 minutes, and the morning digest inside it.
 	"*/15 * * * *": ["cannabis_management.mt_dispatch.reminders.run"],
 }
 

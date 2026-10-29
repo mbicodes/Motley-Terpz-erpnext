@@ -1,41 +1,3 @@
-"""Re-file already-posted Delivery Note stock GL under its Sales Invoice.
-
-The companion to overrides/si_cogs_alignment.py, which does this for new
-documents. This one rewrites history: entries already sitting on a Delivery
-Note's date and voucher are moved onto the linked Sales Invoice's date and
-voucher, so revenue and its COGS report in the same period.
-
-Amounts, accounts, cost centres and dimensions are untouched. Only
-posting_date, fiscal_year, voucher_type and voucher_no change, plus the origin
-stamps that record where the row actually came from.
-
-Run it, from the bench directory:
-
-    # see what it would do -- changes nothing
-    bench --site <site> execute \
-        cannabis_management.patches.align_dn_gl_to_sales_invoice.execute
-
-    # do it
-    bench --site <site> execute \
-        cannabis_management.patches.align_dn_gl_to_sales_invoice.execute \
-        --kwargs "{'apply': True}"
-
-Read this before running it with apply=True
-───────────────────────────────────────────
-* GL Entry is append-only in ERPNext. Everything else cancels and re-posts;
-  this edits submitted rows in place, which is what was asked for and which no
-  ERPNext feature will undo. Every affected row is written to a JSON backup
-  first -- keep it.
-* The Stock Ledger Entry stays on the Delivery Note and its own date. After
-  this runs, the Inventory account balance at a date no longer matches the
-  Stock Ledger at that date, and the "Stock Ledger vs General Ledger" variance
-  report will show the gap permanently.
-* Rows are only moved when exactly one submitted Sales Invoice is linked, in
-  the same company. Anything else is reported and left alone -- splitting one
-  note's stock GL across several invoices is a judgement call, not a migration.
-* Run the dry run, hand the summary to Finance, and only then apply.
-"""
-
 import json
 import os
 
@@ -140,7 +102,6 @@ def execute(from_date=DEFAULT_FROM, to_date=DEFAULT_TO, apply=False, backup_dir=
 
 
 def _resolve_invoice(delivery_note, cache):
-	"""Return the target invoice, or a string explaining why the row stays put."""
 	if delivery_note in cache:
 		return cache[delivery_note]
 
@@ -190,9 +151,6 @@ def _report(planned, skipped):
 	notes = {r.voucher_no for r, _ in planned}
 	print("\nWould move: {0} rows across {1} delivery notes".format(len(planned), len(notes)))
 
-	# Month-on-month effect is what Finance actually needs to see, and only the
-	# COGS leg moves the P&L -- the inventory leg is its mirror image, so
-	# counting both nets every line to zero and says nothing.
 	cogs_accounts = set(
 		frappe.get_all("Account", filters={"account_type": "Cost of Goods Sold"}, pluck="name")
 	)

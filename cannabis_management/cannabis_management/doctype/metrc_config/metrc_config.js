@@ -37,11 +37,6 @@ frappe.ui.form.on("Metrc Config", {
 	},
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CEO-facing catalogue of what the Metrc integration can do. Verified live
-// against the CA sandbox with the current keys.
-// status: "live" (working), "read" (read-only), "blocked" (Metrc-side permission)
-// ─────────────────────────────────────────────────────────────────────────────
 function render_capabilities(frm) {
 	const GROUPS = [
 		{

@@ -1,28 +1,8 @@
-"""
-AR Due Date Reminder Emails
-Runs daily at 7 AM UTC.
-
-Logic:
-  1. For each payment terms template, fetch all outstanding invoices assigned to it.
-  2. Calculate days until due date for each invoice / payment schedule row.
-  3. If today's days-until-due matches the template's reminder schedule → include in email.
-  4. Send one consolidated email to Osama + Muhammad with all triggered reminders.
-
-Reminder schedules (days before due):
-  NET30 / 50% down NET30   →  20, 15, 10, 5, 3, 2, 1
-  NET15 / 50% down NET15   →  10, 5, 3, 2, 1
-  NET7                     →   5, 3, 2, 1
-  (any other / no terms)   →  10, 5, 3, 2, 1
-
-Overdue invoices: if past due by 1–7 days, also included regardless of terms.
-"""
-
 import frappe
 from frappe.utils import flt, getdate, nowdate
 
 RECIPIENTS = ["osama.ahmad@alltechvirtual.com", "mbi@alltechvirtual.com"]
 
-# ── Exact template name → reminder days before due ────────────────────────────
 TERMS_SCHEDULE = {
     "NET30":          [20, 15, 10, 5, 3, 2, 1],
     "50% down NET30": [20, 15, 10, 5, 3, 2, 1],
@@ -30,10 +10,6 @@ TERMS_SCHEDULE = {
     "50% down NET15": [10, 5, 3, 2, 1],
     "NET7":           [5, 3, 2, 1],
 }
-# Invoices with no template or an unrecognised template are NOT reminded
-
-
-# ── Invoice query (shared) ─────────────────────────────────────────────────────
 
 _INVOICE_SELECT = """
     SELECT
@@ -83,17 +59,7 @@ def _fetch_invoices(excluded, require_terms=False, limit=None):
     return frappe.db.sql(sql, {"exc": excluded}, as_dict=True)
 
 
-# ── Payment schedule helper ────────────────────────────────────────────────────
-
 def _build_ps_map(invoices):
-    """
-    Return {invoice_name: [{due_date, outstanding}, ...]} using FIFO allocation
-    against si.outstanding_amount so that already-paid installments are excluded.
-
-    ERPNext does not reliably update tabPayment Schedule.outstanding when payments
-    are applied, so we recalculate: sort installments by due_date ASC, subtract
-    the total amount paid (grand_total - outstanding_amount) from earliest first.
-    """
     if not invoices:
         return {}
 
@@ -110,7 +76,6 @@ def _build_ps_map(invoices):
         ORDER BY ps.parent, ps.due_date ASC
     """, {"names": names}, as_dict=True)
 
-    # Group by invoice
     raw = {}
     for r in ps_rows:
         raw.setdefault(r.invoice_name, []).append(r)
@@ -126,15 +91,15 @@ def _build_ps_map(invoices):
         for row in sorted(rows, key=lambda r: getdate(str(r.due_date))):
             amt = flt(row.payment_amount)
             if paid >= amt:
-                paid -= amt          # installment fully paid — skip
+                paid -= amt
             elif paid > 0:
-                entries.append({     # partially paid installment
+                entries.append({
                     "due_date":    getdate(str(row.due_date)),
                     "outstanding": amt - paid,
                 })
                 paid = 0
             else:
-                entries.append({     # unpaid installment
+                entries.append({
                     "due_date":    getdate(str(row.due_date)),
                     "outstanding": amt,
                 })
@@ -145,20 +110,15 @@ def _build_ps_map(invoices):
     return result
 
 
-# ── Entry points ───────────────────────────────────────────────────────────────
-
 def send_ar_reminders():
-    """Scheduled entry point — called daily at 7 AM UTC."""
     today    = getdate(nowdate())
     triggers = _collect_triggers(today)
 
     if not triggers:
         return "No reminders due today."
 
-    # Always send full picture to default recipients (management oversight)
     _send_email(triggers, today, RECIPIENTS)
 
-    # Additionally send each Sales Person only their assigned invoices
     sp_count = _send_sp_emails(triggers, today)
 
     count = sum(len(v) for v in triggers.values())
@@ -168,17 +128,11 @@ def send_ar_reminders():
 
 @frappe.whitelist()
 def send_now():
-    """Manual trigger from the ERPNext console."""
     return send_ar_reminders()
 
 
 @frappe.whitelist()
 def send_test():
-    """
-    Force-send a test reminder email with ALL outstanding invoices that have
-    a payment terms template — ignores the day-schedule check.
-    Useful for previewing the email format.
-    """
     today    = getdate(nowdate())
     excluded = _excluded_customers()
     invoices = _fetch_invoices(excluded, require_terms=True, limit=50)
@@ -216,23 +170,15 @@ def send_test():
     if not triggers:
         return "No invoices match a recognised payment terms schedule (NET7/NET15/NET30/50% variants)."
 
-    # Default recipients always get full picture
     _send_email(triggers, today, RECIPIENTS)
 
-    # Per-SP personalised emails (only their assigned invoices)
     sp_count = _send_sp_emails(triggers, today)
 
     count = sum(len(v) for v in triggers.values())
     return f"Test email sent: {count} invoice(s) to {RECIPIENTS}; {sp_count} SP email(s) sent"
 
 
-# ── Core logic ─────────────────────────────────────────────────────────────────
-
 def _collect_triggers(today):
-    """
-    Returns dict keyed by payment_terms_template →
-    list of reminder dicts for invoices whose days-until-due matches the schedule.
-    """
     excluded = _excluded_customers()
     invoices = _fetch_invoices(excluded)
     ps_map   = _build_ps_map(invoices)
@@ -284,10 +230,7 @@ def _excluded_customers():
     return tuple(excluded) if excluded else ("__none__",)
 
 
-# ── Email builder ──────────────────────────────────────────────────────────────
-
 def _get_sp_email_set():
-    """Return set of lowercase emails registered on the Sales Person list."""
     rows = frappe.db.sql("""
         SELECT custom_email FROM `tabSales Person`
         WHERE custom_email IS NOT NULL AND custom_email != ''
@@ -296,11 +239,6 @@ def _get_sp_email_set():
 
 
 def _send_sp_emails(triggers, today):
-    """
-    For each Sales Person whose email appears as an invoice owner in triggers,
-    send them a personalised email containing only their assigned invoices.
-    Returns count of SP emails sent.
-    """
     sp_set = _get_sp_email_set()
     if not sp_set:
         return 0

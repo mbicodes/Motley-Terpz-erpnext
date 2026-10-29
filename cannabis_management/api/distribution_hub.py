@@ -1,22 +1,3 @@
-# =================== DISTRIBUTION HUB - BACKEND API ===================
-# Backs the "Distribution Hub" Custom HTML Block (fixtures/custom_html_block.json)
-# shown on the "Distribution Hub" workspace.
-#
-# Field map below matches the REAL custom fields on this site (checked against
-# fixtures/custom_field.json + live data), not a generic template:
-#   - Sales Order.custom_logistic_status -> pipeline stage
-#     (options: Need to Schedule, Scheduled, Order Preparing, Order Prepared,
-#      Order Staged, Order Closed Out; unset/blank shown as "Not Set")
-#   - Sales Order.custom_pickup_or_dropoff -> Pickup/Dropoff column
-#   - Sales Order.custom_notes_for_logistics -> free-text logistics notes column
-#   - Delivery Note.custom_manifest (Attach) -> manifest file, if uploaded
-#   - Delivery Note.custom_shipment (Data)   -> shipment/tracking reference
-#   - Delivery Note.total_net_weight         -> weight column
-#   - Warehouse capacity: no capacity field exists on Warehouse. The only
-#     confirmed capacity in the business is Hemet TSBC - TSBC at 54,000 lbs
-#     (see setup_jamie_expense.py HEMET_STORAGE_WIDGET_JS / api/jamie.py
-#     get_hemet_storage_lbs) -- reused here instead of inventing a field.
-
 import frappe
 from frappe.utils import flt
 
@@ -35,10 +16,8 @@ PIPELINE_STAGES = [
     "Order Closed Out",
 ]
 
-# Warehouses actually used for distribution/storage of finished goods.
 DISTRO_WAREHOUSES = ["Hemet TSBC - TSBC", "Hemet - TSBC", "Hemet - MT", "Don Perico - MT"]
 
-# Only Hemet TSBC - TSBC has a business-confirmed max capacity today.
 WAREHOUSE_CAPACITY_LBS = {
     "Hemet TSBC - TSBC": 54000,
 }
@@ -64,9 +43,6 @@ def _warehouse_lbs(warehouse):
     return flt(row[0].lbs) if row else 0
 
 
-# ---------------------------------------------------------------------------
-# Meta: companies that actually have orders moving through the pipeline
-# ---------------------------------------------------------------------------
 @frappe.whitelist()
 def get_meta():
     companies = frappe.db.sql(
@@ -80,9 +56,6 @@ def get_meta():
     return {"companies": companies}
 
 
-# ---------------------------------------------------------------------------
-# 7-stage pipeline: stage counts + order rows
-# ---------------------------------------------------------------------------
 @frappe.whitelist()
 def get_pipeline(company=None):
     stages = []
@@ -122,9 +95,6 @@ def get_pipeline(company=None):
     return {"stages": stages, "orders": rows}
 
 
-# ---------------------------------------------------------------------------
-# Manifests (Delivery Note + shipment reference)
-# ---------------------------------------------------------------------------
 @frappe.whitelist()
 def get_manifests(company=None):
     filters = {"docstatus": ["<", 2]}
@@ -154,9 +124,6 @@ def get_manifests(company=None):
     return result
 
 
-# ---------------------------------------------------------------------------
-# Storage gauge: Hemet TSBC utilization % vs its confirmed 54,000 lb capacity
-# ---------------------------------------------------------------------------
 @frappe.whitelist()
 def get_storage_gauge():
     warehouse = "Hemet TSBC - TSBC"
@@ -171,9 +138,6 @@ def get_storage_gauge():
     }
 
 
-# ---------------------------------------------------------------------------
-# Bin utilization across distro warehouses (lbs; % only where capacity is known)
-# ---------------------------------------------------------------------------
 @frappe.whitelist()
 def get_bin_utilization():
     result = []
@@ -188,12 +152,7 @@ def get_bin_utilization():
         })
     return result
 
-
-# ---------------------------------------------------------------------------
-# Shortcuts grid — every route here is checked to exist on this site
-# ---------------------------------------------------------------------------
 SHORTCUT_CANDIDATES = [
-    # DocTypes actually used in the distribution/logistics flow
     {"icon": "D", "label": "Delivery Note", "sub": "New / List", "kind": "dt",
      "dt": "Delivery Note", "route": ["List", "Delivery Note"]},
     {"icon": "T", "label": "Delivery Trip", "sub": "New / List", "kind": "dt",
@@ -206,7 +165,6 @@ SHORTCUT_CANDIDATES = [
      "dt": "Sales Order", "route": ["List", "Sales Order"]},
     {"icon": "W", "label": "Warehouse", "sub": "List", "kind": "dt",
      "dt": "Warehouse", "route": ["List", "Warehouse"]},
-    # Reports actually built for logistics/stock visibility
     {"icon": "R", "label": "Stock Balance Logistic", "sub": "Report", "kind": "rpt",
      "report": "Stock Balance Logistic", "route": ["query-report", "Stock Balance Logistic"]},
     {"icon": "R", "label": "Warehouse Wise Stock Balance", "sub": "Report", "kind": "rpt",
@@ -216,7 +174,6 @@ SHORTCUT_CANDIDATES = [
 
 @frappe.whitelist()
 def get_shortcuts():
-    """Only return shortcuts whose target DocType/Report actually exists on this site."""
     result = []
     for s in SHORTCUT_CANDIDATES:
         if s.get("dt") and not frappe.db.exists("DocType", s["dt"]):

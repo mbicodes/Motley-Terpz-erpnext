@@ -1,13 +1,3 @@
-# Copyright (c) 2015, Frappe Technologies Pvt. Ltd. and Contributors
-# License: GNU General Public License v3. See license.txt
-#
-# Local copy of erpnext.accounts.report.financial_statements, kept in sync
-# with upstream except for one change: get_data() drops group/parent account
-# rows from its output so callers (e.g. this app's Profit and Loss Statement
-# (Child Accounts) report) only ever see leaf accounts. See the "Cannabis
-# Management customization" block inside get_data().
-
-
 import copy
 import functools
 import math
@@ -40,9 +30,6 @@ def get_period_list(
 	reset_period_on_fy_change=True,
 	ignore_fiscal_year=False,
 ):
-	"""Get a list of dict {"from_date": from_date, "to_date": to_date, "key": key, "label": label}
-	Periodicity can be (Yearly, Quarterly, Monthly)"""
-
 	if filter_based_on == "Fiscal Year":
 		fiscal_year = get_fiscal_year_data(from_fiscal_year, to_fiscal_year)
 		validate_fiscal_year(fiscal_year, from_fiscal_year, to_fiscal_year)
@@ -70,14 +57,11 @@ def get_period_list(
 
 		start_date = to_date
 
-		# Subtract one day from to_date, as it may be first day in next fiscal year or month
 		to_date = add_days(to_date, -1)
 
 		if to_date <= year_end_date:
-			# the normal case
 			period.to_date = to_date
 		else:
-			# if a fiscal year ends before a 12 month period
 			period.to_date = year_end_date
 
 		if not ignore_fiscal_year:
@@ -89,7 +73,6 @@ def get_period_list(
 		if period.to_date == year_end_date:
 			break
 
-	# common processing
 	for opts in period_list:
 		key = opts["to_date"].strftime("%b_%Y").lower()
 		if periodicity == "Monthly" and not accumulated_values:
@@ -221,12 +204,6 @@ def get_data(
 	)
 	out = filter_out_zero_value_rows(out, parent_children_map, filters.show_zero_values)
 
-	# --- Cannabis Management customization: only child (leaf) accounts ---
-	# Group/parent accounts already had every child's value rolled up into them
-	# (accumulate_values_into_parents above) purely so totals stay correct.
-	# Drop them from the display and clear parent_account on what's left so
-	# add_total_row's "no parent_account" check below sums every remaining
-	# (leaf) row instead of just top-level groups.
 	out = [row for row in out if not row.get("is_group")]
 	for row in out:
 		row["indent"] = 0
@@ -262,8 +239,6 @@ def calculate_values(
 					raise_exception=1,
 				)
 			for period in period_list:
-				# check if posting date is within the period
-
 				if entry.posting_date <= period.to_date:
 					if (accumulated_values or entry.posting_date >= period.from_date) and (
 						not ignore_accumulated_values_for_fy
@@ -276,7 +251,6 @@ def calculate_values(
 
 
 def accumulate_values_into_parents(accounts, accounts_by_name, period_list):
-	"""accumulate children's values in parent accounts"""
 	for d in reversed(accounts):
 		if d.parent_account:
 			for period in period_list:
@@ -295,7 +269,6 @@ def prepare_data(accounts, balance_must_be, period_list, company_currency, accum
 	year_end_date = period_list[-1]["year_end_date"].strftime("%Y-%m-%d")
 
 	for d in accounts:
-		# add to output
 		has_value = False
 		total = 0
 		row = frappe._dict(
@@ -317,19 +290,15 @@ def prepare_data(accounts, balance_must_be, period_list, company_currency, accum
 		)
 		for period in period_list:
 			if d.get(period.key) and balance_must_be == "Credit":
-				# change sign based on Debit or Credit, since calculation is done using (debit - credit)
 				d[period.key] *= -1
 
 			row[period.key] = flt(d.get(period.key, 0.0), 3)
 
 			if abs(row[period.key]) >= get_zero_cutoff(company_currency):
-				# ignore zero values
 				has_value = True
 				total += flt(row[period.key])
 
 		if accumulated_values:
-			# when 'accumulated_values' is enabled, periods have running balance.
-			# so, last period will have the net amount.
 			row["has_value"] = has_value
 			row["total"] = flt(d.get(period_list[-1].key, 0.0), 3)
 		else:
@@ -385,7 +354,6 @@ def add_total_row(out, root_type, balance_must_be, period_list, company_currency
 	if "total" in total_row:
 		out.append(total_row)
 
-		# blank row after Total
 		out.append({})
 
 
@@ -425,11 +393,8 @@ def filter_accounts(accounts, depth=20):
 
 
 def sort_accounts(accounts, is_root=False, key="name"):
-	"""Sort root types as Asset, Liability, Equity, Income, Expense"""
-
 	def compare_accounts(a, b):
 		if re.split(r"\W+", a[key])[0].isdigit():
-			# if chart of accounts is numbered, then sort by number
 			return int(a[key] > b[key]) - int(a[key] < b[key])
 		elif is_root:
 			if a.report_type != b.report_type and a.report_type == "Balance Sheet":
@@ -441,7 +406,6 @@ def sort_accounts(accounts, is_root=False, key="name"):
 			if a.root_type == "Income" and b.root_type == "Expense":
 				return -1
 		else:
-			# sort by key (number) or name
 			return int(a[key] > b[key]) - int(a[key] < b[key])
 		return 1
 
@@ -461,10 +425,8 @@ def set_gl_entries_by_account(
 	ignore_opening_entries=False,
 	group_by_account=False,
 ):
-	"""Returns a dict like { "account": [gl entries], ... }"""
 	gl_entries = []
 
-	# For balance sheet
 	ignore_closing_balances = frappe.db.get_single_value(
 		"Accounts Settings", "ignore_account_closing_balance"
 	)
@@ -749,18 +711,7 @@ def compute_growth_view_data(data, columns):
 
 			data[row_idx][current_period_key] = growth_percent
 
-
 VOUCHER_ITEM_DOCTYPE = {
-	# (item doctype, selling/buying rate fieldname, valuation/cost rate
-	# fieldname). Which of the two rate columns is used is a per-call choice
-	# (see attach_transaction_rows()'s use_valuation_rate) - COGS accounts
-	# want to show what the stock actually cost, everywhere else (Income,
-	# Expense, Balance Sheet accounts) wants what it was actually invoiced
-	# at. Sales Invoice/Delivery Note items don't have a "valuation_rate"
-	# field of their own; "incoming_rate" is ERPNext's own field for the
-	# same thing on outward stock movements. Stock Entry/Stock
-	# Reconciliation are pure inventory movements with no selling price at
-	# all, so both columns point at the same valuation_rate field.
 	"Sales Invoice": ("Sales Invoice Item", "rate", "incoming_rate"),
 	"Purchase Invoice": ("Purchase Invoice Item", "rate", "valuation_rate"),
 	"Delivery Note": ("Delivery Note Item", "rate", "incoming_rate"),
@@ -769,23 +720,6 @@ VOUCHER_ITEM_DOCTYPE = {
 	"Stock Reconciliation": ("Stock Reconciliation Item", "valuation_rate", "valuation_rate"),
 }
 
-# Which item-row fields can identify the ONE GL account a given item actually
-# posted to, per voucher type - used by attach_transaction_rows() to filter
-# items_by_voucher() down to only the items relevant to the leaf account
-# currently being drilled into (see item_matches_account() below). A single
-# voucher's item table can span several accounts at once (e.g. a Delivery
-# Note posting several items out of warehouse A and several out of warehouse
-# B, each warehouse mapped to a different stock account, all summarized into
-# one combined COGS entry): without this filter, every item on the voucher
-# was shown under every one of the voucher's GL entries, regardless of which
-# account that item actually affected.
-#
-# "direct": fields holding an actual Account name to compare against
-# entry.account as-is (income/expense accounts, which the item carries
-# directly). "warehouse": fields holding a Warehouse name, resolved to that
-# warehouse's stock account via get_warehouse_account_map() before comparing
-# - covers the asset/stock side of the same postings, where the item only
-# knows which warehouse it moved through, not the account name itself.
 VOUCHER_ITEM_ACCOUNT_FIELDS = {
 	"Sales Invoice": {"direct": ("income_account", "expense_account"), "warehouse": ("warehouse", "target_warehouse")},
 	"Purchase Invoice": {"direct": ("expense_account",), "warehouse": ("warehouse", "from_warehouse")},
@@ -797,11 +731,6 @@ VOUCHER_ITEM_ACCOUNT_FIELDS = {
 
 
 def item_matches_account(item, voucher_type, account, warehouse_account_map):
-	"""True if `item` (one row from items_by_voucher()) is actually one of the
-	items that posted to `account` on this voucher - see
-	VOUCHER_ITEM_ACCOUNT_FIELDS above. Voucher types with no mapping here fail
-	open (keep the item) rather than silently hiding data for a type nobody's
-	verified yet."""
 	field_map = VOUCHER_ITEM_ACCOUNT_FIELDS.get(voucher_type)
 	if not field_map:
 		return True
@@ -819,52 +748,18 @@ def item_matches_account(item, voucher_type, account, warehouse_account_map):
 
 
 def blank_group_amounts(rows, period_list):
-	"""Blank every period + total cell on group/parent account rows in place.
-	Leaf accounts, transaction rows and item rows (none of which carry
-	is_group) are left untouched, and so are the synthetic total/heading
-	rows built elsewhere (they never set is_group either)."""
 	for row in rows:
 		if row.get("is_group"):
 			for period in period_list:
 				row[period.key] = None
 			row["total"] = None
 
-
 VALUATION_RATE_ACCOUNT_TYPES = {"Stock", "Stock Adjustment"}
 
-# Voucher types the Stock Valuation Lineage report can backward-trace from
-# (see get_item_lineage() in that report's .py) - only these item rows get
-# the extra "trace lineage" expand step in the COGS branch.
 LINEAGE_VOUCHER_TYPES = ("Sales Invoice", "Delivery Note")
 
 
 def attach_transaction_rows(rows, filters, period_list, currency, use_valuation_rate=False):
-	"""Expand every leaf account row in `rows` with its own transactions
-	(vouchers) as indented child rows in this same tree - clicking the
-	account's expand arrow reveals them right here, no separate General
-	Ledger report involved. Vouchers with their own item table (see
-	VOUCHER_ITEM_DOCTYPE) get one level further: their line items as
-	grandchild rows.
-
-	use_valuation_rate: pass True to force valuation/cost rate for every
-	leaf account in this call - used for the Profit and Loss Statement's
-	COGS branch, whose accounts are identified by name (see
-	get_cogs_anchor_account_names() in profit_and_loss_statement_child_accounts.py),
-	not a reliable account_type, so an explicit override is the only
-	trustworthy signal there.
-
-	Left False (the default), each leaf account decides for itself instead:
-	Stock/Stock Adjustment accounts (VALUATION_RATE_ACCOUNT_TYPES) show
-	valuation rate, everything else (Receivable, Payable, Bank, Income,
-	Expense, ...) shows the selling/buying rate - this is what the Detailed
-	Balance Sheet relies on, since its Asset tree mixes Stock accounts in
-	with Receivable/Payable/Bank in the very same call, and the same
-	voucher (e.g. a stock-updating Sales Invoice) can post to both a
-	Receivable account and a Stock account at once, each wanting a
-	different rate for the exact same line item.
-
-	Group rows are left untouched (Frappe doesn't allow postings directly on
-	a group account, so they never have transactions of their own)."""
 	leaf_accounts = [row["account"] for row in rows if row.get("account") and not row.get("is_group")]
 	if not leaf_accounts:
 		return rows
@@ -910,10 +805,6 @@ def attach_transaction_rows(rows, filters, period_list, currency, use_valuation_
 			if entry.voucher_type not in VOUCHER_ITEM_DOCTYPE:
 				continue
 
-			# Only forced valuation (the P&L COGS branch) offers the lineage
-			# drill-down - Balance Sheet's Stock accounts also show valuation
-			# rate (via the account_type auto-detect above) but weren't part
-			# of what was asked for here, so they don't get the extra step.
 			show_lineage = use_valuation_rate and entry.voucher_type in LINEAGE_VOUCHER_TYPES
 
 			voucher_items = items_by_voucher.get((entry.voucher_type, entry.voucher_no), [])
@@ -942,12 +833,6 @@ def attach_transaction_rows(rows, filters, period_list, currency, use_valuation_
 
 def make_transaction_row(txn_key, parent_account, indent, entry, period_list, currency):
 	row = {
-		# Quoted like make_total_row()/make_diff_row()'s synthetic rows -
-		# the "account" column is fieldtype Link/Account, and frappe's Link
-		# formatter special-cases a 'quoted' value to render as plain text
-		# instead of building a (here, broken - txn_key isn't a real Account)
-		# link to /app/account/<value>. Only real leaf account rows should
-		# ever be clickable through to an actual Account record.
 		"account": "'" + txn_key + "'",
 		"parent_account": parent_account,
 		"indent": indent,
@@ -971,13 +856,8 @@ def make_item_row(
 	parent_key, indent, item, period_list, currency, use_valuation_rate, show_lineage=False, voucher_type=None
 ):
 	rate = item.valuation_rate if use_valuation_rate else item.selling_rate
-	# Recomputed rather than taken from the document's own stored amount -
-	# that amount is always qty * selling rate, even when valuation rate is
-	# what's about to be shown here, so trusting it would show a rate and
-	# amount that don't multiply out to each other.
 	amount = flt(item.qty) * flt(rate)
 	row = {
-		# Quoted for the same reason as make_transaction_row() above.
 		"account": "'" + f"{parent_key}::item::{item.idx}" + "'",
 		"parent_account": parent_key,
 		"indent": indent,
@@ -990,10 +870,6 @@ def make_item_row(
 		"amount": amount,
 	}
 	if show_lineage:
-		# Everything get_item_lineage() (stock_valuation_lineage.py) needs to
-		# re-identify this exact sold Stock Ledger Entry on demand - the
-		# frontend calls it only when this row is actually expanded, instead
-		# of every item in the report being traced up front.
 		row["show_lineage"] = True
 		row["warehouse"] = item.warehouse
 		row["voucher_type"] = voucher_type
@@ -1031,21 +907,11 @@ def get_account_transactions(accounts, filters, period_list):
 		.orderby(gl_entry.posting_date)
 		.orderby(gl_entry.creation)
 	)
-	# Same finance book / cost center / project / accounting dimension
-	# filters the account totals above were computed with, so the
-	# transactions listed under an account always match its total.
 	query = apply_additional_conditions("GL Entry", query, None, True, filters)
 	return query.run(as_dict=True)
 
 
 def get_item_rows_by_voucher(gl_entries):
-	"""Fetches BOTH the selling/buying rate and the valuation/cost rate for
-	every item, aliased uniformly regardless of voucher type - which one
-	make_item_row() actually uses is decided per leaf account by its caller
-	(attach_transaction_rows()), not here, since the very same voucher can
-	be attached under two different accounts in the same call that each
-	want a different rate (e.g. a stock-updating Sales Invoice posts to
-	both a Receivable account and a Stock account)."""
 	voucher_names_by_doctype = {}
 	for entry in gl_entries:
 		if entry.voucher_type in VOUCHER_ITEM_DOCTYPE:
@@ -1063,10 +929,6 @@ def get_item_rows_by_voucher(gl_entries):
 			f"{selling_rate_field} as selling_rate",
 			f"{valuation_rate_field} as valuation_rate",
 		]
-		# Also fetch whichever fields item_matches_account() needs to tell
-		# which account/warehouse this item actually posted to (varies by
-		# voucher type - e.g. Stock Entry Detail has no plain "warehouse"
-		# field, s_warehouse/t_warehouse instead).
 		account_field_map = VOUCHER_ITEM_ACCOUNT_FIELDS.get(voucher_type, {})
 		for fieldname in list(account_field_map.get("direct", ())) + list(account_field_map.get("warehouse", ())):
 			if fieldname not in fields:
@@ -1083,7 +945,6 @@ def get_item_rows_by_voucher(gl_entries):
 			items_by_voucher.setdefault((voucher_type, item.parent), []).append(item)
 
 	return items_by_voucher
-
 
 TRANSACTION_DETAIL_FIELDS = (
 	"posting_date",
@@ -1102,14 +963,6 @@ TRANSACTION_DETAIL_FIELDS = (
 
 
 def blank_missing_transaction_detail_fields(data):
-	"""Every transaction-detail column (see get_transaction_detail_columns())
-	is only relevant to some rows - Debit/Credit/Party/Against only to
-	transaction rows, Qty/Rate/Amount/Item Code/Item Name only to item rows,
-	none of them to plain account/group/total rows. Frappe's Currency/Float
-	formatters only render a blank cell for a field that's explicitly None;
-	a field that's merely absent from the row still formats as "0.00" (the
-	frontend checks `value === null`, not `value == null`) - so every row
-	needs each not-applicable field set to a real None, not just left unset."""
 	for row in data:
 		if not row:
 			continue
@@ -1119,11 +972,6 @@ def blank_missing_transaction_detail_fields(data):
 
 
 def get_transaction_detail_columns(data):
-	"""Only include a transaction-detail column if at least one row in this
-	report run actually has a value for it - e.g. no point showing "Item
-	Code"/"Qty"/"Rate" if none of the transactions drilled into this time
-	carry an item table, or "Party" if every voucher here posts without
-	one. `data` is the report's fully-built row list."""
 	all_columns = [
 		{"label": _("Posting Date"), "fieldname": "posting_date", "fieldtype": "Date", "width": 100},
 		{"label": _("Voucher Type"), "fieldname": "voucher_type", "fieldtype": "Data", "width": 130},
@@ -1142,10 +990,6 @@ def get_transaction_detail_columns(data):
 		{"label": _("Item Name"), "fieldname": "item_name", "fieldtype": "Data", "width": 160},
 		{"label": _("Qty"), "fieldname": "qty", "fieldtype": "Float", "width": 80},
 		{
-			# Selling/buying rate everywhere except the Cost of Goods Sold
-			# branch, where callers pass use_valuation_rate=True to
-			# attach_transaction_rows() and this same column shows the
-			# valuation/cost rate instead - see VOUCHER_ITEM_DOCTYPE.
 			"label": _("Rate"),
 			"fieldname": "rate",
 			"fieldtype": "Currency",
@@ -1163,11 +1007,6 @@ def get_transaction_detail_columns(data):
 
 
 def compute_margin_view_data(data, columns, accumulated_values, base_account_name=None):
-	"""Percent-of-base view: every row's value is shown as a percentage of
-	`base_account_name`'s value in that same column (e.g. "% of Income" for
-	Profit and Loss, "% of Assets" - a common-size balance sheet - for the
-	Balance Sheet). Defaults to Income to preserve the original P&L-only
-	behaviour of this function."""
 	if not columns:
 		return
 
@@ -1188,7 +1027,6 @@ def compute_margin_view_data(data, columns, accumulated_values, base_account_nam
 		return
 
 	for row_idx in range(len(data_copy)):
-		# Taking the total income from each column (for all the financial years) as the base (100%)
 		row = data_copy[row_idx]
 		if not row:
 			continue

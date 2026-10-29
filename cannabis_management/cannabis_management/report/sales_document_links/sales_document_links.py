@@ -1,28 +1,7 @@
-# Copyright (c) 2026, alltechvirtual.com and contributors
-# For license information, please see license.txt
-"""Sales Document Links — which Delivery Note belongs to which Sales Invoice,
-and which Sales Invoice came from which Sales Order.
-
-The Delivery Note <-> Sales Invoice link is stored in BOTH directions in
-ERPNext, depending on which document was made first:
-
-  * Sales Invoice Item.delivery_note      — invoice raised against a delivery
-  * Delivery Note Item.against_sales_invoice — delivery made against an invoice
-
-On this site the second is overwhelmingly the common one (45 delivery notes vs
-3 invoices at the time of writing), so reading only the "standard" first field
-would miss almost every link. Both are unioned below.
-
-The Sales Order link comes from Sales Invoice Item.sales_order, and is backfilled
-from Delivery Note Item.against_sales_order when the invoice line itself does not
-carry one — the order is still the origin of the row either way.
-"""
-
 import frappe
 from frappe import _
 from frappe.utils import flt
 
-# Every row is classified so the gaps are searchable, not just the matches.
 STATUS_COMPLETE = "Complete"
 STATUS_NO_DN = "Invoice not delivered"
 STATUS_NO_SI = "Delivery not invoiced"
@@ -30,7 +9,6 @@ STATUS_NO_SO = "No Sales Order"
 
 LINK_STATUSES = [STATUS_COMPLETE, STATUS_NO_DN, STATUS_NO_SI, STATUS_NO_SO]
 
-# How the delivery note and the invoice on a row are related.
 LINKED_DIRECT = "Direct"
 LINKED_VIA_SO = "Via Sales Order"
 
@@ -88,10 +66,6 @@ def _build_rows(filters):
 	deliveries = _fetch_deliveries(filters, docstatuses)
 	orders = {}
 
-	# Detail caches seeded with the filtered sets. A chain is shown whenever ANY
-	# of its documents falls inside the filters; the counterpart is then fetched
-	# on demand even if its own date sits outside the window, so a delivery whose
-	# invoice is older is never mislabelled as "not invoiced".
 	si_cache = dict(invoices)
 	dn_cache = dict(deliveries)
 
@@ -99,10 +73,6 @@ def _build_rows(filters):
 	si_to_so = _si_so_links(docstatuses)
 	dn_to_so = _dn_so_links(docstatuses)
 
-	# A delivery note and an invoice raised against the SAME sales order are
-	# related even when neither points at the other — which is the common shape
-	# when both are made from the order rather than from each other. These two
-	# maps are what let the report join that case.
 	so_to_dn = _invert(dn_to_so)
 	so_to_si = _invert(si_to_so)
 
@@ -110,7 +80,6 @@ def _build_rows(filters):
 	seen = set()
 	covered_dns = set()
 
-	# ── Anchored on invoices ────────────────────────────────────────────────
 	for si_name, si in invoices.items():
 		sos = set(si_to_so.get(si_name, set()))
 		pairs = _counterparts(si_to_dn.get(si_name), sos, so_to_dn)
@@ -128,7 +97,6 @@ def _build_rows(filters):
 				rows.append(_make_row(si, _delivery(dn_cache, dn), _order(orders, so),
 				                      so, dn, si_name, how))
 
-	# ── Delivery notes no invoice row already accounted for ─────────────────
 	for dn_name, dn in deliveries.items():
 		if dn_name in covered_dns:
 			continue
@@ -157,12 +125,6 @@ def _build_rows(filters):
 
 
 def _counterparts(direct, sos, so_map):
-	"""Documents on the other side of the link, and how they got there.
-
-	A direct reference always wins. Only when there is none does the sales order
-	act as the bridge — so a well-linked pair is never also reported as an
-	order-level guess.
-	"""
 	if direct:
 		return [(name, LINKED_DIRECT) for name in sorted(direct)]
 
@@ -184,14 +146,6 @@ def _invert(mapping):
 
 
 def _attach_quantities(rows):
-	"""Total ordered / delivered / invoiced quantity for each document on a row.
-
-	These are per-DOCUMENT totals, not per-link: a document that appears on more
-	than one row (an invoice spanning two sales orders, say) shows its full
-	quantity on each. That is why the report has no total row — summing the
-	column would double-count. Reading across a row is what the column is for:
-	ordered vs delivered vs invoiced, and where they disagree.
-	"""
 	for name_field, qty_field, child_dt in (
 		("sales_order", "so_qty", "Sales Order Item"),
 		("delivery_note", "dn_qty", "Delivery Note Item"),
@@ -206,7 +160,7 @@ def _qty_totals(child_dt, names):
 	if not names:
 		return {}
 	out = {}
-	CHUNK = 500  # keep the IN list well inside MariaDB's packet limit
+	CHUNK = 500
 	for i in range(0, len(names), CHUNK):
 		part = tuple(names[i:i + CHUNK])
 		for r in frappe.db.sql(
@@ -219,7 +173,6 @@ def _qty_totals(child_dt, names):
 
 
 def _order(cache, name):
-	"""Sales Order header, fetched once per order."""
 	if not name:
 		return None
 	if name not in cache:
@@ -288,8 +241,6 @@ def _apply_link_status_filter(rows, filters):
 	return [r for r in rows if r["link_status"] == wanted]
 
 
-# ── Header fetches ──────────────────────────────────────────────────────────
-
 def _common_conditions(filters, docstatuses, date_field):
 	conds = ["docstatus in %(docstatuses)s"]
 	values = {"docstatuses": tuple(docstatuses)}
@@ -338,12 +289,9 @@ def _fetch_deliveries(filters, docstatuses):
 	return {r.name: r for r in rows}
 
 
-# ── Link maps (both directions) ─────────────────────────────────────────────
-
 def _dn_si_links(docstatuses):
 	si_to_dn, dn_to_si = {}, {}
 
-	# Invoice raised against a delivery.
 	for r in frappe.db.sql(
 		"""select distinct parent as si, delivery_note as dn
 		   from `tabSales Invoice Item`
@@ -353,7 +301,6 @@ def _dn_si_links(docstatuses):
 		si_to_dn.setdefault(r.si, set()).add(r.dn)
 		dn_to_si.setdefault(r.dn, set()).add(r.si)
 
-	# Delivery made against an invoice — the common direction on this site.
 	for r in frappe.db.sql(
 		"""select distinct parent as dn, against_sales_invoice as si
 		   from `tabDelivery Note Item`

@@ -1,8 +1,3 @@
-// Copyright (c) 2026, alltechvirtual.com and contributors
-// Unit Economics — live rebuild of "MotleyTerpz UnitEconomics" workbook (v20).
-// Blue cells = editable inputs (persisted in the Unit Economics Model single);
-// everything else is computed with the same formulas as the spreadsheet.
-
 frappe.pages["unit-economics"].on_page_load = function (wrapper) {
 	const page = frappe.ui.make_app_page({
 		parent: wrapper,
@@ -115,7 +110,6 @@ class UnitEconomics {
 		});
 	}
 
-	// ───────────────────────────── model ─────────────────────────────
 	compute() {
 		const s = this.state;
 		const t = this.compute_tsbc(s.tsbc);
@@ -239,7 +233,6 @@ class UnitEconomics {
 		const cash_off = net - wc_incr;
 		const net_cash = cash_off + flt(x.fin.loans_in) - flt(x.fin.repaid) - flt(x.fin.draws);
 
-		// potential: everything on hand + made, sold at market, plus service book
 		const rev_potential = inv.reduce((a, r) => a + (flt(r.begin) + r.made) * flt(r.mkt), 0)
 			+ sales.filter((r) => r.service).reduce((a, r) => a + r.revenue, 0);
 		const cost_potential = inv.reduce((a, r) => a + (flt(r.begin) + r.made) * r.cost, 0)
@@ -304,7 +297,6 @@ class UnitEconomics {
 		};
 	}
 
-	// ───────────────────────────── render ─────────────────────────────
 	render() {
 		const m = this.compute();
 		const tabs = [
@@ -626,7 +618,6 @@ class UnitEconomics {
 	}
 }
 
-// ── tiny render/format helpers (page-scope globals) ──
 function flt(v) { return parseFloat(v) || 0; }
 function money(v, prec) {
 	v = flt(v);

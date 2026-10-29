@@ -1,9 +1,3 @@
-"""
-Daily Sale Report
-Scheduled: Mon–Fri at 4 PM PDT / 4 AM PKT (23:00 UTC; 00:00 UTC Nov–Mar PST)
-Covers: Sales Orders, Sales Invoices, Delivery Notes, Client Payments, Tomorrow's Orders
-"""
-
 import frappe
 from frappe.utils import nowdate, add_days, fmt_money, flt, format_datetime
 from datetime import datetime
@@ -15,12 +9,9 @@ CEO_RECIPIENTS = [
 COMPANIES = ["Motley Terpz", "TSBC Ranch"]
 
 
-# ── Entry point (scheduler) ───────────────────────────────────────────────────
-
 def send_daily_report():
     today = nowdate()
 
-    # Guard: never send more than once per calendar day (prevents migrate-triggered double sends)
     cache_key = f"daily_report_sent_{today}"
     if frappe.cache().get_value(cache_key):
         frappe.logger().info(f"[daily_report] already sent for {today}, skipping")
@@ -36,14 +27,11 @@ def send_daily_report():
             message=html,
             delayed=False,
         )
-        # Mark as sent for the rest of today (TTL 26 h covers any clock skew)
         frappe.cache().set_value(cache_key, True, expires_in_sec=26 * 3600)
         frappe.logger().info(f"[daily_report] sent for {today}")
     except Exception:
         frappe.log_error(frappe.get_traceback(), "[daily_report] send failed")
 
-
-# ── Allow manual trigger from desk ───────────────────────────────────────────
 
 @frappe.whitelist()
 def send_now(date=None):
@@ -59,8 +47,6 @@ def send_now(date=None):
     )
     return "sent"
 
-
-# ── Data queries ──────────────────────────────────────────────────────────────
 
 def _get_sales_orders(date):
     rows = frappe.db.sql("""
@@ -181,8 +167,6 @@ def _get_tomorrow_orders(tomorrow):
     """, tomorrow, as_dict=True)
     return rows
 
-
-# ── Email builder ─────────────────────────────────────────────────────────────
 
 def _build_email(today, tomorrow):
     so_rows = _get_sales_orders(today)
@@ -323,8 +307,6 @@ def _build_email(today, tomorrow):
     return html
 
 
-# ── Section builders ──────────────────────────────────────────────────────────
-
 def _kpi_bar(so_rows, si_rows, dn_rows, py_rows):
     so_orders  = len({r.name for r in so_rows})
     so_total   = sum(flt(r.grand_total) for r in {r.name: r for r in so_rows}.values())
@@ -361,11 +343,9 @@ def _kpi_bar(so_rows, si_rows, dn_rows, py_rows):
 
 
 def _doc_table(rows, doc_type_label):
-    """Generic table builder for SO/SI/DN rows grouped by document."""
     if not rows:
         return f'<div class="empty">No {doc_type_label} recorded today.</div>'
 
-    # Group by document name
     docs = {}
     for r in rows:
         if r.name not in docs:
@@ -401,7 +381,6 @@ def _doc_table(rows, doc_type_label):
               <td class="r bold">{"" if not last else _fmt(doc["grand_total"])}</td>
             </tr>"""
 
-    # Totals row
     total_amt   = sum(flt(r.grand_total) for r in {r.name: r for r in rows}.values())
     total_docs  = len(docs)
     html += f"""<tr class="subtotal">
@@ -414,7 +393,6 @@ def _doc_table(rows, doc_type_label):
 
 
 def _ig_summary(rows):
-    """Item group summary table."""
     if not rows:
         return ""
     ig = {}
@@ -511,7 +489,6 @@ def _payment_section(rows):
         <td></td>
       </tr></tbody></table>"""
 
-        # Bank vs Cash breakdown
         body += f"""<table style="margin-top:0">
       <thead><tr style="background:#fafbff">
         <th colspan="3" style="color:#d97706">Breakdown by Mode</th>
@@ -574,8 +551,6 @@ def _tomorrow_section(rows, tom_label):
     {body}
   </div>"""
 
-
-# ── Utilities ─────────────────────────────────────────────────────────────────
 
 def _fmt(v):
     if not v:

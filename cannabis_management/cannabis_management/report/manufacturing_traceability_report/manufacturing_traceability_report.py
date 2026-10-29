@@ -1,25 +1,18 @@
 import frappe
 from frappe import _
 
-
-# ---------------------------------------------------------------------------
-# Micron table auto-detection
-# cannabis_management app mein table name alag ho sakta hai.
-# Yeh function runtime pe sahi table dhundta hai.
-# ---------------------------------------------------------------------------
 MICRON_TABLE_CANDIDATES = [
-    "tabJob Card Micron Detail",          # original guess
-    "tabJob Card Micron",                 # shorter variant
-    "tabCannabis Job Card Micron Detail", # cannabis_ prefix variant
-    "tabCannabis Micron Detail",          # pure cannabis variant
-    "tabMicron Detail",                   # minimal name
+    "tabJob Card Micron Detail",
+    "tabJob Card Micron",
+    "tabCannabis Job Card Micron Detail",
+    "tabCannabis Micron Detail",
+    "tabMicron Detail",
 ]
 
-_micron_table_cache = {}  # cached per-site
+_micron_table_cache = {}
 
 
 def get_micron_table():
-    """Return the first existing micron child table name, or None."""
     site = frappe.local.site
     if site in _micron_table_cache:
         return _micron_table_cache[site]
@@ -32,7 +25,6 @@ def get_micron_table():
     )
     found_tables = [row[0] for row in existing]
 
-    # Priority: use candidate order, fall back to first found
     chosen = None
     for candidate in MICRON_TABLE_CANDIDATES:
         if candidate in found_tables:
@@ -54,7 +46,6 @@ def execute(filters=None):
 
 def get_columns():
     return [
-        # L1 — Material Request
         {"label": _("Material Request No."), "fieldname": "material_request",
          "fieldtype": "Link", "options": "Material Request", "width": 180},
         {"label": _("MR Date"), "fieldname": "mr_date",
@@ -65,12 +56,10 @@ def get_columns():
          "fieldtype": "Link", "options": "Item", "width": 160},
         {"label": _("Raw Material Qty (LBS)"), "fieldname": "rm_qty",
          "fieldtype": "Float", "width": 140},
-        # L2 — BOM
         {"label": _("BOM Number"), "fieldname": "bom_no",
          "fieldtype": "Link", "options": "BOM", "width": 150},
         {"label": _("BOM Raw Material Cost"), "fieldname": "bom_rm_cost",
          "fieldtype": "Currency", "width": 160},
-        # L3 — Work Order
         {"label": _("Work Order No."), "fieldname": "work_order",
          "fieldtype": "Link", "options": "Work Order", "width": 170},
         {"label": _("WO Status"), "fieldname": "wo_status",
@@ -89,7 +78,6 @@ def get_columns():
          "fieldtype": "Link", "options": "Warehouse", "width": 140},
         {"label": _("Target Warehouse (FG)"), "fieldname": "fg_warehouse",
          "fieldtype": "Link", "options": "Warehouse", "width": 160},
-        # L4 — Material Transfer
         {"label": _("Transfer Stock Entry No."), "fieldname": "transfer_entry",
          "fieldtype": "Link", "options": "Stock Entry", "width": 180},
         {"label": _("Transfer Date"), "fieldname": "transfer_date",
@@ -98,7 +86,6 @@ def get_columns():
          "fieldtype": "Float", "width": 150},
         {"label": _("Remaining Qty to Transfer"), "fieldname": "remaining_transfer_qty",
          "fieldtype": "Float", "width": 170},
-        # L5 — Job Card
         {"label": _("Job Card No."), "fieldname": "job_card",
          "fieldtype": "Link", "options": "Job Card", "width": 160},
         {"label": _("Operation"), "fieldname": "operation",
@@ -117,7 +104,6 @@ def get_columns():
          "fieldtype": "Data", "width": 160},
         {"label": _("JC Actual Produced Qty"), "fieldname": "jc_produced_qty",
          "fieldtype": "Float", "width": 160},
-        # L6 — Micron Analysis
         {"label": _("Micron Size"), "fieldname": "micron_size",
          "fieldtype": "Data", "width": 110},
         {"label": _("Finished Product (per Micron)"), "fieldname": "micron_item",
@@ -128,7 +114,6 @@ def get_columns():
          "fieldtype": "Data", "width": 120},
         {"label": _("Production Distribution %"), "fieldname": "distribution_pct",
          "fieldtype": "Percent", "width": 170},
-        # L7 — Finished Goods
         {"label": _("Manufacture Stock Entry No."), "fieldname": "manufacture_entry",
          "fieldtype": "Link", "options": "Stock Entry", "width": 200},
         {"label": _("Produced Qty in SE"), "fieldname": "se_produced_qty",
@@ -137,7 +122,6 @@ def get_columns():
          "fieldtype": "Link", "options": "Warehouse", "width": 140},
         {"label": _("Production Date"), "fieldname": "production_date",
          "fieldtype": "Date", "width": 130},
-        # L8 — Costing
         {"label": _("Raw Material Cost (Actual)"), "fieldname": "rm_actual_cost",
          "fieldtype": "Currency", "width": 180},
         {"label": _("Labour Cost"), "fieldname": "labour_cost",
@@ -150,7 +134,6 @@ def get_columns():
          "fieldtype": "Currency", "width": 180},
         {"label": _("Cost Per Unit"), "fieldname": "cost_per_unit",
          "fieldtype": "Currency", "width": 130},
-        # L9 — Variance
         {"label": _("Planned Quantity"), "fieldname": "planned_qty_var",
          "fieldtype": "Float", "width": 140},
         {"label": _("Qty Variance"), "fieldname": "qty_variance",
@@ -194,10 +177,6 @@ def get_filters_conditions(filters):
 
 
 def get_micron_join(micron_table):
-    """
-    Build the LEFT JOIN clause and SELECT fields for the micron table.
-    If table not found → return empty strings so report still loads.
-    """
     if not micron_table:
         select_part = (
             "NULL AS micron_size, NULL AS micron_item, "
@@ -226,7 +205,6 @@ def get_data(filters=None):
 
     conditions, params = get_filters_conditions(filters)
 
-    # Detect micron table at runtime — safe even if table missing
     micron_table = get_micron_table()
     micron_select, micron_join, micron_group = get_micron_join(micron_table)
 
@@ -341,9 +319,6 @@ def get_data(filters=None):
         as_dict=True,
     )
 
-    # ---------------------------------------------------------------
-    # POST-PROCESSING
-    # ---------------------------------------------------------------
     jc_grams_total = {}
     for row in raw_rows:
         jc = row.get("job_card") or ""

@@ -1,10 +1,3 @@
-// MT Dispatch: stage buttons on the Sales Order form.
-//
-// The same transitions as the Slack buttons, through
-// cannabis_management.mt_dispatch.api.act. The server decides which buttons
-// this user may see (api.board) and re-checks everything on click, so the
-// form never has to know the rules.
-
 frappe.provide("mt_dispatch");
 
 const MT_API = "cannabis_management.mt_dispatch.api.";
@@ -27,23 +20,16 @@ frappe.ui.form.on("Sales Order", {
 		});
 	},
 
-	// Picking a stage in the Logistic Status field runs the step that leads
-	// there -- the same one the Dispatch menu runs, with its dialogs and
-	// checks. The field itself is never saved directly; the server refuses that.
 	custom_logistic_status(frm) {
 		if (frm._mt_reverting || frm.doc.docstatus !== 1) return;
 		const chosen = frm.doc.custom_logistic_status;
 		const board = frm._mt_board || {};
-		// Company not on dispatch: a plain field, saved with Update like any other.
 		if (!board.enabled) return;
 		const a = chosen && chosen !== board.stage && mt_dispatch.ready_actions(board).find((x) => x.to === chosen);
-		// Administrator may set any stage by hand: a plain field, saved with Update.
 		if (!a && board.is_admin) return;
 		mt_dispatch.revert_stage(frm);
 		if (!chosen || chosen === board.stage) return;
 
-		// The list only offers stages a ready step reaches, so this only misses
-		// when the order moved on since the form loaded.
 		if (!a) {
 			frm.reload_doc();
 			return;
@@ -52,8 +38,6 @@ frappe.ui.form.on("Sales Order", {
 	},
 });
 
-// A step asked for from another form (the Delivery Note's button) opens here,
-// where its dialog lives, once the board says it is still ready.
 mt_dispatch.run_pending = function (frm, board) {
 	const pending = frappe.flags.mt_dispatch_pending;
 	if (!pending || pending.sales_order !== frm.doc.name) return;
@@ -62,14 +46,10 @@ mt_dispatch.run_pending = function (frm, board) {
 	if (a) (mt_dispatch.handlers[a.action] || mt_dispatch.confirm_and_run)(frm, a, board);
 };
 
-// Steps whose checks pass right now. A blocked step gets no button; its reason
-// is shown in the headline instead of as an error after the click.
 mt_dispatch.ready_actions = function (board) {
 	return (board.actions || []).filter((a) => !a.blocked);
 };
 
-// Logistic Status lists the current stage and the stages one ready step away,
-// so every pick is a step that will go through.
 mt_dispatch.limit_stage_options = function (frm, board) {
 	const field = "custom_logistic_status";
 	if (!board.enabled || board.is_admin) {
@@ -83,7 +63,6 @@ mt_dispatch.limit_stage_options = function (frm, board) {
 	frm.set_df_property(field, "options", options.join("\n"));
 };
 
-// A dialog input problem is shown on the field itself, not as a popup.
 mt_dispatch.field_error = function (d, fieldname, message) {
 	d.get_field(fieldname).set_description(`<span class="text-danger">${message}</span>`);
 };
@@ -92,7 +71,6 @@ mt_dispatch.revert_stage = function (frm) {
 	frm._mt_reverting = true;
 	frm.set_value("custom_logistic_status", frm._mt_stage || "").then(() => {
 		frm._mt_reverting = false;
-		// Undo the "Not Saved" state the pick left behind.
 		frm.doc.__unsaved = 0;
 		frm.toolbar.refresh();
 	});
@@ -168,8 +146,6 @@ mt_dispatch.handlers = {
 	release_override: (frm, a, board) => mt_dispatch.reason_dialog(frm, a, board, 15),
 
 	create_conversion(frm) {
-		// Conversions are entered on their own form in the ERP; the Slack form
-		// is the short path. Prefilled with the order, company and customer.
 		frappe.new_doc("Conversion Entry", {
 			sales_order: frm.doc.name,
 			company: frm.doc.company,

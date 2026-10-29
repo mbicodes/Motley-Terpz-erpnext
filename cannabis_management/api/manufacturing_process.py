@@ -1,12 +1,3 @@
-"""Backend API for the Manufacturing Process page — a 5-step guided wizard for
-one production "run" (one Manufacture-type Material Request) at a time:
-create the request, release it to Work Orders + Job Cards, transfer material
-to WIP, run the operations (per-sub-operation timers), then record output.
-
-Every endpoint returns human-readable labels (item name, project, operation,
-status) as primary identifiers. Document IDs are included as secondary data
-for backend linking but never surfaced as the primary UI label.
-"""
 import json
 
 import frappe
@@ -16,12 +7,9 @@ from frappe.utils import flt, now_datetime, get_datetime, format_date, format_da
 from cannabis_management.doc_hooks.job_card import MICRON_OPERATIONS
 from cannabis_management.doc_hooks.job_card import set_output_qty as _set_output_qty
 
-# Operations whose Completed Qty is the Microns' grams total.
 MICRON_OUTPUT_OPERATIONS = {"Hash Processing", "Rosin Pressing"}
 from cannabis_management.overrides.mr_run_status import work_order_done
 
-
-# ── 1. Dashboard ──────────────────────────────────────────────────────────────
 
 @frappe.whitelist()
 def get_dashboard(company=None):
@@ -31,12 +19,8 @@ def get_dashboard(company=None):
         filters_mr["company"] = company
         filters_jc["company"] = company
 
-    # Only Material Requests still awaiting fulfillment — excludes Draft,
-    # Cancelled, and anything already past the Pending stage.
     mrs = frappe.get_all(
         "Material Request",
-        # Released runs move to In Progress / Completed (overrides/mr_run_status)
-        # and stay listed -- a finished run's card shows collapsed.
         filters={**filters_mr, "status": ["in", ["Pending", "In Progress", "Completed"]]},
         fields=[
             "name", "docstatus", "company", "custom_project", "custom_routing",
@@ -66,7 +50,6 @@ def get_dashboard(company=None):
         ):
             mr_fg_map.setdefault(row.parent, []).append(row)
 
-        # Count linked Work Orders per MR
         wo_counts = {}
         for row in frappe.get_all(
             "Work Order",
@@ -76,8 +59,6 @@ def get_dashboard(company=None):
         ):
             wo_counts[row.material_request] = row.cnt
 
-        # What each run makes (Bubble Hash, Rosin, ...), in the order its Work
-        # Orders were raised -- the card title otherwise shows only the input.
         for row in frappe.get_all(
             "Work Order",
             filters={"material_request": ["in", mr_names], "docstatus": ["!=", 2]},
@@ -88,7 +69,6 @@ def get_dashboard(company=None):
             if row.item_name and row.item_name not in names:
                 names.append(row.item_name)
 
-        # Not released yet: fall back to the planned Finished Goods rows.
         fg_items = list({r.item for rows in mr_fg_map.values() for r in rows if r.item})
         fg_item_names = dict(frappe.get_all(
             "Item", filters={"name": ["in", fg_items]}, fields=["name", "item_name"], as_list=True,
@@ -99,7 +79,6 @@ def get_dashboard(company=None):
                 if names:
                     mr_output_map[mr_name] = names
 
-    # Resolve project names in bulk
     project_ids = list(set(m.custom_project for m in mrs if m.custom_project))
     project_name_map = {}
     if project_ids:
@@ -111,13 +90,11 @@ def get_dashboard(company=None):
         m["finished_goods"] = mr_fg_map.get(m.name, [])
         m["work_order_count"] = wo_counts.get(m.name, 0) if mr_names else 0
         m["project_name"] = project_name_map.get(m.custom_project, m.custom_project or "")
-        # Primary label: first item name
         first_item = m["items"][0] if m["items"] else None
         m["primary_label"] = first_item["item_name"] if first_item else m.name
         m["primary_qty"] = f"{first_item['qty']} {first_item['uom']}" if first_item else ""
         m["output_label"] = ", ".join(mr_output_map.get(m.name, []))
 
-    # Active Job Cards (Open, Work In Progress, Material Transferred)
     active_statuses = ["Open", "Work In Progress", "Material Transferred"]
     job_cards = frappe.get_all(
         "Job Card",
@@ -131,7 +108,6 @@ def get_dashboard(company=None):
         limit=50,
     )
 
-    # Enrich with item name, project, and WO production_item name
     if job_cards:
         wo_names = list(set(jc.work_order for jc in job_cards if jc.work_order))
         wo_data = {}
@@ -162,7 +138,6 @@ def get_dashboard(company=None):
             jc["wo_qty"] = flt(wo.get("qty", 0))
             jc["wo_produced_qty"] = flt(wo.get("produced_qty", 0))
 
-    # Recently completed JCs (last 24h)
     completed_today = frappe.db.count("Job Card", {
         "status": "Completed",
         "modified": [">=", frappe.utils.add_days(frappe.utils.today(), -1)],
@@ -179,30 +154,14 @@ def get_dashboard(company=None):
         },
     }
 
-
-# ── 2. Run Detail (one Material Request, the wizard's single source of truth) ──
-
 LBS_TO_GRAM = 453.592
 
-# The run's files: a table on the Material Request (install_custom_fields).
 ATTACHMENTS_FIELD = "custom_attachments"
 ATTACHMENT_DOCTYPE = "Material Request Attachment"
 
 
 @frappe.whitelist()
 def get_run_detail(material_request):
-    """Everything the 5-step Run wizard needs for one Material Request in a
-    single round trip: the MR header, its raw materials + finished-goods
-    targets, every linked Work Order with its Job Cards (each carrying full
-    sub-operation timer + micron state via `_job_card_full_detail`), which
-    step the wizard should show (`current_step`/`active_work_order`), and the
-    live scoreboard numbers.
-
-    A run's steps 3-5 (transfer, run operations, finish) are scoped to one
-    Work Order at a time — `active_work_order` is the first one (by creation
-    order, i.e. routing sequence) that isn't fully produced yet. Once every
-    Work Order is fully produced, `complete` is true.
-    """
     if not frappe.db.exists("Material Request", material_request):
         frappe.throw(_("Material Request not found."))
 
@@ -244,7 +203,6 @@ def get_run_detail(material_request):
         wo["produced_qty"] = flt(wo["produced_qty"])
         wo["material_transferred_for_manufacturing"] = flt(wo["material_transferred_for_manufacturing"])
         wo["process_loss_qty"] = flt(wo["process_loss_qty"])
-        # What each card button shows once its step is done.
         wo["done"] = work_order_done(frappe._dict(wo))
         wo["transferred"] = wo["qty"] > 0 and wo["material_transferred_for_manufacturing"] >= wo["qty"]
         wo["manufacture_entry"] = frappe.db.get_value(
@@ -291,16 +249,11 @@ def get_run_detail(material_request):
         "active_work_order": active_wo["name"] if active_wo else None,
         "complete": complete,
         "scoreboard": _build_scoreboard(items, finished_goods, work_orders),
-        # The card's Attach button lists and adds to these.
         "attachments": _attachments(mr.name),
     }
 
 
 def _resolve_run_step(mr, work_orders):
-    """Where the wizard should land: MR draft -> 1; submitted with no Work
-    Orders yet -> 2; else scoped to the first not-yet-fully-produced Work
-    Order -> 3 (needs transfer), 4 (operations still running) or 5 (ready to
-    record output / already complete)."""
     if mr.docstatus == 0:
         return 1, None, False
     if not work_orders:
@@ -342,8 +295,6 @@ def _build_scoreboard(items, finished_goods, work_orders):
         "total_time_mins": sum(flt(jc["total_time_in_mins"]) for wo in work_orders for jc in wo["job_cards"]),
     }
 
-
-# ── 3. Create Material Request ────────────────────────────────────────────────
 
 @frappe.whitelist()
 def create_material_request(payload):
@@ -411,15 +362,12 @@ def create_material_request(payload):
     return {"name": mr.name, "docstatus": mr.docstatus}
 
 
-# ── 4. Create Work Orders from MR (dedup-aware) ──────────────────────────────
-
 @frappe.whitelist()
 def create_work_orders(material_request):
     from cannabis_management.api.manufacturing import create_work_orders_from_mr
 
     wo_names = create_work_orders_from_mr(material_request) or []
 
-    # Auto-create Job Cards for each new WO
     jc_names = []
     for wo_name in wo_names:
         jcs = _create_job_cards_for_wo(wo_name)
@@ -436,7 +384,6 @@ def _create_job_cards_for_wo(work_order):
     created = []
 
     for op_row in wo.operations:
-        # Dedup: check if JC already exists for this WO + operation
         existing = frappe.db.exists("Job Card", {
             "work_order": wo.name,
             "operation": op_row.operation,
@@ -460,7 +407,7 @@ def _create_job_cards_for_wo(work_order):
         jc.company = wo.company
         jc.bom_no = wo.bom_no
         jc.project = wo.project
-        jc.batch = wo.project  # inventory dimension
+        jc.batch = wo.project
 
         jc.flags.ignore_permissions = True
         jc.insert()
@@ -471,15 +418,6 @@ def _create_job_cards_for_wo(work_order):
 
 
 def _apply_posting_datetime(se, posting_datetime):
-    """Book a Stock Entry at the moment the work actually happened.
-
-    Production records a run after the fact, so the operator supplies the
-    time rather than the entry landing at now(). Stock Entry ignores a
-    supplied posting date unless set_posting_time is on, so both go together
-    -- without the flag the entry silently posts at now() and the field looks
-    broken. A future date is left to ERPNext, which already refuses one on
-    validate with a message operators recognise.
-    """
     if not posting_datetime:
         return
     stamp = get_datetime(posting_datetime)
@@ -488,13 +426,10 @@ def _apply_posting_datetime(se, posting_datetime):
     se.posting_time = stamp.strftime("%H:%M:%S")
 
 
-# ── 5. Material Transfer Preview & Execute ────────────────────────────────────
-
 @frappe.whitelist()
 def get_transfer_preview(work_order):
     wo = frappe.get_doc("Work Order", work_order)
 
-    # Check if transfer already done
     existing_transfer = frappe.db.exists("Stock Entry", {
         "work_order": wo.name,
         "purpose": "Material Transfer for Manufacture",
@@ -525,19 +460,8 @@ def get_transfer_preview(work_order):
 
 @frappe.whitelist()
 def execute_transfer(work_order, posting_datetime=None):
-    """Transfer the Work Order's materials to WIP.
-
-    `posting_datetime` ("YYYY-MM-DD HH:MM:SS") books the entry at the moment
-    the transfer actually happened rather than when someone got round to
-    recording it. Stock Entry ignores a supplied posting date unless
-    set_posting_time is on, so that is set alongside it. Left out, the entry
-    posts at now() as before.
-    """
     from erpnext.manufacturing.doctype.work_order.work_order import make_stock_entry
 
-    # make_stock_entry() returns stock_entry.as_dict() — a plain frappe._dict,
-    # not a live Document, so it has no working .insert()/.submit()/.flags.
-    # frappe.get_doc() rebuilds an actual (unsaved) Stock Entry doc from it.
     se = frappe.get_doc(make_stock_entry(work_order, "Material Transfer for Manufacture"))
 
     _apply_posting_datetime(se, posting_datetime)
@@ -550,19 +474,7 @@ def execute_transfer(work_order, posting_datetime=None):
     return {"name": se.name, "docstatus": se.docstatus}
 
 
-# ── 6. Job Card timer/micron state (embedded per Work Order in get_run_detail) ──
-
 def _resolve_sub_operations(jc):
-    """Sub-step names for one Job Card's operation, from the master Operation
-    doctype's own Sub Operation table (Operation.sub_operations) — that's the
-    only place ERPNext's data model actually stores per-operation sub-steps.
-    `BOM Operation` rows are the BOM's top-level operations (e.g. "Hash
-    Processing", "Rosin Pressing") and never carry sub-steps themselves, so
-    they aren't consulted here.
-    Returns plain {operation, time_in_mins} dicts — no timing/cost data,
-    that's layered on separately by whoever calls this (_job_card_full_detail
-    enriches it live; start_timer just needs the name list to validate against).
-    """
     if not jc.operation:
         return []
     op_sub_ops = frappe.get_all(
@@ -575,11 +487,6 @@ def _resolve_sub_operations(jc):
 
 
 def _job_card_full_detail(jc):
-    """Full per-Job-Card state for the wizard: base fields, per-sub-operation
-    timer status (Step 4), and micron data (Step 5, for Wash/Press
-    operations — `doc_hooks.job_card.validate` requires these rows before a
-    Job Card of that operation can be marked Completed).
-    """
     if isinstance(jc, str):
         jc = frappe.get_doc("Job Card", jc)
 
@@ -609,17 +516,12 @@ def _job_card_full_detail(jc):
             "cost": flt(tl.get("custom_sub_op_cost")),
         })
 
-    # Active timer: last time log with from_time but no to_time
     active_timer = None
     for tl in reversed(time_logs):
         if tl["from_time"] and not tl["to_time"]:
             active_timer = tl
             break
 
-    # Roll each sub-operation's own time/cost/qty up from the matching time
-    # log rows (a row's `operation` is the sub-operation it was timed under —
-    # see start_timer), so each sub-step gets its own live status instead of
-    # only the whole Job Card having one.
     if sub_operations:
         by_op = {}
         for tl in time_logs:
@@ -695,23 +597,16 @@ def _job_card_full_detail(jc):
     }
 
 
-# ── 7. Timer Controls ────────────────────────────────────────────────────────
-
 def _default_workstation(jc, operation):
-    """Workstation pre-filled in the Start popup — same resolution order as
-    doc_hooks.job_card.calculate_sub_op_costs: the (sub-)operation's own
-    Workstation, then the Job Card's."""
     ws = frappe.db.get_value("Operation", operation, "workstation") if operation else None
     return ws or jc.workstation or ""
 
 
 def _get_assignments(jc):
-    """Sub-operation (or the Job Card's own operation) -> assigned Employee."""
     return _json_map(jc, "custom_assigned_employees")
 
 
 def _get_notes(jc):
-    """Sub-operation (or the Job Card's own operation) -> its short note."""
     return _json_map(jc, "custom_sub_op_notes")
 
 
@@ -735,12 +630,7 @@ def _employee_name(employee):
 
 @frappe.whitelist()
 def assign_employee(job_card, employee=None, operation=None):
-    """Assign To: remember who should run this (sub-)operation.
-
-    Start pre-fills its Employee with this. Passing no employee clears it.
-    """
     jc = frappe.get_doc("Job Card", job_card)
-    # Same access as start_timer: anyone who can run the page can assign.
     if jc.docstatus != 0:
         frappe.throw(_("Job Card must be a Draft to assign an employee."))
 
@@ -757,21 +647,15 @@ def assign_employee(job_card, employee=None, operation=None):
         assigned[operation] = employee
     else:
         assigned.pop(operation, None)
-    # notify=True so open Job Card forms and other screens pick it up live.
     jc.db_set("custom_assigned_employees", json.dumps(assigned) if assigned else None, notify=True)
 
     return {"operation": operation, "employee": employee or "", "employee_name": _employee_name(employee)}
-
 
 NOTE_MAX_LENGTH = 140
 
 
 @frappe.whitelist()
 def save_sub_op_note(job_card, note=None, operation=None):
-    """The short note on a process row of the Manufacturing Process page,
-    kept per sub-operation (or the Job Card's own operation) like Assign To.
-    Allowed at any status: a note can still be added once the step is done.
-    It prints on the run's Production Log. A blank note clears it."""
     jc = frappe.get_doc("Job Card", job_card)
 
     sub_op_names = [s["operation"] for s in _resolve_sub_operations(jc)]
@@ -803,17 +687,11 @@ def start_timer(job_card, operation=None, employee=None, from_time=None, worksta
     if jc.docstatus != 0:
         frappe.throw(_("Job Card must be a Draft to start a timer."))
 
-    # Several operations may run at once; only the same operation can't be
-    # started twice while its timer is still running.
     new_op = operation or jc.operation
     for tl in jc.time_logs:
         if tl.from_time and not tl.to_time and (tl.operation or jc.operation) == new_op:
             frappe.throw(_("{0} is already running. Pause it first.").format(new_op))
 
-    # When this Job Card has sub-operations, every timer must be started
-    # against one of them by name — that's what lets each sub-step accrue
-    # its own time/cost instead of everything landing under the parent
-    # operation.
     sub_op_names = [s["operation"] for s in _resolve_sub_operations(jc)]
     if sub_op_names and operation not in sub_op_names:
         frappe.throw(_("Select a valid sub-operation to start: {0}").format(", ".join(sub_op_names)))
@@ -824,9 +702,6 @@ def start_timer(job_card, operation=None, employee=None, from_time=None, worksta
     jc.append("time_logs", {
         "from_time": get_datetime(from_time) if from_time else now_datetime(),
         "operation": operation or jc.operation,
-        # None, never "": core's "employee is busy on another workstation"
-        # check matches this value against other cards' rows, and "" would
-        # match every other card that has a blank employee too.
         "employee": employee or None,
         "custom_workstation": workstation or _default_workstation(jc, operation or jc.operation),
     })
@@ -845,8 +720,6 @@ def start_timer(job_card, operation=None, employee=None, from_time=None, worksta
 def pause_timer(job_card, to_time=None, operation=None):
     jc = frappe.get_doc("Job Card", job_card)
 
-    # With several timers running on this card, `operation` picks which one
-    # to pause; without it, the first running one is paused.
     paused = False
     for tl in jc.time_logs:
         if operation and (tl.operation or jc.operation) != operation:
@@ -873,11 +746,6 @@ def pause_timer(job_card, to_time=None, operation=None):
 
 @frappe.whitelist()
 def end_sub_operation(job_card, operation=None, to_time=None, completed_qty=None):
-    """End a (sub-)operation: closes its running time log (at `to_time`,
-    default now) if one is open, and flags the operation's latest time log
-    as ended so the page shows View instead of Resume — kept on the Job Card,
-    so it survives a reload. `completed_qty` (asked when this is the Job
-    Card's last timer to end) lands on that time log's Completed Qty."""
     jc = frappe.get_doc("Job Card", job_card)
     if jc.docstatus != 0:
         frappe.throw(_("Job Card must be a Draft to end an operation."))
@@ -911,12 +779,6 @@ def end_sub_operation(job_card, operation=None, to_time=None, completed_qty=None
 
 @frappe.whitelist()
 def update_time_log_row(job_card, idx, from_time, to_time, workstation=None):
-    """Manually correct one existing, already-closed time log row's From/To
-    and Workstation — used by the "View" popup's editable mode. The
-    still-running row (if any) can't be edited here; pause it first. The
-    row's cost follows the workstation (doc_hooks.job_card recomputes it on
-    save).
-    """
     jc = frappe.get_doc("Job Card", job_card)
     idx = int(idx)
 
@@ -949,7 +811,6 @@ def update_time_log_row(job_card, idx, from_time, to_time, workstation=None):
 def complete_sub_operation(job_card, completed_qty=0, operation=None):
     jc = frappe.get_doc("Job Card", job_card)
 
-    # Pause any running timer first
     for tl in jc.time_logs:
         if tl.from_time and not tl.to_time:
             tl.to_time = now_datetime()
@@ -967,8 +828,6 @@ def complete_sub_operation(job_card, completed_qty=0, operation=None):
     return {"status": "completed"}
 
 
-# ── 8. Micron Data ────────────────────────────────────────────────────────────
-
 @frappe.whitelist()
 def save_micron_data(job_card, rows):
     if isinstance(rows, str):
@@ -976,7 +835,6 @@ def save_micron_data(job_card, rows):
 
     jc = frappe.get_doc("Job Card", job_card)
 
-    # Clear existing and re-add
     jc.set("custom_micron_collection_detail", [])
 
     for row in rows:
@@ -996,24 +854,13 @@ def save_micron_data(job_card, rows):
     return {"status": "saved", "row_count": len(rows)}
 
 
-# ── 9. Complete Job Card → Auto Stock Entry ──────────────────────────────────
-
 @frappe.whitelist()
 def complete_job_card(job_card, completed_qty=None, posting_datetime=None):
-    """Finish the operation and record its output.
-
-    `posting_datetime` is when the work finished: it books the Manufacture
-    Stock Entry at that moment and closes any still-running timer there too,
-    rather than at now().
-    """
     jc = frappe.get_doc("Job Card", job_card)
 
     if jc.docstatus != 0:
         frappe.throw(_("Job Card must be a Draft to complete."))
 
-    # Pause any running timer. It closes at the supplied time, so the logged
-    # minutes match the shift -- but never before it started, which would give
-    # a negative duration, so an earlier stamp falls back to now.
     finished_at = get_datetime(posting_datetime) if posting_datetime else now_datetime()
     for tl in jc.time_logs:
         if tl.from_time and not tl.to_time:
@@ -1022,8 +869,6 @@ def complete_job_card(job_card, completed_qty=None, posting_datetime=None):
             to_dt = get_datetime(tl.to_time)
             tl.time_in_mins = flt((to_dt - from_dt).total_seconds() / 60, 2)
 
-    # Bubble Hash / Rosin: the output is the micron bags' grams total, never
-    # a typed figure. Other operations take the figure from the dialog.
     micron_rows = jc.get("custom_micron_collection_detail") or []
     if jc.operation in MICRON_OUTPUT_OPERATIONS:
         if not micron_rows:
@@ -1039,7 +884,6 @@ def complete_job_card(job_card, completed_qty=None, posting_datetime=None):
     jc.submit()
     frappe.db.commit()
 
-    # Auto-create Manufacture Stock Entry if all JCs for this WO are done
     se_result = None
     if jc.work_order:
         se_result = _auto_create_manufacture_se(jc.work_order, posting_datetime)
@@ -1065,9 +909,6 @@ def _all_job_cards_done(wo):
 
 
 def _completed_output_qty(wo):
-    """What the run actually produced: the Completed Qty of the submitted Job
-    Cards for the Work Order's last operation. Falls back to the planned qty
-    when nothing has been recorded."""
     if not wo.operations:
         return flt(wo.qty)
     last_op = sorted(wo.operations, key=lambda op: op.idx)[-1].operation
@@ -1080,14 +921,6 @@ def _completed_output_qty(wo):
 
 
 def _make_manufacture_se(wo):
-    """Manufacture Stock Entry (as a dict) that books the Job Cards' output.
-
-    Built for the planned qty, so the raw materials consumed are the whole
-    run's, then the finished goods are set to what actually came off the line
-    -- over or under plan. Building it for the output qty instead would scale
-    the raw materials by it, leaving some in WIP (or over-consuming) when a
-    wash or press run's yield differs from the BOM.
-    """
     from erpnext.manufacturing.doctype.work_order.work_order import make_stock_entry
 
     se = make_stock_entry(wo.name, "Manufacture", wo.qty)
@@ -1106,7 +939,6 @@ def _auto_create_manufacture_se(work_order, posting_datetime=None):
     if not _all_job_cards_done(wo):
         return {"created": False, "reason": "Not all Job Cards are completed yet."}
 
-    # Check if manufacture SE already exists
     existing = frappe.db.exists("Stock Entry", {
         "work_order": wo.name,
         "purpose": "Manufacture",
@@ -1125,9 +957,6 @@ def _auto_create_manufacture_se(work_order, posting_datetime=None):
         frappe.db.rollback()
         return {"created": False, "reason": str(e)}
 
-    # Must be submitted, not just inserted — Work Order.produced_qty (what the
-    # wizard's step logic and scoreboard read) is only updated by
-    # Stock Entry.on_submit -> update_work_order_qty, never by insert alone.
     try:
         se.submit()
         frappe.db.commit()
@@ -1140,15 +969,8 @@ def _auto_create_manufacture_se(work_order, posting_datetime=None):
         }
 
 
-# ── 9b. Manual "Create SKU" — preview + submit the Manufacture Stock Entry ────
-
 @frappe.whitelist()
 def get_manufacture_se_preview(work_order):
-    """What the 'Create SKU' button shows before committing: the existing
-    Manufacture Stock Entry for this Work Order if one's already been made
-    (by this or the auto-create-on-last-job-card-complete path), otherwise a
-    preview of what would be created — built the same way but never inserted.
-    """
     wo = frappe.get_doc("Work Order", work_order)
 
     existing = frappe.db.get_value(
@@ -1178,8 +1000,6 @@ def get_manufacture_se_preview(work_order):
             "reason": _("Not all Job Cards for {0} are completed yet — finish every operation first.").format(wo.name),
         }
 
-    # Preview-only — read via ["items"], not .items (make_stock_entry returns
-    # .as_dict(), where the attribute .items collides with dict.items()).
     se = _make_manufacture_se(wo)
     return {
         "existing": False,
@@ -1198,10 +1018,6 @@ def get_manufacture_se_preview(work_order):
 
 @frappe.whitelist()
 def create_manufacture_se(work_order, posting_datetime=None):
-    """Manual counterpart to the auto-create in `complete_job_card` — lets the
-    user confirm/submit from the preview modal instead of it happening
-    silently. Idempotent: submits an existing draft rather than duplicating.
-    """
     result = _auto_create_manufacture_se(work_order, posting_datetime)
     if not result.get("created") and result.get("name"):
         se = frappe.get_doc("Stock Entry", result["name"])
@@ -1217,13 +1033,8 @@ def create_manufacture_se(work_order, posting_datetime=None):
     return result
 
 
-# ── 10. Helpers ───────────────────────────────────────────────────────────────
-
 @frappe.whitelist()
 def get_item_stock(item_code, warehouse=None):
-    """Actual qty of an item for the Start a Run dialog: in the given
-    warehouse (same as Material Request Item.actual_qty) plus the total
-    across every warehouse."""
     if not item_code:
         return {"actual_qty": 0, "total_qty": 0, "stock_uom": None}
     total_qty = frappe.db.sql(
@@ -1243,9 +1054,6 @@ def get_item_stock(item_code, warehouse=None):
 def get_routing_operations(routing):
     if not routing:
         return []
-    # Routing's own `operations` table is typed as BOM Operation (ERPNext
-    # reuses that child doctype for both) — there is no separate "Routing
-    # Detail" doctype.
     return frappe.get_all(
         "BOM Operation",
         filters={"parent": routing, "parenttype": "Routing"},
@@ -1288,15 +1096,6 @@ def submit_material_request(material_request):
     return {"name": mr.name, "docstatus": mr.docstatus}
 
 
-# ── Attachments (the run card's Attach button) ───────────────────────────────
-#
-# Rows go straight into the Attachments table rather than through save(): a
-# draft run can be mid-way through being filled in, and attaching a file
-# shouldn't wait on its other validations; a submitted one would otherwise
-# need an Update After Submit. The table is allowed on submit, so released
-# runs take files too.
-
-
 def _attachments(mr_name):
     rows = frappe.get_all(
         ATTACHMENT_DOCTYPE,
@@ -1318,9 +1117,6 @@ def _writable_run(material_request):
 
 
 def _touch(mr):
-    """The rows bypassed save(), so the parent's modified is bumped by hand: a
-    Desk form opened before this then refuses a stale save (which would drop
-    the new rows) instead of silently overwriting them."""
     frappe.db.set_value(
         "Material Request", mr.name,
         {"modified": now_datetime(), "modified_by": frappe.session.user},
@@ -1332,7 +1128,6 @@ def _touch(mr):
 
 @frappe.whitelist()
 def add_attachment(material_request, file_url):
-    """One uploaded file -> one row on the Material Request's Attachments table."""
     mr = _writable_run(material_request)
     if not file_url:
         frappe.throw(_("No file to attach."))
@@ -1356,8 +1151,6 @@ def add_attachment(material_request, file_url):
 
 @frappe.whitelist()
 def remove_attachment(material_request, row):
-    """Drops one row, and its File too (as removing it from the Desk sidebar
-    would) unless another row still points at the same file."""
     mr = _writable_run(material_request)
     file_url = frappe.db.get_value(
         ATTACHMENT_DOCTYPE, {"name": row, "parenttype": "Material Request", "parent": mr.name}, "attachment"
@@ -1380,7 +1173,6 @@ def remove_attachment(material_request, row):
 
 
 def install_custom_fields():
-    """Idempotent; re-asserted on every migrate via after_migrate."""
     from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 
     create_custom_fields(
@@ -1401,14 +1193,10 @@ def install_custom_fields():
         ignore_validate=True,
     )
 
-
-# ── Tiering Product (Rosin Pressing) ─────────────────────────────────────────
-
 TIERING_OPERATION = "Rosin Pressing"
 
 
 def _tiering_source(work_order):
-    """The Rosin Pressing Work Order a Tiering Product run draws from."""
     wo = frappe.get_doc("Work Order", work_order)
     if wo.docstatus != 1:
         frappe.throw(_("Work Order {0} is not submitted.").format(work_order))
@@ -1418,12 +1206,6 @@ def _tiering_source(work_order):
 
 
 def _tiering_sources(wo):
-    """What Create Rosin actually produced, with what is still in stock.
-
-    The raw material is the finished goods of the Work Order's submitted
-    Manufacture entry -- not wo.production_item, because the micron flow
-    replaces that item with the per-micron products (T1 / T2 / T3 ...).
-    """
     rows = frappe.db.sql(
         """
         SELECT d.item_code, d.item_name, d.t_warehouse AS warehouse, SUM(d.qty) AS produced_qty
@@ -1444,10 +1226,6 @@ def _tiering_sources(wo):
         r.available_qty = flt(frappe.db.get_value(
             "Bin", {"item_code": r.item_code, "warehouse": r.warehouse}, "actual_qty"
         ))
-        # What this run can tier: what it produced, as far as it is still in
-        # stock. The warehouse's stock alone is not it -- other runs' output
-        # of the same item sits in the same warehouse (RS00004: 400 g from
-        # this run + 510.291 g from another read as 910.291).
         r.tier_qty = flt(min(r.produced_qty, r.available_qty), 3)
         r.stock_uom = frappe.db.get_value("Item", r.item_code, "stock_uom")
     return rows
@@ -1455,16 +1233,6 @@ def _tiering_sources(wo):
 
 @frappe.whitelist()
 def make_tiering_conversion_entry(work_order):
-    """Tiering Product: an unsaved Conversion Entry, opened in its own form.
-
-    Built like make_conversion_entry builds one from a Sales Order: the
-    header from the Rosin Pressing Work Order, and one Conversion Entry Item
-    row per product its Manufacture entry produced -- that product as Raw
-    Material 1, in the warehouse it was produced into, with what is still in
-    stock. The Finished Goods, tags and quantities are then filled in on the
-    standard Conversion Item table, which applies its own rules. On submit,
-    submit_tiering_stock_entries submits the Repack entries it drafts.
-    """
     wo, ce = _new_tiering_entry(work_order)
     for src in _tiering_sources(wo):
         if src.tier_qty <= 0:
@@ -1482,7 +1250,6 @@ def make_tiering_conversion_entry(work_order):
 
 
 def _new_tiering_entry(work_order):
-    """The Work Order and a new Conversion Entry header for it."""
     wo = _tiering_source(work_order)
     done = frappe.db.get_value("Conversion Entry", {"custom_work_order": wo.name, "docstatus": 1}, "name")
     if done:
@@ -1496,7 +1263,6 @@ def _new_tiering_entry(work_order):
 
 
 def _conversion_counts(conversion_type):
-    """"3 to 2" -> (3, 2): raw materials and finished goods the type uses."""
     try:
         rm, fg = (int(x) for x in (conversion_type or "").split(" to "))
     except ValueError:
@@ -1506,16 +1272,6 @@ def _conversion_counts(conversion_type):
 
 @frappe.whitelist()
 def create_tiering_conversion(work_order, items):
-    """Tiering Product, from the page: save and submit the Conversion Entry.
-
-    `items` are Conversion Entry Item rows as filled in on the page's copy of
-    the standard Conversion Item table. Only that doctype's own fields are
-    taken, and -- as the Conversion Entry form does when the type changes --
-    raw materials / finished goods beyond what the conversion type uses are
-    cleared, so a leftover value can't slip into the Stock Entry. The entry
-    then goes through its normal insert and submit (all of its validations),
-    and submit_tiering_stock_entries submits the Repack entries it drafts.
-    """
     wo, ce = _new_tiering_entry(work_order)
     items = frappe.parse_json(items) if isinstance(items, str) else (items or [])
     fields = {
@@ -1537,8 +1293,6 @@ def create_tiering_conversion(work_order, items):
     if not ce.items:
         frappe.throw(_("Add at least one row with a Raw Material and a Finished Good."))
 
-    # A run tiers its own output: what Create Rosin made here, as far as it is
-    # in stock -- not other runs' rosin that shares the warehouse.
     own = {src.item_code: src for src in _tiering_sources(wo)}
     used = {}
     for row in ce.items:
@@ -1554,8 +1308,6 @@ def create_tiering_conversion(work_order, items):
                 )
             )
 
-    # Same access as the page's other actions (start_timer, complete_job_card):
-    # whoever runs the page can record its output.
     ce.flags.ignore_permissions = True
     ce.insert()
     ce.submit()
@@ -1571,14 +1323,6 @@ def create_tiering_conversion(work_order, items):
 
 
 def submit_tiering_stock_entries(doc, method=None):
-    """Conversion Entry on_submit: a Tiering Product entry submits its stock.
-
-    Conversion Entry's own on_submit drafts one Repack Stock Entry per row
-    (and only logs a row that fails). For an entry made by Tiering Product
-    (custom_work_order set) those drafts are submitted right here, in the
-    same transaction -- if one cannot be, the Conversion Entry is not
-    submitted either, so the two never disagree.
-    """
     if not doc.get("custom_work_order"):
         return
     drafts = frappe.get_all(
@@ -1598,21 +1342,12 @@ def submit_tiering_stock_entries(doc, method=None):
         se.flags.ignore_permissions = True
         se.submit()
 
-
-# ── Production Log (the "Run Production Log" print format, Print Log button) ──
-
-# The log book's benchmark for a Fresh Frozen -> Rosin run, as on the paper
-# FROZEN BIO TO ROSIN sheet (Conversion Entry's "Production Log" format).
 FROZEN_TO_ROSIN_EXPECTED_YIELD = 3.0
 PRODUCTION_LOG_OP_ORDER = ["Hash Processing", "Rosin Pressing"]
 PRODUCTION_LOG_STAGE_LABELS = {"Hash Processing": "Bubble Hash", "Rosin Pressing": "Rosin"}
 
 
 def run_production_log(material_request):
-    """Everything the "Run Production Log" print format fills in for one run:
-    the Fresh Frozen going in, each stage's steps (who, where, when, how long,
-    the row's note), its microns and output, and the yields. Registered as a
-    Jinja method (hooks.jinja) so the print format is layout only."""
     run = get_run_detail(material_request)
     mr = run["material_request"]
     expected = {fg["item"]: fg["expected_yield_"] for fg in run["finished_goods"] if fg.get("item")}

@@ -1,6 +1,3 @@
-// Copyright (c) 2015, Frappe Technologies Pvt. Ltd. and Contributors
-// License: GNU General Public License v3. See license.txt
-
 frappe.query_reports["Profit and Loss Statement Gross Profit"] = $.extend({}, erpnext.financial_statements);
 
 erpnext.utils.add_dimensions("Profit and Loss Statement Gross Profit", 10);
@@ -37,10 +34,6 @@ frappe.query_reports["Profit and Loss Statement Gross Profit"]["filters"].push(
 	}
 );
 
-// Point the "Financial Statements" dropdown at the child-accounts versions of
-// Balance Sheet / Cash Flow (via Consolidated Financial Statement Child Accounts'
-// "report" filter) instead of erpnext.financial_statements' default onload, which
-// links to the standard group-inclusive reports.
 frappe.query_reports["Profit and Loss Statement Gross Profit"].onload = function (report) {
 	let fiscal_year = erpnext.utils.get_fiscal_year(frappe.datetime.get_today());
 	var filters = report.get_values();
@@ -83,11 +76,6 @@ frappe.query_reports["Profit and Loss Statement Gross Profit"].onload = function
 	}
 };
 
-// Same as erpnext.financial_statements' shared formatter, except bolding is
-// keyed off is_total_row (section headings, Total Income/COGS/Expense, Gross
-// Profit, Net Profit) instead of "no parent_account" - this report injects
-// synthetic heading/total rows that erpnext.financial_statements' own rule
-// wasn't written to account for. Rest of the formatter is unchanged.
 frappe.query_reports["Profit and Loss Statement Gross Profit"].formatter = function (
 	value,
 	row,
@@ -133,7 +121,6 @@ frappe.query_reports["Profit and Loss Statement Gross Profit"].formatter = funct
 	}
 
 	if (data && column.fieldname == this.name_field) {
-		// first column
 		value = data.section_name || data.account_name || value;
 
 		if (filter && filter?.text && filter?.type == "contains") {

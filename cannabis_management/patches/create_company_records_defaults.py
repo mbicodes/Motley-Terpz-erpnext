@@ -24,7 +24,6 @@ BUSINESS_ENTITIES = [
 
 
 def execute():
-	"""Seed roles, workflow masters and Business Entity records for Company Records."""
 	for role in ROLES:
 		if not frappe.db.exists("Role", role):
 			frappe.get_doc({"doctype": "Role", "role_name": role, "desk_access": 1}).insert(

@@ -25,7 +25,6 @@ frappe.query_reports["User Time Clock Summary"] = {
 	formatter: function (value, row, column, data, default_formatter) {
 		value = default_formatter(value, row, column, data);
 
-		// Flag sessions that were never clocked out so missing punches stand out.
 		if (column.fieldname === "status" && data && data.status !== "Complete") {
 			value = `<span style="color:#b45309;font-weight:600">${value}</span>`;
 		}

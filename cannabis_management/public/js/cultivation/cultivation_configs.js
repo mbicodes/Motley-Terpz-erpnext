@@ -1,5 +1,3 @@
-// Config for the extra Cultivation views (Plants / Teardowns / Harvests) shown
-// inside the Plant Batches page. Existing doctypes / fields only.
 window.CultivationConfigs = {};
 
 CultivationConfigs['Plants'] = function () {

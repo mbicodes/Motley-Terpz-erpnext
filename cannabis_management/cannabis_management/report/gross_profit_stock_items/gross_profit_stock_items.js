@@ -1,13 +1,6 @@
-// Gross Profit — Stock Items Only
-// Excludes service/non-stock items (is_stock_item = 0)
-
 frappe.query_reports["Gross Profit Stock Items"] = {
 	filters: [
 		{
-			// Real Link to Company (not the shared cannabis.reports.company_filter
-			// Select-with-"All Company" widget) so this is a normal, permission-
-			// aware company filter — the report data (see execute() in the .py)
-			// is already scoped to whichever company is selected here.
 			fieldname: "company",
 			label: __("Company"),
 			fieldtype: "Link",

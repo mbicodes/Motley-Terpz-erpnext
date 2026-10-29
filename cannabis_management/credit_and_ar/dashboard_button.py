@@ -1,39 +1,13 @@
-# Copyright (c) 2026, alltechvirtual.com and contributors
-# For license information, please see license.txt
-"""Puts an "AR Accountability" button (the ar-weekly-review page) in the
-dashboard header blocks, plus any EXTRA_BUTTONS for a block -- the CEO (Matt
-Dashboard) block also gets "Inventory Overview".
-
-Why this is a hook and not a one-off edit: the "Nikki" Custom HTML Block is
-shipped in fixtures/custom_html_block.json, so sync_fixtures rewrites it from
-the fixture on every migrate and any direct edit to the record is lost. The
-"CEO" block is not in that fixture, so an edit there survives — but it would
-then live only in this site's database and never reach another instance.
-
-Running from after_migrate solves both: it is version-controlled, it deploys
-with the app, and it gets the last word because after_migrate runs after
-sync_fixtures. Same reasoning as customer_layout.enforce and
-notifications.install_notifications, which are wired up for the same reason.
-
-Idempotent: a block that already carries the button is left alone, so this is
-safe to run on every migrate. A block that already links to the page some
-other way gets no second button for it -- one button per page.
-"""
-
 import frappe
 
 PAGE = "ar-weekly-review"
-LABEL = "AR Accountability"  # the page's own title
+LABEL = "AR Accountability"
 
 _ICON = (
 	'<svg viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7'
 	'a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-5 9l2 2 4-4"/></svg>'
 )
 
-# block name -> css prefix already used by that dashboard's header buttons.
-# The new button reuses the block's own <prefix>-refresh-btn class so it
-# inherits that dashboard's exact shape, font and icon sizing; only the accent
-# is added here.
 BLOCKS = {
 	"CEO": "ceo",
 	"Nikki": "nd",
@@ -46,8 +20,6 @@ _IOV_ICON = (
 	'<svg viewBox="0 0 24 24"><path d="M21 8 12 3 3 8v8l9 5 9-5V8z"/><path d="m3 8 9 5 9-5M12 13v8"/></svg>'
 )
 
-# Further header buttons per block, after the AR one:
-# (class suffix, page, label, icon, accent, accent hover).
 EXTRA_BUTTONS = {
 	"CEO": [("iov", "inventory-overview", "Inventory Overview", _IOV_ICON, "#2f7d4f", "#25663f")],
 }
@@ -85,16 +57,13 @@ def _button_css(prefix, suffix="arw", label=LABEL, accent=ACCENT, hover=ACCENT_H
 
 
 def install():
-	"""after_migrate hook — see the module docstring."""
 	if not frappe.db.exists("Page", PAGE):
-		# Nothing to link to yet; a later migrate will pick it up.
 		return
 
 	for block_name, prefix in BLOCKS.items():
 		try:
 			_install_one(block_name, prefix)
 		except Exception:
-			# A dashboard button must never be the reason a migrate fails.
 			frappe.log_error(
 				f"Could not add the {LABEL} button to the {block_name} block",
 				"AR Weekly Review button",
@@ -115,9 +84,6 @@ def _install_one(block_name, prefix):
 		marker = f"{prefix}-{suffix}-btn"
 		html = doc.html or ""
 
-		# The header's own Refresh button is the anchor — each new button goes
-		# immediately before it, inside the same actions row, so they line up
-		# in list order. Skipped where the block already links to the page.
 		anchor = f'<button class="{prefix}-refresh-btn"'
 		linked = f'href="/app/{page}"' in html
 		if marker not in html and not linked and anchor in html:

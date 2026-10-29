@@ -15,7 +15,7 @@ frappe.pages["ap-projection-dashboard"].on_page_load = function (wrapper) {
 
 	var state = {
 		company: "All",
-		companies: [], // [{name, abbr}]
+		companies: [],
 		forecast_days: 60,
 		source_filter: "All",
 		search: "",
@@ -40,7 +40,6 @@ frappe.pages["ap-projection-dashboard"].on_page_load = function (wrapper) {
 		});
 	}
 
-	// ── DOM shell ────────────────────────────────────────────────────────────
 	function buildShell() {
 		return `
 		<div class="apj-header">
@@ -137,7 +136,6 @@ frappe.pages["ap-projection-dashboard"].on_page_load = function (wrapper) {
 		});
 	}
 
-	// ── Controls ─────────────────────────────────────────────────────────────
 	function bindControls() {
 		wireSeg($root.find("#apj-window-seg"), function (val) {
 			state.forecast_days = parseInt(val, 10);
@@ -172,7 +170,6 @@ frappe.pages["ap-projection-dashboard"].on_page_load = function (wrapper) {
 		});
 	}
 
-	// ── Data ─────────────────────────────────────────────────────────────────
 	function loadData() {
 		$root.find("#apj-kpis").addClass("apj-loading");
 		var companies = state.company === "All" ? null : [state.company];
@@ -196,7 +193,6 @@ frappe.pages["ap-projection-dashboard"].on_page_load = function (wrapper) {
 		return v === null || v === undefined ? 0 : parseFloat(v) || 0;
 	}
 
-	// ── KPIs ─────────────────────────────────────────────────────────────────
 	function renderKpis() {
 		var k = (state.data && state.data.kpis) || { total_outstanding: 0, total_recurring: 0, grand_total: 0 };
 		var html = `
@@ -218,7 +214,6 @@ frappe.pages["ap-projection-dashboard"].on_page_load = function (wrapper) {
 		$root.find("#apj-kpis").html(html);
 	}
 
-	// ── Chart ────────────────────────────────────────────────────────────────
 	function renderChart() {
 		var t = (state.data && state.data.timeline) || { buckets: [], outstanding: [], recurring: [] };
 		var $mount = $root.find("#apj-chart");
@@ -253,7 +248,6 @@ frappe.pages["ap-projection-dashboard"].on_page_load = function (wrapper) {
 		return Math.round(flt(v) * 100) / 100;
 	}
 
-	// ── Table ────────────────────────────────────────────────────────────────
 	function renderTable() {
 		var rows = ((state.data && state.data.detail_rows) || []).slice();
 

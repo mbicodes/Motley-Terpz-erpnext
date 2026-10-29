@@ -20,7 +20,7 @@ frappe.ui.form.on("Purchase Receipt", {
 
      validate: function(frm) {
         let has_error = false;
-        
+
         frm.doc.items.forEach(function(row) {
             if (row.item_group === "Hardware Inventory" && !row.custom_target_customer) {
                 frappe.msgprint({
@@ -31,7 +31,7 @@ frappe.ui.form.on("Purchase Receipt", {
                 has_error = true;
             }
         });
-        
+
         if (has_error) {
             frappe.validated = false;
         }
@@ -41,16 +41,14 @@ frappe.ui.form.on("Purchase Receipt", {
 frappe.ui.form.on("Purchase Receipt Item", {
     item_code: function(frm, cdt, cdn) {
         let row = locals[cdt][cdn];
-        
+
         if (!row.item_code) return;
-        
-        
+
         frappe.db.get_value("Item", row.item_code, "item_group", function(value) {
             if (value && value.item_group === "Hardware Inventory") {
                 frappe.meta.get_docfield("Purchase Receipt Item", "custom_target_customer", cdn).reqd = 1;
                 frm.refresh_field("items");
-                
-                
+
                 if (!row.custom_target_customer) {
                     frappe.show_alert({
                         message: __("Target_customer is mandatory for Hardware Inventory items."),
@@ -58,7 +56,7 @@ frappe.ui.form.on("Purchase Receipt Item", {
                     });
                 }
             } else {
-               
+
                 frappe.meta.get_docfield("Purchase Receipt Item", "custom_target_customer", cdn).reqd = 0;
                 frm.refresh_field("items");
             }
@@ -66,13 +64,6 @@ frappe.ui.form.on("Purchase Receipt Item", {
     }
 });
 
-
-
-// ── Project picker: no filtering ─────────────────────────────────────────────
-// Core restricts Project by company, and on selling forms by customer too
-// (erpnext/public/js/utils/sales_common.js, controllers/buying.js). Projects
-// here are not company-scoped, so that hid valid choices. Cleared in refresh
-// so it lands after core's own setup_queries, which is where core sets it.
 frappe.ui.form.on('Purchase Receipt', {
 	refresh(frm) {
 		frm.set_query('project', () => ({}));

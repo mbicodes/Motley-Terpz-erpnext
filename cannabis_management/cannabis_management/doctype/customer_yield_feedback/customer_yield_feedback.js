@@ -1,6 +1,3 @@
-// Copyright (c) 2026, alltechvirtual.com and contributors
-// For license information, please see license.txt
-
 const CYF_GRAMS_PER_LB = 453.59237;
 
 frappe.ui.form.on("Customer Yield Feedback", {
@@ -41,7 +38,6 @@ frappe.ui.form.on("Customer Yield Feedback", {
 	},
 });
 
-// Same maths as customer_yield_feedback.calculate_row, so the grid updates as you type.
 function cyf_calculate(frm, cdt, cdn) {
 	const row = locals[cdt][cdn];
 	const raw_g = flt(row.quantity) * CYF_GRAMS_PER_LB;

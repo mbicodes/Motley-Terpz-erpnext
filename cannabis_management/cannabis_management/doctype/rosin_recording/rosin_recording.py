@@ -11,20 +11,18 @@ class RosinRecording(Document):
 	def calculate_totals(self):
 		self.total_quantity = sum(flt(row.pounds_sent) for row in self.lab_tolling_data)
 		self.tolling_partner_charges = flt(self.total_quantity) * flt(self.rate_tolling_partner)
-		
+
 		for row in self.lab_tolling_data:
 			if not row.expected_rosin_yield:
 				row.expected_rosin_yield = self.expected_rosin_yield
 
-			# Prefer row-level yield, fallback to parent-level
 			exp_hash_yield = flt(row.expected_hash_yield or row.expected__yield__to_hash)
 			exp_rosin_yield = flt(row.expected_rosin_yield or self.expected_rosin_yield)
-			
+
 			total_hash = flt(row.total_hash)
 			total_rosin = flt(row.total_rosin)
 			amount_ran_grams = flt(row.amount_ran_grams)
 
-			# 1. Calculate Actual Yields
 			actual_yield_to_hash = 0
 			if amount_ran_grams > 0:
 				actual_yield_to_hash = (total_hash / amount_ran_grams) * 100
@@ -35,35 +33,28 @@ class RosinRecording(Document):
 				actual_rosin_yield = (total_rosin / total_hash) * 100
 			row.actual_rosin_yield = flt(actual_rosin_yield, 2)
 
-			# 2. Formula for Raw Qty using Actuals
-			# Fallback to pounds_ran as a safe starting point
 			raw_qty = flt(row.pounds_ran)
 			if actual_yield_to_hash > 0 and actual_rosin_yield > 0 and total_hash > 0:
 				raw_qty = total_hash / (actual_yield_to_hash / 100) / 453.592 / (actual_rosin_yield / 100)
-			
-			# Ensure it's never zero if we have inputs/outputs participation
+
 			if raw_qty <= 0 and (total_hash > 0 or flt(row.pounds_ran) > 0):
 				raw_qty = flt(row.pounds_ran) or 0
-			
-			# Cap at pounds_sent if calculation exceeds it
+
 			pounds_sent = flt(row.pounds_sent)
 			if raw_qty > pounds_sent and pounds_sent > 0:
 				raw_qty = pounds_sent
-				
+
 			row.raw_material_quantity = flt(raw_qty, 4)
 
 	def on_submit(self):
-		# Existing lab batch status update logic
 		self._update_lab_batch_status()
 
-		# Create draft Stock Entry (Repack)
 		try:
 			self._create_repack_stock_entry()
 		except Exception as e:
 			frappe.log_error(message=frappe.get_traceback(), title="Rosin Recording Stock Entry Creation Failed")
 			frappe.msgprint(_("Failed to create Stock Entry. Please check Error Log for details."), indicator="red")
 
-		# Send batch close-out notification email
 		try:
 			self._send_batch_closeout_email()
 		except Exception as e:
@@ -71,9 +62,6 @@ class RosinRecording(Document):
 			frappe.msgprint(_("Failed to send close-out email. Please check Error Log for details."), indicator="orange")
 
 	def _send_batch_closeout_email(self):
-		"""Send a close-out summary email when a Rosin Recording is submitted."""
-
-		# ── 1. Find the Lab Batch Entry ──────────────────────────────────────
 		lab_batch_name = frappe.db.get_value(
 			"Lab Batch Entry",
 			{
@@ -94,7 +82,6 @@ class RosinRecording(Document):
 		from_date_str = str(from_date) if from_date else "2000-01-01"
 		to_date_str   = str(to_date)
 
-		# ── 2. Build the query-report link ────────────────────────────────────
 		import urllib.parse
 		report_url = (
 			"https://erp.motleyterpz.io/app/query-report/Lab%20Tolling%20Report"
@@ -106,7 +93,6 @@ class RosinRecording(Document):
 			)
 		)
 
-		# ── 3. Build the HTML table rows from lab_tolling_data ────────────────
 		rows_html = ""
 		for row in self.lab_tolling_data:
 			rows_html += """
@@ -222,11 +208,9 @@ class RosinRecording(Document):
 			doc_name        = self.name,
 		)
 
-		# ── 5. Resolve recipients ──────────────────────────────────────────────
 		recipients = frappe.db.get_single_value("Cannabis Management Settings", "batch_closeout_email") or ""
 		recipient_list = [r.strip() for r in recipients.split(",") if r.strip()]
 
-		# Always include the submitting user
 		submitter_email = frappe.db.get_value("User", frappe.session.user, "email")
 		if submitter_email and submitter_email not in recipient_list:
 			recipient_list.append(submitter_email)
@@ -238,7 +222,6 @@ class RosinRecording(Document):
 			)
 			return
 
-		# ── 6. Send ───────────────────────────────────────────────────────────
 		frappe.sendmail(
 			recipients = recipient_list,
 			subject    = "Batch Closed: {batch} — {tolling_partner}".format(
@@ -255,7 +238,6 @@ class RosinRecording(Document):
 		)
 
 	def _update_lab_batch_status(self):
-		"""Update linked Lab Batch Entry status to Rosin Produced."""
 		hash_rec_name = self.hash_reference
 
 		if not hash_rec_name:
@@ -281,13 +263,10 @@ class RosinRecording(Document):
 			)
 
 	def _create_repack_stock_entry(self):
-		"""Create a draft Repack Stock Entry from Rosin Recording child rows."""
 		frappe.logger().info(f"Starting Stock Entry creation for {self.name}")
-		
+
 		se = frappe.new_doc("Stock Entry")
 		se.stock_entry_type = "Repack"
-		# Company comes from this document; older records without it fall back
-		# to the company that owns the tolling partner warehouse.
 		se.company = self.company or frappe.db.get_value(
 			"Warehouse", self.tolling_partner, "company"
 		)
@@ -296,7 +275,6 @@ class RosinRecording(Document):
 		has_items = False
 
 		for row in self.lab_tolling_data:
-			# ── Row 1: Raw Material (strain_name) ──
 			raw_qty = flt(row.raw_material_quantity)
 
 			if row.strain_name and raw_qty > 0:
@@ -309,7 +287,6 @@ class RosinRecording(Document):
 				})
 				has_items = True
 
-			# ── Row 2: Prime Strain (finished good) ──
 			prime_qty = flt(row.prime_inventory_total_tolled)
 			if prime_qty > 0 and row.prime_strain:
 				se.append("items", {
@@ -320,7 +297,6 @@ class RosinRecording(Document):
 				})
 				has_items = True
 
-			# ── Row 3: Subprime Strain (finished good) ──
 			subprime_qty = flt(row.subprime_total_tolled)
 			if subprime_qty > 0 and row.subprime_strain:
 				se.append("items", {
@@ -338,7 +314,6 @@ class RosinRecording(Document):
 			)
 			return
 
-		# ── Additional Cost: Tolling Partner Charges ──
 		if flt(self.tolling_partner_charges) > 0 and self.expense_account:
 			se.append("additional_costs", {
 				"expense_account": self.expense_account,
@@ -356,8 +331,6 @@ class RosinRecording(Document):
 
 
 def get_rosin_company(tolling_partner=None, project=None):
-	"""Company for a Rosin Recording: the tolling partner warehouse's company,
-	falling back to the batch (Project) company."""
 	company = None
 
 	if tolling_partner:
@@ -376,7 +349,6 @@ def get_stock_balance_items(project, warehouse, company=None):
 
 	from erpnext.stock.report.stock_balance.stock_balance import execute
 
-	# Company selected on the form; fall back to the warehouse's own company
 	company = company or frappe.db.get_value("Warehouse", warehouse, "company")
 
 	filters = frappe._dict({

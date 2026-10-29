@@ -1,9 +1,4 @@
-// Login gate: on the login form, location must be allowed before the login request
-// is sent. Runs in the capture phase so it sees the submit before Frappe's own
-// login handler; once the browser grants access the form is submitted again and
-// passes through. A refusal after login still ends the session server-side.
 (function () {
-	// Keep in step with LOGOUT_EXEMPT_USERS in time_clock/login_location.py.
 	const EXEMPT = ["administrator", "nikki@motleyterpz.com"];
 	let allowed = false;
 	let asking = false;
@@ -32,8 +27,6 @@
 			if (!form.classList || !form.classList.contains("form-login") || allowed) return;
 
 			const user = ((form.querySelector("#login_email") || {}).value || "").trim().toLowerCase();
-			// Nothing to ask without the API (old browser / plain http); the server
-			// still records the login from its IP address.
 			if (EXEMPT.includes(user) || !navigator.geolocation) return;
 
 			event.preventDefault();
@@ -48,8 +41,6 @@
 				},
 				(err) => {
 					asking = false;
-					// Allowed but no fix (location services off, timeout): the user
-					// did allow, so let them in; the server records Unavailable.
 					if (err.code !== err.PERMISSION_DENIED) resubmit(form);
 					else show_blocked();
 				},
@@ -60,17 +51,11 @@
 	);
 })();
 
-// Captures the user's real coordinates right after they log in and stores them as a
-// User Login Location. The server sets the login_geo_pending cookie on login and
-// clears it once a result is recorded — see time_clock/login_location.py.
 (function () {
 	const COOKIE = "login_geo_pending";
 	const METHOD = "cannabis_management.time_clock.login_location.record";
 
-	// Stop listening as soon as a fix is this good (metres)...
 	const GOOD_ENOUGH_M = 20;
-	// ...otherwise keep the best reading seen within this window. The first fix is
-	// often a coarse network guess; GPS / Wi-Fi refine it over the next seconds.
 	const MAX_WAIT_MS = 30000;
 
 	if (!document.cookie.split(/;\s*/).includes(`${COOKIE}=1`)) return;
@@ -103,8 +88,6 @@
 		});
 	}
 
-	// The server has already ended the session; tell the user why, then send them
-	// to the login page.
 	function on_logged_out() {
 		const message = __(
 			"You have been logged out because location access was blocked. Allow location for this site (click the icon left of the address bar → Site settings → Location → Allow), then log in again."
@@ -158,14 +141,10 @@
 		watchId = navigator.geolocation.watchPosition(
 			(pos) => {
 				if (!best || pos.coords.accuracy < best.accuracy) best = pos.coords;
-				// Start the clock at the first fix so time spent on the permission
-				// prompt does not eat into the refinement window.
 				if (!timer) timer = setTimeout(() => finish(), MAX_WAIT_MS);
 				if (best.accuracy <= GOOD_ENOUGH_M) finish();
 			},
 			(err) => {
-				// Timeouts between fixes are normal while refining; only give up on
-				// a hard failure or if we never got a reading at all.
 				if (err.code === err.TIMEOUT && best) return;
 				finish(err);
 			},

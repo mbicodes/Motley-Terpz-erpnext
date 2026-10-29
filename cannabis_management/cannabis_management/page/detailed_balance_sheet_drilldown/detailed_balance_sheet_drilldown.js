@@ -1,42 +1,3 @@
-// Copyright (c) 2026, Cannabis Management
-// License: GNU General Public License v3. See license.txt
-//
-// Custom, from-scratch Frappe Page (NOT a Workspace, NOT a modification of
-// the existing "Detailed Balance Sheet" Script Report) built to support one
-// thing frappe-datatable cannot do: a column that appears only while a row
-// carrying data for it is currently expanded/visible, and disappears again
-// the instant that row is collapsed. Re-initializing frappe-datatable on
-// every expand/collapse to fake this would reset every other expanded
-// branch in the tree and be slow at the 10-13k row sizes this report can
-// return once transaction/item drill-down is included - so this page
-// renders its own plain HTML <table> instead and recomputes visible
-// rows/columns with a single O(n) pass (see computeVisibleRowsAndColumns()
-// below) on every toggle, search keystroke, and view switch.
-//
-// Deliberately reuses the exact same backend the existing report already
-// uses - frappe.desk.query_report.run() against report_name "Detailed
-// Balance Sheet" - so there is no new Python in this app: same filters,
-// same is_tree/parent_field contract, same columns/result/chart/
-// report_summary shape. See cannabis_management/cannabis_management/report/
-// detailed_balance_sheet/detailed_balance_sheet.py for how that payload is
-// built, and financial_statements.py (same package) for
-// attach_transaction_rows()/get_transaction_detail_columns(), which is
-// where the 4 row "kinds" (account group, account leaf, transaction, item)
-// and the 12 possible "transaction detail" columns come from. Unlike the
-// P&L version of this report, root section headings here are real
-// Asset/Liability/Equity accounts (see simplify_root_heading() in the .py)
-// rather than synthetic heading rows, and there is no Income/Expense
-// concept at all - see the icon/KPI logic below, which is written for this
-// report's own vocabulary rather than reused verbatim from the P&L page.
-//
-// Visual structure/CSS organization mirrors this app's existing
-// profit_and_loss_repo.js page closely (same dark-header/light-body
-// dashboard aesthetic, same frappe.call pattern, same KPI-cards/chart/
-// filters-panel/CSV-export approach). All class/id names here use a
-// "dbsd-" prefix (distinct from that page's "pnl-" prefix and the P&L
-// Drilldown page's "pld-" prefix) so all three pages' injected <style>
-// blocks can coexist in the same desk session without clashing.
-
 frappe.pages["detailed-balance-sheet-drilldown"].on_page_load = function (wrapper) {
 	var page = frappe.ui.make_app_page({
 		parent: wrapper,
@@ -50,18 +11,11 @@ frappe.pages["detailed-balance-sheet-drilldown"].on_page_load = function (wrappe
 	$body.html('<div id="dbsd-root"></div>');
 	var $root = $("#dbsd-root");
 
-	// ── Every transaction-detail column the shared backend can possibly
-	// return (see TRANSACTION_DETAIL_FIELDS in financial_statements.py) - the
-	// ONLY columns eligible for live expand/collapse-driven show/hide. Every
-	// other column (account, each period, total) is a base column and always
-	// renders. Kept in sync with that Python tuple's fieldnames (note the
-	// valuation-rate column's fieldname is "rate", not "valuation_rate").
 	var TRANSACTION_DETAIL_FIELDNAMES = [
 		"posting_date", "voucher_type", "voucher_no", "party", "against",
 		"debit", "credit", "item_code", "item_name", "qty", "rate", "amount",
 	];
 
-	// ── State ───────────────────────────────────────────────────────────────
 	var state = {
 		company: frappe.defaults.get_user_default("Company") || "",
 		filter_based_on: "Fiscal Year",
@@ -72,9 +26,6 @@ frappe.pages["detailed-balance-sheet-drilldown"].on_page_load = function (wrappe
 		periodicity: "Yearly",
 		presentation_currency: "",
 		selected_view: "Report",
-		// Matches this report's own filter default (see
-		// detailed_balance_sheet.js push() block) - 1, not 0 (unlike the
-		// Profit and Loss Drilldown page).
 		accumulated_values: 1,
 		show_zero_values: 0,
 		include_default_book_entries: 1,
@@ -93,7 +44,6 @@ frappe.pages["detailed-balance-sheet-drilldown"].on_page_load = function (wrappe
 		chart_instance: null,
 	};
 
-	// ── Inject CSS ──────────────────────────────────────────────────────────
 	if (!document.getElementById("dbsd-styles")) {
 		var style = document.createElement("style");
 		style.id = "dbsd-styles";
@@ -352,7 +302,6 @@ frappe.pages["detailed-balance-sheet-drilldown"].on_page_load = function (wrappe
 		document.head.appendChild(style);
 	}
 
-	// ── Chart.js from CDN, loaded once and reused ─────────────────────────────
 	function ensureChartJs(cb) {
 		if (window.Chart) { cb(); return; }
 		var s = document.createElement("script");
@@ -361,7 +310,6 @@ frappe.pages["detailed-balance-sheet-drilldown"].on_page_load = function (wrappe
 		document.head.appendChild(s);
 	}
 
-	// ── Formatting helpers ────────────────────────────────────────────────────
 	function fmt_currency(val, currency) {
 		if (val === "" || val === null || val === undefined) return "";
 		var n = parseFloat(val) || 0;
@@ -393,27 +341,6 @@ frappe.pages["detailed-balance-sheet-drilldown"].on_page_load = function (wrappe
 			|| "USD";
 	}
 
-	// ── Row classification (computed once per row, right after data loads) ──
-	// Every row in the flat result is exactly one of:
-	//   'blank'       - falsy/spacer entry between statement sections
-	//   'group'       - real group account, including the Assets/Liabilities/
-	//                   Equity root of each tree (simplify_root_heading() in
-	//                   the .py only relabels/blanks that row - it keeps the
-	//                   real root account's own "account"/is_group values)
-	//   'leaf'        - real leaf account (has a real, unquoted "account")
-	//   'transaction' - a voucher drilled into under a leaf account
-	//   'item'        - a line item drilled into under a transaction row
-	//   'total'       - a synthetic total/diff row (Total Asset/Liability/
-	//                   Equity, Provisional Profit / Loss (Credit), Total
-	//                   (Credit), Unclosed Fiscal Years Profit / Loss -
-	//                   quoted "account", never collapsible, never a link)
-	// Every synthetic row financial_statements.py/detailed_balance_sheet.py
-	// builds quotes its "account" value in literal single-quotes
-	// specifically so Link-fieldtype rendering treats it as plain text
-	// instead of a (broken) link to a real Account - see the comment on
-	// make_transaction_row() in financial_statements.py. We reuse that same
-	// quoting convention here to tell a real account apart from a synthetic
-	// row without needing any extra field.
 	function classifyRow(row) {
 		if (!row || (row.account === undefined && row.account_name === undefined && row.is_group === undefined)) {
 			return "blank";
@@ -427,10 +354,6 @@ frappe.pages["detailed-balance-sheet-drilldown"].on_page_load = function (wrappe
 		return "total";
 	}
 
-	// The stable, unique key used for both the expandedState map and the
-	// collapse-tracking pass below. Real accounts and every synthetic row
-	// carry a real (or quoted) "account" value; account_name is only a
-	// fallback for the rare row missing "account" entirely.
 	function rowKey(row) {
 		return row.account || row.account_name;
 	}
@@ -449,10 +372,6 @@ frappe.pages["detailed-balance-sheet-drilldown"].on_page_load = function (wrappe
 		}
 	}
 
-	// Seed a sensible default expand state so the initial view reads like a
-	// normal balance sheet, not an exploded wall of transactions: account
-	// rows at indent <= 2 start expanded (absence from the map = expanded);
-	// deeper account rows and every transaction row start collapsed.
 	function seedDefaultExpandState(allRows) {
 		var expanded = {};
 		for (var i = 0; i < allRows.length; i++) {
@@ -468,23 +387,6 @@ frappe.pages["detailed-balance-sheet-drilldown"].on_page_load = function (wrappe
 		return expanded;
 	}
 
-	// ── THE core new logic: single O(n) pass computing which rows are
-	// currently visible (given collapse state) and which of the 12 possible
-	// transaction-detail columns still have data among those visible rows -
-	// i.e. columns that show only while a row with data for them is
-	// expanded, and vanish again the instant that row collapses. Deliberately
-	// NOT the reference page's ancestor-walk (O(n^2) - fine for ~100 account
-	// rows, far too slow once transaction/item drill-down pushes this past
-	// 10k+ rows): every row already carries a correct pre-order `indent`, so
-	// a single pass with a small "currently collapsed" stack is enough.
-	//
-	// One deliberate refinement over the plain "is_group || voucher_type"
-	// collapsibility rule: a real LEAF account row is also collapsible (its
-	// children are the transactions attach_transaction_rows() attached to
-	// it) even though is_group is falsy for a leaf - so collapsibility here
-	// is kind-based (group / leaf / transaction) rather than only
-	// is_group/voucher_type, otherwise collapsing a leaf account would never
-	// actually hide its own transactions.
 	function computeVisibleRowsAndColumns(allRows, expandedState, transactionDetailColumnDefs, searchText) {
 		var visible = [];
 		var collapseStack = [];
@@ -510,7 +412,7 @@ frappe.pages["detailed-balance-sheet-drilldown"].on_page_load = function (wrappe
 		if (searchText) {
 			var needle = searchText.toLowerCase();
 			visible = visible.filter(function (r) {
-				if (!r) return true; // keep spacer rows
+				if (!r) return true;
 				var label = r.account_name || "";
 				return label.toLowerCase().indexOf(needle) !== -1;
 			});
@@ -529,7 +431,6 @@ frappe.pages["detailed-balance-sheet-drilldown"].on_page_load = function (wrappe
 		return { visible: visible, dynamicColumns: dynamicColumns };
 	}
 
-	// ── Build Shell HTML ─────────────────────────────────────────────────────
 	function buildShell() {
 		return `
         <div class="dbsd-header">
@@ -634,7 +535,6 @@ frappe.pages["detailed-balance-sheet-drilldown"].on_page_load = function (wrappe
         `;
 	}
 
-	// ── Render body content ──────────────────────────────────────────────────
 	function renderResults() {
 		var $b = $("#dbsd-body");
 		if (state.loading) {
@@ -663,12 +563,6 @@ frappe.pages["detailed-balance-sheet-drilldown"].on_page_load = function (wrappe
 		$("#dbsd-footer").show();
 	}
 
-	// ── KPI Cards ────────────────────────────────────────────────────────────
-	// report_summary already comes back in the exact order get_report_summary()
-	// in detailed_balance_sheet.py builds it - 4 real entries (Total Asset /
-	// Total Liability / Total Equity / Provisional Profit / Loss (Credit)),
-	// no separators - rendered positionally rather than string-matching on
-	// label text.
 	function buildKpiCards(currency) {
 		var summary = (state.summary || []).filter(function (s) { return s && s.type !== "separator"; });
 		var configs = [
@@ -701,7 +595,6 @@ frappe.pages["detailed-balance-sheet-drilldown"].on_page_load = function (wrappe
 
 	function flt_(v) { return parseFloat(v) || 0; }
 
-	// ── Chart Card ────────────────────────────────────────────────────────────
 	function buildChartCard() {
 		var period = state.from_fiscal_year || state.period_start_date || "";
 		if (state.to_fiscal_year && state.to_fiscal_year !== state.from_fiscal_year) period += " – " + state.to_fiscal_year;
@@ -798,7 +691,6 @@ frappe.pages["detailed-balance-sheet-drilldown"].on_page_load = function (wrappe
 		});
 	}
 
-	// ── Table Card ────────────────────────────────────────────────────────────
 	function buildTableCard() {
 		return `
             <div class="dbsd-table-card">
@@ -860,10 +752,6 @@ frappe.pages["detailed-balance-sheet-drilldown"].on_page_load = function (wrappe
 				numClass = n > 0 ? "num-positive" : n < 0 ? "num-negative" : "num-zero";
 			}
 		} else if (state.selected_view === "Margin") {
-			// Common-size balance sheet: every value is a % of Total Assets
-			// (already computed server-side - see compute_margin_view_data()
-			// call in detailed_balance_sheet.py, base_account_name="Total
-			// Asset (Debit)").
 			formatted = n + "%";
 			numClass = n > 0 ? "num-positive" : n < 0 ? "num-negative" : "num-zero";
 		} else {
@@ -917,10 +805,6 @@ frappe.pages["detailed-balance-sheet-drilldown"].on_page_load = function (wrappe
 		} else if (row.__kind === "item") {
 			labelHtml = frappe.utils.get_form_link("Item", row.item_code, true, label);
 		} else {
-			// Real account rows (leaf or group) and every synthetic
-			// total/heading row never navigate anywhere - they already
-			// expand in place, so plain text only (see the existing
-			// report .js files' identical rule/comment).
 			labelHtml = label;
 		}
 
@@ -943,11 +827,6 @@ frappe.pages["detailed-balance-sheet-drilldown"].on_page_load = function (wrappe
 		var html = "";
 		var totalCols = baseColumns.length + dynamicColumns.length;
 
-		// The final row of the whole (unfiltered) dataset is always the
-		// bottom-line summary row (Total (Credit), or Provisional Profit /
-		// Loss (Credit) if there's no unclosed-year adjustment - see the
-		// tail of execute() in detailed_balance_sheet.py) - detected
-		// positionally rather than by matching label text.
 		var lastRealRow = null;
 		for (var li = state.allRows.length - 1; li >= 0; li--) {
 			if (state.allRows[li]) { lastRealRow = state.allRows[li]; break; }
@@ -977,9 +856,6 @@ frappe.pages["detailed-balance-sheet-drilldown"].on_page_load = function (wrappe
 		return html;
 	}
 
-	// Recomputes visible rows + dynamic columns (the O(n) pass) and rebuilds
-	// only <thead>/<tbody> - called on initial load and on every toggle,
-	// search keystroke, and Expand All / Collapse All click.
 	function rerenderTable() {
 		var searchText = ($("#dbsd-search").val() || "").trim();
 		var res = computeVisibleRowsAndColumns(state.allRows, state.expandedState, state.dynamicColumnDefs, searchText);
@@ -989,8 +865,6 @@ frappe.pages["detailed-balance-sheet-drilldown"].on_page_load = function (wrappe
 		$("#dbsd-tbody").html(buildTableRows(res.visible, state.baseColumns, res.dynamicColumns));
 	}
 
-	// ── Table event binding (delegated on the persistent #dbsd-root so it
-	// survives every innerHTML rebuild of the body underneath it) ───────────
 	function bindTableEventsOnce() {
 		$root.on("click", "#dbsd-tbody .dbsd-toggle", function (e) {
 			e.stopPropagation();
@@ -1031,9 +905,6 @@ frappe.pages["detailed-balance-sheet-drilldown"].on_page_load = function (wrappe
 		$root.on("click", "#dbsd-print-btn", function () { window.print(); });
 	}
 
-	// ── CSV Export - current dynamic column set + current visible rows only,
-	// i.e. exactly what's on screen right now (collapsed branches excluded,
-	// hidden columns excluded). ───────────────────────────────────────────
 	function exportCsv() {
 		var baseColumns = state.baseColumns;
 		var dynamicColumns = state.lastDynamicColumns;
@@ -1066,7 +937,6 @@ frappe.pages["detailed-balance-sheet-drilldown"].on_page_load = function (wrappe
 		a.click();
 	}
 
-	// ── Load metadata ─────────────────────────────────────────────────────────
 	function loadMetadata() {
 		frappe.db.get_list("Company", { fields: ["name"], limit: 100 }).then(function (res) {
 			var $s = $("#dbsd-company");
@@ -1115,7 +985,6 @@ frappe.pages["detailed-balance-sheet-drilldown"].on_page_load = function (wrappe
 		});
 	}
 
-	// ── Debounced auto-run ────────────────────────────────────────────────────
 	var autoRunTimer = null;
 	function scheduleRun() {
 		clearTimeout(autoRunTimer);
@@ -1161,8 +1030,6 @@ frappe.pages["detailed-balance-sheet-drilldown"].on_page_load = function (wrappe
 		$("#dbsd-header-sub").text(sub);
 	}
 
-	// ── Run Report - same generic endpoint the existing query reports use,
-	// same report_name, same filters shape, same is_tree/parent_field. ──────
 	function runReport() {
 		if (!state.company) { frappe.msgprint("Please select a Company."); return; }
 		if (state.filter_based_on === "Fiscal Year" && !state.from_fiscal_year) { frappe.msgprint("Please select a Fiscal Year."); return; }
@@ -1236,7 +1103,6 @@ frappe.pages["detailed-balance-sheet-drilldown"].on_page_load = function (wrappe
 		});
 	}
 
-	// ── Bootstrap ─────────────────────────────────────────────────────────────
 	$root.html(buildShell());
 	loadMetadata();
 	bindControls();

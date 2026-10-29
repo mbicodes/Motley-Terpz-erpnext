@@ -1,14 +1,3 @@
-"""
-Sales Invoice doc hooks — AR Policy enforcement.
-
-Fires on before_submit so checks only run when the user actually submits.
-Admin (System Manager / Administrator) sees warnings but is never hard-blocked.
-
-Checks:
-  1. Total company AR (from GL Entry ledger) + this invoice would not breach $400k.
-  2. Warn if this customer already has invoices 30+ days past due.
-"""
-
 import frappe
 import http.client
 import json
@@ -30,25 +19,16 @@ AR_ALERT_RECIPIENTS = [
 ]
 
 
-# ── Hook entry points ─────────────────────────────────────────────────────────
-
 def before_validate(doc, method=None):
-    # Skip ERPNext's is_frozen check — we manage AR status via custom_ar_status
     frappe.flags.ignore_party_validation = True
     _set_tsbc_income_account(doc)
 
-
-# TSBC Ranch: Fresh Frozen items carry "Intercomapny Revenue - TSBC" as their
-# Item Default, so outside sales were landing on intercompany income. Pick the
-# account from the customer instead. Only these two accounts are swapped; any
-# other account on a line (IC Receivable MTM, Temporary Opening) is left alone.
 TSBC_COMPANY = "TSBC Ranch"
 TSBC_INTERCOMPANY_INCOME = "Intercomapny Revenue - TSBC"
 TSBC_SALES_INCOME = "Sales Fresh Frozen - TSBC"
 
 
 def _set_tsbc_income_account(doc):
-    # before_validate is also wired to Sales Order, whose lines carry no income_account.
     if doc.doctype != "Sales Invoice":
         return
     if doc.company != TSBC_COMPANY or doc.get("is_opening") == "Yes" or not doc.customer:
@@ -68,20 +48,6 @@ def _set_tsbc_income_account(doc):
 
 
 def before_submit(doc, method=None):
-    # AR policy notices are deliberately NOT raised here any more.
-    #
-    # Selling Settings -> "Sales Order Required" means an invoice cannot exist
-    # without an order behind it, and the order is where the credit decision is
-    # made — the gate, the hold and the AR cap all run there. Repeating any of it
-    # at the invoice only nags the person billing work that was already approved,
-    # and there is nothing useful they can do about it at that point.
-    #
-    # check_ar_policy() is kept for the Sales Order side to call if that is ever
-    # wanted; nothing calls it today.
-    #
-    # The COD Slack alert is off since 2026-10-07: slack_webhook_url points at
-    # #conversions-motley, which no longer takes posts.
-    # _check_cod_customer(doc)
     pass
 
 
@@ -94,20 +60,12 @@ def on_submit(doc, method=None):
 
 
 def check_ar_policy(doc):
-    """Public — called by Sales Invoice and Sales Order before_submit."""
     if _ar_cap_enabled():
         _check_total_ar_cap(doc)
     _warn_customer_overdue(doc)
 
 
 def _ar_cap_enabled():
-    """Selling Settings -> "Enforce $400,000 AR Cap" governs this notice too.
-
-    This is the company-wide cap, separate from the per-customer ceiling in
-    credit_and_ar — but both are "the $400,000 rule" to anyone reading the
-    message, so one switch turns off both. Imported lazily so this module keeps
-    working on a site without the credit module loaded.
-    """
     try:
         from cannabis_management.credit_and_ar.utils import ar_cap_enabled
 
@@ -116,14 +74,7 @@ def _ar_cap_enabled():
         return True
 
 
-# ── AR cap check (warning only — never blocks submission) ─────────────────────
-
 def _check_total_ar_cap(doc):
-    """
-    Total AR = SUM(debit - credit) on receivable accounts in GL Entry.
-    We add doc.grand_total as the projected new exposure.
-    Throws at $400k, shows a non-blocking warning at $300k.
-    """
     total_ar = _get_total_ar_from_ledger()
     projected = total_ar + flt(doc.grand_total)
 
@@ -142,7 +93,6 @@ def _check_total_ar_cap(doc):
         frappe.msgprint(msg, title=_("AR Policy: Cap Exceeded"), indicator="red")
 
     elif projected >= AR_CAP_WARN:
-        # Show in-app warning to the user saving the invoice
         frappe.msgprint(
             _(
                 "AR Warning — total outstanding AR will reach <b>${0}</b> "
@@ -153,16 +103,10 @@ def _check_total_ar_cap(doc):
             indicator="orange",
             alert=True,
         )
-        # Email Finance team — but only once per day to avoid flooding on every save
         _send_ar_warning_email(total_ar, projected, doc)
 
 
 def _get_total_ar_from_ledger():
-    """
-    Reads the live Accounts Receivable balance directly from GL Entry.
-    SUM(debit - credit) on receivable accounts across ALL customers.
-    This is identical to what the ERPNext Accounts Receivable report shows.
-    """
     result = frappe.db.sql(
         """
         SELECT COALESCE(SUM(debit - credit), 0) AS total_ar
@@ -178,15 +122,11 @@ def _get_total_ar_from_ledger():
 
 
 def _send_ar_warning_email(current_ar, projected_ar, doc):
-    """
-    Send a one-time-per-day email to Finance when AR crosses the $300k warning.
-    Uses frappe.cache to suppress duplicate emails within the same calendar day.
-    """
     today     = nowdate()
     cache_key = f"ar_warning_email_sent_{today}"
 
     if frappe.cache().get_value(cache_key):
-        return  # already sent today
+        return
 
     try:
         cap_pct  = (projected_ar / AR_CAP_HARD) * 100
@@ -235,21 +175,13 @@ def _send_ar_warning_email(current_ar, projected_ar, doc):
             delayed=False,
         )
 
-        # Suppress further emails for the rest of today (86400 seconds)
         frappe.cache().set_value(cache_key, True, expires_in_sec=86400)
 
     except Exception:
         frappe.log_error(frappe.get_traceback(), "[ar_policy] warning email failed")
 
 
-# ── Advisory warning: customer overdue ───────────────────────────────────────
-
 def _warn_customer_overdue(doc):
-    """
-    Warn (non-blocking) if this customer has any invoice 30+ days past due_date
-    with a positive outstanding_amount. Uses Sales Invoice due_date for the
-    aging check; uses GL Entry balance to show the actual ledger balance.
-    """
     if not doc.customer:
         return
 
@@ -273,7 +205,6 @@ def _warn_customer_overdue(doc):
     cnt    = int(overdue[0].cnt)
     amount = flt(overdue[0].overdue_amount)
 
-    # Pull the live ledger balance for this customer for context
     ledger = frappe.db.sql(
         """
         SELECT COALESCE(SUM(debit - credit), 0) AS balance
@@ -308,14 +239,7 @@ def _warn_customer_overdue(doc):
     )
 
 
-# ── COD Enforcement ───────────────────────────────────────────────────────────
-
 def _check_cod_customer(doc):
-    """
-    If the customer is marked COD Only in CRM Lead (custom_cod_only = 1
-    or custom_cod_flag = 1), fire a Slack alert so the team can verify
-    cash was collected before the invoice posts.
-    """
     if not doc.customer:
         return
 

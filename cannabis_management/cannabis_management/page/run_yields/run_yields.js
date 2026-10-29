@@ -1,16 +1,8 @@
-// Run Yields — the Manufacturing Dashboard's runs table, Run # through Hash to
-// Rosin Yield, with filters. Dates go to the server; every other filter and the
-// sort run in the browser over the rows already loaded.
-//
-// Everything lives inside on_page_load: desk page scripts share one window
-// scope, so top-level names here could shadow another page's.
-
 frappe.pages['run-yields'].on_page_load = function (wrapper) {
 	const page = frappe.ui.make_app_page({ parent: wrapper, title: __('Run Yields'), single_column: true });
 	const METHOD = 'cannabis_management.cannabis_management.page.run_yields.run_yields.get_runs';
 	const GRAMS_PER_POUND = 453.592;
 
-	// key, header, kind ('text' | 'num' | 'g' | 'pct'), column group
 	const COLUMNS = [
 		{ key: 'run_id', label: __('Run #'), kind: 'text', group: 'run' },
 		{ key: 'batch_name', label: __('Batch'), kind: 'text', group: 'run' },
@@ -39,7 +31,7 @@ frappe.pages['run-yields'].on_page_load = function (wrapper) {
 		rows: [],
 		shown: [],
 		loading: false,
-		sort: { key: null, dir: 1 },   // null = server order, newest run first
+		sort: { key: null, dir: 1 },
 		f: { run: '', batch: '', status: '', material: '', started_by: '', from: '', to: '' },
 	};
 
@@ -47,7 +39,6 @@ frappe.pages['run-yields'].on_page_load = function (wrapper) {
 	const num = (v, d) => flt(v).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
 	const icon = (name) => frappe.utils.icon(name, 'sm', '', '', 'ry-ico');
 
-	// ---- skeleton -----------------------------------------------------------
 	$(page.body).html(`
 		<div class="ry">
 			<div class="ry-head">
@@ -118,7 +109,6 @@ frappe.pages['run-yields'].on_page_load = function (wrapper) {
 	`);
 	const $root = $(page.body).find('.ry');
 
-	// ---- data ---------------------------------------------------------------
 	function load() {
 		state.loading = true;
 		draw();
@@ -137,8 +127,6 @@ frappe.pages['run-yields'].on_page_load = function (wrapper) {
 		});
 	}
 
-	// Batch / Raw Material / Started By offer only values present in the rows,
-	// keeping a selection that is still valid after the date range changes.
 	function fill_options() {
 		const fill = (f, key, all_label) => {
 			const values = [...new Set(state.rows.map((r) => r[key]).filter((v) => v && v !== '-'))]
@@ -174,9 +162,6 @@ frappe.pages['run-yields'].on_page_load = function (wrapper) {
 		return rows;
 	}
 
-	// Period yields are weighted by material, not averages of percentages, and
-	// count only runs that produced that output: an open run with nothing
-	// pressed yet would otherwise drag every figure down.
 	function totals(rows) {
 		const t = { runs: rows.length, done: 0, lbs: 0, hash_lbs: 0, hash_w: 0, rosin_lbs: 0, rosin_w: 0, h2r_hash: 0, h2r_rosin: 0, n_hash: 0, n_rosin: 0, n_h2r: 0 };
 		COLUMNS.filter((c) => c.kind === 'g').forEach((c) => { t[c.key] = 0; });
@@ -191,14 +176,13 @@ frappe.pages['run-yields'].on_page_load = function (wrapper) {
 				t.h2r_hash += lbs * flt(r.hash_yield); t.h2r_rosin += lbs * flt(r.rosin_yield); t.n_h2r++;
 			}
 		});
-		t.input_lbs = t.lbs;   // so the totals row can reuse cell()
+		t.input_lbs = t.lbs;
 		t.hash_yield = t.hash_lbs ? t.hash_w / t.hash_lbs : 0;
 		t.rosin_yield = t.rosin_lbs ? t.rosin_w / t.rosin_lbs : 0;
 		t.hash_to_rosin_yield = t.h2r_hash ? (t.h2r_rosin / t.h2r_hash) * 100 : 0;
 		return t;
 	}
 
-	// ---- rendering ----------------------------------------------------------
 	function cell(c, r) {
 		const v = r[c.key];
 		switch (c.key) {
@@ -225,7 +209,6 @@ frappe.pages['run-yields'].on_page_load = function (wrapper) {
 		$root.find('.ry-count').html(state.loading ? __('Loading…')
 			: active ? __('<b>{0}</b> of {1} runs', [rows.length, state.rows.length])
 			: __('<b>{0}</b> runs', [rows.length]));
-		// An applied filter is outlined, so it is obvious what is narrowing the list.
 		$root.find('[data-f]').each(function () {
 			$(this).toggleClass('is-active', !!state.f[$(this).data('f')]);
 		});
@@ -279,7 +262,6 @@ frappe.pages['run-yields'].on_page_load = function (wrapper) {
 	function pct(v) { return v ? num(v, 2) + '%' : '—'; }
 	function runs_note(n, what) { return n === 1 ? __('1 run {0}', [what]) : __('{0} runs {1}', [n, what]); }
 
-	// The rows on screen, in the order shown, with the same columns.
 	function export_csv() {
 		if (!state.shown.length) {
 			frappe.msgprint(__('There are no runs to export.'));
@@ -299,8 +281,6 @@ frappe.pages['run-yields'].on_page_load = function (wrapper) {
 		frappe.tools.downloadify(data, null, 'Run Yields - ' + frappe.datetime.get_today());
 	}
 
-	// ---- events -------------------------------------------------------------
-	// Re-read every filter, so two changes inside one debounce window both land.
 	$root.on('input change', '[data-f]', frappe.utils.debounce(() => {
 		const dates = state.f.from + '|' + state.f.to;
 		$root.find('[data-f]').each(function () { state.f[$(this).data('f')] = $(this).val() || ''; });
@@ -311,7 +291,6 @@ frappe.pages['run-yields'].on_page_load = function (wrapper) {
 	$root.on('click', '.ry-cols th', function () {
 		const key = $(this).data('sort');
 		const s = state.sort;
-		// asc → desc → back to newest-first
 		if (s.key !== key) Object.assign(s, { key, dir: 1 });
 		else if (s.dir > 0) s.dir = -1;
 		else Object.assign(s, { key: null, dir: 1 });

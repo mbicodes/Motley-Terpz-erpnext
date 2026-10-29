@@ -1,15 +1,9 @@
-// CFO Dashboard — eight analysis sections, stacked on one page, from the "Financial Dashboard – ERPNext
-// v15 Functional Mapping" spec. All numbers come from
-// cannabis_management.api.cfo_dashboard.get_dashboard in one call; this file
-// only renders. Waterfalls are drawn as inline SVG (Frappe Charts has none).
-
 frappe.pages["cfo-dashboard"].on_page_load = function (wrapper) {
 	const page = frappe.ui.make_app_page({ parent: wrapper, title: __("CFO Dashboard"), single_column: true });
 	new CFODashboard(page, wrapper);
 };
 
 const CFO_API = "cannabis_management.api.cfo_dashboard.";
-// Same order and titles as the eight pages of the reference dashboard
 const CFO_SECTIONS = [
 	["executive", __("Executive Summary for CFO")],
 	["ytd", __("YTD Performance Review")],
@@ -44,8 +38,6 @@ class CFODashboard {
 			fieldname: "company", label: __("Company"), fieldtype: "Link", options: "Company",
 			description: __("Blank = all companies"), change: reload,
 		});
-		// Same switch as ERPNext's financial statements: either a whole
-		// Fiscal Year or a free From/To Date range - only one set is shown
 		this.filter_based_on = this.page.add_field({
 			fieldname: "filter_based_on", label: __("Filter Based On"), fieldtype: "Select",
 			options: [{ value: "Fiscal Year", label: __("Fiscal Year") }, { value: "Date Range", label: __("Date Range") }],
@@ -93,8 +85,6 @@ class CFODashboard {
 		this.to_date.$wrapper.toggle(range);
 	}
 
-	// Switching to Date Range starts from the chosen year's dates, so the
-	// numbers on screen don't jump; switching back re-applies the year
 	async apply_filter_based_on() {
 		this.toggle_period_fields();
 		if (this.by_date_range()) {
@@ -119,7 +109,6 @@ class CFODashboard {
 		this.silent = false;
 	}
 
-	// Fiscal Year mode: the year's start to today (or its end, once over)
 	async apply_fiscal_year() {
 		if (this.silent || !this.fiscal_year.get_value() || this.by_date_range()) return;
 		await this.fill_dates_from_year();
@@ -127,7 +116,6 @@ class CFODashboard {
 	}
 
 	args() {
-		// In Fiscal Year mode the server derives the dates from the year itself
 		const range = this.by_date_range();
 		return {
 			company: this.company.get_value() || null,
@@ -149,7 +137,6 @@ class CFODashboard {
 			frappe.msgprint(__("From Date cannot be after To Date"));
 			return;
 		}
-		// Keep the reader's place when a filter re-renders the whole page
 		this.scroll = window.scrollY;
 		if (!this.data) this.$root.html(`<div class="cfo-loading">${__("Loading…")}</div>`);
 		const r = await frappe.call({ method: CFO_API + "get_dashboard", args: this.args() });
@@ -164,15 +151,12 @@ class CFODashboard {
 	}
 
 	export_pdf() {
-		// Print stylesheet hides the desk chrome; "Save as PDF" in the dialog gives the file
 		if (!this.data) return;
 		const title = document.title;
 		document.title = `CFO Dashboard ${this.data.meta.from_date} to ${this.data.meta.to_date}`;
 		window.print();
 		document.title = title;
 	}
-
-	// ------------------------------------------------------------------ layout
 
 	render() {
 		const m = this.data.meta;
@@ -202,9 +186,6 @@ class CFODashboard {
 		if (this.scroll) window.scrollTo(0, this.scroll);
 	}
 
-	// --------------------------------------------------------------- formatting
-
-	// Every money figure carries the companies' currency symbol (from the server)
 	symbol() {
 		return (this.data && this.data.meta.currency_symbol) || "";
 	}
@@ -257,8 +238,6 @@ class CFODashboard {
 		return `<div class="cfo-panel ${cls || ""}"><div class="cfo-panel-title">${title}</div>${inner}</div>`;
 	}
 
-	// ----------------------------------------------------------------- charts
-
 	waterfall(bars, opts) {
 		opts = opts || {};
 		const fmt = opts.fmt || ((v) => this.short(v));
@@ -297,11 +276,8 @@ class CFODashboard {
 	}
 
 	chart(el, cfg) {
-		// Frappe Charts needs the element in the DOM with a width
 		setTimeout(() => new frappe.Chart(el, Object.assign({ height: 220, animate: false, truncateLegends: true }, cfg)), 0);
 	}
-
-	// --------------------------------------------------------------- sections
 
 	render_executive($b, d) {
 		const block = (title, kpis, bars) =>

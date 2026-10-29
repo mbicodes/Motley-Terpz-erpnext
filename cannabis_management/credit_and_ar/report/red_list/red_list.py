@@ -1,15 +1,3 @@
-"""Red List (§13) — every past-due account, and what is being done about it.
-
-Three kinds of row, flagged in the Status column:
-
-* **HOLD** — a warning or a stop-work case
-* **PLAN** — on an approved payment plan, shown until the plan retires
-* **WORKOUT** — prepaid-only, with starting balance and recovery to date
-
-The Plan Book totals sit in the report message: total balance under plan, and
-plan payments due versus received this week.
-"""
-
 import frappe
 from frappe import _
 from frappe.utils import add_days, flt, get_first_day, getdate, nowdate
@@ -37,7 +25,6 @@ def get_data(filters):
 	cases = _live_cases()
 	rows = []
 
-	# Every customer with a live case, plus anyone past due without one yet.
 	customers = set(cases) | {
 		name for name, bucket in ar.items() if flt(bucket.get("past_due")) > 0
 	}
@@ -89,11 +76,6 @@ def get_data(filters):
 
 
 def _live_cases() -> dict:
-	"""The one live case per customer, with its collections detail.
-
-	Only one AR Case can be Active for a customer at a time, so this is a
-	straight fetch rather than a pick-the-strongest merge.
-	"""
 	cases = frappe.get_all(
 		"AR Case",
 		filters={"status": STATUS_ACTIVE, "show_on_red_list": 1},
@@ -119,7 +101,6 @@ def _live_cases() -> dict:
 
 
 def get_message(data, filters):
-	"""The Plan Book: what is under plan, and what is due versus received."""
 	if not data:
 		return _("Nothing past due and no live cases. The Red List is empty.")
 
@@ -163,7 +144,6 @@ def get_message(data, filters):
 
 
 def _plan_week():
-	"""Installments due this week, and what has actually come in against them."""
 	today = getdate(nowdate())
 	week_start = add_days(today, -today.weekday())
 	week_end = add_days(week_start, 6)

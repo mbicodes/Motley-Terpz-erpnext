@@ -1,10 +1,3 @@
-// Copyright (c) 2026, alltechvirtual.com and contributors
-// For license information, please see license.txt
-
-
-// Copyright (c) 2015, Frappe Technologies Pvt. Ltd. and Contributors
-// License: GNU General Public License v3. See license.txt
-
 frappe.query_reports["Stock Ledger Custom"] = {
 	filters: [
 		{
@@ -55,13 +48,6 @@ frappe.query_reports["Stock Ledger Custom"] = {
 						txt: txt,
 						searchfield: "name",
 						start: 0,
-						// No practical limit: page_len goes straight into the SQL
-						// LIMIT, and core's 10 meant the picker only ever offered ten
-						// items, so more than ten could not be selected. This sits
-						// well above the whole catalogue (~3.7k items), which measured
-						// at 566 KB / 40 ms for a blank search - and typing anything
-						// narrows it immediately. 0 is NOT the way to say "no limit":
-						// LIMIT 0 returns nothing.
 						page_len: 10000,
 						filters: {},
 						as_dict: 1,
@@ -107,10 +93,6 @@ frappe.query_reports["Stock Ledger Custom"] = {
 			fieldname: "voucher_no",
 			label: __("Voucher #"),
 			fieldtype: "MultiSelectList",
-			// voucher_no is not a Link - it is the target half of a Dynamic Link -
-			// so there is no doctype to read options from. They come from the ledger
-			// itself, narrowed by whatever company / date range is already selected
-			// so the list stays relevant instead of offering every voucher on site.
 			get_data: function (txt) {
 				let picked = {};
 				try {

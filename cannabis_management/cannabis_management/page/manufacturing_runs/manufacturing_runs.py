@@ -1,16 +1,3 @@
-"""Manufacturing Runs dashboard — every number here is a live query.
-
-"Run" = one Job Card. There is no dedicated Run/Batch doctype in this app;
-Job Card is the real per-operation-step execution unit (status has
-Open/Work In Progress/.../Completed, matching the dashboard's 3-way split).
-A single production batch (Project) can carry several Job Cards, one per
-processing step — Job Card.operation is often itself a *sub*-operation
-(e.g. "Bubble Sifting"), not always the top-level process family, so
-"Processing Type" below resolves each Job Card's operation up to its family
-(Hash Processing / Rosin Pressing / ...) via the Operation doctype's own
-Sub Operation table, while "Main Operation" keeps the literal operation.
-"""
-
 import frappe
 from frappe.utils import cint, flt, get_datetime, getdate, get_fullname, add_days
 
@@ -18,19 +5,13 @@ WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", 
 
 GRAMS_PER_POUND = 453.592
 
-# The sub-operation whose completion means the material has been washed.
 WASH_SUB_OPERATION = "Wash Cycle"
 
-# The two operations a run passes through. The second is "Rosin Pressing" --
-# that is the Operation's real name, not "Rosin Processing".
 HASH_OPERATION = "Hash Processing"
 ROSIN_OPERATION = "Rosin Pressing"
 
-# Micron sizes as stored on Micron Collection Detail, in report order.
 MICRON_SIZES = ["150u", "120u - 73u", "45u"]
 
-# Job Card statuses bucketed into the dashboard's 3-way split. Cancelled Job
-# Cards are dropped everywhere below.
 STATUS_BUCKETS = {
 	"Open": "Open",
 	"Completed": "Completed",
@@ -47,21 +28,13 @@ SUBOP_STATUS_BUCKETS = {
 	"Pause": "Pending",
 }
 
-# Job Card.batch (really a Project link) is often left blank in practice, so
-# every query that needs the Project falls back to the Job Card's own Work
-# Order's project. `wo` is available wherever this FROM clause is used.
 JC_FROM = "FROM `tabJob Card` jc LEFT JOIN `tabWork Order` wo ON wo.name = jc.work_order"
 
-# Every non-cancelled Job Card of the outer query's run (wo.material_request),
-# for filters that have to look at the whole run.
 RUN_CARDS_FROM = "FROM `tabJob Card` r_jc INNER JOIN `tabWork Order` r_wo ON r_wo.name = r_jc.work_order"
 RUN_CARDS_WHERE = "r_wo.material_request = wo.material_request AND r_jc.status != 'Cancelled'"
 
 
 def _date_bounds(from_date=None, to_date=None):
-	"""Resolve the active date range. A caller-supplied from_date/to_date is
-	used verbatim (any custom range, not necessarily a week); with neither
-	given, defaults to the current week (Monday-Sunday)."""
 	if from_date and to_date:
 		start, end = getdate(from_date), getdate(to_date)
 		if start > end:
@@ -74,8 +47,6 @@ def _date_bounds(from_date=None, to_date=None):
 
 
 def _operation_family_map():
-	"""sub-operation name -> its parent (main) operation name. A main
-	operation (one that owns rows in Sub Operation) maps to itself."""
 	rows = frappe.db.sql(
 		"SELECT parent AS main_op, operation AS sub_op FROM `tabSub Operation`", as_dict=True
 	)
@@ -87,9 +58,6 @@ def _operation_family_map():
 
 
 def _family_case_sql(family_map, column="jc.operation"):
-	"""A SQL CASE expression that resolves `column` to its process family,
-	built from the live sub-op -> main-op map (small, fixed set of real
-	Operation names — safe to inline, never user input)."""
 	if not family_map:
 		return column
 	whens = " ".join(
@@ -100,10 +68,6 @@ def _family_case_sql(family_map, column="jc.operation"):
 
 
 def _run_conditions(start, end, company=None, project=None, item=None, date_column=None):
-	"""Shared WHERE conditions + params for any query that has `jc` (Job
-	Card) and, via JC_FROM, `wo` (Work Order) available. `date_column`
-	defaults to the Job Card's own effective start date; callers scoping by
-	a different date (e.g. a time log's from_time) pass their own column."""
 	date_column = date_column or "COALESCE(jc.actual_start_date, jc.creation)"
 	conditions = [
 		"jc.status != 'Cancelled'",
@@ -124,8 +88,6 @@ def _run_conditions(start, end, company=None, project=None, item=None, date_colu
 
 @frappe.whitelist()
 def get_filter_options():
-	"""Distinct real values for the Company/Project/Item filter dropdowns —
-	always derived from what actually exists on Job Card, never hardcoded."""
 	companies = frappe.db.sql(
 		"SELECT DISTINCT company FROM `tabJob Card` WHERE company IS NOT NULL ORDER BY company",
 		as_dict=True,
@@ -196,11 +158,6 @@ def _distinct_operations():
 
 
 def _planned_runs_count(start, end, company=None):
-	"""Material Requests raised in the window -- one per planned run.
-
-	Counted on creation rather than transaction_date, because the ask is
-	"new material requests created in the selected period".
-	"""
 	conditions = ["mr.docstatus < 2", "DATE(mr.creation) BETWEEN %(start)s AND %(end)s"]
 	params = {"start": start, "end": end}
 	if company:
@@ -216,12 +173,6 @@ def _planned_runs_count(start, end, company=None):
 
 
 def _washed_totals(start, end, company=None, project=None, item=None):
-	"""Job Cards whose Wash Cycle sub-operation is complete, and their output.
-
-	Quantity is the Job Card's own total_completed_qty, reported in grams (as
-	stored) and pounds. The inner GROUP BY keeps a Job Card counted once even
-	if it carries more than one matching sub-operation row.
-	"""
 	conditions, params = _run_conditions(start, end, company, project, item)
 	params["wash_op"] = WASH_SUB_OPERATION
 	row = frappe.db.sql(
@@ -308,10 +259,6 @@ def _get_processing_type_breakdown(start, end, family_case, company=None, projec
 
 
 def _get_operation_breakdown(start, end, company=None, project=None, item=None):
-	"""Runs by Operation: the Processing Type donut one level down -- runs
-	per sub-operation (Wash Cycle, Press Run, ...). Same source and window as
-	Suboperation Status: a run counts once for each sub-operation its Job
-	Card carries."""
 	conditions, params = _run_conditions(start, end, company, project, item)
 	conditions.append("IFNULL(jco.sub_operation, '') != ''")
 	rows = frappe.db.sql(
@@ -329,8 +276,6 @@ def _get_operation_breakdown(start, end, company=None, project=None, item=None):
 	)
 	work = _employee_work_by_operation(start, end, company, project, item)
 
-	# A run carries several sub-operations, so the slices add up to more than
-	# the runs: the total is the runs themselves, each slice's % its share.
 	slices = sum(cint(r.cnt) for r in rows)
 	runs = cint(frappe.db.sql(
 		f"""
@@ -358,12 +303,6 @@ def _get_operation_breakdown(start, end, company=None, project=None, item=None):
 
 
 def _employee_work_by_operation(start, end, company=None, project=None, item=None):
-	"""Who did how much on each sub-operation: time logged and runs worked.
-
-	Read from Job Card Time Log, scoped by when the time was logged -- the
-	same window Employee Hours uses. A cancelled Job Card (docstatus 2) keeps
-	whatever status it had, so it is dropped by docstatus, not by status.
-	"""
 	conditions, params = _run_conditions(start, end, company, project, item, date_column="tl.from_time")
 	conditions += ["jc.docstatus < 2", "IFNULL(tl.operation, '') != ''"]
 	rows = frappe.db.sql(
@@ -391,20 +330,10 @@ def _employee_work_by_operation(start, end, company=None, project=None, item=Non
 		)
 	return out
 
-
-# The step whose worker a card's yield is credited to, per process.
 YIELD_STEPS = ("Wash Cycle", "Press Run")
 
 
 def _employee_yield(start, end, company=None, project=None, item=None):
-	"""Yield per employee on Wash Cycle (Hash) and Press Run (Rosin).
-
-	Each Job Card's yield -- total_completed_qty / for_quantity -- is credited
-	to whoever logged time on that card's Wash Cycle / Press Run; two people
-	on one card both get it. The average is over their cards, with the same
-	formula and the same card set (Job Card start date, filters) as Yield by
-	Processing Type, so it is that figure split by person.
-	"""
 	conditions, params = _run_conditions(start, end, company, project, item)
 	params["steps"] = YIELD_STEPS
 	rows = frappe.db.sql(
@@ -500,12 +429,7 @@ def _get_suboperation_status(start, end, company=None, project=None, item=None):
 
 
 def _get_employee_hours(start, end, company=None, project=None, item=None):
-	# Scoped by when the time was actually logged (tl.from_time), not by the
-	# Job Card's own start-date window, but still respects the same
-	# company/project/item scoping and drops Cancelled Job Cards.
 	conditions, params = _run_conditions(start, end, company, project, item, date_column="tl.from_time")
-	# One slice per person who actually logged time, not per designation --
-	# several people share a designation and were being merged into one wedge.
 	rows = frappe.db.sql(
 		f"""
 		SELECT
@@ -587,14 +511,6 @@ def get_runs_detail(
 	page=1,
 	page_size=8,
 ):
-	"""One row per Material Request -- the run -- not per Job Card.
-
-	A run passes through two operations (Hash Processing, then Rosin
-	Pressing), each its own Job Card against the same Work Order. The table
-	reports the run as a whole, so both Job Cards are folded into a single
-	row: micron weights and completed quantities are read per operation and
-	presented side by side.
-	"""
 	start, end = _date_bounds(from_date, to_date)
 	page = cint(page) or 1
 	page_size = cint(page_size) or 8
@@ -602,10 +518,6 @@ def get_runs_detail(
 	conditions, params = _run_conditions(start, end, company, project, item)
 	conditions.append("wo.material_request IS NOT NULL")
 
-	# Search and Status both work on the run as the table shows it -- every
-	# Job Card of the Material Request, not just the one row being grouped --
-	# and against what is on screen: Run #, Raw Material, the hash / rosin
-	# items, and the Batch by its name as well as its ID.
 	if search:
 		conditions.append(
 			f"""(
@@ -627,9 +539,6 @@ def get_runs_detail(
 		)
 		params["search"] = f"%{search.strip()}%"
 
-	# Run # / Batch / Item Link filters above the table. Each is an exact
-	# match across the whole run: Batch is a Job Card's batch or its Work
-	# Order's project, Item is a raw material or a hash / rosin item.
 	if run:
 		conditions.append("wo.material_request = %(run)s")
 		params["run"] = run
@@ -648,8 +557,6 @@ def get_runs_detail(
 		)
 		params["run_item"] = run_item
 
-	# Same rule as _build_run_row: Completed only when every card is; In
-	# Progress when any card is; otherwise Open.
 	if status in ("Open", "Completed", "In Progress"):
 		not_done = f"EXISTS (SELECT 1 {RUN_CARDS_FROM} WHERE {RUN_CARDS_WHERE} AND r_jc.status != 'Completed')"
 		in_progress = (
@@ -662,9 +569,6 @@ def get_runs_detail(
 			"Open": f"({not_done} AND NOT {in_progress})",
 		}[status])
 
-	# The Processing Type column is gone, but the filter above the table is
-	# not: a run now spans both operations, so this keeps runs that have a
-	# Job Card of the chosen type rather than filtering the row itself.
 	if processing_type:
 		conditions.append(
 			"EXISTS (SELECT 1 FROM `tabJob Card` f "
@@ -676,8 +580,6 @@ def get_runs_detail(
 
 	where_sql = " AND ".join(conditions)
 
-	# Group the window's Job Cards up to their Material Request, keeping the
-	# earliest start so the list can be ordered by when the run began.
 	runs_query = f"""
 		SELECT wo.material_request AS run_id,
 		       MIN(COALESCE(jc.actual_start_date, jc.creation)) AS first_start
@@ -703,14 +605,6 @@ def get_runs_detail(
 
 
 def _get_run_yields(start, end, company=None, project=None, item=None):
-	"""Hash Yield, Rosin Yield and Hash to Rosin Yield for the period.
-
-	The Runs Detail table's columns summed over the same runs, each against
-	its own base: hash output / raw input, rosin output / raw input, rosin
-	output / hash output. A run counts toward a figure only once it has the
-	output that figure needs -- a run still washing has no hash yet and
-	would read as 0%.
-	"""
 	conditions, params = _run_conditions(start, end, company, project, item)
 	conditions.append("wo.material_request IS NOT NULL")
 	runs = frappe.db.sql_list(
@@ -753,11 +647,6 @@ def _get_run_yields(start, end, company=None, project=None, item=None):
 
 
 def _job_cards_for_run(material_request):
-	"""Every non-cancelled Job Card belonging to this Material Request.
-
-	Cancelled by docstatus as well: a cancelled Job Card keeps the status it
-	had (Completed), and counting it booked that output twice.
-	"""
 	return frappe.db.sql(
 		"""
 		SELECT jc.name, jc.operation, jc.status, jc.batch, jc.item_name,
@@ -775,7 +664,6 @@ def _job_cards_for_run(material_request):
 
 
 def _micron_grams(job_card_names):
-	"""micron_size -> grams collected, summed across the given Job Cards."""
 	if not job_card_names:
 		return {}
 	rows = frappe.db.sql(
@@ -790,19 +678,11 @@ def _micron_grams(job_card_names):
 	)
 	return {r.micron_size: flt(r.grams) for r in rows}
 
-
 GRAM_UOMS = {"gram", "grams", "g", "gm"}
 POUND_UOMS = {"lbs", "lb", "pound", "pounds"}
 
 
 def _input_grams(material_request):
-	"""Requested material for a run, expressed in grams.
-
-	Yields are output grams over input grams, and the input is recorded in
-	pounds on this site (Fresh Frozen lines carry uom = LBS), so pounds are
-	multiplied by 453.592. A line already in grams is taken as-is; anything
-	else is treated as pounds, which is what every line here uses.
-	"""
 	rows = frappe.db.sql(
 		"SELECT qty, LOWER(COALESCE(uom, stock_uom, '')) AS uom "
 		"FROM `tabMaterial Request Item` WHERE parent = %s",
@@ -827,8 +707,6 @@ def _build_run_row(material_request):
 	hash_qty = sum(flt(c.total_completed_qty) for c in hash_cards)
 	rosin_qty = sum(flt(c.total_completed_qty) for c in rosin_cards)
 
-	# Input material in grams. Yields below are output over input as a
-	# percentage, so both sides have to be in the same unit.
 	input_grams = _input_grams(material_request)
 
 	raw_material = "-"
@@ -847,8 +725,6 @@ def _build_run_row(material_request):
 	if batch_id:
 		batch_name = frappe.db.get_value("Project", batch_id, "project_name") or batch_id
 
-	# The run's status is the least-advanced of its Job Cards: it is only
-	# Completed once every operation is.
 	buckets = {STATUS_BUCKETS.get(c.status, "In Progress") for c in cards}
 	if not buckets:
 		run_status = "Open"
@@ -859,9 +735,6 @@ def _build_run_row(material_request):
 	else:
 		run_status = "Open"
 
-	# Started on: when the first Job Card began. Completed on: when the
-	# second operation began, as requested -- the handover point between the
-	# two stages, which is what Production treats as the run finishing.
 	started_on = cards[0].actual_start_date or cards[0].creation if cards else None
 	second_start = None
 	if len(cards) > 1:
@@ -895,8 +768,6 @@ def _build_run_row(material_request):
 	return {
 		"run_id": material_request,
 		"raw_material": raw_material,
-		# The run's raw material as requested on its Material Request, in pounds
-		# (the figure the Manufacturing Process card used to show).
 		"input_lbs": round(input_grams / GRAMS_PER_POUND, 2) if input_grams else 0,
 		"batch_name": batch_name,
 		"status": run_status,
@@ -909,7 +780,6 @@ def _build_run_row(material_request):
 		"rosin_45u": round(rosin_microns.get("45u", 0), 2),
 		"hash_yield": yield_pct(hash_qty),
 		"rosin_yield": yield_pct(rosin_qty),
-		# Conversion yield: how much rosin came out of the hash pressed.
 		"hash_to_rosin_yield": round(rosin_qty / hash_qty * 100, 2) if hash_qty else 0,
 		"total_time": f"{hours}h {mins}m",
 		"started_by": started_by,

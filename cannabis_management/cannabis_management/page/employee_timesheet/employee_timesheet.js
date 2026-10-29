@@ -1,8 +1,3 @@
-// Copyright (c) 2026, alltechvirtual.com and contributors
-// Employee Timesheet — hours and overtime per employee, per shift day.
-// All aggregation (time zone, shift-day attribution, overtime) is server-side
-// in employee_timesheet.py; this renders what it returns.
-
 const ETS = 'cannabis_management.cannabis_management.page.employee_timesheet.employee_timesheet.';
 
 frappe.pages['employee-timesheet'].on_page_load = function (wrapper) {
@@ -95,7 +90,6 @@ function bind(page) {
 		load(page);
 	});
 	page.main.find('#ets-from, #ets-to').on('change', function () {
-		// A hand-picked date range is no longer one of the presets.
 		page.main.find('#ets-periods .ets-chip').removeClass('on');
 		load(page);
 	});
@@ -131,9 +125,8 @@ function set_period(page, offset) {
 }
 
 function set_week(page) {
-	// Friday-to-Thursday, matching how the fortnight is cut.
 	const today = frappe.datetime.get_today();
-	const dow = frappe.datetime.str_to_obj(today).getDay();   // 0 Sun … 5 Fri
+	const dow = frappe.datetime.str_to_obj(today).getDay();
 	const back = (dow - 5 + 7) % 7;
 	const from = frappe.datetime.add_days(today, -back);
 	page.main.find('#ets-from').val(from);
@@ -161,8 +154,6 @@ function current_filters(page) {
 function export_pdf(page) {
 	const f = current_filters(page);
 	if (!f.from_date || !f.to_date) return;
-	// The method sets a download response, so this has to be a real navigation
-	// rather than a frappe.call — the browser saves the file itself.
 	const url = '/api/method/' + ETS + 'export_pdf?' + $.param(f);
 	window.open(url, '_blank');
 }
@@ -231,7 +222,6 @@ function render(page) {
 }
 
 function build_table(rows) {
-	// Group by employee so each person reads as a block with their own total.
 	const order = [], byEmp = {};
 	rows.forEach((r) => {
 		if (!byEmp[r.employee]) { byEmp[r.employee] = []; order.push(r.employee); }

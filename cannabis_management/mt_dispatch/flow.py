@@ -1,11 +1,3 @@
-"""The state machine.
-
-Sales Order.custom_logistic_status is written here and nowhere else. Every
-move goes through transition(), which locks the row, checks the stage, checks
-the caller's authority at that company, runs the gates, performs the effect and
-appends an audit row. guard_stage_field rejects any write that skipped it.
-"""
-
 import json
 
 import frappe
@@ -15,7 +7,7 @@ from frappe.utils import flt, now_datetime
 from cannabis_management.mt_dispatch import builders, gates, notify, stages
 from cannabis_management.mt_dispatch.gates import GateError, StaleAction
 from cannabis_management.mt_dispatch.settings import get_company_settings, is_administrator, require_team_flag
-from cannabis_management.mt_dispatch.stages import (  # re-exported for callers
+from cannabis_management.mt_dispatch.stages import (
 	ALL_STAGES,
 	AWAITING_CONVERSION,
 	AWAITING_RELEASE,
@@ -58,9 +50,6 @@ class Transition:
 		return self.to(so) if callable(self.to) else self.to
 
 
-# ── effects ──────────────────────────────────────────────────────────────────
-
-
 def _effect_flag_conversion(so, cfg, payload):
 	so.db_set("custom_conversion_required", 1, update_modified=False)
 
@@ -80,8 +69,6 @@ def _effect_resume(so, cfg, payload):
 
 
 def _resume_to(so):
-	"""Back to wherever the hold came from. Orders held before the field
-	existed, or with a stage since removed, land on Order Received."""
 	previous = so.get("custom_hold_from_stage")
 	return previous if previous in stages.ALL_STAGES else RECEIVED
 
@@ -113,9 +100,6 @@ def _effect_mark_delivered(so, cfg, payload):
 		dn_names = gates.delivery_notes_for(so.name)
 		if dn_names:
 			builders.attach_file(file_url, "Delivery Note", dn_names[0])
-
-
-# ── the table ────────────────────────────────────────────────────────────────
 
 NON_TERMINAL = tuple(s for s in stages.ALL_STAGES if s not in TERMINAL_STAGES)
 
@@ -211,23 +195,13 @@ def _raise(message):
 	raise GateError(message)
 
 
-# ── the one way in ───────────────────────────────────────────────────────────
-
-
 def transition(sales_order, action, expected_stage=None, payload=None, source="ERP"):
-	"""Move an order, or explain why not.
-
-	Runs as frappe.session.user. Slack handlers call frappe.set_user() first,
-	so owner, modified_by and version history all name the real person.
-	"""
 	t = TRANSITIONS.get(action)
 	if not t:
 		raise GateError(_("Unknown dispatch action {0}.").format(action))
 
 	payload = _as_dict(payload)
 
-	# for_update takes a row lock, so two approvers clicking Release at the
-	# same moment queue up rather than both submitting the Delivery Note.
 	so = frappe.get_doc("Sales Order", sales_order, for_update=True)
 
 	cfg = get_company_settings(so.company)
@@ -247,15 +221,10 @@ def transition(sales_order, action, expected_stage=None, payload=None, source="E
 
 	require_team_flag(cfg, frappe.session.user, t.flags)
 
-	# Administrator is exempt from the gates, as from the team flags.
 	if not is_administrator():
 		for guard in t.guards:
 			guard(so, cfg, payload)
 
-	# Resolved before the effect runs, not after: `resume` reads its target
-	# stage out of custom_hold_from_stage, and its own effect is what clears
-	# that field. Any target that depends on document state must be decided
-	# from the state the guards just approved.
 	to = t.resolve_to(so)
 
 	frappe.flags.mt_dispatch = action
@@ -278,8 +247,6 @@ def transition(sales_order, action, expected_stage=None, payload=None, source="E
 
 
 def set_stage(so, to, action, source="System", note=None, user=None):
-	"""Write the stage and append the audit row. Only transition() and the
-	document hooks below call this."""
 	previous = so.get(STAGE_FIELD)
 	if previous == to and action != "backfill":
 		return
@@ -293,9 +260,6 @@ def set_stage(so, to, action, source="System", note=None, user=None):
 
 	so.set(STAGE_FIELD, to)
 	_append_log(so, previous, to, action, source, note, user)
-	# The Fulfillment Pipeline page redraws this order's card. db_set above
-	# sends no list_update, so without this a move made in Slack, on the form
-	# or by a document hook would wait for the page's poll.
 	frappe.publish_realtime(
 		"mt_fulfillment_update",
 		{"sales_order": so.name, "from_stage": previous, "to_stage": to},
@@ -351,7 +315,6 @@ def _who_last(so):
 
 
 def stale_message(so):
-	"""What a late click is told: who got there first."""
 	current = so.get(STAGE_FIELD)
 	if current == RELEASED:
 		return _("Already released{0}.").format(_who_last(so))
@@ -366,22 +329,12 @@ def _as_dict(payload):
 	return dict(payload)
 
 
-# ── document hooks ───────────────────────────────────────────────────────────
-
-
 def guard_stage_field(doc, method=None):
-	"""Nothing edits the stage except this module -- for companies on dispatch.
-
-	A company with no enabled Dispatch Company Settings has no buttons to go
-	through, so its people set Logistic Status by hand like any other field.
-	"""
 	if not get_company_settings(doc.company):
 		return
 	if not doc.has_value_changed(STAGE_FIELD) or frappe.flags.get("mt_dispatch"):
 		return
 	if is_administrator():
-		# Administrator may set the stage by hand; it still goes on the audit
-		# trail, and into the order's Slack thread like any other move.
 		before = doc.get_doc_before_save()
 		_append_log(doc, before.get(STAGE_FIELD) if before else None, doc.get(STAGE_FIELD), "admin_set", "ERP", None)
 		notify.enqueue(
@@ -401,17 +354,11 @@ def guard_stage_field(doc, method=None):
 
 
 def enter_flow(so, source="System"):
-	"""Put a submitted order on the board, if it is allowed on and isn't already."""
 	cfg = get_company_settings(so.company)
 	if not cfg:
 		return False
 	if so.docstatus != 1:
 		return False
-	# On the board means the flow put it there, not that the field holds a
-	# stage: Logistic Status is editable on a draft, so a new order can arrive
-	# at submit already reading "Order Received" without ever having entered
-	# (no stage log, no Slack thread). Such a value is dropped and the order
-	# enters properly below.
 	on_board = frappe.db.exists("Dispatch Stage Log", {"parent": so.name, "parenttype": "Sales Order"})
 	if on_board and so.get(STAGE_FIELD) in stages.ALL_STAGES:
 		return False
@@ -439,17 +386,10 @@ def on_so_submit(doc, method=None):
 
 
 def on_so_update(doc, method=None):
-	"""Covers an order edited the ordinary way after submit.
-
-	This does NOT catch credit approval: credit_and_ar.api.approve_terms
-	writes with db_set, which runs no document events at all. That path calls
-	on_terms_approved() directly.
-	"""
 	enter_flow(doc, source="System")
 
 
 def on_terms_approved(sales_order):
-	"""Called by the credit module the moment a Terms order is approved."""
 	if not frappe.db.exists("Sales Order", sales_order):
 		return
 	enter_flow(frappe.get_doc("Sales Order", sales_order), source="System")
@@ -474,7 +414,6 @@ def on_so_cancel(doc, method=None):
 
 
 def on_conversion_submit(doc, method=None):
-	"""The last outstanding conversion moves the order on by itself."""
 	_sync_conversion(doc)
 
 
@@ -500,8 +439,6 @@ def _sync_conversion(ce):
 		complete = False
 
 	if not complete or so.get(STAGE_FIELD) != AWAITING_CONVERSION:
-		# No stage move. The thread still hears about it: events.on_ce_change
-		# posts the entry itself -- who, what into what, "2 of 3 submitted".
 		return
 
 	set_stage(so, PREPARING, "conversions_done", "System")
@@ -515,7 +452,6 @@ def _sync_conversion(ce):
 
 
 def on_dn_cancel(doc, method=None):
-	"""A Delivery Note cancelled after release sends the order back to Prepared."""
 	for so_name, _cfg in gates._governed_orders(doc):
 		so = frappe.get_doc("Sales Order", so_name)
 		if so.get(STAGE_FIELD) not in (RELEASED, CLOSED_OUT):
@@ -529,14 +465,11 @@ def on_dn_cancel(doc, method=None):
 			queue="short",
 		)
 
-
-# Stages before the Delivery Note exists, and before it is submitted.
 BEFORE_DN = (RECEIVED, AWAITING_CONVERSION, PREPARING, PREPARED)
 BEFORE_RELEASE = BEFORE_DN + (DN_READY, AWAITING_RELEASE, ON_HOLD)
 
 
 def dn_after_insert(doc, method=None):
-	"""A note made outside the flow puts its order at Delivery Note Ready."""
 	if frappe.flags.get("mt_dispatch"):
 		return
 	for so_name, _cfg in gates._governed_orders(doc):
@@ -546,7 +479,6 @@ def dn_after_insert(doc, method=None):
 
 
 def dn_on_submit(doc, method=None):
-	"""A note submitted outside the flow releases its order."""
 	if frappe.flags.get("mt_dispatch"):
 		return
 	for so_name, _cfg in gates._governed_orders(doc):

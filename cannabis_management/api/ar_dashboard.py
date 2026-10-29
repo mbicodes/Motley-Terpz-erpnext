@@ -1,8 +1,3 @@
-"""
-AR Dashboard API — KPI endpoints for the AR Dashboard page.
-All balances read from GL Entry (source of truth), not SI.outstanding_amount.
-"""
-
 import frappe
 from frappe.utils import flt, nowdate, add_days
 
@@ -13,7 +8,6 @@ DSO_PERIOD_DAYS = 30
 
 
 def _gl_total_ar(customer=None, as_of=None):
-    """GL Entry balance for all customers, or a single customer."""
     params = {"accounts": tuple(DEFAULT_RECEIVABLE_ACCOUNTS)}
     extra = ""
     if customer:
@@ -38,11 +32,8 @@ def _gl_total_ar(customer=None, as_of=None):
     return flt(result[0].bal) if result else 0.0
 
 
-# ── KPI summary ───────────────────────────────────────────────────────────────
-
 @frappe.whitelist()
 def get_ar_kpis():
-    """Total AR (GL), DSO, Cap % used, Red List customer count."""
     today      = nowdate()
     from_date  = add_days(today, -DSO_PERIOD_DAYS)
     total_ar   = _gl_total_ar()
@@ -83,15 +74,8 @@ def get_ar_kpis():
     }
 
 
-# ── Red List table ────────────────────────────────────────────────────────────
-
 @frappe.whitelist()
 def get_red_list():
-    """
-    Customers with invoices 30+ days past due.
-    SI.outstanding_amount used for aging bucket / invoice count;
-    GL Entry balance shown as the authoritative ledger figure.
-    """
     rows = frappe.db.sql(
         """
         SELECT
@@ -152,14 +136,8 @@ def get_red_list():
     ]
 
 
-# ── AR trend (8 weeks) ────────────────────────────────────────────────────────
-
 @frappe.whitelist()
 def get_ar_trend():
-    """
-    Weekly AR outstanding snapshots for the last 8 weeks.
-    Uses GL Entry cumulative balance up to each Sunday.
-    """
     rows = frappe.db.sql(
         """
         SELECT
@@ -183,11 +161,8 @@ def get_ar_trend():
     ]
 
 
-# ── COD vs Credit ratio ───────────────────────────────────────────────────────
-
 @frappe.whitelist()
 def get_cod_credit_ratio():
-    """COD vs Credit totals for the current calendar month."""
     rows = frappe.db.sql(
         """
         SELECT
@@ -222,11 +197,8 @@ def get_cod_credit_ratio():
     }
 
 
-# ── Per-customer ledger balance ───────────────────────────────────────────────
-
 @frappe.whitelist()
 def get_customer_gl_balance(customer):
-    """Live GL ledger balance for a single customer (used by Red List popup)."""
     if not customer:
         return 0.0
     return _gl_total_ar(customer=customer)

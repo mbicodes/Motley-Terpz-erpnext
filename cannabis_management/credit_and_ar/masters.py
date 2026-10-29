@@ -1,14 +1,5 @@
-"""Native masters the Credit & AR module depends on.
-
-All of these are ordinary ERPNext records — Roles, Payment Terms Templates, an
-Item and the permlevel DocPerms. Creation is idempotent so the patches can run
-on every migrate.
-"""
-
 import frappe
 from frappe.utils import flt
-
-# ── Roles ────────────────────────────────────────────────────────────────────
 
 CREDIT_ROLES = [
 	{
@@ -40,13 +31,6 @@ def install_roles():
 			continue
 		frappe.get_doc({"doctype": "Role", **role}).insert(ignore_permissions=True)
 
-
-# ── Payment Terms Templates ──────────────────────────────────────────────────
-#
-# NET7, NET15, NET30, "50% down NET15" and "50% down NET30" already exist on the
-# site. They are left untouched; only the gaps are created, following the site's
-# existing "50% down NETnn" naming rather than inventing a parallel convention.
-
 PAYMENT_TERMS_TEMPLATES = [
 	{"name": "COD", "rows": [(100.0, 0)]},
 	{"name": "NET7", "rows": [(100.0, 7)]},
@@ -59,8 +43,6 @@ PAYMENT_TERMS_TEMPLATES = [
 	{"name": "50% down NET30", "rows": [(50.0, 0), (50.0, 30)]},
 ]
 
-# Every non-COD template needs a written MD exception reason on the Credit
-# Application before it can be approved.
 TERMS_REQUIRING_MD_EXCEPTION = [
 	template["name"] for template in PAYMENT_TERMS_TEMPLATES if template["name"] != "COD"
 ]
@@ -91,23 +73,13 @@ def _term_description(portion: float, credit_days: int) -> str:
 		return f"{flt(portion):g}% due on delivery"
 	return f"{flt(portion):g}% due {credit_days} days after invoice date"
 
-
-# ── Finance charge item ──────────────────────────────────────────────────────
-
 FINANCE_CHARGE_ITEM_CODE = "FINANCE-CHARGE"
 
 
 def install_finance_charge_item():
-	"""Create FINANCE-CHARGE, forcing the readable name.
-
-	Stock Settings on this site names Items by series, so a plain insert yields
-	something like STO-ITEM-2026-01826. Finance needs to recognise the line on a
-	late-fee invoice, so the record is renamed after insert.
-	"""
 	if frappe.db.exists("Item", FINANCE_CHARGE_ITEM_CODE):
 		return FINANCE_CHARGE_ITEM_CODE
 
-	# A previous run may have created it under a series name.
 	existing = frappe.db.get_value("Item", {"item_code": FINANCE_CHARGE_ITEM_CODE}, "name")
 	if not existing:
 		existing = frappe.db.get_value(
@@ -158,13 +130,6 @@ def _pick_item_group() -> str | None:
 		if frappe.db.exists("Item Group", candidate):
 			return candidate
 	return frappe.db.get_value("Item Group", {"is_group": 0}, "name")
-
-
-# ── Permlevel 1 access ───────────────────────────────────────────────────────
-#
-# Customer.custom_credit_terms_template sits at permlevel 1 so Sales cannot set
-# a customer's terms. Only Credit Finance and the Managing Director get read and
-# write at that level.
 
 PERMLEVEL_1_ROLES = ("Credit Finance", "Managing Director")
 

@@ -5,8 +5,6 @@ from frappe.utils import cint, flt, nowdate
 
 @frappe.whitelist()
 def teardown_stats(names):
-	"""Per-teardown plant count, recorded weight and reviewed/total harvests,
-	read from the existing Teardown child tables."""
 	names = frappe.parse_json(names) if isinstance(names, str) else names
 	out = {}
 	for n in names or []:
@@ -25,8 +23,6 @@ def teardown_stats(names):
 
 @frappe.whitelist()
 def create_packages_from_harvest(harvest_batch, packages, owner=None, destination=None, description=None):
-	"""Create one Metrc Package per row ({tag, item_code, quantity, uom}) from a
-	Harvest Batch and roll the quantity into its packaged_weight (status is derived by Harvest Batch.validate)."""
 	packages = frappe.parse_json(packages) if isinstance(packages, str) else packages
 	if not packages:
 		frappe.throw(_("Add at least one package."))

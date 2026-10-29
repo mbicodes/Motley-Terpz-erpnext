@@ -1,10 +1,3 @@
-"""Number Card sources for the Credit & AR Control workspace.
-
-Each is a whitelisted method returning ``{"value": …, "fieldtype": …}``, which is
-what a Number Card of type **Custom** expects. No Dashboard Chart Source DocType
-is needed, keeping to the four-DocType constraint.
-"""
-
 import frappe
 from frappe.utils import flt
 
@@ -55,7 +48,6 @@ def accounts_on_hold():
 
 @frappe.whitelist()
 def pending_md_approvals():
-	"""Terms Sales Orders plus Credit Applications waiting on the MD."""
 	orders = frappe.db.count(
 		"Sales Order",
 		{
@@ -74,7 +66,6 @@ def pending_md_approvals():
 
 @frappe.whitelist()
 def freeze_status():
-	"""1 while frozen, 0 otherwise — a card that should always read zero."""
 	return {
 		"value": int(utils.get_settings().company_freeze_active or 0),
 		"fieldtype": "Int",
@@ -92,9 +83,6 @@ def open_ar_cases():
 @frappe.whitelist()
 def legacy_outstanding():
 	return {"value": metrics._legacy_ar(), "fieldtype": "Currency"}
-
-
-# ── card definitions ─────────────────────────────────────────────────────────
 
 NUMBER_CARDS = [
 	{
@@ -146,8 +134,6 @@ NUMBER_CARDS = [
 
 
 def install_number_cards():
-	"""Number Card autonames from `label`, so the label *is* the docname —
-	the workspace references these by name."""
 	for card in NUMBER_CARDS:
 		if frappe.db.exists("Number Card", card["label"]):
 			frappe.db.set_value(

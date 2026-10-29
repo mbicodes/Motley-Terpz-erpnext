@@ -44,18 +44,10 @@ frappe.ui.form.on("Stock Entry Detail", {
     },
 
     amount: function (frm, cdt, cdn) {
-        // Repack finished-good (t_warehouse only) rows: core recalculates
-        // rate/amount from the outgoing cost on every save unless
-        // set_basic_rate_manually is checked, and nothing client-side keeps
-        // basic_rate in step with a direct Amount edit -- so without this,
-        // whatever's typed here can get overwritten before/On save.
         let row = locals[cdt][cdn];
         if (frm.doc.stock_entry_type !== "Repack" || !row.t_warehouse || row.s_warehouse) {
             return;
         }
-        // Conversion Entry drafts are rebalanced against the raw material cost
-        // on every save, so pinning a hand-typed amount here would only be
-        // overwritten -- and would freeze the row in the meantime.
         if (frm.doc.custom_conversion_entry_reference) {
             return;
         }
@@ -175,10 +167,8 @@ function _fix_operating_cost_from_wo(frm) {
         callback: function (r) {
             if (!r.message || !r.message.length) return;
 
-            // Clear all additional costs — server validate owns this field
             frm.doc.additional_costs = [];
 
-            // Add per-account rows
             r.message.forEach(item => {
                 frm.add_child("additional_costs", {
                     expense_account: item.expense_account,
@@ -187,7 +177,6 @@ function _fix_operating_cost_from_wo(frm) {
                 });
             });
 
-            // Recalculate total from all rows
             let total = (frm.doc.additional_costs || []).reduce((s, c) => s + flt(c.amount), 0);
             frm.set_value("total_additional_costs", total);
             frm.refresh_field("additional_costs");
@@ -216,11 +205,6 @@ function calculate_total_quantity(frm) {
     frm.refresh_field("total_quantity");
 }
 
-// ── Project picker: no filtering ─────────────────────────────────────────────
-// Core restricts Project by company, and on selling forms by customer too
-// (erpnext/public/js/utils/sales_common.js, controllers/buying.js). Projects
-// here are not company-scoped, so that hid valid choices. Cleared in refresh
-// so it lands after core's own setup_queries, which is where core sets it.
 frappe.ui.form.on('Stock Entry', {
 	refresh(frm) {
 		frm.set_query('project', () => ({}));

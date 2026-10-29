@@ -1,31 +1,3 @@
-"""Customer form layout and field rules that must outlast a migrate.
-
-Everything here is re-asserted on `after_migrate`, which Frappe runs *after*
-`sync_fixtures()` and `sync_customizations()`. That ordering is the whole point:
-the app ships an unfiltered "Custom Field" fixture, so any change made to a field
-it already contains is silently undone on every migrate. Rather than edit that
-fixture, this module states the intended end-state in code and stamps it back
-after the fixture has had its say.
-
-Three rules, all idempotent:
-
-1. The Credit Control tab starts AFTER the Details tab's last field. A Tab Break
-   owns every field after it until the next one, so anchoring it mid-Details
-   (custom_notebox) dragged the stock Defaults / Internal Customer / More
-   Information sections into Credit Control. Anchored to custom_link_supplier —
-   the last field before dashboard_tab — those three stay in Details.
-
-2. custom_credit_status is permlevel 1 and editable. The engines still set it,
-   but it is not read-only — permlevel 1, already granted on Customer to Credit
-   Finance, Managing Director, Accounts Manager and Sales Master Manager, is what
-   decides who may change it.
-
-3. REMOVED_FIELDS are gone (custom_reconciliation_clause_ack, the retired
-   Policy Exempt checkbox and its column break, custom_license_verified). Each
-   underlying column is left alone, so no data is destroyed — only the field is
-   removed from the form.
-"""
-
 import frappe
 
 from cannabis_management.credit_and_ar import utils
@@ -42,33 +14,20 @@ DETAILS_LAST_FIELD = "custom_link_supplier"
 
 STATUS_FIELD = "custom_credit_status"
 STATUS_PERMLEVEL = 1
-# Editable by hand — permlevel 1 is what limits who, not a read-only flag.
 STATUS_READ_ONLY = 0
 
 REMOVED_FIELDS = (
 	"custom_reconciliation_clause_ack",
-	# Replaced by Credit Status = "Policy Exempt" — see _migrate_exemption below,
-	# which moves the value across before the field goes.
 	"custom_credit_policy_exempt",
-	# Column break that only existed to sit beside that checkbox.
 	"custom_credit_exemption_cb",
-	# Requested removed outright. The underlying column is left alone per the
-	# module docstring, so no data is destroyed.
 	"custom_license_verified",
-	# Replaced by Credit Status = "Hard Hold" — see utils.is_on_hold. Two fields
-	# describing the same state could disagree; the status is the one people read.
 	"custom_on_hold",
 )
 
 EXEMPT_CHECKBOX = "custom_credit_policy_exempt"
 
-# Why an account is on Hard Hold. Shown only while it is held, since the reason
-# for a released account is history, not current state — that lives on the AR
-# Case. Auto reasons are stamped by the engines (see ar_case.sync_customer_from_
-# cases); the Manual ones are there for Finance to pick.
 HOLD_REASON_FIELD = "custom_hold_reason"
 HOLD_REASON_DEPENDS_ON = f'eval:doc.{STATUS_FIELD}=="{utils.STATUS_HARD_HOLD}"'
-
 
 
 def _name(fieldname):
@@ -76,7 +35,6 @@ def _name(fieldname):
 
 
 def enforce(*args, **kwargs):
-	"""Apply all three rules. Safe to run repeatedly; returns what it changed."""
 	changed = []
 	changed += _migrate_exemption()
 	changed += _install_hold_reason()
@@ -93,13 +51,10 @@ def enforce(*args, **kwargs):
 
 
 def _place_credit_tab():
-	"""Keep Defaults / Internal Customer / More Information in the Details tab."""
 	name = _name(CREDIT_TAB)
 	if not frappe.db.exists("Custom Field", name):
 		return []
 
-	# Only meaningful while the anchor itself exists; if that field is ever
-	# removed, leave the tab where it is rather than dropping it to the end.
 	if not frappe.db.exists("Custom Field", _name(DETAILS_LAST_FIELD)):
 		return []
 
@@ -111,15 +66,6 @@ def _place_credit_tab():
 
 
 def _set_status_permlevel():
-	"""Everything about custom_credit_status that the fixture would undo.
-
-	The fixture carries permlevel 0 and read_only 1, so those are re-stamped here
-	rather than trusting the fixture import to leave them alone.
-
-	Order matters: the options are widened BEFORE the default is set. Frappe
-	refuses to save a Select whose default is not one of its options, so writing
-	a default of COD against a COD-less option list makes the field unsaveable.
-	"""
 	name = _name(STATUS_FIELD)
 	if not frappe.db.exists("Custom Field", name):
 		return []
@@ -155,18 +101,6 @@ def _set_status_permlevel():
 
 
 def _drop_removed_fields():
-	"""Delete retired fields, without orphaning whatever sat below them.
-
-	Custom fields are positioned by a chain of insert_after values. Deleting one
-	link leaves everything anchored to it with a dead anchor, and Frappe drops an
-	unanchored field at the very end of the form — which is how removing the
-	exempt checkbox emptied the Credit Control tab and scattered its contents
-	past the last tab. So each dependent is repointed at the deleted field's own
-	anchor first, closing the chain rather than breaking it.
-
-	The table column is deliberately left in place: dropping it would throw away
-	values that existing customers still carry.
-	"""
 	changed = []
 	for fieldname in REMOVED_FIELDS:
 		name = _name(fieldname)
@@ -188,13 +122,6 @@ def _drop_removed_fields():
 
 
 def _heal_orphans():
-	"""Repair any field whose anchor no longer exists.
-
-	custom_fields.CUSTOMER_FIELDS is the intended layout, so an orphan is put
-	back where that says it belongs. Without this a single missing anchor sends
-	a field — and everything chained below it — to the bottom of the form, past
-	the last tab, which reads to everyone as "the tab has disappeared".
-	"""
 	from cannabis_management.credit_and_ar.custom_fields import CUSTOMER_FIELDS
 
 	declared = {
@@ -219,12 +146,6 @@ def _heal_orphans():
 
 
 def _install_hold_reason():
-	"""Create the Hold Reason field, and keep its options and visibility right.
-
-	Created here rather than in custom_fields.py so it stays out of the app's
-	Custom Field fixture entirely: a field the fixture has never seen is one it
-	can never revert.
-	"""
 	from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 
 	name = _name(HOLD_REASON_FIELD)
@@ -265,12 +186,6 @@ def _install_hold_reason():
 
 
 def _migrate_exemption():
-	"""Carry any surviving checkbox exemption onto the Credit Status.
-
-	Runs before the field is retired, and keeps working afterwards: dropping a
-	Custom Field leaves its column in the table, so an account exempted on an
-	older release is still found and moved across on the next migrate.
-	"""
 	if not frappe.db.has_column(CUSTOMER, EXEMPT_CHECKBOX):
 		return []
 
@@ -294,13 +209,6 @@ def _migrate_exemption():
 
 
 def _clear_exempt_credit_limits():
-	"""Remove ERPNext's native credit limit from accounts already exempt.
-
-	The Customer hook keeps this true going forward, but accounts exempted before
-	that existed still carry the mirrored row — and that row is what blocks their
-	Sales Invoices with ERPNext's own "Credit Limit Crossed" popup. Runs on every
-	migrate and no-ops once there is nothing left to clear.
-	"""
 	exempt = frappe.get_all(
 		CUSTOMER, filters={"custom_credit_status": utils.STATUS_EXEMPT}, pluck="name"
 	)

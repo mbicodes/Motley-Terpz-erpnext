@@ -1,22 +1,3 @@
-"""The Home landing workspace.
-
-Seeded with **native Workspace Shortcuts** rather than a custom widget, so an
-Administrator can add, rename, recolour, reorder or delete anything straight
-from the workspace's own **Edit** button — no deploy, no code.
-
-Only work built on this bench is seeded (see `api.home_hub.is_custom`); the
-stock frappe/erpnext/hrms catalogue is left to its own workspaces.
-
-Permission behaviour, which is Frappe's and worth knowing:
-
-* `Page` and `Report` shortcuts **are** filtered per user — `Workspace.get_shortcuts`
-  drops anything the viewer cannot open.
-* `Dashboard` and `URL` shortcuts are **never** filtered. Workspaces can only be
-  linked as URLs, so those tiles are visible to everyone; clicking through is
-  still permission-checked by the target. The left sidebar already lists the
-  workspaces each user may open, so these are a convenience, not the only route.
-"""
-
 import json
 
 import frappe
@@ -26,9 +7,6 @@ from cannabis_management.api.home_hub import is_custom
 WORKSPACE = "Home"
 LEGACY_BLOCK = "Home Hub"
 
-# Seed everything custom-built, then let an Administrator prune from the UI —
-# better to over-supply and delete than to silently truncate. Raise or lower
-# freely; re-running the installer reseeds from scratch.
 SEED_LIMITS = {"workspace": 100, "dashboard": 100, "page": 100, "report": 200}
 
 COLOURS = {
@@ -40,7 +18,6 @@ COLOURS = {
 
 
 def install_home_hub():
-    """Idempotent: rebuild Home from whatever is currently custom-built."""
     _rebuild_home_workspace()
     _drop_legacy_block()
 
@@ -61,7 +38,6 @@ def _seed_shortcuts() -> list[dict]:
             row["link_to"] = link_to
         shortcuts.append(row)
 
-    # ── workspaces (URL — Frappe has no Workspace shortcut type) ──────────
     rows = frappe.get_all(
         "Workspace",
         filters={"public": 1, "is_hidden": 0},
@@ -81,7 +57,6 @@ def _seed_shortcuts() -> list[dict]:
         add(row.title or row.name, "URL", url=f"/app/{slug}", colour=COLOURS["workspace"])
         count += 1
 
-    # ── dashboards ────────────────────────────────────────────────────────
     count = 0
     for row in frappe.get_all(
         "Dashboard", fields=["name", "dashboard_name", "module"], ignore_permissions=True
@@ -92,7 +67,6 @@ def _seed_shortcuts() -> list[dict]:
             colour=COLOURS["dashboard"])
         count += 1
 
-    # ── pages ─────────────────────────────────────────────────────────────
     count = 0
     for row in frappe.get_all(
         "Page", fields=["name", "title", "module"], order_by="title asc",
@@ -103,7 +77,6 @@ def _seed_shortcuts() -> list[dict]:
         add(row.title or row.name, "Page", link_to=row.name, colour=COLOURS["page"])
         count += 1
 
-    # ── reports ───────────────────────────────────────────────────────────
     count = 0
     for row in frappe.get_all(
         "Report",
@@ -120,9 +93,6 @@ def _seed_shortcuts() -> list[dict]:
 
     return shortcuts
 
-
-# Ordered sections for the Home page. `heading` is also the marker the per-user
-# pruner in `api.workspace_guard` matches on, so keep the two in step.
 SECTIONS = [
     ("workspace", "Workspaces", lambda row: row["type"] == "URL"),
     ("dashboard", "Dashboards", lambda row: row["type"] == "Dashboard"),
@@ -134,12 +104,6 @@ SECTION_PREFIX = "home_h_"
 
 
 def build_content(shortcuts):
-    """One heading per type, followed by that type's tiles.
-
-    A heading that would be empty for a given viewer is stripped at read time by
-    `api.workspace_guard`, so someone who can see no reports never lands on a
-    bare "Reports" heading with nothing beneath it.
-    """
     content = []
 
     for key, heading, matches in SECTIONS:
@@ -174,10 +138,6 @@ def _rebuild_home_workspace():
 
     doc.title = WORKSPACE
     doc.label = WORKSPACE
-    # Deliberately module-less. `Home` ships in ERPNext's `Setup` module, so
-    # saving it in developer mode rewrites a file inside the erpnext repo; and a
-    # workspace with a module disappears for anyone who has that module in Block
-    # Modules — unacceptable for the page everyone lands on.
     doc.module = ""
     doc.public = 1
     doc.is_hidden = 0
@@ -196,18 +156,12 @@ def _rebuild_home_workspace():
 
 
 def _drop_legacy_block():
-    """The dynamic widget is superseded by editable native shortcuts."""
     if frappe.db.exists("Custom HTML Block", LEGACY_BLOCK):
         frappe.delete_doc("Custom HTML Block", LEGACY_BLOCK, force=True,
                           ignore_permissions=True, delete_permanently=True)
 
 
 def set_default_workspace_for_users():
-	"""Land every desk user on Home.
-
-	The public-`Home` fallback already covers most people; this makes it
-	explicit, and overrides any personal default that would otherwise win.
-	"""
 	users = frappe.get_all(
 		"User",
 		filters={"enabled": 1, "user_type": "System User"},
@@ -218,15 +172,7 @@ def set_default_workspace_for_users():
 	return len(users)
 
 
-# ── keeping Home in step with the rest of the site ───────────────────────────
-#
-# Home is seeded by `install_home_hub`, but nobody should have to remember to
-# re-run it. These hooks keep the tiles current as work is created, renamed,
-# disabled or deleted, so the page never quietly goes stale.
-
-
 def _skip_sync() -> bool:
-    """Bulk operations reseed anyway — do not save Home once per synced record."""
     return bool(
         frappe.flags.in_migrate
         or frappe.flags.in_install
@@ -236,18 +182,7 @@ def _skip_sync() -> bool:
     )
 
 
-# ── Workspace ────────────────────────────────────────────────────────────────
-
-
 def on_workspace_update(doc, method=None):
-    """Add or drop a Home tile when a workspace's `Is Hidden` is toggled.
-
-    Home deliberately lists only visible workspaces, so unticking *Is Hidden* on
-    (say) `Nikki` should surface it here without anyone remembering to reseed.
-    Ticking it again takes the tile away, so the two never disagree.
-
-    Home itself is skipped, or saving Home would recurse.
-    """
     if _skip_sync() or doc.name in (WORKSPACE, "Welcome Workspace"):
         return
     if not doc.public or not is_custom(doc.module):
@@ -275,11 +210,7 @@ def on_workspace_update(doc, method=None):
     )
 
 
-# ── Report ───────────────────────────────────────────────────────────────────
-
-
 def on_report_change(doc, method=None):
-    """A new custom report earns a tile; disabling one takes it away."""
     if _skip_sync():
         return
     if not is_custom(doc.module):
@@ -297,11 +228,7 @@ def on_report_change(doc, method=None):
     )
 
 
-# ── Page ─────────────────────────────────────────────────────────────────────
-
-
 def on_page_change(doc, method=None):
-    """Same for pages, which have no disabled flag — presence is enough."""
     if _skip_sync():
         return
     if not is_custom(doc.module):
@@ -319,11 +246,7 @@ def on_page_change(doc, method=None):
     )
 
 
-# ── deletion / rename ────────────────────────────────────────────────────────
-
-
 def on_trash(doc, method=None):
-    """Whatever it was, its tile goes with it."""
     if _skip_sync():
         return
 
@@ -332,7 +255,6 @@ def on_trash(doc, method=None):
 
 
 def after_rename(doc, method=None, old_name=None, merge=False):
-    """Rebuild the tile under the new name rather than leave a dead link."""
     if _skip_sync():
         return
 
@@ -348,7 +270,6 @@ def after_rename(doc, method=None, old_name=None, merge=False):
 
 
 def _candidate_labels(doc, extra=None) -> list:
-    """Every name a tile for this document might be filed under."""
     labels = [
         doc.get("title"),
         doc.get("report_name"),
@@ -359,14 +280,7 @@ def _candidate_labels(doc, extra=None) -> list:
     return [label for label in labels if label]
 
 
-# ── the one place Home is mutated ────────────────────────────────────────────
-
-
 def _sync_tile(wanted: bool, label: str, section, tile, note):
-    """Add or remove a single Home tile, idempotently.
-
-    Never raises: a bookkeeping slip here must not stop somebody saving a report.
-    """
     try:
         home = frappe.get_doc("Workspace", WORKSPACE)
         existing = [row for row in home.shortcuts if (row.label or "") == label]
@@ -405,7 +319,6 @@ def _section_heading(key) -> str:
 
 
 def _insert_into_section(blocks, section, label):
-    """Place the tile at the end of its section, creating the heading if needed."""
     header_id = SECTION_PREFIX + section
     tile_block = {
         "id": f"home_sc_{section}_{frappe.generate_hash(length=6)}",
@@ -426,7 +339,6 @@ def _insert_into_section(blocks, section, label):
                 "col": 12,
             },
         }
-        # Keep the declared section order rather than appending to the bottom.
         order = [key for key, _heading, _matches in SECTIONS]
         position = len(blocks)
         if section in order:
@@ -446,7 +358,6 @@ def _insert_into_section(blocks, section, label):
 
 
 def _drop_from_content(blocks, labels):
-    """Remove the tiles, then any section heading that emptied."""
     lowered = {label.lower() for label in labels if label}
 
     kept = [

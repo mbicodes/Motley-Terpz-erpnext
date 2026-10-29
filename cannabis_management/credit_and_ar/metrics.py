@@ -1,18 +1,3 @@
-"""Company-wide metrics and the credit freeze (§11).
-
-Three numbers govern whether the group may extend any new unsecured exposure at
-all: **total AR**, **DSO** and **CEI**. A breach on any one of them freezes new
-terms business for everyone — good standing included — while existing invoices
-keep their agreed due dates.
-
-Everything here is **new book only**. Legacy is reported separately and never
-freezes the company: at build time the site carried $4.77M of legacy AR against
-a $400k cap, so counting it would leave the group permanently frozen and the
-freeze would mean nothing.
-
-The daily snapshot is stored as JSON in a global default, not a new DocType.
-"""
-
 import json
 
 import frappe
@@ -25,15 +10,11 @@ SNAPSHOT_KEY = "credit_ar_metrics_history"
 OVERRIDE_KEY = "credit_ar_unfreeze_signoffs"
 SNAPSHOT_RETENTION_DAYS = 400
 
-# The window DSO and CEI are measured over.
 PERIOD_DAYS = 30
 
 BREACH_AR = "AR Cap"
 BREACH_DSO = "DSO"
 BREACH_CEI = "CEI"
-
-
-# ── receivable accounts ──────────────────────────────────────────────────────
 
 
 def receivable_accounts(company: str | None = None) -> list[str]:
@@ -43,16 +24,7 @@ def receivable_accounts(company: str | None = None) -> list[str]:
 	return frappe.get_all("Account", filters=filters, pluck="name")
 
 
-# ── AR at a point in time ────────────────────────────────────────────────────
-
-
 def _invoice_scope(company: str | None, new_book_only: bool = True) -> dict[str, dict]:
-	"""Every Sales Invoice in scope, keyed by name.
-
-	Finance-charge invoices are excluded throughout: they are a penalty on top
-	of the debt, not sales, and folding them into DSO or CEI would flatter the
-	numbers exactly when collections are worst.
-	"""
 	filters = {"docstatus": 1, "is_return": 0}
 	if company:
 		filters["company"] = company
@@ -86,12 +58,6 @@ def _invoice_scope(company: str | None, new_book_only: bool = True) -> dict[str,
 
 
 def _outstanding_by_invoice(invoice_names: list[str], as_of: str) -> dict[str, float]:
-	"""Outstanding per invoice as of a date, straight from the ledger.
-
-	`Sales Invoice.outstanding_amount` is only ever *now*; the CEI needs a
-	balance as it stood at the start of the period, so it has to come from
-	GL Entry.
-	"""
 	if not invoice_names:
 		return {}
 
@@ -125,11 +91,6 @@ def _outstanding_by_invoice(invoice_names: list[str], as_of: str) -> dict[str, f
 
 
 def is_credit_sale(invoice: dict) -> bool:
-	"""A sale actually extended on credit — not COD, not a sample.
-
-	Reads the payment mode carried over from the Sales Order, falling back to
-	the payment terms template when an invoice was raised directly.
-	"""
 	if (invoice.get("custom_order_type") or "") in utils.SAMPLE_ORDER_TYPES:
 		return False
 
@@ -141,9 +102,6 @@ def is_credit_sale(invoice: dict) -> bool:
 	if not template or template == "COD":
 		return False
 	return utils.template_credit_days(template) > 0
-
-
-# ── the three metrics ────────────────────────────────────────────────────────
 
 
 def compute_metrics(company: str | None = None, as_of: str | None = None) -> dict:
@@ -179,7 +137,6 @@ def compute_metrics(company: str | None = None, as_of: str | None = None) -> dic
 		)
 	)
 
-	# Credit AR only, so COD invoices sitting unpaid do not distort DSO.
 	credit_ar = flt(
 		sum(
 			value
@@ -211,7 +168,6 @@ def compute_metrics(company: str | None = None, as_of: str | None = None) -> dic
 
 
 def _legacy_ar(company: str | None = None) -> float:
-	"""Pre-policy balances — reported, never a freeze trigger."""
 	effective_date = utils.policy_effective_date()
 	if not effective_date:
 		return 0.0
@@ -234,11 +190,7 @@ def _legacy_ar(company: str | None = None) -> float:
 	return flt(sum(flt(row.outstanding_amount) * flt(row.conversion_rate or 1) for row in rows))
 
 
-# ── the daily job ────────────────────────────────────────────────────────────
-
-
 def evaluate_company_metrics():
-	"""Daily — measure, store a snapshot, and freeze or flag for unfreeze."""
 	if not utils.require_policy_live("evaluate_company_metrics"):
 		return
 
@@ -306,9 +258,6 @@ def _store_live_state(metrics: dict):
 	frappe.clear_document_cache("Credit Policy Settings", "Credit Policy Settings")
 
 
-# ── freeze / unfreeze ────────────────────────────────────────────────────────
-
-
 def _freeze(metrics: dict, breaches: list[str]):
 	reason = " ".join(breaches)
 
@@ -364,11 +313,6 @@ def _notify_freeze(metrics: dict, breaches: list[str]):
 
 
 def _flag_eligible_for_unfreeze(metrics: dict):
-	"""Metrics are back inside threshold — but nothing lifts silently.
-
-	§11 requires Finance to confirm in writing, so the daily job only tells
-	them they may.
-	"""
 	cache_key = f"credit_ar_unfreeze_eligible_{nowdate()}"
 	if frappe.cache().get_value(cache_key):
 		return
@@ -395,7 +339,6 @@ def _flag_eligible_for_unfreeze(metrics: dict):
 
 @frappe.whitelist()
 def confirm_unfreeze(notes: str):
-	"""Finance lifts the freeze once the metrics are genuinely back."""
 	if not utils.has_any_role("Credit Finance", "System Manager"):
 		frappe.throw(
 			_("Only Credit Finance can confirm an unfreeze."),
@@ -426,7 +369,6 @@ def confirm_unfreeze(notes: str):
 
 @frappe.whitelist()
 def unfreeze_override(reason: str):
-	"""The exception path — CEO and Managing Director, together, documented."""
 	if not (reason or "").strip():
 		frappe.throw(_("An override must record why."))
 
@@ -508,7 +450,6 @@ def _lift_freeze(basis: str, override: bool = False):
 
 	frappe.db.set_global(OVERRIDE_KEY, json.dumps({}))
 
-	# The exception register: overrides are logged where they can be found later.
 	frappe.get_doc(
 		{
 			"doctype": "Comment",
@@ -550,11 +491,7 @@ def _lift_freeze(basis: str, override: bool = False):
 		)
 
 
-# ── snapshots ────────────────────────────────────────────────────────────────
-
-
 def _append_snapshot(group: dict, per_company: dict, breaches: list[str]):
-	"""Daily trend data, kept as JSON rather than a new DocType."""
 	history = get_metrics_history()
 
 	today = str(getdate(nowdate()))
@@ -599,7 +536,6 @@ def get_metrics_history() -> list[dict]:
 
 @frappe.whitelist()
 def get_current_metrics():
-	"""Live figures for the workspace cards, without waiting for the scheduler."""
 	settings = utils.get_settings()
 	metrics = compute_metrics()
 	metrics["freeze_active"] = int(settings.company_freeze_active or 0)

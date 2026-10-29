@@ -1,19 +1,3 @@
-"""`All Company` support for report filters.
-
-The custom reports each guard their company clause with `if filters.get("company")`,
-so an absent company already means "every company". What was missing was a way
-for a user to *say* that: a Link filter can only offer real Company records, and
-clearing it looks like an unset filter rather than a deliberate choice.
-
-The reports now offer an explicit `All Company` entry (see
-`public/js/company_filter.js`). This strips that sentinel out of the filters
-before the report body runs, so **no report's Python had to change** — each one's
-existing "no company means all companies" branch does the work.
-
-Wrapping the two whitelisted entry points rather than editing twelve reports
-also means any report added later gets the behaviour for free.
-"""
-
 import json
 
 import frappe
@@ -24,7 +8,6 @@ ALL_COMPANIES = "All Company"
 
 
 def _strip(filters):
-	"""Drop the sentinel wherever it appears, preserving the original type."""
 	if not filters:
 		return filters
 
@@ -37,8 +20,6 @@ def _strip(filters):
 		return json.dumps(cleaned)
 
 	if isinstance(filters, dict) and filters.get("company") == ALL_COMPANIES:
-		# Copy rather than mutate: the caller's dict may be reused (prepared
-		# reports hand the same payload around).
 		cleaned = dict(filters)
 		cleaned.pop("company", None)
 		return cleaned
@@ -71,11 +52,6 @@ def run(
 
 @frappe.whitelist()
 def export_query():
-	"""Exports read the filters straight off `frappe.form_dict`, so clean it there.
-
-	Without this an export would still be scoped to one company while the screen
-	showed every company — the kind of mismatch nobody checks until it is wrong.
-	"""
 	if frappe.form_dict.get("filters"):
 		frappe.form_dict["filters"] = _strip(frappe.form_dict["filters"])
 

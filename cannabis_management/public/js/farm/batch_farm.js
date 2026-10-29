@@ -1,7 +1,3 @@
-// TSBC Ranch — Farm actions on the Batch form.
-// "Change Growth Phase" promotes N immature plants to individually tagged
-// Vegetative plants, pulling unused tags from the pool (server: farm.change_growth_phase).
-
 frappe.ui.form.on("Batch", {
 	refresh(frm) {
 		if (frm.is_new()) return;
@@ -15,7 +11,6 @@ frappe.ui.form.on("Batch", {
 			);
 		}
 
-		// Quick "Add Plant Cost" entry pre-filled with nothing (operator picks tags).
 		frm.add_custom_button(
 			__("New Plant Cost Entry"),
 			() => frappe.new_doc("Plant Cost Entry"),

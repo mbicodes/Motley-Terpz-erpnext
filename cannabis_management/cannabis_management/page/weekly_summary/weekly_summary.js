@@ -5,10 +5,8 @@ frappe.pages["weekly-summary"].on_page_load = function (wrapper) {
 		single_column: true,
 	});
 
-	// Store page reference
 	wrapper.page = page;
 
-	// Default dates: 4 weeks back from today
 	let today_date = frappe.datetime.get_today();
 	let four_weeks_ago = frappe.datetime.add_days(today_date, -28);
 
@@ -93,27 +91,22 @@ frappe.pages["weekly-summary"].on_page_load = function (wrapper) {
         </div>
     `);
 
-	// Load companies
 	load_companies(page);
 
-	// Toggle buttons
 	page.main.find(".ws-toggle-btn").on("click", function () {
 		page.main.find(".ws-toggle-btn").removeClass("active");
 		$(this).addClass("active");
 		load_weekly_data(page);
 	});
 
-	// Apply button
 	page.main.find("#ws-apply-btn").on("click", function () {
 		load_weekly_data(page);
 	});
 
-	// Export button
 	page.main.find("#ws-export-btn").on("click", function () {
 		export_to_excel(page);
 	});
 
-	// Enter key on date inputs
 	page.main.find("#ws-from-date, #ws-to-date").on("keypress", function (e) {
 		if (e.which === 13) {
 			load_weekly_data(page);
@@ -128,10 +121,6 @@ function load_companies(page) {
 			let select = page.main.find("#ws-company-filter");
 			let default_company = frappe.defaults.get_user_default("Company") || "";
 
-			// "All Company" is a sentinel the server expands to every company —
-			// it is not a Company record, so it is added rather than fetched.
-			// The user's own company stays the default so nobody's view widens
-			// without them asking for it.
 			select.append(
 				`<option value="All Company" ${default_company ? "" : "selected"}>${__("All Company")}</option>`
 			);
@@ -143,7 +132,6 @@ function load_companies(page) {
 				});
 			}
 
-			// Load data after companies are loaded
 			load_weekly_data(page);
 		},
 	});
@@ -176,7 +164,6 @@ function load_weekly_data(page) {
 		},
 		callback: function (r) {
 			if (r.message) {
-				// Store data for export
 				page._ws_data = r.message;
 				render_weekly_summary(page, r.message);
 			} else {
@@ -211,16 +198,12 @@ function render_weekly_summary(page, data) {
 	let weeks = data.weeks;
 	let sections = data.sections;
 
-	// Calculate totals for summary cards
 	let totals = calculate_section_totals(sections, weeks);
 
-	// Render summary cards
 	render_summary_cards(page, totals, is_value, sections);
 
-	// Render data sections
 	let html = "";
 
-	// Section configs
 	let section_config = [
 		{ key: "production", icon: get_production_icon(), css_class: "production" },
 		{ key: "sales", icon: get_sales_icon(), css_class: "sales" },
@@ -233,14 +216,12 @@ function render_weekly_summary(page, data) {
 		let section = sections[cfg.key];
 		if (!section) return;
 
-		// Each section carries its own fixed_mode ("value" or "quantity")
 		let section_is_value = section.fixed_mode === "value";
 		html += render_section(section, weeks, section_is_value, cfg.icon, cfg.css_class, idx);
 	});
 
 	page.main.find("#ws-data-area").html(html);
 
-	// Add event listeners for expand/collapse
 	page.main.find(".ws-expand-row").on("click", function () {
 		let group_id = $(this).data("group");
 		let is_expanded = $(this).hasClass("expanded");
@@ -263,7 +244,6 @@ function calculate_section_totals(sections, weeks) {
 		let total = 0;
 		let prev_total = 0;
 
-		// Identify current month and previous month for cards
 		let months = weeks.filter(w => w.is_month);
 		let current_month_label = months.length > 0 ? months[months.length - 1].label : null;
 		let prev_month_label = months.length > 1 ? months[months.length - 2].label : null;
@@ -314,12 +294,10 @@ function render_summary_cards(page, totals, is_value, sections) {
 		let t = totals[cfg.key];
 		if (!t) return;
 
-		// Use the section's fixed_mode to determine formatting
 		let section = sections[cfg.key];
 		let card_is_value = section ? section.fixed_mode === "value" : is_value;
 		let formatted_val = card_is_value ? format_currency(t.total) : format_qty(t.total);
 
-		// Calculate trend
 		let trend_html = "";
 		if (t.prev_total !== 0) {
 			let change = ((t.total - t.prev_total) / Math.abs(t.prev_total)) * 100;
@@ -363,7 +341,6 @@ function render_section(section, weeks, is_value, icon, css_class, delay_idx) {
                         <tr>
     `;
 
-	// Week/Month headers
 	weeks.forEach(function (week) {
 		let extra_class = week.is_month ? "th-month" : "th-week";
 		html += `<th class="${extra_class}">${week.label}</th>`;
@@ -371,7 +348,6 @@ function render_section(section, weeks, is_value, icon, css_class, delay_idx) {
 
 	html += `</tr></thead><tbody>`;
 
-	// Data rows
 	let consolidated_total = 0;
 	let row_idx = 0;
 
@@ -405,7 +381,6 @@ function render_section(section, weeks, is_value, icon, css_class, delay_idx) {
 
 		html += `</tr>`;
 
-		// Sub-rows (Details)
 		Object.keys(details).forEach(function (item) {
 			let item_vals = details[item];
 			html += `<tr class="ws-detail-row" data-group="${group_id}" style="display: none;">`;
@@ -422,7 +397,6 @@ function render_section(section, weeks, is_value, icon, css_class, delay_idx) {
 		});
 	});
 
-	// Footer totals
 	html += `</tbody><tfoot><tr>`;
 	html += `<td><strong>TOTAL</strong></td>`;
 
@@ -450,24 +424,20 @@ function export_to_excel(page) {
 	let weeks = data.weeks;
 	let sections = data.sections;
 
-	// Build CSV content
 	let rows = [];
 
-	// Header row
 	let header = ["Category"];
 	weeks.forEach(function (week) {
 		header.push(week.label);
 	});
 	rows.push(header);
 
-	// Section order
 	let section_keys = ["production", "sales", "revenue", "inventory", "money_collected"];
 
 	section_keys.forEach(function (key) {
 		let section = sections[key];
 		if (!section) return;
 
-		// Section header
 		rows.push([""]);
 		rows.push([section.title.toUpperCase()]);
 
@@ -484,7 +454,6 @@ function export_to_excel(page) {
 			rows.push(row_data);
 		});
 
-		// Totals
 		let total_row = ["TOTAL"];
 		weeks.forEach(function (week) {
 			let week_total = 0;
@@ -496,7 +465,6 @@ function export_to_excel(page) {
 		rows.push(total_row);
 	});
 
-	// Convert to CSV
 	let csv_content = rows
 		.map(function (row) {
 			return row
@@ -510,7 +478,6 @@ function export_to_excel(page) {
 		})
 		.join("\n");
 
-	// Download
 	let blob = new Blob([csv_content], { type: "text/csv;charset=utf-8;" });
 	let link = document.createElement("a");
 	let url = URL.createObjectURL(blob);
@@ -529,8 +496,6 @@ function export_to_excel(page) {
 	});
 }
 
-// ────── Formatters ──────
-
 function format_currency(val) {
 	return "$" + (val || 0).toLocaleString("en-US", {
 		minimumFractionDigits: 2,
@@ -544,8 +509,6 @@ function format_qty(val) {
 		maximumFractionDigits: 2,
 	});
 }
-
-// ────── Section Icons ──────
 
 function get_production_icon() {
 	return `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"

@@ -5,80 +5,31 @@ app_description = "Comprehensive ERPNext module for cannabis cultivation, invent
 app_email = "mbi@alltechvirtual.com"
 app_license = "mit"
 
-# Apps
-# ------------------
-
-# required_apps = []
-
-# Each item in the list will be shown as an app in the apps page
-# add_to_apps_screen = [
-# 	{
-# 		"name": "cannabis_management",
-# 		"logo": "/assets/cannabis_management/logo.png",
-# 		"title": "Cannabis Management",
-# 		"route": "/cannabis_management",
-# 		"has_permission": "cannabis_management.api.permission.has_app_permission"
-# 	}
-# ]
-
 csrf_exempt = [
     "/api/method/cannabis_management.api.slack_inventory.handle_inventory_command"
 ]
 
-# Includes in <head>
-# ------------------
-
-# include js, css files in header of desk.html
-# app_include_css = "/assets/cannabis_management/css/cannabis_management.css"
-
-# include js, css files in header of web template
-# web_include_css = "/assets/cannabis_management/css/cannabis_management.css"
-# Portal logins (e.g. /timeclock) need the login location capture too.
 web_include_js = ["/assets/cannabis_management/js/login_location.js?v=5"]
 
-# include custom scss in every website theme (without file extension ".scss")
-# website_theme_scss = "cannabis_management/public/scss/website"
-
-# include js, css files in header of web form
-# webform_include_js = {"doctype": "public/js/doctype.js"}
-# webform_include_css = {"doctype": "public/css/doctype.css"}
-
-# include js in page
-# page_js = {"page" : "public/js/file.js"}
 app_include_js = [
     "/assets/cannabis_management/js/stock_balance_custom.js",
     "/assets/cannabis_management/js/payment_calendar.js",
     "/assets/cannabis_management/js/sidebar_nav.js",
     "/assets/cannabis_management/js/financial_statements_child_accounts_link.js",
     "/assets/cannabis_management/js/pnl_gl_export.js",
-    # Shared "Company" report filter carrying an All Company option — must load
-    # before any report script that calls cannabis.reports.company_filter().
     "/assets/cannabis_management/js/company_filter.js",
-    # Shared behaviour for the Motley / Personal Cash Tracking forms: Open Sales
-    # Order button, post-submit Payment Entry / Journal Entry actions, and the
-    # currency-formatted Sales Order picker. Must load before those form scripts.
     "/assets/cannabis_management/js/cash_tracking_actions.js",
-    # Data Export dialog: preset button that ticks a saved column set
-    # (Sales Invoice -> the invoice sheet columns). Bump ?v= on every change.
     "/assets/cannabis_management/js/data_export_presets.js?v=1",
-    # "Break / Make Connections" menu item on submittable forms -> Connection Tool.
     "/assets/cannabis_management/js/connection_tool_menu.js?v=1",
-    # Captures the user's coordinates once per login -> User Login Location.
     "/assets/cannabis_management/js/login_location.js?v=5",
-    # Logs the desk out after 45 minutes with no activity in any tab.
     "/assets/cannabis_management/js/idle_logout.js?v=1",
-    # About dialog: "Website" links to alltechvirtual.com instead of frappe.io,
-    # Frappe's source/blog/forum/social lines removed.
     "/assets/cannabis_management/js/about_branding.js?v=2",
 ]
-
 
 app_include_css = [
     "/assets/cannabis_management/css/payment_calendar.css"
 ]
-# include js in doctype views
 doctype_js = {
-    # Cash Management forms
     "Cash Ledger Entry": "cash_management/doctype/cash_ledger_entry/cash_ledger_entry.js",
     "Expense Tracker Entry": "cash_management/doctype/expense_tracker_entry/expense_tracker_entry.js",
     "Stock Entry": "public/js/stock_entry.js",
@@ -103,191 +54,47 @@ doctype_js = {
 doctype_list_js = {
     "Sales Invoice": "public/js/sales_invoice_list.js",
     "Sales Order": "public/js/sales_order_list.js",
-    # In Progress / Completed badge for Manufacture runs (mr_run_status.py).
     "Material Request": "public/js/material_request_list.js",
 }
-# doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
-# doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
-# doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
 
-# Svg Icons
-# ------------------
-# include app icons in desk
-# app_include_icons = "cannabis_management/public/icons.svg"
-
-# Home Pages
-# ----------
-
-# application home page (will override Website Settings)
-# home_page = "login"
-
-# website user home page (by Role)
-# role_home_page = {
-# 	"Role": "home_page"
-# }
-
-# Generators
-# ----------
-
-# automatically create page for each record of this doctype
-# website_generators = ["Web Page"]
-
-# Jinja
-# ----------
-
-# add methods and filters to jinja environment
-# jinja = {
-# 	"methods": "cannabis_management.cannabis_management.utils.jinja_methods",
-# 	"filters": "cannabis_management.cannabis_management.utils.jinja_filters"
-# }
 jinja = {
-	# The "Run Production Log" print format (Material Request) — the Print Log
-	# button on a run's card on the Manufacturing Process page.
 	"methods": [
 		"cannabis_management.api.manufacturing_process.run_production_log",
-		# The "Lab Pull Sheet" print format (Sales Order) — Fulfillment Pipeline page.
 		"cannabis_management.mt_dispatch.fulfillment_board.lab_pull_sheet",
 	],
 }
 
-# Migration hooks
-# ---------------
-# Installs backward-compat shims for Frappe API removed in ~v15.97 that
-# Frappe CRM still imports.  Runs before after_migrate hooks fire.
 before_migrate = ["cannabis_management.compat.install_frappe_shims"]
 
-# frappe.model.sync re-imports standard workspace fixtures on every migrate, so
-# the workspaces we removed from the sidebar have to be dropped again afterwards.
 after_migrate = [
     "cannabis_management.workspace_cleanup.remove_unwanted_workspaces",
-    # Must run AFTER remove_unwanted_workspaces: it guarantees the private
-    # "AR Weekly Review" stub exists and is not public, which is what keeps
-    # /app/ar-weekly-review on the Page and stops the "Workspace AR Weekly Review
-    # not found" dialog. Ordering matters - if the name is ever re-added to
-    # REMOVED_WORKSPACES, the delete runs first and this puts it back.
     "cannabis_management.workspace_cleanup.ensure_ar_weekly_review_stub",
-    # Same stub for workspaces that were renamed (e.g. "METRC" -> "METRC
-    # Dashboard"), so stale browsers stop popping "Workspace METRC not found".
     "cannabis_management.workspace_cleanup.ensure_renamed_workspace_stubs",
-    # Manufacturing Portal code fields on User. Re-asserted every migrate rather than
-    # run once as a patch: create_custom_fields is idempotent, and patches.txt is
-    # root-owned on this bench so it cannot be appended to as the bench user.
     "cannabis_management.manufacturing_portal.custom_fields.install",
-    # Manufacturing Timesheet Kiosk access code field on Employee. Same reasoning.
     "cannabis_management.manufacturing_timesheet_kiosk.custom_fields.install",
-    # One AR Recon Status record per original reconciliation status, so the AR
-    # Dashboard dropdown is populated on a site that has never had them. Also
-    # idempotent — it skips any status that already exists, so an added or
-    # renamed status is never clobbered.
     "cannabis_management.cannabis_management.page.ar_dashboard.ar_dashboard.seed_recon_statuses",
-    # Same for the Categorized AR segments.
     "cannabis_management.cannabis_management.page.ar_legacy.ar_legacy.seed_segments",
-    # Customer Reach Out Status field (AR Accountability), and retires the two
-    # "Ready to reach out" segments it replaced.
     "cannabis_management.cannabis_management.page.ar_legacy.ar_legacy.install_reach_out_field",
-    # Customer form rules re-asserted after sync_fixtures re-imports the app's
-    # unfiltered Custom Field fixture: re-anchors the Credit Control tab, resets
-    # custom_credit_status's options/permlevel, and drops the fields the fixture
-    # keeps bringing back. See customer_layout.py's module docstring. This used to
-    # be skipped because the module didn't exist yet (see 11c3fa2) — it does now.
     "cannabis_management.credit_and_ar.customer_layout.enforce",
-    # Repairs the AR Case notification conditions that fixtures/notification.json
-    # re-imports against the removed case_type field. after_migrate runs after
-    # sync_fixtures, so this gets the last word — without editing the fixture.
     "cannabis_management.credit_and_ar.notifications.install_notifications",
-    # "AR Weekly Review" button in the CEO / Nikki dashboard header blocks. Runs
-    # after sync_fixtures for the same reason as the two entries above: the Nikki
-    # block ships in fixtures/custom_html_block.json and is rewritten from the
-    # fixture on every migrate, so a direct edit to the record never survives.
     "cannabis_management.credit_and_ar.dashboard_button.install",
-    # Job Card's custom_material_request field, plus a backfill for cards that
-    # predate it — submitted cards are never re-saved, so the fetch_from would
-    # never fire for them. Idempotent, same reasoning as the entries above.
     "cannabis_management.overrides.material_request_dashboard.install",
-    # Workstation's "Employee wise labor Cost" flag and the two Job Card Time
-    # Log fields it drives. Also re-pins the time log's field_order, which is
-    # a Property Setter -- new columns stay invisible until named in it.
     "cannabis_management.doc_hooks.job_card.install_custom_fields",
-    # Material Request's Attachments table, added to from the Manufacturing
-    # Process page's run cards.
     "cannabis_management.api.manufacturing_process.install_custom_fields",
-    # Stock Reconciliation Item gets Stock Entry's Source | Target dimension
-    # layout (Target Batch). Idempotent.
     "cannabis_management.doc_hooks.stock_reconciliation.install_custom_fields",
-    # MT Dispatch: the Sales Order stage fields, the audit tables and the
-    # stage Select's options. Code, not fixtures -- a fixture export would
-    # drag in every unrelated Custom Field on Sales Order.
     "cannabis_management.mt_dispatch.install.install",
-    # "Item-wise Sales Register" exists once as a record but ships from two
-    # apps, so whichever synced last owns it. This runs after every app's
-    # sync and leaves it pointing at this app's version, which carries Cost.
     "cannabis_management.overrides.reports.install",
-    # GL Entry origin stamps. A Delivery Note's stock GL is filed under its
-    # Sales Invoice, and these two fields are the only thing that tells such a
-    # row apart from one the invoice posted itself -- cancellation of either
-    # document depends on them. Idempotent, same reasoning as the entries above.
     "cannabis_management.overrides.si_cogs_alignment.install_custom_fields",
-    # Journal Entry stamps for COGS on invoiced-but-undelivered quantity: the
-    # invoice line and qty each entry covers, so a re-run never books twice.
-    # See api/undelivered_cogs.py.
     "cannabis_management.api.undelivered_cogs.install_custom_fields",
-    # "In Progress" / "Completed" on Material Request's status options, for
-    # Manufacture runs. Idempotent. See overrides/mr_run_status.py.
     "cannabis_management.overrides.mr_run_status.install",
-    # Farm and Nursery Daily Reports: FLC supplier group, Farm Activity seeds,
-    # Daily Report Settings defaults and the two submit Notifications (created
-    # only when missing), and the two Web Pages, rebuilt from farm_reports/web/.
     "cannabis_management.farm_reports.install.install",
-    # Motley Terpz branding (login page, "Time's up!" screen, logos, navbar),
-    # re-applied from branding/ so a migrate can never lose it. See branding/.
     "cannabis_management.branding.ensure_branding",
-    # "ERPNext" -> "MotleyERP" Translation records, collected from every app's
-    # source in a background job (~40 s, too slow to hold up the migrate).
     "cannabis_management.branding.queue_translation_sync",
 ]
-
-# Installation
-# ------------
-
-# before_install = "cannabis_management.install.before_install"
-# after_install = "cannabis_management.install.after_install"
-
-# Uninstallation
-# ------------
-
-# before_uninstall = "cannabis_management.uninstall.before_uninstall"
-# after_uninstall = "cannabis_management.uninstall.after_uninstall"
-
-# Integration Setup
-# ------------------
-# To set up dependencies/integrations with other apps
-# Name of the app being installed is passed as an argument
-
-# before_app_install = "cannabis_management.cannabis_management.utils.before_app_install"
-# after_app_install = "cannabis_management.cannabis_management.utils.after_app_install"
-
-# Integration Cleanup
-# -------------------
-# To clean up dependencies/integrations with other apps
-# Name of the app being uninstalled is passed as an argument
-
-# before_app_uninstall = "cannabis_management.cannabis_management.utils.before_app_uninstall"
-# after_app_uninstall = "cannabis_management.cannabis_management.utils.after_app_uninstall"
-
-# Desk Notifications
-# ------------------
-# See frappe.core.notifications.get_notification_config
-
-# notification_config = "cannabis_management.notifications.get_notification_config"
-
-# Permissions
-# -----------
-# Permissions evaluated in scripted ways
 
 permission_query_conditions = {
     "Customer":      "cannabis_management.permissions.customer_query_conditions",
     "Sales Invoice": "cannabis_management.permissions.sales_invoice_query_conditions",
-    # CRM Lead permission (Tolling access) moved to crm.motley_terpz.permissions
     "Cash Ledger Entry":      "cannabis_management.cash_management.permissions.cash_ledger_entry_query",
     "Expense Tracker Entry":  "cannabis_management.cash_management.permissions.expense_tracker_entry_query",
     "Personal Cash Tracking": "cannabis_management.cash_management.permissions.personal_cash_tracking_query",
@@ -297,7 +104,6 @@ permission_query_conditions = {
 }
 
 has_permission = {
-    # Sharing a Cash Tracker Person is Administrator-only — see the docstring.
     "Cash Tracker Person": "cannabis_management.cash_management.permissions.cash_tracker_person_has_permission",
     "Customer":      "cannabis_management.permissions.customer_has_permission",
     "Sales Invoice": "cannabis_management.permissions.sales_invoice_has_permission",
@@ -307,57 +113,23 @@ has_permission = {
     "Safe Cash Tracking":     "cannabis_management.cash_management.permissions.safe_cash_tracking_has_permission",
 }
 
-
-# permission_query_conditions = {
-# 	"Event": "frappe.desk.doctype.event.event.get_permission_query_conditions",
-# }
-#
-# has_permission = {
-# 	"Event": "frappe.desk.doctype.event.event.has_permission",
-# }
-
-# DocType Class
-# ---------------
-# Override standard doctype classes
-
 override_doctype_class = {
-    # Item Group → Account mapping: substitute warehouse inventory accounts
-    # in GL entries based on the item's group. Falls back to warehouse default.
     "Stock Entry":          "cannabis_management.overrides.stock_entry_gl.CMStockEntry",
     "Purchase Receipt":     "cannabis_management.overrides.purchase_receipt_gl.CMPurchaseReceipt",
     "Delivery Note":        "cannabis_management.overrides.delivery_note_gl.CMDeliveryNote",
     "Stock Reconciliation": "cannabis_management.overrides.stock_reconciliation_gl.CMStockReconciliation",
-    # Not for account mapping: this one guards cancellation, because a Delivery
-    # Note's stock GL is now filed under its Sales Invoice's voucher number and
-    # core would reverse it along with the invoice's own rows.
-    # See overrides/si_cogs_alignment.py.
     "Sales Invoice":        "cannabis_management.overrides.sales_invoice_gl.CMSalesInvoice",
-    # Manufacture run status (In Progress / Completed) survives core's own
-    # status recalculation. See overrides/mr_run_status.py.
     "Material Request":     "cannabis_management.overrides.mr_run_status.CMMaterialRequest",
-    # Drops core's "Total Completed Qty must equal Qty to Manufacture" check on
-    # submit -- a run is weighed, not dispensed -- and lets an employee run
-    # timers on several operations at once. See overrides/job_card_qty.py.
     "Job Card":             "cannabis_management.overrides.job_card_qty.CMJobCard",
-    # Skips core's blocking gravatar.com lookup on every lead save.
-    # See overrides/crm_lead_no_gravatar.py.
     "CRM Lead":             "cannabis_management.overrides.crm_lead_no_gravatar.CMCRMLead",
 }
 
-# Marks each new session so the browser reports its coordinates (User Login Location).
 on_session_creation = [
     "cannabis_management.time_clock.login_location.on_session_creation",
-    # Stamps the login time for the idle logout (public/js/idle_logout.js).
     "cannabis_management.idle_logout.on_session_creation",
 ]
 
-# Document Events
-# ---------------
-# Hook on document methods and events
-
 doc_events = {
-    # ── Undelivered COGS (Motley Terpz): JE GL filed under its Sales Invoice ──
-    # See api/undelivered_cogs.py.
     "Journal Entry": {
         "on_submit": "cannabis_management.api.undelivered_cogs.journal_entry_on_submit",
         "before_cancel": "cannabis_management.api.undelivered_cogs.journal_entry_before_cancel",
@@ -365,37 +137,24 @@ doc_events = {
     "Repost Accounting Ledger": {
         "validate": "cannabis_management.api.undelivered_cogs.repost_ledger_validate",
     },
-    # ── Manufacturing Portal access code: uniqueness + strength ──────────────
     "User": {
         "validate": "cannabis_management.manufacturing_portal.user_hooks.validate",
     },
 
-    # ── Manufacturing Timesheet Kiosk access code: uniqueness ─────────────────
     "Employee": {
         "validate": "cannabis_management.manufacturing_timesheet_kiosk.employee_hooks.validate",
     },
 
-    # ── Workstation Operating Cost validation ────────────────────────────────
     "Workstation": {
         "validate": "cannabis_management.cannabis_management.doctype.operating_component.operating_component.validate_workstation",
     },
 
     "Credit Application": {
         "before_insert": "cannabis_management.credit_and_ar.web_form_intake.before_insert",
-        # "after_insert" was wired to web_form_intake.after_insert in 11c3fa2, but
-        # that function was never committed — every Credit Application insert (public
-        # web form included) raised AttributeError. Re-add it with the function.
     },
-    # Sharing a Cash Tracker Person hands over that person's cash history on the
-    # Cash Tracking page, so it is Administrator-only — and a share can never
-    # carry the right to re-share. See the docstring for why the DocPerm alone
-    # does not hold.
     "DocShare": {
         "validate": "cannabis_management.cash_management.permissions.docshare_validate",
     },
-    # -----------------------------------------------------------------------
-    # Cash Management Module
-    # -----------------------------------------------------------------------
     "Cash Ledger Entry": {
         "before_save": [
             "cannabis_management.cash_management.utils.cash_utils.auto_fill_month",
@@ -426,8 +185,6 @@ doc_events = {
             "cannabis_management.cash_management.utils.cash_utils.publish_realtime_balance",
         ],
     },
-    # Cash tracking capture forms — submittable; cancellation is restricted to
-    # the Administrator / MBI (see cash_utils.restrict_cancel).
     "Motley Cash Tracking": {
         "before_cancel": "cannabis_management.cash_management.utils.cash_utils.restrict_cancel",
     },
@@ -440,8 +197,6 @@ doc_events = {
     "Personal Cash Tracking": {
         "before_cancel": "cannabis_management.cash_management.utils.cash_utils.restrict_cancel",
     },
-    # -----------------------------------------------------------------------
-    # CRM account enhancements (sales-team feedback, July 2026)
     "CRM Lead": {
         "before_insert": "cannabis_management.api.crm_account_enhancements.check_lead_duplicate",
     },
@@ -451,36 +206,23 @@ doc_events = {
     "CRM Deal": {
         "on_update": "cannabis_management.api.crm_account_enhancements.create_won_deal_followups",
     },
-    # -----------------------------------------------------------------------
-    # AR Policy disabled — before_submit cap check removed
     "Sales Invoice": {
         "before_validate": "cannabis_management.doc_hooks.sales_invoice.before_validate",
         "validate": [
-            # Legacy / New Book / Plan classification, written as the invoice is saved
             "cannabis_management.credit_and_ar.payment_entry_hooks.stamp_invoice_ledger",
-            # Same Expense Head Settings override as Delivery Note, so a Sales
-            # Order's custom_sales_order_type maps to the same expense account
-            # here too (was previously wired on Delivery Note only).
             "cannabis_management.overrides.delivery_note_hooks.set_expense_head",
         ],
         "before_submit": [
             "cannabis_management.doc_hooks.sales_invoice.before_submit",
-            # Credit gate. The Sales Order gate alone is bypassable by invoicing
-            # a customer directly, so the un-ordered portion of an invoice is
-            # measured against the same line here. Order-backed invoices pass —
-            # they were gated at the order and the goods have shipped.
             "cannabis_management.credit_and_ar.sales_invoice_hooks.before_submit",
         ],
         "on_submit": [
             "cannabis_management.doc_hooks.sales_invoice.on_submit",
-            # §7 limit breach → immediate hold
             "cannabis_management.credit_and_ar.hold_engine.on_sales_invoice_submit",
-            # Keep Customer.custom_current_exposure / custom_available_line live.
             "cannabis_management.credit_and_ar.sales_invoice_hooks.on_submit",
         ],
         "on_cancel": "cannabis_management.credit_and_ar.sales_invoice_hooks.on_cancel",
     },
-    # Quotation approval — discount-threshold routing (Sales Manager / Finance)
     "Quotation": {
         "validate": [
             "cannabis_management.overrides.quotation_approval.validate",
@@ -489,14 +231,12 @@ doc_events = {
         "on_update":     "cannabis_management.overrides.quotation_approval.on_update",
         "before_submit": "cannabis_management.overrides.quotation_approval.before_submit",
     },
-    # Lab mapping: auto-create BOMs on Material Request submit
     "Material Request": {
         "validate": "cannabis_management.doc_hooks.material_request.validate",
         "on_submit": "cannabis_management.doc_hooks.material_request.on_submit",
     },
     "Stock Entry": {
         "before_validate": "cannabis_management.cannabis_management.custom.stock_entry.before_validate",
-        # METRC push is appended to on_submit below.
         "validate": [
             "cannabis_management.cannabis_management.custom.stock_entry.validate",
             "cannabis_management.doc_hooks.stock_entry.sync_row_uom_with_item",
@@ -504,17 +244,11 @@ doc_events = {
             "cannabis_management.doc_hooks.stock_entry.set_operating_cost_accounts",
         ],
         "before_submit": [
-            # Gate 1: production transfers and manufacture only, per §7.
             "cannabis_management.credit_and_ar.hold_engine.enforce_hold",
-            # Each item's Item Group must be in its warehouse's Item Group Account Mapping.
             "cannabis_management.overrides.warehouse_account_utils.validate_item_group_mapping",
         ],
         "on_submit": [
-            # Source Tag / Target Tag on the Stock Ledger Entries this submit just wrote.
-            # Completed Work Order's produced qty becomes the required qty of
-            # that item on the other Work Order(s) of the same Material Request.
             "cannabis_management.doc_hooks.stock_entry.carry_produced_qty_to_sibling_work_order",
-            # Material Request goes Completed once all its Work Orders are produced.
             "cannabis_management.overrides.mr_run_status.on_stock_entry_change",
         ],
         "on_cancel": [
@@ -524,36 +258,22 @@ doc_events = {
     "Sales Order": {
         "before_validate": "cannabis_management.doc_hooks.sales_invoice.before_validate",
         "validate": [
-            # Credit & AR gate — COD / Terms / Sample routing. Supersedes
-            # overrides.sales_order_restrictions.validate, which set the approval
-            # status from a hard-coded rule and is no longer wired.
             "cannabis_management.credit_and_ar.sales_order_hooks.validate",
-            # License-expiry compliance popup removed from Sales Order per
-            # Finance request — it fired on every save and got in the way.
-            # Still wired on Quotation.
         ],
         "on_update": "cannabis_management.credit_and_ar.sales_order_hooks.on_update",
         "before_submit": [
             "cannabis_management.credit_and_ar.sales_order_hooks.before_submit",
-            # Gate 1: a hard or immediate hold stops the order dead.
             "cannabis_management.credit_and_ar.hold_engine.enforce_hold",
         ],
         "on_submit": [
             "cannabis_management.overrides.sales_order_restrictions.on_submit",
-            # #conversions-motley order post stopped 2026-10-07: MTM orders now post
-            # once, to #mtm-orders, through MT Dispatch.
-            # "cannabis_management.overrides.sales_invoice_hooks.check_inventory_and_notify_slack",
-            # "cannabis_management.overrides.payment_overdue_alert.on_sales_invoice_submit"  # AR Policy disabled
-            # Keep Customer.custom_current_exposure / custom_available_line live.
             "cannabis_management.credit_and_ar.sales_order_hooks.on_submit",
         ],
         "on_cancel": "cannabis_management.credit_and_ar.sales_order_hooks.on_cancel",
     },
     "Delivery Note": {
         "before_submit": [
-            # Gate 1: no product moves for a held customer.
             "cannabis_management.credit_and_ar.hold_engine.enforce_hold",
-            # Each item's Item Group must be in its warehouse's Item Group Account Mapping.
             "cannabis_management.overrides.warehouse_account_utils.validate_item_group_mapping",
         ],
         "on_update": [
@@ -570,7 +290,6 @@ doc_events = {
         ],
         "validate": "cannabis_management.overrides.delivery_note_hooks.set_expense_head",
     },
-    # Inter-company purchases carry the sale's customer contact; drop it.
     "Purchase Order": {
         "before_validate": "cannabis_management.inter_company.drop_foreign_contact",
     },
@@ -580,54 +299,36 @@ doc_events = {
     "Purchase Receipt": {
         "before_validate": "cannabis_management.inter_company.drop_foreign_contact",
         "before_submit": [
-            # Each item's Item Group must be in its warehouse's Item Group Account Mapping.
             "cannabis_management.overrides.warehouse_account_utils.validate_item_group_mapping",
         ],
     },
     "Stock Reconciliation": {
         "before_submit": [
-            # Each item's Item Group must be in its warehouse's Item Group Account Mapping.
             "cannabis_management.overrides.warehouse_account_utils.validate_item_group_mapping",
         ],
     },
     "Work Order": {
-        # Gate 1: no production starts for a held customer's order.
         "before_submit": "cannabis_management.credit_and_ar.hold_engine.enforce_hold",
-        # Its Material Request goes In Progress once a Work Order is released.
         "on_submit": "cannabis_management.overrides.mr_run_status.on_work_order_change",
         "on_cancel": "cannabis_management.overrides.mr_run_status.on_work_order_change",
     },
     "Timesheet": {
         "after_insert": "cannabis_management.overrides.timesheet_hooks.auto_submit_timesheet",
-        # A Timesheet holding a kiosk verification photo cannot be deleted by
-        # anyone - the photo is the record. Cancel it instead. See that module's
-        # docstring for why this is a document guard and not a permission tweak.
         "on_trash": "cannabis_management.manufacturing_timesheet_kiosk.timesheet_hooks.on_trash",
     },
     "File": {
-        # ...and neither can the photo file itself, which is a separate document the
-        # Timesheet field only points at - see that module's docstring.
         "on_trash": "cannabis_management.manufacturing_timesheet_kiosk.timesheet_hooks.on_trash_file",
     },
     "Customer": {
-        # Credit & AR policy exemption: keep the displayed state honest when the
-        # flag is toggled. The engines read the flag live, so nothing migrates.
         "validate": "cannabis_management.credit_and_ar.customer_hooks.validate",
         "on_update": "cannabis_management.credit_and_ar.customer_hooks.on_update",
     },
-    # ── Home stays current on its own ───────────────────────────────────────
-    # Nobody should have to remember to reseed Home. These keep its tiles in
-    # step as work is created, renamed, disabled or deleted. All of them no-op
-    # during migrate/install/import, where the installer reseeds anyway.
     "Workspace": {
-        # Un-ticking "Is Hidden" surfaces the workspace on Home; re-ticking it
-        # takes the tile away again.
         "on_update": "cannabis_management.home_hub_block.on_workspace_update",
         "on_trash": "cannabis_management.home_hub_block.on_trash",
     },
     "Report": {
         "after_insert": "cannabis_management.home_hub_block.on_report_change",
-        # on_update also covers the Disabled flag being toggled.
         "on_update": "cannabis_management.home_hub_block.on_report_change",
         "on_trash": "cannabis_management.home_hub_block.on_trash",
         "after_rename": "cannabis_management.home_hub_block.after_rename",
@@ -638,14 +339,11 @@ doc_events = {
         "after_rename": "cannabis_management.home_hub_block.after_rename",
     },
     "Payment Entry": {
-        # Two ledgers, never netted — plan money cannot pay the new book.
         "validate": "cannabis_management.credit_and_ar.payment_entry_hooks.validate",
         "on_submit": [
             "cannabis_management.cannabis_management.utils.irs_8300.check_cash_threshold",
             "cannabis_management.credit_and_ar.payment_entry_hooks.on_submit",
         ],
-        # A cancellation flagged as a returned payment raises an immediate hold.
-        # An ordinary correction does not.
         "on_cancel": [
             "cannabis_management.credit_and_ar.hold_engine.on_payment_entry_cancel",
             "cannabis_management.credit_and_ar.payment_entry_hooks.on_cancel",
@@ -664,149 +362,73 @@ doc_events = {
     },
     "Conversion Entry": {
         "on_submit": [
-            # Tiering Product entries submit the Repack entries they draft.
-            # First, so nothing is announced for an entry that then fails.
             "cannabis_management.api.manufacturing_process.submit_tiering_stock_entries",
-            # #conversions-motley post stopped 2026-10-07. A conversion against a
-            # Sales Order is posted in that order's thread (mt_dispatch.events).
-            # "cannabis_management.overrides.conversion_entry_hooks.notify_conversion_entry_slack",
         ],
     },
 }
 
-# MT Dispatch wires itself in rather than editing the Sales Order, Delivery
-# Note, Conversion Entry and Payment Entry blocks above, which already carry
-# handlers from other modules -- some as bare strings. See mt_dispatch/hooks_wiring.py.
 from cannabis_management.mt_dispatch import hooks_wiring as _mt_dispatch_hooks
 
 _mt_dispatch_hooks.extend_doc_events(doc_events)
 
-
-# Scheduled Tasks
-# ---------------
 scheduler_events = {
-    # Self-heal. These are the same idempotent enforcers wired to after_migrate,
-    # repeated hourly because after_migrate is not guaranteed to be reached:
-    # `bench migrate` applies fixtures (Custom Field, Property Setter) BEFORE it
-    # runs after_migrate, so a migrate that is interrupted — killed, timed out,
-    # lost with its terminal — leaves the site with the fixture's stale copies
-    # and no correction. On production that means the Credit Status field, the
-    # retired checkboxes and the Customer tab layout silently revert while people
-    # are working. Hourly bounds that window to an hour instead of "until someone
-    # notices". Both no-op when there is nothing to fix, so the cost is two cheap
-    # reads an hour.
     "hourly": [
         "cannabis_management.credit_and_ar.customer_layout.enforce",
         "cannabis_management.credit_and_ar.notifications.install_notifications",
         "cannabis_management.credit_and_ar.dashboard_button.install",
         "cannabis_management.branding.ensure_branding",
-        # Farm/Nursery Daily Report reminder. Hourly, and it acts only at the
-        # reminder hour in the farm's time zone (Daily Report Settings): the
-        # site runs on America/Adak, so a fixed cron would fire at the wrong hour.
         "cannabis_management.farm_reports.api.send_reminders",
     ],
     "cron": {
-        # Manufacturing Timesheet Kiosk: force-clock-out anyone still running past
-        # 8 hours (skips anyone exempted by an approved overtime request) and email
-        # them. Every minute so the cutoff lands close to the actual 8h mark instead
-        # of "sometime in the next hour". See manufacturing_timesheet_kiosk/api.py.
         "* * * * *": [
             "cannabis_management.manufacturing_timesheet_kiosk.api.auto_end_overtime_sessions",
-            # 30 minutes before the 8h cutoff above actually fires, warn the employee
-            # so they have time to request overtime instead of just being clocked out.
             "cannabis_management.manufacturing_timesheet_kiosk.api.send_upcoming_cutoff_warnings",
         ],
-        # AR due-date reminders: every day at 7 AM UTC (daily, including weekends)
         "0 7 * * *": [
             "cannabis_management.api.ar_reminders.send_ar_reminders",
-            # Daily overdue-invoice reminder to the owning rep (no blocking)
             "cannabis_management.api.overdue_owner_reminder.send_overdue_owner_reminders",
-            # Daily unreconciled-customer count snapshot (day-over-day AR tracking)
             "cannabis_management.api.sales_daily_sync.snapshot_unreconciled",
-            # ── Credit & AR Control ──────────────────────────────────────────
-            # Every day including weekends: past due accrues at the weekend too,
-            # and a hold that waits until Monday is not a stop-work order.
-            # All of these no-op until Credit Policy Settings.policy_effective_date
-            # is set. Order matters — metrics read the state the engines set.
             "cannabis_management.credit_and_ar.hold_engine.evaluate_customer_credit_status",
             "cannabis_management.credit_and_ar.hold_engine.check_broken_promises",
             "cannabis_management.credit_and_ar.hold_engine.check_license_expiry",
-            # Plans and workouts run independently of the past-due engine:
-            # one missed installment holds everything, and a workout balance
-            # that stops shrinking ends the workout.
             "cannabis_management.credit_and_ar.plan_workout.check_plan_installments",
             "cannabis_management.credit_and_ar.plan_workout.review_workouts",
-            # Metrics and scoring last: they read the state set above.
             "cannabis_management.credit_and_ar.metrics.evaluate_company_metrics",
             "cannabis_management.credit_and_ar.scoring.update_customer_payment_scores",
         ],
-        # Daily jobs: Mon–Fri only (midnight Berlin time)
         "0 0 * * 1-5": [
             "cannabis_management.api.crm_sync.sync_crm_ar_data",
             "cannabis_management.cannabis_management.utils.irs_8300.check_overdue_filings",
             "cannabis_management.cannabis_management.utils.irs_8300.send_january_notices",
             "cannabis_management.cash_management.utils.cash_utils.check_overdue_form_8300",
-            # Payment Terms SO: remind creator 14 and 7 days before each payment due date
             "cannabis_management.overrides.payment_schedule_reminder.send_payment_schedule_reminders",
-            # AR Policy disabled
-            # "cannabis_management.api.ar_monitor.check_ar_cap",
-            # "cannabis_management.api.ar_monitor.compute_dso",
         ],
-        # SO delivery-date reminder: 10 AM Eastern (UTC-4 EDT → 14:00 UTC) — weekdays only
         "0 14 * * 1-5": [
             "cannabis_management.overrides.sales_order_delivery_reminder.send_delivery_date_reminders",
-            # "cannabis_management.overrides.payment_overdue_alert.on_sales_invoice_submit",  # AR Policy disabled
         ],
-        # Credit & AR: Friday report to MD and CEO, 08:00 UTC
         "0 8 * * 5": [
             "cannabis_management.credit_and_ar.weekly_report.send_weekly_report",
         ],
-        # Friday: payment overdue report at 9 AM PDT (14:00 UTC / 15:00 PST)
         "0 14 * * 5": [
-            # "cannabis_management.overrides.payment_overdue_alert.friday_overdue_report",  # AR Policy disabled
-            # "cannabis_management.api.ar_monitor.send_weekly_ar_report",  # AR Policy disabled
         ],
-        # Weekly Sale Report: Friday 4 PM PDT (23:00 UTC)
-        # "0 23 * * 5": [
-        #     "cannabis_management.api.weekly_report.send_weekly_report",
-        # ],
-        # Credit & AR: finance charges on the 1st of each month, 06:00 UTC.
-        # Left in Draft unless auto_submit_finance_charges is on.
         "0 6 1 * *": [
             "cannabis_management.credit_and_ar.finance_charge.apply_finance_charges",
         ],
-        # Weekly Sales Report: generate Monday 8 AM UTC
         "0 8 * * 1": [
             "cannabis_management.cannabis_management.overrides.weekly_signoff.generate_weekly_signoff",
-            # "cannabis_management.api.nikki_ar_report.send_nikki_ar_report",  # AR Policy disabled
         ],
-        # Weekly Sales Report: remind Tuesday 8 AM UTC if unacknowledged
         "0 8 * * 2": [
             "cannabis_management.cannabis_management.overrides.weekly_signoff.send_acknowledgment_reminder",
         ],
-        # -------------------------------------------------------------------
-        # METRC scheduler jobs removed — METRC integration is not deployed.
-        # Daily Sale Report: Mon–Fri 01:00 Berlin (CEST=UTC+2) = Sun–Thu 23:00 UTC = Mon–Fri 04:00 PKT
-        # Server is Europe/Berlin; cron uses server local time, not UTC
         "0 1 * * 1-5": [
             "cannabis_management.api.daily_report.send_daily_report",
         ],
-        # DN Gap Report: 5 AM PDT every day (12:00 UTC / 3 AM Adak HDT)
-        # Weekly AR Report: 5 AM PDT Friday only (12:00 UTC / 3 AM Adak HDT)
-        # Employee Timesheet to Muhammad / Matt / Imran / Jamie, every morning.
-        # 04:00 site time (America/Adak) == 06:00 America/Los_Angeles == 18:00
-        # Asia/Karachi. Adak and Los Angeles share US DST rules, so that two-hour
-        # gap holds all year; the job re-derives its own dates from California
-        # time rather than trusting the clock that woke it.
         "0 4 * * *": [
             "cannabis_management.cannabis_management.page.employee_timesheet.employee_timesheet.send_daily_report",
         ],
         "0 3 * * *": [
             "cannabis_management.api.dn_gap_report.send_dn_gap_report",
         ],
-        # AR Dashboard PDFs (Legacy + New, All Entities) to Nikki, CC Matt /
-        # Muhammad / Jamie / Imran. 11:00 site time (America/Adak) == 13:00
-        # America/Los_Angeles all year; the job re-checks the California hour.
         "0 11 * * *": [
             "cannabis_management.api.ar_dashboard_email.send_scheduled_ar_report",
         ],
@@ -815,51 +437,18 @@ scheduler_events = {
         ],
     },
     "monthly": [
-        # AR Policy disabled
-        # "cannabis_management.api.ar_monitor.compute_cei",
     ],
 }
-# scheduler_events = {
-# 	"all": [
-# 		"cannabis_management.tasks.all"
-# 	],
-# 	"daily": [
-# 		"cannabis_management.tasks.daily"
-# 	],
-# 	"hourly": [
-# 		"cannabis_management.tasks.hourly"
-# 	],
-# 	"weekly": [
-# 		"cannabis_management.tasks.weekly"
-# 	],
-# 	"monthly": [
-# 		"cannabis_management.tasks.monthly"
-# 	],
-# }
 
-# Testing
-# -------
-
-# before_tests = "cannabis_management.install.before_tests"
-
-# Overriding Methods
-# ------------------------------
 override_whitelisted_methods = {
-    # About dialog: app titles as MotleyERP rather than ERPNext.
     "frappe.utils.change_log.get_versions": "cannabis_management.branding.get_versions",
 
-    # Quotation → Sales Order: fill the Customer for quotes raised against a CRM Deal.
     "erpnext.selling.doctype.quotation.quotation.make_sales_order":
         "cannabis_management.overrides.quote_to_order.make_sales_order",
 
-    # Always set party_type=Employee on Payment Entries created from Cash/Expense doctypes.
     "cannabis_management.cash_management.utils.cash_utils.create_payment_entry":
         "cannabis_management.api.cash_payment_override.create_payment_entry",
 
-    # Credit & AR: an unapproved Terms Sales Order must not print. Client-side
-    # menu hiding is cosmetic — these are the routes that actually render a
-    # document, so the block is enforced here. Everything else passes through
-    # to the original implementation untouched.
     "frappe.www.printview.get_html_and_style":
         "cannabis_management.credit_and_ar.print_guard.get_html_and_style",
     "frappe.utils.print_format.download_pdf":
@@ -869,119 +458,34 @@ override_whitelisted_methods = {
     "frappe.core.doctype.communication.email.make":
         "cannabis_management.credit_and_ar.print_guard.make",
 
-    # Frappe filters DocType/Page/Report workspace shortcuts but returns True
-    # unconditionally for Dashboard and URL — and a workspace can only be linked
-    # as a URL. Without this, every user sees every workspace and dashboard tile
-    # on a shared landing page regardless of access.
     "frappe.desk.desktop.get_desktop_page":
         "cannabis_management.api.workspace_guard.get_desktop_page",
-    # Home groups its tiles under per-type headings. Headings are not
-    # permission-filtered, so an empty section is pruned per user here.
     "frappe.desk.desktop.get_workspace_sidebar_items":
         "cannabis_management.api.workspace_guard.get_workspace_sidebar_items",
 
-    # "All Company" is a UI sentinel, not a real Company. Strip it before the
-    # report runs so each report's existing `if filters.get("company")` branch
-    # means "every company". Covers on-screen runs and exports alike.
     "frappe.desk.query_report.run":
         "cannabis_management.api.report_filters.run",
     "frappe.desk.query_report.export_query":
         "cannabis_management.api.report_filters.export_query",
 }
-#
-# each overriding function accepts a `data` argument;
-# generated from the base implementation of the doctype dashboard,
-# along with any modifications made in other Frappe apps
 override_doctype_dashboards = {
 	"Sales Order": "cannabis_management.overrides.sales_order_dashboard.get_data",
-	# Credit Application on the Customer Connections tab.
 	"Customer": "cannabis_management.overrides.customer_dashboard.get_data",
-	# Job Card on the Material Request Connections tab, counted through the
-	# fetched custom_material_request field — see that module's docstring.
 	"Material Request": "cannabis_management.overrides.material_request_dashboard.get_data",
 }
 
-# exempt linked doctypes from being automatically cancelled
-#
-# auto_cancel_exempted_doctypes = ["Auto Repeat"]
-
-# Ignore links to specified DocTypes when deleting documents
-# -----------------------------------------------------------
-
-# The Connection Tool only records links; it must never stop a delete.
 ignore_links_on_delete = ["Connection Tool", "Connection Tool Link"]
 
-# Request Events
-# ----------------
 before_request = [
-	# Keeps logins (the standard /login page AND the Manufacturing Portal's own
-	# code-unlock) from silently failing to persist when this site is reached
-	# through something other than this bench's own nginx (e.g. a raw port
-	# forward straight to gunicorn) — see the module docstring for why. No-ops
-	# for every request that actually came through nginx.
 	"cannabis_management.manufacturing_portal.cookie_scheme_fix.fix_scheme_for_unproxied_requests",
-	# Serves the kiosk's neutral /kiosk-api/<method> path without any nginx
-	# config — see manufacturing_timesheet_kiosk/routing.py for why that alias
-	# cannot survive in the bench's nginx template. No-ops for every other path.
 	"cannabis_management.manufacturing_timesheet_kiosk.routing.route_kiosk_api",
-	# Stock Balance, dimension-wise: drains Batch stock that left on untagged
-	# Delivery Notes / Stock Entries instead of showing it forever. Installs once
-	# per process — see the module docstring.
 	"cannabis_management.overrides.stock_balance_dimensions.apply",
 ]
-# after_request = ["cannabis_management.cannabis_management.utils.after_request"]
 
-# Job Events
-# ----------
-# Same Stock Balance override for reports run in the background (Auto Email Report).
 before_job = ["cannabis_management.overrides.stock_balance_dimensions.apply"]
-# after_job = ["cannabis_management.cannabis_management.utils.after_job"]
 
-# User Data Protection
-# --------------------
-
-# user_data_fields = [
-# 	{
-# 		"doctype": "{doctype_1}",
-# 		"filter_by": "{filter_by}",
-# 		"redact_fields": ["{field_1}", "{field_2}"],
-# 		"partial": 1,
-# 	},
-# 	{
-# 		"doctype": "{doctype_2}",
-# 		"filter_by": "{filter_by}",
-# 		"partial": 1,
-# 	},
-# 	{
-# 		"doctype": "{doctype_3}",
-# 		"strict": False,
-# 	},
-# 	{
-# 		"doctype": "{doctype_4}"
-# 	}
-# ]
-
-# Authentication and authorization
-# --------------------------------
-
-# auth_hooks = [
-# 	"cannabis_management.auth.validate"
-# ]
-
-# Automatically update python controller files with type annotations for this app.
-# export_python_type_annotations = True
-
-# default_log_clearing_doctypes = {
-# 	"Logging DocType Name": 30  # days to retain logs
-# }
 fixtures = [
     {
-        # Excludes the orphaned Tier Inventory Dimension fields: that
-        # dimension was deleted, but this fixture is unfiltered by default, so
-        # `bench export-fixtures` kept re-capturing their leftover Custom Field
-        # rows straight off the DB, and the next `bench migrate` re-inserted them
-        # (import_fixtures applies no filter, it just replays whatever the file
-        # holds) - a resurrect loop with no dimension left to own the fields.
         "dt": "Custom Field",
         "filters": [
             [
@@ -1002,19 +506,13 @@ fixtures = [
     "Workflow",
     "Workflow State",
     "Workflow Action",
-    # Item Group Account Mapping child doctype
     {"dt": "DocType", "filters": [["name", "=", "Warehouse Item Group Account Mapping"]]},
     {"dt": "DocType", "filters": [["name", "=", "Weekly Sales Report"]]},
-    # Cash Management DocTypes
     {"dt": "DocType", "filters": [["name", "=", "Cash Tracker Person"]]},
     {"dt": "DocType", "filters": [["name", "=", "Cash Balance Ledger"]]},
     {"dt": "DocType", "filters": [["name", "=", "Cash Account Mapping"]]},
     {"dt": "DocType", "filters": [["name", "=", "Cash Ledger Entry"]]},
     {"dt": "DocType", "filters": [["name", "=", "Expense Tracker Entry"]]},
-    # NOTE: the Role fixture was removed on request — roles are no longer
-    # overwritten (reverted) on migrate. Manage roles directly on the site.
-    # Credit & AR: the payment-terms ladder. Only the module's own templates
-    # travel — the site's PAYMENT SCHEDULE BREAKDOWN template is left alone.
     {"dt": "Payment Terms Template", "filters": [["name", "in", [
         "COD",
         "NET7",
@@ -1026,42 +524,26 @@ fixtures = [
         "50% down NET21",
         "50% down NET30",
     ]]]},
-    # Company Records workflow actions (Workflow / Workflow State are already
-    # exported unfiltered above)
     {"dt": "Workflow Action Master", "filters": [["name", "in", [
         "Submit for Review", "Approve", "Reject", "Lock",
         "Activate", "Mark Expired", "Terminate",
-        # Credit Application Approval
         "Recommend", "Revoke",
     ]]]},
-    # Day-over-day unreconciled-AR snapshot storage
     {"dt": "DocType", "filters": [["name", "=", "AR Recon Snapshot"]]},
-    # The combined Sales Target + Inventory + COD/AR/Unreconciled dashboard block
     {"dt": "Custom HTML Block", "filters": [["name", "in", [
         "Home Hub",
         "Sales Daily Sync Dashboard Block",
         "Lab Daily Sync Dashboard Block",
-        "Sales Target and Inventory Dashboard",  # ye bhi hai aapke paas
+        "Sales Target and Inventory Dashboard",
         "Distribution Hub",
         "Company Records Hub",
-        "Nikki",   # Nikki dashboard block — travels to live via git + migrate
-        "Jamie",   # Jamie dashboard block — travels to live via git + migrate
+        "Nikki",
+        "Jamie",
     ]]]},
-    # Client-facing Extracts Live Menu page (JS: display-name aliases +
-    # Tier group ordering) and the MTM Inventory Dashboard (order cart ->
-    # draft Sales Orders). Git-managed so they deploy via bench update. One
-    # entry for both: export_fixtures writes one file per doctype, so a second
-    # Web Page entry would overwrite this one's export.
     {"dt": "Web Page", "filters": [["name", "in", ["live-menu-2", "mtm-inventory-dashboard"]]]},
-    # Credit & AR: dashboard cards and the §17 in-desk alerts
     {"dt": "Number Card", "filters": [["name", "like", "Credit \u2014 %"]]},
     {"dt": "Notification", "filters": [["module", "=", "Credit and AR"]]},
-    # NOTE: the Home landing workspace fixture was removed on request \u2014 Home is
-    # no longer re-created on migrate.
 ]
 
-
-# MT Dispatch: the reminder cron and the Sales Order stage buttons, merged in
-# the same way as its doc_events above (see mt_dispatch/hooks_wiring.py).
 _mt_dispatch_hooks.extend_scheduler_events(scheduler_events)
 _mt_dispatch_hooks.extend_doctype_js(doctype_js)

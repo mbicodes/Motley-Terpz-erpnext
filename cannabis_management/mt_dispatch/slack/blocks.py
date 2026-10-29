@@ -1,13 +1,3 @@
-"""Every Block Kit payload the app sends: one builder per message and modal.
-
-Nothing here talks to Slack or writes anything. Builders take a Sales Order
-(and its company settings) and return plain dicts, which keeps them testable
-and keeps the button rules in one place.
-
-Button values carry {"so": name, "stage": current} so a click that lands
-after someone else moved the order is recognised as stale.
-"""
-
 import json
 
 import frappe
@@ -16,15 +6,12 @@ from frappe.utils import flt, fmt_money, format_date, format_datetime, get_url, 
 from cannabis_management.mt_dispatch import gates, stages
 from cannabis_management.mt_dispatch.payments import payment_status
 
-MAX_SLACK_ROWS = 3          # Conversion rows the Slack form takes
-MAX_SLACK_RAW = 3           # raw materials per row on the Slack form
+MAX_SLACK_ROWS = 3
+MAX_SLACK_RAW = 3
 MAX_SLACK_FINISHED = 3
 MAX_DN_LINES = 20
-# Imported rather than restated, so the modal can never offer a micron the
-# builder would not store.
 from cannabis_management.mt_dispatch.builders import MICRON_FIELDS  # noqa: E402
 
-# action_id -> (label, style). Buttons that open a modal are marked in MODAL_ACTIONS.
 BUTTONS = {
 	"mt:flag_conversion": ("Needs conversion", None),
 	"mt:start_preparing": ("Start preparing", "primary"),
@@ -50,7 +37,6 @@ MODAL_ACTIONS = {
 	"mt:delivered": "mt_delivered",
 }
 
-# Buttons that run a transition straight away, and the transition they run.
 DIRECT_ACTIONS = {
 	"mt:flag_conversion": "flag_conversion",
 	"mt:start_preparing": "start_preparing",
@@ -59,9 +45,6 @@ DIRECT_ACTIONS = {
 	"mt:resume": "resume",
 }
 
-# Where each stage-changing button takes the order, for the status dropdown.
-# record_payment and new_conversion do not change the stage, so they are not here.
-# Dropdown value for a stage no step of the order leads to right now.
 UNREACHABLE_STATUS = "mt:unreachable"
 
 BUTTON_TARGET = {
@@ -74,7 +57,7 @@ BUTTON_TARGET = {
 	"mt:override": stages.RELEASED,
 	"mt:delivered": stages.CLOSED_OUT,
 	"mt:hold": stages.ON_HOLD,
-	"mt:resume": None,  # back to wherever the hold came from
+	"mt:resume": None,
 }
 
 STAGE_EMOJI = {
@@ -90,7 +73,6 @@ STAGE_EMOJI = {
 	stages.CANCELLED: ":x:",
 }
 
-# Who owns each stage -- drives App Home and reminders.
 STAGE_OWNER = {
 	stages.RECEIVED: stages.FULFILLMENT,
 	stages.AWAITING_CONVERSION: stages.FULFILLMENT,
@@ -101,9 +83,6 @@ STAGE_OWNER = {
 	stages.RELEASED: stages.DISPATCH,
 	stages.ON_HOLD: stages.APPROVER,
 }
-
-
-# ── small helpers ────────────────────────────────────────────────────────────
 
 
 def txt(text):
@@ -162,15 +141,10 @@ def money(amount, so):
 
 
 def short_name(name):
-	"""SAL-ORD-2026-00563 -> 00563."""
 	return (name or "").rsplit("-", 1)[-1]
 
 
-# ── facts about an order ─────────────────────────────────────────────────────
-
-
 def sales_rep_user(so):
-	"""The ERP user behind the order's first sales person, else its owner."""
 	for row in so.get("sales_team") or []:
 		employee = frappe.db.get_value("Sales Person", row.sales_person, "employee")
 		user = employee and frappe.db.get_value("Employee", employee, "user_id")
@@ -197,7 +171,6 @@ def order_facts(so, cfg):
 		dn=dn_name,
 		manifest_no=manifest_no,
 		manifest_file=manifest_file,
-		# Not "items": on a frappe._dict that name is the dict method.
 		line_count=len(so.items or []),
 		units=flt(so.get("total_qty")),
 		mode=so.get("custom_mode_of_payment") or "—",
@@ -206,7 +179,6 @@ def order_facts(so, cfg):
 
 
 def item_lines(so, limit=15):
-	"""One line per order line: name, code and quantity."""
 	lines = []
 	for row in (so.items or [])[:limit]:
 		name = row.item_name or row.item_code
@@ -228,11 +200,7 @@ def payment_line(so, facts):
 	return ":large_green_circle: Paid in full ({0}).".format(money(facts.paid, so))
 
 
-# ── stage buttons ────────────────────────────────────────────────────────────
-
-
 def stage_action_ids(so, cfg, facts=None):
-	"""The buttons valid for an order right now, in display order."""
 	stage = so.get("custom_logistic_status")
 	facts = facts or order_facts(so, cfg)
 	ids = []
@@ -268,16 +236,6 @@ def stage_action_ids(so, cfg, facts=None):
 
 
 def status_select(so, action_ids, show_current=False):
-	"""A Logistic Status dropdown listing every stage.
-
-	A stage one of this order's steps leads to runs that step, as its button
-	would. Any other stage is listed too, so the whole flow is visible, and
-	picking it only explains where the order can go from here
-	(UNREACHABLE_STATUS); the gates are never skipped.
-
-	With show_current the order's own stage is the selected option, so the
-	dropdown doubles as the status display. Picking it again does nothing.
-	"""
 	options = []
 	stage = so.get("custom_logistic_status")
 	current = stage or "No stage"
@@ -297,7 +255,7 @@ def status_select(so, action_ids, show_current=False):
 
 	for target in list(stages.ALL_STAGES) + [t for t in reachable if t not in stages.ALL_STAGES]:
 		if target == stage or target == stages.CANCELLED:
-			continue  # Cancelled comes from cancelling the Sales Order itself
+			continue
 		action_id = reachable.get(target)
 		if action_id:
 			label = f"{target} ({BUTTONS[action_id][0]})" if action_id == "mt:override" else target
@@ -318,7 +276,6 @@ def status_select(so, action_ids, show_current=False):
 
 
 def status_section(so, cfg, facts=None):
-	"""*Logistic Status* with a dropdown that shows the stage and changes it."""
 	stage = so.get("custom_logistic_status") or "\u2014"
 	select = None
 	if stage not in stages.TERMINAL_STAGES:
@@ -333,12 +290,7 @@ def stage_actions_block(so, cfg, facts=None, block_id="stage_actions"):
 	return {"type": "actions", "block_id": block_id, "elements": elements[:25]}
 
 
-# ── messages ─────────────────────────────────────────────────────────────────
-
-
 def conversion_mentions(cfg):
-	"""Who "Needs conversion" tags: the company's Conversion Mention IDs, else
-	its fulfillment group, else its fulfillment members one by one."""
 	ids = [i.strip() for i in (cfg.get("conversion_mention") or "").split(",") if i.strip()]
 	if ids:
 		return [f"<!subteam^{i}>" if i.startswith("S") else f"<@{i}>" for i in ids]
@@ -351,8 +303,6 @@ def conversion_mentions(cfg):
 
 
 def thread_parent(so, cfg):
-	"""The order's first message, in the #conversions-motley layout: what the
-	warehouse is short of, tagged, with the order's stage and buttons below."""
 	facts = order_facts(so, cfg)
 	stage = so.get("custom_logistic_status") or "—"
 	rep = sales_rep_user(so)
@@ -400,7 +350,6 @@ def thread_parent(so, cfg):
 
 
 def stage_update(so, cfg, line, mentions=None, with_buttons=True):
-	"""A thread reply: who did what, who acts next, and the next-step buttons."""
 	body = line
 	if mentions:
 		body += "\n" + " ".join(mentions)
@@ -470,20 +419,14 @@ def exception_post(so, cfg, title, detail, show_resume=False):
 		blocks.append({"type": "actions", "block_id": "exception_actions", "elements": [button("mt:resume", so)]})
 	return text, blocks
 
-
-# ── thread notes: things that happen around an order ─────────────────────────
-
 INVOICE_VERBS = {"invoice_created": "created", "invoice_submitted": "submitted", "invoice_cancelled": "cancelled"}
 
-# Conversion Entry Item (item field, qty field) pairs: raw materials in, finished goods out.
 CE_SOURCE_PAIRS = [(f"raw_material_{n}", f"qty_rm_{n}") for n in range(1, 8)]
 CE_TARGET_PAIRS = [(f"finished_good_{n}", f"qty_fg_{n}") for n in range(1, 4)]
-# Slack allows 50 blocks a message; one per row plus the header stays well under.
 MAX_CE_ROWS = 20
 
 
 def event_note(so, what, ref, who, extra=None):
-	"""(text, blocks) for a thread note, or (None, None) for an unknown kind."""
 	extra = extra or {}
 	at = format_datetime(now_datetime(), "d MMM HH:mm")
 
@@ -513,7 +456,6 @@ def event_note(so, what, ref, who, extra=None):
 
 
 def conversion_note(so, ce_name, what, who, at):
-	"""Which conversion, who did it, and what it turned into what."""
 	ce = frappe.get_doc("Conversion Entry", ce_name)
 	total = frappe.db.count("Conversion Entry", {"sales_order": so.name, "docstatus": ["<", 2]})
 	done = frappe.db.count("Conversion Entry", {"sales_order": so.name, "docstatus": 1})
@@ -556,17 +498,7 @@ def _ce_lines(row, pairs, warehouse):
 	return lines
 
 
-# ── stock check: does the order need a conversion? ───────────────────────────
-
-
 def stock_check(so, cfg=None):
-	"""Per item and warehouse: what the order needs against what the Bin holds.
-
-	The same arithmetic as the existing #conversions-motley hook
-	(overrides/sales_invoice_hooks.py) -- stock_qty summed per item, compared
-	with Bin.actual_qty -- but per company and per line warehouse rather than
-	one hardcoded MTM warehouse.
-	"""
 	need, ok, warehouses = [], [], []
 	totals = {}
 	fixed = (cfg or {}).get("conversion_check_warehouse")
@@ -594,10 +526,6 @@ def stock_check(so, cfg=None):
 
 
 def conversion_check(so, cfg, fulfillment_mentions=None, extra_mentions=None):
-	"""The stock check as a thread reply, in the #conversions-motley layout.
-
-	post.on_transition only sends it when something is short.
-	"""
 	check = stock_check(so, cfg)
 	header = ":red_circle: Conversion required" if check.need else ":large_green_circle: No conversion required"
 	blocks = [
@@ -622,9 +550,6 @@ def conversion_check(so, cfg, fulfillment_mentions=None, extra_mentions=None):
 	if so.get("custom_logistic_status") not in stages.TERMINAL_STAGES:
 		blocks.append(stage_actions_block(so, cfg, block_id="next_actions"))
 	return f"{so.name} inventory check \u00b7 {header.split(' ', 1)[1]}", blocks
-
-
-# ── modals ───────────────────────────────────────────────────────────────────
 
 
 def _modal(callback_id, title, blocks, meta, submit="Submit"):
@@ -694,7 +619,6 @@ def warehouse_options(company):
 
 
 def conversion_modal(so, cfg, rows=1, microns=False):
-	"""Up to three conversion rows; each takes 1–3 raw materials and 1–3 finished goods."""
 	rows = max(1, min(int(rows or 1), MAX_SLACK_ROWS))
 	warehouses = warehouse_options(so.company)
 	blocks = [
@@ -867,7 +791,6 @@ def delivered_modal(so, cfg):
 	]
 	return _modal("mt_delivered", "Confirm delivery", blocks, _meta(so), submit="Confirm")
 
-
 MODAL_BUILDERS = {
 	"mt_conversion": conversion_modal,
 	"mt_delivery_note": delivery_note_modal,
@@ -877,9 +800,6 @@ MODAL_BUILDERS = {
 	"mt_hold": hold_modal,
 	"mt_delivered": delivered_modal,
 }
-
-
-# ── commands and home ────────────────────────────────────────────────────────
 
 
 def age_in_stage(so_name):
@@ -913,8 +833,6 @@ def order_card(so, cfg, thread_link=None):
 
 
 def home_view(sections):
-	"""sections: [(company, [(stage, [row, ...]), ...]), ...] where row is
-	(so, age, action_id or None)."""
 	blocks = [{"type": "header", "text": txt("Your dispatch queue")}]
 	if not sections:
 		blocks.append(section("Nothing waiting on you. :tada:"))

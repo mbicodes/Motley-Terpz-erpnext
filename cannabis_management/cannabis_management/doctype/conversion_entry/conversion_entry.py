@@ -31,7 +31,6 @@ _FG_FIELDS = [
 	("finished_good_3", "fg_3_item_group"),
 ]
 
-
 MICRON_SIZES = ("150u", "120u_73u", "45u")
 
 
@@ -45,22 +44,8 @@ class ConversionEntry(Document):
 		self._sync_micron_totals()
 
 	def _sync_micron_totals(self):
-		"""Total the micron grams per product, then the yields off those totals.
-
-		One pass: a yield is only ever a ratio of bh_total_grams and
-		rosin_total_grams against the frozen weight, so it is settled where
-		those totals are settled rather than in a second sweep that could run
-		against a stale number.
-
-		Micron grams only count while their tick stands, so an untick clears
-		the figure under it before it can reach a total.
-
-		A zero denominator leaves the ratio at zero rather than throwing: a
-		half-filled draft is normal while a run is still being recorded.
-		"""
 		factors = {}
 		for row in (self.items or []):
-			# Hash and rosin collected, by micron.
 			for prefix, flag in (("bh", "is_bubble_hash"), ("rosin", "is_rosin")):
 				on = row.get(flag)
 				total = 0.0
@@ -74,8 +59,6 @@ class ConversionEntry(Document):
 					total += flt(row.get(grams_field))
 				row.set("%s_total_grams" % prefix, flt(total, 2))
 
-			# Frozen weight that went in, in grams -- every raw material, so a
-			# multi-material row yields against all of what it consumed.
 			frozen_grams = 0.0
 			for n in range(1, 8):
 				item_code = row.get("raw_material_%d" % n)
@@ -116,12 +99,9 @@ class ConversionEntry(Document):
 			total += mins
 		self.total_time_in_minutes = total
 
-	# ── Timer ──────────────────────────────────────────────────────────────────
-
 	def add_time_log(self, args):
 		last_row = self.time_logs[-1] if self.time_logs else None
 
-		# Close any open row (Pause / Complete)
 		if last_row and args.get("complete_time"):
 			for row in self.time_logs:
 				if not row.to_time:
@@ -131,14 +111,12 @@ class ConversionEntry(Document):
 							time_diff_in_seconds(row.to_time, row.from_time) / 60.0, 2
 						)
 
-		# Open a new row (Start / Resume)
 		if args.get("start_time"):
 			self.append("time_logs", {
 				"from_time": get_datetime(args.get("start_time")),
 				"employee":  args.get("employee") or "",
 			})
 
-		# Update status / timer tracking fields
 		status = args.get("status")
 		if status in ("Work In Progress", "Resume Job"):
 			self.timer_status = "Work In Progress"
@@ -163,8 +141,6 @@ class ConversionEntry(Document):
 
 		self._calculate_total_time()
 		self.save()
-
-	# ── Validation ─────────────────────────────────────────────────────────────
 
 	def _validate_items(self):
 		for idx, row in enumerate(self.items, 1):
@@ -207,7 +183,6 @@ class ConversionEntry(Document):
 					frappe.throw(_("Row {0}: Finished Good 3 and its Qty are required for {1} conversion.").format(idx, row.conversion_type))
 
 	def _validate_metrc_packages(self):
-		"""Each Raw Material's Metrc Package must be Active and of that same item."""
 		for idx, row in enumerate(self.items, 1):
 			for n in range(1, 8):
 				pkg = row.get(f"metrc_package_{n}")
@@ -250,8 +225,6 @@ class ConversionEntry(Document):
 						"At least one Raw Material must belong to <b>Hardware Inventory</b>."
 					).format(idx)
 				)
-
-	# ── Submit ─────────────────────────────────────────────────────────────────
 
 	def on_submit(self):
 		self._create_repack_stock_entry()
@@ -305,11 +278,7 @@ class ConversionEntry(Document):
 
 		has_items = False
 
-		# ── Source (outgoing) items ───────────────────────────────────────────
 		total_source_value = 0.0
-		# Each raw material carries its own Metrc Package onto its own Stock
-		# Entry line (custom_source_package), never onto the parent: one Repack
-		# consumes several packages and a single parent field could only name one.
 		for item_code, qty, package in [
 			(row.raw_material_1, row.qty_rm_1, row.metrc_package_1),
 			(row.raw_material_2, row.qty_rm_2, row.metrc_package_2),
@@ -334,10 +303,6 @@ class ConversionEntry(Document):
 				se.append("items", se_item)
 				has_items = True
 
-		# ── Finished (incoming) items — distribute source value by qty ratio ──
-		# Same on the way out: the tag a finished good was given goes on that
-		# good's line (custom_target_package), so a two-output Repack keeps the
-		# two tags apart.
 		fg_pairs = [
 			(row.finished_good_1, row.qty_fg_1, row.metrc_tag_fg_1),
 			(row.finished_good_2, row.qty_fg_2, row.metrc_tag_fg_2),
@@ -372,9 +337,6 @@ class ConversionEntry(Document):
 
 		return se if has_items else None
 
-
-# ── Whitelisted API ────────────────────────────────────────────────────────────
-
 CONVERSION_TARGET_WAREHOUSE  = "Conversion - MTM"
 CONVERSION_COMPANY           = "Master Touch Manufacturing"
 CONVERSION_DEFAULT_WAREHOUSE = "Master Touch Manufacturing Toll - MTM"
@@ -382,17 +344,6 @@ CONVERSION_DEFAULT_WAREHOUSE = "Master Touch Manufacturing Toll - MTM"
 
 @frappe.whitelist()
 def make_conversion_entry(source_name):
-	"""Build a draft Conversion Entry from a Sales Order.
-
-	For the "Master Touch Manufacturing" company, each SO line's shortage
-	(ordered qty − qty available in the SO's Set Warehouse, or
-	"Master Touch Manufacturing Toll - MTM" if none is set) becomes a Conversion
-	Entry row: the SO item is set as Finished Good 1 with the missing qty, and
-	the target warehouse is fixed to "Conversion - MTM". Lines that have enough
-	stock are skipped. For any other company a blank Conversion Entry is returned
-	(header only — no finished-good rows). The returned doc is unsaved — opened
-	directly in the form for the user to fill in the rest before saving.
-	"""
 	so = frappe.get_doc("Sales Order", source_name)
 
 	ce = frappe.new_doc("Conversion Entry")
@@ -401,7 +352,6 @@ def make_conversion_entry(source_name):
 	ce.sales_order   = so.name
 	ce.posting_date  = frappe.utils.nowdate()
 
-	# Pre-fill shortage rows for MTM only; other companies get a blank entry.
 	if so.company != CONVERSION_COMPANY:
 		return ce.as_dict()
 
@@ -438,7 +388,6 @@ def make_conversion_entry(source_name):
 	return ce.as_dict()
 
 
-
 @frappe.whitelist()
 def make_ce_time_log(args):
 	if isinstance(args, str):
@@ -448,15 +397,7 @@ def make_ce_time_log(args):
 	doc.add_time_log(args)
 
 
-# ── Operating cost map ─────────────────────────────────────────────────────────
-
 def _ce_cost_map(ce_doc):
-	"""
-	Break operating cost into per-component rows, each using the expense_account
-	configured on the Operating Component for this company.
-	Falls back to a single row on company.expenses_included_in_valuation if no
-	component-account mappings exist.
-	"""
 	if not ce_doc.workstation or not flt(ce_doc.total_time_in_minutes):
 		return {}
 
@@ -492,7 +433,6 @@ def _ce_cost_map(ce_doc):
 			}
 
 	if not cost_map:
-		# Fallback: lump sum on company default account
 		hourly_rate = flt(frappe.db.get_value(
 			"Workstation", ce_doc.workstation, "custom_total_operating_cost"
 		))
@@ -516,24 +456,6 @@ def _ce_cost_map(ce_doc):
 @frappe.whitelist()
 @frappe.validate_and_sanitize_search_inputs
 def raw_material_stock_query(doctype, txt, searchfield, start, page_len, filters):
-	"""Raw Material picker, showing what is actually on hand in the row's Source
-	Warehouse.
-
-	Item sets show_title_field_in_link, so Frappe uses column 2 as the bold
-	label and joins the rest into the grey line beneath it (see
-	frappe.desk.search.build_for_autosuggest). Returning
-	(name, item_name, qty_label) therefore reads as:
-
-	    Trop Cherry Banana - 1g O2 Vapes
-	    1-O200005, 1,797.00 g in Main Storage - MTM
-
-	Results are ordered by quantity descending so the items that can actually
-	be converted surface first; an item with no stock still appears, at 0, so a
-	planned row can be entered before the stock lands.
-
-	With no Source Warehouse chosen yet the field falls back to a plain item
-	search — a quantity with no warehouse behind it would be a guess.
-	"""
 	warehouse = (filters or {}).get("warehouse")
 	values = {
 		"txt": f"%{txt}%",
@@ -565,19 +487,13 @@ def raw_material_stock_query(doctype, txt, searchfield, start, page_len, filters
 		  and (i.name like %(txt)s or i.item_name like %(txt)s)
 		order by {order}
 		limit %(start)s, %(page_len)s
-		""",  # nosemgrep
+		""",
 		values,
 	)
 
 
 @frappe.whitelist()
 def grams_per_unit(uom):
-	"""Grams in one `uom`, or 0 when there is no sensible conversion.
-
-	The pullable items are stocked in LBS while the tolling floor works in
-	grams, so the gram figure is shown everywhere a quantity is — but it is
-	only ever a display: stock moves in the item's own UOM.
-	"""
 	if not uom:
 		return 0.0
 	if uom in ("Gram", "Gm", "g"):
@@ -589,28 +505,11 @@ def grams_per_unit(uom):
 
 @frappe.whitelist()
 def get_project_items(warehouse, project=None, company=None):
-	"""Items that went out to a project through a given warehouse.
-
-	With no project, there is nothing billed to narrow by, so the answer becomes
-	what the warehouse holds right now -- see _warehouse_stock_items.
-
-	Reads the invoice lines rather than the ledger: both Sales Invoice Item and
-	Purchase Invoice Item carry project and warehouse already, so the answer is
-	"what was billed against this project, out of this warehouse" — which is
-	what the person pulling materials into a conversion is actually asking.
-
-	Quantities from both sides are summed per item, so an item that arrived on a
-	purchase invoice and left on a sales invoice shows one line, not two.
-	"""
 	if not warehouse:
 		frappe.throw(_("Pick a Warehouse."))
 	if not project:
 		return _warehouse_stock_items(warehouse)
 
-	# A warehouse belongs to exactly one company, so take it from there rather
-	# than from the caller. The caller used to pass the form's company, which on
-	# a new Conversion Entry is always Master Touch Manufacturing and silently
-	# hid every invoice raised by any other company.
 	if not company:
 		company = frappe.db.get_value("Warehouse", warehouse, "company")
 
@@ -640,7 +539,6 @@ def get_project_items(warehouse, project=None, company=None):
 
 
 def _warehouse_stock_items(warehouse):
-	"""Everything with stock on hand in `warehouse`, from its Bin rows."""
 	rows = frappe.db.sql(
 		"""
 		select b.item_code, i.item_name, i.stock_uom as uom, i.item_group,
@@ -688,7 +586,6 @@ def _with_grams(rows):
 
 
 def _with_stock(rows, warehouse):
-	"""Stamp each row with what `warehouse` holds of it right now."""
 	codes = [r["item_code"] for r in rows]
 	stock = dict(frappe.get_all(
 		"Bin", filters={"warehouse": warehouse, "item_code": ["in", codes]},

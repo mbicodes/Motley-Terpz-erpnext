@@ -21,7 +21,6 @@ def get_stock_with_sales(item_group):
     groups = _get_groups_to_load(item_group)
     gph = ", ".join(["%s"] * len(groups))
 
-    # Every dashboard item in the group(s) — regardless of stock level
     all_items = frappe.db.sql("""
         SELECT item_code, item_name, item_group
         FROM `tabItem`
@@ -37,7 +36,6 @@ def get_stock_with_sales(item_group):
     item_codes = [i.item_code for i in all_items]
     iph = ", ".join(["%s"] * len(item_codes))
 
-    # Warehouse stock rows — one per (item, warehouse)
     bin_rows = frappe.db.sql("""
         SELECT item_code, warehouse,
                actual_qty,
@@ -51,7 +49,6 @@ def get_stock_with_sales(item_group):
     for row in bin_rows:
         bin_map.setdefault(row.item_code, []).append(row)
 
-    # Build final list: one row per warehouse; or one empty row if never stocked
     items = []
     for item in all_items:
         wh_rows = bin_map.get(item.item_code, [])
@@ -125,13 +122,9 @@ def _get_sales_data(item_codes):
         ORDER BY si.posting_date DESC
     """.format(ph=ph), tuple(item_codes), as_dict=True)
 
-    # --- build DN -> [invoices] map ---
-    # Deduplicate per (dn, sales_invoice) so the same SI isn't listed twice under one DN.
     si_by_dn = {}
     seen_dn_si = set()
 
-    # --- build item_code -> [direct invoices] map ---
-    # Deduplicate per (item_code, sales_invoice).
     si_direct = {}
     seen_item_si = set()
 
@@ -148,9 +141,6 @@ def _get_sales_data(item_codes):
                 seen_item_si.add(key)
                 si_direct.setdefault(row.item_code, []).append(row)
 
-    # --- build per-(item, customer) delivery note data ---
-    # Deduplicate per (item_code, delivery_note): a DN can have multiple item lines
-    # so the same DN name appears in dn_rows more than once for the same item.
     seen_item_dn = set()
     item_map = {}
 
@@ -185,7 +175,6 @@ def _get_sales_data(item_codes):
             ],
         })
 
-    # Attach direct invoices (SI with no delivery_note reference)
     for ic, si_list in si_direct.items():
         item_map.setdefault(ic, {})
         for si in si_list:
@@ -199,7 +188,6 @@ def _get_sales_data(item_codes):
                 "status": si.status or "",
             })
 
-    # Flatten and compute per-customer sale_status
     result = {}
     for ic, customers in item_map.items():
         result[ic] = []
@@ -215,21 +203,14 @@ def _get_sales_data(item_codes):
             if not has_dn and not has_direct:
                 sale_status = "no_activity"
             elif not has_dn and has_direct:
-                # Invoice exists but no delivery note at all
                 sale_status = "invoiced_direct"
             elif has_dn and all_invoiced:
-                # Every DN has a linked invoice (standard flow)
                 sale_status = "fully_invoiced"
             elif has_dn and any_invoiced:
-                # Some DNs have linked invoices, some don't
                 sale_status = "partially_invoiced"
             elif has_dn and has_direct:
-                # DN exists + a separate SI exists but the SI wasn't created from the DN
-                # (delivery_note field on SI item is blank) — likely the same transaction
-                # but not linked through the standard ERPNext flow
                 sale_status = "delivered_invoiced_unlinked"
             elif has_dn:
-                # DN exists, zero invoices anywhere for this customer
                 sale_status = "delivered_not_invoiced"
             else:
                 sale_status = "no_activity"

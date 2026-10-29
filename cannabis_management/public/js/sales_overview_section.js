@@ -1,11 +1,3 @@
-// Shared Sales Overview component.
-// Rendered standalone on the /app/sales-overview page and embedded in the
-// Matt Sales Target dashboard. Load via:
-//   frappe.require([
-//     '/assets/cannabis_management/css/sales_overview_section.css',
-//     '/assets/cannabis_management/js/sales_overview_section.js'
-//   ], () => cannabis_management.sales_overview.render(container, opts));
-
 frappe.provide('cannabis_management.sales_overview');
 
 cannabis_management.sales_overview.render = function (container, opts) {
@@ -82,7 +74,6 @@ cannabis_management.sales_overview.render = function (container, opts) {
 		</div>
 	`);
 
-	// ── Date presets ──────────────────────────────────────────────────────
 	function apply_preset(preset) {
 		var today = frappe.datetime.get_today();
 		var d = frappe.datetime.str_to_obj(today);
@@ -100,7 +91,7 @@ cannabis_management.sales_overview.render = function (container, opts) {
 			from = '';
 			to = '';
 		} else {
-			return; // custom: keep whatever is typed
+			return;
 		}
 		state.from_date = from;
 		state.to_date = to;
@@ -108,7 +99,6 @@ cannabis_management.sales_overview.render = function (container, opts) {
 		$c.find('#svo-to').val(to);
 	}
 
-	// ── Data loading ──────────────────────────────────────────────────────
 	function load_data() {
 		$c.find('#svo-data-area').html(`
 			<div class="svo-loading"><div class="svo-spinner"></div><p>Loading sales overview&hellip;</p></div>
@@ -133,7 +123,6 @@ cannabis_management.sales_overview.render = function (container, opts) {
 		});
 	}
 
-	// ── Rendering ─────────────────────────────────────────────────────────
 	function render_result() {
 		var res = state.result;
 		var k = res.kpis;
@@ -343,7 +332,6 @@ cannabis_management.sales_overview.render = function (container, opts) {
 		`);
 	}
 
-	// ── Init: salesperson buttons + companies ─────────────────────────────
 	frappe.call({
 		method: 'cannabis_management.cannabis_management.page.sales_overview.sales_overview.init_page',
 		callback: function (r) {
@@ -374,7 +362,6 @@ cannabis_management.sales_overview.render = function (container, opts) {
 		}
 	});
 
-	// ── Filter events ─────────────────────────────────────────────────────
 	$c.find('#svo-company').on('change', function () {
 		state.company = $(this).val();
 		load_data();

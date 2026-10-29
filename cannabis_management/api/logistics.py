@@ -143,7 +143,6 @@ def get_orders_at_lab(page=1, page_size=10, company="Motley Terpz", filters=None
 
     base_filters = {
         "docstatus": 1,
-        # MT Dispatch stage; the old "Scheduled" option no longer exists
         "custom_logistic_status": "Awaiting Conversion",
         "custom_sales_stages": "Ready to Go Out",
         "company": company
@@ -255,7 +254,6 @@ def get_orders_ready_for_closeout(page=1, page_size=20, company="Motley Terpz", 
         "custom_final_closeout",
     ]
 
-    # Add optional fields if they exist
     optional_fields = ["custom_lab_status", "custom_sales_order_type"]
     for f in optional_fields:
         if frappe.db.exists("Custom Field", {"dt": "Sales Order", "fieldname": f}):
@@ -271,7 +269,7 @@ def get_orders_ready_for_closeout(page=1, page_size=20, company="Motley Terpz", 
         fields=fields,
         order_by="creation desc",
         start=0,
-        page_length=0  # fetch all first for sent_out filter
+        page_length=0
     )
 
     for order in sales_orders:
@@ -299,7 +297,6 @@ def get_orders_ready_for_closeout(page=1, page_size=20, company="Motley Terpz", 
 
         order["bill_to"] = order.get("customer") or ""
 
-    # Apply sent_out filter after enrichment
     if "order_sent_out" in filters:
         sent_val = int(filters["order_sent_out"])
         sales_orders = [o for o in sales_orders if o["order_sent_out"] == sent_val]
@@ -307,7 +304,6 @@ def get_orders_ready_for_closeout(page=1, page_size=20, company="Motley Terpz", 
     total_count = len(sales_orders)
     total_pages = (total_count + page_size - 1) // page_size if total_count > 0 else 1
 
-    # Manual pagination after filtering
     paginated = sales_orders[offset:offset + page_size]
 
     return {
@@ -317,7 +313,7 @@ def get_orders_ready_for_closeout(page=1, page_size=20, company="Motley Terpz", 
         "current_page": page,
         "page_size": page_size
     }
-    
+
 
 @frappe.whitelist()
 def get_orders_ready_for_closeout1(page=1, page_size=20, company="TSBC Ranch", filters=None):
@@ -346,16 +342,15 @@ def get_orders_ready_for_closeout1(page=1, page_size=20, company="TSBC Ranch", f
         "transaction_date", "status", "owner",
     ]
 
-    # Updated custom field names for Sales Order
     custom_fields = [
         "custom_notes_for_logistics",
         "custom_license",
         "custom_sales_stages",
-        "custom_sales_order_type",       # was custom_order_type on Sales Invoice
+        "custom_sales_order_type",
         "custom_pickup_or_dropoff",
         "custom_logistic_status",
-        "custom_distrolab_status",       # was custom_distro_lab_status on Sales Invoice
-        "custom_lab_status",             # new field on Sales Order
+        "custom_distrolab_status",
+        "custom_lab_status",
         "custom_controller_check",
         "custom_final_closeout",
     ]
@@ -365,12 +360,12 @@ def get_orders_ready_for_closeout1(page=1, page_size=20, company="TSBC Ranch", f
             fields.append(cf)
 
     sales_orders = frappe.get_all(
-        "Sales Order",                   # changed from Sales Invoice
+        "Sales Order",
         filters=base_filters,
         fields=fields,
         order_by="creation desc",
         start=0,
-        page_length=0                    # fetch all for sent_out filter
+        page_length=0
     )
 
     for order in sales_orders:
@@ -384,10 +379,9 @@ def get_orders_ready_for_closeout1(page=1, page_size=20, company="TSBC Ranch", f
         order["final_closeout"]    = order.get("custom_final_closeout") or 0
         order["bill_to"]           = order.get("customer") or ""
 
-        # Link Delivery Note via Sales Order instead of Sales Invoice
         delivery_note = frappe.db.get_value(
             "Delivery Note Item",
-            {"against_sales_order": order.name, "docstatus": 1},  # changed field
+            {"against_sales_order": order.name, "docstatus": 1},
             "parent"
         )
         order["order_sent_out"] = 1 if delivery_note else 0
@@ -398,7 +392,6 @@ def get_orders_ready_for_closeout1(page=1, page_size=20, company="TSBC Ranch", f
                 "Delivery Note", delivery_note, "custom_manifest"
             ) or ""
 
-    # Apply sent_out filter post-enrichment (computed field, not a DB column)
     if "order_sent_out" in filters:
         sent_val = int(filters["order_sent_out"])
         sales_orders = [o for o in sales_orders if o["order_sent_out"] == sent_val]
@@ -503,7 +496,6 @@ def get_orders_preparing(page=1, page_size=10, company="Motley Terpz", filters=N
     }
 
 
-
 @frappe.whitelist()
 def get_orders_prepared(page=1, page_size=10, company="Motley Terpz", filters=None):
     page = int(page)
@@ -603,7 +595,6 @@ def get_orders_staged(page=1, page_size=10, company="Motley Terpz", filters=None
 
     base_filters = {
         "docstatus": 1,
-        # MT Dispatch stage; the old "Order Staged" option no longer exists
         "custom_logistic_status": "Delivery Note Ready",
         "company": company
     }
@@ -660,7 +651,6 @@ def get_orders_staged(page=1, page_size=10, company="Motley Terpz", filters=None
         order["pickup_dropoff"]       = order.get("custom_pickup_or_dropoff") or ""
         order["logistic_status"]      = order.get("custom_logistic_status") or ""
         order["distro_lab_status"]    = order.get("custom_distrolab_status") or ""
-        # custom_order_staged drives the Staged column tick
         order["staged"]               = 1 if order.get("custom_order_staged") else 0
         order["tag_scan_completed"]   = order.get("custom_tag_scan_completed") or 0
         order["order_sent_out"]       = order.get("custom_order_sent_out") or 0

@@ -1,11 +1,5 @@
-// Manufacturing Traceability Report — Client Script
-// Handles: filters, WO Status color-coding, drill-down links
-
 frappe.query_reports["Manufacturing Traceability Report"] = {
 
-    // ----------------------------------------------------------------
-    // FILTERS
-    // ----------------------------------------------------------------
     filters: [
         {
             fieldname: "from_date",
@@ -59,9 +53,6 @@ frappe.query_reports["Manufacturing Traceability Report"] = {
         },
     ],
 
-    // ----------------------------------------------------------------
-    // ROW COLOR-CODING  (WO Status)
-    // ----------------------------------------------------------------
     formatter: function (value, row, column, data, default_formatter) {
         value = default_formatter(value, row, column, data);
 
@@ -78,7 +69,6 @@ frappe.query_reports["Manufacturing Traceability Report"] = {
             }
         }
 
-        // Highlight negative remaining transfer qty (over-transferred warning)
         if (column.fieldname === "remaining_transfer_qty" && data) {
             const val = parseFloat(data.remaining_transfer_qty);
             if (val < 0) {
@@ -88,7 +78,6 @@ frappe.query_reports["Manufacturing Traceability Report"] = {
             }
         }
 
-        // Highlight yield % below 80 in red
         if (column.fieldname === "yield_pct" && data) {
             const val = parseFloat(data.yield_pct);
             if (val < 80) {
@@ -98,7 +87,6 @@ frappe.query_reports["Manufacturing Traceability Report"] = {
             }
         }
 
-        // Highlight positive cost variance (over budget) in red
         if (column.fieldname === "cost_variance" && data) {
             const val = parseFloat(data.cost_variance);
             if (val > 0) {
@@ -108,7 +96,6 @@ frappe.query_reports["Manufacturing Traceability Report"] = {
             }
         }
 
-        // Highlight qty variance (under-produced) in amber
         if (column.fieldname === "qty_variance" && data) {
             const val = parseFloat(data.qty_variance);
             if (val > 0) {
@@ -119,9 +106,6 @@ frappe.query_reports["Manufacturing Traceability Report"] = {
         return value;
     },
 
-    // ----------------------------------------------------------------
-    // AFTER RENDER — add clickable drill-down on MR column
-    // ----------------------------------------------------------------
     onload: function (report) {
         report.page.add_inner_button(__("Refresh"), function () {
             report.refresh();

@@ -1,10 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap');
 
-/* Daily report pages (Farm and Nursery). Shared by both Web Pages; install.py
-   copies this file into each page's Style > CSS. Edit it here, not in the desk:
-   bench migrate overwrites the Web Page from this file. */
-
-/* Motley Terpz palette, matched to the existing MTM web pages */
 .dr-app {
     --dr-bg: #f5f5f3;
     --dr-surface: #ffffff;
@@ -45,7 +40,6 @@
     overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
 }
 
-/* ===== Header ===== */
 .dr-header {
     background: linear-gradient(180deg, #1a1a2e 0%, #1e1e32 100%);
     color: #fff;
@@ -83,7 +77,6 @@
 .dr-pill strong { color: var(--dr-gold-light); font-weight: 600; }
 .dr-pill svg { width: 15px; height: 15px; opacity: 0.7; }
 
-/* ===== Layout ===== */
 .dr-main { max-width: 760px; margin: 0 auto; padding: 1.25rem 1rem 2rem; }
 .dr-intro { margin: 0 0 1rem; color: var(--dr-muted); font-size: 0.95rem; }
 
@@ -99,7 +92,6 @@
 }
 .dr-banner.is-error { background: #fdecea; border-color: #f5c2bc; border-left-color: var(--dr-error); color: #7a2318; }
 
-/* ===== Sections ===== */
 .dr-section {
     background: var(--dr-surface);
     border: 1px solid var(--dr-border);
@@ -124,7 +116,6 @@
 .dr-help { margin: -0.35rem 0 0.65rem; color: var(--dr-muted); font-size: 0.875rem; }
 .dr-error { margin: 0.5rem 0 0; color: var(--dr-error); font-size: 0.875rem; font-weight: 500; }
 
-/* ===== Answer buttons ===== */
 .dr-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 0.5rem; }
 .dr-choice {
     min-height: 54px;
@@ -147,7 +138,6 @@
 .dr-choice[aria-checked="true"] small { color: rgba(255, 255, 255, 0.82); }
 .dr-q.has-error .dr-choice { border-color: #e6a39b; }
 
-/* ===== Inputs ===== */
 .dr-input, .dr-select, .dr-textarea {
     width: 100%;
     padding: 0.7rem 0.85rem;
@@ -175,7 +165,6 @@
 }
 .dr-choice:focus-visible { outline: 3px solid var(--dr-purple); outline-offset: 2px; }
 
-/* ===== Photos ===== */
 .dr-photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 0.5rem; }
 .dr-thumb { position: relative; aspect-ratio: 1 / 1; border-radius: var(--dr-radius); overflow: hidden; background: #eceae5; }
 .dr-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -196,7 +185,6 @@
 .dr-add-photo:hover { background: var(--dr-purple-light); }
 .dr-add-photo svg { width: 24px; height: 24px; }
 
-/* ===== Repeating rows (contractors, activities) ===== */
 .dr-rows { display: flex; flex-direction: column; gap: 0.6rem; }
 .dr-row {
     display: grid; gap: 0.6rem; align-items: end;
@@ -230,7 +218,6 @@
 .dr-summary.is-warn strong { color: #a4511b; }
 .dr-empty { margin: 0; padding: 0.75rem; font-size: 0.9rem; color: var(--dr-muted); background: var(--dr-surface-soft); border-radius: var(--dr-radius); }
 
-/* ===== Sticky footer ===== */
 .dr-footer {
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
     background: rgba(255, 255, 255, 0.96);
@@ -255,7 +242,6 @@
 .dr-btn.is-ghost { background: transparent; color: var(--dr-purple-dark); box-shadow: none; border: 1.5px solid var(--dr-purple); }
 .dr-btn.is-ghost:hover { background: var(--dr-purple-light); }
 
-/* ===== Full-screen states (loading, done, login) ===== */
 .dr-state {
     text-align: center;
     background: var(--dr-surface);
@@ -279,7 +265,6 @@
 }
 @keyframes dr-spin { to { transform: rotate(360deg); } }
 
-/* ===== Preview dialog ===== */
 .dr-dialog {
     width: calc(100% - 2rem); max-width: 640px; padding: 0;
     border: 0; border-radius: 12px; font-family: var(--dr-font); color: var(--dr-text);
@@ -294,7 +279,6 @@
 }
 .dr-dialog-foot { padding: 0.85rem 1.25rem; display: flex; justify-content: flex-end; }
 
-/* ===== Responsive ===== */
 @media (max-width: 599.98px) {
     .dr-header { padding: 1.25rem 1rem 1.2rem; }
     .dr-main { padding: 1rem 0.75rem 2rem; }

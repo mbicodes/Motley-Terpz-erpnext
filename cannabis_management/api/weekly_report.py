@@ -1,16 +1,6 @@
-"""
-Weekly Sale Report
-Scheduled: Monday 8 AM UTC — covers the previous Mon–Sun week.
-
-Email body: summary KPIs + sign-off only.
-PDF attachment: full detail — Sales Orders, Sales Invoices, Delivery Notes,
-                AR Gathered, AR Collected, Legacy Collected.
-"""
-
 import frappe
 from frappe.utils import flt, nowdate, getdate
 from datetime import datetime, timedelta
-
 
 RECIPIENTS = [
     "jamie@motleyterpz.com",
@@ -36,8 +26,6 @@ def _entity(company):
     return _ENTITY_MAP.get(company, ("ent-ts", company or "—"))
 
 
-# ── Week helpers ──────────────────────────────────────────────────────────────
-
 def _week_range(anchor=None):
     ref = getdate(anchor) if anchor else getdate(nowdate())
     monday = ref - timedelta(days=ref.weekday())
@@ -50,8 +38,6 @@ def _week_label(week_start, week_end):
     e = datetime.strptime(week_end,   "%Y-%m-%d").strftime("%b %-d, %Y")
     return f"{s} – {e}"
 
-
-# ── Scheduler entry point ─────────────────────────────────────────────────────
 
 def send_weekly_report():
     week_start, week_end = _week_range()
@@ -67,11 +53,6 @@ def send_weekly_report():
     except Exception:
         frappe.log_error(frappe.get_traceback(), "[weekly_report] send failed")
 
-
-# ── Manual triggers ───────────────────────────────────────────────────────────
-
-# Fixed recipient sets for the MBI Dashboard "Trigger Report" buttons.
-# Kept server-side so the client can never pass arbitrary addresses.
 TRIGGER_TARGETS = {
     "mbi":  ["mbi@alltechvirtual.com"],
     "team": ["nikki@motleyterpz.com", "matt@motleyterpz.com", "imran@motleyterpz.com"],
@@ -131,8 +112,6 @@ def _do_send(week_start, week_end, recipients):
     )
 
 
-# ── Data fetching ─────────────────────────────────────────────────────────────
-
 def _fetch_all_data(week_start, week_end):
     return {
         "so_rows":   _get_weekly_sales_orders(week_start, week_end),
@@ -144,8 +123,6 @@ def _fetch_all_data(week_start, week_end):
         "legacy":    _get_ar_legacy_collected(week_start, week_end),
     }
 
-
-# ── Data queries ──────────────────────────────────────────────────────────────
 
 def _get_weekly_sales_orders(week_start, week_end):
     return frappe.db.sql("""
@@ -326,8 +303,6 @@ def _get_ar_legacy_collected(week_start, week_end):
 
     return pe_rows + je_rows
 
-
-# ── Email body (summary only) ─────────────────────────────────────────────────
 
 def _build_email_body(data, label):
     so_rows   = data["so_rows"]
@@ -524,9 +499,6 @@ def _build_email_body(data, label):
 </div>
 </body></html>"""
 
-
-# ── PDF HTML (full detail) ────────────────────────────────────────────────────
-
 _PDF_CSS = """
 @page { size:A4; margin:12mm 14mm 14mm; }
 * { margin:0; padding:0; box-sizing:border-box; }
@@ -636,8 +608,6 @@ def _build_pdf_html(data, label):
 </div>
 </body></html>"""
 
-
-# ── PDF section builders ──────────────────────────────────────────────────────
 
 def _pdf_section_wrap(bg_color, title, meta, table_html, ig_html=""):
     return f"""<div class="sec">
@@ -798,10 +768,7 @@ def _pdf_signoff(gathered, partial, collected, legacy, label):
 </div>"""
 
 
-# ── PDF table builders ────────────────────────────────────────────────────────
-
 def _pdf_doc_table(rows, date_field=None, doc_slug="", site_url=""):
-    """Generic table for Sales Orders and Delivery Notes."""
     if not rows:
         return '<div class="empty">No records this week.</div>'
 
@@ -857,7 +824,6 @@ def _pdf_doc_table(rows, date_field=None, doc_slug="", site_url=""):
 
 
 def _pdf_invoice_table(rows, mode="all", doc_slug="sales-invoice", site_url=""):
-    """Table for Sales Invoices / AR Gathered / AR Collected."""
     if not rows:
         return '<div class="empty">No records this week.</div>'
 
@@ -992,10 +958,7 @@ def _pdf_ig_summary(rows):
     return html
 
 
-# ── PDF generation ────────────────────────────────────────────────────────────
-
 def _make_pdf(html):
-    """Generate PDF via file→file mode to avoid wkhtmltopdf stdin/stdout crash."""
     import subprocess
     import tempfile
     import os
@@ -1037,10 +1000,6 @@ def _make_pdf(html):
             except Exception:
                 pass
 
-
-
-
-# ── Week closure sign-off email ───────────────────────────────────────────────
 
 def _send_week_closure_email(week_start, week_end):
     try:
@@ -1153,8 +1112,6 @@ def _send_week_closure_email(week_start, week_end):
     except Exception:
         frappe.log_error(frappe.get_traceback(), "[weekly_report] sign-off email failed")
 
-
-# ── Utilities ─────────────────────────────────────────────────────────────────
 
 def _fmt(v):
     if not v:

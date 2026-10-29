@@ -1,28 +1,9 @@
-# -*- coding: utf-8 -*-
-"""
-Role-gated submit notifications.
-
-On submit of a configured doctype, email the document's details to the users
-holding that doctype's target role — but ONLY when the user who SUBMITTED the
-document also holds one of those roles.
-
-Everything (templates, roles, CC) lives here in code — there are intentionally
-no Notification DB records, so nothing can be toggled into an ungated state and
-there is no double-send. Wired via hooks.py: doc_events["*"]["on_submit"].
-
-Gate: submitter must hold >= 1 of the doctype's roles, else no email is sent.
-Recipients: all enabled non-system users holding any of those roles, CC Admin.
-"""
-
 import frappe
 
-ADMIN_EMAIL = "admin@example.com"  # Administrator (placeholder address)
+ADMIN_EMAIL = "admin@example.com"
 SYSTEM_USERS = {"Administrator", "Guest"}
 
 
-# ---------------------------------------------------------------------------
-# HTML template builders
-# ---------------------------------------------------------------------------
 def _row(label, val):
     return (
         '<tr>'
@@ -46,7 +27,6 @@ def _table(headers, body_loop):
         '<table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:8px;">'
         f'<tr style="background:#f8fafc;">{ths}</tr>{body_loop}</table>'
     )
-
 
 STD_ITEMS = _table(
     [("Item", "left"), ("Qty", "right"), ("Rate", "right"), ("Amount", "right")],
@@ -123,10 +103,6 @@ def _build_html(dt_label, rows_html, items_html):
         '</div></div>'
     )
 
-
-# ---------------------------------------------------------------------------
-# Per-doctype config: label, target roles, field rows, line-items block
-# ---------------------------------------------------------------------------
 _CONFIG = [
     ("Purchase Order", "Purchase Order", ["Jamie Hawk - Consolidated"], [
         ("Supplier", "{{ doc.supplier_name or doc.supplier }}"),
@@ -192,7 +168,6 @@ _CONFIG = [
         ("Total Time (min)", "{{ doc.total_time_in_minutes or 0 }}")], CE_ITEMS),
 ]
 
-# doctype -> {"subject", "message", "roles"}
 TEMPLATES = {
     dt: {
         "subject": f"[Submitted] {label}: {{{{ doc.name }}}}",
@@ -203,22 +178,17 @@ TEMPLATES = {
 }
 
 
-# ---------------------------------------------------------------------------
-# Hook entry point
-# ---------------------------------------------------------------------------
 def notify_on_submit(doc, method=None):
-    """doc_events['*']['on_submit'] — runs on every submit; gated by submitter role."""
     tpl = TEMPLATES.get(doc.doctype)
     if not tpl:
         return
 
-    # ---- THE GATE: submitting user must hold at least one target role ----
     if set(frappe.get_roles(frappe.session.user)).isdisjoint(tpl["roles"]):
         return
 
     recipients = _emails_for_roles(tpl["roles"])
     cc = [ADMIN_EMAIL]
-    if not recipients:  # no role holders -> send to Admin directly
+    if not recipients:
         recipients, cc = cc, []
     if not recipients:
         return
@@ -241,7 +211,6 @@ def notify_on_submit(doc, method=None):
 
 
 def _emails_for_roles(roles):
-    """Emails of enabled, non-system users holding any of the given roles."""
     users = frappe.get_all(
         "Has Role", filters={"role": ["in", roles], "parenttype": "User"}, pluck="parent"
     )

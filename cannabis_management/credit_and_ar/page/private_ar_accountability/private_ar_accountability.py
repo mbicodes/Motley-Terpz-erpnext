@@ -1,17 +1,3 @@
-# Copyright (c) 2026, alltechvirtual.com and contributors
-# For license information, please see license.txt
-"""Private AR Accountability — server side.
-
-The same page as AR Accountability (ar_weekly_review), on its own log:
-Private AR Weekly Entry. That log holds a copy of every AR Weekly Entry (kept
-in step by AR Weekly Entry's controller) plus entries filed here, which never
-go back to AR Weekly Entry.
-
-The receivables side — tiers, buckets, snapshots — is imported from
-ar_weekly_review rather than copied, so the two pages can never disagree on
-what a customer owes. Only what touches the entry log lives here.
-"""
-
 import frappe
 from frappe import _
 from frappe.utils import flt, getdate, nowdate
@@ -30,22 +16,16 @@ from cannabis_management.credit_and_ar.page.ar_weekly_review.ar_weekly_review im
 )
 from cannabis_management.credit_and_ar.utils import NEW_AR_START
 
-# Matt and Muhammad only (plus Administrator, which holds every role). Nikki
-# must not reach this page, its methods or its log in any way.
 PAGE_ROLE = "Private AR Accountability"
 ENTRY_DOCTYPE = "Private AR Weekly Entry"
 
 
 def _require_access():
-	"""The Page's roles only gate the route; every method re-checks the role,
-	because whitelisted methods are reachable over /api/method by anyone
-	logged in."""
 	if PAGE_ROLE not in frappe.get_roles():
 		frappe.throw(_("Not permitted"), frappe.PermissionError)
 
 
 def _latest_entries():
-	"""Most recent entry per customer+ledger, plus how many exist."""
 	rows = frappe.db.sql(
 		"""
 		select e.customer, e.ledger, e.status, e.week_of, e.qa, e.plan, e.notes
@@ -68,7 +48,6 @@ def _latest_entries():
 
 	out = {}
 	for r in rows:
-		# max(week_of) can tie if two entries were filed the same week; last wins.
 		out[(r.customer, r.ledger)] = {
 			"current_status": r.status or "",
 			"latest_note": r.qa or r.plan or r.notes or "",
@@ -80,7 +59,6 @@ def _latest_entries():
 
 @frappe.whitelist()
 def get_ar_weekly_review(ledger=None):
-	"""The whole grid in one call."""
 	_require_access()
 	rows = _build_rows(ledger)
 	latest = _latest_entries()
@@ -104,7 +82,6 @@ def get_ar_weekly_review(ledger=None):
 
 @frappe.whitelist()
 def get_ar_weekly_log(customer, ledger):
-	"""Full history for one customer+ledger, newest first."""
 	_require_access()
 	return frappe.get_all(
 		ENTRY_DOCTYPE,
@@ -121,11 +98,6 @@ def get_ar_weekly_log(customer, ledger):
 @frappe.whitelist()
 def add_ar_weekly_entry(customer, ledger, status, qa=None, plan=None, notes=None,
                         contact=None, email=None, need_three_way_call=0):
-	"""File this week's private entry. It goes to Private AR Weekly Entry only.
-
-	week_of, tier_snapshot and amount_snapshot are computed here, never taken
-	from the client, so the log stays honest even if the page is stale.
-	"""
 	_require_access()
 
 	if not status:
@@ -153,7 +125,6 @@ def add_ar_weekly_entry(customer, ledger, status, qa=None, plan=None, notes=None
 
 
 def _export_tables(ledger=None):
-	"""The grid, the aging, and the private log — same layout as AR Accountability."""
 	rows = _build_rows(ledger)
 	latest = _latest_entries()
 	for r in rows:
@@ -206,7 +177,6 @@ def _export_tables(ledger=None):
 
 @frappe.whitelist()
 def export_xlsx(ledger=None):
-	"""Workbook: the grid, the aging behind it, and the private weekly log."""
 	_require_access()
 	grid, aging, log = _export_tables(ledger)
 	send_xlsx(
@@ -221,7 +191,6 @@ def export_xlsx(ledger=None):
 
 @frappe.whitelist()
 def export_csv(ledger=None):
-	"""The receivables grid only, as on AR Accountability."""
 	_require_access()
 	grid, _aging, _log = _export_tables(ledger)
 	send_csv(_("Private AR Accountability {0}").format(nowdate()), grid)

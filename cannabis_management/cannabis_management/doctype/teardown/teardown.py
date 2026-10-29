@@ -1,17 +1,3 @@
-# Copyright (c) 2026, alltechvirtual.com and contributors
-# For license information, please see license.txt
-
-"""Teardown — harvest cut, review and finalize (rewired to the Plant model).
-
-Regular teardown harvests the plant: its accumulated cost is fully transferred
-into the harvest and the plant becomes Harvested (cost reset to 0). Manicure
-keeps the plant alive (stays Flowering) and moves only a percentage of its
-accumulated cost. While a Teardown is in Preparing it claims each plant's
-`open_teardown` (one open teardown per plant); finalizing clears the claim.
-On submit a draft Repack Stock Entry receives the combined wet weight into the
-Dry Room, and the linked Farm Production Batch rollup is refreshed.
-"""
-
 import frappe
 from frappe import _
 from frappe.model.document import Document
@@ -24,7 +10,6 @@ class Teardown(Document):
 		self._claim_open_teardown()
 
 	def _reject_non_flowering(self):
-		"""A plant may only be torn down from the Flowering phase."""
 		for row in self.get("teardown_tags") or []:
 			if not row.plant:
 				continue
@@ -37,7 +22,6 @@ class Teardown(Document):
 				)
 
 	def _claim_open_teardown(self):
-		"""Enforce one open teardown per plant, and claim it while Preparing."""
 		if self.docstatus != 0:
 			return
 		for row in self.get("teardown_tags") or []:
@@ -69,17 +53,16 @@ class Teardown(Document):
 				transferred = flt(plant.accumulated_cost)
 				plant.status = "Harvested"
 				plant.accumulated_cost = 0
-			else:  # Manicure — plant stays alive and Flowering
+			else:
 				pct = flt(row.cost_pct_transferred) / 100.0
 				transferred = flt(plant.accumulated_cost) * pct
 				plant.accumulated_cost = flt(plant.accumulated_cost) - transferred
 
 			plant.harvested_weight = flt(plant.harvested_weight) + flt(row.weight)
-			plant.open_teardown = None  # cleared on finalization
+			plant.open_teardown = None
 			plant.save(ignore_permissions=True)
 			total_transferred += transferred
 
-		# on_submit runs after the doc is written — persist header fields explicitly.
 		self.db_set("total_cost_transferred", total_transferred)
 		self.db_set("status", "Completed")
 
@@ -91,15 +74,11 @@ class Teardown(Document):
 		self._refresh_linked_harvest()
 
 	def on_trash(self):
-		# Release the open-teardown claim if a draft is deleted.
 		for row in self.get("teardown_tags") or []:
 			if row.plant and frappe.db.get_value("Plant", row.plant, "open_teardown") == self.name:
 				frappe.db.set_value("Plant", row.plant, "open_teardown", None, update_modified=False)
 
-	# ── stock / rollup ───────────────────────────────────────────────────────
 	def _create_repack_stock_entry(self):
-		"""Draft Repack SE receiving combined wet weight into the Dry Room.
-		Left in draft — same pattern as elsewhere in this system."""
 		total_weight = sum(flt(r.weight) for r in self.teardown_tags)
 		if total_weight <= 0:
 			return
@@ -126,7 +105,6 @@ class Teardown(Document):
 				indicator="orange", alert=True)
 
 	def _repack_uom(self):
-		"""Use the output item's stock UOM for the Repack row (conversion factor 1)."""
 		return frappe.db.get_value("Item", self.output_item, "stock_uom")
 
 	def _refresh_linked_harvest(self):
@@ -136,8 +114,6 @@ class Teardown(Document):
 
 @frappe.whitelist()
 def distribute_total_weight(teardown_json, strain, total_weight):
-	"""Split one combined weight evenly across every Teardown Tag row of the given
-	strain. Returns the per-row weight; the client applies it. Pure helper."""
 	import json
 
 	rows = json.loads(teardown_json) if isinstance(teardown_json, str) else teardown_json

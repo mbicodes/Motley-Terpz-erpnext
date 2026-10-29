@@ -1,16 +1,3 @@
-// Copyright (c) 2026, alltechvirtual.com and contributors
-// Private AR Accountability — AR Accountability (ar_weekly_review.js) on its own log,
-// Private AR Weekly Entry. Kept identical to that page apart from the name, the
-// title and the server module; regenerate from it rather than editing by hand.
-//
-// Tier and amount are never stored; every load recomputes them from Sales
-// Invoice server-side (see ar_weekly_review.py). Saving a week's entry inserts
-// a Private AR Weekly Entry and never overwrites an earlier one, which is what gives
-// the per-customer history at the bottom of an expanded row.
-//
-// Wrapped in its own scope: AR Accountability declares the same top-level
-// names in the shared window, and a second declaration would break one page.
-
 (function () {
 const ARW_METHOD = 'cannabis_management.credit_and_ar.page.private_ar_accountability.private_ar_accountability.';
 
@@ -53,14 +40,9 @@ const ARW_STATUS_DEF = {
 	'No Longer In Business': { full: 'No Longer In Business', desc: '' },
 };
 
-// Customer dropdowns: Recon Status / Onboarding / Company Made Contact are the AR
-// Dashboard's columns and Segment is Categorized AR's. They save through those
-// pages' own endpoints, so the values and who may change them are the same
-// everywhere. (arw_ prefix: desk page scripts share one window.)
 const ARW_ARD_METHOD = 'cannabis_management.cannabis_management.page.ar_dashboard.ar_dashboard.';
 const ARW_ARL_METHOD = 'cannabis_management.cannabis_management.page.ar_legacy.ar_legacy.';
 const ARW_FLAG_FIELDS = [['onboarding', 'Onboarding'], ['company_made_contact', 'Company Made Contact']];
-// The AR Dashboard's colours for its five built-in recon statuses.
 const ARW_RECON_COLORS = {
 	'Reconciled collecting money': ['#dcfce7', '#15803d', '#16a34a'],
 	'Reconciled trouble collecting money': ['#fef3c7', '#92400e', '#d97706'],
@@ -96,7 +78,6 @@ function arw_segment_style(page, seg) {
 	return c ? arw_cell_style(c + '1f', c, c) : '';
 }
 
-// Reach Out Status: a Customer field, blank read as "Haven't Reached Out".
 const ARW_NOT_REACHED = "Haven't Reached Out";
 const ARW_REACH_OUT_DEF = {
 	"Haven't Reached Out": { color: '#d97706', desc: 'Nobody has reached out to this account yet.' },
@@ -111,7 +92,6 @@ function arw_reach_out_style(value) {
 	return d ? arw_cell_style(d.color + '1f', d.color, d.color) : '';
 }
 
-// One dropdown cell, or a read-only value for someone without edit rights.
 function arw_select(kind, field, customer, value, options, style, editable) {
 	const esc = frappe.utils.escape_html;
 	if (!editable) {
@@ -141,8 +121,6 @@ function arw_customer_cells(page, r) {
 			arw_reach_out_style(r.reach_out), meta.can_edit_reach_out)}</td>`;
 }
 
-// Save one dropdown through its home page's endpoint, then update every row of
-// that customer (it can have on-terms and overdue rows in both ledgers).
 function arw_save_customer_field(page, $sel) {
 	const kind = $sel.attr('data-kind');
 	const field = $sel.attr('data-field');
@@ -185,14 +163,12 @@ function arw_save_customer_field(page, $sel) {
 	});
 }
 
-// The groups for the current "Group by" choice, shared by the page and Print.
 function arw_groups(page, pool) {
 	const mode = page.arw.ui.mode;
 	let groups;
 	if (mode === 'owner') {
 		const meta = page.arw.meta;
 		const keys = [''].concat(meta.segments || []);
-		// A segment since disabled can still be on a customer: keep it visible.
 		pool.forEach((r) => { if (r.segment && keys.indexOf(r.segment) === -1) keys.push(r.segment); });
 		groups = keys.map((k) => ({
 			key: k,
@@ -203,7 +179,6 @@ function arw_groups(page, pool) {
 			rows: pool.filter((r) => (r.segment || '') === k),
 		}));
 	} else if (mode === 'reach_out') {
-		// In REACH_OUT_STATUSES order (ar_legacy.py), Reached Out first.
 		groups = (page.arw.meta.reach_out_statuses || [ARW_NOT_REACHED]).map((k) => ({
 			key: k,
 			def: { full: k, desc: (ARW_REACH_OUT_DEF[k] || {}).desc || '' },
@@ -237,9 +212,9 @@ frappe.pages['private-ar-accountability'].on_page_load = function (wrapper) {
 	page.arw = {
 		rows: [],
 		meta: {},
-		open: {},          // row id -> expanded?
-		logs: {},          // "customer|ledger" -> log rows (lazy loaded)
-		edits: {},         // row id -> unsaved form values
+		open: {},
+		logs: {},
+		edits: {},
 		ui: { mode: 'tier', ledger: 'New AR', search: '' },
 	};
 
@@ -319,7 +294,6 @@ function bind_events(page) {
 		render(page);
 	});
 
-	// Row expand / collapse
 	page.main.on('click', '.arw-rowline', function () {
 		const id = $(this).data('rowid');
 		page.arw.open[id] = !page.arw.open[id];
@@ -327,10 +301,8 @@ function bind_events(page) {
 		render(page);
 	});
 
-	// Never let a click inside the editor collapse the row
 	page.main.on('click', '.arw-detailwrap', (e) => e.stopPropagation());
 
-	// Track edits so a re-render does not lose typing
 	page.main.on('input change', '.arw-detailwrap [data-role]', function () {
 		const id = $(this).data('rowid');
 		const role = $(this).data('role');
@@ -343,7 +315,6 @@ function bind_events(page) {
 		save_entry(page, $(this).data('rowid'), $(this));
 	});
 
-	// Customer dropdowns: a click must not expand the row, a change saves.
 	page.main.on('click', '.arw-inline, .arw-inline-ro', (e) => e.stopPropagation());
 	page.main.on('change', 'select.arw-inline', function () {
 		arw_save_customer_field(page, $(this));
@@ -373,7 +344,7 @@ function load_log(page, rowid) {
 	const row = page.arw.rows.find((r) => r.id === rowid);
 	if (!row) return;
 	const key = log_key(row);
-	if (page.arw.logs[key]) return;            // already fetched
+	if (page.arw.logs[key]) return;
 	page.arw.logs[key] = 'loading';
 	frappe.call({
 		method: ARW_METHOD + 'get_ar_weekly_log',
@@ -383,8 +354,6 @@ function load_log(page, rowid) {
 			render(page);
 		},
 		error: function () {
-			// Drop the sentinel so the row shows an empty log (and can retry on
-			// the next render) rather than hanging on "Loading…".
 			page.arw.logs[key] = [];
 			render(page);
 		},
@@ -399,7 +368,6 @@ function visible_rows(page) {
 	const ui = page.arw.ui;
 	const needle = (ui.search || '').toLowerCase();
 	return page.arw.rows.filter(function (r) {
-		// "all" is New + Legacy AR: both ledgers, still one row per ledger.
 		if (ui.ledger !== 'all' && r.ledger !== ui.ledger) return false;
 		if (needle && r.customer.toLowerCase().indexOf(needle) === -1) return false;
 		return true;
@@ -412,10 +380,6 @@ function render(page) {
 	ensure_open_logs(page);
 }
 
-// Clicking is not the only way a row ends up expanded: it also stays open across
-// a reload (after saving an entry, or hitting Refresh), and load() clears the log
-// cache. Anything open without a cached log is fetched here, otherwise the log
-// table sits on "Loading…" forever.
 function ensure_open_logs(page) {
 	Object.keys(page.arw.open).forEach(function (id) {
 		if (page.arw.open[id]) load_log(page, id);
@@ -496,7 +460,6 @@ function render_groups(page) {
 }
 
 function build_table(page, rows, mode) {
-	// Level shows unless the groups already are levels; Status unless they are statuses.
 	const show_level = mode !== 'tier';
 	const show_status = mode !== 'status';
 	const cols = 10 + (show_level ? 1 : 0) + (show_status ? 1 : 0);
@@ -547,24 +510,16 @@ function detail_html(page, r) {
 	const def = ARW_TIER_DEF[r.tier];
 	const edits = page.arw.edits[r.id] || {};
 	const esc = frappe.utils.escape_html;
-	// Cents here: a single invoice is where the odd cent actually shows.
 	const money2 = (n) => '$' + (n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-	// "2026-10-09" -> "Oct 9, 2026", built from the parts so no timezone can shift the day.
 	const nice_date = (d) => {
 		const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(d || '');
 		return m ? new Date(+m[1], +m[2] - 1, +m[3]).toLocaleDateString('en-US',
 			{ month: 'short', day: 'numeric', year: 'numeric' }) : '';
 	};
 
-	// Three sections, each under its own coloured title bar: the invoices behind
-	// the row, this week's entry, and the entry history.
-
-	// Aging breakdown, one cell per bucket in its tier's colour (in the Invoices bar).
 	const bd = r.breakdown.map((b) =>
 		`<span class="arw-bdcell tier-${esc(b.tier)}">${esc(b.label)} <b>${fmt_money(b.amount)}</b></span>`).join('');
 
-	// The open invoices that make up this row, oldest due date first. Each aging
-	// label belongs to one tier, and the row's breakdown already says which.
 	const invs = r.invoices || [];
 	const tier_of = {};
 	r.breakdown.forEach((b) => { tier_of[b.label] = b.tier; });
@@ -701,7 +656,7 @@ function save_entry(page, rowid, $btn) {
 		callback: function (r) {
 			if (!r || !r.message) { $btn.prop('disabled', false); return; }
 			delete page.arw.edits[rowid];
-			delete page.arw.logs[log_key(row)];   // force a refetch of the history
+			delete page.arw.logs[log_key(row)];
 			page.main.find('#arw-savemsg').text(__('Saved {0}', [r.message.week_of]));
 			frappe.show_alert({ message: __('Weekly entry saved'), indicator: 'green' }, 4);
 			load(page);
@@ -713,10 +668,6 @@ function save_entry(page, rowid, $btn) {
 	});
 }
 
-// Both ledgers go into the file, not just the one on screen: the Ledger column
-// is there to filter on, and an export that dropped half the book would be a
-// worse failure than one more column. CSV carries the receivables grid alone --
-// the aging breakdown and the weekly log are extra sheets a CSV cannot hold.
 function export_review(page, format) {
 	if (!page.arw.rows.length) {
 		frappe.msgprint(__('Nothing to export yet — wait for the review to load.'));
@@ -729,10 +680,6 @@ function export_review(page, format) {
 	setTimeout(() => frappe.dom.unfreeze(), 3000);
 }
 
-
-// Print the whole review: both ledgers, every group, every row, full notes.
-// Ignores the search box and ledger toggle; keeps the current "Group by" mode.
-// Rendered into a fresh window so Desk chrome and the interactive editor stay out.
 function print_review(page) {
 	if (!page.arw.rows.length) {
 		frappe.msgprint(__('Nothing to print yet — wait for the review to load.'));

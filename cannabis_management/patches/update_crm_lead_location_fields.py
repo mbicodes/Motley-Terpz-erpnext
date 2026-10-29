@@ -1,7 +1,3 @@
-"""CRM Lead account fields v2 (client request 2026-07-10):
-Address → Link (Address), City/State → Link to new City/State doctypes,
-License # → Float, License Type options simplified. Seeds US states."""
-
 import frappe
 
 US_STATES = [
@@ -24,9 +20,6 @@ US_STATES = [
 def execute():
     from cannabis_management.api.crm_account_enhancements import install_crm_account_fields
 
-    # The Data → Float column change fails in strict mode: the new decimal
-    # column is NOT NULL, so NULL / empty / non-numeric rows must become '0'
-    # before the ALTER runs.
     col_type = frappe.db.sql(
         """SELECT DATA_TYPE FROM information_schema.COLUMNS
            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'tabCRM Lead'

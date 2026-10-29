@@ -1,10 +1,3 @@
-"""Legacy Recovery Register (§12).
-
-Everything invoiced before the policy effective date. Collected on its original
-terms — **no finance charges apply, ever** — and excluded from the new-book AR
-cap, DSO and CEI.
-"""
-
 import frappe
 from frappe import _
 from frappe.utils import add_days, flt, getdate, nowdate
@@ -92,7 +85,6 @@ def get_data(filters, effective_date):
 
 
 def _recovered_this_week(invoice_names: list[str]) -> dict:
-	"""Cash actually collected against these invoices since Monday."""
 	if not invoice_names:
 		return {}
 

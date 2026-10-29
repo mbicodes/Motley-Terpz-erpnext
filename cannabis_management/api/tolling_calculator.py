@@ -1,12 +1,3 @@
-"""
-Tolling / Processing Cost Calculator.
-
-Given input material weight, a yield assumption and a tolling rate (plus optional
-labor / overhead), computes expected output weight, total tolling cost, and cost
-per output unit — the per-batch tolling economics reps need before quoting a
-processing job. Can pre-fill the yield from historical Lab Tolling Data.
-"""
-
 import json
 import frappe
 from frappe import _
@@ -15,8 +6,6 @@ from frappe.utils import flt
 
 @frappe.whitelist()
 def get_avg_yield():
-    """Average yield % from historical Lab Tolling Data, if that doctype exists.
-    Used only to pre-fill the form; safe to ignore."""
     if not frappe.db.exists("DocType", "Lab Tolling Data"):
         return None
     for field in ("yield_", "yield_percent", "yield_pct", "yield"):
@@ -31,12 +20,6 @@ def get_avg_yield():
 
 @frappe.whitelist()
 def calculate(payload):
-    """payload (JSON): {
-        input_lbs, yield_pct,
-        rate_basis ('input'|'output'), rate_per_lb,
-        labor_hours?, labor_rate_per_hour?, overhead_pct?, margin_pct?
-    } → per-batch tolling cost breakdown.
-    """
     if isinstance(payload, str):
         payload = json.loads(payload)
 

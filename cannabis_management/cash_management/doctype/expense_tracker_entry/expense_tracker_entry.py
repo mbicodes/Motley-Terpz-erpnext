@@ -3,7 +3,6 @@ from frappe.model.document import Document
 
 
 class ExpenseTrackerEntry(Document):
-
     def before_save(self):
         self._auto_fill_month()
         self._auto_fill_employee()

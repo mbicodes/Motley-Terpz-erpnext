@@ -1,20 +1,3 @@
-"""Conversion & Tolling dashboard.
-
-Reads submitted Conversion Entries and splits them in two: Tolling (reasons =
-"Tolling") and Conversion (everything else -- Blending, Co-packing, Others and
-the early entries with no reason at all).
-
-A Conversion Entry Item row is a fixed set of slots (Raw Material 1-7, Finished
-Good 1-3), so every row is exploded into one line per filled slot before
-anything is summed. Weights are reported in grams whatever the item is stocked
-in (LBS of fresh frozen, grams of rosin); count items such as hardware and
-packaged vapes are reported in units and never mixed into a gram total.
-
-Tolling yields follow the floor's own sheet -- Fresh Frozen to Hash, Fresh
-Frozen to Rosin, Hash to Rosin, and grams per rosin tier. The grams typed into
-the row's yield fields win when filled; otherwise they are read off the items.
-"""
-
 from collections import defaultdict
 
 import frappe
@@ -98,7 +81,6 @@ def get_data(from_date=None, to_date=None, company=None, customer=None):
 	for h in headers:
 		segments["tolling" if h.reasons == "Tolling" else "conversion"].append(h.name)
 
-	# One line per filled slot: (entry, row, side, item_code, qty, grams, units)
 	lines = []
 	for r in rows:
 		for side, slots, item_f, qty_f in (
@@ -181,8 +163,6 @@ def _summarise(entries, lines, lines_by_entry, rows_by_entry):
 	yields = [_entry_yield(e, lines_by_entry[e.name], rows_by_entry[e.name]) for e in entries]
 	yields = [y for y in yields if y]
 	totals = {k: sum(y[k] for y in yields) for k in ("frozen_g", "hash_g", "rosin_g", "tier_1", "tier_2", "tier_3")}
-	# Each ratio only over the entries that have both of its sides, so an entry
-	# that pressed bought-in hash does not count as a 0% wash, and vice versa.
 	def ratio(num_key, den_key):
 		both = [y for y in yields if y[num_key] and y[den_key]]
 		return _pct(sum(y[num_key] for y in both), sum(y[den_key] for y in both))
@@ -224,7 +204,6 @@ def _pct(num, den):
 
 
 def _entry_yield(entry, lines, rows):
-	"""The sheet's yield line for one entry, or None when it moved no frozen, hash or rosin."""
 	frozen = sum(ln.grams for ln in lines if ln.side == "in" and _is_frozen(ln.item_group))
 	hash_out = sum(ln.grams for ln in lines if ln.side == "out" and ln.item_group == HASH_GROUP)
 	hash_in = sum(ln.grams for ln in lines if ln.side == "in" and ln.item_group == HASH_GROUP)
@@ -236,7 +215,6 @@ def _entry_yield(entry, lines, rows):
 			if ln.item_group in TIER_GROUPS:
 				tiers[TIER_GROUPS[ln.item_group]] += ln.grams
 
-	# Yield fields typed on the floor are the better number when present.
 	typed_frozen = sum(flt(r.total_frozen_grams) for r in rows)
 	typed_hash = sum(flt(r.bh_total_grams) for r in rows)
 	typed_rosin = sum(flt(r.rosin_total_grams) for r in rows)
@@ -244,8 +222,6 @@ def _entry_yield(entry, lines, rows):
 	hash_g = typed_hash or hash_out or hash_in
 	rosin = typed_rosin or rosin
 
-	# Frozen that only moved to other frozen (SHO relabelled as BHO, say) was
-	# not washed, so it has no yield to report.
 	if not (hash_g or rosin):
 		return None
 	return {
@@ -255,7 +231,6 @@ def _entry_yield(entry, lines, rows):
 		"frozen_g": flt(frozen, 2),
 		"hash_g": flt(hash_g, 2),
 		"rosin_g": flt(rosin, 2),
-		# A side that never happened in this entry is "not measured", not 0%.
 		"frozen_to_hash": _pct(hash_g, frozen) if hash_g else None,
 		"frozen_to_rosin": _pct(rosin, frozen) if rosin else None,
 		"hash_to_rosin": _pct(rosin, hash_g) if rosin else None,
@@ -296,7 +271,6 @@ def _by_item(lines):
 
 
 def _hardware_into(hardware, lines):
-	"""What the hardware ended up as: finished goods made on the same rows."""
 	hw_rows = {ln.row for ln in hardware}
 	acc = {}
 	for ln in lines:
@@ -336,7 +310,6 @@ def _by_customer(entries, lines):
 
 
 def _trend(entries, lines):
-	"""Grams in/out and hardware units per week, oldest first."""
 	if not entries:
 		return []
 	week_of = {}

@@ -18,7 +18,6 @@ frappe.ui.form.on("Purchase Invoice", {
                         return;
                     }
 
-                    // 1️ Remove default blank row
                     if (frm.doc.items && frm.doc.items.length === 1) {
                         let row = frm.doc.items[0];
                         if (!row.item_code) {
@@ -26,14 +25,12 @@ frappe.ui.form.on("Purchase Invoice", {
                         }
                     }
 
-                    // 2️ Fetch Item master details
                     let item = await frappe.db.get_value(
                         "Item",
                         "STO-ITEM-2025-00008",
                         ["item_code", "item_name", "stock_uom"]
                     );
 
-                    // 3️ Check already added shipments → prevent duplicates
                     let existing_shipments = frm.doc.items.map(i => i.description);
 
                     r.message.forEach(sh => {
@@ -41,7 +38,6 @@ frappe.ui.form.on("Purchase Invoice", {
                         let desc = "Shipment: " + sh.name;
 
                         if (existing_shipments.includes(desc)) {
-                            // Already added → skip
                             return;
                         }
 
@@ -53,7 +49,6 @@ frappe.ui.form.on("Purchase Invoice", {
                         row.rate = sh.shipment_amount || 0;
                         row.description = desc;
 
-                        // Apply project to newly added shipment rows if project is set
                         if (frm.doc.project) {
                             row.batch = frm.doc.project;
                         }
@@ -85,11 +80,6 @@ frappe.ui.form.on("Purchase Invoice", {
     },
 });
 
-// ── Project picker: no filtering ─────────────────────────────────────────────
-// Core restricts Project by company, and on selling forms by customer too
-// (erpnext/public/js/utils/sales_common.js, controllers/buying.js). Projects
-// here are not company-scoped, so that hid valid choices. Cleared in refresh
-// so it lands after core's own setup_queries, which is where core sets it.
 frappe.ui.form.on('Purchase Invoice', {
 	refresh(frm) {
 		frm.set_query('project', () => ({}));

@@ -1,42 +1,17 @@
-# Copyright (c) 2026, alltechvirtual.com and contributors
-# For license information, please see license.txt
-"""Conversion Workbench — pick raw materials from live stock and convert in one click.
-
-Implements the "Conversion Workbench - Page Mapping (Developer Spec)" of
-7 Oct 2026. The page posts no stock itself: it builds and submits an ordinary
-Conversion Entry, so all existing stock, valuation and accounting logic -- and
-the Repack Stock Entry the entry creates on submit -- stay exactly as they are.
-
-Shape of one run: N raw materials in, M finished items out, written into the
-numbered slots of a single Conversion Entry Item row. That is how entries are
-already stored, so nothing downstream has to learn a new shape.
-
-The validation rules below are the spec's section 7, repeated here because the
-browser's copy is a convenience: the whitelisted methods are reachable over
-/api/method whatever the page does.
-"""
-
 import frappe
 from frappe import _
 from frappe.utils import cint, flt, nowdate
 
-# The workbench runs for these three only, newest default first. Six companies
-# exist on the site; the rest have no conversion work and would only be ways to
-# post a run against the wrong entity.
 WORKBENCH_COMPANIES = ("Master Touch Manufacturing", "Motley Terpz", "TSBC Ranch")
 
 MAX_RAW = 7
 MAX_FINISHED = 3
 PAGE_LENGTH = 200
 
-# Quantities below this are treated as zero; Bin balances are floats and a
-# conversion should not fail on a rounding tail.
 QTY_EPSILON = 0.0001
 
 
 def _conversion_type_options():
-	"""Allowed combinations, read from the doctype meta rather than hardcoded,
-	so adding an option later needs no change here (spec section 7)."""
 	field = frappe.get_meta("Conversion Entry Item").get_field("conversion_type")
 	return [o.strip() for o in (field.options or "").split("\n") if o.strip()]
 
@@ -48,11 +23,6 @@ def get_conversion_types():
 
 @frappe.whitelist()
 def get_companies():
-	"""The companies the workbench offers, in order, defaulting to the first.
-
-	Served from here rather than listed in the page so the picker and the
-	server guard below can never disagree about which companies are allowed.
-	"""
 	existing = set(frappe.get_all("Company", pluck="name"))
 	return [c for c in WORKBENCH_COMPANIES if c in existing]
 
@@ -68,11 +38,6 @@ def _company_filter(company):
 
 @frappe.whitelist()
 def get_item_groups(company):
-	"""Item Groups that currently have stock for the company, with their counts.
-
-	Same query shape as the item list, so a group's count can never disagree
-	with the number of rows clicking it produces.
-	"""
 	company = _company_filter(company)
 	rows = frappe.db.sql(
 		"""
@@ -99,11 +64,6 @@ def get_item_groups(company):
 @frappe.whitelist()
 def get_stock_items(company, item_group=None, warehouse=None, search=None,
                     start=0, page_length=PAGE_LENGTH):
-	"""In-stock rows for the list. One row per item and warehouse.
-
-	Searching and paging are done here rather than in the browser so a group
-	with thousands of items still answers in one screenful (spec section 9).
-	"""
 	company = _company_filter(company)
 	conds = ["w.company = %(company)s", "b.actual_qty > 0", "i.disabled = 0"]
 	values = {"company": company,
@@ -136,10 +96,7 @@ def get_stock_items(company, item_group=None, warehouse=None, search=None,
 	return {"items": rows, "page_length": values["page_length"]}
 
 
-# ── validation (spec section 7) ──────────────────────────────────────────────
-
 def _validate(payload, raws, finished):
-	"""Every blocking rule, in the spec's order. Stops on the first failure."""
 	if not raws or not finished:
 		frappe.throw(_("Select at least one raw material and one finished item."))
 
@@ -156,8 +113,6 @@ def _validate(payload, raws, finished):
 	if not source or not target:
 		frappe.throw(_("Source Warehouse and Target Warehouse are required."))
 
-	# Rule 4 is about the entry's shape, not the picker's: the row carries one
-	# Source Warehouse, so raw materials drawn from two of them cannot be stored.
 	for r in raws:
 		if r.get("warehouse") and r["warehouse"] != source:
 			frappe.throw(_("All raw materials must come from the same Source Warehouse."))
@@ -197,19 +152,8 @@ def _stock_uom(item_code):
 	return frappe.db.get_value("Item", item_code, "stock_uom") or ""
 
 
-# ── the Convert button (spec section 8) ──────────────────────────────────────
-
 @frappe.whitelist()
 def create_conversion(payload):
-	"""Build one Conversion Entry, insert it and submit it, in one transaction.
-
-	Permissions are checked explicitly and ignore_permissions is never used, so
-	a user who cannot submit a Conversion Entry cannot submit one from here.
-
-	Live balances are re-read at this moment rather than trusted from the page:
-	between picking an item and pressing Convert someone else may have moved the
-	same stock, and the entry must not be the thing that discovers it.
-	"""
 	payload = frappe.parse_json(payload) if isinstance(payload, str) else (payload or {})
 
 	if not frappe.has_permission("Conversion Entry", "create"):
@@ -221,9 +165,6 @@ def create_conversion(payload):
 
 	_company_filter(payload.get("company"))
 
-	# Both are checked here rather than relying on the doctype's
-	# mandatory_depends_on: that is evaluated by the form, and an insert made in
-	# code -- which is all this page does -- goes straight past it.
 	if payload.get("reasons") == "Tolling":
 		if not payload.get("supplier"):
 			frappe.throw(_("Supplier is required for a Tolling conversion."))
@@ -258,17 +199,12 @@ def create_conversion(payload):
 	doc.posting_date = payload.get("posting_date") or nowdate()
 	doc.company = payload.get("company")
 	header = ["reasons", "partners", "conversion_status", "sales_order", "project", "notes"]
-	# The doctype shows Supplier only for Tolling and Customer only for the rest,
-	# so only the one that belongs is carried over -- a hidden value left on the
-	# entry would never be visible to correct.
 	header.append("supplier" if payload.get("reasons") == "Tolling" else "customer")
 	for field in header:
 		if payload.get(field):
 			doc.set(field, payload[field])
 	doc.append("items", row)
 
-	# The balance check sits as close to the insert as it can: anything earlier
-	# is a guess about what will still be true when the stock actually moves.
 	for r in raws:
 		available = _available(r["item_code"], payload.get("source_warehouse"))
 		if flt(r.get("qty")) - available > QTY_EPSILON:

@@ -1,19 +1,3 @@
-"""Inventory Roll Forward: opening + additions - reductions = closing, month by month.
-
-Backs the /app/inventory-roll-forward page. One company at a time, one section
-per unit (Pounds, Grams, Units) or per item group, and for every month the
-quantity and the stock value of each movement.
-
-Where the numbers come from:
-- Value is Stock Ledger Entry.stock_value_difference, so every section's
-  closing value is exactly the company's stock value in those items.
-- Quantity is Stock Ledger Entry.actual_qty, except for Stock Reconciliation:
-  its ledger rows carry actual_qty = 0 on this site, so its movement is read
-  from Stock Reconciliation Item.quantity_difference instead.
-- Quantities stay in each item's stock UOM. Sections never mix units, which is
-  why the item-group view splits a group that holds more than one UOM.
-"""
-
 import calendar
 
 import frappe
@@ -22,9 +6,6 @@ from frappe.utils import flt, getdate, nowdate
 
 ROLES = ("System Manager", "Accounts Manager", "Accounts User", "Stock Manager", "Stock User")
 
-# (key, label, sign). Sign is how the row reads on the page: "add" rows show
-# what came in, "less" rows what went out (both as positive numbers), and
-# "net" rows keep their own sign. Closing = opening + every row's raw movement.
 ROWS = [
 	("opening", _("Opening Balance"), ""),
 	("purchases", _("Purchases"), "add"),
@@ -41,7 +22,6 @@ MOVEMENTS = [key for key, _label, sign in ROWS if sign]
 UNIT_LABELS = {"LBS": _("Pounds (LBS)"), "Gram": _("Grams"), "Nos": _("Units (Nos)")}
 UNIT_ORDER = ["LBS", "Gram", "Nos"]
 
-# Which movement row a ledger entry lands on.
 ROW_CASE = """
 	case
 		when sle.voucher_type in ('Purchase Receipt', 'Purchase Invoice') then 'purchases'
@@ -67,7 +47,6 @@ def get_filters():
 	first = frappe.db.sql("select min(posting_date) from `tabStock Ledger Entry` where is_cancelled = 0")[0][0]
 	this_year = getdate(nowdate()).year
 	start = getdate(first).year if first else this_year
-	# No default company set: the one with the most stock movement.
 	busiest = frappe.db.sql(
 		"""select company from `tabStock Ledger Entry` where is_cancelled = 0
 		   group by company order by count(*) desc limit 1"""
@@ -148,7 +127,6 @@ def get_roll_forward(company, year, group_by="Unit", item_group=None):
 
 
 def _movements(key_cols, item_cond, args, before_start):
-	"""Quantity and value per section (and per month and row, inside the year)."""
 	if before_start:
 		date_cond = "< %(start)s"
 		sle_group, sr_group = "", ""
@@ -200,7 +178,6 @@ def _sort_key(key):
 
 
 def _section(key, opening, moves, last_month):
-	"""One block of the page: a row per movement, a qty/value pair per month and for the year."""
 	uom, group = key
 	unit = UNIT_LABELS.get(uom, uom or _("No UOM"))
 	title = f"{group} · {unit}" if group else unit

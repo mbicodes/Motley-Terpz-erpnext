@@ -1,17 +1,3 @@
-// Copyright (c) 2026, alltechvirtual.com and contributors
-// AP Accountability — the payables twin of the AR Accountability page.
-//
-// Deliberately the same shape as ar_weekly_review.js: the people who run the AR
-// review run this one too, and a second layout to learn would be the main cost
-// of having a second page. What changes is the subject and the direction —
-// rows are suppliers we owe, the second axis is Company rather than ledger, and
-// the questions ask what WE are going to do rather than when THEY will pay.
-//
-// Tier and amount are never stored; every load recomputes them from Purchase
-// Invoice server-side (see ap_weekly_review.py). Saving a week's entry inserts
-// an AP Weekly Entry and never overwrites an earlier one, which is what gives
-// the per-supplier history at the bottom of an expanded row.
-
 const APW_METHOD = 'cannabis_management.credit_and_ar.page.ap_weekly_review.ap_weekly_review.';
 const APW_ALL = '__all__';
 
@@ -60,9 +46,9 @@ frappe.pages['ap-weekly-review'].on_page_load = function (wrapper) {
 	page.apw = {
 		rows: [],
 		meta: {},
-		open: {},          // row id -> expanded?
-		logs: {},          // "supplier|company" -> log rows (lazy loaded)
-		edits: {},         // row id -> unsaved form values
+		open: {},
+		logs: {},
+		edits: {},
 		ui: { mode: 'tier', company: APW_ALL, search: '' },
 	};
 
@@ -124,7 +110,6 @@ function bind_events(page) {
 		render(page);
 	});
 
-	// The company buttons are built after load, so they are delegated.
 	page.main.on('click', '#apw-companyseg button', function () {
 		page.main.find('#apw-companyseg button').removeClass('on');
 		$(this).addClass('on');
@@ -137,7 +122,6 @@ function bind_events(page) {
 		render(page);
 	});
 
-	// Row expand / collapse
 	page.main.on('click', '.apw-rowline', function () {
 		const id = $(this).data('rowid');
 		page.apw.open[id] = !page.apw.open[id];
@@ -145,10 +129,8 @@ function bind_events(page) {
 		render(page);
 	});
 
-	// Never let a click inside the editor collapse the row
 	page.main.on('click', '.apw-detailwrap', (e) => e.stopPropagation());
 
-	// Track edits so a re-render does not lose typing
 	page.main.on('input change', '.apw-detailwrap [data-role]', function () {
 		const id = $(this).data('rowid');
 		const role = $(this).data('role');
@@ -180,8 +162,6 @@ function load(page) {
 	});
 }
 
-// Companies come from the data, not from a hardcoded list, so an entity with
-// nothing outstanding never appears as an empty tab.
 function render_company_filter(page) {
 	const companies = page.apw.meta.companies || [];
 	const esc = frappe.utils.escape_html;
@@ -201,7 +181,7 @@ function load_log(page, rowid) {
 	const row = page.apw.rows.find((r) => r.id === rowid);
 	if (!row) return;
 	const key = log_key(row);
-	if (page.apw.logs[key]) return;            // already fetched
+	if (page.apw.logs[key]) return;
 	page.apw.logs[key] = 'loading';
 	frappe.call({
 		method: APW_METHOD + 'get_ap_weekly_log',
@@ -211,8 +191,6 @@ function load_log(page, rowid) {
 			render(page);
 		},
 		error: function () {
-			// Drop the sentinel so the row shows an empty log (and can retry on
-			// the next render) rather than hanging on "Loading…".
 			page.apw.logs[key] = [];
 			render(page);
 		},
@@ -239,10 +217,6 @@ function render(page) {
 	ensure_open_logs(page);
 }
 
-// Clicking is not the only way a row ends up expanded: it also stays open across
-// a reload (after saving an entry, or hitting Refresh), and load() clears the log
-// cache. Anything open without a cached log is fetched here, otherwise the log
-// table sits on "Loading…" forever.
 function ensure_open_logs(page) {
 	Object.keys(page.apw.open).forEach(function (id) {
 		if (page.apw.open[id]) load_log(page, id);
@@ -325,7 +299,7 @@ function render_groups(page) {
 }
 
 function build_table(page, rows, by_tier) {
-	const cols = 7;   // arrow + supplier + (level|status) + amount + aging + notes
+	const cols = 7;
 	let html = `<table class="apw-rows"><thead><tr>
 			<th style="width:22px"></th>
 			<th>${__('Supplier')}</th>
@@ -467,7 +441,7 @@ function save_entry(page, rowid, $btn) {
 		callback: function (r) {
 			if (!r || !r.message) { $btn.prop('disabled', false); return; }
 			delete page.apw.edits[rowid];
-			delete page.apw.logs[log_key(row)];   // force a refetch of the history
+			delete page.apw.logs[log_key(row)];
 			page.main.find('#apw-savemsg').text(__('Saved {0}', [r.message.week_of]));
 			frappe.show_alert({ message: __('Weekly entry saved'), indicator: 'green' }, 4);
 			load(page);
@@ -479,17 +453,11 @@ function save_entry(page, rowid, $btn) {
 	});
 }
 
-// Export every company, not just the one on screen: taking this to Excel is
-// normally about pivoting across entities, and a filtered export that quietly
-// drops rows is worse than one more column to filter on. The workbook is built
-// server-side so the figures are the same ones the page was given.
 function export_excel(page, format) {
 	if (!page.apw.rows.length) {
 		frappe.msgprint(__('Nothing to export yet — wait for the review to load.'));
 		return;
 	}
-	// CSV carries the payables grid alone; the aging breakdown and the weekly
-	// log are extra sheets, which a CSV cannot hold.
 	frappe.dom.freeze(format === 'csv' ? __('Building CSV…') : __('Building workbook…'));
 	open_url_post(frappe.request.url, {
 		cmd: APW_METHOD + (format === 'csv' ? 'export_csv' : 'export_xlsx'),
@@ -497,10 +465,6 @@ function export_excel(page, format) {
 	setTimeout(() => frappe.dom.unfreeze(), 3000);
 }
 
-
-// Print the whole review: every company, every group, every row, full notes.
-// Ignores the search box and company toggle; keeps the current "Group by" mode.
-// Rendered into a fresh window so Desk chrome and the interactive editor stay out.
 function print_review(page) {
 	if (!page.apw.rows.length) {
 		frappe.msgprint(__('Nothing to print yet — wait for the review to load.'));

@@ -1,11 +1,3 @@
-// Cannabis Management > Plant Batches
-// Single-page list + row actions matching the reference video's UX, built
-// entirely on the EXISTING "Plant Batch" doctype (and its existing
-// growth_phase_log / packaging_log / loss_log child tables, plus the
-// existing "Additive Application" compliance
-// doctype for the additive action). No new
-// doctypes or fields were created.
-
 frappe.pages['plant-batches'].on_page_load = function (wrapper) {
 	const page = frappe.ui.make_app_page({
 		parent: wrapper,
@@ -25,13 +17,10 @@ class CultivationPlantBatches {
 		this.setup_table();
 		this.load_batches();
 		let saved = null;
-		try { saved = localStorage.getItem('cultivation_view'); } catch (e) { /* storage unavailable */ }
+		try { saved = localStorage.getItem('cultivation_view'); } catch (e) {  }
 		if (saved && saved !== 'Plant Batches') this.switch_view(saved);
 	}
 
-	// ---------------------------------------------------------------
-	// HEADER: filter + Create Plant Batch button
-	// ---------------------------------------------------------------
 	setup_header() {
 		this.setup_nav_dropdown();
 		this.page.set_primary_action('Create Plant Batch', () => this.open_create_dialog(), 'add');
@@ -52,8 +41,6 @@ class CultivationPlantBatches {
 		});
 	}
 
-	// Dropdown that switches this one page between Plant Batches / Plants /
-	// Teardowns / Harvests.
 	setup_nav_dropdown() {
 		const items = [
 			{ label: 'Plant Batches', icon: 'fa-leaf' },
@@ -73,7 +60,6 @@ class CultivationPlantBatches {
 			$li.find('a').on('click', (e) => { e.preventDefault(); this.switch_view(i.label); });
 			this.$nav.find('ul').append($li);
 		});
-		// The dropdown replaces the page heading itself.
 		this.$nav.css('margin-right', 0).find('button').css({
 			border: 'none', background: 'transparent', boxShadow: 'none',
 			fontSize: '20px', fontWeight: 600, padding: '0',
@@ -86,7 +72,7 @@ class CultivationPlantBatches {
 	switch_view(label) {
 		this.$nav.find('.pb-nav-label').text(label);
 		this.page.set_title(label);
-		try { localStorage.setItem('cultivation_view', label); } catch (e) { /* storage unavailable */ }
+		try { localStorage.setItem('cultivation_view', label); } catch (e) {  }
 		const is_batches = label === 'Plant Batches';
 		this.wrapper.find('.cultivation-list-wrap').first().toggle(is_batches);
 		this.page.fields_dict.status_filter.$wrapper.toggle(is_batches);
@@ -100,9 +86,6 @@ class CultivationPlantBatches {
 		], () => { this.extra_list = new CultivationList(this.$extra, CultivationConfigs[label]()); });
 	}
 
-	// ---------------------------------------------------------------
-	// LIST TABLE
-	// ---------------------------------------------------------------
 	setup_table() {
 		this.wrapper.append(`
 			<div class="cultivation-list-wrap" style="margin-top:10px;overflow-x:auto;">
@@ -176,20 +159,10 @@ class CultivationPlantBatches {
 		});
 	}
 
-	// ---------------------------------------------------------------
-	// ROW ACTIONS MENU
-	// ---------------------------------------------------------------
 	open_row_actions(e, row) {
 		e.preventDefault();
 		e.stopPropagation();
 		const batch_name = row.name;
-		// Same order/items as the reference video's kebab menu. Every item is
-		// backed by the existing Plant Batch fields/child-tables, or the
-		// existing Growth Phase Change / Additive Application doctypes.
-		// Adjust Quantity / Split Batch have no existing schema behind them
-		// (no adjustment window, no split mechanism) so — exactly like the
-		// video itself shows for an expired Adjust Quantity — they render
-		// disabled with an explanatory note instead of faking a feature.
 		const items = [
 			{ label: 'Change Growth Phase', action: () => this.open_growth_phase_dialog(batch_name, row) },
 			{ label: 'Move Plant Batch', action: () => this.open_move_dialog(batch_name) },
@@ -230,9 +203,9 @@ class CultivationPlantBatches {
 		const menu_width = $menu.outerWidth();
 		const viewport_width = $(window).width();
 
-		let left = offset.left; // open to the right of the ⋮ button by default
+		let left = offset.left;
 		if (left + menu_width > viewport_width - 10) {
-			left = offset.left + btn_width - menu_width; // flip to the left if it would overflow
+			left = offset.left + btn_width - menu_width;
 		}
 		left = Math.max(10, left);
 
@@ -240,9 +213,6 @@ class CultivationPlantBatches {
 		$(document).one('click', () => $menu.remove());
 	}
 
-	// ---------------------------------------------------------------
-	// CREATE PLANT BATCH — mirrors the video's inline dialog
-	// ---------------------------------------------------------------
 	open_create_dialog() {
 		const dialog = new frappe.ui.Dialog({
 			title: 'Create Plant Batch',
@@ -293,8 +263,6 @@ class CultivationPlantBatches {
 			primary_action: () => this.submit_create(dialog),
 		});
 
-		// Rows staged in the UI via "+ Add New Plant Batches"; nothing is
-		// created until "Create Plant Batch" is clicked.
 		this.staged_batches = [];
 		this.current_batch = { batch_name: '', plant_count: '' };
 		this.render_new_batch_rows(dialog);
@@ -383,8 +351,6 @@ class CultivationPlantBatches {
 		});
 	}
 
-	// Validates the dialog fields + current Name/# Plants and returns a full
-	// entry snapshot, or null (with inline errors shown) if invalid.
 	build_current_entry(dialog) {
 		const values = dialog.get_values();
 		if (!values) return null;
@@ -414,8 +380,6 @@ class CultivationPlantBatches {
 	submit_create(dialog) {
 		const batches = [...this.staged_batches];
 		const cur = this.current_batch;
-		// Include the row still in the inputs if the user filled it but
-		// didn't press "+ Add New Plant Batches".
 		if ((cur.batch_name || '').trim() || cur.plant_count || !batches.length) {
 			const entry = this.build_current_entry(dialog);
 			if (!entry) return;
@@ -439,14 +403,6 @@ class CultivationPlantBatches {
 		});
 	}
 
-	// ---------------------------------------------------------------
-	// MOVE PLANT BATCH
-	// ---------------------------------------------------------------
-	// ── Change Growth Phase ──────────────────────────────────────────────────
-	// Promotes immatures out of the batch into individually tagged vegetative
-	// plants. The tags come from the Metrc Tag pool in issue order: the user
-	// picks the first one and the last is derived from the quantity, so the
-	// run on screen matches the physical strip on the bench.
 	open_growth_phase_dialog(batch_name, row) {
 		const live = Math.max(0, (row.plant_count || 0) - (row.plants_promoted || 0)
 			- (row.plants_destroyed || 0) - (row.plants_packaged || 0));
@@ -475,7 +431,6 @@ class CultivationPlantBatches {
 			primary_action: () => this.submit_growth_phase(d, batch_name),
 		});
 
-		// Re-derive the ending tag whenever either input moves.
 		const preview = () => {
 			const qty = cint(d.get_value('qty'));
 			const starting = d.get_value('starting_tag');
@@ -563,10 +518,6 @@ class CultivationPlantBatches {
 		dialog.show();
 	}
 
-	// ---------------------------------------------------------------
-	// ADD COST / RECORD ADDITIVE — existing "Additive Application" doctype,
-	// created + submitted in-dialog, no page navigation.
-	// ---------------------------------------------------------------
 	open_additive_dialog(batch_name, title) {
 		const dialog = new frappe.ui.Dialog({
 			title: `${title} — ${batch_name}`,
@@ -602,9 +553,6 @@ class CultivationPlantBatches {
 		dialog.show();
 	}
 
-	// ---------------------------------------------------------------
-	// PACKAGE PLANT BATCH
-	// ---------------------------------------------------------------
 	open_package_dialog(batch_name) {
 		const dialog = new frappe.ui.Dialog({
 			title: `Package Plant Batch — ${batch_name}`,
@@ -629,9 +577,6 @@ class CultivationPlantBatches {
 		dialog.show();
 	}
 
-	// ---------------------------------------------------------------
-	// RENAME
-	// ---------------------------------------------------------------
 	open_rename_dialog(batch_name, current_name) {
 		const dialog = new frappe.ui.Dialog({
 			title: `Rename Plant Batch — ${batch_name}`,
@@ -654,9 +599,6 @@ class CultivationPlantBatches {
 		dialog.show();
 	}
 
-	// ---------------------------------------------------------------
-	// CHANGE STRAIN
-	// ---------------------------------------------------------------
 	open_change_strain_dialog(batch_name) {
 		const dialog = new frappe.ui.Dialog({
 			title: `Change Strain — ${batch_name}`,
@@ -679,9 +621,6 @@ class CultivationPlantBatches {
 		dialog.show();
 	}
 
-	// ---------------------------------------------------------------
-	// RECORD WASTE
-	// ---------------------------------------------------------------
 	open_waste_dialog(batch_name) {
 		const dialog = new frappe.ui.Dialog({
 			title: `Record Waste — ${batch_name}`,
@@ -710,9 +649,6 @@ class CultivationPlantBatches {
 		dialog.show();
 	}
 
-	// ---------------------------------------------------------------
-	// DESTROY
-	// ---------------------------------------------------------------
 	confirm_destroy(batch_name) {
 		frappe.confirm(
 			`Are you sure you want to destroy all remaining live plants in <b>${batch_name}</b>?`,

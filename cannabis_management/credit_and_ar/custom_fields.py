@@ -1,22 +1,5 @@
-"""Custom field definitions for the Credit & AR Control module.
-
-Fields are declared here and applied idempotently by the module's patches, so a
-plain ``bench migrate`` reproduces them on any site. They are also exported
-through the app's existing unfiltered ``Custom Field`` fixture.
-
-Naming policy: the module does **not** introduce a second order-type or payment
-mode field. ``custom_sales_order_type`` and ``custom_mode_of_payment`` already
-exist on Sales Order and already drive print formats and dashboards, so the
-credit gate reads those (see ``utils.resolve_order_type``). Likewise
-``custom_license_number`` and ``custom_license_expiry`` already exist on
-Customer and are reused as-is.
-"""
-
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 
-# COD leads the list because it is what a brand-new customer gets: cash up front
-# until Finance approves terms. See customer_layout._set_status_permlevel, which
-# re-stamps both the options and the default after every fixture import.
 CREDIT_STATUS_OPTIONS = (
 	"COD\nTerms Approved\nWarning\nHard Hold\nPayment Plan\nWorkout\nBlocked\nPolicy Exempt"
 )
@@ -26,20 +9,13 @@ CREDIT_STATUS_DESCRIPTION = (
 )
 SCORE_BAND_OPTIONS = "Insufficient History\nExcellent\nGood\nFair\nWatch\nCOD Only"
 
-
 CUSTOMER_FIELDS = [
 	{
 		"fieldname": "custom_credit_control_tab",
 		"fieldtype": "Tab Break",
 		"label": "Credit Control",
-		# Sit after the last of Customer's standard "More Information" fields so the
-		# stock Defaults / Internal Customer / More Information sections stay in the
-		# Details tab; this tab then contains only the Credit & AR sections.
 		"insert_after": "custom_link_supplier",
 	},
-	# ── Exemption ────────────────────────────────────────────────────────
-	# The escape hatch, deliberately first: anyone opening this tab should see
-	# immediately whether the policy applies at all.
 	{
 		"fieldname": "custom_credit_exemption_section",
 		"fieldtype": "Section Break",
@@ -51,15 +27,11 @@ CUSTOMER_FIELDS = [
 		"fieldtype": "Small Text",
 		"label": "Exemption Reason",
 		"permlevel": 1,
-		# The exemption is the Credit Status now, so the reason follows it.
 		"depends_on": 'eval:doc.custom_credit_status=="Policy Exempt"',
 		"mandatory_depends_on": 'eval:doc.custom_credit_status=="Policy Exempt"',
 		"description": "Why this account is outside the policy, and who authorised it.",
-		# Straight after the section: the column break that used to sit between
-		# this and the exempt checkbox went with the checkbox itself.
 		"insert_after": "custom_credit_exemption_section",
 	},
-	# ── Standing ─────────────────────────────────────────────────────────
 	{
 		"fieldname": "custom_credit_standing_section",
 		"fieldtype": "Section Break",
@@ -71,18 +43,9 @@ CUSTOMER_FIELDS = [
 		"fieldtype": "Select",
 		"label": "Credit Status",
 		"options": CREDIT_STATUS_OPTIONS,
-		# Set by the engines, changed only by Finance. permlevel 1 on Customer is
-		# already granted to Credit Finance / Managing Director / Accounts Manager
-		# / Sales Master Manager.
 		"permlevel": 1,
-		# Every new customer starts on COD — cash on delivery — and only moves to
-		# Terms Approved once Finance grants a line. Written explicitly because
-		# create_custom_fields only writes the keys it is given.
 		"default": CREDIT_STATUS_DEFAULT,
 		"description": CREDIT_STATUS_DESCRIPTION,
-		# Editable, not read-only: permlevel 1 already limits who can touch it, so
-		# the people who own credit decisions can set it by hand when the engines'
-		# view and reality disagree.
 		"read_only": 0,
 		"in_list_view": 1,
 		"in_standard_filter": 1,
@@ -133,7 +96,6 @@ CUSTOMER_FIELDS = [
 		"read_only": 1,
 		"insert_after": "custom_current_exposure",
 	},
-	# ── Grouping ─────────────────────────────────────────────────────────
 	{
 		"fieldname": "custom_credit_group_section",
 		"fieldtype": "Section Break",
@@ -161,7 +123,6 @@ CUSTOMER_FIELDS = [
 		"description": "Excluded from client-facing credit reports. Intercompany trading is not in use; this stays unticked unless that changes.",
 		"insert_after": "custom_credit_group_cb",
 	},
-	# ── Hold state ───────────────────────────────────────────────────────
 	{
 		"fieldname": "custom_hold_section",
 		"fieldtype": "Section Break",
@@ -196,7 +157,6 @@ CUSTOMER_FIELDS = [
 		"read_only": 1,
 		"insert_after": "custom_returned_payment_count",
 	},
-	# ── Scoring ──────────────────────────────────────────────────────────
 	{
 		"fieldname": "custom_score_section",
 		"fieldtype": "Section Break",
@@ -265,7 +225,6 @@ CUSTOMER_FIELDS = [
 		"read_only": 1,
 		"insert_after": "custom_weekly_volume_g",
 	},
-	# ── Credit file ──────────────────────────────────────────────────────
 	{
 		"fieldname": "custom_credit_file_section",
 		"fieldtype": "Section Break",
@@ -298,15 +257,9 @@ CUSTOMER_FIELDS = [
 	},
 ]
 
-
 PHASE_1_FIELDS = {
 	"Customer": CUSTOMER_FIELDS,
 }
-
-
-# ── Phase 2 ──────────────────────────────────────────────────────────────────
-# Applied only once the Credit Application DocType exists, since these are Link
-# fields pointing at it.
 
 PHASE_2_FIELDS = {
 	"Customer": [
@@ -321,11 +274,6 @@ PHASE_2_FIELDS = {
 		},
 	],
 }
-
-
-# ── Phase 3 ──────────────────────────────────────────────────────────────────
-# The Sales Order gate. No new order-type or payment-mode field: the gate reads
-# custom_sales_order_type and custom_mode_of_payment, which already exist.
 
 LEDGER_OPTIONS = "\nNew Book\nLegacy\nPlan\nWorkout Paydown\nDeposit"
 
@@ -440,8 +388,6 @@ SALES_ORDER_FIELDS = [
 	},
 ]
 
-# Needed now rather than in phase 5: the submit gate cannot verify a cleared
-# deposit without somewhere to record one.
 PAYMENT_ENTRY_FIELDS = [
 	{
 		"fieldname": "custom_credit_section",
@@ -532,11 +478,6 @@ PHASE_3_FIELDS = {
 	"Sales Invoice": SALES_INVOICE_FIELDS,
 }
 
-
-# ── Phase 4 ──────────────────────────────────────────────────────────────────
-# Link fields pointing at AR Case, so they can only be created once that DocType
-# exists.
-
 PHASE_4_FIELDS = {
 	"Customer": [
 		{
@@ -589,12 +530,6 @@ PHASE_4_FIELDS = {
 	],
 }
 
-
-# ── Workout balance tracking ─────────────────────────────────────────────────
-# Required Paydown is measured against Net Total, and "paydown made" is now the
-# drop in the AR Case's live Current Balance since the customer's last
-# submitted workout order — this snapshot is that baseline.
-
 WORKOUT_BALANCE_FIELDS = {
 	"Sales Order": [
 		{
@@ -625,8 +560,6 @@ def install_workout_balance_field():
 
 
 def install_exemption_fields():
-	"""Re-apply the Customer block so the exemption fields and the widened
-	credit-status options land on an already-migrated site."""
 	create_custom_fields({"Customer": CUSTOMER_FIELDS}, update=True)
 
 

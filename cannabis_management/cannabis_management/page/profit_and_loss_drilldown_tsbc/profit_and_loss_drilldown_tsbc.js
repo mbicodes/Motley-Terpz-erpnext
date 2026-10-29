@@ -1,37 +1,3 @@
-// Copyright (c) 2026, Cannabis Management
-// License: GNU General Public License v3. See license.txt
-//
-// Custom, from-scratch Frappe Page (NOT a Workspace, NOT a modification of the
-// existing "Profit and Loss Statement Child Accounts" Script Report) built to
-// support one thing frappe-datatable cannot do: a column that appears only
-// while a row carrying data for it is currently expanded/visible, and
-// disappears again the instant that row is collapsed. Re-initializing
-// frappe-datatable on every expand/collapse to fake this would reset every
-// other expanded branch in the tree and be slow at the 10-13k row sizes this
-// report can return once transaction/item drill-down is included - so this
-// page renders its own plain HTML <table> instead and recomputes visible
-// rows/columns with a single O(n) pass (see computeVisibleRowsAndColumns()
-// below) on every toggle, search keystroke, and view switch.
-//
-// Deliberately reuses the exact same backend the existing report already
-// uses - frappe.desk.query_report.run() against report_name "Profit and Loss
-// Statement Child Accounts" - so there is no new Python in this app: same
-// filters, same is_tree/parent_field contract, same columns/result/chart/
-// report_summary shape. See cannabis_management/cannabis_management/report/
-// profit_and_loss_statement_child_accounts/profit_and_loss_statement_child_accounts.py
-// for how that payload is built, and financial_statements.py (same package)
-// for attach_transaction_rows()/get_transaction_detail_columns(), which is
-// where the 4 row "kinds" (account group, account leaf, transaction, item)
-// and the 12 possible "transaction detail" columns come from.
-//
-// Visual structure/CSS organization mirrors this app's existing
-// profit_and_loss_repo.js page closely (same dark-header/light-body
-// dashboard aesthetic, same frappe.call pattern, same KPI-cards/chart/
-// filters-panel/CSV-export approach) - see that file for the shared style.
-// All class/id names here use a "pld-" prefix (distinct from that page's
-// "pnl-" prefix) so both pages' injected <style> blocks can coexist in the
-// same desk session without clashing.
-
 frappe.pages["profit-and-loss-drilldown-tsbc"].on_page_load = function (wrapper) {
 	var page = frappe.ui.make_app_page({
 		parent: wrapper,
@@ -45,28 +11,11 @@ frappe.pages["profit-and-loss-drilldown-tsbc"].on_page_load = function (wrapper)
 	$body.html('<div id="pld-root"></div>');
 	var $root = $("#pld-root");
 
-	// ── Every transaction-detail column the shared backend can possibly
-	// return (see TRANSACTION_DETAIL_FIELDS in financial_statements.py) - the
-	// ONLY columns eligible for live expand/collapse-driven show/hide. Every
-	// other column (account, each period, total) is a base column and always
-	// renders. Kept in sync with that Python tuple's fieldnames (note the
-	// valuation-rate column's fieldname is "rate", not "valuation_rate").
 	var TRANSACTION_DETAIL_FIELDNAMES = [
 		"posting_date", "voucher_type", "voucher_no", "party", "against",
 		"debit", "credit", "item_code", "item_name", "qty", "rate", "amount",
 	];
 
-	// ── Stock Valuation Lineage drill-down (COGS only) ───────────────────────
-	// A COGS item row sold via Sales Invoice/Delivery Note (see show_lineage
-	// on the row - set server-side in make_item_row()) can expand one level
-	// further into its backward valuation trace: Sold -> Produced/Repack ->
-	// Consumed Input -> ... -> Purchased/Opening/Transferred - the exact same
-	// engine as the standalone "Stock Valuation Lineage" report, fetched on
-	// demand for just this one line via get_item_lineage(). These 4 columns
-	// only ever appear on lineage rows, so the backend never returns them -
-	// they're appended to state.dynamicColumnDefs by hand once the report
-	// loads (see runReport()'s callback) so the same expand/collapse-driven
-	// dynamic-column logic picks them up automatically.
 	var LINEAGE_ONLY_COLUMNS = [
 		{ label: "Phase", fieldname: "phase", fieldtype: "Data", width: 220 },
 		{ label: "UOM", fieldname: "uom", fieldtype: "Data", width: 70 },
@@ -75,29 +24,9 @@ frappe.pages["profit-and-loss-drilldown-tsbc"].on_page_load = function (wrapper)
 	];
 	var LINEAGE_METHOD = "cannabis_management.cannabis_management.report.stock_valuation_lineage.stock_valuation_lineage.get_item_lineage";
 
-	// ── Account-level transaction/item drill-down - lazy, on demand ─────────
-	// The backend (profit_and_loss_statement_child_accounts.py) skips its own
-	// eager attach_transaction_rows() step for this page (see
-	// filters.skip_transaction_drilldown in runReport() below) - building
-	// every leaf account's transactions/items up front was what made every
-	// report run slow, even though almost all of them start collapsed (see
-	// seedDefaultExpandState()) and most never get expanded at all. Instead,
-	// a leaf account's own transactions (and, for vouchers with an item
-	// table, their line items) are fetched only once that specific row is
-	// actually expanded - same on-demand shape as the lineage drill-down
-	// above, just one level shallower in the tree.
 	var DRILLDOWN_METHOD = "cannabis_management.cannabis_management.report.profit_and_loss_statement_child_accounts_tsbc.profit_and_loss_statement_child_accounts_tsbc.get_account_drilldown";
 	var BULK_DRILLDOWN_METHOD = "cannabis_management.cannabis_management.report.profit_and_loss_statement_child_accounts_tsbc.profit_and_loss_statement_child_accounts_tsbc.get_accounts_drilldown";
 
-	// Since the backend no longer eagerly builds any transaction/item rows
-	// at initial load, `data` never carries a value for these fields at that
-	// point either - so get_transaction_detail_columns() (data-driven, only
-	// includes a column if some row actually has it) would always come back
-	// empty. Hardcoded here instead, mirroring that same Python function's
-	// column defs exactly, same reasoning as LINEAGE_ONLY_COLUMNS above: the
-	// existing show/hide-while-expanded logic in
-	// computeVisibleRowsAndColumns() only needs the DEFINITIONS up front: it
-	// already decides per-render whether a column has any visible data.
 	var TRANSACTION_DETAIL_COLUMN_DEFS = [
 		{ label: "Posting Date", fieldname: "posting_date", fieldtype: "Date", width: 100 },
 		{ label: "Voucher Type", fieldname: "voucher_type", fieldtype: "Data", width: 130 },
@@ -115,7 +44,6 @@ frappe.pages["profit-and-loss-drilldown-tsbc"].on_page_load = function (wrapper)
 
 	var VOUCHER_TYPE_LABELS_INCOME = ["income"];
 
-	// ── State ───────────────────────────────────────────────────────────────
 	var state = {
 		company: frappe.defaults.get_user_default("Company") || "",
 		filter_based_on: "Fiscal Year",
@@ -126,8 +54,6 @@ frappe.pages["profit-and-loss-drilldown-tsbc"].on_page_load = function (wrapper)
 		periodicity: "Yearly",
 		presentation_currency: "",
 		selected_view: "Report",
-		// Matches this report's own filter default (see
-		// profit_and_loss_statement_child_accounts.js push() block) - 0, not 1.
 		accumulated_values: 0,
 		show_zero_values: 0,
 		include_default_book_entries: 1,
@@ -147,7 +73,6 @@ frappe.pages["profit-and-loss-drilldown-tsbc"].on_page_load = function (wrapper)
 		chart_instance: null,
 	};
 
-	// ── Inject CSS ──────────────────────────────────────────────────────────
 	if (!document.getElementById("pld-styles")) {
 		var style = document.createElement("style");
 		style.id = "pld-styles";
@@ -425,7 +350,6 @@ frappe.pages["profit-and-loss-drilldown-tsbc"].on_page_load = function (wrapper)
 		document.head.appendChild(style);
 	}
 
-	// ── Chart.js from CDN, loaded once and reused ─────────────────────────────
 	function ensureChartJs(cb) {
 		if (window.Chart) { cb(); return; }
 		var s = document.createElement("script");
@@ -434,7 +358,6 @@ frappe.pages["profit-and-loss-drilldown-tsbc"].on_page_load = function (wrapper)
 		document.head.appendChild(s);
 	}
 
-	// ── Formatting helpers ────────────────────────────────────────────────────
 	function fmt_currency(val, currency) {
 		if (val === "" || val === null || val === undefined) return "";
 		var n = parseFloat(val) || 0;
@@ -466,25 +389,6 @@ frappe.pages["profit-and-loss-drilldown-tsbc"].on_page_load = function (wrapper)
 			|| "USD";
 	}
 
-	// ── Row classification (computed once per row, right after data loads) ──
-	// Every row in the flat result is exactly one of:
-	//   'blank'       - falsy/spacer entry between statement sections
-	//   'group'       - real group account, OR a synthetic section-heading row
-	//                   (Income / Cost of Goods Sold / Expense - see
-	//                   get_section_heading_row() in the .py, which sets
-	//                   is_group=1 but has no "account" field at all)
-	//   'leaf'        - real leaf account (has a real, unquoted "account")
-	//   'transaction' - a voucher drilled into under a leaf account
-	//   'item'        - a line item drilled into under a transaction row
-	//   'total'       - a synthetic total/diff/net-profit row (quoted
-	//                   "account", never collapsible, never a link)
-	// Every synthetic row financial_statements.py builds (total rows,
-	// transaction rows, item rows) quotes its "account" value in literal
-	// single-quotes specifically so Link-fieldtype rendering treats it as
-	// plain text instead of a (broken) link to a real Account - see the
-	// comment on make_transaction_row() in that file. We reuse that same
-	// quoting convention here to tell a real account apart from a synthetic
-	// row without needing any extra field.
 	function classifyRow(row) {
 		if (!row || (row.account === undefined && row.account_name === undefined && row.is_group === undefined)) {
 			return "blank";
@@ -498,21 +402,10 @@ frappe.pages["profit-and-loss-drilldown-tsbc"].on_page_load = function (wrapper)
 		return "total";
 	}
 
-	// The stable, unique key used for both the expandedState map and the
-	// collapse-tracking pass below. Real accounts and every synthetic row
-	// financial_statements.py builds carry a real (or quoted) "account" value
-	// - the one exception is this report's own get_section_heading_row(),
-	// which omits "account" entirely, so we fall back to account_name for
-	// those 3 rows (Income / Cost of Goods Sold / Expense - unique among
-	// themselves, which is all that matters here).
 	function rowKey(row) {
 		return row.account || row.account_name;
 	}
 
-	// reset=false merges into the existing state.rowsByKey instead of
-	// wiping it - used when annotating a batch of rows freshly fetched by
-	// the on-demand drill-down below, which must not lose track of every
-	// row already on screen.
 	function annotateRows(allRows, reset) {
 		if (reset !== false) state.rowsByKey = {};
 		for (var i = 0; i < allRows.length; i++) {
@@ -529,12 +422,6 @@ frappe.pages["profit-and-loss-drilldown-tsbc"].on_page_load = function (wrapper)
 		}
 	}
 
-	// Seed a sensible default expand state so the initial view reads like a
-	// normal income statement, not an exploded wall of transactions: account
-	// rows at indent <= 2 start expanded (absence from the map = expanded);
-	// deeper account rows, every transaction row, and every lineage-eligible
-	// COGS item row start collapsed (nobody wants a 50-row valuation trace
-	// unfolding under every single sold item by default).
 	function seedDefaultExpandState(allRows) {
 		var expanded = {};
 		for (var i = 0; i < allRows.length; i++) {
@@ -554,23 +441,6 @@ frappe.pages["profit-and-loss-drilldown-tsbc"].on_page_load = function (wrapper)
 		return expanded;
 	}
 
-	// ── THE core new logic: single O(n) pass computing which rows are
-	// currently visible (given collapse state) and which of the 12 possible
-	// transaction-detail columns still have data among those visible rows -
-	// i.e. columns that show only while a row with data for them is expanded,
-	// and vanish again the instant that row collapses. Deliberately NOT the
-	// reference page's ancestor-walk (O(n^2) - fine for ~100 account rows,
-	// far too slow once transaction/item drill-down pushes this past 10k+
-	// rows): every row already carries a correct pre-order `indent`, so a
-	// single pass with a small "currently collapsed" stack is enough.
-	//
-	// One deliberate refinement over the plain "is_group || voucher_type"
-	// collapsibility rule: a real LEAF account row is also collapsible (its
-	// children are the transactions attach_transaction_rows() attached to
-	// it) even though is_group is falsy for a leaf - so collapsibility here
-	// is kind-based (group / leaf / transaction) rather than only
-	// is_group/voucher_type, otherwise collapsing a leaf account would never
-	// actually hide its own transactions.
 	function computeVisibleRowsAndColumns(allRows, expandedState, transactionDetailColumnDefs, searchText) {
 		var visible = [];
 		var collapseStack = [];
@@ -586,9 +456,6 @@ frappe.pages["profit-and-loss-drilldown-tsbc"].on_page_load = function (wrapper)
 			var isHidden = collapseStack.length > 0;
 			if (!isHidden) visible.push(row);
 
-			// A lineage-eligible item row is also collapsible: its lineage
-			// phase rows (fetched on demand) are its children, one level
-			// deeper, exactly like a leaf account's transactions.
 			var isCollapsible = row.__kind === "group" || row.__kind === "leaf" || row.__kind === "transaction"
 				|| (row.__kind === "item" && row.show_lineage);
 			var isCollapsed = isCollapsible && expandedState[row.__key] === false;
@@ -600,7 +467,7 @@ frappe.pages["profit-and-loss-drilldown-tsbc"].on_page_load = function (wrapper)
 		if (searchText) {
 			var needle = searchText.toLowerCase();
 			visible = visible.filter(function (r) {
-				if (!r) return true; // keep spacer rows
+				if (!r) return true;
 				var label = r.account_name || "";
 				return label.toLowerCase().indexOf(needle) !== -1;
 			});
@@ -619,7 +486,6 @@ frappe.pages["profit-and-loss-drilldown-tsbc"].on_page_load = function (wrapper)
 		return { visible: visible, dynamicColumns: dynamicColumns };
 	}
 
-	// ── Build Shell HTML ─────────────────────────────────────────────────────
 	function buildShell() {
 		return `
         <div class="pld-header">
@@ -724,7 +590,6 @@ frappe.pages["profit-and-loss-drilldown-tsbc"].on_page_load = function (wrapper)
         `;
 	}
 
-	// ── Render body content ──────────────────────────────────────────────────
 	function renderResults() {
 		var $b = $("#pld-body");
 		if (state.loading) {
@@ -753,14 +618,6 @@ frappe.pages["profit-and-loss-drilldown-tsbc"].on_page_load = function (wrapper)
 		$("#pld-footer").show();
 	}
 
-	// ── KPI Cards ────────────────────────────────────────────────────────────
-	// report_summary already comes back in the exact order get_report_summary()
-	// in profit_and_loss_statement_child_accounts.py builds it - 5 real entries
-	// (Total Income / Total COGS / Gross Profit / Total Expense / Net Profit)
-	// interleaved with separator entries - so we render positionally rather
-	// than string-matching on label text (which would break under
-	// translation or if the "Net Profit" vs "Net Profit This Year" label
-	// varies).
 	function buildKpiCards(currency) {
 		var summary = (state.summary || []).filter(function (s) { return s && s.type !== "separator"; });
 		var configs = [
@@ -794,7 +651,6 @@ frappe.pages["profit-and-loss-drilldown-tsbc"].on_page_load = function (wrapper)
 
 	function flt_(v) { return parseFloat(v) || 0; }
 
-	// ── Chart Card ────────────────────────────────────────────────────────────
 	function buildChartCard() {
 		var period = state.from_fiscal_year || state.period_start_date || "";
 		if (state.to_fiscal_year && state.to_fiscal_year !== state.from_fiscal_year) period += " – " + state.to_fiscal_year;
@@ -893,7 +749,6 @@ frappe.pages["profit-and-loss-drilldown-tsbc"].on_page_load = function (wrapper)
 		});
 	}
 
-	// ── Table Card ────────────────────────────────────────────────────────────
 	function buildTableCard() {
 		return `
             <div class="pld-table-card">
@@ -991,15 +846,7 @@ frappe.pages["profit-and-loss-drilldown-tsbc"].on_page_load = function (wrapper)
 
 		var isLineageToggle = row.__kind === "item" && row.show_lineage;
 		if (row.__kind === "group" || row.__kind === "leaf" || row.__kind === "transaction" || isLineageToggle) {
-			// Same !== false ("absent from the map = open") convention for
-			// every collapsible kind, lineage-eligible items included -
-			// seedDefaultExpandState() explicitly seeds these to false so
-			// they still start closed despite the shared convention.
 			var isOpen = state.expandedState[row.__key] !== false;
-			// A leaf account's OWN transactions/items are fetched on demand
-			// the first time it's expanded (see bindTableEventsOnce()'s
-			// .pld-toggle handler) - row.__txnLoading mirrors
-			// row.__lineageLoading's spinner treatment below for that wait.
 			var isLoading = row.__lineageLoading || row.__txnLoading;
 			var lineageClass = isLineageToggle ? " pld-toggle-lineage" : "";
 			var title = isLineageToggle ? ' title="Trace valuation lineage"' : "";
@@ -1019,10 +866,6 @@ frappe.pages["profit-and-loss-drilldown-tsbc"].on_page_load = function (wrapper)
 		} else if (row.__kind === "item" || row.__kind === "lineage") {
 			labelHtml = row.item_code ? frappe.utils.get_form_link("Item", row.item_code, true, label) : label;
 		} else {
-			// Real account rows (leaf or group) and every synthetic
-			// total/heading row never navigate anywhere - they already
-			// expand in place, so plain text only (see the existing
-			// report .js files' identical rule/comment).
 			labelHtml = label;
 		}
 
@@ -1046,11 +889,6 @@ frappe.pages["profit-and-loss-drilldown-tsbc"].on_page_load = function (wrapper)
 		var html = "";
 		var totalCols = baseColumns.length + dynamicColumns.length;
 
-		// The final row of the whole (unfiltered) dataset is always the
-		// bottom-line Net Profit row (data.append(net_profit_row) is
-		// literally the last statement in execute()) - detected positionally
-		// rather than by matching label text, since that label can read
-		// "Net Profit" or "Net Profit This Year" depending on the period.
 		var lastRealRow = null;
 		for (var li = state.allRows.length - 1; li >= 0; li--) {
 			if (state.allRows[li]) { lastRealRow = state.allRows[li]; break; }
@@ -1080,9 +918,6 @@ frappe.pages["profit-and-loss-drilldown-tsbc"].on_page_load = function (wrapper)
 		return html;
 	}
 
-	// Recomputes visible rows + dynamic columns (the O(n) pass) and rebuilds
-	// only <thead>/<tbody> - called on initial load and on every toggle,
-	// search keystroke, and Expand All / Collapse All click.
 	function rerenderTable() {
 		var searchText = ($("#pld-search").val() || "").trim();
 		var res = computeVisibleRowsAndColumns(state.allRows, state.expandedState, state.dynamicColumnDefs, searchText);
@@ -1092,16 +927,6 @@ frappe.pages["profit-and-loss-drilldown-tsbc"].on_page_load = function (wrapper)
 		$("#pld-tbody").html(buildTableRows(res.visible, state.baseColumns, res.dynamicColumns));
 	}
 
-	// ── Table event binding (delegated on the persistent #pld-root so it
-	// survives every innerHTML rebuild of the body underneath it) ───────────
-	// Turns one Stock Valuation Lineage phase row (get_item_lineage()'s own
-	// shape: phase/item_code/qty/uom/valuation_rate/amount/warehouse/
-	// voucher_type/voucher_no/posting_date/stock_ledger_entry/indent) into
-	// this table's row shape. Reuses "rate"/"amount"/"item_code"/"qty"/
-	// "voucher_type"/"voucher_no"/"posting_date" so the EXISTING
-	// transaction-detail columns already know how to render them; only
-	// "phase"/"uom"/"warehouse"/"stock_ledger_entry" are genuinely new (see
-	// LINEAGE_ONLY_COLUMNS).
 	function lineageRowToDisplayRow(lineageRow, itemRow, idx) {
 		var key = itemRow.__key + "::lineage::" + idx;
 		return {
@@ -1134,11 +959,6 @@ frappe.pages["profit-and-loss-drilldown-tsbc"].on_page_load = function (wrapper)
 		state.allRows.splice.apply(state.allRows, [idx + 1, 0].concat(newRows));
 	}
 
-	// Fetches and splices in one leaf account's transactions/items (see
-	// DRILLDOWN_METHOD above). Resolves once state.allRows/expandedState are
-	// updated - caller still has to rerenderTable() itself, same as every
-	// other mutate-then-render call in this file, so it can control exactly
-	// when (e.g. Expand All batches many of these before a single rerender).
 	function fetchAccountDrilldown(row) {
 		return new Promise(function (resolve) {
 			row.__txnLoading = true;
@@ -1174,11 +994,6 @@ frappe.pages["profit-and-loss-drilldown-tsbc"].on_page_load = function (wrapper)
 	}
 
 	function bindTableEventsOnce() {
-		// Bound BEFORE the generic .pld-toggle handler below and stops
-		// immediate propagation - a lineage toggle's element carries BOTH
-		// classes (it's a .pld-toggle for styling), so without this the
-		// generic handler would also fire and flip expandedState a second,
-		// conflicting time.
 		$root.on("click", "#pld-tbody .pld-toggle-lineage", function (e) {
 			e.stopPropagation();
 			e.stopImmediatePropagation();
@@ -1234,10 +1049,6 @@ frappe.pages["profit-and-loss-drilldown-tsbc"].on_page_load = function (wrapper)
 			var row = state.rowsByKey[key];
 			if (!row) return;
 
-			// A leaf account's own transactions/items aren't in state.allRows
-			// yet until it's actually expanded (see the module-level comment
-			// on DRILLDOWN_METHOD above) - fetch them the first time, then
-			// behave exactly like every other toggle from then on.
 			if (row.__kind === "leaf" && !row.__txnLoaded) {
 				if (row.__txnLoading) return;
 				fetchAccountDrilldown(row).then(function () { rerenderTable(); });
@@ -1280,9 +1091,6 @@ frappe.pages["profit-and-loss-drilldown-tsbc"].on_page_load = function (wrapper)
 				args: { accounts: JSON.stringify(accountsArg), filters: JSON.stringify(buildReportFilters()) },
 				callback: function (r) {
 					var byAccount = r.message || {};
-					// Walk allRows back-to-front so inserting one account's
-					// rows never shifts the index the next insertion (further
-					// up the list) relies on.
 					for (var i = state.allRows.length - 1; i >= 0; i--) {
 						var acctRow = state.allRows[i];
 						if (!acctRow || acctRow.__kind !== "leaf" || !acctRow.__txnLoading) continue;
@@ -1330,9 +1138,6 @@ frappe.pages["profit-and-loss-drilldown-tsbc"].on_page_load = function (wrapper)
 		$root.on("click", "#pld-print-btn", function () { window.print(); });
 	}
 
-	// ── CSV Export - current dynamic column set + current visible rows only,
-	// i.e. exactly what's on screen right now (collapsed branches excluded,
-	// hidden columns excluded). ───────────────────────────────────────────
 	function exportCsv() {
 		var baseColumns = state.baseColumns;
 		var dynamicColumns = state.lastDynamicColumns;
@@ -1365,7 +1170,6 @@ frappe.pages["profit-and-loss-drilldown-tsbc"].on_page_load = function (wrapper)
 		a.click();
 	}
 
-	// ── Load metadata ─────────────────────────────────────────────────────────
 	function loadMetadata() {
 		frappe.db.get_list("Company", { fields: ["name"], limit: 100 }).then(function (res) {
 			var $s = $("#pld-company");
@@ -1414,7 +1218,6 @@ frappe.pages["profit-and-loss-drilldown-tsbc"].on_page_load = function (wrapper)
 		});
 	}
 
-	// ── Debounced auto-run ────────────────────────────────────────────────────
 	var autoRunTimer = null;
 	function scheduleRun() {
 		clearTimeout(autoRunTimer);
@@ -1460,10 +1263,6 @@ frappe.pages["profit-and-loss-drilldown-tsbc"].on_page_load = function (wrapper)
 		$("#pld-header-sub").text(sub);
 	}
 
-	// Same filters shape both runReport() and the on-demand drill-down calls
-	// need (company/period/currency) - factored out so a leaf account's
-	// lazy-loaded transactions always match the period/currency the report
-	// itself was just run with.
 	function buildReportFilters() {
 		var filters = {
 			company: state.company,
@@ -1485,8 +1284,6 @@ frappe.pages["profit-and-loss-drilldown-tsbc"].on_page_load = function (wrapper)
 		return filters;
 	}
 
-	// ── Run Report - same generic endpoint the existing query reports use,
-	// same report_name, same filters shape, same is_tree/parent_field. ──────
 	function runReport() {
 		if (!state.company) { frappe.msgprint("Please select a Company."); return; }
 		if (state.filter_based_on === "Fiscal Year" && !state.from_fiscal_year) { frappe.msgprint("Please select a Fiscal Year."); return; }
@@ -1497,11 +1294,6 @@ frappe.pages["profit-and-loss-drilldown-tsbc"].on_page_load = function (wrapper)
 		$("#pld-run-btn").addClass("loading");
 
 		var filters = buildReportFilters();
-		// Tells the backend to skip its own eager transaction/item
-		// drill-down (attach_transaction_rows()) - this Page fetches that
-		// on demand per account instead (see DRILLDOWN_METHOD above), so
-		// building it for every leaf account up front here would just be
-		// wasted work for whatever the user never expands.
 		filters.skip_transaction_drilldown = 1;
 
 		frappe.call({
@@ -1522,16 +1314,6 @@ frappe.pages["profit-and-loss-drilldown-tsbc"].on_page_load = function (wrapper)
 					state.baseColumns = allColumns.filter(function (c) {
 						return !c.hidden && TRANSACTION_DETAIL_FIELDNAMES.indexOf(c.fieldname) === -1;
 					});
-					// Never sourced from the backend's own columns here -
-					// filters.skip_transaction_drilldown means `msg.result`
-					// never carries a transaction/item row at initial load
-					// (they're fetched lazily per account instead - see
-					// DRILLDOWN_METHOD above), so the backend's own
-					// data-driven get_transaction_detail_columns() would
-					// always come back empty. Same reasoning as
-					// LINEAGE_ONLY_COLUMNS: the existing show/hide-while-
-					// visible logic in computeVisibleRowsAndColumns() only
-					// needs the column DEFINITIONS up front.
 					state.dynamicColumnDefs = TRANSACTION_DETAIL_COLUMN_DEFS.concat(LINEAGE_ONLY_COLUMNS);
 					state.allRows = msg.result || [];
 					state.summary = msg.report_summary || [];
@@ -1558,7 +1340,6 @@ frappe.pages["profit-and-loss-drilldown-tsbc"].on_page_load = function (wrapper)
 		});
 	}
 
-	// ── Bootstrap ─────────────────────────────────────────────────────────────
 	$root.html(buildShell());
 	loadMetadata();
 	bindControls();

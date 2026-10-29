@@ -4,10 +4,6 @@
 
 {% block head_include %}
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-{# timeclock.css and timeclock.js are picked up and inlined automatically by Frappe
-   because they sit next to this template and share its name. Do NOT also link them
-   with <link>/<script src> tags: the JS would then execute twice, registering two
-   delegated click listeners and firing two punches per tap. #}
 {% endblock %}
 
 {% block page_content %}
@@ -28,7 +24,6 @@
 
   {% else %}
 
-  <!-- ── CLOCK CARD ──────────────────────────────────────────────── -->
   <div class="tc-card tc-clock" id="tcClockCard">
     <div class="tc-greeting">{{ _("Hi") }}, <span class="tc-name">{{ full_name }}</span></div>
 
@@ -48,7 +43,6 @@
     <div class="tc-msg" id="tcMsg" role="status" aria-live="polite"></div>
   </div>
 
-  <!-- ── TODAY'S PUNCHES ────────────────────────────────────────── -->
   <div class="tc-card">
     <div class="tc-card-head">
       <h3>{{ _("Today") }}</h3>
@@ -62,7 +56,6 @@
 
   {% endif %}
 
-  <!-- ── ROSTER / NOTES (note-takers only) ─────────────────────────── -->
   {% if can_manage_notes %}
   <div class="tc-card" id="tcRosterCard">
     <div class="tc-card-head">
@@ -77,7 +70,6 @@
 
 </div>
 
-<!-- Note editor dialog: plain markup, shown/hidden by JS. No PIN — the role is the gate. -->
 {% if can_manage_notes %}
 <div class="tc-modal" id="tcNoteModal" hidden>
   <div class="tc-modal-box">

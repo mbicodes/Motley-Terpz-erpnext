@@ -1,4 +1,3 @@
-/* ── Manufacturing Control ─────────────────────────────────────────────────── */
 :root {
   --mc-purple: #7b2fbf;
   --mc-purple-light: #f0e6ff;
@@ -24,16 +23,12 @@
   padding: 0;
 }
 
-/* This page-level stylesheet only loads while this page is open, so it's
-   safe to hide the standard Frappe "Manufacturing Process" title bar here —
-   our own purple header above replaces it. */
 .page-head {
   display: none !important;
   border: none !important;
   box-shadow: none !important;
 }
 
-/* ── Header Bar ── */
 .mc-header {
   display: flex;
   align-items: center;
@@ -106,7 +101,6 @@
 }
 .mc-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-/* ── Back Button ── */
 .mc-back {
   display: inline-flex;
   align-items: center;
@@ -119,7 +113,6 @@
 }
 .mc-back:hover { opacity: 1; }
 
-/* ── Stats Row ── */
 .mc-stats {
   display: flex;
   gap: 16px;
@@ -149,15 +142,10 @@
   margin-top: 4px;
 }
 
-/* ── Section ── */
 .mc-section {
   padding: 20px 24px 24px;
 }
 
-/* ── Header filters (Item Link field + Date), replacing the old WO jump box.
-   The Item filter is a real frappe.ui.form Link control — it brings its own
-   awesomplete dropdown, so only sizing/contrast overrides are needed here to
-   match it against the white header. ── */
 .mc-filter-wrap {
   position: relative;
   min-width: 200px;
@@ -177,14 +165,9 @@
   color: var(--mc-text);
 }
 
-/* ── Run list — every run's card is always fully expanded here, stacked
-   vertically; nothing is collapsed and nothing navigates to another page ── */
 .mc-run-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
-  /* Masonry: short rows, each card spans as many as its height needs
-     (set from JS, _observe_card_heights) -- no gap left beside a tall card.
-     The space between cards vertically is kept by that span, not row-gap. */
   grid-auto-rows: 8px;
   column-gap: 16px;
   row-gap: 0;
@@ -217,7 +200,6 @@
 .mc-run-card .mc-run-meta { padding: 4px 0 0; flex-wrap: wrap; }
 .mc-run-card-body { margin-top: 12px; }
 
-/* ── Status Badges ── */
 .mc-status {
   display: inline-block;
   padding: 2px 8px;
@@ -246,7 +228,6 @@
 .mc-status-overdue { background: #f8d7da; color: #721c24; }
 .mc-status-stopped { background: #f8d7da; color: #721c24; }
 
-/* ── JC Card ── */
 .mc-jc-card {
   background: var(--mc-card);
   border-radius: var(--mc-radius);
@@ -282,7 +263,6 @@
   gap: 4px 12px;
 }
 
-/* ── Detail View ── */
 .mc-detail {
   padding: 24px;
 }
@@ -313,7 +293,6 @@
   flex-wrap: wrap;
 }
 
-/* ── Chain Visualization ── */
 .mc-chain {
   background: var(--mc-card);
   border-radius: var(--mc-radius);
@@ -362,7 +341,6 @@
   font-weight: bold;
 }
 
-/* ── WO Row ── */
 .mc-wo-row {
   background: var(--mc-card);
   border-radius: var(--mc-radius);
@@ -422,7 +400,6 @@
   color: var(--mc-text-muted);
 }
 
-/* ── JC Detail View ── */
 .mc-jc-detail-header {
   background: var(--mc-card);
   border-radius: var(--mc-radius);
@@ -432,7 +409,6 @@
   border-left: 5px solid var(--mc-purple);
 }
 
-/* ── Timer Area ── */
 .mc-timer-section {
   background: var(--mc-card);
   border-radius: var(--mc-radius);
@@ -483,7 +459,6 @@
   margin-bottom: 4px;
 }
 
-/* ── Sub-Operations ── */
 .mc-sub-ops {
   margin-top: 2px;
 }
@@ -533,7 +508,6 @@
   font-weight: 700;
 }
 
-/* ── Time Logs ── */
 .mc-time-logs {
   background: var(--mc-card);
   border-radius: var(--mc-radius);
@@ -551,7 +525,6 @@
 }
 .mc-time-log-row:last-child { border-bottom: none; }
 
-/* ── Micron Section ── */
 .mc-micron-section {
   background: var(--mc-card);
   border-radius: var(--mc-radius);
@@ -573,7 +546,6 @@
   font-size: 13px;
 }
 
-/* ── Transfer Modal ── */
 .mc-transfer-table {
   width: 100%;
   border-collapse: collapse;
@@ -601,7 +573,6 @@
   font-size: 13px;
 }
 
-/* ── Run meta ── */
 .mc-run-meta {
   display: flex;
   gap: 16px;
@@ -610,9 +581,6 @@
   color: var(--mc-text-muted);
 }
 
-/* ── Unified operations card header (Release / Send Material to WIP) ──
-   Buttons stay pinned top-right next to the title — the title truncates
-   instead of pushing them onto their own line. ── */
 .mc-ops-card-head {
   display: flex;
   align-items: flex-start;
@@ -635,7 +603,6 @@
   margin-bottom: 12px;
 }
 
-/* ── Per-operation group inside the merged Run-the-operations card ── */
 .mc-run-operations-card {
   display: flex;
   flex-direction: column;
@@ -679,7 +646,6 @@
   color: var(--mc-purple);
 }
 
-/* ── Complete banner ── */
 .mc-complete-banner {
   background: #d4edda;
   border-radius: var(--mc-radius);
@@ -688,7 +654,6 @@
   font-size: 14px;
 }
 
-/* ── Loading / Empty ── */
 .mc-loading {
   text-align: center;
   padding: 40px;
@@ -705,7 +670,6 @@
   border: 1px dashed var(--mc-border);
 }
 
-/* ── Responsive ── */
 @media (max-width: 768px) {
   .mc-header { padding: 10px 16px; flex-wrap: wrap; }
   .mc-header h1 { font-size: 16px; }
@@ -724,7 +688,6 @@
   .mc-run-card { padding: 16px; }
 }
 
-/* ── Card collapse / expand (per card + Collapse All / Expand All) ── */
 .mc-card-toggle {
   flex-shrink: 0;
   width: 26px;
@@ -741,7 +704,6 @@
 .mc-card-toggle:hover { background: var(--mc-purple-light); }
 .mc-run-card.is-collapsed .mc-run-card-body { display: none; }
 
-/* ── Who ran it: employee (+ workstation) on the operation and sub-op rows ── */
 .mc-op-employee {
   display: inline-flex;
   align-items: center;
@@ -761,8 +723,6 @@
 }
 .mc-sub-op-who .mc-muted { color: var(--mc-text-muted); }
 
-/* Assigned employee shown in place of the Assign To button: plain text,
-   not clickable -- an assignment is not picked again from here. */
 .mc-assigned-name {
   display: inline-block;
   margin-right: 8px;
@@ -772,9 +732,6 @@
   vertical-align: middle;
 }
 
-/* Step buttons: filled until the step is done, then white with black text
-   (the plain .mc-op-btn look). .mc-step-done marks a one-time step that is
-   finished and can't be pressed again. */
 .mc-btn-pending,
 .mc-op-btn.mc-btn-pending {
   background: var(--mc-purple);
@@ -792,13 +749,11 @@
   pointer-events: none;
 }
 
-/* The masonry grid's rows are 8px: the empty-list message spans enough of them. */
 .mc-run-list > .mc-empty {
   grid-column: 1 / -1;
   grid-row: span 10;
 }
 
-/* Grams of Bubble Hash / Rosin, next to its button. */
 .mc-op-qty {
   display: inline-flex;
   align-items: center;
@@ -810,7 +765,6 @@
   font-size: 13px;
 }
 
-/* Runs grouped by batch (Project). */
 .mc-batch-group { margin-bottom: 20px; }
 .mc-batch-head {
   display: flex;
@@ -824,7 +778,6 @@
 .mc-batch-name { font-size: 16px; font-weight: 700; color: var(--mc-purple); }
 .mc-batch-head .mc-muted { color: var(--mc-text-muted); font-size: 13px; }
 
-/* Calendar View of the runs. */
 .mc-calendar {
   background: var(--mc-card);
   border: 1px solid var(--mc-border);
@@ -834,7 +787,6 @@
 .mc-calendar .fc-event { cursor: pointer; padding: 1px 4px; font-size: 12px; }
 .mc-card-flash { box-shadow: 0 0 0 3px var(--mc-purple); transition: box-shadow .3s; }
 
-/* Switch to the Manufacturing Dashboard (manufacturing-runs). */
 .mc-btn-dashboard {
   display: inline-flex;
   align-items: center;
@@ -846,9 +798,6 @@
 }
 .mc-btn-dashboard:hover { background: var(--mc-purple); color: #fff; }
 
-/* ── Attachments popup (the run card's Attach button) ──
-   Lives in a Frappe dialog, so it takes Frappe's theme variables and follows
-   the desk's light/dark theme rather than this page's fixed palette. */
 .mc-att-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
@@ -882,7 +831,6 @@
 }
 .mc-att-thumb img,
 .mc-att-thumb video { width: 100%; height: 100%; object-fit: cover; }
-/* The PDF viewer would swallow the click; let it fall through to the tile. */
 .mc-att-thumb iframe,
 .mc-att-thumb video { pointer-events: none; }
 .mc-att-thumb iframe { width: 100%; height: 100%; border: 0; background: #fff; }
@@ -906,8 +854,6 @@
 .mc-att-frame { display: block; width: 100%; height: 75vh; border: 0; background: #fff; }
 .mc-att-full-meta { margin-top: 8px; text-align: center; }
 
-/* ── Note box on each process row (sub-operation, or the whole Job Card
-   timer) — saved on blur / Enter, flashes green when saved ── */
 .mc-sub-op-note {
   display: block;
   width: 100%;

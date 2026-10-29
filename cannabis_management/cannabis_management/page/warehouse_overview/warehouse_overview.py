@@ -7,7 +7,6 @@ def get_context(context):
 
 @frappe.whitelist()
 def get_item_groups():
-    """Fetch all item groups that are flagged for dashboard display."""
     groups = frappe.db.sql("""
         SELECT
             ig.name,
@@ -27,7 +26,6 @@ def get_item_groups():
 
 @frappe.whitelist()
 def get_stock_by_item_group(item_group, _=None):
-    """Return stock rows for a given item group, with yield data attached."""
     items = frappe.db.sql("""
         SELECT
             b.item_code,
@@ -73,9 +71,6 @@ def get_stock_by_item_group(item_group, _=None):
 
 
 def get_yield_data_for_items(item_codes):
-    """
-    Fetch Yield to Hash and Actual Rosin Yield from Rosin Recording -> Lab Tolling Data.
-    """
     if not item_codes:
         return {}
 
@@ -133,7 +128,6 @@ def get_yield_data_for_items(item_codes):
 
 @frappe.whitelist()
 def get_batch_warehouse_summary(item_group):
-    """Returns count of unique project (batch) dimensions per warehouse with positive stock."""
     data = frappe.db.sql("""
         SELECT
             warehouse,

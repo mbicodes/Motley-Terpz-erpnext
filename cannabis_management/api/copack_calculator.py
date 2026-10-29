@@ -1,13 +1,3 @@
-"""
-Co-Pack Cost & Quote Calculator.
-
-Given a co-packing job's inputs — client raw-material cost, packaging components,
-run size, and labor hours — computes total cost, per-unit cost and a suggested
-margin-adjusted customer quote, using ERPNext item costs for packaging and a
-Finance-maintained rate table (Co-Pack Settings) for labor / overhead / margin.
-Optionally spins up a draft ERPNext BOM if the job is won.
-"""
-
 import json
 import frappe
 from frappe import _
@@ -32,7 +22,6 @@ def _item_unit_cost(item_code, source):
         rate = frappe.db.get_value("Item", item_code, "last_purchase_rate")
         if flt(rate) > 0:
             return flt(rate)
-    # default / fallback: valuation rate from stock, then last purchase rate
     val = frappe.db.get_value("Item", item_code, "valuation_rate")
     if flt(val) > 0:
         return flt(val)
@@ -41,12 +30,6 @@ def _item_unit_cost(item_code, source):
 
 @frappe.whitelist()
 def calculate(payload):
-    """payload (JSON): {
-        raw_material_cost, run_qty, labor_hours,
-        labor_rate_per_hour?, overhead_pct?, margin_pct?,
-        packaging: [{item_code, qty_per_unit}]
-    }  →  cost breakdown + suggested quote.
-    """
     if isinstance(payload, str):
         payload = json.loads(payload)
 
@@ -65,7 +48,6 @@ def calculate(payload):
     labor_hours = flt(payload.get("labor_hours"))
     labor_cost = labor_hours * labor_rate
 
-    # Packaging — per-unit item costs from ERPNext × qty per unit × run size
     packaging_lines = []
     packaging_total = 0.0
     for row in (payload.get("packaging") or []):
@@ -87,7 +69,6 @@ def calculate(payload):
     total_cost = subtotal + overhead_cost
     cost_per_unit = total_cost / run_qty if run_qty else 0.0
 
-    # Suggested quote: price so that margin_pct of the price is profit.
     if margin_pct >= 100:
         margin_pct = 99.0
     suggested_price_per_unit = cost_per_unit / (1 - margin_pct / 100.0) if margin_pct < 100 else cost_per_unit
@@ -116,8 +97,6 @@ def calculate(payload):
 
 @frappe.whitelist()
 def create_draft_bom(payload):
-    """Create a draft ERPNext BOM for the finished-good item from the packaging
-    components (used when a co-pack job is won). Returns the BOM name."""
     if isinstance(payload, str):
         payload = json.loads(payload)
 

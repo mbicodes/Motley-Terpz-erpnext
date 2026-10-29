@@ -1,15 +1,3 @@
-"""Phase 1 of the Credit & AR Control module.
-
-Idempotent: Customer credit fields, the payment-terms ladder, the finance-charge
-item, permlevel-1 access, and the Credit Policy Settings defaults.
-
-Note the two deliberate no-ops:
-  * ``policy_effective_date`` is left blank — Finance sets it at go-live and every
-    scheduled job stays inert until then.
-  * Intercompany grouping is not configured. Intercompany trading is not in use,
-    so no Customer Group is created and no Customer records are reassigned.
-"""
-
 import frappe
 
 from cannabis_management.credit_and_ar import masters
@@ -27,7 +15,6 @@ def execute():
 
 
 def _seed_settings(finance_charge_item: str | None):
-	"""Populate defaults without overwriting anything Finance has already set."""
 	settings = frappe.get_single("Credit Policy Settings")
 
 	defaults = {
@@ -93,11 +80,6 @@ def _seed_settings(finance_charge_item: str | None):
 
 
 def _reset_customers_to_cod():
-	"""Go-live position: every customer is COD until a credit line is approved.
-
-	Only fills blanks, so re-running never clobbers a customer whose application
-	has since been approved.
-	"""
 	frappe.db.sql(
 		"""
 		UPDATE `tabCustomer`
@@ -106,9 +88,6 @@ def _reset_customers_to_cod():
 		""",
 		("COD",),
 	)
-	# custom_hold_type has since been removed from Customer (hold type is now
-	# derived on demand from the active AR Case). Only backfill it on sites old
-	# enough to still carry the column, so a fresh install does not error here.
 	if "custom_hold_type" in frappe.db.get_table_columns("Customer"):
 		frappe.db.sql(
 			"""

@@ -15,8 +15,6 @@ def validate(doc, method=None):
 
 
 def on_submit(doc, method=None):
-    # custom_finished_goods / custom_routing are optional customisations — use
-    # doc.get() so submit keeps working when those fields are not installed.
     if not doc.get("custom_finished_goods") or not doc.items:
         return
 
@@ -24,30 +22,6 @@ def on_submit(doc, method=None):
 
 
 def _create_boms_from_mr(doc):
-    """
-    Each RM chains through the full routing sequence.
-
-    Routing: Wash → Press → QC  (3 operations)
-    RM items: A, B
-
-    FG grid (must be RM_count × op_count = 6 rows):
-      Row 1: D  (Wash)     ← for RM A
-      Row 2: E  (Press)
-      Row 3: F  (QC)
-      Row 4: G  (Wash)     ← for RM B
-      Row 5: H  (Press)
-      Row 6: I  (QC)
-
-    BOMs created:
-      A → D (Wash)
-      D → E (Press)
-      E → F (QC)
-      B → G (Wash)
-      G → H (Press)
-      H → I (QC)
-    """
-
-    # ── Get routing operations in sequence ──
     if not doc.custom_routing:
         frappe.throw(_("Routing is required for Manufacture requests."))
 
@@ -68,17 +42,14 @@ def _create_boms_from_mr(doc):
               "but found {3}.").format(expected_fgs, n_rms, n_ops, n_fgs)
         )
 
-    # ── Create BOMs: one chain per RM ──
     fg_rows = list(doc.custom_finished_goods)
 
     for rm_idx, rm_row in enumerate(doc.items):
         rm_item_code = rm_row.item_code
         rm_uom = frappe.db.get_value("Item", rm_item_code, "stock_uom") or "LBS"
 
-        # This RM's FG slice
         fg_slice = fg_rows[rm_idx * n_ops : (rm_idx + 1) * n_ops]
 
-        # Track the input item for chaining
         input_item = rm_item_code
         input_uom = rm_uom
 
@@ -88,12 +59,6 @@ def _create_boms_from_mr(doc):
             operation = routing_op.operation
             yield_pct = flt(fg_row.expected_yield_)
 
-            # Item and/or Yield can still be blank — e.g. the row just came
-            # from auto-populating off Routing and hasn't been filled in yet.
-            # Skip building this one hop rather than blocking the whole
-            # submit; BOM/Work Order creation for it can happen later once
-            # the row is complete (via Create ▾ → Work Order (FG), which
-            # re-runs this same auto-BOM logic on demand).
             if not fg_item or not yield_pct:
                 frappe.msgprint(
                     _("Finished Goods row {0}: skipping BOM for now — {1} not set yet.").format(
@@ -106,17 +71,14 @@ def _create_boms_from_mr(doc):
             fg_uom = frappe.db.get_value("Item", fg_item, "stock_uom") or "Gram"
             yield_fraction = yield_pct / 100.0
 
-            # RM qty needed to produce 1 unit of FG
             if input_uom == "LBS":
                 bom_rm_qty = (1.0 / yield_fraction) / LBS_TO_GRAM
             else:
                 bom_rm_qty = 1.0 / yield_fraction
 
-            # Workstation from Routing row
             workstation_type = routing_op.workstation_type or ""
             workstation = getattr(routing_op, "workstation", "") or ""
 
-            # Reuse any existing active BOM for this FG + RM combination
             existing_bom = _find_existing_bom(fg_item, input_item)
             if existing_bom:
                 frappe.msgprint(
@@ -129,7 +91,6 @@ def _create_boms_from_mr(doc):
                 input_uom = fg_uom
                 continue
 
-            # ── Create BOM ──
             bom = frappe.new_doc("BOM")
             bom.item = fg_item
             bom.quantity = 1
@@ -137,7 +98,7 @@ def _create_boms_from_mr(doc):
             bom.company = doc.company
             bom.with_operations = 1
             bom.custom_material_request = doc.name
-            bom.project = ""   # prevent ERPNext from auto-fetching project from linked docs
+            bom.project = ""
 
             bom.append("items", {
                 "item_code": input_item,
@@ -170,8 +131,6 @@ def _create_boms_from_mr(doc):
 
 
 def _find_existing_bom(fg_item, rm_item):
-    """Return the name of an existing active BOM for fg_item that uses rm_item
-    as its sole raw material input, or None if no such BOM exists."""
     result = frappe.db.sql("""
         SELECT b.name
         FROM `tabBOM` b

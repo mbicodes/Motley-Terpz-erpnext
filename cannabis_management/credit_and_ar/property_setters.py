@@ -1,20 +1,8 @@
-"""Property Setters for the Sales Order gate.
-
-Two jobs:
-
-1. Make the payment mode mandatory, so no Sales Order can be saved without
-   declaring whether it is COD or Terms.
-2. Put ``payment_terms_template`` and ``payment_schedule`` behind **permlevel 1**
-   so Sales cannot set a customer's terms (§1). Only Credit Finance and the
-   Managing Director hold permlevel 1.
-"""
-
 import frappe
 
 from cannabis_management.credit_and_ar import utils
 
 PROPERTY_SETTERS = [
-	# ── payment mode: mandatory, defaults to COD ─────────────────────────
 	{
 		"doctype_or_field": "DocField",
 		"doc_type": "Sales Order",
@@ -47,7 +35,6 @@ PROPERTY_SETTERS = [
 		"property_type": "Check",
 		"value": "1",
 	},
-	# ── approval status: add "Not Required" to the existing options ──────
 	{
 		"doctype_or_field": "DocField",
 		"doc_type": "Sales Order",
@@ -64,7 +51,6 @@ PROPERTY_SETTERS = [
 		"property_type": "Check",
 		"value": "1",
 	},
-	# ── terms behind permlevel 1 ─────────────────────────────────────────
 	{
 		"doctype_or_field": "DocField",
 		"doc_type": "Sales Order",

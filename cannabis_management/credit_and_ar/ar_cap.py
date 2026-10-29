@@ -1,24 +1,3 @@
-"""The per-customer AR ceiling — the one rule nothing negotiates with.
-
-Everything else in this module has a way through: a deposit clears an
-over-limit order, the Managing Director approves an exception, a policy
-exemption carves an account out altogether. This cap has none. Past the figure
-in Credit Policy Settings, a customer takes no further Terms work — no Sales
-Order, no Sales Invoice — until the balance comes down.
-
-Two deliberate carve-outs, both narrow:
-
-* **Policy exemption does not apply.** Every other engine checks
-  ``utils.is_policy_exempt`` first; this one does not, because an exemption
-  would otherwise be the bypass, and "no matter what" is the entire point of
-  the rule.
-* **Internal customers are skipped.** The Customer records standing for our own
-  companies carry seven-figure intercompany balances by construction. Blocking
-  them would stop internal billing while protecting nobody.
-
-Cash and Sample work is untouched: money arriving with the goods is not AR.
-"""
-
 import frappe
 from frappe import _
 from frappe.utils import flt
@@ -27,15 +6,6 @@ from cannabis_management.credit_and_ar import credit_engine, utils
 
 
 def assert_under_cap(doc, credit_amount: float, noun: str = "order"):
-	"""Refuse a Terms document that would carry the customer past the AR cap.
-
-	`credit_amount` is what this document adds to AR — the deferred portion of an
-	order, or an invoice's outstanding balance. It is included in the comparison
-	so the document that *crosses* the line is the one refused, rather than
-	sailing through and blocking the next one.
-	"""
-	# One switch for the whole $400,000 rule: Selling Settings -> "Enforce
-	# $400,000 AR Cap". Unticked, neither this gate nor the nightly hold applies.
 	if not utils.ar_cap_enabled():
 		return
 
@@ -82,20 +52,11 @@ def assert_under_cap(doc, credit_amount: float, noun: str = "order"):
 
 
 def order_credit_amount(doc) -> float:
-	"""The credit a Terms Sales Order commits — its deferred portion."""
 	portion = utils.template_credit_portion(doc.get("payment_terms_template")) / 100.0
 	return flt(doc.get("grand_total")) * portion
 
 
 def is_terms_invoice(doc) -> bool:
-	"""Does this invoice extend credit?
-
-	Sales Invoice carries the same custom_mode_of_payment marker as the order, but
-	it is blank on most historical invoices. Rather than let a blank mode be the
-	way around the cap, a blank is judged on substance: an invoice that leaves
-	money outstanding is credit, whatever the label says. An explicit Cash On
-	Delivery is taken at its word.
-	"""
 	mode = (doc.get("custom_mode_of_payment") or "").strip()
 	if mode == utils.MODE_TERMS:
 		return True

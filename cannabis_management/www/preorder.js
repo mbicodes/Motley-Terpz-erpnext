@@ -6,19 +6,11 @@ document.addEventListener("DOMContentLoaded", function () {
 	poBindEvents();
 });
 
-/* ─────────────────────────────────────────────────────
-   DEFAULTS
-   ───────────────────────────────────────────────────── */
-
 function poSetDefaults() {
 	var today = frappe.datetime ? frappe.datetime.get_today() : new Date().toISOString().slice(0, 10);
 	var el = document.getElementById("poOrderDate");
 	if (el) el.value = today;
 }
-
-/* ─────────────────────────────────────────────────────
-   DATA
-   ───────────────────────────────────────────────────── */
 
 function poLoadInventory() {
 	frappe.call({
@@ -40,10 +32,6 @@ function poLoadRecent() {
 	});
 }
 
-/* ─────────────────────────────────────────────────────
-   REGION AUTO-DETECT
-   ───────────────────────────────────────────────────── */
-
 function poGuessRegion(addr) {
 	var m = addr.match(/\b(9\d{4})\b/);
 	if (!m) return "";
@@ -58,10 +46,6 @@ function poGuessRegion(addr) {
 	if (z >= 95000 && z <= 96199) return "NorCal";
 	return "Other";
 }
-
-/* ─────────────────────────────────────────────────────
-   LINK-FIELD DROPDOWN
-   ───────────────────────────────────────────────────── */
 
 function poOpenDropdown(filterTerm) {
 	var inv = window._po.inventory;
@@ -120,12 +104,6 @@ function poCloseDropdown() {
 	window._po.dropdownOpen = false;
 }
 
-/* ─────────────────────────────────────────────────────
-   ITEMS TABLE
-   ───────────────────────────────────────────────────── */
-
-// Amount is derived, never typed: Preorder Item.amount is read_only in the
-// doctype and the server recomputes it on save. This is only the preview.
 function poAmount(item) {
 	return (parseFloat(item.rate) || 0) * (parseInt(item.qty, 10) || 0);
 }
@@ -202,9 +180,6 @@ function poAddItem(inv) {
 	poRenderItems();
 }
 
-// Row for something not in the catalog. item_code is a Link to Item on
-// Preorder Item and cannot hold free text, so the typed text travels as
-// item_name with item_code left blank.
 function poAddCustomItem(text) {
 	text = (text || "").trim();
 	if (!text) return;
@@ -228,8 +203,6 @@ function poAddCustomItem(text) {
 	poRenderItems();
 }
 
-// Prefer a real catalog match over free text, so typing a full SKU and
-// pressing Enter does not quietly create a custom row.
 function poAddTypedTerm(term) {
 	term = (term || "").trim();
 	if (!term) return;
@@ -241,14 +214,8 @@ function poAddTypedTerm(term) {
 	else poAddCustomItem(term);
 }
 
-/* ─────────────────────────────────────────────────────
-   PRINT / PDF
-   ───────────────────────────────────────────────────── */
-
 var PO_PRINT_FORMAT = "Preorder Entry - Motley";
 
-// Renders the Motley format server-side and hands back a real PDF, so the
-// browser can open it in its viewer or save it straight to disk.
 function poPdfUrl(name) {
 	return "/api/method/frappe.utils.print_format.download_pdf" +
 		"?doctype=" + encodeURIComponent("Preorder Entry") +
@@ -257,9 +224,6 @@ function poPdfUrl(name) {
 		"&no_letterhead=0";
 }
 
-// Real download rather than opening a tab: the PDF is served
-// Content-Disposition: inline, so the anchor's download attribute is what
-// actually saves it (same-origin, so the browser honours it).
 function poDownloadPdf(name) {
 	if (!name) return;
 	var a = document.createElement("a");
@@ -268,19 +232,11 @@ function poDownloadPdf(name) {
 	document.body.appendChild(a);
 	a.click();
 	document.body.removeChild(a);
-	// The PDF is rendered server-side, so the file can take a moment to
-	// arrive and the click itself shows nothing. Say what is happening, and
-	// hold it long enough to still be there when the download lands.
 	frappe.show_alert({
 		message: "Downloading <b>" + poEsc(name) + ".pdf</b>",
 		indicator: "blue",
 	}, 10);
 }
-
-
-/* ─────────────────────────────────────────────────────
-   RECENT PREORDERS
-   ───────────────────────────────────────────────────── */
 
 function poRenderRecent(rows) {
 	var body = document.getElementById("poRecentBody");
@@ -294,8 +250,6 @@ function poRenderRecent(rows) {
 		var cls = st === 1 ? "po-status-submitted" : st === 2 ? "po-status-cancelled" : "po-status-draft";
 		var label = st === 1 ? "Submitted" : st === 2 ? "Cancelled" : "Draft";
 		var editing = window._po.editing === row.name;
-		// Only a draft can be edited -- Frappe will not let a submitted or
-		// cancelled document change, so do not offer a button that cannot work.
 		var draftBtns = st === 0
 			? '<button class="po-entry-btn po-edit-preorder" data-name="' + poEsc(row.name) + '">' +
 			  '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
@@ -321,22 +275,16 @@ function poRenderRecent(rows) {
 	poSetSideCount(rows.length);
 }
 
-// Keeps the collapsed header honest about how many entries are behind it.
 function poSetSideCount(n) {
 	var el = document.getElementById("poSideCount");
 	if (el) el.textContent = n;
 }
-
-/* ─────────────────────────────────────────────────────
-   EVENTS
-   ───────────────────────────────────────────────────── */
 
 function poBindEvents() {
 	var input = document.getElementById("poItemInput");
 	var arrow = document.getElementById("poLinkArrow");
 	var searchTimer;
 
-	// Click arrow or focus input → open full dropdown (like a link field)
 	arrow.addEventListener("click", function (e) {
 		e.stopPropagation();
 		if (window._po.dropdownOpen) {
@@ -351,7 +299,6 @@ function poBindEvents() {
 		poOpenDropdown(input.value.trim());
 	});
 
-	// Type to filter
 	input.addEventListener("input", function () {
 		clearTimeout(searchTimer);
 		searchTimer = setTimeout(function () {
@@ -359,7 +306,6 @@ function poBindEvents() {
 		}, 150);
 	});
 
-	// Click an option
 	document.getElementById("poLinkDropdown").addEventListener("click", function (e) {
 		var opt = e.target.closest(".po-link-option");
 		if (!opt) return;
@@ -373,15 +319,12 @@ function poBindEvents() {
 		poCloseDropdown();
 	});
 
-	// Close dropdown on outside click
 	document.addEventListener("click", function (e) {
 		if (!e.target.closest("#poLinkField")) {
 			poCloseDropdown();
 		}
 	});
 
-	// Escape closes the dropdown; Enter adds whatever is typed, as a catalog
-	// match when one exists and as a custom free-text row otherwise.
 	input.addEventListener("keydown", function (e) {
 		if (e.key === "Escape") {
 			poCloseDropdown();
@@ -394,7 +337,6 @@ function poBindEvents() {
 		}
 	});
 
-	// Address → region auto-detect
 	var addrTimer;
 	document.getElementById("poAddress").addEventListener("input", function () {
 		clearTimeout(addrTimer);
@@ -411,9 +353,6 @@ function poBindEvents() {
 		}, 400);
 	});
 
-	// Qty change in items table
-	// Qty / Rate edits. Both re-render so the row's Amount and the order
-	// total stay in step -- amount is derived, never entered directly.
 	document.getElementById("poItemsBody").addEventListener("change", function (e) {
 		var tr = e.target.closest("tr[data-idx]");
 		if (!tr) return;
@@ -428,7 +367,6 @@ function poBindEvents() {
 		}
 	});
 
-	// Remove item
 	document.getElementById("poItemsBody").addEventListener("click", function (e) {
 		var btn = e.target.closest(".po-remove-item");
 		if (!btn) return;
@@ -437,7 +375,6 @@ function poBindEvents() {
 		poRenderItems();
 	});
 
-	// Right pane: Download saves the PDF, Edit loads the entry into the form.
 	document.getElementById("poRecentBody").addEventListener("click", function (e) {
 		var dlBtn = e.target.closest(".po-download-preorder");
 		if (dlBtn) {
@@ -455,13 +392,10 @@ function poBindEvents() {
 		}
 	});
 
-	// Leave edit mode without saving.
 	document.addEventListener("click", function (e) {
 		if (e.target.closest("#poCancelEdit")) poClear();
 	});
 
-	// Collapse/expand the entries pane. Only has a visible effect on narrow
-	// screens, where the CSS hides the list unless .is-open is set.
 	var sideToggle = document.getElementById("poSideToggle");
 	if (sideToggle) {
 		sideToggle.addEventListener("click", function () {
@@ -469,16 +403,10 @@ function poBindEvents() {
 		});
 	}
 
-	// Save
 	document.getElementById("poSaveBtn").addEventListener("click", poSave);
 
-	// Clear
 	document.getElementById("poClearBtn").addEventListener("click", poClear);
 }
-
-/* ─────────────────────────────────────────────────────
-   EDIT AN EXISTING ENTRY
-   ───────────────────────────────────────────────────── */
 
 function poEditPreorder(name) {
 	frappe.call({
@@ -522,8 +450,6 @@ function poEditPreorder(name) {
 	});
 }
 
-// Reflects edit mode in the header: the save button becomes an update, and a
-// banner offers a way out without saving.
 function poSyncEditState() {
 	var editing = window._po.editing;
 	var saveBtn = document.getElementById("poSaveBtn");
@@ -540,8 +466,6 @@ function poSyncEditState() {
 	}
 }
 
-// frappe.confirm is not guaranteed on the website bundle, so fall back to
-// the browser's own dialog rather than failing silently.
 function poConfirm(message, onYes) {
 	if (frappe && typeof frappe.confirm === "function") {
 		frappe.confirm(message, onYes);
@@ -550,7 +474,6 @@ function poConfirm(message, onYes) {
 	}
 }
 
-// Submit is the point of no return for editing, so confirm first.
 function poSubmitPreorder(name) {
 	poConfirm(
 		"Submit <b>" + poEsc(name) + "</b>?<br><br>A submitted preorder can no longer be edited.",
@@ -562,8 +485,6 @@ function poSubmitPreorder(name) {
 				freeze_message: "Submitting " + name + "\u2026",
 				callback: function (r) {
 					if (!r.message) return;
-					// If this is the entry open in the form, editing it is no
-					// longer possible -- drop out of edit mode.
 					if (window._po.editing === name) poClear();
 					frappe.show_alert({
 						message: "Preorder <b>" + poEsc(name) + "</b> submitted",
@@ -575,10 +496,6 @@ function poSubmitPreorder(name) {
 		}
 	);
 }
-
-/* ─────────────────────────────────────────────────────
-   SAVE / CLEAR
-   ───────────────────────────────────────────────────── */
 
 function poSave() {
 	var data = {
@@ -641,10 +558,6 @@ function poClear() {
 	poRenderItems();
 	poSyncEditState();
 }
-
-/* ─────────────────────────────────────────────────────
-   UTIL
-   ───────────────────────────────────────────────────── */
 
 function poEsc(str) {
 	if (!str) return "";

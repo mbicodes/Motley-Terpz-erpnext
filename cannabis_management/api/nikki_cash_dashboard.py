@@ -1,40 +1,21 @@
 import frappe
 from frappe import _
 
-
 NIKKI_USER = "nikki@motleyterpz.com"
-# Role that grants visibility into Nikki's cash-ledger / expense data.
-# Grant this role to any user who should see her entries — no code change needed.
 NIKKI_ROLE = "Nikki Ledger"
 
 
 def _nikki_can_see_all():
-    """
-    The Nikki Cash Ledger / Expense doctypes are single-tenant — every row in them
-    is Nikki's data regardless of which user account keyed it in (on the live site
-    the entries were created by a data-entry/dev account, not by Nikki herself).
-    Visibility:
-    - Nikki herself always sees her own doctype's entries.
-    - Anyone holding the "Nikki Ledger" role sees them (Administrator implicitly
-      holds every role). Grant that role to give a new person access — no code change.
-    - Any other user sees nothing.
-    """
     u = frappe.session.user
     return u == NIKKI_USER or NIKKI_ROLE in frappe.get_roles(u)
 
 
 def _nikki_visibility_filter():
-    """WHERE-clause fragment: empty string shows all entries; else shows none."""
     return "" if _nikki_can_see_all() else "AND 1=0"
 
 
 @frappe.whitelist()
 def get_nikki_ledger_summary():
-    """
-    Lightweight summary of Nikki Cash Ledger Entry data for the workspace widget.
-    Scoped to Nikki: she sees her own; Administrator and finance/accounts managers
-    see Nikki's entries; any other user sees only their own.
-    """
     user_filter = _nikki_visibility_filter()
 
     totals = frappe.db.sql(f"""
@@ -76,10 +57,6 @@ def get_nikki_ledger_summary():
 
 @frappe.whitelist()
 def get_dashboard_data(person=None):
-    """
-    Full dashboard data sourced from Nikki Cash Ledger Entry.
-    Finance roles see all entries or a specific submitter; others see only their own.
-    """
     user = frappe.session.user
     finance_roles = {"Finance Manager", "Accounts Manager", "System Manager", "Administrator"}
     is_finance = bool(finance_roles.intersection(set(frappe.get_roles(user))))
@@ -216,10 +193,6 @@ def _month_sort_key(month_str):
 
 @frappe.whitelist()
 def get_full_dashboard_data(person=None):
-    """
-    Full Financial Command Center data — aggregated from Cash Ledger Entry + Expense Tracker Entry.
-    Finance roles see all or can filter by Cash Tracker Person; others see only their own.
-    """
     user = frappe.session.user
     finance_roles = {"Finance Manager", "Accounts Manager", "System Manager", "Administrator"}
     is_finance = bool(finance_roles.intersection(set(frappe.get_roles(user))))
@@ -230,7 +203,6 @@ def get_full_dashboard_data(person=None):
     cle_filter = f"AND cash_tracker_person = {frappe.db.escape(person)}" if person else ""
     ete_filter = f"AND cash_tracker_person = {frappe.db.escape(person)}" if person else ""
 
-    # ── Summary totals ──────────────────────────────────────────────────────────
     cle_tot = frappe.db.sql(f"""
         SELECT
             COALESCE(SUM(CASE WHEN direction='Cash In'  THEN amount ELSE 0 END), 0) AS total_in,
@@ -263,7 +235,6 @@ def get_full_dashboard_data(person=None):
         "txn_count":      int(cle_tot.txn_count),
     }
 
-    # ── Monthly breakdown ───────────────────────────────────────────────────────
     monthly_cle = frappe.db.sql(f"""
         SELECT
             DATE_FORMAT(date, '%b %Y') AS month,
@@ -309,7 +280,6 @@ def get_full_dashboard_data(person=None):
         })
     monthly.sort(key=lambda r: _month_sort_key(r["month"]))
 
-    # ── Entity breakdown ────────────────────────────────────────────────────────
     entity_cle = frappe.db.sql(f"""
         SELECT
             COALESCE(entity, 'Unknown') AS entity,
@@ -352,7 +322,6 @@ def get_full_dashboard_data(person=None):
             "net_owed":   ep - rb,
         })
 
-    # ── Recent transactions from Cash Ledger Entry ─────────────────────────────
     tx_rows = frappe.db.sql(f"""
         SELECT name, date, entity, direction, amount, transaction_type,
                invoice_number, notes, running_balance, cash_tracker_person
@@ -376,7 +345,6 @@ def get_full_dashboard_data(person=None):
             "running_balance":  float(r.running_balance or 0),
         })
 
-    # ── Expense Tracker Entries ────────────────────────────────────────────────
     ete_rows = frappe.db.sql(f"""
         SELECT name, date, entity, direction, amount, transaction_type,
                notes, cash_tracker_person, employee
@@ -399,7 +367,6 @@ def get_full_dashboard_data(person=None):
             "employee":         r.employee or "",
         })
 
-    # ── Finance person filter list ──────────────────────────────────────────────
     persons = []
     if is_finance:
         persons = frappe.db.sql(
@@ -421,12 +388,6 @@ def get_full_dashboard_data(person=None):
 
 @frappe.whitelist()
 def get_nikki_expense_summary():
-    """
-    Lightweight summary of Nikki Expense Entry data for the workspace widget.
-    Scoped to Nikki: she sees her own; Administrator and finance/accounts managers
-    see Nikki's entries; any other user sees only their own.
-    Fields: money_out = expense, money_in = reimbursement.
-    """
     user_filter = _nikki_visibility_filter()
 
     totals = frappe.db.sql(f"""

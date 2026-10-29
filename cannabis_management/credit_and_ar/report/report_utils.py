@@ -1,22 +1,12 @@
-"""Shared helpers for the Credit & AR reports.
-
-The AR aggregates are computed **in bulk** — one query across every customer in
-scope — rather than per row. A per-customer round trip is fine for one Sales
-Order gate; across 249 customers on a report refresh it is not.
-"""
-
 import frappe
 from frappe.utils import flt, getdate, nowdate
 
 from cannabis_management.credit_and_ar import utils
 
-# A score of 0 means "no score": Frappe Int columns cannot hold null, so the
-# band is the authoritative signal. See scoring._store.
 NO_SCORE_BAND = "Insufficient History"
 
 
 def customer_filters(filters: dict | None = None) -> dict:
-	"""Base Customer filters, always excluding intercompany accounts."""
 	filters = filters or {}
 	conditions = {"disabled": 0, "custom_is_intercompany": 0}
 
@@ -37,7 +27,6 @@ def intercompany_group() -> str | None:
 
 
 def excluded_customers() -> list[str]:
-	"""Customers kept off every client-facing credit report."""
 	names = frappe.get_all("Customer", filters={"custom_is_intercompany": 1}, pluck="name")
 
 	group = intercompany_group()
@@ -48,7 +37,6 @@ def excluded_customers() -> list[str]:
 
 
 def ar_by_customer(company: str | None = None, customers: list[str] | None = None) -> dict:
-	"""Outstanding, past due and worst age per customer, in one pass."""
 	conditions = ["si.docstatus = 1", "si.outstanding_amount > 0"]
 	values: dict = {}
 
@@ -109,7 +97,6 @@ def ar_by_customer(company: str | None = None, customers: list[str] | None = Non
 
 
 def unbilled_terms_by_customer(customers: list[str] | None = None) -> dict:
-	"""Credit portion of submitted, not-fully-billed Terms orders, per customer."""
 	conditions = ["so.docstatus = 1", "so.per_billed < 100", "so.status NOT IN ('Closed', 'Cancelled')"]
 	values: dict = {}
 
@@ -142,7 +129,6 @@ def unbilled_terms_by_customer(customers: list[str] | None = None) -> dict:
 
 
 def score_or_none(customer_row) -> int | None:
-	"""Render a stored 0 as "no score" when the band says so."""
 	if customer_row.get("custom_score_band") in (None, "", NO_SCORE_BAND):
 		return None
 	return customer_row.get("custom_payment_score") or None

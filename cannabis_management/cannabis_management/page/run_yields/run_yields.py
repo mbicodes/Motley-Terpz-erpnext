@@ -1,14 +1,3 @@
-"""Run Yields — the Manufacturing Dashboard's runs table on a page of its own.
-
-One row per run (Material Request), from Run # through Hash to Rosin Yield.
-Every row comes from manufacturing_runs._build_run_row, so the figures here
-are the dashboard's figures, never a second calculation that could drift.
-
-The server only narrows by the date the run started; every other filter
-(Run #, Batch, Status, Raw Material, Started By) runs in the browser over the
-rows returned, so filtering is instant.
-"""
-
 import frappe
 from frappe.utils import getdate
 
@@ -22,8 +11,6 @@ PAGE_ROLES = ("System Manager", "Manufacturing Manager", "Manufacturing User")
 
 @frappe.whitelist()
 def get_runs(from_date=None, to_date=None):
-	"""Every run whose first Job Card started in the range, newest first.
-	No dates means all runs."""
 	frappe.only_for(PAGE_ROLES)
 
 	having, params = [], {}

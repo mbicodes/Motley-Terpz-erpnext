@@ -3,18 +3,12 @@ frappe.ready(function () {
     var API_JAMIE = 'cannabis_management.api.jamie.';
     var now = frappe.datetime.get_today();
 
-    // ── Date display ──
     var dateEl = rootEl.querySelector('#lz-date-display');
     if (dateEl) dateEl.textContent = frappe.datetime.str_to_user(now);
 
-    // ── Expose reload ──
     window.lizzyDash = {
         reload: function () { loadAll(); }
     };
-
-    // ────────────────────────────────────────────────────────────────
-    // Helpers
-    // ────────────────────────────────────────────────────────────────
 
     function fmt(val) {
         return parseFloat(val || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
@@ -93,9 +87,6 @@ frappe.ready(function () {
         render(0);
     }
 
-    // ────────────────────────────────────────────────────────────────
-    // Load: Batches in Production
-    // ────────────────────────────────────────────────────────────────
     function loadBatches() {
         shimmerKpi('lz-kpi-batches');
         shimmerEl('lz-batches-table');
@@ -129,9 +120,6 @@ frappe.ready(function () {
         });
     }
 
-    // ────────────────────────────────────────────────────────────────
-    // Load: Tolling Partner Stock by Batch
-    // ────────────────────────────────────────────────────────────────
     function loadTolling() {
         var grid = rootEl.querySelector('#lz-tolling-batch-grid');
         if (grid) grid.innerHTML = '<div class="nd-kpi" style="--kc:#0891b2"><div class="nd-kpi-accent"></div><div class="nd-kpi-label">Loading…</div><div class="nd-kpi-value"><span class="nd-shimmer"></span></div><div class="nd-kpi-sub">loading…</div></div>';
@@ -189,9 +177,6 @@ frappe.ready(function () {
         });
     }
 
-    // ────────────────────────────────────────────────────────────────
-    // Load: Pending Purchase Requests
-    // ────────────────────────────────────────────────────────────────
     function loadPendingPRs() {
         shimmerKpi('lz-kpi-pending-pr');
         shimmerEl('lz-pr-table');
@@ -232,10 +217,6 @@ frappe.ready(function () {
             }
         });
     }
-
-    // ────────────────────────────────────────────────────────────────
-    // Purchase Request Form
-    // ────────────────────────────────────────────────────────────────
 
     function getFormVal(id) {
         var el = rootEl.querySelector('#' + id);
@@ -284,7 +265,6 @@ frappe.ready(function () {
     }
 
     function submitPR() {
-        // Basic validation — only qty and req-by are required
         var qty      = getFormVal('lz-qty');
         var reqBy    = getFormVal('lz-req-by');
         var typeVal  = getFormVal('lz-type');
@@ -310,7 +290,6 @@ frappe.ready(function () {
         if (submitBtn) { submitBtn.disabled = true; submitBtn.classList.add('spinning'); }
         setFormStatus('Submitting…', 'loading');
 
-        // Build items child table row
         frappe.call({
             method: 'cannabis_management.api.jamie.create_purchase_request',
             args: {
@@ -338,7 +317,6 @@ frappe.ready(function () {
         });
     }
 
-    // Wire up form buttons
     var submitBtn  = rootEl.querySelector('#lz-submit-btn');
     var clearBtn   = rootEl.querySelector('#lz-clear-btn');
     var anotherBtn = rootEl.querySelector('#lz-another-btn');
@@ -347,22 +325,17 @@ frappe.ready(function () {
     if (clearBtn)   clearBtn.addEventListener('click', clearForm);
     if (anotherBtn) anotherBtn.addEventListener('click', showForm);
 
-    // Clear error state on input
     ['lz-qty','lz-req-by'].forEach(function (id) {
         var el = rootEl.querySelector('#' + id);
         if (el) el.addEventListener('input', function () { this.classList.remove('error'); setFormStatus(''); });
     });
 
-    // Set default Required By to 2 weeks from today
     var reqByEl = rootEl.querySelector('#lz-req-by');
     if (reqByEl) {
         var defaultDate = frappe.datetime.add_days(now, 14);
         reqByEl.value   = defaultDate;
     }
 
-    // ────────────────────────────────────────────────────────────────
-    // Master load
-    // ────────────────────────────────────────────────────────────────
     function loadAll() {
         loadBatches();
         loadTolling();

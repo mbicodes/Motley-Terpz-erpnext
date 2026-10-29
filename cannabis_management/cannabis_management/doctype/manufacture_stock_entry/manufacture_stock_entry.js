@@ -1,4 +1,3 @@
-
 frappe.ui.form.on('Manufacture Stock Entry', {
     refresh: function (frm) {
         frm.trigger('setup_batch_queries');
@@ -179,7 +178,6 @@ frappe.ui.form.on('Manufacture Stock Entry', {
     },
 
     setup_batch_queries: function (frm) {
-        // Setup batch_no filters for Manufacture Raw Material table
         if (frm.fields_dict['manufacture_raw_material']) {
             frm.fields_dict['manufacture_raw_material'].grid.get_field('batch_no').get_query = function (doc, cdt, cdn) {
                 let child_row = locals[cdt][cdn];
@@ -192,7 +190,6 @@ frappe.ui.form.on('Manufacture Stock Entry', {
                     };
                 }
 
-                // Use ERPNext's standard batch query with formatting
                 return {
                     query: "erpnext.controllers.queries.get_batch_no",
                     filters: {
@@ -204,7 +201,6 @@ frappe.ui.form.on('Manufacture Stock Entry', {
             };
         }
 
-        // Setup batch_no filters for Manufacture Finished Goods table
         if (frm.fields_dict['manufacture_finished_goods']) {
             frm.fields_dict['manufacture_finished_goods'].grid.get_field('batch_no').get_query = function (doc, cdt, cdn) {
                 let child_row = locals[cdt][cdn];
@@ -217,7 +213,6 @@ frappe.ui.form.on('Manufacture Stock Entry', {
                     };
                 }
 
-                // Use ERPNext's standard batch query with formatting
                 return {
                     query: "erpnext.controllers.queries.get_batch_no",
                     filters: {
@@ -231,14 +226,12 @@ frappe.ui.form.on('Manufacture Stock Entry', {
     }
 });
 
-// Manufacture Raw Material Child Table Events
 frappe.ui.form.on('Manufacture Raw Material', {
     item_code: function (frm, cdt, cdn) {
         let row = locals[cdt][cdn];
 
         if (!row.item_code || !frm.doc.company) return;
 
-        // Get warehouse for item if not set
         if (!row.warehouse) {
             frappe.call({
                 method: 'cannabis_management.cannabis_management.doctype.manufacture_stock_entry.manufacture_stock_entry.get_item_warehouse',
@@ -254,22 +247,18 @@ frappe.ui.form.on('Manufacture Raw Material', {
             });
         }
 
-        // Clear batch_no and available_qty when item changes
         frappe.model.set_value(cdt, cdn, 'batch_no', '');
         frappe.model.set_value(cdt, cdn, 'available_qty', 0);
 
-        // Refresh the grid to update batch_no query
         frm.fields_dict['manufacture_raw_material'].grid.refresh();
     },
 
     warehouse: function (frm, cdt, cdn) {
         let row = locals[cdt][cdn];
 
-        // Clear batch_no and available_qty when warehouse changes
         frappe.model.set_value(cdt, cdn, 'batch_no', '');
         frappe.model.set_value(cdt, cdn, 'available_qty', 0);
 
-        // Refresh the grid to update batch_no query
         frm.fields_dict['manufacture_raw_material'].grid.refresh();
     },
 
@@ -281,7 +270,6 @@ frappe.ui.form.on('Manufacture Raw Material', {
             return;
         }
 
-        // Fetch available quantity from Batch doctype's batch_qty field
         frappe.call({
             method: 'frappe.client.get_value',
             args: {
@@ -301,14 +289,12 @@ frappe.ui.form.on('Manufacture Raw Material', {
     }
 });
 
-// Manufacture Finished Goods Child Table Events
 frappe.ui.form.on('Manufacture Finished Goods', {
     item_code: function (frm, cdt, cdn) {
         let row = locals[cdt][cdn];
 
         if (!row.item_code || !frm.doc.company) return;
 
-        // Get warehouse for item if not set
         if (!row.warehouse) {
             frappe.call({
                 method: 'cannabis_management.cannabis_management.doctype.manufacture_stock_entry.manufacture_stock_entry.get_item_warehouse',
@@ -324,22 +310,18 @@ frappe.ui.form.on('Manufacture Finished Goods', {
             });
         }
 
-        // Clear batch_no when item changes
         frappe.model.set_value(cdt, cdn, 'batch_no', '');
         frappe.model.set_value(cdt, cdn, 'available_qty', 0);
 
-        // Refresh the grid to update batch_no query
         frm.fields_dict['manufacture_finished_goods'].grid.refresh();
     },
 
     warehouse: function (frm, cdt, cdn) {
         let row = locals[cdt][cdn];
 
-        // Clear batch_no when warehouse changes
         frappe.model.set_value(cdt, cdn, 'batch_no', '');
         frappe.model.set_value(cdt, cdn, 'available_qty', 0);
 
-        // Refresh the grid to update batch_no query
         frm.fields_dict['manufacture_finished_goods'].grid.refresh();
     },
 
@@ -351,7 +333,6 @@ frappe.ui.form.on('Manufacture Finished Goods', {
             return;
         }
 
-        // Fetch available quantity from Batch doctype's batch_qty field
         frappe.call({
             method: 'frappe.client.get_value',
             args: {
@@ -367,7 +348,6 @@ frappe.ui.form.on('Manufacture Finished Goods', {
 
                 frappe.model.set_value(cdt, cdn, 'available_qty', available_qty);
 
-                // Show info message for finished goods
                 if (row.qty && row.qty > available_qty && available_qty > 0) {
                     frappe.msgprint({
                         title: __('Info'),

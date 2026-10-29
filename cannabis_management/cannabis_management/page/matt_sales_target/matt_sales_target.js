@@ -16,7 +16,6 @@ frappe.pages['matt-sales-target'].on_page_load = function (wrapper) {
     var arMatrixCache   = {};
     var bankMatrixCache = {};
 
-    // Legacy AR is only shown from June 1 2026 onwards
     var LEGACY_AR_START = '2026-06-01';
     var todayStr = new Date().toISOString().slice(0, 10);
     var showLegacyAR = todayStr >= LEGACY_AR_START;
@@ -30,7 +29,6 @@ frappe.pages['matt-sales-target'].on_page_load = function (wrapper) {
         exportExcel: function () { downloadCSV(); },
     };
 
-    // ── Formatters ────────────────────────────────────────────────
     function fmtCurrency(val) {
         return '$ ' + parseFloat(val || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
@@ -38,7 +36,6 @@ frappe.pages['matt-sales-target'].on_page_load = function (wrapper) {
         return parseFloat(val || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
     }
 
-    // ── Shimmer helpers ───────────────────────────────────────────
     function shimmerKpi(id) {
         var el = rootEl.querySelector('#' + id);
         if (el) { el.classList.remove('loaded', 'error'); el.innerHTML = '<span class="sd-loader"></span>'; }
@@ -48,7 +45,6 @@ frappe.pages['matt-sales-target'].on_page_load = function (wrapper) {
         if (el) el.innerHTML = '<div class="sd-loading"><div class="sd-spinner"></div></div>';
     }
 
-    // ── Period bar ────────────────────────────────────────────────
     function setPeriodUI(period) {
         var labels = { daily: 'Today', weekly: 'This Week', monthly: 'This Month', last_month: 'Last Month' };
         rootEl.querySelectorAll('.sd-period-btn').forEach(function (btn) {
@@ -60,7 +56,6 @@ frappe.pages['matt-sales-target'].on_page_load = function (wrapper) {
         if (kl) kl.textContent = 'Pro-rated Target · ' + (labels[period] || period);
     }
 
-    // ── Matrix toggle ─────────────────────────────────────────────
     function setMatrixUI(mtx) {
         currentMatrix = mtx;
         rootEl.querySelectorAll('.sd-mtx-btn').forEach(function (btn) {
@@ -75,7 +70,6 @@ frappe.pages['matt-sales-target'].on_page_load = function (wrapper) {
         loadPeriodMatrices(mtx);
     }
 
-    // ── Bank + AR matrices follow the same Monthly/Weekly/Daily toggle ──
     var BANK_CAPTIONS = {
         monthly: 'YTD monthly + last 4 weeks &middot; bank &amp; cash receipts',
         weekly:  'Last 8 weeks &middot; bank &amp; cash receipts',
@@ -125,7 +119,6 @@ frappe.pages['matt-sales-target'].on_page_load = function (wrapper) {
         }
     }
 
-    // ── Value / Qty toggle ────────────────────────────────────────
     function setViewUI(view) {
         currentView = view;
         rootEl.querySelectorAll('.sd-view-btn').forEach(function (btn) {
@@ -134,7 +127,6 @@ frappe.pages['matt-sales-target'].on_page_load = function (wrapper) {
         if (matrixCache[currentMatrix]) renderMatrix('sd-matrix', matrixCache[currentMatrix]);
     }
 
-    // ── Matrix renderer (company-wise, fixed IG lists) ─────────
     function renderMatrix(containerId, matrix) {
         var el = rootEl.querySelector('#' + containerId);
         if (!el) return;
@@ -349,9 +341,6 @@ frappe.pages['matt-sales-target'].on_page_load = function (wrapper) {
         el.innerHTML = html;
     }
 
-    // ── AR Matrix renderer ────────────────────────────────────────
-    // Legacy AR rows only show data from June 1 2026 onwards.
-    // Before that date they render as N/A.
     function renderArMatrix(containerId, ar, cols) {
         var el = rootEl.querySelector('#' + containerId);
         if (!el) return;
@@ -365,8 +354,6 @@ frappe.pages['matt-sales-target'].on_page_load = function (wrapper) {
         var pace = ar.pace_by_col || {};
         var avg  = ar.avg        || {};
         var rowT = ar.row_totals || {};
-        // In monthly mode the trailing week-block columns overlap the month
-        // columns — only total_columns participate in row totals.
         var totalCols = ar.total_columns || cols;
         function inTotal(c) { return totalCols.indexOf(c) !== -1; }
 
@@ -387,7 +374,6 @@ frappe.pages['matt-sales-target'].on_page_load = function (wrapper) {
         html += '<th class="sd-matrix-th-avg">Total Collected</th>';
         html += '</tr></thead><tbody>';
 
-        // ── Total AR (grayed, reference only) ─────────────────────
         html += '<tr style="opacity:.5">';
         html += '<td class="sd-matrix-product" style="color:#94a3b8;text-decoration:line-through;">Total AR</td>';
         html += '<td class="sd-matrix-num" style="text-decoration:line-through;">' + fmtCurrency(bal.total||0) + '</td>';
@@ -396,18 +382,15 @@ frappe.pages['matt-sales-target'].on_page_load = function (wrapper) {
         html += arTd(rowT.total || 0);
         html += '</tr>';
 
-        // Per-column visibility: columns whose from_date >= 2026-06-01 show legacy data; earlier = N/A
         var colDates = ar.column_dates || [];
         function colIsVisible(idx) {
             var d = colDates[idx];
             return d && d[0] >= LEGACY_AR_START;
         }
 
-        // ── Legacy AR balance row ─────────────────────────────────
         html += '<tr class="sd-ar-legacy">';
         html += '<td class="sd-matrix-product sd-ar-label-legacy">Legacy AR'
               + ' <span class="sd-ar-badge-legacy">pre-Jun 1</span></td>';
-        // Outstanding balance: show only if at least one visible column exists
         if (showLegacyAR) {
             html += '<td class="sd-matrix-num" style="color:#dc2626;font-weight:800;">' + fmtCurrency(bal.legacy||0) + '</td>';
         } else {
@@ -418,7 +401,6 @@ frappe.pages['matt-sales-target'].on_page_load = function (wrapper) {
         html += naTd();
         html += '</tr>';
 
-        // ── Total Legacy AR Collected (monthly) ───────────────────
         html += '<tr style="background:#fff5f5;">';
         html += '<td class="sd-matrix-product" style="padding-left:20px;color:#dc2626;font-weight:600;">'
               + 'Total Legacy AR Collected</td>';
@@ -437,7 +419,6 @@ frappe.pages['matt-sales-target'].on_page_load = function (wrapper) {
         html += arTd(legacyTotal);
         html += '</tr>';
 
-        // ── New AR (Jun 1 onwards) ────────────────────────────────
         html += '<tr class="sd-ar-good">';
         html += '<td class="sd-matrix-product sd-ar-label-good">New AR'
               + ' <span class="sd-ar-badge-good">Jun 1+</span></td>';
@@ -457,7 +438,6 @@ frappe.pages['matt-sales-target'].on_page_load = function (wrapper) {
         el.innerHTML = html;
     }
 
-    // ── Bank / Cash Incoming Matrix renderer ──────────────────────
     function renderBankMatrix(containerId, data) {
         var el = rootEl.querySelector('#' + containerId);
         if (!el) return;
@@ -497,7 +477,6 @@ frappe.pages['matt-sales-target'].on_page_load = function (wrapper) {
         html += row('Bank Incoming', '#0891b2', bankTot, bankGrand);
         html += row('Cash Incoming', '#059669', cashTot, cashGrand);
 
-        // Combined total row
         html += '<tr class="sd-matrix-foot-grand-total">';
         html += '<td class="sd-matrix-product sd-matrix-foot-label">Total Incoming</td>';
         cols.forEach(function(c) {
@@ -513,7 +492,6 @@ frappe.pages['matt-sales-target'].on_page_load = function (wrapper) {
         el.innerHTML = html;
     }
 
-    // ── Excel export ──────────────────────────────────────────────
     function downloadCSV() {
         var matrix = matrixCache[currentMatrix];
         if (!matrix || !matrix.columns || !matrix.products) {
@@ -779,7 +757,6 @@ frappe.pages['matt-sales-target'].on_page_load = function (wrapper) {
         URL.revokeObjectURL(url);
     }
 
-    // ── Data loading ──────────────────────────────────────────────
     function loadAll(period) {
         setPeriodUI(period);
         var territory = (rootEl.querySelector('#sd-territory') || {}).value || '';
@@ -830,8 +807,6 @@ frappe.pages['matt-sales-target'].on_page_load = function (wrapper) {
             }
         });
 
-        // Bank + AR follow the Monthly/Weekly/Daily toggle; clear caches so a
-        // full reload refetches fresh data for the current mode.
         arMatrixCache = {};
         bankMatrixCache = {};
         loadPeriodMatrices(currentMatrix);
@@ -854,7 +829,6 @@ frappe.pages['matt-sales-target'].on_page_load = function (wrapper) {
         });
     }
 
-    // ── Event listeners ───────────────────────────────────────────
     rootEl.querySelectorAll('.sd-mtx-btn').forEach(function (btn) {
         btn.addEventListener('click', function () { setMatrixUI(btn.dataset.mtx); });
     });
@@ -871,7 +845,6 @@ frappe.pages['matt-sales-target'].on_page_load = function (wrapper) {
     setPeriodUI(currentPeriod);
     loadTerritories();
 
-    // ── Embedded Sales Overview section (shared component) ────────────
     frappe.require([
         '/assets/cannabis_management/css/sales_overview_section.css',
         '/assets/cannabis_management/js/sales_overview_section.js'

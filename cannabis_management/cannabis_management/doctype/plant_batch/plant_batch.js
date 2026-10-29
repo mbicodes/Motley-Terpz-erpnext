@@ -1,6 +1,3 @@
-// Copyright (c) 2026, alltechvirtual.com and contributors
-// For license information, please see license.txt
-
 frappe.ui.form.on("Plant Batch", {
 	refresh(frm) {
 		set_scoping_queries(frm);
@@ -21,7 +18,6 @@ frappe.ui.form.on("Plant Batch", {
 	}
 });
 
-// ── event log child tables ────────────────────────────────────────────────
 ["Plant Batch Growth Phase Change", "Plant Batch Packaging", "Plant Batch Loss Log", "Plant Batch Input Log"].forEach(
 	(cdt) => {
 		frappe.ui.form.on(cdt, {
@@ -46,14 +42,9 @@ function suggest_batch_name(frm) {
 }
 
 function set_scoping_queries(frm) {
-	// Location: cultivation rooms only.
 	frm.set_query("location", () => ({ filters: { is_cultivation_room: 1 } }));
-	// Source Plant: mother plants only.
 	frm.set_query("source_plant", () => ({ filters: { is_mother: 1 } }));
-	// A seed or clone package can only be started from stock that is still
-	// live in Metrc, so inactive and held packages are never offered.
 	frm.set_query("source_package", () => ({ filters: { status: "Active" } }));
-	// Licence: active licences only.
 	frm.set_query("licence", () => ({ filters: { is_active: 1 } }));
 }
 

@@ -39,7 +39,6 @@ frappe.ui.form.on("Material Request", {
                 .hide();
         }, 300);
 
-        // Disable Add Row on custom_finished_goods
         disable_fg_add_row(frm);
     },
 
@@ -51,13 +50,11 @@ frappe.ui.form.on("Material Request", {
 
     custom_routing(frm) {
         if (frm.doc.custom_routing) {
-            // Fetch ops, repopulate FG rows, then recalculate
             get_routing_ops(frm, function (ops) {
                 if (!ops.length) return;
                 populate_fg_rows(frm, ops);
             });
         } else {
-            // Routing cleared — clear FG table
             frm.clear_table('custom_finished_goods');
             frm.refresh_field('custom_finished_goods');
             disable_fg_add_row(frm);
@@ -65,14 +62,12 @@ frappe.ui.form.on("Material Request", {
     }
 });
 
-// ─── RM Item table ───
 frappe.ui.form.on("Material Request Item", {
     qty(frm, cdt, cdn) {
         calculate_finished_qty(frm);
     }
 });
 
-// ─── Finished Goods child table ───
 frappe.ui.form.on("Finished Goods Detail", {
     item(frm, cdt, cdn) {
         let row = locals[cdt][cdn];
@@ -94,17 +89,13 @@ frappe.ui.form.on("Finished Goods Detail", {
     }
 });
 
-// ─── Helpers ───
-
 function disable_fg_add_row(frm) {
-    // Hide the "Add Row" button on the custom_finished_goods child table
     setTimeout(() => {
         let fg = frm.fields_dict['custom_finished_goods'];
-        if (!fg || !fg.grid) return;   // field not installed on this site
+        if (!fg || !fg.grid) return;
 
         fg.grid.wrapper.find('.grid-add-row').hide();
 
-        // Also disable the ability to add via keyboard / grid toolbar
         fg.grid.cannot_add_rows = true;
     }, 200);
 }
@@ -115,7 +106,6 @@ function get_routing_ops(frm, callback) {
         return;
     }
 
-    // Use cache if routing hasn't changed
     if (frm._routing_ops_cache && frm._routing_ops_cache.routing === frm.doc.custom_routing) {
         callback(frm._routing_ops_cache.ops);
         return;
@@ -142,15 +132,12 @@ function populate_fg_rows(frm, ops) {
         return;
     }
 
-    // Clear existing FG rows
     frm.clear_table('custom_finished_goods');
 
-    // For each RM × each operation, add one FG row pre-filled with the operation
     rm_rows.forEach((rm) => {
         ops.forEach((op) => {
             let new_row = frm.add_child('custom_finished_goods');
             new_row.operation = op;
-            // Leave item/yield blank — user fills those in
         });
     });
 
@@ -179,7 +166,7 @@ function validate_fg_routing(frm) {
     }
 
     if (!frm._routing_ops_cache || frm._routing_ops_cache.routing !== frm.doc.custom_routing) {
-        return; // Will be caught server-side
+        return;
     }
 
     let ops = frm._routing_ops_cache.ops;
@@ -296,11 +283,6 @@ function create_fg_work_orders(frm) {
     });
 }
 
-// ── Project picker: no filtering ─────────────────────────────────────────────
-// Core restricts Project by company, and on selling forms by customer too
-// (erpnext/public/js/utils/sales_common.js, controllers/buying.js). Projects
-// here are not company-scoped, so that hid valid choices. Cleared in refresh
-// so it lands after core's own setup_queries, which is where core sets it.
 frappe.ui.form.on('Material Request', {
 	refresh(frm) {
 		frm.set_query('project', () => ({}));

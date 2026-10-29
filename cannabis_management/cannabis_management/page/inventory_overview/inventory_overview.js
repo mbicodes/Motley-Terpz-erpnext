@@ -1,14 +1,4 @@
-// Copyright (c) 2026, alltechvirtual.com and contributors
-// Inventory Overview — the Physical Inventory Weekly sheet, live from stock.
-//
-// Laid out the way the sheet is: a boxed section per area of the warehouse,
-// tiers side by side inside it, same column order. Reserved and Available only
-// appear on the block that has them in the sheet, so a column never shows a
-// number the sheet would not have carried there.
-
 const IOV = 'cannabis_management.cannabis_management.page.inventory_overview.inventory_overview.';
-// Every column gets its own colour, so no two read alike: by its label where
-// it is known, else the next unused colour from IOV_SPARE.
 const IOV_COLOURS = {
 	'Tier 1': '#2f7d4f',
 	'Tier 2': '#2563eb',
@@ -22,8 +12,6 @@ const IOV_COLOURS = {
 	'Freezer 4 - MTM': '#475569',
 };
 const IOV_SPARE = ['#0891b2', '#65a30d', '#be123c', '#7c2d12', '#1e40af', '#6d28d9'];
-// Past the spares, step round the colour wheel so there is never a repeat.
-// Each block (section of the sheet) has its own accent down its left edge.
 const IOV_BLOCK_COLOURS = ['#2f7d4f', '#2563eb', '#a16207', '#0f766e', '#7c3aed', '#0284c7', '#db2777'];
 
 function iov_colour(label, spare) {
@@ -61,7 +49,6 @@ frappe.pages['inventory-overview'].on_page_load = function (wrapper) {
 	load(page);
 };
 
-// "Fresh Frozen - SHO" -> "SHO"; plain "Fresh Frozen" stays as it is.
 function iov_type(group) {
 	return String(group || '').replace(/^Fresh Frozen - /, '');
 }
@@ -116,8 +103,6 @@ function render(page) {
 				</tr>`).join('')
 				: `<tr><td colspan="${(b.reserved ? 4 : 2) + (s.batch ? 1 : 0) + (b.show_type ? 1 : 0) + (b.multi_warehouse ? 1 : 0)}" class="iov-empty">${__('Nothing in stock here.')}</td></tr>`;
 
-			// Distinct strains, not row count: one strain can hold several batches
-			// and the menu counts the strain once.
 			const strains = new Set(s.rows.map((r) => r.strain)).size;
 			const total = s.rows.length ? `<tr class="iov-total">
 					<td>${strains} ${strains === 1 ? __('strain') : __('strains')}</td>

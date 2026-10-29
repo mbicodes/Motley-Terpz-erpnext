@@ -1,13 +1,3 @@
-"""Gate and state-machine tests.
-
-Runs against whatever data the site holds: the tests pick a submitted Sales
-Order rather than building one, which is what makes them meaningful on a copy
-of production. FrappeTestCase rolls back after each test, so the order, its
-settings record and every document created here are gone afterwards.
-
-Test IDs in the names map to the acceptance table in the developer spec.
-"""
-
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
@@ -36,11 +26,9 @@ class TestDispatchFlow(FrappeTestCase):
 		self.settings_snapshot = snapshot_settings((COMPANY, OTHER_COMPANY))
 		self.cfg = self.make_settings(COMPANY, enabled=1)
 		if OTHER_COMPANY in self.settings_snapshot:
-			# The inert-company test needs TSBC to have no record at all.
 			frappe.delete_doc("Dispatch Company Settings", OTHER_COMPANY, force=1, ignore_permissions=True)
 			frappe.local.mt_dispatch_cfg = {}
 		self.so = self.pick_order(COMPANY)
-		# Remembered so tearDown can put a real order back exactly as it was.
 		self.log_before = existing_log_rows(self.so.name)
 		self.original = frappe.db.get_value(
 			"Sales Order",
@@ -57,20 +45,12 @@ class TestDispatchFlow(FrappeTestCase):
 		flow.set_stage(self.so, stages.RECEIVED, "enter_flow", "System")
 
 	def tearDown(self):
-		"""Put everything back by hand.
-
-		FrappeTestCase rolls back per class, not per test, and these tests run
-		against real orders on a copy of production. Restoring explicitly means
-		a failure halfway through still leaves the order as it was found.
-		"""
 		frappe.set_user("Administrator")
 		if getattr(self, "original", None):
 			frappe.db.set_value("Sales Order", self.so.name, self.original, update_modified=False)
 			delete_new_log_rows(self.so.name, self.log_before)
 		restore_settings(getattr(self, "settings_snapshot", {}), (COMPANY, OTHER_COMPANY))
 		frappe.db.commit()
-
-	# ── fixtures ────────────────────────────────────────────────────────────
 
 	def make_settings(self, company, enabled=1, **overrides):
 		values = {
@@ -100,8 +80,6 @@ class TestDispatchFlow(FrappeTestCase):
 		filters = {"docstatus": 1, "company": company}
 		if mode:
 			filters["custom_mode_of_payment"] = mode
-		# An order with no Conversion Entry of its own: the conversion gates are
-		# asserted from a clean start, not from whatever real work is linked.
 		with_conversions = set(frappe.get_all("Conversion Entry", filters={"sales_order": ["is", "set"]}, pluck="sales_order"))
 		for name in frappe.get_all("Sales Order", filters=filters, pluck="name", order_by="creation desc", limit=50):
 			if name not in with_conversions:
@@ -111,17 +89,14 @@ class TestDispatchFlow(FrappeTestCase):
 	def stage(self):
 		return frappe.db.get_value("Sales Order", self.so.name, flow.STAGE_FIELD)
 
-	# ── tests ───────────────────────────────────────────────────────────────
-
 	def test_unconfigured_company_is_inert(self):
-		"""No settings record means every gate ignores the company."""
 		other = self.pick_order(OTHER_COMPANY)
 		self.assertIsNone(get_company_settings(other.company))
 
 		from erpnext.selling.doctype.sales_order.sales_order import make_delivery_note
 
 		dn = make_delivery_note(other.name)
-		gates.dn_before_insert(dn)  # must not raise
+		gates.dn_before_insert(dn)
 
 	def test_t03_delivery_note_blocked_outside_the_flow(self):
 		from erpnext.selling.doctype.sales_order.sales_order import make_delivery_note
@@ -160,7 +135,6 @@ class TestDispatchFlow(FrappeTestCase):
 			doc.save(ignore_permissions=True)
 
 	def test_t15_team_authority_is_per_company(self):
-		"""Fulfillment at one company is nothing at another."""
 		self.make_settings(OTHER_COMPANY, team=[{"user": OVERRIDER, "fulfillment": 1}])
 		frappe.set_user(OVERRIDER)
 		with self.assertRaises(GateError):
@@ -233,12 +207,12 @@ class TestDispatchFlow(FrappeTestCase):
 			"Sales Order", self.so.name, flow.STAGE_FIELD, stages.AWAITING_RELEASE,
 			update_modified=False,
 		)
-		frappe.set_user(APPROVER)  # approver, but no can_override
+		frappe.set_user(APPROVER)
 		with self.assertRaises(GateError):
 			flow.transition(self.so.name, "release_override", payload={"reason": "customer is good for it"})
 
 		frappe.set_user(OVERRIDER)
-		with self.assertRaises(GateError):  # reason missing
+		with self.assertRaises(GateError):
 			flow.transition(self.so.name, "release_override", payload={})
 
 	def test_g4_rejects_a_short_manifest_number(self):
@@ -256,13 +230,6 @@ class TestDispatchFlow(FrappeTestCase):
 		self.assertEqual(payments.payment_gate_applies(so, self.cfg), expected)
 
 	def test_g5_passes_once_paid_within_tolerance(self):
-		"""Needs an order with no invoices behind it.
-
-		paid_amount takes the larger of advances and settled invoices, so on an
-		order that is already invoiced and paid, moving advance_paid proves
-		nothing -- the invoice leg keeps the figure up on its own. That is the
-		fallback working; this test is about the advance leg and the tolerance.
-		"""
 		name = self.order_without_invoices(COMPANY)
 		so = frappe.get_doc("Sales Order", name)
 		so.custom_mode_of_payment = stages.COD
@@ -281,9 +248,9 @@ class TestDispatchFlow(FrappeTestCase):
 			doc.custom_mode_of_payment = stages.COD
 			gates.paid(doc, self.cfg)
 
-		gate_with(required)  # paid in full -- must not raise
+		gate_with(required)
 
-		gate_with(required - 0.005)  # inside the 0.01 tolerance -- must not raise
+		gate_with(required - 0.005)
 
 		with self.assertRaises(GateError):
 			gate_with(required - 1)
@@ -318,8 +285,6 @@ class TestDispatchFlow(FrappeTestCase):
 		self.assertIn("1 to 1", types)
 		self.assertIn("7 to 1", types)
 		self.assertNotIn("2 to 3", types)
-
-	# ── helpers ─────────────────────────────────────────────────────────────
 
 	def order_without_invoices(self, company):
 		invoiced = frappe.get_all(

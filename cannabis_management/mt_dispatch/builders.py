@@ -1,9 +1,3 @@
-"""Documents the flow creates: Conversion Entries, Delivery Notes, Payments.
-
-Each builder is a transition effect, so it runs with frappe.flags.mt_dispatch
-already set -- which is what lets the Delivery Note past its own insert guard.
-"""
-
 import frappe
 from frappe import _
 from frappe.utils import flt, nowdate
@@ -13,10 +7,6 @@ from cannabis_management.mt_dispatch.gates import GateError, draft_delivery_note
 
 MAX_RAW_MATERIALS = 7
 MAX_FINISHED_GOODS = 3
-# (grams field, its tick, the product tick, Slack label). Conversion Entry Item
-# records microns as "the product was run at this size, and this many grams came
-# off it", so a gram figure from Slack has to bring both ticks with it or the
-# form would show a number under an unticked box.
 MICRON_FIELDS = [
 	("bh_grams_150u", "bh_micron_150u", "is_bubble_hash", "Bubble hash 150µ"),
 	("bh_grams_120u_73u", "bh_micron_120u_73u", "is_bubble_hash", "Bubble hash 120µ - 73µ"),
@@ -27,18 +17,12 @@ MICRON_FIELDS = [
 ]
 
 
-# ── Conversion Entry ─────────────────────────────────────────────────────────
-
-
 def conversion_types():
-	"""The Select's own options, read from the doctype rather than hardcoded,
-	so this can never drift from what the field will accept."""
 	field = frappe.get_meta("Conversion Entry Item").get_field("conversion_type")
 	return {o.strip() for o in (field.options or "").split("\n") if o.strip()}
 
 
 def resolve_item(value, warehouse=None):
-	"""An item code, checked to exist."""
 	if not value:
 		return None
 	if frappe.db.exists("Item", value):
@@ -48,13 +32,6 @@ def resolve_item(value, warehouse=None):
 
 
 def make_conversion_entry(so, cfg, payload):
-	"""Insert a Conversion Entry from the rows the user filled in.
-
-	conversion_type is derived from how many raw materials and finished goods
-	a row actually has. The field's option list is not exhaustive -- there is
-	no "2 to 3", for instance -- so a combination it does not offer is
-	rejected here rather than failing on save with a Select error.
-	"""
 	rows = payload.get("rows") or []
 	if not rows:
 		raise GateError(_("Add at least one conversion row."))
@@ -119,16 +96,7 @@ def make_conversion_entry(so, cfg, payload):
 	return ce.name
 
 
-# ── Delivery Note ────────────────────────────────────────────────────────────
-
-
 def build_delivery_note(so, cfg, payload):
-	"""Core's own mapper, with the warehouse chosen per line.
-
-	Runs inside transition(), so frappe.flags.mt_dispatch is set and the
-	before_insert guard lets this through -- which is the only way a governed
-	order gets a Delivery Note at all.
-	"""
 	from erpnext.selling.doctype.sales_order.sales_order import make_delivery_note
 
 	dn = make_delivery_note(so.name)
@@ -149,7 +117,6 @@ def build_delivery_note(so, cfg, payload):
 
 
 def attach_manifest(so, cfg, payload):
-	"""Put the manifest number and file on the draft Delivery Note."""
 	dn_name = draft_delivery_note(so.name)
 	if not dn_name:
 		raise GateError(_("No draft Delivery Note for this order."))
@@ -167,11 +134,6 @@ def attach_manifest(so, cfg, payload):
 
 
 def attach_file(file_url, doctype, name):
-	"""Point an already-saved private File at a document.
-
-	The Slack layer downloads from url_private_download and saves the File; by
-	the time this runs the bytes are on disk, so this only creates the link.
-	"""
 	existing = frappe.db.exists(
 		"File", {"file_url": file_url, "attached_to_doctype": doctype, "attached_to_name": name}
 	)
@@ -196,15 +158,7 @@ def attach_file(file_url, doctype, name):
 	return doc.name
 
 
-# ── Payment Entry ────────────────────────────────────────────────────────────
-
-
 def make_payment_entry(so, cfg, payload):
-	"""Take money against the order and re-run the payment gate.
-
-	Limited to the finance flag because this submits a Payment Entry, which
-	needs those rights in the ERP too.
-	"""
 	from erpnext.accounts.doctype.payment_entry.payment_entry import get_payment_entry
 
 	from cannabis_management.mt_dispatch.payments import refresh_payment_status
@@ -218,8 +172,6 @@ def make_payment_entry(so, cfg, payload):
 	pe.received_amount = amount
 	mode = payload.get("mode_of_payment") or cfg.default_mode_of_payment
 	if mode and mode != pe.mode_of_payment:
-		# get_payment_entry picked the receiving account for its own default
-		# mode; a different mode means different money, so a different account.
 		from erpnext.accounts.doctype.sales_invoice.sales_invoice import get_bank_cash_account
 
 		account = (get_bank_cash_account(mode, so.company) or {}).get("account")

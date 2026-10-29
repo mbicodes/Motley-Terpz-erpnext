@@ -10,21 +10,15 @@ from cannabis_management.cannabis_management.doctype.rosin_recording.rosin_recor
 
 class LabBatchEntry(Document):
 	def on_update_after_submit(self):
-		"""
-		Sync any child row updates to the linked Hash Recording child rows.
-		Only marks batch_run = 1 if a Hash Recording exists and rows were updated.
-		"""
 		hash_rec_name = frappe.db.get_value("Hash Recording", {"lab_batch_refrence": self.name}, "name")
 
 		if not hash_rec_name:
-			# No Hash Recording yet — do not set batch_run, status stays Batch Sent
 			return
 
 		hash_doc = frappe.get_doc("Hash Recording", hash_rec_name)
 		doc_updated = False
 
 		for lab_row in self.lab_batch_entry_child:
-			# Map piece of data back to item_code since hash_row.strain_name holds item_code
 			item_code = frappe.db.get_value("Item", {"item_name": lab_row.strain_name}, "name") or lab_row.strain_name
 			for hash_row in hash_doc.table_smqw:
 				if hash_row.strain_name == item_code and flt(hash_row.pound_sent) == flt(lab_row.pounds_sent):
@@ -32,7 +26,6 @@ class LabBatchEntry(Document):
 						flt(hash_row.pounds_ran) != flt(lab_row.pounds_ran) or
 						hash_row.date_transferred != lab_row.date_transferred or
 						hash_row.run_for != lab_row.run_for):
-
 						hash_row.amount_ran_grams = lab_row.amount_ran_grams
 						hash_row.pounds_ran = lab_row.pounds_ran
 						hash_row.date_transferred = lab_row.date_transferred
@@ -44,7 +37,6 @@ class LabBatchEntry(Document):
 			hash_doc.flags.ignore_permissions = True
 			hash_doc.save()
 
-			# Only set batch_run here — after Hash Recording exists and rows updated
 			frappe.db.set_value("Lab Batch Entry", self.name, "batch_run", 1, update_modified=False)
 
 			frappe.msgprint(_("Linked Hash Recording row updated: {0}").format(
@@ -59,11 +51,6 @@ def get_stock_balance_items(project, warehouse):
 
 	from erpnext.stock.report.stock_balance.stock_balance import execute
 
-	# The company must come from the warehouse being fetched, not a fixed
-	# name. Tolling Partner warehouses exist under both Motley Terpz and
-	# Master Touch Manufacturing, and the Stock Balance report filters its
-	# ledger entries on company - hardcoding one company returned an empty
-	# list for every warehouse belonging to the other one.
 	company = frappe.db.get_value("Warehouse", warehouse, "company")
 
 	filters = frappe._dict({
@@ -111,11 +98,10 @@ def create_hash_recording(lab_batch_entry_name):
 
 	for row in lab_batch.lab_batch_entry_child:
 		child = hash_rec.append("table_smqw")
-		
-		# Map item_name back to item_code for the Link field in Hash Recording Child
+
 		item_code = frappe.db.get_value("Item", {"item_name": row.strain_name}, "name")
 		child.strain_name = item_code or row.strain_name
-		
+
 		child.batchproject = row.batch_number
 		child.tooling_partner = row.tolling_partner
 		child.pound_sent = row.pounds_sent
@@ -182,7 +168,6 @@ def get_batch_status(lab_batch_entry_name):
 	if docstatus == 2:
 		return "Cancelled"
 
-	# Check Hash Recording
 	hash_rec = frappe.db.get_value(
 		"Hash Recording",
 		{"lab_batch_refrence": lab_batch_entry_name},
@@ -203,7 +188,6 @@ def get_batch_status(lab_batch_entry_name):
 		if hash_rec.docstatus == 1:
 			return "Hash Produced"
 
-	# No submitted Hash Recording — check if any child row has amount_ran_grams filled
 	has_amount_ran = frappe.db.sql("""
 		SELECT 1 FROM `tabLab Batch Entry Child`
 		WHERE parent = %s

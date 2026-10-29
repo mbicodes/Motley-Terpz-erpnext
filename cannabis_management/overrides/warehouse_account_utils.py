@@ -1,40 +1,9 @@
-"""
-Item Group → Account resolution for warehouse GL entries.
-
-Logic (exactly as specified):
-  1. Look in the warehouse's custom_item_group_account_mapping child table.
-  2. If the item's group has a row there → use that account.
-  3. If not → fall back to the warehouse's own `account` field (system default).
-
-Why we rebuild the warehouse leg from SLEs instead of patching gl_entries
-──────────────────────────────────────────────────────────────────────────
-ERPNext's StockController.get_gl_entries() merges all SLEs that share the same
-account (via process_gl_map -> merge_similar_entries) before this runs. When a
-Repack's source and target warehouse fall back to the same account (e.g. both
-have no explicit `account` set and use the company default), their amounts net
-against each other. If the net happens to be zero, core drops the row entirely
--- so there's nothing left in gl_entries to split by item group, and the whole
-warehouse-side entry silently disappears. Rebuilding directly from the Stock
-Ledger Entries avoids depending on what survived that merge.
-
-Why we avoid a reverse account→warehouse map
-─────────────────────────────────────────────
-Multiple warehouses in a company can share the same GL account (when the
-warehouse has no explicit account set and all fall back to the company default,
-e.g. "Stock In Hand - MTM"). Building account_to_wh = {account: warehouse}
-would lose all but one warehouse per account, causing the wrong warehouse's
-mappings to be looked up. Instead we read the warehouse directly from each SLE,
-which is always unambiguous.
-"""
-
 from collections import defaultdict
 
 import frappe
 from frappe import _
 from frappe.utils import flt
 
-
-# ── Per-call helpers ──────────────────────────────────────────────────────────
 
 def _get_item_group(item_code: str, cache: dict) -> str:
     if item_code not in cache:
@@ -43,7 +12,6 @@ def _get_item_group(item_code: str, cache: dict) -> str:
 
 
 def _get_warehouse_mapping(warehouse: str, cache: dict) -> dict:
-    """Return {item_group: account} for the warehouse child table. Cached."""
     if warehouse not in cache:
         rows = frappe.db.get_all(
             "Warehouse Item Group Account Mapping",
@@ -68,17 +36,7 @@ def resolve_account(
     return mapping.get(item_group, fallback_account)
 
 
-# ── GL entry post-processing ──────────────────────────────────────────────────
-
 def apply_item_group_mapping(doc, gl_entries: list, warehouse_account: dict) -> list:
-    """
-    Rebuild the warehouse-account leg of the Stock GL entries so each item's
-    stock movement posts to its item-group-mapped account (falling back to the
-    warehouse's default account), instead of trying to split whatever core's
-    already-merged GL list happens to still contain.
-
-    Returns a new list; originals are not mutated.
-    """
     if not warehouse_account:
         return gl_entries
 
@@ -89,8 +47,8 @@ def apply_item_group_mapping(doc, gl_entries: list, warehouse_account: dict) -> 
         "Company", doc.company, "cost_center"
     )
 
-    ig_cache = {}      # item_code → item_group
-    wh_map_cache = {}  # warehouse → {item_group: account}
+    ig_cache = {}
+    wh_map_cache = {}
 
     sles = frappe.db.get_all(
         "Stock Ledger Entry",
@@ -102,8 +60,6 @@ def apply_item_group_mapping(doc, gl_entries: list, warehouse_account: dict) -> 
         fields=["voucher_detail_no", "warehouse", "stock_value_difference"],
     )
 
-    # (resolved_account, cost_center) → net amount, plus one representative
-    # item row per bucket (used for against/project/is_opening/dimensions)
     agg = defaultdict(float)
     representative = {}
 
@@ -133,8 +89,6 @@ def apply_item_group_mapping(doc, gl_entries: list, warehouse_account: dict) -> 
         info.get("account") for info in warehouse_account.values() if info.get("account")
     }
 
-    # Drop core's warehouse-leg entries entirely -- regenerated below from SLEs.
-    # Rounding-gain/loss entries (internal stock transfer) are kept as-is.
     rounding_remark = _("Rounding gain/loss Entry for Stock Transfer")
     kept_entries = [
         gle
@@ -170,25 +124,11 @@ def apply_item_group_mapping(doc, gl_entries: list, warehouse_account: dict) -> 
 
     return kept_entries + new_entries
 
-
-# ── Submit guard: every item group must be mapped ─────────────────────────────
-
-# Item row fields that name a warehouse stock moves in or out of, per doctype.
 _ROW_WAREHOUSE_FIELDS = ("s_warehouse", "t_warehouse", "warehouse", "target_warehouse", "from_warehouse")
 
 
 def validate_item_group_mapping(doc, method=None):
-    """before_submit of Stock Entry, Delivery Note, Purchase Receipt and Stock
-    Reconciliation: a stock item moving in or out of a warehouse that has an
-    Item Group Account Mapping table must have its Item Group in that table,
-    with an Account. Otherwise its GL would quietly fall back to the
-    warehouse's own account (see resolve_account), so the submit is stopped
-    and the missing rows are listed.
-
-    A warehouse whose table is empty is not checked: only Master Touch
-    Manufacturing maps item groups, and the other warehouses have no table.
-    Cancel and reposting do not run this."""
-    moves = []  # (row label, item_code, warehouse)
+    moves = []
     for d in doc.get("items") or []:
         if not d.get("item_code"):
             continue
@@ -197,14 +137,13 @@ def validate_item_group_mapping(doc, method=None):
                 moves.append((f"#{d.idx}", d.item_code, d.get(field)))
         if d.get("rejected_warehouse") and flt(d.get("rejected_qty")):
             moves.append((f"#{d.idx}", d.item_code, d.rejected_warehouse))
-    # Product bundles: the stock moves on the packed items, not the bundle.
     for d in doc.get("packed_items") or []:
         if d.get("item_code") and d.get("warehouse"):
             moves.append((_("Packed #{0}").format(d.idx), d.item_code, d.warehouse))
 
-    tables = {}  # warehouse -> {item_group: account}, or None when it has no table
-    items = {}   # item_code -> (item_group, is_stock_item)
-    missing = {}  # (warehouse, item_group) -> {"rows": [...], "items": [...], "reason": ...}
+    tables = {}
+    items = {}
+    missing = {}
     for row, item_code, warehouse in moves:
         if warehouse not in tables:
             rows = frappe.get_all(

@@ -1,15 +1,3 @@
-"""
-Quote → Sales Order conversion.
-
-One click turns an APPROVED, submitted Quotation into a draft ERPNext Sales
-Order, keeping the CRM Deal ↔ Quotation ↔ Sales Order chain linked:
-  • The real ERPNext Customer is resolved even when the quote was raised against
-    a CRM Deal (quotation_to = "CRM Deal", where party_name is the deal name).
-  • The Sales Order carries the crm_deal link (custom field) and each SO line
-    links back to the source Quotation (prevdoc_docname), so ERPNext marks the
-    quotation "Ordered".
-"""
-
 import frappe
 from frappe import _
 from frappe.utils import flt, nowdate, getdate, add_days
@@ -61,7 +49,7 @@ def create_sales_order_from_quotation(quotation):
             "discount_percentage": it.discount_percentage,
             "warehouse": it.get("warehouse") or _default_warehouse(it.item_code, q.company),
             "delivery_date": delivery_date,
-            "prevdoc_docname": q.name,   # links the line back to the Quotation
+            "prevdoc_docname": q.name,
         })
 
     so.additional_discount_percentage = flt(q.get("additional_discount_percentage"))
@@ -83,11 +71,6 @@ def create_sales_order_from_quotation(quotation):
 
 @frappe.whitelist()
 def make_sales_order(source_name, target_doc=None, args=None):
-    """Override of ERPNext's Quotation → Sales Order mapper (the standard
-    "Create → Sales Order" button). ERPNext only turns a Lead or Prospect into a
-    Customer; a quote raised against a CRM Deal came back with a blank Customer,
-    and the deal usually had no Customer yet — Frappe CRM only creates one when
-    the deal is marked Won — so the rep had nothing to pick."""
     from erpnext.selling.doctype.quotation.quotation import (
         make_sales_order as erpnext_make_sales_order,
     )
@@ -105,10 +88,6 @@ def make_sales_order(source_name, target_doc=None, args=None):
 
 
 def _resolve_erp_customer(q, create=False):
-    """Resolve the real ERPNext Customer for a quotation, whether it was raised
-    against a Customer directly or against a CRM Deal / Prospect. With `create`,
-    a CRM Deal that has no Customer yet gets one, built exactly as winning the
-    deal would build it."""
     if q.get("quotation_to") == "Customer" and q.get("party_name"):
         return q.party_name
 
@@ -124,7 +103,6 @@ def _resolve_erp_customer(q, create=False):
         if cust:
             return cust
 
-    # A Customer named after the deal's organization (what CRM itself would create).
     org = frappe.db.get_value("CRM Deal", deal, "organization")
     cust = org and frappe.db.get_value("Customer", {"customer_name": org, "disabled": 0}, "name")
     if cust:
@@ -146,9 +124,6 @@ def _create_customer_from_deal(deal):
     if not settings.enabled:
         return None
 
-    # create_customer_in_erpnext only acts on a deal in the "Won" status. Present
-    # the deal that way in memory only (never saved) so the Customer gets the same
-    # contacts, address, crm_deal link and deal-owner assignment as on a win.
     doc = frappe.get_doc("CRM Deal", deal)
     doc.status = settings.deal_status
     create_customer_in_erpnext(doc, "quote_to_order")
@@ -156,8 +131,6 @@ def _create_customer_from_deal(deal):
 
 
 def _default_warehouse(item_code, company):
-    """Best-effort delivery warehouse for a stock item: item default for the
-    company → Stock Settings default → any enabled warehouse for the company."""
     wh = frappe.db.get_value(
         "Item Default", {"parent": item_code, "company": company}, "default_warehouse"
     )
@@ -166,7 +139,6 @@ def _default_warehouse(item_code, company):
     wh = frappe.db.get_single_value("Stock Settings", "default_warehouse")
     if wh and frappe.db.get_value("Warehouse", wh, "company") == company:
         return wh
-    # Last resort: any enabled, non-group warehouse — but avoid transit/WIP ones.
     candidates = frappe.get_all(
         "Warehouse",
         filters={"company": company, "is_group": 0, "disabled": 0},
@@ -180,7 +152,6 @@ def _default_warehouse(item_code, company):
 
 
 def _existing_sales_orders(quotation_name):
-    """Sales Orders already created from this quotation (linked via SO items)."""
     return frappe.db.sql_list(
         """
         SELECT DISTINCT parent FROM `tabSales Order Item`
@@ -189,8 +160,6 @@ def _existing_sales_orders(quotation_name):
         quotation_name,
     )
 
-
-# ── Custom field installer (idempotent) ──────────────────────────────────────
 
 def install_quote_to_order_fields():
     from frappe.custom.doctype.custom_field.custom_field import create_custom_fields

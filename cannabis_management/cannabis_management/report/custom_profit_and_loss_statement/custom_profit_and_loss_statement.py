@@ -1,7 +1,3 @@
-# Copyright (c) 2015, Frappe Technologies Pvt. Ltd. and Contributors
-# License: GNU General Public License v3. See license.txt
-
-
 import frappe
 from frappe import _
 from frappe.utils import flt
@@ -61,14 +57,6 @@ def execute(filters=None):
 	if net_profit_loss:
 		data.append(net_profit_loss)
 
-	# Indirect Income / Indirect Expense recap - every leaf account that rolls
-	# up under an account whose account_type is "Indirect Income" (resp.
-	# "Indirect Expense") is re-listed here, directly below "Profit for the
-	# year", as its own mini section. These accounts are already counted
-	# inside the Income/Expense trees above (so this doesn't change Total
-	# Income/Expense/Profit), it's purely a supplementary breakout - same
-	# pattern accounting software uses to call out non-operating income/
-	# expense separately after the operating result.
 	data.append({})
 	data.extend(
 		get_indirect_recap_section(
@@ -96,12 +84,6 @@ def execute(filters=None):
 	if filters.get("selected_view") == "Margin":
 		compute_margin_view_data(data, period_list, filters.accumulated_values)
 
-	# Stock quantity roll-forward (Opening / Inward broken out into Purchases,
-	# Harvest, Inventory Gain, Other / Outward broken out into Sales, Inventory
-	# Loss, Other / Closing), sourced directly from Stock Ledger Entry and Stock
-	# Reconciliation Item (not GL Entry). Appended after the Growth/Margin
-	# transforms above so these rows always show absolute quantities,
-	# regardless of the selected view.
 	data.extend(get_stock_quantity_rows(filters, period_list, currency))
 
 	for row in data:
@@ -120,13 +102,10 @@ def get_report_summary(
 ):
 	net_income, net_expense, net_profit = 0.0, 0.0, 0.0
 
-	# from consolidated financial statement
 	if filters.get("accumulated_in_group_company"):
 		period_list = get_filtered_list_for_consolidated_report(filters, period_list)
 
 	if filters.accumulated_values:
-		# when 'accumulated_values' is enabled, periods have running balance.
-		# so, last period will have the net amount.
 		key = period_list[-1].key
 		if income:
 			net_income = income[-2].get(key)
@@ -197,27 +176,6 @@ def get_net_profit_loss(income, expense, period_list, company, currency=None, co
 
 
 def get_indirect_recap_section(rows, account_type, section_label, heading_label, currency, period_list):
-	"""Pull out every leaf account that descends from an account whose
-	account_type is `account_type` (e.g. the "Indirect Income" group and
-	everything under it) from an already-built income/expense tree (`rows`,
-	as returned by get_data() - group headers and leaf accounts both present,
-	linked by account/parent_account), and return it as its own standalone
-	section: a section-header row (displaying `heading_label`), one row per
-	matched leaf account, and a "Total <section_label>" row.
-
-	Handles the common case (one group account carrying the account_type)
-	as well as an account_type set directly on a leaf (no group in between) -
-	either way, every leaf actually tagged with, or nested under, this
-	account_type ends up listed here exactly once.
-
-	Rows are given their own synthetic account keys (suffixed "::recap") so
-	this section is a fully independent subtree in the frontend's
-	expand/collapse and search logic - it never shares state with the same
-	account's row up in the main Income/Expense tree above. Because that key
-	is not a real Account name, each leaf also carries `gl_account` with the
-	unsuffixed account so the frontend can still drill through to the
-	General Ledger.
-	"""
 	if not rows:
 		return []
 
@@ -283,8 +241,6 @@ def get_indirect_recap_section(rows, account_type, section_label, heading_label,
 	for leaf in matched:
 		leaf_row = frappe._dict(dict(leaf))
 		leaf_row["account"] = leaf.get("account") + "::recap"
-		# `account` is a synthetic tree key here, not a real Account name, so
-		# carry the real one separately for General Ledger drill-through.
 		leaf_row["gl_account"] = leaf.get("account")
 		leaf_row["parent_account"] = section_key
 		leaf_row["indent"] = 1
@@ -299,55 +255,9 @@ def get_indirect_recap_section(rows, account_type, section_label, heading_label,
 
 
 def get_stock_quantity_rows(filters, period_list, currency):
-	"""Stock quantity roll-forward, one column per report period, built straight
-	off Stock Ledger Entry / Stock Reconciliation Item - a physical stock
-	movement statement, independent of the accounting (GL Entry) figures the
-	rest of this report is built from.
-
-	Inward and Outward are broken out by *what caused the movement* instead of
-	being shown as two lump sums:
-
-	  Inward   Purchases      -> voucher_type = "Purchase Receipt"
-	           Harvest        -> any other inward carrying a Project, tagged
-	                             either on the Stock Ledger Entry itself or on
-	                             the originating voucher (Stock Entry, Purchase
-	                             Receipt/Invoice, Delivery Note, Sales Invoice)
-	                             - harvest / farm output is tagged with the
-	                             grow Project
-	           Inventory Gain -> positive quantity_difference on a submitted
-	                             Stock Reconciliation
-	           Other Inward   -> everything else (Stock Entry receipts, repacks,
-	                             transfers in, sales returns, ...)
-
-	  Outward  Sales          -> voucher_type in ("Delivery Note", "Sales
-	                             Invoice") - many of this company's sales never
-	                             go through a Delivery Note at all (direct,
-	                             stock-updating POS/dispensary Sales Invoices),
-	                             so Delivery Note alone under-counted real
-	                             sales outward heavily
-	           Inventory Loss -> negative quantity_difference on a submitted
-	                             Stock Reconciliation
-	           Other Outward  -> everything else (Stock Entry issues, repack
-	                             consumption, transfers out, purchase
-	                             returns, ...)
-
-	A movement is counted exactly once: Purchase Receipt wins over Harvest, so a
-	Purchase Receipt that happens to carry a Project is a purchase, not a
-	harvest.
-
-	Stock Reconciliation posts its Stock Ledger Entries with actual_qty = 0 and
-	an absolute qty_after_transaction, so reconciliations are invisible in
-	actual_qty. Gain/Loss (and the opening balance) therefore read the real
-	delta from Stock Reconciliation Item.quantity_difference.
-
-	Opening Quantity(period) = net movement posted before period.from_date
-	Closing Quantity(period) = Opening + Total Inward - Total Outward
-	"""
 	company = filters.company
 
 	def qty_before(date):
-		"""Net stock movement strictly before `date`: actual_qty from the ledger
-		plus the reconciliation deltas the ledger does not carry."""
 		if not date:
 			return 0.0
 
@@ -376,19 +286,6 @@ def get_stock_quantity_rows(filters, period_list, currency):
 		opening += flt(reco[0][0]) if reco and reco[0][0] else 0.0
 		return opening
 
-	# Stock Ledger Entry.project is not reliable on its own for the Harvest
-	# split: ERPNext's Inventory Dimension framework (see
-	# get_evaluated_inventory_dimension / update_inventory_dimensions in
-	# erpnext/controllers/stock_controller.py) unconditionally overwrites
-	# sl_dict[dimension.target_fieldname] with the item row's own dimension
-	# value - down to blank - whenever a dimension targets that fieldname.
-	# This site's "Batch" Inventory Dimension targets "project", so a Stock
-	# Entry whose document-level Project *is* set can still post Stock Ledger
-	# Entries with project = NULL, simply because the row itself has no
-	# "batch" value. That silently dropped a large share of real harvest
-	# inward into "Other Inward". Falling back to the project recorded
-	# directly on the originating voucher (Stock Entry / Purchase Receipt /
-	# Purchase Invoice / Delivery Note / Sales Invoice) recovers those.
 	VOUCHER_PROJECT_UNION = """
 		select 'Stock Entry' as voucher_type, name as voucher_no, project from `tabStock Entry` where company = %(company)s
 		union all
@@ -402,8 +299,6 @@ def get_stock_quantity_rows(filters, period_list, currency):
 	"""
 
 	def ledger_split_in_range(from_date, to_date, inward):
-		"""Ledger movement in the period, bucketed by cause. Returns a dict of
-		{bucket: qty}, quantities always positive."""
 		params = {"company": company, "from_date": from_date, "to_date": to_date}
 
 		if inward:
@@ -443,7 +338,6 @@ def get_stock_quantity_rows(filters, period_list, currency):
 		return {d.bucket: flt(d.qty) for d in rows}
 
 	def reco_split_in_range(from_date, to_date):
-		"""Stock Reconciliation gain / loss in the period, both positive."""
 		row = frappe.db.sql(
 			"""
 			select
@@ -471,7 +365,6 @@ def get_stock_quantity_rows(filters, period_list, currency):
 				"is_group": 0,
 				"indent": indent,
 				"is_qty_row": 1,
-				# rendered with extra emphasis by the Profit & Loss Report page
 				"is_qty_total": is_total,
 			}
 		)
@@ -537,9 +430,6 @@ def get_stock_quantity_rows(filters, period_list, currency):
 			row[period.key] = flt(qty, 3)
 			totals[id(row)] += qty
 
-	# Balance-type rows (Opening/Closing) show the balance at the very start /
-	# very end of the whole reporting range in the "Total" column; flow-type
-	# rows show the sum of the flow across every period.
 	opening_row["total"] = opening_row.get(period_list[0].key, 0.0)
 	closing_row["total"] = closing_row.get(period_list[-1].key, 0.0)
 	for row in flow_rows:

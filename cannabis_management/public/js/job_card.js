@@ -1,5 +1,3 @@
-// Job Card — auto-populate workstation, rate, and sub-op cost on time log rows
-
 frappe.ui.form.on('Job Card', {
 
     refresh: function (frm) {
@@ -7,17 +5,11 @@ frappe.ui.form.on('Job Card', {
         _fix_employee_pill_remove(frm);
     },
 
-    // Core builds the timer buttons here, and in the work-order case it does so
-    // inside an async frappe.db.get_value callback -- so they can appear after
-    // refresh has finished. Registering a handler of the same name means ours
-    // runs as part of the same trigger, right after core's, which is the only
-    // reliable moment to swap the buttons out.
     prepare_timer_buttons: function (frm) {
         _replace_timer_buttons(frm);
     },
 
     workstation: function (frm) {
-        // Backfill rows that have no workstation yet
         (frm.doc.time_logs || []).forEach(row => {
             if (!row.custom_workstation) {
                 _set_row_workstation(frm, row.doctype, row.name, frm.doc.workstation);
@@ -25,16 +17,11 @@ frappe.ui.form.on('Job Card', {
         });
     },
 
-    // Core recomputes Total Completed Qty from the time logs on every save,
-    // so a figure typed here straight would fall back to the logs' sum. It
-    // is written into the output time log instead, which makes that sum the
-    // typed figure.
     total_completed_qty: function (frm) {
         _push_total_completed_qty_to_time_log(frm);
     },
 
     before_save: function (frm) {
-        // Recalculate all costs before saving
         let total = 0;
         (frm.doc.time_logs || []).forEach(row => {
             let cost = (flt(row.custom_hour_rate) / 60) * flt(row.time_in_mins);
@@ -47,9 +34,6 @@ frappe.ui.form.on('Job Card', {
     },
 });
 
-// The micron bags are what the run produced, so their grams are the Completed
-// Qty: the total lands on the time log that already carries the output (or the
-// last one), keeping it in step with the "Micron total must match" check.
 frappe.ui.form.on('Micron Collection Detail', {
     grams_collected: function (frm) {
         _sync_micron_total_to_time_log(frm);
@@ -87,7 +71,6 @@ function _push_total_completed_qty_to_time_log(frm) {
         .reduce((sum, row) => sum + flt(row.completed_qty), 0);
 
     if (total < others) {
-        // The other rows alone exceed the figure: it all goes on the output row.
         logs.forEach(row => { if (row !== target) row.completed_qty = 0; });
         others = 0;
     }
@@ -146,23 +129,6 @@ frappe.ui.form.on('Job Card Time Log', {
     },
 });
 
-// ── Ask for the time instead of silently stamping "now" ─────────────────────
-//
-// Core's timer buttons build their args with frappe.datetime.now_datetime()
-// and post straight to the server, so a job logged late records the wrong
-// hours. These replacements put a dialog in front, defaulted to now, and use
-// whatever the operator confirms.
-//
-// One dialog per action, not two. Core asks for employees (Start) and for
-// completed quantity (Complete) in their own prompts and only then stamps the
-// time, so adding a second prompt would mean two modals for one action. The
-// buttons are replaced outright and each collects everything it needs at once.
-//
-// Nothing else needs changing for the Work Order to follow: Job Card's
-// set_expected_and_actual_time() derives actual_start_date from min() of the
-// time log times and actual_end_date from max(), so the entered time flows
-// through to the Job Card and on to the Work Order operation.
-
 const CM_TIMER_BUTTONS = ['Start Job', 'Resume Job', 'Pause Job', 'Complete Job'];
 
 function _replace_timer_buttons(frm) {
@@ -179,17 +145,8 @@ function _replace_timer_buttons(frm) {
 }
 
 function _start_job_dialog(frm) {
-    // Employees are only asked for when the Job Card does not already carry
-    // them, matching core's own condition.
     const needs_employees = !frm.doc.employee || !frm.doc.employee.length;
 
-    // The employee picker is built by hand rather than using Table MultiSelect
-    // or MultiSelectPills. Both keep their chosen values in an internal `rows`
-    // array and re-render from the field's model value, and inside a dialog
-    // removing a pill does not survive that round trip -- the pill comes
-    // straight back. Rather than fight either control, the selection is held
-    // in a plain array here and the pills are rendered from it, so the remove
-    // button is the only thing that decides what is in the list.
     const selected = [];
 
     const fields = [];
@@ -223,7 +180,6 @@ function _start_job_dialog(frm) {
             }
             d.hide();
 
-            // add_time_log() reads name.get("employee"), so rows, not ids.
             const employees = needs_employees
                 ? selected.map(emp => ({ employee: emp.id }))
                 : frm.doc.employee;
@@ -263,8 +219,6 @@ function _start_job_dialog(frm) {
             );
         };
 
-        // Bound on the wrapper, which is never replaced -- only its contents
-        // are, so delegation keeps working after every re-render.
         $list.on('click', '.cm-emp-remove', function (e) {
             e.preventDefault();
             const id = $(this).data('id');
@@ -280,7 +234,6 @@ function _start_job_dialog(frm) {
                 const label = d.get_field('employee_picker').get_label_value?.() || id;
                 selected.push({ id: id, label: label && label !== id ? `${label}` : id });
             }
-            // Clear so the same field can be used to add the next one.
             d.set_value('employee_picker', '');
             render();
         };
@@ -317,8 +270,6 @@ function _resume_job_dialog(frm) {
 }
 
 function _end_job_dialog(frm, status) {
-    // Completing asks for quantity as well, on the same condition core uses:
-    // with sub-operations, only the last one carries the quantity.
     let ask_qty = status === 'Complete';
     if (ask_qty) {
         const sub_ops = frm.doc.sub_operations;
@@ -363,12 +314,6 @@ function _end_job_dialog(frm, status) {
     d.show();
 }
 
-// The Employee Table MultiSelect's × did nothing. Right after picking an
-// employee the input still has focus, so pressing × first blurs it; the blur
-// re-renders the pills, the × under the mouse is replaced, and the click never
-// fires. Act on mousedown instead (preventDefault keeps the focus, so no blur),
-// and drop the row from the model directly rather than through
-// validate_and_set_in_model, which bails out while inside_change_event is set.
 function _fix_employee_pill_remove(frm) {
     const ctrl = frm.fields_dict.employee;
     if (!ctrl || !ctrl.$input_area) return;
@@ -379,9 +324,6 @@ function _fix_employee_pill_remove(frm) {
         e.preventDefault();
         e.stopPropagation();
     });
-    // The browser reports the pill <button> itself as the event target, never
-    // the × inside it, so a '.btn-remove' selector never matches. Listen on the
-    // pill and check whether the pointer is over the × by its box instead.
     ctrl.$input_area.on('mousedown.cm_emp', '.tb-selected-value', (e) => {
         const x_el = e.currentTarget.querySelector('.btn-remove');
         if (!x_el) return;
@@ -410,7 +352,6 @@ function _fix_employee_pill_remove(frm) {
     });
 }
 
-// On form load: batch-fetch rates for all rows that already have a workstation
 function _load_all_rates(frm) {
     let rows_needing_rate = (frm.doc.time_logs || []).filter(r => r.custom_workstation);
     if (!rows_needing_rate.length) return;
@@ -473,9 +414,6 @@ function _recalc_cost(frm, cdt, cdn) {
     frm.set_value('custom_sub_op_total_cost', total);
 }
 
-// Pull the operator's wage onto the row, but only where the workstation is
-// costed employee-wise. Cleared otherwise, so switching the flag off on a
-// workstation does not leave a stale rate behind on existing rows.
 function _refresh_labor_rate(frm, cdt, cdn) {
     let row = frappe.get_doc(cdt, cdn);
     if (!row.custom_workstation || !row.employee) {

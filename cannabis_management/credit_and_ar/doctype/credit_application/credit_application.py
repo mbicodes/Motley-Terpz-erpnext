@@ -1,10 +1,3 @@
-"""Credit Application — the credit file, the agreement register and the MD
-approval record, in one document.
-
-Deliberately not split: the Terms & Credit Line Register, the email thread and
-the approval audit all hang off this record.
-"""
-
 import re
 
 import frappe
@@ -25,7 +18,6 @@ STATE_REVOKED = "Revoked"
 LIVE_STATES = (STATE_APPROVED,)
 TERMINAL_STATES = (STATE_REJECTED, STATE_EXPIRED, STATE_REVOKED)
 
-# Shared inboxes are not an AP contact. A name on the hook is the whole point.
 GENERIC_EMAIL_PREFIXES = (
 	"info",
 	"accounts",
@@ -47,8 +39,6 @@ GENERIC_EMAIL_PREFIXES = (
 )
 
 class CreditApplication(Document):
-	# ── lifecycle ────────────────────────────────────────────────────────
-
 	def validate(self):
 		self._default_state()
 		self._set_correspondence_defaults()
@@ -65,14 +55,10 @@ class CreditApplication(Document):
 
 	@property
 	def agreement_complete(self) -> bool:
-		"""Signed *and* on file. A tick without the document is not an agreement."""
 		return bool(self.credit_agreement_signed and self.credit_agreement_document)
 
 	def on_submit(self):
 		if self.workflow_state == STATE_APPROVED:
-			# Terms go live the moment the MD approves — the decision itself is
-			# the gate, not the paperwork. The signed agreement is still
-			# expected, but chasing it no longer holds up the customer's line.
 			self.apply_approval()
 			if not self.agreement_complete:
 				self._notify_agreement_outstanding()
@@ -84,10 +70,6 @@ class CreditApplication(Document):
 		previous = self.get_doc_before_save()
 		was = previous.workflow_state if previous else None
 
-		# Terms already go live at submit (see `on_submit`). This is a safety
-		# net only — it catches applications approved before that took effect,
-		# or any other edge case where an Approved application isn't yet live
-		# on its customer — so a later edit self-heals rather than staying stuck.
 		if self.workflow_state == STATE_APPROVED and not self._is_live_on_customer():
 			self.apply_approval()
 			self.add_comment(
@@ -105,12 +87,7 @@ class CreditApplication(Document):
 		if self.workflow_state == STATE_APPROVED:
 			self.apply_revocation(reason=_("Credit Application cancelled."))
 
-	# ── derived values ───────────────────────────────────────────────────
-
 	def _default_state(self):
-		# A received application goes straight to "Submit for Review" — it does
-		# not sit in an internal Draft first, whether it came in from the desk
-		# or from the public Web Form.
 		if not self.workflow_state:
 			self.workflow_state = STATE_SUBMIT_FOR_REVIEW
 
@@ -119,8 +96,6 @@ class CreditApplication(Document):
 			self.subject = _("Credit Application — {0}").format(self.customer or "")
 
 	def _sync_group_and_exposure(self):
-		"""Group exposure is the number the MD actually needs: what this buyer
-		and every related entity already owes us, across all three companies."""
 		if not self.customer:
 			return
 
@@ -155,13 +130,7 @@ class CreditApplication(Document):
 			bool(threshold and flt(self.recommended_limit) > threshold)
 		)
 
-	# ── phone numbers ────────────────────────────────────────────────────
-
 	def _validate_phone_country_code(self):
-		"""Plain text fields, deliberately — Frappe's Phone control garbles the
-		number when a country is picked after typing (drops/duplicates the
-		local trunk zero) and its country picker can overlap the input.
-		A leading '+' is enough to make the country code unambiguous."""
 		for fieldname, label in (
 			("requestor_phone", _("Phone Number")),
 			("ap_contact", _("AP Contact")),
@@ -176,8 +145,6 @@ class CreditApplication(Document):
 					).format(frappe.utils.escape_html(phone)),
 					title=label,
 				)
-
-	# ── AP contact ───────────────────────────────────────────────────────
 
 	def _validate_ap_contact(self):
 		if self.ap_contact_email:
@@ -204,8 +171,6 @@ class CreditApplication(Document):
 				title=_("AP Contact Email"),
 			)
 
-	# ── state gates ──────────────────────────────────────────────────────
-
 	def _validate_state_requirements(self):
 		if self.workflow_state == STATE_FINANCE_REVIEW:
 			self._validate_applicant_submission()
@@ -216,13 +181,6 @@ class CreditApplication(Document):
 			self._validate_approval()
 
 	def _validate_applicant_submission(self):
-		"""What the customer has to give us before Finance will look at it.
-
-		The AP contact belongs here, not at MD approval: it is the applicant's
-		information, and chasing it at the last gate stalls the decision rather
-		than the paperwork. The same rules apply whether the form is filled in
-		the desk or through a Web Form, because this runs server-side on validate.
-		"""
 		problems = []
 
 		if not self.ap_contact_name:
@@ -233,12 +191,8 @@ class CreditApplication(Document):
 		utils.throw_consolidated(problems, "AP Contact Required")
 
 	def _validate_recommendation(self):
-		"""Everything Finance must have documented before recommending a line."""
 		problems = []
 
-		# Payment history and financial capacity notes are captured on the form
-		# but deliberately not enforced — Finance often recommends before the
-		# narrative is written up.
 		required = [
 			("exact_legal_buyer", _("Exact legal buyer (the legal entity, not the DBA)")),
 			("legal_entity_type", _("Legal entity type")),
@@ -279,17 +233,8 @@ class CreditApplication(Document):
 		utils.throw_consolidated(problems, "Cannot Recommend — Credit File Incomplete")
 
 	def _validate_approval(self):
-		"""Everything that must exist before terms go live in the ERP."""
 		settings = utils.get_settings()
 		problems = []
-
-		# The signed agreement is deliberately NOT required here. The MD's approval
-		# is the gate — terms go live on submit regardless of agreement status
-		# (see `on_submit`); an outstanding signature only triggers a paperwork
-		# reminder (`_notify_agreement_outstanding`), it no longer blocks anything.
-		# The AP contact is collected from the applicant at Finance Review, not
-		# demanded again at approval. The onboarding form completeness is no
-		# longer a condition of approval.
 
 		if flt(self.approved_limit) <= 0:
 			problems.append(_("Approved limit must be greater than zero."))
@@ -316,8 +261,6 @@ class CreditApplication(Document):
 		self.approved_by = frappe.session.user
 		self.approved_on = now_datetime()
 
-	# ── side effects ─────────────────────────────────────────────────────
-
 	def _is_live_on_customer(self) -> bool:
 		return (
 			frappe.db.get_value("Customer", self.customer, "custom_active_credit_application")
@@ -325,13 +268,6 @@ class CreditApplication(Document):
 		)
 
 	def _notify_agreement_outstanding(self):
-		"""Approved by the MD and already live on the Customer — but the
-		countersigned agreement is not on file yet.
-
-		This is a paperwork reminder only. It no longer gates anything: the
-		limit, terms and status are already written to the Customer by
-		``apply_approval`` in ``on_submit``, regardless of agreement status.
-		"""
 		self.add_comment(
 			"Info",
 			_(
@@ -343,10 +279,6 @@ class CreditApplication(Document):
 		self._notify_awaiting_agreement()
 
 	def _notify_awaiting_agreement(self):
-		# Internal only. The message carries the approved limit and a desk link,
-		# and tells the reader to attach the signed agreement — none of which
-		# belongs with the applicant. They hear from
-		# ``_notify_requestor_of_decision`` instead.
 		recipients = utils.dedupe_recipients(self.owner, utils.finance_recipients())
 		if not recipients:
 			return
@@ -370,14 +302,12 @@ class CreditApplication(Document):
 		)
 
 	def apply_approval(self):
-		"""Terms go live in the ERP. This is the only place that happens."""
 		self._supersede_previous_applications()
 		self._upsert_credit_limit()
 		self._update_customer(live=True)
 		self._notify_approved()
 
 	def _supersede_previous_applications(self):
-		"""One live line per credit group. An approval retires its predecessors."""
 		members = credit_engine.get_credit_group_members(self.customer)
 		siblings = frappe.get_all(
 			"Credit Application",
@@ -401,25 +331,12 @@ class CreditApplication(Document):
 			)
 
 	def _upsert_credit_limit(self):
-		"""Mirror the approved limit onto the native Customer Credit Limit row.
-
-		Enforcement is our own group-wide engine; this row keeps ERPNext's own
-		credit-limit check consistent rather than silently looser.
-		"""
-		# An exempt account carries no native limit — writing one would hand
-		# ERPNext a figure to block the customer's invoices with, which is the
-		# opposite of being exempt. See customer_hooks._clear_native_credit_limit.
 		if utils.is_policy_exempt(self.customer):
 			return
 
 		_write_credit_limit(self.customer, utils.company_of(self.customer), flt(self.approved_limit))
 
 	def _update_customer(self, live: bool):
-		"""Push the approved line onto the Customer, and the limit onto the
-		group parent — the engine reads the limit from the parent."""
-		# An exempt account keeps its status: Policy Exempt is the status now, and
-		# stamping "Terms Approved" over it would quietly put the account back
-		# under the policy without anyone choosing that.
 		exempt = utils.is_policy_exempt(self.customer)
 
 		values = {
@@ -448,15 +365,12 @@ class CreditApplication(Document):
 			if self.credit_group_parent:
 				values["custom_credit_group_parent"] = self.credit_group_parent
 
-		# A customer under a live AR Case keeps that status: approving a line does
-		# not clear a stop-work order, nor a payment plan or workout.
 		current_status = frappe.db.get_value("Customer", self.customer, "custom_credit_status")
 		if live and current_status in utils.CASE_DRIVEN_STATUSES:
 			values.pop("custom_credit_status", None)
 
 		frappe.db.set_value("Customer", self.customer, values, update_modified=False)
 
-		# The limit lives on the group parent so related entities share one line.
 		parent = credit_engine.get_credit_group_parent(self.customer)
 		if parent and parent != self.customer:
 			frappe.db.set_value(
@@ -469,7 +383,6 @@ class CreditApplication(Document):
 		credit_engine.refresh_customer_exposure(self.customer)
 
 	def apply_revocation(self, reason: str | None = None):
-		"""Terms come off the account: back to COD, limit to zero."""
 		if reason:
 			self.add_comment("Info", reason)
 
@@ -482,7 +395,6 @@ class CreditApplication(Document):
 		_write_credit_limit(self.customer, utils.company_of(self.customer), 0)
 
 	def _reopen_terms_sales_orders(self):
-		"""Open Terms orders lose their approval when the line goes away."""
 		orders = frappe.get_all(
 			"Sales Order",
 			filters={
@@ -499,8 +411,6 @@ class CreditApplication(Document):
 				{"custom_approval_status": utils.APPROVAL_PENDING},
 				update_modified=False,
 			)
-
-	# ── notifications ────────────────────────────────────────────────────
 
 	def _notify_approved(self):
 		recipients = utils.dedupe_recipients(
@@ -573,10 +483,6 @@ class CreditApplication(Document):
 		)
 
 	def _notify_requestor_of_decision(self):
-		"""Email the applicant a copy of the Credit Agreement once the
-		application is decided — approved or rejected. The internal
-		notifications above go to Finance/Sales; this one goes to whoever
-		filled in the public form."""
 		if not self.requestor_email:
 			return
 
@@ -647,30 +553,7 @@ class CreditApplication(Document):
 			frappe.log_error(frappe.get_traceback(), "Credit Application notification failed")
 
 
-# ── native credit limit row ──────────────────────────────────────────────────
-
-
 def _write_credit_limit(customer: str, company: str, limit: float):
-	"""Write the native Customer Credit Limit row directly.
-
-	Saving the Customer document is not an option: ERPNext's
-	``validate_credit_limit_on_change`` refuses any limit below the customer's
-	current outstanding, which would make it impossible to revoke a line from
-	exactly the customer who most needs it revoked.
-
-	The row is written with ``bypass_credit_limit_check = 1`` and exists as a
-	**mirror for reporting**, not as a second enforcement layer. ERPNext's own
-	check is per-company, knows nothing about the credit group, and cannot see a
-	cleared over-limit deposit — so it would reject orders this module has
-	legitimately cleared. Worse, its error message invites Sales to ask a named
-	list of users to raise the limit, which is precisely the behaviour the
-	Credit Application process exists to prevent. Enforcement lives in
-	``credit_engine`` and the Sales Order gate.
-
-	``company`` on Credit Application is a Select (Fresh Frozen / Extracts),
-	not a Company link, so there is no matching Company record to mirror
-	against — skip silently rather than fail the approval on a bad link.
-	"""
 	if not company:
 		frappe.logger("credit_and_ar").warning(
 			f"No company could be derived for {customer} — native credit limit row not written."

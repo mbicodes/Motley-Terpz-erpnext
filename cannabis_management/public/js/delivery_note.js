@@ -1,13 +1,6 @@
 frappe.ui.form.on("Delivery Note", {
     refresh: function (frm) {
 
-        // View > Accounting Ledger: core opens it from posting_date to the
-        // note's *modified* date, which is often a different day (and can
-        // even land before posting_date). The stock GL may also be filed
-        // under the linked Sales Invoice on the invoice's date, so ask the
-        // server which voucher and dates the entries really sit under.
-        // This handler runs before the controller's refresh, which is what
-        // calls show_general_ledger(), so shadowing the method here is enough.
         frm.cscript.show_general_ledger = function () {
             if (frm.doc.docstatus > 0) {
                 frm.add_custom_button(__("Accounting Ledger"), function () {
@@ -52,34 +45,17 @@ frappe.ui.form.on("Delivery Note", {
     },
 });
 
-// ── Project picker: no filtering ─────────────────────────────────────────────
-// Core restricts Project by company, and on selling forms by customer too
-// (erpnext/public/js/utils/sales_common.js, controllers/buying.js). Projects
-// here are not company-scoped, so that hid valid choices. Cleared in refresh
-// so it lands after core's own setup_queries, which is where core sets it.
 frappe.ui.form.on('Delivery Note', {
 	refresh(frm) {
 		frm.set_query('project', () => ({}));
 	},
 });
 
-
-// ── Inter-company counterpart ────────────────────────────────────────────────
-// A sale to an internal customer raises the matching purchase document in the
-// buying company. The buying side needs a Company, Warehouse and Project that
-// the sale does not carry, so they are asked for before the sale is committed.
-//
-// Defined behind a guard because all three selling forms ship this same block
-// and only one copy needs to win. Kept out of hooks.py deliberately: these
-// three files are already wired as doctype_js, so the feature ships without
-// touching a shared file.
 window.cannabis_management = window.cannabis_management || {};
 if (!cannabis_management.inter_company) {
 	cannabis_management.inter_company = {
 		METHOD: 'cannabis_management.inter_company.',
 
-		// form.js awaits before_submit, so returning a promise holds the submit
-		// open until the dialog is answered. Rejecting aborts the submit.
 		prompt(frm) {
 			const ns = cannabis_management.inter_company;
 			return new Promise((resolve, reject) => {
@@ -89,7 +65,7 @@ if (!cannabis_management.inter_company) {
 					callback: (r) => {
 						const info = (r && r.message) || {};
 						if (!info.internal) {
-							resolve();          // ordinary sale, nothing to raise
+							resolve();
 							return;
 						}
 						let answered = false;
@@ -125,7 +101,6 @@ if (!cannabis_management.inter_company) {
 								resolve();
 							},
 						});
-						// Closing the dialog means "don't submit".
 						d.$wrapper.on('hidden.bs.modal', () => {
 							if (!answered) {
 								frappe.validated = false;
@@ -139,8 +114,6 @@ if (!cannabis_management.inter_company) {
 			});
 		},
 
-		// Runs after the sale is safely submitted, in its own request — a failure
-		// here reports itself without undoing the sale.
 		create(frm) {
 			const ns = cannabis_management.inter_company;
 			const values = frm.__inter_company;

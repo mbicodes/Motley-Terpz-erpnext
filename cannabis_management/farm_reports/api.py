@@ -6,7 +6,6 @@ from cannabis_management.farm_reports.rules import SETTINGS, farm_now
 
 FLC_GROUP = "FLC"
 
-# (DocType, Settings field holding the owner, web page route)
 REPORTS = [
 	("Farm Daily Report", "farm_reporter", "/farm-daily-report"),
 	("Nursery Daily Report", "nursery_reporter", "/nursery-daily-report"),
@@ -15,11 +14,6 @@ REPORTS = [
 
 @frappe.whitelist()
 def get_flc_suppliers():
-	"""Active suppliers in the FLC group, for the farm page's contractor dropdown.
-
-	Served here instead of /api/resource/Supplier so Farm Reporters need no read
-	permission on Supplier, which would show them the whole supplier list in the desk.
-	"""
 	if not frappe.has_permission("Farm Daily Report", "create"):
 		frappe.throw(_("You are not permitted to fill out the Farm Daily Report."), frappe.PermissionError)
 	return frappe.get_all(
@@ -31,12 +25,6 @@ def get_flc_suppliers():
 
 
 def send_reminders():
-	"""Hourly. At the reminder hour in the farm's time zone, email each report
-	owner whose report for today is not submitted. Drafts do not count.
-
-	Runs hourly and checks the farm-local hour instead of a fixed cron, because the
-	scheduler's cron runs in the site zone (America/Adak), not the farm's.
-	"""
 	settings = frappe.get_single(SETTINGS)
 	if not cint(settings.enable_reminders):
 		return

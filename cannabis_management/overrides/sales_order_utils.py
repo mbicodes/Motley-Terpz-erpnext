@@ -5,10 +5,6 @@ from frappe.utils import flt
 
 @frappe.whitelist()
 def create_material_transfer_from_so(sales_order, source_warehouse, target_warehouse):
-    """
-    Create a draft Material Transfer Stock Entry from Sales Order items.
-    For each item, transfer min(requested_qty, available_qty) from source to target warehouse.
-    """
     if not sales_order or not source_warehouse or not target_warehouse:
         frappe.throw(_("Sales Order, Source Warehouse, and Target Warehouse are required."))
 
@@ -115,15 +111,6 @@ def create_material_transfer_from_so(sales_order, source_warehouse, target_wareh
 
 @frappe.whitelist()
 def add_sales_person_to_customer(customer, sales_person):
-    """
-    Add the Sales Person picked in the Sales Order prompt to the customer's own
-    Sales Team, unless it is already there. Returns True when a row was added.
-
-    Customer.validate wants the team to total exactly 100, so the newcomer joins
-    at 0% and the customer's existing split -- the default ERPNext copies onto
-    every new order -- is left as it is. Sales roles that cannot edit Customers
-    still make orders, so this is gated on Sales Order access instead.
-    """
     frappe.has_permission("Sales Order", "create", throw=True)
     frappe.has_permission("Customer", "read", doc=customer, throw=True)
     if not frappe.db.exists("Sales Person", {"name": sales_person, "enabled": 1, "is_group": 0}):

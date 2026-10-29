@@ -1,9 +1,5 @@
-// Copyright (c) 2026, alltechvirtual.com and contributors
-// For license information, please see license.txt
-
 frappe.ui.form.on("Physical Inventory Verification", {
 	onload(frm) {
-		// Filter tolling_partner: Company = Motley Terpz, Warehouse Type = Tolling Partner
 		frm.set_query("tolling_partner", () => ({
 			filters: {
 				company: "Motley Terpz",
@@ -11,14 +7,12 @@ frappe.ui.form.on("Physical Inventory Verification", {
 			}
 		}));
 
-		// Filter batch: Company = Motley Terpz
 		frm.set_query("batch", () => ({
 			filters: { company: "Motley Terpz" }
 		}));
 	},
 
 	refresh(frm) {
-		// Add Physical Verification button only when doc is not submitted
 		if (frm.doc.docstatus === 0) {
 			frm.add_custom_button(__("Physical Verification"), function () {
 				physical_verification_fetch(frm);
@@ -27,11 +21,6 @@ frappe.ui.form.on("Physical Inventory Verification", {
 	}
 });
 
-/**
- * Fetch matching Rosin Recording rows based on tolling_partner & batch,
- * then append prime_strain, subprime_strain, subprime_total_tolled,
- * and prime_inventory_total_tolled into the child table.
- */
 function physical_verification_fetch(frm) {
 	const tolling_partner = frm.doc.tolling_partner;
 	const batch = frm.doc.batch;
@@ -55,7 +44,6 @@ function physical_verification_fetch(frm) {
 				return;
 			}
 
-			// Clear existing child rows
 			frm.doc.physical_inventory_verification_child = [];
 
 			r.message.forEach(function (row) {

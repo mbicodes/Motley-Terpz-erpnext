@@ -1,9 +1,3 @@
-"""App Home: each person's own queue.
-
-Grouped by company, then by the stages that person's team flags own at that
-company. Each row carries the one button that moves the order forward.
-"""
-
 import frappe
 
 from cannabis_management.mt_dispatch import stages
@@ -13,7 +7,6 @@ from cannabis_management.mt_dispatch.slack import blocks, client, identity
 
 ROWS_PER_STAGE = 15
 
-# flag -> stages it owns
 OWNED = {
 	stages.FULFILLMENT: [stages.RECEIVED, stages.AWAITING_CONVERSION, stages.PREPARING],
 	stages.COMPLIANCE: [stages.PREPARED, stages.DN_READY],
@@ -77,7 +70,6 @@ def build(user):
 			rows = []
 			for name in names:
 				so = frappe.get_doc("Sales Order", name)
-				# Finance only cares about Awaiting Release orders that still owe money.
 				if stage == stages.AWAITING_RELEASE and flags & {stages.APPROVER} == set() and stages.FINANCE in flags:
 					applies, _p, _r, short = payment_status(so, cfg)
 					if not (applies and short):

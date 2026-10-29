@@ -1,13 +1,3 @@
-"""
-AR Policy Monitor
-Scheduled jobs for AR cap alerts, DSO, CEI, and weekly AR report.
-
-Scheduler hooks (added to hooks.py):
-  daily:              check_ar_cap, compute_dso
-  monthly:            compute_cei
-  cron "0 8 * * 5":  send_weekly_ar_report  (Friday 8 AM UTC)
-"""
-
 import frappe
 from frappe.utils import flt, nowdate, add_days, getdate
 from datetime import datetime
@@ -31,10 +21,7 @@ DSO_URGENT_DAYS = 30
 DSO_PERIOD_DAYS = 30
 
 
-# ── Shared GL helpers ─────────────────────────────────────────────────────────
-
 def _total_ar(as_of=None):
-    """Total receivable balance from GL Entry across all customers."""
     params = {"accounts": tuple(DEFAULT_RECEIVABLE_ACCOUNTS)}
     date_filter = ""
     if as_of:
@@ -57,7 +44,6 @@ def _total_ar(as_of=None):
 
 
 def _credit_sales(from_date, to_date):
-    """Total grand_total of submitted Sales Invoices in a date range."""
     result = frappe.db.sql(
         """
         SELECT COALESCE(SUM(grand_total), 0) AS total
@@ -83,10 +69,7 @@ def _send_email(subject, html):
         frappe.log_error(frappe.get_traceback(), f"[ar_monitor] email failed: {subject}")
 
 
-# ── Job 1: check_ar_cap (daily) ───────────────────────────────────────────────
-
 def check_ar_cap():
-    """Daily: read total AR from GL ledger, alert at $300k / $350k / $400k."""
     try:
         total_ar = _total_ar()
         cap_pct  = (total_ar / AR_CAP_HARD) * 100
@@ -143,13 +126,7 @@ def _cap_email(total_ar, cap_pct, level, color):
 </div>"""
 
 
-# ── Job 2: compute_dso (daily) ────────────────────────────────────────────────
-
 def compute_dso():
-    """
-    Daily: DSO = (Total AR from GL ÷ Credit Sales in last 30 days) × 30.
-    Alert if DSO > 14 days (warning) or > 30 days (urgent).
-    """
     try:
         today      = nowdate()
         from_date  = add_days(today, -DSO_PERIOD_DAYS)
@@ -205,18 +182,12 @@ def _dso_email(dso, ar, sales, level, color):
 </div>"""
 
 
-# ── Job 3: compute_cei (monthly) ─────────────────────────────────────────────
-
 def compute_cei():
-    """
-    Monthly: CEI = (BegAR + Sales − EndAR) / (BegAR + Sales − PastDueAR) × 100.
-    Runs on the first day of each month, covering the previous calendar month.
-    """
     try:
         today             = getdate(nowdate())
         first_this_month  = today.replace(day=1)
-        end_date          = add_days(str(first_this_month), -1)   # last day prev month
-        start_date        = getdate(end_date).replace(day=1)      # first day prev month
+        end_date          = add_days(str(first_this_month), -1)
+        start_date        = getdate(end_date).replace(day=1)
 
         beg_ar   = _total_ar(add_days(str(start_date), -1))
         end_ar   = _total_ar(str(end_date))
@@ -295,10 +266,7 @@ def _cei_email(cei, beg_ar, sales, end_ar, past_due, period):
 </div>"""
 
 
-# ── Job 4: send_weekly_ar_report (Friday) ────────────────────────────────────
-
 def send_weekly_ar_report():
-    """Friday 8 AM UTC: full HTML AR report covering Sections A–D."""
     try:
         today      = nowdate()
         week_start = add_days(today, -6)
@@ -317,7 +285,6 @@ def send_weekly_ar_report():
 
 @frappe.whitelist()
 def send_weekly_ar_report_now():
-    """Manual trigger for testing."""
     send_weekly_ar_report()
     return "sent"
 
@@ -386,12 +353,9 @@ def _build_weekly_email(today, week_start):
 </div></body></html>"""
 
 
-# ── Section A — Legacy debt (90+ days) ───────────────────────────────────────
-
 def _sec_a_legacy(today):
     cutoff = add_days(today, -90)
 
-    # Legacy outstanding per customer from GL Entry
     gl = frappe.db.sql(
         """
         SELECT party AS customer,
@@ -414,7 +378,6 @@ def _sec_a_legacy(today):
         as_dict=True,
     )
 
-    # Collections this week on those legacy customers
     week_start = add_days(today, -6)
     cust_list = tuple(r.customer for r in gl) if gl else ("__none__",)
     coll = frappe.db.sql(
@@ -474,8 +437,6 @@ def _sec_a_legacy(today):
   </div>{body}</div>"""
 
 
-# ── Section B — New AR this week ──────────────────────────────────────────────
-
 def _sec_b_new_ar(week_start, today):
     rows = frappe.db.sql(
         """
@@ -527,8 +488,6 @@ def _sec_b_new_ar(week_start, today):
     <div class="sec-title">Section B — New AR This Week &nbsp;·&nbsp; {len(rows)} invoices</div>
   </div>{body}</div>"""
 
-
-# ── Section C — COD vs Credit ─────────────────────────────────────────────────
 
 def _sec_c_cod_credit(week_start, today):
     rows = frappe.db.sql(
@@ -589,8 +548,6 @@ def _sec_c_cod_credit(week_start, today):
   </div>{body}</div>"""
 
 
-# ── Section D — Red List (30+ days past due) ──────────────────────────────────
-
 def _sec_d_red_list():
     rows = frappe.db.sql(
         """
@@ -616,7 +573,6 @@ def _sec_d_red_list():
         as_dict=True,
     )
 
-    # Cross-check with GL ledger balance for each customer
     if rows:
         cust_tuple = tuple(r.customer for r in rows)
         gl = frappe.db.sql(

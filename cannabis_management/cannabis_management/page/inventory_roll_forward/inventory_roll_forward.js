@@ -1,9 +1,3 @@
-// Inventory Roll Forward -- opening, what came in, what went out, closing,
-// for every month of a year, one company at a time. Pounds, grams and units
-// are separate sections and never added together. All numbers come from
-// cannabis_management.api.inventory_roll_forward.get_roll_forward; this file
-// only renders.
-
 frappe.pages["inventory-roll-forward"].on_page_load = function (wrapper) {
 	const page = frappe.ui.make_app_page({ parent: wrapper, title: __("Inventory Roll Forward"), single_column: true });
 	new InventoryRollForward(page);

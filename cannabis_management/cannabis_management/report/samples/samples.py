@@ -12,8 +12,6 @@ def execute(filters=None):
     return columns, data, None, chart, summary
 
 
-# ── Columns ──────────────────────────────────────────────────────────────────
-
 def get_columns():
     return [
         {
@@ -82,8 +80,6 @@ def get_columns():
     ]
 
 
-# ── Raw query ─────────────────────────────────────────────────────────────────
-
 def get_data(filters):
     conditions = get_conditions(filters)
 
@@ -133,17 +129,6 @@ def get_conditions(filters):
 
 
 def build_grouped_rows(raw):
-    """
-    Groups raw rows by invoice name and inserts a bold subtotal row
-    after each invoice group showing the invoice grand_total in the
-    amount column.
-
-    Result per group:
-        item row 1
-        item row 2
-        ...
-        SUBTOTAL row  ← is_subtotal = 1, amount = grand_total
-    """
     if not raw:
         return []
 
@@ -182,8 +167,6 @@ def build_grouped_rows(raw):
     return result
 
 
-# ── Chart ─────────────────────────────────────────────────────────────────────
-
 def get_chart(data):
     if not data:
         return None
@@ -207,8 +190,6 @@ def get_chart(data):
         "title":     _("Sample Value by Customer (Top 15)"),
     }
 
-
-# ── Summary ───────────────────────────────────────────────────────────────────
 
 def get_summary(data):
     if not data:

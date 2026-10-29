@@ -110,7 +110,6 @@
 .cfo-dupont { flex: 1; min-width: 160px; }
 .cfo-op { font-size: 26px; font-weight: 700; color: var(--text-muted); }
 
-/* Export -> PDF / Print: only the dashboard, colours kept */
 @media print {
 	@page { size: A4 landscape; margin: 10mm; }
 	.navbar, .page-head, .page-form, .standard-filter-section, .cfo-jump, .cfo-open, .cfo-toolbar,

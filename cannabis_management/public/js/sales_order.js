@@ -2,11 +2,6 @@ frappe.ui.form.on('Sales Order', {
 	refresh(frm) {
 		apply_payment_terms_restrictions(frm);
 
-		// Add "Conversion Entry" to the Create dropdown (submitted SO only).
-		// For the Master Touch Manufacturing company it pre-fills one row per
-		// short item (ordered qty − available in the SO's Set Warehouse, or the
-		// MTM Toll warehouse) as Finished Good with target = Conversion - MTM.
-		// For any other company it just opens a blank Conversion Entry.
 		if (frm.doc.docstatus === 1) {
 			frm.add_custom_button(__('Conversion Entry'), function () {
 				frappe.model.open_mapped_doc({
@@ -16,7 +11,6 @@ frappe.ui.form.on('Sales Order', {
 			}, __('Create'));
 		}
 
-		// Material Transfer action — only on saved/submitted docs
 		if (!frm.is_new()) {
 			frm.add_custom_button(
 				__('Material Transfer'),
@@ -25,11 +19,6 @@ frappe.ui.form.on('Sales Order', {
 			);
 		}
 
-		// Payment Entry action — draft only. Once submitted, ERPNext's own
-		// "Payment" button already appears under Create, so this fills the
-		// gap for drafts without duplicating it post-submit. Routes through
-		// the same cscript.make_payment_entry() the core button uses, so the
-		// customer is fetched onto the new Payment Entry exactly the same way.
 		if (frm.doc.docstatus === 0 && !frm.is_new() && frappe.model.can_create('Payment Entry')) {
 			frm.add_custom_button(
 				__('Payment Entry'),
@@ -39,16 +28,12 @@ frappe.ui.form.on('Sales Order', {
 		}
 	},
 	setup(frm) {
-		// Picking a customer asks who the sales person is. ERPNext's own
-		// customer() swaps in the customer's Sales Team (erpnext/accounts/party.py)
-		// and form.on handlers run before it, so this hangs off the old-style
-		// custom_customer slot instead, which runs after it (script_manager.js).
 		frm.cscript.custom_customer = function () {
 			if (!frm.doc.customer || frm.doc.docstatus !== 0) return;
 			const docname = frm.doc.name;
 			const customer = frm.doc.customer;
 			after_party_details(frm, () => {
-				if (frm.doc.name !== docname || frm.doc.customer !== customer) return; // moved on meanwhile
+				if (frm.doc.name !== docname || frm.doc.customer !== customer) return;
 				prompt_sales_person(frm);
 			});
 		};
@@ -60,9 +45,6 @@ frappe.ui.form.on('Sales Order', {
 		apply_payment_terms_restrictions(frm);
 	},
 	delivery_date(frm) {
-		// Propagate the header Delivery Date to every item row so the user can set
-		// it once at the top instead of editing each line. Fires only on an actual
-		// change of the header field (not on form load).
 		if (!frm.doc.delivery_date || !(frm.doc.items || []).length) return;
 		frm.doc.items.forEach(function (row) {
 			if (row.delivery_date !== frm.doc.delivery_date) {
@@ -73,10 +55,6 @@ frappe.ui.form.on('Sales Order', {
 	}
 });
 
-// ── Sales person prompt (on picking a customer) ──────────────────────────────
-
-// ERPNext raises updating_party_details while it writes the customer's defaults
-// onto the order; wait for that, and the calls it sets off, to finish.
 function after_party_details(frm, fn, tries = 0) {
 	frappe.after_ajax(() => {
 		if (frm.updating_party_details && tries < 50) {
@@ -88,7 +66,6 @@ function after_party_details(frm, fn, tries = 0) {
 }
 
 function prompt_sales_person(frm) {
-	// Pre-fill with the customer's lead sales person, now on the order.
 	const team = (frm.doc.sales_team || []).filter((r) => r.sales_person);
 	team.sort((a, b) => (b.allocated_percentage || 0) - (a.allocated_percentage || 0));
 	const customer = frm.doc.customer;
@@ -110,7 +87,6 @@ function prompt_sales_person(frm) {
 		primary_action(values) {
 			apply_sales_person(frm, values.sales_person);
 			d.hide();
-			// Not on the customer's own Sales Team yet: add it there too.
 			frappe.call({
 				method: 'cannabis_management.overrides.sales_order_utils.add_sales_person_to_customer',
 				args: { customer: customer, sales_person: values.sales_person },
@@ -142,7 +118,6 @@ function apply_payment_terms_restrictions(frm) {
 	const is_hoo = frappe.user_roles.includes('HOO');
 
 	if (!is_payment_terms || frm.doc.docstatus !== 0) {
-		// Not Payment Terms or already submitted/cancelled — restore everything
 		frm.set_intro('');
 		setTimeout(() => {
 			frm.page.btn_secondary && frm.page.btn_secondary.show();
@@ -159,9 +134,7 @@ function apply_payment_terms_restrictions(frm) {
 		return;
 	}
 
-	// Payment Terms, draft — behaviour differs by role
 	if (is_hoo) {
-		// HOO can submit directly; show informational banner
 		frm.set_intro(
 			__('This Sales Order is on <b>Payment Terms</b>. As HOO, you can <b>Submit</b> it to approve — the creator will receive the PDF by email automatically.'),
 			'blue'
@@ -179,7 +152,6 @@ function apply_payment_terms_restrictions(frm) {
 				.show();
 		}, 200);
 	} else {
-		// Non-HOO — hide Submit and Print, show waiting message
 		frm.set_intro(
 			__('This Sales Order is on <b>Payment Terms</b>. Please wait for approval from the Operation Manager.'),
 			'orange'
@@ -204,9 +176,6 @@ function apply_payment_terms_restrictions(frm) {
 		}, 200);
 	}
 }
-
-
-// ── Material Transfer dialog ─────────────────────────────────────────
 
 function show_material_transfer_dialog(frm) {
 	let d = new frappe.ui.Dialog({
@@ -269,35 +238,17 @@ function show_material_transfer_dialog(frm) {
 	d.show();
 }
 
-
-// ── Project picker: no filtering ─────────────────────────────────────────────
-// Core restricts Project by company, and on selling forms by customer too
-// (erpnext/public/js/utils/sales_common.js, controllers/buying.js). Projects
-// here are not company-scoped, so that hid valid choices. Cleared in refresh
-// so it lands after core's own setup_queries, which is where core sets it.
 frappe.ui.form.on('Sales Order', {
 	refresh(frm) {
 		frm.set_query('project', () => ({}));
 	},
 });
 
-
-// ── Inter-company counterpart ────────────────────────────────────────────────
-// A sale to an internal customer raises the matching purchase document in the
-// buying company. The buying side needs a Company, Warehouse and Project that
-// the sale does not carry, so they are asked for before the sale is committed.
-//
-// Defined behind a guard because all three selling forms ship this same block
-// and only one copy needs to win. Kept out of hooks.py deliberately: these
-// three files are already wired as doctype_js, so the feature ships without
-// touching a shared file.
 window.cannabis_management = window.cannabis_management || {};
 if (!cannabis_management.inter_company) {
 	cannabis_management.inter_company = {
 		METHOD: 'cannabis_management.inter_company.',
 
-		// form.js awaits before_submit, so returning a promise holds the submit
-		// open until the dialog is answered. Rejecting aborts the submit.
 		prompt(frm) {
 			const ns = cannabis_management.inter_company;
 			return new Promise((resolve, reject) => {
@@ -307,7 +258,7 @@ if (!cannabis_management.inter_company) {
 					callback: (r) => {
 						const info = (r && r.message) || {};
 						if (!info.internal) {
-							resolve();          // ordinary sale, nothing to raise
+							resolve();
 							return;
 						}
 						let answered = false;
@@ -343,7 +294,6 @@ if (!cannabis_management.inter_company) {
 								resolve();
 							},
 						});
-						// Closing the dialog means "don't submit".
 						d.$wrapper.on('hidden.bs.modal', () => {
 							if (!answered) {
 								frappe.validated = false;
@@ -357,8 +307,6 @@ if (!cannabis_management.inter_company) {
 			});
 		},
 
-		// Runs after the sale is safely submitted, in its own request — a failure
-		// here reports itself without undoing the sale.
 		create(frm) {
 			const ns = cannabis_management.inter_company;
 			const values = frm.__inter_company;
@@ -390,11 +338,6 @@ frappe.ui.form.on('Sales Order', {
 	},
 });
 
-// Customer contact. On a Payment Terms order, picking a customer asks for its
-// email address and phone number (pre-filled with what is on file) and stores
-// them on the customer's primary Contact. At least one of the two is required:
-// the server refuses the order otherwise (credit_and_ar/customer_contact_rules.py).
-// A Cash On Delivery order, or a Policy Exempt customer, is never asked.
 (function () {
 	const M = 'cannabis_management.credit_and_ar.customer_contact_rules.';
 
@@ -402,19 +345,12 @@ frappe.ui.form.on('Sales Order', {
 		return frm.doc.custom_mode_of_payment === 'Payment Terms';
 	}
 
-	// only_if_missing: check quietly and open the dialog only when the customer
-	// has nothing on file (an order opened with the customer already filled in,
-	// e.g. a duplicate or one made from another document, never fires the
-	// customer trigger). Returns the check's promise.
 	function ask_contact(frm, only_if_missing) {
 		const customer = frm.doc.customer;
 		if (!customer || frm.doc.docstatus !== 0) return Promise.resolve();
 		return frappe.call({ method: M + 'get_customer_contact', args: { customer: customer } }).then(function (r) {
-			if (frm.doc.customer !== customer) return; // picked another customer meanwhile
+			if (frm.doc.customer !== customer) return;
 			const cur = r.message || {};
-			// Until something is saved, an order for a customer with nothing on
-			// file cannot go ahead; validate() below re-opens this dialog.
-			// A Policy Exempt customer is never asked (the server skips it too).
 			frm._cm_contact_missing = !(cur.exempt || cur.reachable || cur.email || cur.phone);
 			frm._cm_contact_checked = customer;
 			if (cur.exempt || (only_if_missing && !frm._cm_contact_missing)) return;
@@ -466,7 +402,6 @@ frappe.ui.form.on('Sales Order', {
 			if (contact_required(frm)) ask_contact(frm);
 		},
 		custom_mode_of_payment: function (frm) {
-			// Switched to Payment Terms: ask now if the customer has nothing on file.
 			if (contact_required(frm) && frm.doc.customer && !has_order_contact(frm)) {
 				ask_contact(frm, true);
 			}
@@ -491,7 +426,6 @@ frappe.ui.form.on('Sales Order', {
 				}
 				return;
 			}
-			// Never checked for this customer: ask the server before saving.
 			return ask_contact(frm, true).then(function () {
 				if (frm._cm_contact_missing) block();
 			});

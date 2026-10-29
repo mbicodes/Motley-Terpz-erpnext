@@ -75,7 +75,6 @@ frappe.pages['sales-overview'].on_page_load = function (wrapper) {
 		</div>
 	`);
 
-	// ── Date presets ──────────────────────────────────────────────────────
 	function apply_preset(preset) {
 		var today = frappe.datetime.get_today();
 		var d = frappe.datetime.str_to_obj(today);
@@ -93,7 +92,7 @@ frappe.pages['sales-overview'].on_page_load = function (wrapper) {
 			from = '';
 			to = '';
 		} else {
-			return; // custom: keep whatever is typed
+			return;
 		}
 		state.from_date = from;
 		state.to_date = to;
@@ -101,7 +100,6 @@ frappe.pages['sales-overview'].on_page_load = function (wrapper) {
 		page.main.find('#svo-to').val(to);
 	}
 
-	// ── Data loading ──────────────────────────────────────────────────────
 	function load_data() {
 		page.main.find('#svo-data-area').html(`
 			<div class="svo-loading"><div class="svo-spinner"></div><p>Loading sales overview&hellip;</p></div>
@@ -126,7 +124,6 @@ frappe.pages['sales-overview'].on_page_load = function (wrapper) {
 		});
 	}
 
-	// ── Rendering ─────────────────────────────────────────────────────────
 	function render() {
 		var res = state.result;
 		var k = res.kpis;
@@ -338,7 +335,6 @@ frappe.pages['sales-overview'].on_page_load = function (wrapper) {
 		`);
 	}
 
-	// ── Init: salesperson buttons + companies ─────────────────────────────
 	frappe.call({
 		method: 'cannabis_management.cannabis_management.page.sales_overview.sales_overview.init_page',
 		callback: function (r) {
@@ -369,7 +365,6 @@ frappe.pages['sales-overview'].on_page_load = function (wrapper) {
 		}
 	});
 
-	// ── Filter events ─────────────────────────────────────────────────────
 	page.main.find('#svo-company').on('change', function () {
 		state.company = $(this).val();
 		load_data();

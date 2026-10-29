@@ -1,12 +1,5 @@
-// Quotation — Approve / Reject buttons for the discount-threshold approval flow.
-// Buttons appear only on a draft quote that is Pending Approval, and only for a
-// user eligible to approve the required tier. Server re-checks permission.
-
 frappe.ui.form.on("Quotation", {
     onload_post_render(frm) {
-        // Item picker lists items priced in the chosen price list first, then
-        // all others. Replace the default "Filters applied for Price List = …"
-        // hint, which would wrongly suggest unpriced items are hidden.
         frm.fields_dict.items.grid.update_docfield_property(
             "item_code", "filter_description", __("Priced items are listed first")
         );
@@ -22,12 +15,10 @@ frappe.ui.form.on("Quotation", {
     },
 
     refresh(frm) {
-        // ── Live stock: "Check Stock Availability" dialog ──
         if (!frm.is_new() && (frm.doc.items || []).length) {
             frm.add_custom_button(__("Check Stock Availability"), () => showStockDialog(frm));
         }
 
-        // ── Approved + submitted → offer one-click Sales Order conversion ──
         if (frm.doc.docstatus === 1 && frm.doc.custom_approval_status === "Approved") {
             frm.add_custom_button(__("Create Sales Order"), () => {
                 frappe.call({
@@ -111,7 +102,6 @@ frappe.ui.form.on("Quotation", {
     },
 });
 
-// ── Live Bin stock per line ──────────────────────────────────────────────────
 frappe.ui.form.on("Quotation Item", {
     item_code(frm, cdt, cdn) {
         const row = locals[cdt][cdn];
@@ -158,12 +148,6 @@ function showStockDialog(frm) {
     });
 }
 
-
-// ── Project picker: no filtering ─────────────────────────────────────────────
-// Core restricts Project by company, and on selling forms by customer too
-// (erpnext/public/js/utils/sales_common.js, controllers/buying.js). Projects
-// here are not company-scoped, so that hid valid choices. Cleared in refresh
-// so it lands after core's own setup_queries, which is where core sets it.
 frappe.ui.form.on('Quotation', {
 	refresh(frm) {
 		frm.set_query('project', () => ({}));

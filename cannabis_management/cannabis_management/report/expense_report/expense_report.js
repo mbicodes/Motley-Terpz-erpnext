@@ -1,12 +1,5 @@
-// Copyright (c) 2015, Frappe Technologies Pvt. Ltd. and Contributors
-// License: GNU General Public License v3. See license.txt
-//
-// Same filter bar and period handling as the TSBC Expense Report - this is
-// erpnext's financial_statements client script, reused unchanged.
-
 frappe.query_reports["Expense Report"] = $.extend({}, erpnext.financial_statements, {
 	formatter: function (value, row, column, data, default_formatter, filter) {
-		// Voucher rows: the voucher number opens the Purchase Invoice / Journal Entry.
 		if (data && data.voucher_no && column.fieldname === "expense_category") {
 			return `<a href="${frappe.utils.get_form_link(data.voucher_type, data.voucher_no)}">${frappe.utils.escape_html(data.voucher_no)}</a>`;
 		}
@@ -15,7 +8,6 @@ frappe.query_reports["Expense Report"] = $.extend({}, erpnext.financial_statemen
 		);
 	},
 
-	// Re-apply the Expand / Collapse filter whenever the report reloads.
 	after_datatable_render: function () {
 		apply_tree_view(frappe.query_report);
 	},
@@ -70,7 +62,6 @@ frappe.query_reports["Expense Report"]["filters"].push(
 			{ value: "Collapse All", label: __("Collapse All") },
 		],
 		default: "Expand All",
-		// Only opens or folds the rows already on screen; the report does not reload.
 		on_change: function (report) {
 			apply_tree_view(report);
 		},

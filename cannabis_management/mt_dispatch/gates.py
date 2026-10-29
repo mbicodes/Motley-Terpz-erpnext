@@ -1,11 +1,3 @@
-"""The rules that decide whether a step may happen.
-
-Each gate is a function taking (so, cfg, payload) and raising GateError with a
-message written for whoever clicked the button -- not for a log. The same
-functions run behind the ERP buttons, the Slack buttons and the document hooks,
-so there is exactly one definition of each rule.
-"""
-
 import frappe
 from frappe import _
 from frappe.utils import flt
@@ -18,18 +10,14 @@ MANIFEST_DIGITS = 10
 
 
 class GateError(frappe.ValidationError):
-	"""A rule said no. The message is shown to the user as-is."""
+	pass
 
 
 class StaleAction(GateError):
-	"""The order moved on before this click landed."""
-
-
-# ── helpers ──────────────────────────────────────────────────────────────────
+	pass
 
 
 def linked_sales_orders(dn):
-	"""Sales Orders a Delivery Note draws from, via its item rows."""
 	return {row.against_sales_order for row in (dn.items or []) if row.get("against_sales_order")}
 
 
@@ -43,13 +31,11 @@ def delivery_notes_for(so_name, docstatus=None):
 
 
 def draft_delivery_note(so_name):
-	"""The one draft Delivery Note for this order, or None."""
 	names = delivery_notes_for(so_name, docstatus=0)
 	return names[0] if names else None
 
 
 def conversion_targets(so_name):
-	"""{item_code: [target warehouse, ...]} from this order's submitted Conversion Entries."""
 	rows = frappe.db.sql(
 		"""
 		select cei.target_warehouse, cei.finished_good_1, cei.finished_good_2, cei.finished_good_3
@@ -69,8 +55,6 @@ def conversion_targets(so_name):
 
 
 def reserved_warehouses(so_name, row_name):
-	"""{warehouse: stock qty} still held for one Sales Order line by its open
-	Stock Reservation Entries, largest first."""
 	rows = frappe.db.sql(
 		"""
 		select warehouse, sum(reserved_qty - delivered_qty) as qty
@@ -87,19 +71,6 @@ def reserved_warehouses(so_name, row_name):
 
 
 def delivery_warehouse(so, row, targets=None, follow_reservation=True):
-	"""Where a Sales Order line ships from.
-
-	A line with stock reserved for it ships from where that stock is held:
-	ERPNext refuses a Delivery Note row whose warehouse is not one of the
-	line's reservation warehouses ("Stock Reservation Warehouse Mismatch").
-	Otherwise, goods this order converted land in the Conversion Entry's target
-	warehouse, not the line's, so such a line ships from there when that
-	warehouse holds the quantity. Any other line ships from its own warehouse.
-
-	follow_reservation=False gives the warehouse the line would ship from on
-	stock alone; the Fulfillment board's Reserve uses it to decide where the
-	reservation belongs.
-	"""
 	if follow_reservation and row.get("name") and so.get("name"):
 		held = reserved_warehouses(so.name, row.name)
 		if held:
@@ -115,15 +86,7 @@ def delivery_warehouse(so, row, targets=None, follow_reservation=True):
 	return default
 
 
-# ── G0 .. G5 ─────────────────────────────────────────────────────────────────
-
-
 def ready_to_start(so, cfg, payload=None):
-	"""G0 -- the order is allowed onto the flow at all.
-
-	A Terms order waits for credit. Cash On Delivery does not: the money is
-	collected later and G5 is what holds it back.
-	"""
 	if not cfg:
 		raise GateError(_("{0} is not set up for dispatch.").format(so.company))
 
@@ -138,11 +101,6 @@ def ready_to_start(so, cfg, payload=None):
 
 
 def conversions_complete(so, cfg, payload=None):
-	"""G1 -- nothing half-finished is left behind.
-
-	A draft Conversion Entry blocks the order even when conversions were never
-	flagged: a draft means someone started one and walked away.
-	"""
 	drafts = frappe.get_all(
 		"Conversion Entry",
 		filters={"sales_order": so.name, "docstatus": 0},
@@ -164,7 +122,6 @@ def conversions_complete(so, cfg, payload=None):
 
 
 def one_delivery_note(so, cfg, payload=None):
-	"""G2 -- never a second Delivery Note for the same order."""
 	existing = delivery_notes_for(so.name)
 	if existing:
 		raise GateError(
@@ -173,12 +130,6 @@ def one_delivery_note(so, cfg, payload=None):
 
 
 def manifest_present(so, cfg, payload=None):
-	"""G4 -- a 10-digit Metrc manifest number and the file behind it.
-
-	Checks what is being uploaded when there is a payload, because G4 guards
-	the very step that performs the upload. With no payload -- at release, or
-	from the ERP form -- it reads what is already on the draft note.
-	"""
 	dn_name = draft_delivery_note(so.name)
 	if not dn_name:
 		raise GateError(_("No draft Delivery Note for this order."))
@@ -208,7 +159,6 @@ def manifest_present(so, cfg, payload=None):
 
 
 def paid(so, cfg, payload=None):
-	"""G5 -- Cash On Delivery is covered before the order leaves."""
 	applies, amount_paid, required, short = payment_status(so, cfg)
 	if not applies:
 		return
@@ -222,17 +172,7 @@ def paid(so, cfg, payload=None):
 		)
 
 
-# ── Delivery Note hard blocks ────────────────────────────────────────────────
-#
-# These sit outside transition() on purpose. They are what stops a Delivery
-# Note being made or submitted around the flow -- from the ERP form, from the
-# API, from anywhere. Both only ever fire for Delivery Notes that draw on a
-# Sales Order belonging to an enabled company, so standalone transfers and
-# every other company on the site are untouched.
-
-
 def _governed_orders(dn):
-	"""(sales order name, cfg) pairs this Delivery Note is governed by."""
 	governed = []
 	for so_name in linked_sales_orders(dn):
 		company = frappe.db.get_value("Sales Order", so_name, "company")
@@ -243,8 +183,6 @@ def _governed_orders(dn):
 
 
 def dn_before_insert(doc, method=None):
-	# Administrator is exempt, as from the team flags; flow.dn_after_insert
-	# moves the order's stage instead.
 	if is_administrator():
 		return
 	for so_name, _cfg in _governed_orders(doc):
@@ -262,7 +200,6 @@ def dn_before_insert(doc, method=None):
 
 
 def dn_before_submit(doc, method=None):
-	# Administrator is exempt; flow.dn_on_submit releases the order instead.
 	if frappe.flags.get("mt_dispatch") in ("release", "release_override") or is_administrator():
 		return
 	for so_name, _cfg in _governed_orders(doc):

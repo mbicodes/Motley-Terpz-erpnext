@@ -1,15 +1,3 @@
-"""Portal API for the /timeclock page.
-
-Security model differs fundamentally from the shared-tablet kiosk this was adapted
-from. There is no PIN and no Allow Guest endpoint: the caller is authenticated by
-their own Frappe session, and ``frappe.session.user`` *is* the identity. Every punch
-is hard-bound to the session user server-side, so a caller cannot punch for somebody
-else no matter what they post.
-
-Day notes are the one cross-user operation, and they are gated on role rather than
-on a second PIN.
-"""
-
 import frappe
 from frappe import _
 from frappe.utils import add_days, getdate, now_datetime, nowdate
@@ -20,18 +8,9 @@ from cannabis_management.time_clock.pairing import (
 	total_seconds,
 )
 
-# Holding this role is what makes somebody a time clock participant. It is checked
-# explicitly rather than inferred from "any enabled user" so that adding a user to
-# ERPNext does not silently add them to the roster.
 TIME_CLOCK_ROLE = "Time Clock User"
 
-# Who may log a day note against somebody else ("called in sick", "on vacation").
 NOTE_TAKER_ROLES = ("System Manager", "HR Manager", "Super Admin")
-
-
-# ---------------------------------------------------------------------------
-# guards
-# ---------------------------------------------------------------------------
 
 
 def _session_user():
@@ -61,11 +40,6 @@ def _require_note_access():
 		frappe.throw(_("You are not permitted to manage day notes."), frappe.PermissionError)
 
 
-# ---------------------------------------------------------------------------
-# queries
-# ---------------------------------------------------------------------------
-
-
 def _last_punch(user):
 	rows = frappe.get_all(
 		"User Checkin",
@@ -78,17 +52,10 @@ def _last_punch(user):
 
 
 def _next_log_type(last_punch):
-	"""Alternate from the last punch, never from the calendar.
-
-	This single line is what makes overnight shifts work: somebody who clocked in at
-	11pm yesterday and has not clocked out is still "in", so their next punch is OUT
-	even though the date has rolled over.
-	"""
 	return "IN" if (not last_punch or last_punch.log_type == "OUT") else "OUT"
 
 
 def _punches_since(user, start_date):
-	"""Punches from ``start_date`` onward, oldest first, ready for pairing."""
 	return frappe.get_all(
 		"User Checkin",
 		filters={"user": user, "time": [">=", f"{start_date} 00:00:00"]},
@@ -106,7 +73,6 @@ def _day_note(user, date):
 
 
 def _clock_users():
-	"""Enabled users holding the time clock role, ordered for display."""
 	role_rows = frappe.get_all(
 		"Has Role",
 		filters={"role": TIME_CLOCK_ROLE, "parenttype": "User"},
@@ -126,12 +92,6 @@ def _clock_users():
 
 
 def _request_context():
-	"""Best-effort device audit fields.
-
-	Deliberately tolerant: these attributes only exist during an HTTP request, and a
-	punch created from the console, a test, or a scheduled job must not blow up just
-	because there is no request to inspect.
-	"""
 	ip = getattr(frappe.local, "request_ip", None)
 
 	try:
@@ -154,21 +114,14 @@ def _serialise(sessions):
 	]
 
 
-# ---------------------------------------------------------------------------
-# whitelisted endpoints
-# ---------------------------------------------------------------------------
-
-
 @frappe.whitelist()
 def get_my_status():
-	"""Everything the portal page needs to render for the signed-in user."""
 	user = _session_user()
 	_require_clock_access(user)
 
 	today = getdate(nowdate())
 	now = now_datetime()
 
-	# Reach back a day so an overnight session that began yesterday is still paired.
 	punches = _punches_since(user, add_days(today, -1))
 	all_sessions = build_sessions(punches, now=now)
 	today_sessions = [s for s in all_sessions if s["in_time"].date() == today]
@@ -193,12 +146,6 @@ def get_my_status():
 
 @frappe.whitelist()
 def punch():
-	"""Record the punch that logically follows this user's last one.
-
-	Takes no arguments on purpose. The direction is derived server-side and the user
-	is taken from the session, so a client cannot ask to punch IN twice or punch on
-	behalf of a colleague.
-	"""
 	user = _session_user()
 	_require_clock_access(user)
 
@@ -219,7 +166,6 @@ def punch():
 
 @frappe.whitelist()
 def get_roster(date=None):
-	"""Who is in/out right now, plus their note for the day. Note-takers only."""
 	_require_note_access()
 
 	date = getdate(date or nowdate())
@@ -247,11 +193,6 @@ def get_roster(date=None):
 
 @frappe.whitelist()
 def set_day_note(user, note, date=None):
-	"""Create or update the single note for (user, date).
-
-	Updates in place rather than appending, so repeated edits leave one record
-	instead of a pile of near-duplicates.
-	"""
 	_require_note_access()
 
 	note = (note or "").strip()
@@ -282,7 +223,6 @@ def set_day_note(user, note, date=None):
 
 @frappe.whitelist()
 def remove_day_note(user, date=None):
-	"""Clear the note for (user, date). Idempotent."""
 	_require_note_access()
 
 	date = getdate(date or nowdate())

@@ -8,10 +8,8 @@ frappe.pages['ar-summary'].on_page_load = function (wrapper) {
 
 	var METHOD = 'cannabis_management.cannabis_management.page.ar_summary.ar_summary';
 
-	// company / dates are server-side filters (reload); search / status / sort
-	// are applied instantly on the loaded rows. Ledger data is fetched lazily.
 	var state = {
-		view: 'summary',          // 'summary' | 'ledgers'
+		view: 'summary',
 		company: '', from_date: '', to_date: '',
 		search: '', status: 'all', sort: 'outstanding',
 		rows: [], ledgers: null, prepared: ''
@@ -134,7 +132,6 @@ frappe.pages['ar-summary'].on_page_load = function (wrapper) {
 		unpaid:  { cls: 'ars-pill--unpaid',  label: 'Unpaid' }
 	};
 
-	// map a Frappe Sales Invoice status string to a pill style
 	function invoice_pill(status) {
 		var s = (status || '').toLowerCase();
 		var cls = 'ars-pill--unpaid';
@@ -145,7 +142,6 @@ frappe.pages['ar-summary'].on_page_load = function (wrapper) {
 		return '<span class="ars-pill ' + cls + '">' + esc(status || '') + '</span>';
 	}
 
-	// render a Sales Order / Delivery Note reference cell
 	function ref_cell(list, doctype) {
 		list = list || [];
 		if (!list.length) return '<td class="ars-c ars-muted">&mdash;</td>';
@@ -155,7 +151,6 @@ frappe.pages['ar-summary'].on_page_load = function (wrapper) {
 		return '<td>' + html + '</td>';
 	}
 
-	// ---------- summary view ----------
 	function visible_rows() {
 		var q = (state.search || '').toLowerCase();
 		var rows = state.rows.filter(function (r) {
@@ -213,7 +208,6 @@ frappe.pages['ar-summary'].on_page_load = function (wrapper) {
 		$('#ars-count').text('Showing ' + rows.length + ' of ' + state.rows.length + ' customers');
 	}
 
-	// ---------- ledgers view ----------
 	function render_ledgers() {
 		var groups = (state.ledgers && state.ledgers.groups) || [];
 		var q = (state.search || '').toLowerCase();
@@ -289,7 +283,6 @@ frappe.pages['ar-summary'].on_page_load = function (wrapper) {
 		else render_summary();
 	}
 
-	// ---------- data loading ----------
 	function set_loading(on) {
 		$('#ars-table-card').toggleClass('ars-loading', on);
 		$('#ars-ledgers').toggleClass('ars-loading', on);
@@ -345,7 +338,6 @@ frappe.pages['ar-summary'].on_page_load = function (wrapper) {
 		}
 	}
 
-	// ---------- events ----------
 	$('#ars-seg').on('click', '.ars-seg-btn', function () { switch_view($(this).data('view')); });
 
 	function server_filter_changed() { state.ledgers = null; state.rows = []; reload(); }

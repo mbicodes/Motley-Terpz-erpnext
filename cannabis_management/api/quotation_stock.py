@@ -1,11 +1,3 @@
-"""
-Quotation item helpers (lighter in-CRM builder support):
-  • get_item_availability() — live Bin stock (actual - reserved) per item, with a
-    per-warehouse breakdown, shown on the Quotation form as items are added.
-  • items_in_price_list() — item-picker query filtered to items that have a
-    selling price in the quotation's chosen price list.
-"""
-
 import json
 import frappe
 from frappe.utils import flt
@@ -13,8 +5,6 @@ from frappe.utils import flt
 
 @frappe.whitelist()
 def get_item_availability(item_codes):
-    """Return {item_code: {available, actual, reserved, warehouses:[...]}} using Bin.
-    `item_codes` may be a JSON list or a single item code."""
     if isinstance(item_codes, str):
         try:
             item_codes = json.loads(item_codes)
@@ -55,10 +45,6 @@ def get_item_availability(item_codes):
 @frappe.whitelist()
 @frappe.validate_and_sanitize_search_inputs
 def items_in_price_list(doctype, txt, searchfield, start, page_len, filters):
-    """Item-picker query. When a price list is supplied, items with a selling
-    Item Price in that list come first, then every other enabled item. It used
-    to return ONLY priced items, but just ~240 of ~3,900 items carry a price, so
-    most product codes (e.g. the STO-ITEM tier items) could not be picked."""
     price_list = (filters or {}).get("price_list")
     like = f"%{txt or ''}%"
 
@@ -87,8 +73,6 @@ def items_in_price_list(doctype, txt, searchfield, start, page_len, filters):
         {"txt": like, "start": start, "page_len": page_len},
     )
 
-
-# ── Custom field installer (idempotent) ──────────────────────────────────────
 
 def install_quotation_stock_fields():
     from frappe.custom.doctype.custom_field.custom_field import create_custom_fields

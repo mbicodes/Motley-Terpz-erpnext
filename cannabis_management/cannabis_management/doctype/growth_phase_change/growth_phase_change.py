@@ -1,6 +1,3 @@
-# Copyright (c) 2026, alltechvirtual.com and contributors
-# For license information, please see license.txt
-
 import frappe
 from frappe import _
 from frappe.model.document import Document
@@ -9,8 +6,6 @@ from frappe.utils import cint, nowdate
 PROMOTE = "Promote Batch to Plants"
 PHASE = "Change Plant Phase"
 
-# Plant tags live in the metrc_customizations app. Promotion was switched off
-# when the old in-app tag pool was removed; it now draws from there instead.
 TAG_DOCTYPE = "Metrc Tag"
 TAG_CATEGORY = "Plant"
 TAG_AVAILABLE = "Available"
@@ -39,8 +34,6 @@ class GrowthPhaseChange(Document):
 		self.mark_log_deleted()
 
 	def mark_log_deleted(self):
-		"""Cancelling or deleting a promotion flags its row on the Plant Batch log
-		as Deleted and refreshes Plants Promoted."""
 		if self.change_type != PROMOTE or not self.source_plant_batch:
 			return
 		if not frappe.db.exists("Plant Batch", self.source_plant_batch):
@@ -55,15 +48,7 @@ class GrowthPhaseChange(Document):
 			batch.flags.ignore_permissions = True
 			batch.save()
 
-	# ── promotion ────────────────────────────────────────────────────────────
-
 	def validate_promotion(self):
-		"""Check the batch and the tag run before anything is written.
-
-		Everything here is re-checked at submit against live data: tags are a
-		shared pool and a run that was free when the dialog opened may not be
-		by the time it is sent.
-		"""
 		if not self.source_plant_batch:
 			frappe.throw(_("Pick the Plant Batch being promoted."))
 		if not self.output_location:
@@ -82,7 +67,6 @@ class GrowthPhaseChange(Document):
 		self.ending_plant_tag = tags[-1].tag_code if tags else None
 
 	def plants_available(self):
-		"""Plants still in the batch: started, less those already moved on."""
 		b = frappe.db.get_value(
 			"Plant Batch", self.source_plant_batch,
 			["plant_count", "plants_promoted", "plants_destroyed", "plants_packaged"],
@@ -91,13 +75,6 @@ class GrowthPhaseChange(Document):
 		        - cint(b.get("plants_destroyed")) - cint(b.get("plants_packaged")))
 
 	def tag_run(self, qty):
-		"""`qty` consecutive available plant tags, starting at the chosen one.
-
-		Consecutive in tag_code order, which is the order Metrc issues them.
-		A gap -- a tag in the middle already used -- stops the run rather than
-		silently skipping it, because a skipped tag means the physical sequence
-		on the bench no longer matches what was recorded.
-		"""
 		if not self.starting_plant_tag:
 			frappe.throw(_("Pick the Starting Plant Tag."))
 
@@ -134,12 +111,9 @@ class GrowthPhaseChange(Document):
 				"growth_phase": "Vegetative",
 				"status": "Active",
 			})
-			# Plant.before_insert refuses anything without this: a plant may only
-			# come from a promotion, never from someone opening a blank form.
 			plant.flags.from_promotion = True
 			plant.insert(ignore_permissions=True)
 
-			# The tag is spent the moment it is on a plant.
 			frappe.db.set_value(TAG_DOCTYPE, tag.name, "status", TAG_USED)
 
 			self.append("plants", {
@@ -150,7 +124,6 @@ class GrowthPhaseChange(Document):
 
 		self.ending_plant_tag = tags[-1].tag_code
 		self.db_set("ending_plant_tag", self.ending_plant_tag)
-		# The child rows were added after insert, so they are written directly.
 		for row in self.plants:
 			row.db_insert() if not row.name else row.db_update()
 
@@ -163,8 +136,6 @@ class GrowthPhaseChange(Document):
 			"note": self.name,
 		})
 		batch.save(ignore_permissions=True)
-
-	# ── phase change (unchanged) ─────────────────────────────────────────────
 
 	def validate_phase_change(self):
 		if not self.target_phase:
@@ -180,7 +151,6 @@ class GrowthPhaseChange(Document):
 			if self.target_phase == "Flowering":
 				plant.growth_phase = "Flowering"
 			elif self.target_phase == "Mother":
-				# a mother plant is a flag on a still-vegetative plant
 				plant.is_mother = 1
 				plant.growth_phase = "Vegetative"
 			plant.save(ignore_permissions=True)

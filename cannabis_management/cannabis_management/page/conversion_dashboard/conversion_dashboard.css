@@ -11,7 +11,6 @@
 	color: var(--text-color);
 }
 
-/* Header + segment toggle */
 .cvd-head {
 	display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between;
 	gap: 16px; margin-bottom: 18px;
@@ -28,7 +27,6 @@
 .cvd-seg button.active { background: var(--cvd-brand); color: #fff; box-shadow: 0 2px 6px rgba(123,47,191,.35); }
 .cvd-seg .cvd-count { opacity: .75; font-weight: 500; margin-left: 4px; }
 
-/* Filters */
 .cvd-filters {
 	display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px;
 	background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px;
@@ -46,7 +44,6 @@
 }
 .cvd-presets button.active { border-color: var(--cvd-brand); background: var(--cvd-brand-soft); color: var(--cvd-brand); font-weight: 600; }
 
-/* KPI cards */
 .cvd-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 18px; }
 .cvd-kpi {
 	background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px;
@@ -57,7 +54,6 @@
 .cvd-kpi-value { font-size: 24px; font-weight: 700; margin-top: 6px; line-height: 1.1; }
 .cvd-kpi-note { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
 
-/* Cards and grid */
 .cvd-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 16px; }
 .cvd-grid.cvd-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 @media (max-width: 991px) { .cvd-grid, .cvd-grid.cvd-3 { grid-template-columns: 1fr; } }
@@ -71,7 +67,6 @@
 .cvd-card-note { font-size: 12px; color: var(--text-muted); }
 .cvd-empty { color: var(--text-muted); font-size: 13px; padding: 18px 0; text-align: center; }
 
-/* Yield strip */
 .cvd-yield { display: grid; grid-template-columns: repeat(3, 1fr) 2fr; gap: 16px; align-items: stretch; }
 @media (max-width: 991px) { .cvd-yield { grid-template-columns: 1fr 1fr; } }
 .cvd-ratio { text-align: center; padding: 6px 4px; border-radius: 10px; background: var(--cvd-brand-soft); }
@@ -82,7 +77,6 @@
 .cvd-tiers-legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; }
 .cvd-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
 
-/* Horizontal bar lists */
 .cvd-bars { display: flex; flex-direction: column; gap: 9px; }
 .cvd-bar-row { display: grid; grid-template-columns: minmax(0, 38%) 1fr auto; align-items: center; gap: 10px; font-size: 12px; }
 .cvd-bar-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -90,7 +84,6 @@
 .cvd-bar-fill { height: 100%; border-radius: 5px; }
 .cvd-bar-val { font-variant-numeric: tabular-nums; color: var(--text-muted); white-space: nowrap; text-align: right; min-width: 70px; }
 
-/* Tables */
 .cvd-table-wrap { max-height: 420px; overflow: auto; border-radius: 8px; }
 .cvd-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .cvd-table th {

@@ -1,9 +1,3 @@
-// Accounts Receivable Consolidated — an exact duplicate of ERPNext's core
-// "Accounts Receivable" report filters. The only behavioural difference lives on
-// the server (accounts_receivable_consolidated.py): selecting a group Company
-// rolls up every non-group company beneath it. Keep these filters in step with
-// the core report so the two stay interchangeable.
-
 frappe.provide("erpnext.utils");
 
 frappe.query_reports["Accounts Receivable Consolidated"] = {
@@ -23,8 +17,6 @@ frappe.query_reports["Accounts Receivable Consolidated"] = {
 			default: frappe.datetime.get_today(),
 		},
 		{
-			// Not part of the core report: limits rows to invoices whose posting
-			// date falls in [From Date, To Date]. Either bound may be left blank.
 			fieldname: "from_date",
 			label: __("From Date"),
 			fieldtype: "Date",

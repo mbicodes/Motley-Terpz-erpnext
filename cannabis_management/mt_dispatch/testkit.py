@@ -1,20 +1,3 @@
-"""A throwaway test setup for trying the whole flow by hand, on staging only.
-
-TSBC Ranch becomes the test company: its real settings are saved to a JSON
-file first, then pointed at three test channels with a two-person test team.
-Two people, because separation of duties forbids one team row being both
-fulfillment and approver.
-
-	bench --site <site> execute cannabis_management.mt_dispatch.testkit.setup
-	bench --site <site> execute cannabis_management.mt_dispatch.testkit.make_orders
-	bench --site <site> execute cannabis_management.mt_dispatch.testkit.teardown
-
-teardown() puts TSBC back exactly as it was, cancels every test order and
-what hangs off it, archives the test channels and disables the test login.
-Test orders carry PO numbers MT-DISPATCH-TEST-<n>. ERPNext refuses two
-orders with the same PO number, so each gets its own.
-"""
-
 import json
 import os
 import secrets
@@ -35,7 +18,6 @@ CUSTOMER = "Greenmount, LLC (Cold Fire)"
 ITEM = "FF-0255"
 WAREHOUSE = "Hemet TSBC - TSBC"
 
-# Short thresholds so a reminder can be watched arriving (T16).
 TEST_RULES = [
 	("Order Received", 30, "fulfillment", None),
 	("Awaiting Conversion", 30, "fulfillment", None),
@@ -76,8 +58,6 @@ def _ensure_channel(name):
 
 
 def _ensure_fulfiller():
-	"""A second login for the fulfillment steps. Returns its password when
-	the account is created or re-enabled, else None."""
 	password = secrets.token_urlsafe(9)
 	if frappe.db.exists("User", FULFILLER):
 		user = frappe.get_doc("User", FULFILLER)
@@ -190,7 +170,6 @@ def _new_order(mode, rate, qty, note):
 
 
 def make_orders():
-	"""Three draft orders. Submitting one from the ERP starts its thread."""
 	made = {
 		"cod_full": _new_order("Cash On Delivery", 100, 10, "Test: COD, walk it end to end (T01, T07, T09, T11, T14)"),
 		"cod_partial": _new_order("Cash On Delivery", 1486, 10, "Test: COD 14,860, pay 10,000 then 4,860 (T08, T09, T12)"),

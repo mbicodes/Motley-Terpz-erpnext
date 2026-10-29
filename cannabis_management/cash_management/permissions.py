@@ -2,22 +2,12 @@ import frappe
 
 FINANCE_ROLES = {"Finance Manager", "Accounts Manager", "System Manager", "Administrator"}
 
-# Users with full cross-person access to the cash tracking capture forms
-# (Motley / Personal Cash Tracking): they read every person's records and are
-# the only ones who may cancel a submitted entry. Everyone else — even holders
-# of System Manager on this staging site — is restricted to their own records.
 CASH_ADMIN_USERS = {"Administrator", "mbi@alltechvirtual.com"}
 
-
-# Who may mark a cash entry as processed, and who can even see the tick.
-# Deliberately narrower than FINANCE_ROLES above, which includes System Manager —
-# a role plenty of people hold on this site. "Processed" is a statement that the
-# money has been posted, so it stays with the people who post it.
 FINANCE_TEAM_ROLES = {"Finance Manager", "Accounts Manager"}
 
 
 def can_mark_processed(user=None):
-	"""True for the finance team (and the Administrator)."""
 	user = user or frappe.session.user
 	if user == "Administrator":
 		return True
@@ -29,29 +19,21 @@ def is_cash_admin(user=None):
 
 
 def is_accounts_manager(user=None):
-    """Accounts Manager role holders get read-only, cross-person visibility into
-    the cash-tracking lists — the same full view as the Cash Tracking dashboard."""
     user = user or frappe.session.user
     return "Accounts Manager" in frappe.get_roles(user)
 
 
 def is_cash_full_view(user=None):
-    """Full READ visibility across every person's cash-tracking records: cash
-    admins (who also write/cancel) and Accounts Manager (read-only)."""
     user = user or frappe.session.user
     return is_cash_admin(user) or is_accounts_manager(user)
 
 
 def _my_persons(user=None):
-    """Every Cash Tracker Person linked to this user. An entry belongs to a
-    person, so the person must see it even when a colleague entered it (owner
-    != them)."""
     user = user or frappe.session.user
     return frappe.get_all("Cash Tracker Person", filters={"user": user}, pluck="name")
 
 
 def _get_person_for_user(user=None):
-    """Return the Cash Tracker Person name linked to this ERPNext user, or None."""
     user = user or frappe.session.user
     return frappe.db.get_value("Cash Tracker Person", {"user": user}, "name")
 
@@ -61,16 +43,7 @@ def _is_finance_or_above(user=None):
     return bool(FINANCE_ROLES.intersection(set(frappe.get_roles(user))))
 
 
-# ── Motley eligibility ────────────────────────────────────────────────────────
-# "Allow For Motley" on Cash Tracker Person is the single switch deciding who may
-# file Motley entries at all. It gates three things, all from this one helper:
-#   1. creating / saving a Motley Cash Tracking document (motley_cash_tracking.py)
-#   2. the doc-level permission check below
-#   3. the Motley filter + "New Motley Cash" button on the Cash Tracking page
-# Personal Cash Tracking is deliberately untouched by it.
-
 def can_use_motley(user=None):
-    """True if this user may file Motley entries. Cash admins always may."""
     user = user or frappe.session.user
     if is_cash_admin(user):
         return True
@@ -82,18 +55,12 @@ def can_use_motley(user=None):
 
 
 def person_allows_motley(person):
-    """True if a given Cash Tracker Person is flagged for Motley entries."""
     if not person:
         return False
     return bool(frappe.db.get_value("Cash Tracker Person", person, "allow_for_motley"))
 
 
-# ── TSBC eligibility ──────────────────────────────────────────────────────────
-# The TSBC ledger mirrors Motley exactly, with its own "Allow For TSBC" switch on
-# Cash Tracker Person. Everything below is the Motley model with that one flag.
-
 def can_use_tsbc(user=None):
-    """True if this user may file TSBC entries. Cash admins always may."""
     user = user or frappe.session.user
     if is_cash_admin(user):
         return True
@@ -105,18 +72,12 @@ def can_use_tsbc(user=None):
 
 
 def person_allows_tsbc(person):
-    """True if a given Cash Tracker Person is flagged for TSBC entries."""
     if not person:
         return False
     return bool(frappe.db.get_value("Cash Tracker Person", person, "allow_for_tsbc"))
 
 
-# ── Safe eligibility ──────────────────────────────────────────────────────────
-# The Safe ledger only records cash going into and out of the safe. Same model
-# as TSBC, with its own "Allow For Safe" switch on Cash Tracker Person.
-
 def can_use_safe(user=None):
-    """True if this user may file Safe entries. Cash admins always may."""
     user = user or frappe.session.user
     if is_cash_admin(user):
         return True
@@ -128,16 +89,12 @@ def can_use_safe(user=None):
 
 
 def person_allows_safe(person):
-    """True if a given Cash Tracker Person is flagged for Safe entries."""
     if not person:
         return False
     return bool(frappe.db.get_value("Cash Tracker Person", person, "allow_for_safe"))
 
 
-# ── List-view filtering ────────────────────────────────────────────────────────
-
 def cash_ledger_entry_query(user):
-    """Cash Tracker Users see only their own entries in list views; Finance sees all."""
     if _is_finance_or_above(user):
         return ""
     person = _get_person_for_user(user)
@@ -147,7 +104,6 @@ def cash_ledger_entry_query(user):
 
 
 def expense_tracker_entry_query(user):
-    """Cash Tracker Users see only their own expense entries in list views; Finance sees all."""
     if _is_finance_or_above(user):
         return ""
     person = _get_person_for_user(user)
@@ -156,15 +112,7 @@ def expense_tracker_entry_query(user):
     return f"`tabExpense Tracker Entry`.`cash_tracker_person` = {frappe.db.escape(person)}"
 
 
-# ── Document-level permission checks ──────────────────────────────────────────
-
 def cash_ledger_entry_has_permission(doc, ptype="read", user=None):
-    """
-    Document-level gate for Cash Ledger Entry.
-    - Finance roles: full access.
-    - Everyone else: read only their own; cancel always denied.
-    doc is None when Frappe checks list-level access — allow if user has a CTP.
-    """
     user = user or frappe.session.user
     if _is_finance_or_above(user):
         return True
@@ -172,7 +120,6 @@ def cash_ledger_entry_has_permission(doc, ptype="read", user=None):
     if ptype == "cancel":
         return False
 
-    # None or string = list/create level check (no specific document)
     if doc is None or isinstance(doc, str):
         return bool(_get_person_for_user(user))
 
@@ -183,12 +130,6 @@ def cash_ledger_entry_has_permission(doc, ptype="read", user=None):
 
 
 def expense_tracker_entry_has_permission(doc, ptype="read", user=None):
-    """
-    Document-level gate for Expense Tracker Entry.
-    - Finance roles: full access.
-    - Everyone else: read/write/submit only their own; cancel always denied.
-    doc is None when Frappe checks list-level access — allow if user has a CTP.
-    """
     user = user or frappe.session.user
     if _is_finance_or_above(user):
         return True
@@ -205,12 +146,7 @@ def expense_tracker_entry_has_permission(doc, ptype="read", user=None):
     return doc.get("cash_tracker_person") == person
 
 
-# ── Personal Cash Tracking — strictly own records ──────────────────────────
-
 def personal_cash_tracking_query(user):
-    """List-level filter: full-view users (cash admins / Accounts Manager) see
-    all; everyone else sees records they own OR that belong to their own Cash
-    Tracker Person (entered on their behalf)."""
     user = user or frappe.session.user
     if is_cash_full_view(user):
         return ""
@@ -223,9 +159,6 @@ def personal_cash_tracking_query(user):
 
 
 def personal_cash_tracking_has_permission(doc, ptype="read", user=None):
-    """Document-level gate: cash admins have full access; Accounts Manager gets
-    read-only access to everyone's; everyone else may touch their own records and
-    read those belonging to their Cash Tracker Person; nobody else can cancel."""
     user = user or frappe.session.user
     if is_cash_admin(user):
         return True
@@ -234,22 +167,15 @@ def personal_cash_tracking_has_permission(doc, ptype="read", user=None):
     if ptype == "cancel":
         return False
     if doc is None or isinstance(doc, str):
-        return True  # doctype-level access is decided by role permissions
+        return True
     if (doc.get("owner") or user) == user:
         return True
-    # The cash tracking person may READ their own entries even if a colleague
-    # entered them (owner != them).
     if ptype == "read" and doc.get("cash_tracker_person") in _my_persons(user):
         return True
     return False
 
 
-# ── Motley Cash Tracking — strictly own records ─────────────────────────────
-
 def motley_cash_tracking_query(user):
-    """List-level filter: full-view users (cash admins / Accounts Manager) see
-    all; everyone else sees records they own OR that belong to their own Cash
-    Tracker Person (entered on their behalf)."""
     user = user or frappe.session.user
     if is_cash_full_view(user):
         return ""
@@ -262,13 +188,6 @@ def motley_cash_tracking_query(user):
 
 
 def motley_cash_tracking_has_permission(doc, ptype="read", user=None):
-    """Document-level gate: cash admins have full access; everyone else may only
-    touch their own records and can never cancel.
-
-    Writing also requires "Allow For Motley" on the user's Cash Tracker Person.
-    Reading is left open to the owner so someone whose flag is later revoked can
-    still see the entries they already filed.
-    """
     user = user or frappe.session.user
     if is_cash_admin(user):
         return True
@@ -279,22 +198,15 @@ def motley_cash_tracking_has_permission(doc, ptype="read", user=None):
     if ptype in ("create", "write", "submit", "amend") and not can_use_motley(user):
         return False
     if doc is None or isinstance(doc, str):
-        return True  # doctype-level access is decided by role permissions
+        return True
     if (doc.get("owner") or user) == user:
         return True
-    # The cash tracking person may READ their own entries even if a colleague
-    # entered them (owner != them).
     if ptype == "read" and doc.get("cash_tracker_person") in _my_persons(user):
         return True
     return False
 
 
-# ── TSBC Cash Tracking — strictly own records ───────────────────────────────
-
 def tsbc_cash_tracking_query(user):
-    """List-level filter: full-view users (cash admins / Accounts Manager) see
-    all; everyone else sees records they own OR that belong to their own Cash
-    Tracker Person (entered on their behalf)."""
     user = user or frappe.session.user
     if is_cash_full_view(user):
         return ""
@@ -307,14 +219,6 @@ def tsbc_cash_tracking_query(user):
 
 
 def tsbc_cash_tracking_has_permission(doc, ptype="read", user=None):
-    """Document-level gate: cash admins have full access; Accounts Manager gets
-    read-only access to everyone's; everyone else may only touch their own
-    records and can never cancel.
-
-    Writing also requires "Allow For TSBC" on the user's Cash Tracker Person.
-    Reading is left open to the owner so someone whose flag is later revoked can
-    still see the entries they already filed.
-    """
     user = user or frappe.session.user
     if is_cash_admin(user):
         return True
@@ -325,22 +229,15 @@ def tsbc_cash_tracking_has_permission(doc, ptype="read", user=None):
     if ptype in ("create", "write", "submit", "amend") and not can_use_tsbc(user):
         return False
     if doc is None or isinstance(doc, str):
-        return True  # doctype-level access is decided by role permissions
+        return True
     if (doc.get("owner") or user) == user:
         return True
-    # The cash tracking person may READ their own entries even if a colleague
-    # entered them (owner != them).
     if ptype == "read" and doc.get("cash_tracker_person") in _my_persons(user):
         return True
     return False
 
 
-# ── Safe Cash Tracking — strictly own records ───────────────────────────────
-
 def safe_cash_tracking_query(user):
-    """List-level filter: full-view users (cash admins / Accounts Manager) see
-    all; everyone else sees records they own OR that belong to their own Cash
-    Tracker Person (entered on their behalf)."""
     user = user or frappe.session.user
     if is_cash_full_view(user):
         return ""
@@ -353,9 +250,6 @@ def safe_cash_tracking_query(user):
 
 
 def safe_cash_tracking_has_permission(doc, ptype="read", user=None):
-    """Document-level gate, the TSBC rules with "Allow For Safe": cash admins
-    have full access; Accounts Manager reads everyone's; everyone else only
-    their own records, never cancel, and writing needs the Safe flag."""
     user = user or frappe.session.user
     if is_cash_admin(user):
         return True
@@ -366,7 +260,7 @@ def safe_cash_tracking_has_permission(doc, ptype="read", user=None):
     if ptype in ("create", "write", "submit", "amend") and not can_use_safe(user):
         return False
     if doc is None or isinstance(doc, str):
-        return True  # doctype-level access is decided by role permissions
+        return True
     if (doc.get("owner") or user) == user:
         return True
     if ptype == "read" and doc.get("cash_tracker_person") in _my_persons(user):
@@ -374,49 +268,13 @@ def safe_cash_tracking_has_permission(doc, ptype="read", user=None):
     return False
 
 
-# ── Cash Tracker Person — sharing is Administrator-only ───────────────────────
-
 def cash_tracker_person_has_permission(doc, ptype="read", user=None):
-    """Only the Administrator may share a Cash Tracker Person.
-
-    Sharing one of these records hands over a person's cash history on the Cash
-    Tracking page, so who may grant that is not something to leave to whoever
-    happens to hold System Manager on this site.
-
-    Two layers, because the DocPerm alone is not enough: the role's `share` right
-    is off in the doctype, which hides the Share button, and this check refuses
-    the action itself. It has to be here as well because Frappe also grants the
-    share right to anyone holding a DocShare row with `share = 1` — so a single
-    share ticked "Can Share" would otherwise let it spread on its own. Frappe
-    short-circuits every permission check for the Administrator before reaching
-    controllers, so they are unaffected.
-
-    Nothing else about the record is touched: controllers can only deny, never
-    grant, so returning True here leaves read/write to the role permissions.
-    """
     if ptype != "share":
         return True
     return (user or frappe.session.user) == "Administrator"
 
 
 def docshare_validate(doc, method=None):
-    """Only the Administrator may share a Cash Tracker Person, by any route.
-
-    The DocPerm and the controller check above are not sufficient on their own.
-    frappe.has_permission falls back to the share table: if a DocShare row grants
-    a right, the user has that right regardless of what roles and controllers
-    said. So a single share ticked "Can Share" hands the recipient the ability to
-    share it onward, and sharing spreads without an administrator ever being
-    involved — which is exactly what had happened here.
-
-    This closes it at the source: every DocShare row on Cash Tracker Person must
-    be written by the Administrator, and none of them may carry the share right,
-    so read access can never turn into the ability to hand out read access.
-
-    Note this also stops a non-admin *assigning* a Cash Tracker Person to someone
-    who cannot already read it, since Frappe auto-shares in that case. That is
-    the intended reading of "only Administrator can share".
-    """
     if doc.share_doctype != "Cash Tracker Person":
         return
 

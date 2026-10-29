@@ -1,14 +1,10 @@
 import frappe
 from frappe.utils import flt, getdate
 
-# Sales persons featured as toggle buttons on the dashboard, in display order.
-# Each must be an enabled Sales Person record; their user is resolved from
-# the Sales Person's custom_email field.
 FEATURED_SALESPERSONS = ["Nikki Manilig", "Douglas Boulware"]
 
 LIST_LIMIT = 100
 
-# Keep in sync with the roles on the sales-overview Page doc.
 ALLOWED_ROLES = {"System Manager", "Sales Manager", "Sales User", "Accounts User"}
 
 
@@ -64,7 +60,6 @@ def _resolve_sp(salesperson):
 
 
 def _not_intercompany(alias, party_field="customer"):
-    """Exclude intercompany documents (customer flagged is_internal_customer)."""
     return f"""NOT EXISTS (
         SELECT 1 FROM `tabCustomer` c
         WHERE c.name = {alias}.{party_field} AND c.is_internal_customer = 1
@@ -72,8 +67,6 @@ def _not_intercompany(alias, party_field="customer"):
 
 
 def _doc_conditions(alias, doctype, date_field, sp, from_date, to_date, company, params):
-    """Build WHERE conditions for a sales doctype. A document belongs to a
-    sales person if they created it (owner) or appear in its Sales Team."""
     conds = [f"{alias}.docstatus = 1", _not_intercompany(alias)]
     if from_date:
         conds.append(f"{alias}.{date_field} >= %(from_date)s")
@@ -147,11 +140,6 @@ def _get_delivery_notes(sp, from_date, to_date, company):
 
 
 def _get_payments(sp, from_date, to_date, company, invoice_names, order_names):
-    """Payment Entries (Receive) with each payment tagged Cash or Bank based on
-    the account type of the account it was paid into.
-
-    For a sales person, a payment counts if they created it or if it is
-    allocated against one of their invoices / orders."""
     params = {}
     conds = ["pe.docstatus = 1", "pe.payment_type = 'Receive'", _not_intercompany("pe", "party")]
     if from_date:

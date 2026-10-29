@@ -1,12 +1,3 @@
-"""
-Friday AR Report
-Scheduled: daily at 8 AM Pacific (15:00 UTC / PDT, 16:00 UTC / PST).
-Two sections:
-  1. New AR (June 1, 2026+) — invoices coming up on terms or recently due
-  2. Old AR (before June 1, 2026) — legacy outstanding invoices
-Sent to: Nikki, Matt, Muhammad, Imran, bot@motleyterpz.com
-"""
-
 import frappe
 from frappe.utils import nowdate, fmt_money
 from datetime import datetime
@@ -62,15 +53,10 @@ def send_ar_report():
 
 @frappe.whitelist()
 def execute():
-    """Exec from console: frappe.call('cannabis_management.api.ar_report.execute')"""
     return send_now()
 
 
 def bench_exec():
-    """
-    bench --site erp.alltechvirtual.com execute cannabis_management.api.ar_report.bench_exec
-    Prints row counts and sends the report email.
-    """
     new_rows = _get_new_ar()
     old_rows = _get_old_ar()
     print(f"New AR rows : {len(new_rows)}")
@@ -89,7 +75,6 @@ def bench_exec():
 
 @frappe.whitelist()
 def send_now():
-    """Manual trigger from desk or console."""
     today = nowdate()
     new_rows = _get_new_ar()
     old_rows = _get_old_ar()
@@ -104,10 +89,7 @@ def send_now():
     return {"new_count": len(new_rows), "old_count": len(old_rows)}
 
 
-# ── Queries ────────────────────────────────────────────────────────────────────
-
 def _get_new_ar():
-    """New AR: invoices from June 1 2026 onwards with outstanding balance."""
     return frappe.db.sql(f"""
         SELECT
             si.name,
@@ -131,7 +113,6 @@ def _get_new_ar():
 
 
 def _get_old_ar():
-    """Old AR: invoices before June 1 2026 with outstanding balance."""
     return frappe.db.sql(f"""
         SELECT
             si.name,
@@ -154,9 +135,6 @@ def _get_old_ar():
         ORDER BY si.posting_date ASC
     """, {"cos": COMPANIES, "cutoff": LEGACY_CUTOFF}, as_dict=True)
 
-
-# ── Helpers ────────────────────────────────────────────────────────────────────
-
 _CO_COLORS = {
     "Motley Terpz":               "#d97706",
     "TSBC Ranch":                 "#059669",
@@ -176,7 +154,6 @@ def _co_badge(company):
 def _new_ar_status(days_overdue):
     d = int(days_overdue or 0)
     if d < 0:
-        # not yet due
         due_in = abs(d)
         if due_in <= 7:
             return ('#b45309', '#fef3c7', f'Due in {due_in}d')
@@ -207,8 +184,6 @@ def _sum_outstanding(rows):
     return sum(float(r.outstanding_amount or 0) for r in rows)
 
 
-# ── Email builder ──────────────────────────────────────────────────────────────
-
 def _build_email(today, new_rows, old_rows):
     date_label = datetime.strptime(today, "%Y-%m-%d").strftime("%A, %B %-d, %Y")
 
@@ -216,7 +191,6 @@ def _build_email(today, new_rows, old_rows):
     old_total = _sum_outstanding(old_rows)
     grand_total = new_total + old_total
 
-    # ── New AR table ──────────────────────────────────────────────────────────
     new_html = ""
     if new_rows:
         rows_html = ""
@@ -270,7 +244,6 @@ def _build_email(today, new_rows, old_rows):
           <tbody>{rows_html}</tbody>
         </table></div>"""
 
-    # ── Old AR table ──────────────────────────────────────────────────────────
     old_html = ""
     if old_rows:
         rows_html = ""

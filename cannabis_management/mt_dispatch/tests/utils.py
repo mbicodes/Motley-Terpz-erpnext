@@ -1,10 +1,3 @@
-"""Shared test helpers.
-
-The tests run against a copy of production where the companies' real
-Dispatch Company Settings records exist. Every test that replaces one takes a
-snapshot first and puts the original back afterwards -- never just deletes it.
-"""
-
 import copy
 
 import frappe
@@ -40,7 +33,5 @@ def existing_log_rows(sales_order):
 
 
 def delete_new_log_rows(sales_order, keep):
-	"""Remove only the stage log rows a test added. A real order's own
-	history is never touched."""
 	for name in existing_log_rows(sales_order) - set(keep or ()):
 		frappe.db.delete("Dispatch Stage Log", {"name": name})

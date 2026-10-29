@@ -1,16 +1,3 @@
-# Copyright (c) 2026, alltechvirtual.com and contributors
-# For license information, please see license.txt
-
-"""Break and make the links other documents hold to one document.
-
-Frappe will not cancel a document while a submitted document links to it (and
-ERPNext also refuses while a draft Sales Invoice does). This tool lists those
-back-links, clears them so the cancel goes through, and later points them again
-at the same document or at its amended copy. Item-row references such as
-Delivery Note Item.so_detail are cleared and restored together with the link,
-and the delivered / billed totals of the orders involved are recomputed.
-"""
-
 import json
 from contextlib import contextmanager
 
@@ -21,8 +8,6 @@ from frappe.model.dynamic_links import get_dynamic_link_map
 from frappe.model.rename_doc import get_link_fields
 from frappe.utils import cint, get_link_to_form
 
-# Ledger rows must keep pointing at the voucher that posted them; the rest are
-# cancelled or ignored by the document's own on_cancel.
 SKIP_DOCTYPES = {
 	"GL Entry",
 	"Stock Ledger Entry",
@@ -39,8 +24,6 @@ SKIP_DOCTYPES = {
 	"Connection Tool Link",
 }
 
-# Payment allocations are mirrored in the payment ledger, so clearing them here
-# would leave the ledger pointing at the order. They are listed, never touched.
 LOCKED_TABLES = {
 	"Payment Entry Reference",
 	"Journal Entry Account",
@@ -65,7 +48,6 @@ class ConnectionTool(Document):
 		self.set_status()
 
 	def guard_broken_rows(self):
-		"""A broken row is the only record of where a link pointed, so it may not be dropped."""
 		before = self.get_doc_before_save()
 		broken = [r for r in before.links if r.status == "Broken"] if before else []
 		if not broken:
@@ -84,11 +66,9 @@ class ConnectionTool(Document):
 				)
 
 	def scan(self):
-		"""Rebuild the table: every live back-link, plus the broken rows still waiting to be made again."""
 		found = find_back_links(self.reference_doctype, self.reference_name, cint(self.include_cancelled))
 		live = {(r["table_doctype"], r["row_name"], r["fieldname"]) for r in found}
 
-		# Relinked rows that now point elsewhere stay as history.
 		kept = [
 			r
 			for r in self.links
@@ -185,7 +165,6 @@ class ConnectionTool(Document):
 		remap = target != self.reference_name
 		target_rows = child_rows(self.reference_doctype, target) if remap else {}
 
-		# Work out every value first so nothing is written unless all rows can be made.
 		plan, errors = [], []
 		for r in rows:
 			if target_docstatus == 2 and frappe.db.get_value(r.linked_doctype, r.linked_name, "docstatus") == 1:
@@ -271,7 +250,6 @@ class ConnectionTool(Document):
 
 
 def find_back_links(doctype, name, include_cancelled=False):
-	"""Every field in another document that points at doctype/name, one dict per row and field."""
 	skip = SKIP_DOCTYPES | set(frappe.get_hooks("ignore_links_on_delete"))
 	target_rows = child_rows(doctype, name)
 
@@ -333,7 +311,6 @@ def find_back_links(doctype, name, include_cancelled=False):
 
 
 def child_rows(doctype, name):
-	"""Item rows of doctype/name keyed by row name, with what is needed to find the same row in an amendment."""
 	rows = {}
 	for df in frappe.get_meta(doctype).get_table_fields():
 		child_meta = get_meta_or_none(df.options)
@@ -356,7 +333,6 @@ def child_rows(doctype, name):
 
 
 def row_reference_fields(meta, link_field, target_rows):
-	"""Fields that may hold the name of one of the target's item rows (so_detail, sales_order_item ...)."""
 	if not target_rows:
 		return []
 	child_doctypes = {r["child_doctype"] for r in target_rows.values()}
@@ -371,7 +347,6 @@ def row_reference_fields(meta, link_field, target_rows):
 
 
 def match_child_row(ref, target_rows):
-	"""The amended document's row standing in for ref: same table and position, else the only row with that item."""
 	same_table = [
 		r
 		for r in target_rows.values()
@@ -386,12 +361,6 @@ def match_child_row(ref, target_rows):
 
 @contextmanager
 def totals_in_sync(doctype, name, warnings):
-	"""Recompute the delivered / billed quantities and reserved stock this document feeds.
-
-	Before the change the document is left out of its orders' totals, as if it were
-	cancelled; afterwards it is counted again through the links it has now. Orders it
-	was cut from lose its quantities and orders it was linked to gain them.
-	"""
 	before = status_updater_doc(doctype, name)
 	if before:
 		before.docstatus = 2
@@ -415,7 +384,6 @@ def totals_in_sync(doctype, name, warnings):
 
 
 def status_updater_doc(doctype, name):
-	"""The submitted document set up the way its own on_submit sees it, or None if it feeds no totals."""
 	if frappe.db.get_value(doctype, name, "docstatus") != 1:
 		return None
 
@@ -423,7 +391,6 @@ def status_updater_doc(doctype, name):
 	if not hasattr(doc, "update_qty"):
 		return None
 
-	# Sales / Purchase Invoice returns skip the order totals unless told otherwise.
 	for flag in ("update_billed_amount_in_sales_order", "update_billed_amount_in_purchase_order"):
 		if doc.meta.has_field(flag) and doc.get("is_return") and not doc.get(flag):
 			doc.status_updater = []
@@ -434,7 +401,6 @@ def status_updater_doc(doctype, name):
 
 
 def consumes_reservations(doc):
-	"""Delivery Notes (and stock-updating invoices) mark the order's Stock Reservation Entries delivered."""
 	if not hasattr(doc, "update_stock_reservation_entries"):
 		return False
 	return doc.doctype != "Sales Invoice" or cint(doc.get("update_stock"))
@@ -495,7 +461,6 @@ def get_meta_or_none(doctype):
 	try:
 		return frappe.get_meta(doctype)
 	except frappe.DoesNotExistError:
-		# doctype left behind by an uninstalled app's customizations
 		frappe.clear_last_message()
 		return None
 
@@ -544,7 +509,6 @@ def make_connections(name, rows=None):
 
 @frappe.whitelist()
 def open_tool(reference_doctype, reference_name):
-	"""The tool still holding broken links for this document, or a fresh one."""
 	existing = frappe.db.get_value(
 		"Connection Tool",
 		{

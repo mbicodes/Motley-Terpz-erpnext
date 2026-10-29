@@ -1,10 +1,3 @@
-# cannabis_management/api/slack_inventory.py
-#
-# Slack Slash Command handler for /inventory
-# Returns an Excel file with inventory data by item group
-#
-# Endpoint: /api/method/cannabis_management.api.slack_inventory.handle_inventory_command
-
 import frappe
 import requests
 import json
@@ -14,29 +7,15 @@ from datetime import datetime
 
 @frappe.whitelist(allow_guest=True, methods=["POST"])
 def handle_inventory_command(**kwargs):
-    """
-    Handle /inventory slash command from Slack.
-
-    Slack sends form-encoded POST with:
-        - token, team_id, team_domain
-        - channel_id, channel_name
-        - user_id, user_name
-        - command, text
-        - response_url, trigger_id
-    """
-
-    # ── Extract Slack payload ──────────────────────────────────────
     text = frappe.form_dict.get("text", "").strip()
     channel_id = frappe.form_dict.get("channel_id", "")
     user_id = frappe.form_dict.get("user_id", "")
     user_name = frappe.form_dict.get("user_name", "")
     response_url = frappe.form_dict.get("response_url", "")
 
-    # ── Validate this looks like a Slack request ──────────────────
     if not response_url or not channel_id:
         frappe.throw("Invalid request: missing Slack parameters", frappe.AuthenticationError)
 
-    # ── No text = show available item groups ──────────────────────
     if not text:
         frappe.enqueue(
             "cannabis_management.api.slack_inventory.send_item_groups_list",
@@ -48,7 +27,6 @@ def handle_inventory_command(**kwargs):
         frappe.response["message"] = ""
         return
 
-    # ── Text provided = generate inventory report ─────────────────
     frappe.enqueue(
         "cannabis_management.api.slack_inventory.generate_and_upload_report",
         item_group_input=text,
@@ -70,14 +48,7 @@ def handle_inventory_command(**kwargs):
     return
 
 
-# ─────────────────────────────────────────────────────────────────────
-# Background Jobs
-# ─────────────────────────────────────────────────────────────────────
-
-
 def send_item_groups_list(response_url):
-    """Send the list of available item groups to Slack."""
-
     groups = frappe.db.sql(
         """
         SELECT
@@ -109,14 +80,6 @@ def send_item_groups_list(response_url):
 
 
 def generate_and_upload_report(item_group_input, channel_id, user_id, user_name, response_url):
-    """
-    Background job:
-    1. Validate item group
-    2. Query stock data
-    3. Generate Excel
-    4. Upload to Slack channel using new upload API
-    """
-
     bot_token = frappe.conf.get("slack_bot_token")
     if not bot_token:
         _slack_respond(
@@ -126,7 +89,6 @@ def generate_and_upload_report(item_group_input, channel_id, user_id, user_name,
         )
         return
 
-    # ── Case-insensitive item group lookup ────────────────────────
     item_group = _resolve_item_group(item_group_input)
 
     if not item_group:
@@ -137,13 +99,11 @@ def generate_and_upload_report(item_group_input, channel_id, user_id, user_name,
         )
         return
 
-    # ── Notify user ───────────────────────────────────────────────
     _slack_respond(
         response_url,
         f"⏳ Generating inventory report for *{item_group}*... hang tight.",
     )
 
-    # ── Query stock data ──────────────────────────────────────────
     items = frappe.db.sql(
         """
         SELECT
@@ -168,11 +128,9 @@ def generate_and_upload_report(item_group_input, channel_id, user_id, user_name,
         _slack_respond(response_url, f"📭 No stock found for item group *{item_group}*.")
         return
 
-    # ── Generate Excel ────────────────────────────────────────────
     excel_buffer = _build_excel(items, item_group)
     file_bytes = excel_buffer.getvalue()
 
-    # ── Compute summary for the Slack message ─────────────────────
     total_qty = sum(row.actual_qty or 0 for row in items)
     total_reserved = sum(row.reserved_qty or 0 for row in items)
     total_available = total_qty - total_reserved
@@ -193,7 +151,6 @@ def generate_and_upload_report(item_group_input, channel_id, user_id, user_name,
         f"*Low Stock:* {low_stock}"
     )
 
-    # ── Upload to Slack (new V2 API: 3-step process) ──────────────
     try:
         _slack_upload_file_v2(
             bot_token=bot_token,
@@ -216,22 +173,9 @@ def generate_and_upload_report(item_group_input, channel_id, user_id, user_name,
         )
 
 
-# ─────────────────────────────────────────────────────────────────────
-# Slack Upload V2 (replaces deprecated files.upload)
-# ─────────────────────────────────────────────────────────────────────
-
-
 def _slack_upload_file_v2(bot_token, channel_id, file_bytes, filename, title, initial_comment):
-    """
-    Upload a file to Slack using the new 3-step process:
-    1. files.getUploadURLExternal  → get a presigned upload URL + file_id
-    2. POST the file bytes to that URL
-    3. files.completeUploadExternal → finalize and share to channel
-    """
-
     headers = {"Authorization": f"Bearer {bot_token}"}
 
-    # ── Step 1: Get upload URL ────────────────────────────────────
     step1_resp = requests.get(
         "https://slack.com/api/files.getUploadURLExternal",
         headers=headers,
@@ -249,7 +193,6 @@ def _slack_upload_file_v2(bot_token, channel_id, file_bytes, filename, title, in
     upload_url = step1_data["upload_url"]
     file_id = step1_data["file_id"]
 
-    # ── Step 2: Upload file bytes to the presigned URL ────────────
     step2_resp = requests.post(
         upload_url,
         data=file_bytes,
@@ -260,7 +203,6 @@ def _slack_upload_file_v2(bot_token, channel_id, file_bytes, filename, title, in
     if step2_resp.status_code != 200:
         raise Exception(f"File upload to presigned URL failed: HTTP {step2_resp.status_code}")
 
-    # ── Step 3: Complete the upload and share to channel ──────────
     step3_resp = requests.post(
         "https://slack.com/api/files.completeUploadExternal",
         headers={**headers, "Content-Type": "application/json"},
@@ -279,22 +221,10 @@ def _slack_upload_file_v2(bot_token, channel_id, file_bytes, filename, title, in
     return step3_data
 
 
-# ─────────────────────────────────────────────────────────────────────
-# Helpers
-# ─────────────────────────────────────────────────────────────────────
-
-
 def _resolve_item_group(user_input):
-    """
-    Case-insensitive lookup for item group.
-    First tries exact match, then LIKE match.
-    Returns the canonical Item Group name or None.
-    """
-    # Exact match first
     if frappe.db.exists("Item Group", user_input):
         return user_input
 
-    # Case-insensitive match
     result = frappe.db.sql(
         "SELECT name FROM `tabItem Group` WHERE LOWER(name) = LOWER(%s) LIMIT 1",
         (user_input,),
@@ -302,7 +232,6 @@ def _resolve_item_group(user_input):
     if result:
         return result[0][0]
 
-    # Partial / fuzzy match (contains)
     result = frappe.db.sql(
         "SELECT name FROM `tabItem Group` WHERE LOWER(name) LIKE %s LIMIT 1",
         (f"%{user_input.lower()}%",),
@@ -314,7 +243,6 @@ def _resolve_item_group(user_input):
 
 
 def _slack_respond(response_url, text, response_type="ephemeral"):
-    """Send a message back to Slack via the response_url."""
     try:
         requests.post(
             response_url,
@@ -326,15 +254,13 @@ def _slack_respond(response_url, text, response_type="ephemeral"):
 
 
 def _build_excel(items, item_group):
-    """Generate a professionally formatted Excel workbook and return a BytesIO buffer."""
     import openpyxl
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
     wb = openpyxl.Workbook()
     ws = wb.active
-    ws.title = item_group[:31]  # Sheet name max 31 chars
+    ws.title = item_group[:31]
 
-    # ── Styles ────────────────────────────────────────────────────
     title_font = Font(name="Calibri", bold=True, size=16, color="1B5E20")
     subtitle_font = Font(name="Calibri", italic=True, size=10, color="757575")
     summary_font = Font(name="Calibri", bold=True, size=11, color="1565C0")
@@ -359,7 +285,6 @@ def _build_excel(items, item_group):
     left_align = Alignment(horizontal="left", vertical="center")
     right_align = Alignment(horizontal="right", vertical="center")
 
-    # ── Title Section ─────────────────────────────────────────────
     ws.merge_cells("A1:F1")
     cell = ws["A1"]
     cell.value = f"{item_group} — Inventory Report"
@@ -374,7 +299,6 @@ def _build_excel(items, item_group):
     cell.alignment = center
     ws.row_dimensions[2].height = 20
 
-    # ── Summary Row ───────────────────────────────────────────────
     total_qty = sum(row.actual_qty or 0 for row in items)
     total_reserved = sum(row.reserved_qty or 0 for row in items)
     total_available = total_qty - total_reserved
@@ -394,7 +318,6 @@ def _build_excel(items, item_group):
     cell.alignment = center
     ws.row_dimensions[4].height = 25
 
-    # ── Table Headers (Row 6) ─────────────────────────────────────
     headers = [
         ("Item Code", 25),
         ("Item Name", 40),
@@ -415,7 +338,6 @@ def _build_excel(items, item_group):
 
     ws.row_dimensions[header_row].height = 28
 
-    # ── Data Rows ─────────────────────────────────────────────────
     for row_idx, item in enumerate(items, header_row + 1):
         actual = round(item.actual_qty or 0, 2)
         reserved = round(item.reserved_qty or 0, 2)
@@ -450,14 +372,11 @@ def _build_excel(items, item_group):
             elif is_alt_row:
                 cell.fill = alt_row_fill
 
-    # ── Freeze panes ──────────────────────────────────────────────
     ws.freeze_panes = f"A{header_row + 1}"
 
-    # ── Auto-filter ───────────────────────────────────────────────
     last_data_row = header_row + len(items)
     ws.auto_filter.ref = f"A{header_row}:F{last_data_row}"
 
-    # ── Save to buffer ────────────────────────────────────────────
     buf = BytesIO()
     wb.save(buf)
     buf.seek(0)

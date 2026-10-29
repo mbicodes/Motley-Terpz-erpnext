@@ -1,6 +1,3 @@
-# Copyright (c) 2026, alltechvirtual.com and contributors
-# For license information, please see license.txt
-
 import frappe
 from frappe import _
 from frappe.model.document import Document
@@ -13,16 +10,9 @@ class PhysicalInventoryVerification(Document):
 
 @frappe.whitelist()
 def get_rosin_recording_data(tolling_partner, batch):
-	"""
-	Fetch child-table rows from submitted Rosin Recording documents
-	that match the given tolling_partner and batch.
-	Returns a list of dicts with prime_strain, subprime_strain,
-	subprime_total_tolled, and prime_inventory_total_tolled.
-	"""
 	if not tolling_partner or not batch:
 		return []
 
-	# Find all submitted Rosin Recording documents matching the criteria
 	rosin_docs = frappe.get_all(
 		"Rosin Recording",
 		filters={

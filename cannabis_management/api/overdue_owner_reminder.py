@@ -1,32 +1,10 @@
-"""
-Overdue-invoice reminders to the owning rep.
-
-Policy (per client, June 2026): a customer is informally "on hold" the moment
-they have ANY submitted invoice past its due date — but nothing is blocked.
-Instead, each day we find every overdue invoice, figure out which user the
-customer belongs to, and email that user a summary of their overdue accounts.
-The email keeps going out daily until the invoice is paid (paid invoices simply
-drop out of the query).
-
-Owner resolution, in order:
-  1. CRM Lead.custom_account_owner for the customer (custom_erp_customer match)
-  2. Customer.account_manager (set on the customer when a CRM Deal is Won)
-Invoices with no resolvable owner go to FALLBACK_RECIPIENTS so nothing is lost.
-
-No document is ever blocked by this module.
-"""
-
 import frappe
 from frappe.utils import flt, getdate, nowdate, date_diff
 
-# Where to send overdue invoices that have no resolvable owner.
 FALLBACK_RECIPIENTS = ["mbi@alltechvirtual.com"]
 
 
-# ── Entry points ─────────────────────────────────────────────────────────────
-
 def send_overdue_owner_reminders():
-    """Scheduled daily. One email per owning user listing their overdue invoices."""
     today = getdate(nowdate())
     invoices = _overdue_invoices()
     if not invoices:
@@ -51,13 +29,11 @@ def send_overdue_owner_reminders():
 
 @frappe.whitelist()
 def send_now():
-    """Manual trigger from the console/desk."""
     return send_overdue_owner_reminders()
 
 
 @frappe.whitelist()
 def preview():
-    """Return the owner→invoice breakdown without sending anything (for testing)."""
     today = getdate(nowdate())
     invoices = _overdue_invoices()
     owner_cache = {}
@@ -81,11 +57,7 @@ def preview():
     }
 
 
-# ── Core ─────────────────────────────────────────────────────────────────────
-
 def _overdue_invoices():
-    """All submitted, still-outstanding invoices whose due date has passed.
-    Excludes internal customers and inter-company customers."""
     return frappe.db.sql(
         """
         SELECT si.name, si.customer, si.customer_name,
@@ -126,11 +98,8 @@ def _recipients_for(owner):
     info = frappe.db.get_value("User", owner, ["enabled", "email"], as_dict=True)
     if info and info.enabled and info.email:
         return [info.email]
-    # owner set but not a usable User → don't lose it
     return list(FALLBACK_RECIPIENTS)
 
-
-# ── Email ──────────────────────────────────────────────────────────────────
 
 def _fmt(v):
     return "$ {:,.2f}".format(flt(v))

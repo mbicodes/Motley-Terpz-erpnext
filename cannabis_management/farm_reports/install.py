@@ -1,12 +1,3 @@
-"""after_migrate for the Farm and Nursery Daily Reports. Idempotent.
-
-Masters, settings defaults and the two Notifications are created only when
-missing, so anything the client edits in the desk (activities, recipients,
-email text, reminder owners) survives a migrate. The two Web Pages are the
-exception: they are rebuilt from web/ every migrate, the same way the
-fixture-managed Web Pages are, so edit the files and not the desk record.
-"""
-
 import os
 
 import frappe
@@ -27,7 +18,6 @@ SETTINGS_DEFAULTS = {
 }
 
 PAGES = [
-	# (Web Page name/route, title, config file)
 	("farm-daily-report", "Farm Daily Report", "farm_daily_report.config.js"),
 	("nursery-daily-report", "Nursery Daily Report", "nursery_daily_report.config.js"),
 ]
@@ -56,7 +46,6 @@ def ensure_flc_group():
 				"is_group": 0,
 			}
 		).insert(ignore_permissions=True)
-	# Only suppliers with no group yet; one moved elsewhere on purpose is left alone.
 	for supplier in EXISTING_FLC_SUPPLIERS:
 		if frappe.db.exists("Supplier", supplier) and not frappe.db.get_value("Supplier", supplier, "supplier_group"):
 			frappe.db.set_value("Supplier", supplier, "supplier_group", FLC_GROUP)
@@ -84,7 +73,6 @@ def ensure_notifications():
 			{
 				"doctype": "Notification",
 				"name": name,
-				# Subject is a 140-character field, Jinja included.
 				"subject": doctype + " {{ frappe.utils.formatdate(doc.report_date) }} submitted by "
 				"{{ frappe.get_fullname(doc.submitted_by) }}",
 				"document_type": doctype,
@@ -107,7 +95,6 @@ def read(filename):
 
 
 def build_page(config_file):
-	"""(css, html, javascript) for one page."""
 	css = read("daily_report.css")
 	html = '<div id="dr-app" class="dr-app"></div>'
 	javascript = read(config_file) + "\n" + read("daily_report_engine.js")
@@ -141,11 +128,6 @@ def sync_web_pages():
 
 
 def build_previews(out_dir):
-	"""Standalone HTML files for preview mode (open in a browser, nothing is
-	saved). Run from bench console:
-	    from cannabis_management.farm_reports.install import build_previews
-	    build_previews("/some/dir")
-	"""
 	os.makedirs(out_dir, exist_ok=True)
 	for route, title, config_file in PAGES:
 		css, html, javascript = build_page(config_file)

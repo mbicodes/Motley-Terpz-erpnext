@@ -1,13 +1,3 @@
-"""The work behind every click, as background jobs, and the modal parsing
-the endpoints validate with inline.
-
-Slack wants an answer within three seconds, so endpoints only verify, check
-the cheap things and enqueue. The job looks up the ERP user, becomes them with
-frappe.set_user() -- so owner, modified_by and version history name the real
-person -- and runs flow.transition(). A GateError goes back to whoever clicked
-as an ephemeral message; nothing is posted to the channel.
-"""
-
 import json
 
 import frappe
@@ -19,7 +9,6 @@ from cannabis_management.mt_dispatch.settings import get_company_settings, requi
 from cannabis_management.mt_dispatch.slack import blocks, client, identity
 from cannabis_management.mt_dispatch.slack.client import SlackError
 
-# modal callback_id -> transition it runs on submit
 MODAL_TRANSITION = {
 	"mt_conversion": "create_conversion",
 	"mt_delivery_note": "create_delivery_note",
@@ -34,13 +23,7 @@ MANIFEST_DIGITS = gates.MANIFEST_DIGITS
 MIN_OVERRIDE_REASON = 15
 
 
-# ── telling the clicker ──────────────────────────────────────────────────────
-
-
 def tell(slack_user, text, response_url=None, channel=None, thread_ts=None):
-	"""Ephemeral to one person: through response_url when there is one, as an
-	ephemeral in the source channel next, and as a DM when neither exists
-	(App Home clicks and modal submissions)."""
 	try:
 		if response_url:
 			client.respond(response_url, text)
@@ -57,11 +40,7 @@ def _message(exc):
 	return frappe.utils.strip_html(str(exc)) or exc.__class__.__name__
 
 
-# ── pre-checks run inline, before a modal opens ──────────────────────────────
-
-
 def precheck(user, sales_order, action, expected_stage):
-	"""None when `user` may start `action` on the order now, else why not."""
 	if not frappe.db.exists("Sales Order", sales_order):
 		return f"{sales_order} no longer exists."
 	so = frappe.get_doc("Sales Order", sales_order)
@@ -81,12 +60,8 @@ def precheck(user, sales_order, action, expected_stage):
 	return None
 
 
-# ── jobs ─────────────────────────────────────────────────────────────────────
-
-
 def run_action(slack_user, action, sales_order, expected_stage=None, payload=None,
 			   response_url=None, channel=None, thread_ts=None, files=None, erp_user=None):
-	"""Run one transition as the person who clicked."""
 	user = erp_user or identity.erp_user_for(slack_user)
 	if not user:
 		tell(slack_user, identity.NOT_LINKED, response_url, channel, thread_ts)
@@ -113,8 +88,6 @@ def run_action(slack_user, action, sales_order, expected_stage=None, payload=Non
 
 
 def _attach_target(action, sales_order):
-	"""Where a Slack upload lands. Manifest and delivery photos belong on the
-	Delivery Note; a payment photo is attached to the Payment Entry later."""
 	if action in ("upload_manifest", "mark_delivered"):
 		dn = gates.draft_delivery_note(sales_order) or next(iter(gates.delivery_notes_for(sales_order)), None)
 		if dn:
@@ -123,8 +96,6 @@ def _attach_target(action, sales_order):
 
 
 def reset_status(sales_order):
-	"""Redraw the thread parent from the ERP, so a status dropdown that was
-	picked but did not go through shows the order's real stage again."""
 	from cannabis_management.mt_dispatch.slack import post
 
 	try:
@@ -147,11 +118,7 @@ def say(slack_user, text, response_url=None, channel=None):
 	tell(slack_user, text, response_url, channel)
 
 
-# ── modal state ──────────────────────────────────────────────────────────────
-
-
 def state_value(values, block_id):
-	"""The value of the one element in an input block, whatever its type."""
 	element = next(iter((values.get(block_id) or {}).values()), None)
 	if not element:
 		return None
@@ -168,11 +135,6 @@ def state_value(values, block_id):
 
 
 def parse_view(callback_id, view):
-	"""(errors, payload, files) for a submitted modal.
-
-	errors maps block_id -> message and goes straight back to Slack as
-	response_action = errors, so the problem is shown on the right field.
-	"""
 	values = (view.get("state") or {}).get("values") or {}
 	meta = json.loads(view.get("private_metadata") or "{}")
 	parser = PARSERS[callback_id]
@@ -201,7 +163,7 @@ def _parse_conversion(values, meta):
 				finished.append({**_resolve_pick(picked), "qty": qty})
 
 		if not raw and not finished and r > 1:
-			continue  # an added row left empty
+			continue
 		if not raw:
 			errors[f"r{r}_rm1"] = "Add at least one raw material."
 			continue
@@ -232,7 +194,6 @@ def _parse_conversion(values, meta):
 
 
 def _resolve_pick(value):
-	"""external_select values are item:<code>."""
 	_kind, _, name = (value or "").partition(":")
 	return {"item": name or value}
 
@@ -253,7 +214,6 @@ def _parse_manifest(values, meta):
 		errors["manifest_file"] = "Attach the manifest file."
 	elif client.check_upload(uploads[0]):
 		errors["manifest_file"] = client.check_upload(uploads[0])
-	# G4 checks the payload for a file_url; the job fills it after the download.
 	return errors, {"manifest_number": number, "file_url": "pending"}, ({"file_url": uploads[0]} if uploads else {})
 
 
@@ -303,9 +263,7 @@ def _parse_delivered(values, meta):
 			errors["photo"] = problem
 		files["file_url"] = photos[0]
 	note = (state_value(values, "note") or "").strip()
-	# "reason" is what transition() writes into the stage log's note.
 	return errors, ({"reason": note} if note else {}), files
-
 
 PARSERS = {
 	"mt_conversion": _parse_conversion,

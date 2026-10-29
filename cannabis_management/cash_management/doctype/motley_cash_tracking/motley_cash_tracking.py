@@ -2,7 +2,6 @@ import frappe
 from frappe.model.document import Document
 from frappe.utils import flt
 
-# Transaction types that must reference a Sales Order
 INVOICE_REQUIRED_TYPES = (
     "Motley - Hardware",
     "Client - Hardware",
@@ -21,11 +20,6 @@ class MotleyCashTracking(Document):
             )
 
     def validate_motley_allowed(self):
-        """Only people flagged "Allow For Motley" on their Cash Tracker Person may
-        file Motley entries. Checked against the person ON THE DOCUMENT, not the
-        session user, so an admin filing on someone's behalf still respects the
-        flag. Cash admins filing for themselves are covered by can_use_motley.
-        """
         from cannabis_management.cash_management.permissions import (
             can_use_motley,
             person_allows_motley,
@@ -57,12 +51,10 @@ class MotleyCashTracking(Document):
 
 
 def get_person_for_user(user):
-    """The active Cash Tracker Person linked to this user, if any."""
     return frappe.db.get_value("Cash Tracker Person", {"user": user, "is_active": 1}, "name")
 
 
 def validate_money_in_out(doc):
-    """Exactly one of Money In / Money Out must be filled, and be positive."""
     money_in, money_out = flt(doc.money_in), flt(doc.money_out)
     if money_in and money_out:
         frappe.throw("Fill only ONE of Money In or Money Out — not both.")

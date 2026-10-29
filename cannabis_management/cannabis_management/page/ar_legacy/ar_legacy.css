@@ -1,12 +1,5 @@
-/* AR Legacy — legacy receivables by relationship owner.
-   Each segment owns an accent colour, reused on its card, its section head and
-   the row's segment dropdown, so a customer's pile is identifiable at a glance. */
-
 .arl { padding: 2px 0 48px; --arl-accent: #6d28d9; }
 
-/* ── AR Mode toggle ────────────────────────────────────────────────────────
-   Legacy / New AR / Legacy + New AR. Legacy is pre-selected: this page was legacy-only before the
-   toggle, and that has to stay the view you land on. */
 .arl-modebar {
 	display: flex; align-items: center; gap: 12px;
 	margin: 0 0 14px;
@@ -28,7 +21,6 @@
 }
 .arl-mode-note { font-size: 11.5px; color: var(--text-muted, #6b7280); }
 
-/* ── KPI cards ──────────────────────────────────────────────────────────── */
 .arl-cards {
 	display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
 	gap: 12px; margin-bottom: 12px;
@@ -57,7 +49,6 @@
 }
 .arl-card-sub { font-size: 11.5px; color: var(--text-muted, #8b96a5); }
 
-/* ── segment cards (also filters) ───────────────────────────────────────── */
 .arl-seg-cards {
 	display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
 	gap: 10px; margin-bottom: 16px;
@@ -85,7 +76,6 @@
 	color: var(--text-muted, #64748b); font-variant-numeric: tabular-nums;
 }
 
-/* Accent per segment, in declaration order. */
 .arl-sec-unassigned                          { --arl-accent: #94a3b8; }
 .arl-sec-matt-s-accounts                     { --arl-accent: #7c3aed; }
 .arl-sec-matt-has-relationships              { --arl-accent: #2563eb; }
@@ -93,7 +83,6 @@
 .arl-sec-nikki-s-accounts-legit-companies    { --arl-accent: #16a34a; }
 .arl-sec-nikki-s-accounts-unknown-companies  { --arl-accent: #d97706; }
 
-/* ── filters ────────────────────────────────────────────────────────────── */
 .arl-filters {
 	display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap;
 	padding: 12px 14px; margin-bottom: 10px; border-radius: 12px;
@@ -136,7 +125,6 @@
 .arl-pill i { font-style: normal; opacity: .6; }
 .arl-pill:hover i { opacity: 1; }
 
-/* ── sections ───────────────────────────────────────────────────────────── */
 .arl-section {
 	border: 1px solid var(--border-color, #e8ecf1); border-radius: 12px;
 	background: var(--card-bg, #fff); margin-bottom: 12px; overflow: hidden;
@@ -159,7 +147,6 @@
 }
 .arl-sec-total { font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
 
-/* ── table ──────────────────────────────────────────────────────────────── */
 .arl-table-wrap { overflow-x: auto; }
 .arl-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .arl-table thead th {
@@ -204,7 +191,6 @@
 	padding: 48px 16px; border: 1px dashed var(--border-color, #e2e8f0); border-radius: 12px;
 }
 
-/* ── loading ────────────────────────────────────────────────────────────── */
 .arl-loading { text-align: center; padding: 60px 20px; color: var(--text-muted, #94a3b8); }
 .arl-spinner {
 	width: 26px; height: 26px; margin: 0 auto 12px; border-radius: 50%;

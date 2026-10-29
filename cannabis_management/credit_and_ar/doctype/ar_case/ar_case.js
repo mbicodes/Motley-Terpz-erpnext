@@ -3,8 +3,6 @@ frappe.ui.form.on("AR Case", {
 		render_banner(frm);
 		add_actions(frm);
 	},
-	// Resolution/frequency drive whether Generate Plan shows — re-evaluate the
-	// moment either changes, without waiting for a save + reload.
 	resolution(frm) {
 		add_actions(frm);
 	},
@@ -34,8 +32,6 @@ function render_banner(frm) {
 }
 
 function add_actions(frm) {
-	// Idempotent: called again on resolution/installment_frequency change, not
-	// just on refresh, so clear whatever we added last time first.
 	frm.clear_custom_buttons();
 
 	if (frm.is_new()) return;

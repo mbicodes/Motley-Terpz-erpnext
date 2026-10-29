@@ -1,17 +1,3 @@
-# Copyright (c) 2026, alltechvirtual.com
-# License: MIT
-
-"""Export helper for the standard (erpnext) "Profit and Loss Statement" report.
-
-Adds a whitelisted endpoint that, given the filters currently applied on the
-Profit and Loss Statement and a list of accounts shown in it, runs the
-standard "General Ledger" report for each account (with the exact same
-date range / company / cost center / project / finance book / currency
-filters) and returns a single Excel workbook with one sheet per account —
-mirroring what a user would get by clicking each account row and exporting
-its General Ledger, just done for every account in one go.
-"""
-
 import datetime
 import json
 from io import BytesIO
@@ -35,16 +21,6 @@ INVALID_SHEET_NAME_CHARS = ["\\", "/", "*", "?", ":", "[", "]"]
 
 @frappe.whitelist()
 def export_accounts_general_ledger(filters, accounts):
-	"""Return an .xlsx with one sheet per account's General Ledger entries.
-
-	Args:
-	    filters: JSON string / dict of the Profit and Loss Statement's
-	        currently applied filter values (company, filter_based_on,
-	        from_fiscal_year/to_fiscal_year or period_start_date/
-	        period_end_date, cost_center, project, finance_book,
-	        presentation_currency, include_default_book_entries).
-	    accounts: JSON string / list of account names to export.
-	"""
 	filters = frappe.parse_json(filters) if isinstance(filters, str) else filters
 	filters = frappe._dict(filters or {})
 	accounts = frappe.parse_json(accounts) if isinstance(accounts, str) else accounts
@@ -55,14 +31,9 @@ def export_accounts_general_ledger(filters, accounts):
 	if not accounts:
 		frappe.throw(_("No accounts found to export"))
 
-	# de-duplicate while preserving the order the report showed them in
 	seen = set()
 	accounts = [a for a in accounts if not (a in seen or seen.add(a))]
 
-	# Defensive: the P&L report also emits synthetic summary rows ("Total
-	# Income (Credit)", "Profit for the year", ...) with quoted, non-account
-	# values in the same `.account` field. Silently drop anything that isn't
-	# a real Account instead of letting the General Ledger call blow up.
 	real_accounts = set(
 		frappe.db.get_all("Account", filters={"name": ["in", accounts]}, pluck="name")
 	)
@@ -78,10 +49,6 @@ def export_accounts_general_ledger(filters, accounts):
 	used_sheet_names = set()
 	sheets_added = 0
 
-	# openpyxl's write-only worksheets stream to disk as rows are appended and
-	# can only be flushed by wb.save() once, at the very end — so every sheet
-	# must be added to the *same* workbook before saving (unlike make_xlsx(),
-	# which saves on every call and would corrupt earlier sheets here).
 	for account in accounts:
 		account_filters = frappe._dict(base_gl_filters)
 		account_filters["account"] = json.dumps([account])
@@ -105,12 +72,6 @@ def export_accounts_general_ledger(filters, accounts):
 
 
 def add_sheet(wb, rows, sheet_name):
-	"""Append `rows` (first row = header) as a new sheet on `wb`.
-
-	Mirrors frappe.utils.xlsxutils.make_xlsx()'s row/date/HTML handling,
-	minus the wb.save() call — write-only workbooks can only be saved once,
-	so saving happens a single time after every sheet has been added.
-	"""
 	sheet_name = INVALID_TITLE_REGEX.sub(" ", sheet_name)
 	ws = wb.create_sheet(sheet_name)
 	ws.row_dimensions[1].font = Font(name="Calibri", bold=True)

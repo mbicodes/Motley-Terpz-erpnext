@@ -1,5 +1,3 @@
-"""Create the Quotation approval custom fields (discount-threshold routing)."""
-
 from cannabis_management.overrides.quotation_approval import install_quotation_approval_fields
 
 

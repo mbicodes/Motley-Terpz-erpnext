@@ -1,20 +1,8 @@
-"""The Credit Application Approval workflow.
-
-Application → Finance recommendation → MD approval → terms go live.
-
-Built in code rather than hand-authored fixture JSON so it is idempotent and
-readable; it still exports through the app's existing unfiltered ``Workflow``,
-``Workflow State`` and ``Workflow Action`` fixtures.
-"""
-
 import frappe
 
 WORKFLOW_NAME = "Credit Application Approval"
 DOCTYPE = "Credit Application"
 
-# (state, doc_status, style, allow_edit)
-# A received application (desk or Web Form) lands directly in "Submit for
-# Review" — there is no separate internal Draft state to sit in first.
 STATES = [
 	("Submit for Review", 0, "Warning", "Credit Finance"),
 	("Finance Review", 0, "Warning", "Credit Finance"),
@@ -25,8 +13,6 @@ STATES = [
 	("Revoked", 1, "Danger", "Credit Finance"),
 ]
 
-# "Submit for Review" is editable by Sales too; the extra grants are added as
-# additional rows because a Workflow Document State carries exactly one role.
 EXTRA_STATE_ROLES = [
 	("Submit for Review", "Sales User"),
 	("Submit for Review", "System Manager"),
@@ -34,7 +20,6 @@ EXTRA_STATE_ROLES = [
 	("Pending MD Approval", "System Manager"),
 ]
 
-# (action, from_state, next_state, allowed_role)
 TRANSITIONS = [
 	("Submit for Review", "Submit for Review", "Finance Review", "Sales User"),
 	("Submit for Review", "Submit for Review", "Finance Review", "Credit Finance"),

@@ -1,6 +1,3 @@
-// Copyright (c) 2026, alltechvirtual.com and contributors
-// For license information, please see license.txt
-
 frappe.query_reports["Custom Gross Profit"] = {
 	filters: [
 		cannabis.reports.company_filter({ reqd: 1 }),
@@ -103,7 +100,6 @@ frappe.query_reports["Custom Gross Profit"] = {
 			value = $value.wrap("<p></p>").parent().html();
 		}
 
-		// Style trail rows (indent 2) with a muted color
 		if (data && data.indent == 2.0) {
 			value = $(`<span>${value}</span>`);
 			var $value = $(value).css({"color": "#8d99a6", "font-size": "0.9em"});

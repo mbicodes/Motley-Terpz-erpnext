@@ -1,37 +1,3 @@
-"""Stock Balance, dimension-wise: drain Batch (project) stock that left untagged.
-
-The Batch inventory dimension writes into the ledger's `project` field. Stock is
-tagged with a Batch when it is made or received, but nearly every Delivery Note,
-Sales Invoice and outgoing Stock Entry leaves the Batch blank. The standard report
-buckets each ledger row by its own tag, so a Batch's stock goes in and never comes
-out: the Batch row keeps its old quantity forever while the blank row runs
-negative — stock shown under a Batch that is no longer on the shelf.
-
-The core report also mis-reads Stock Reconciliations in this mode. Their ledger
-rows carry the warehouse's new total (qty_after_transaction) and the report
-subtracts the *bucket's* balance from it, so one bucket absorbs the whole
-warehouse's stock.
-
-In dimension-wise mode this replaces the bucketing:
-
-- Each item + warehouse holds its stock as FIFO layers, one per receipt, each
-  carrying that receipt's Batch.
-- An outgoing row that names a Batch takes from that Batch's layers first.
-- An outgoing row with no Batch takes from the oldest layers — the oldest stock
-  is assumed to leave first. So does anything a tagged row takes beyond what its
-  Batch actually holds in that warehouse.
-- A Stock Reconciliation moves the warehouse to its counted total; the
-  difference is the movement, and a shortfall comes off the oldest layers.
-- A Stock Entry transfer that arrives untagged carries the Batches its outgoing
-  half was taken from, so a Batch keeps its identity across warehouses.
-- Stock that went out before it was booked in (backdated entries) is a
-  shortfall on the outgoing row's tag; the next receipt fills it first.
-
-Every unit is still counted exactly once, so each item + warehouse total matches
-the plain report — only which Batch a unit sits under changes. Without a
-dimension filter or "Show Dimension Wise Stock" the core report runs untouched.
-"""
-
 from collections import defaultdict, deque
 
 import frappe
@@ -43,12 +9,10 @@ _Report = _core.StockBalanceReport
 _original_get_item_warehouse_map = _Report.get_item_warehouse_map
 _original_apply_dimension_filters = _Report.apply_inventory_dimensions_filters
 
-# Below this a quantity is rounding noise, not stock.
 EPSILON = 1e-6
 
 
 def apply(**kwargs):
-	"""Install the override once per process (before_request / before_job hook)."""
 	if getattr(_Report, "_cannabis_dimension_fix", False):
 		return
 	_Report.apply_inventory_dimensions_filters = _apply_inventory_dimensions_filters
@@ -66,8 +30,6 @@ def _apply_inventory_dimensions_filters(self, query, sle):
 	if not _dimension_mode(self):
 		return _original_apply_dimension_filters(self, query, sle)
 
-	# Read every row, not only the filtered Batch's: the untagged outgoing rows are
-	# what drain a Batch. The filter is applied to the result instead.
 	for fieldname in self.inventory_dimensions:
 		query = query.select(fieldname)
 	return query.select(sle.voucher_detail_no)
@@ -86,7 +48,6 @@ def _get_item_warehouse_map(self):
 	if self.filters.get("show_stock_ageing_data"):
 		self.sle_entries = self.sle_query.run(as_dict=True)
 
-	# Kept from core: warms the cache so flt() doesn't query inside the unbuffered cursor.
 	_system_settings = frappe.get_cached_doc("System Settings")
 	with frappe.db.unbuffered_cursor():
 		if not self.filters.get("show_stock_ageing_data"):
@@ -116,7 +77,6 @@ def _get_item_warehouse_map(self):
 
 
 def _accumulate(report, qty_dict, row, qty_diff, value_diff):
-	"""Core's prepare_item_warehouse_map, with the movement already worked out."""
 	for fieldname in report.inventory_dimensions:
 		qty_dict[fieldname] = row.get(fieldname)
 
@@ -160,17 +120,12 @@ def _keep_filtered_dimensions(report, item_warehouse_map):
 
 
 class _Ledger:
-	"""Per item + warehouse: the running quantity and FIFO layers of [dims, qty]."""
-
 	def __init__(self, dimensions):
 		self.dimensions = dimensions
 		self.blank = (None,) * len(dimensions)
 		self.qty = defaultdict(float)
 		self.layers = defaultdict(deque)
-		# [dims, qty] taken out with no stock behind it, oldest first.
 		self.short = defaultdict(deque)
-		# (voucher_no, voucher_detail_no) -> [(dims, qty)] the outgoing half of a
-		# Stock Entry row took, for its incoming half to carry.
 		self.transfers = {}
 
 	def _dims(self, row):
@@ -184,7 +139,6 @@ class _Ledger:
 			self.layers[base].append([self._dims(opening), qty])
 
 	def post(self, entry):
-		"""Split one ledger row into (dims, qty, value) movements."""
 		base = (entry.company, entry.item_code, entry.warehouse)
 		dims = self._dims(entry)
 		layers = self.layers[base]
@@ -215,16 +169,12 @@ class _Ledger:
 				self.transfers[(entry.voucher_no, entry.voucher_detail_no)] = taken
 			return _spread([(d, -q) for d, q in taken], value)
 
-		# No quantity moved — a revaluation. Its value belongs to what is on hand.
 		if abs(value) > EPSILON and layers:
 			on_hand = _merge((d, q) for d, q in layers)
 			return [(d, 0.0, v) for d, _q, v in _spread(on_hand, value)]
 		return [(dims, 0.0, value)]
 
 	def _take(self, base, layers, need, dims):
-		"""Remove `need` from the layers: a tagged row from its own Batch first, then
-		oldest first. Whatever the layers can't cover (negative stock) stays with the
-		row's own tag as a shortfall."""
 		taken = []
 		if dims != self.blank:
 			need = _drain(layers, need, taken, lambda d: d == dims)
@@ -235,7 +185,6 @@ class _Ledger:
 		return _merge(taken)
 
 	def _fill_shortfall(self, base, qty, moved):
-		"""Put incoming `qty` back under the tags that went short; return what's left."""
 		short = self.short[base]
 		while qty > EPSILON and short:
 			gap = short[0]
@@ -278,7 +227,6 @@ def _rescale(parts, qty):
 
 
 def _spread(parts, value):
-	"""Attach each part's share of the row's value, in proportion to its quantity."""
 	total = sum(abs(q) for _d, q in parts)
 	if total <= EPSILON:
 		return [(d, q, value / len(parts)) for d, q in parts]

@@ -3,7 +3,6 @@ import datetime
 import frappe
 from frappe.utils import flt, getdate, nowdate
 
-
 SALES_TARGET_DOCTYPE = "Sales Target"
 RECON_SNAPSHOT_DOCTYPE = "AR Recon Snapshot"
 ALL_COMPANIES = "Master Touch Manufacturing"
@@ -329,11 +328,6 @@ def _outstanding_accounts(company=None):
 
 
 def _native_lab_yield_for_day(day):
-    """Prefer the custom lab doctypes because their units are explicit.
-
-    Lab Batch/Hash/Rosin rows record pounds and grams side by side; this avoids
-    mixing Stock Entry LBS inputs with Gram outputs when calculating yield.
-    """
     lab = {"lbs_ran": 0.0, "hash_yield_pct": 0.0, "rosin_yield_pct": 0.0, "hash_out": 0.0, "rosin_out": 0.0}
 
     if _doctype_exists("Lab Batch Entry Child"):
@@ -402,27 +396,6 @@ def _native_lab_yield_for_day(day):
 
     return lab
 
-
-# ---------------------------------------------------------------------------
-# Conversion Entry production metrics.
-#
-# Routing mirrors the Production Log print format
-# (cannabis_management/print_format/production_log) line for line — that print
-# format is the source of truth for how a conversion line is classified, and
-# for the expected yield it prints against each stage:
-#
-#   FROZEN     Fresh Frozen (LBS) -> hash / rosin (Grams)   expected 3%
-#   ROSIN_VRR  rosin (Grams)      -> VRR (Grams)            expected 90%
-#   VAPES      VRR                -> vapes (Each)           expected 95%
-#   BLEND      rosin              -> rosin                  expected 90%
-#   GUMMIES    any                -> gummies (Each)         expected 95%
-#
-# Only FROZEN and ROSIN_VRR lines feed the yield KPIs. Everything else — a
-# "Primes -> Tier 1" re-grade, a "Fresh Frozen - SHO -> Fresh Frozen - BHO"
-# re-designation, packaging — moves material without consuming it, and rolling
-# those into the totals is what made the old numbers meaningless (a 335 lb
-# warehouse transfer showed up as 335 lbs "ran").
-# ---------------------------------------------------------------------------
 _CE_K_FROZEN = ["fresh frozen", "frozen", "fresh-frozen", "ff "]
 _CE_K_ROSIN = ["rosin", "tier", "prime", "subprime", "full spec", "food grade", "t1", "t2", "t3", "static", "bubble"]
 _CE_K_VRR = ["vrr", "vape ready"]
@@ -434,7 +407,6 @@ _CE_FG_SLOTS = range(1, 4)
 
 GRAMS_PER_LB = 453.59237
 
-# Expected yields as printed on the Production Log.
 FROZEN_YIELD_BENCHMARK = 3.0
 ROSIN_VRR_YIELD_BENCHMARK = 90.0
 BLEND_YIELD_BENCHMARK = 90.0
@@ -466,17 +438,9 @@ def _has_production(metrics):
 
 
 def _ce_item_meta(codes):
-    """item_code -> (item_group, item_name).
-
-    The denormalised `rm_*_item_group` / `fg_*_item_group` columns are blank on
-    a chunk of the rows, so fall back to the Item master the same way the
-    Production Log print format does.
-    """
     codes = sorted({c for c in codes if c})
     if not codes:
         return {}
-    # ignore_permissions: this is an aggregate read, and lab users who can see
-    # the dashboard do not necessarily hold Item read permission.
     rows = frappe.get_all(
         "Item",
         filters={"name": ["in", codes]},
@@ -503,7 +467,6 @@ def _ce_flags(row_group, code, meta):
 
 
 def _ce_route(row, meta):
-    """Classify one Conversion Entry Item line -> (stage_key, rms, fgs)."""
     rms = []
     for i in _CE_RM_SLOTS:
         code = row.get(f"raw_material_{i}")
@@ -520,7 +483,6 @@ def _ce_route(row, meta):
 
     src_vrr = any(r["flags"]["vrr"] for r in rms)
     src_frozen = any(r["flags"]["frozen"] for r in rms)
-    # VRR wins over the generic rosin flag, same precedence as the print format.
     src_rosin = any(r["flags"]["rosin"] for r in rms) and not src_vrr
 
     fg_gummy = any(f["flags"]["gummy"] for f in fgs)
@@ -581,9 +543,6 @@ def _conversion_yield_by_day(start_date, end_date):
             bucket["lbs_ran"] += sum(r["qty"] for r in rms if r["flags"]["frozen"])
             bucket["hash_out"] += sum(f["qty"] for f in fgs if f["flags"]["rosin"] or f["flags"]["vrr"])
         elif stage == "ROSIN_VRR":
-            # Only a genuine rosin -> VRR press counts. A VRR -> VRR line is a
-            # repack (input == output), and folding those in pins the yield at
-            # a meaningless 100%.
             press_in = sum(r["qty"] for r in rms if r["flags"]["rosin"] and not r["flags"]["vrr"])
             if not press_in:
                 continue
@@ -604,7 +563,6 @@ def _conversion_yield_by_day(start_date, end_date):
 
 
 def _legacy_lab_days(start_date, end_date):
-    """Days still covered only by the pre-Conversion Entry lab doctypes."""
     days = set()
     for child, parent in (
         ("Lab Batch Entry Child", "Lab Batch Entry"),
@@ -628,7 +586,6 @@ def _legacy_lab_days(start_date, end_date):
 
 
 def _lab_yield_by_day(start_date, end_date):
-    """date string -> production metrics, for every day in the range."""
     by_day = _conversion_yield_by_day(start_date, end_date)
     legacy_days = _legacy_lab_days(start_date, end_date)
 
@@ -639,14 +596,9 @@ def _lab_yield_by_day(start_date, end_date):
         if _has_production(metrics):
             out[key] = metrics
             continue
-        # Conversion Entry replaced Lab Batch Entry / Hash Recording / Rosin
-        # Recording in Aug 2026; older days only exist on the legacy doctypes.
         if key in legacy_days:
             legacy = _native_lab_yield_for_day(day)
             if _has_production(legacy):
-                # Rosin Recording on those days mirrors the hash total into the
-                # rosin column, so its "rosin yield" is always 100% — keep the
-                # wash figures only.
                 out[key] = {
                     **_empty_yield(),
                     "lbs_ran": flt(legacy.get("lbs_ran")),
@@ -681,9 +633,7 @@ def _delivery_notes_yesterday(yesterday):
     return [{"name": r.name, "customer": r.customer_name or r.customer, "items": int(r.item_count or 0), "qty": flt(r.total_qty), "value": flt(r.grand_total)} for r in rows]
 
 
-
 def _latest_delivery_notes(yesterday, lookback_days=120):
-    """Shipments for yesterday, falling back to the last day anything shipped."""
     rows = _safe_sql(
         """
         SELECT MAX(posting_date) AS dt
@@ -740,7 +690,6 @@ def _discrepancies():
 
 
 def _eod_rows(day):
-    """One row per (Conversion Entry, stage) for the day being shown."""
     rows = _conversion_rows(day, day)
     if not rows:
         return _legacy_eod_rows(day)
@@ -787,8 +736,6 @@ def _eod_rows(day):
             bucket["output"] += sum(f["qty"] for f in fgs if f["flags"]["rosin"])
             bucket["benchmark"] = BLEND_YIELD_BENCHMARK
         else:
-            # Packaging and transfers: quantities are worth showing, but input
-            # and output are in different units so a yield % would be noise.
             bucket["input"] += sum(r["qty"] for r in rms)
             bucket["output"] += sum(f["qty"] for f in fgs)
 
@@ -807,13 +754,11 @@ def _eod_rows(day):
             bucket["yield_pct"] = (bucket["output"] / bucket["input"] * 100) if bucket["input"] else 0.0
         out.append(bucket)
 
-    # Yield-bearing stages first, then the biggest runs.
     out.sort(key=lambda r: (r["benchmark"] is None, -flt(r["input"])))
     return out[:12]
 
 
 def _legacy_eod_rows(day):
-    """Pre-Conversion Entry runs, for days that only exist on Lab Batch Entry."""
     if not _doctype_exists("Lab Batch Entry Child"):
         return []
     rows = _safe_sql(
@@ -887,16 +832,11 @@ def get_lab_daily_sync_dashboard():
     yesterday = today - datetime.timedelta(days=1)
     yesterday_key = str(yesterday)
     trend_start = today - datetime.timedelta(days=29)
-    # The lab does not run every day, so look further back than the trend
-    # window to find the last day that actually ran.
     lookback_start = today - datetime.timedelta(days=119)
 
     by_day = _lab_yield_by_day(lookback_start, today)
     trends = [{"date": str(day), **by_day.get(str(day), _empty_yield())} for day in _days_between(trend_start, today)]
 
-    # The KPI cards report yesterday, full stop. When nothing ran, `last_run`
-    # carries the most recent day that did, so the cards can say so instead of
-    # showing an unexplained row of zeros.
     days = [str(day) for day in _days_between(lookback_start, yesterday)]
     run_days = [day for day in days if _has_production(by_day.get(day))]
     current = by_day.get(yesterday_key) or _empty_yield()
@@ -911,9 +851,6 @@ def get_lab_daily_sync_dashboard():
         }
 
     def _prior_value(field, gate):
-        """Latest value of `field` before yesterday on a day that actually ran
-        that stage — the lab skips days, so comparing against a blank calendar
-        day would turn every KPI delta into the day's own value."""
         for day in reversed([d for d in days if d < yesterday_key]):
             metrics = by_day.get(day) or {}
             if flt(metrics.get(gate)):

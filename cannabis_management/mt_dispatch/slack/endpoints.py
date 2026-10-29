@@ -1,13 +1,3 @@
-"""The four URLs Slack calls: interact, options, command, events.
-
-All are guest endpoints -- Slack has no ERP session -- so verify() is the
-first line of each and nothing runs before it. Each answers inside Slack's
-three seconds: buttons enqueue and return an empty 200, modal submissions
-validate inline and either return field errors or enqueue and clear, and
-buttons that open a modal call views.open inline because the trigger_id
-expires in three seconds.
-"""
-
 import json
 import re
 
@@ -50,9 +40,6 @@ def _enqueue(method, **kwargs):
 	)
 
 
-# ── interactivity ────────────────────────────────────────────────────────────
-
-
 @frappe.whitelist(allow_guest=True, methods=["POST"])
 def interact(**kwargs):
 	try:
@@ -68,8 +55,6 @@ def interact(**kwargs):
 	if kind == "view_submission":
 		return _view_submission(payload)
 	if kind == "view_closed":
-		# A form opened from the status dropdown and then cancelled: put the
-		# dropdown back on the order's real stage.
 		meta = json.loads((payload.get("view") or {}).get("private_metadata") or "{}")
 		if meta.get("so"):
 			_enqueue("reset_status", sales_order=meta["so"])
@@ -86,8 +71,6 @@ def _source(payload):
 
 
 def _unreachable_status(payload, value, slack_user):
-	"""A stage picked that no step leads to from here: say where the order can
-	go instead, and put the dropdown back on its real stage."""
 	sales_order = value.get("so")
 	if not sales_order or not frappe.db.exists("Sales Order", sales_order):
 		return _json()
@@ -120,12 +103,10 @@ def _block_actions(payload):
 
 	try:
 		if action_id == "mt:set_status":
-			# The dropdown carries the button it stands for; from here on it
-			# is handled exactly as if that button had been clicked.
 			value = json.loads((action.get("selected_option") or {}).get("value") or "{}")
 			action_id = value.pop("a", "")
 			if not action_id:
-				return _json()  # re-picked the current stage
+				return _json()
 			if action_id == blocks.UNREACHABLE_STATUS:
 				return _unreachable_status(payload, value, slack_user)
 		else:
@@ -228,9 +209,6 @@ def _view_submission(payload):
 	return _json({"response_action": "clear"})
 
 
-# ── typeahead ────────────────────────────────────────────────────────────────
-
-
 @frappe.whitelist(allow_guest=True, methods=["POST"])
 def options(**kwargs):
 	try:
@@ -262,9 +240,6 @@ def search_options(action_id, query, limit=100):
 		label = i.name if i.item_name in (None, "", i.name) else f"{i.name} · {i.item_name}"
 		out.append(blocks.option(label, f"item:{i.name}"))
 	return out[:limit]
-
-
-# ── slash commands ───────────────────────────────────────────────────────────
 
 
 @frappe.whitelist(allow_guest=True, methods=["POST"])
@@ -309,7 +284,6 @@ def user_companies(user):
 
 
 def resolve_order(text, companies):
-	"""Full name, or the numeric tail (00563 or 563), within the user's companies."""
 	token = (text or "").split()[0] if text else ""
 	if not token:
 		return None, "Give an order number, e.g. /order 00563."
@@ -321,7 +295,6 @@ def resolve_order(text, companies):
 	if not re.fullmatch(r"\d+", token):
 		return None, f"No order {token} at your companies."
 	tail = token.zfill(5)
-	# An amended order keeps the number and gains a suffix: …-00563-1.
 	matches = frappe.get_all(
 		"Sales Order",
 		filters={"company": ["in", names], "docstatus": 1},
@@ -420,9 +393,6 @@ def _cmd_hold(user, slack_user, text, form):
 	return _ephemeral(f"Putting {name} on hold…")
 
 
-# ── events ───────────────────────────────────────────────────────────────────
-
-
 @frappe.whitelist(allow_guest=True, methods=["POST"])
 def events(**kwargs):
 	try:
@@ -434,8 +404,6 @@ def events(**kwargs):
 	if body.get("type") == "url_verification":
 		return _json({"challenge": body.get("challenge")})
 
-	# Slack retries anything it thinks we were slow on. The first delivery was
-	# already handled, so a retry is acknowledged and dropped.
 	if frappe.request.headers.get("X-Slack-Retry-Num"):
 		return _json()
 

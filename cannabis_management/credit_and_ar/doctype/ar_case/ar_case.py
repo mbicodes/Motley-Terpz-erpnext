@@ -1,19 +1,3 @@
-"""AR Case — one open case per customer, and only for a Hard Hold.
-
-An AR Case is created automatically the moment a customer's Credit Status
-becomes Hard Hold, and only then — a customer merely on Warning never gets
-one. From there Finance decides how it is worked: leave it blank while
-deciding, put the customer on a Payment Plan, designate a Workout, or release
-the hold outright. Those are recorded on this same case as ``resolution``,
-not as separate cases — there is only ever one Active case per customer.
-
-The case stays Active for as long as Finance is deciding, or a Payment Plan or
-Workout is running. It closes only when Finance releases the hold (verified
-live) or the daily sweep clears an undecided case whose past-due balance has
-gone back to zero on its own. `Version` carries the audit trail; the document
-is not submittable.
-"""
-
 import frappe
 from frappe import _
 from frappe.model.document import Document
@@ -24,9 +8,6 @@ from cannabis_management.credit_and_ar import credit_engine, utils
 STATUS_ACTIVE = "Active"
 STATUS_CLOSED = "Closed"
 
-# Cases in this status no longer restrain the customer. Named for the many
-# ``status not in INACTIVE_STATUSES`` filters across the module that mean
-# "the case is still live."
 INACTIVE_STATUSES = (STATUS_CLOSED,)
 
 RESOLUTION_RELEASE = "Release"
@@ -51,8 +32,6 @@ class ARCase(Document):
 	def after_delete(self):
 		sync_customer_from_cases(self.customer)
 
-	# ── defaults ─────────────────────────────────────────────────────────
-
 	def _set_defaults(self):
 		if not self.opened_on:
 			self.opened_on = now_datetime()
@@ -71,7 +50,6 @@ class ARCase(Document):
 				self.paydown_percent = settings.default_paydown_percent
 
 	def _refresh_figures(self):
-		"""Past-due figures are always live, never trusted from the form."""
 		if not self.customer:
 			return
 		snapshot = credit_engine.get_past_due_snapshot(self.customer)
@@ -79,10 +57,7 @@ class ARCase(Document):
 		self.total_outstanding = snapshot["total_outstanding"]
 		self.max_days_past_due = snapshot["max_days_past_due"]
 
-	# ── guards ───────────────────────────────────────────────────────────
-
 	def _guard_workout_designation(self):
-		"""§9 — only the Managing Director designates a workout account."""
 		if self.resolution != RESOLUTION_WORKOUT:
 			return
 
@@ -91,11 +66,6 @@ class ARCase(Document):
 		if already_workout:
 			return
 
-		# Starting Balance — and Current Balance alongside it, so the case
-		# shows the right number from the moment it is designated instead of a
-		# stale 0 until the next payment or the nightly review sweep touches
-		# it. Set for every route into Workout, human or automated, hence
-		# ahead of the role gate below (which only guards who may do this).
 		if not self.starting_balance:
 			self.starting_balance = credit_engine.get_current_exposure(self.customer)
 		if not self.current_balance:
@@ -115,7 +85,6 @@ class ARCase(Document):
 		self.workout_designated_on = getdate()
 
 	def _guard_plan_creation(self):
-		"""§8 — a payment plan is Finance's instrument, not Sales'."""
 		previous = self.get_doc_before_save()
 		if previous and previous.resolution == RESOLUTION_PAYMENT_PLAN:
 			return
@@ -134,7 +103,6 @@ class ARCase(Document):
 			self.finance_approved_on = now_datetime()
 
 	def _guard_release(self):
-		"""Release is a Credit Finance action, verified live — never a field edit."""
 		if self.resolution != RESOLUTION_RELEASE:
 			return
 
@@ -192,11 +160,6 @@ class ARCase(Document):
 			self.md_ratified_by = None
 			self.md_ratified_on = None
 
-		# Status is always derived (utils.installment_status) — Paid, Partially
-		# Paid, Missed and Pending are never a hand-typed value, even on a
-		# Custom-frequency plan. This also fixes a child row appended without an
-		# explicit status, which comes through as NULL since `append()` does not
-		# apply the DocType default.
 		today = getdate()
 		for row in self.schedule:
 			row.status = utils.installment_status(row.amount, row.paid_amount, row.due_date, today)
@@ -206,22 +169,10 @@ class ARCase(Document):
 		)
 
 
-# ── customer roll-up ─────────────────────────────────────────────────────────
-
-
 def sync_customer_from_cases(customer: str):
-	"""Recompute the customer's hold flags from whichever case is live.
-
-	Only one AR Case can be Active for a customer at a time — it is opened,
-	refreshed and closed through a single choke point in ``hold_engine``. This
-	just mirrors that one case (if any) onto the Customer record.
-	"""
 	if not customer:
 		return
 
-	# Policy Exempt is now carried by the credit status itself, so recomputing
-	# the status from cases would silently un-exempt the account. An exempt
-	# account is outside this module — leave its state exactly as it is.
 	if utils.is_policy_exempt(customer):
 		return
 
@@ -233,9 +184,6 @@ def sync_customer_from_cases(customer: str):
 			RESOLUTION_WORKOUT: utils.STATUS_WORKOUT,
 		}.get(case.resolution, utils.STATUS_HARD_HOLD)
 
-		# §8 — a missed installment is an automatic Hard Hold, not a quiet
-		# continuation of the Payment Plan status. Cures itself the moment the
-		# installment is paid up and missed_installments drops back to zero.
 		if case.resolution == RESOLUTION_PAYMENT_PLAN and int(case.get("missed_installments") or 0) > 0:
 			credit_status = utils.STATUS_HARD_HOLD
 
@@ -244,8 +192,6 @@ def sync_customer_from_cases(customer: str):
 			"custom_active_ar_case": case.name,
 			"custom_credit_status": credit_status,
 		}
-		# Why the account is held, in Finance's language — carried straight off
-		# the case now that Trigger Reason uses the same vocabulary.
 		if frappe.db.has_column("Customer", "custom_hold_reason"):
 			values["custom_hold_reason"] = case.get("trigger_reason") or ""
 	else:
@@ -256,9 +202,6 @@ def sync_customer_from_cases(customer: str):
 		if frappe.db.has_column("Customer", "custom_hold_reason"):
 			values["custom_hold_reason"] = ""
 
-		# No live case — Warning (set directly by the daily sweep, not by a
-		# case) is left alone; otherwise fall back to whether the account has
-		# approved terms.
 		current_status = frappe.db.get_value("Customer", customer, "custom_credit_status")
 		if current_status != utils.STATUS_WARNING:
 			has_line = credit_engine.get_active_credit_application(customer)
@@ -270,11 +213,6 @@ def sync_customer_from_cases(customer: str):
 
 
 def get_hold_type(customer: str) -> str:
-	"""The customer's current hold type, derived on demand.
-
-	An Active AR Case always means Hard Hold now — Warning never has a case
-	behind it, it is read straight off the Customer's Credit Status.
-	"""
 	if not customer:
 		return utils.HOLD_NONE
 	if utils.is_policy_exempt(customer):
@@ -287,7 +225,6 @@ def get_hold_type(customer: str) -> str:
 
 
 def get_active_case(customer: str, resolution: str | None = None) -> dict | None:
-	"""The customer's one Active AR Case, if any."""
 	filters = {"customer": customer, "status": STATUS_ACTIVE}
 	if resolution is not None:
 		filters["resolution"] = resolution

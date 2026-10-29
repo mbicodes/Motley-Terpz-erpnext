@@ -2,7 +2,6 @@ import frappe
 from frappe.model.document import Document
 from frappe.utils import flt
 
-# Keep in sync with the category Select options on the child doctypes.
 CATEGORIES = [
     "Frozen", "Rosin/VRR", "Edibles", "Packaged Goods", "White Label",
     "Bubble/Static", "Pre-Rolls", "Other Extracts", "Tolling", "Other",
@@ -11,8 +10,6 @@ CATEGORIES = [
 
 class WeeklyCashLedger(Document):
     def before_insert(self):
-        # Start every new week with a full target grid, like the sheet's
-        # fixed weekly goals. Reps then fill in the numbers.
         if not self.targets:
             for category in CATEGORIES:
                 self.append("targets", {"category": category})
@@ -29,7 +26,6 @@ class WeeklyCashLedger(Document):
 
     def compute_summaries(self):
         def money(line):
-            """A line's dollar value: collected amount, else the expected amount."""
             return flt(line.amount) or flt(line.expected_amount)
 
         collected = [l for l in self.lines if l.status == "Collected"]
@@ -64,7 +60,6 @@ class WeeklyCashLedger(Document):
         self.inbound_value = sum(money(l) for l in inbound)
         self.inbound_orders = len(inbound)
 
-        # Per-category actuals (new sales only, matching the sheet)
         by_category = {}
         for l in sales:
             if l.category:

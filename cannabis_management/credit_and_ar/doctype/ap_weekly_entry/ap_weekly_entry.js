@@ -1,5 +1,3 @@
-// Copyright (c) 2026, alltechvirtual.com and contributors
-
 frappe.ui.form.on('AP Weekly Entry', {
 	refresh: function (frm) {
 		if (frm.doc.supplier) {

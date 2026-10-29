@@ -13,7 +13,6 @@
 	flex-wrap: wrap;
 }
 
-/* Header */
 .ikpi-header {
 	display: flex;
 	justify-content: space-between;
@@ -46,7 +45,6 @@
 }
 .ikpi-meta .ikpi-meta-sep { margin: 0 6px; }
 
-/* Note banner */
 .ikpi-note {
 	display: flex;
 	gap: 8px;
@@ -62,7 +60,6 @@
 }
 .ikpi-note strong { color: #c94a4a; }
 
-/* Two-column body */
 .ikpi-columns {
 	display: grid;
 	grid-template-columns: minmax(260px, 1fr) 2fr;
@@ -102,7 +99,6 @@
 }
 .ikpi-empty { color: #999; font-size: 12px; padding: 8px 2px; }
 
-/* KPI table */
 .ikpi-table { width: 100%; border-collapse: collapse; font-size: 13px; background: #fff; }
 .ikpi-table th {
 	background: #f1ece1;
@@ -123,7 +119,6 @@
 .ikpi-actual.ikpi-nottracked { color: #9c6b1e; font-style: italic; font-weight: 600; font-size: 12px; }
 .ikpi-how-measured { color: #666; font-size: 12px; }
 
-/* Footer cadence box */
 .ikpi-cadence {
 	background: #e1efdd;
 	border-radius: 6px;

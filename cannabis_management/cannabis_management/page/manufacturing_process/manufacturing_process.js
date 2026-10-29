@@ -8,30 +8,22 @@ frappe.pages["manufacturing-process"].on_page_load = function (wrapper) {
 	new ManufacturingRun(page);
 };
 
-// One production "run" = one Manufacture-type Material Request. A run's
-// chain of Finished Goods (e.g. Hash Processing -> Rosin Pressing) is one
-// Work Order per stage (see cannabis_management.doc_hooks.material_request
-// ._create_boms_from_mr) — the active stage is scoped to whichever Work
-// Order isn't fully produced yet, cycling to the next stage once it is.
 class ManufacturingRun {
 	constructor(page) {
 		this.page = page;
 		this.$app = page.main.find("#mfg-control-app");
 		this.picker_data = null;
-		this.runs = {}; // material_request name -> get_run_detail() result
+		this.runs = {};
 		this.timer_interval = null;
-		// Sub-operations the worker explicitly "Ended" (vs. just paused) —
-		// client-side only for this session, keyed by "<job_card>::<operation>".
-		// Ended ones show a View/edit-time button instead of Resume.
-		this.item_filter = null; // selected Item (item_code), or null
-		this.project_filter = null; // selected Project, or null
-		this.operation_filter = null; // selected Operation, or null
-		this.collapsed = new Set(); // material_request names whose card body is folded
-		this.toggled_by_hand = new Set(); // cards opened/closed by hand -- keep that choice
-		this.default_employee = null; // Employee linked to the session user
-		this.date_filter = null; // "YYYY-MM-DD" or null
-		this.view = "list"; // "list" or "calendar"
-		try { if (localStorage.getItem("mc_view") === "calendar") this.view = "calendar"; } catch (e) { /* no storage */ }
+		this.item_filter = null;
+		this.project_filter = null;
+		this.operation_filter = null;
+		this.collapsed = new Set();
+		this.toggled_by_hand = new Set();
+		this.default_employee = null;
+		this.date_filter = null;
+		this.view = "list";
+		try { if (localStorage.getItem("mc_view") === "calendar") this.view = "calendar"; } catch (e) {  }
 		this.load_picker();
 		this._start_live_sync();
 	}
@@ -39,8 +31,6 @@ class ManufacturingRun {
 	api(method, args) {
 		return frappe.xcall("cannabis_management.api.manufacturing_process." + method, args);
 	}
-
-	// ── RUN PICKER (landing) ─────────────────────────────────────────────────
 
 	async load_picker() {
 		this._stop_ticks();
@@ -55,9 +45,6 @@ class ManufacturingRun {
 		}
 	}
 
-	// Every run's card is always fully expanded — Release up top, its
-	// operations below — right here on this one page. Clicking never
-	// navigates anywhere; nothing here is a "next step".
 	render_picker() {
 		const d = this.picker_data;
 		const filtered = this._get_filtered_mrs();
@@ -94,11 +81,6 @@ class ManufacturingRun {
 		this._show_view();
 	}
 
-	// ── Calendar View ────────────────────────────────────────────────────────
-
-	// The same runs as the list (every filter applies), each on its
-	// Transaction Date. Uses the FullCalendar that Frappe's own Calendar View
-	// loads. Clicking a run goes back to the list, at that run's card.
 	_show_view() {
 		const calendar = this.view === "calendar";
 		this.$app.find(".mc-run-groups").toggle(!calendar);
@@ -149,7 +131,7 @@ class ManufacturingRun {
 
 	_open_run_from_calendar(mr_name) {
 		this.view = "list";
-		try { localStorage.setItem("mc_view", "list"); } catch (e) { /* no storage */ }
+		try { localStorage.setItem("mc_view", "list"); } catch (e) {  }
 		this.$app.find("#mc-view-select").val("list");
 		this._show_view();
 		const $card = this.$app.find(`.mc-run-card[data-mr="${mr_name}"]`);
@@ -164,9 +146,6 @@ class ManufacturingRun {
 		setTimeout(() => $card.removeClass("mc-card-flash"), 2000);
 	}
 
-	// Item (raw material or finished good), Project, Operation (from the
-	// finished-goods rows) and transaction date — all exact, all optional,
-	// combined with AND.
 	_get_filtered_mrs() {
 		const mrs = (this.picker_data && this.picker_data.material_requests) || [];
 		return mrs.filter(m => {
@@ -185,8 +164,6 @@ class ManufacturingRun {
 		});
 	}
 
-	// Re-renders the list + heading count in place after a filter changes —
-	// cards already fetched stay cached, only newly-shown ones are fetched.
 	_apply_filters() {
 		const filtered = this._get_filtered_mrs();
 		this.$app.find("#mc-active-runs-heading").text(`Active Runs - ${filtered.length}`);
@@ -196,10 +173,6 @@ class ManufacturingRun {
 		if (this.view === "calendar") this._render_calendar();
 	}
 
-	// Cards are grouped by batch (the run's Project, which is the batch
-	// inventory dimension), highest batch number first -- Batch 8 at the top,
-	// Batch 1 at the bottom, runs with no batch last; within a batch, newest
-	// transaction date first.
 	_render_run_card_shells(mrs) {
 		if (!mrs.length) return '<div class="mc-empty">No active runs — start one to get going.</div>';
 		const groups = new Map();
@@ -257,20 +230,12 @@ class ManufacturingRun {
 		</div>`;
 	}
 
-	// The run's Material Request status: Draft, then Pending until released,
-	// In Progress while its Work Orders run, Completed once all are produced
-	// (overrides/mr_run_status.py).
 	_run_status_badge(docstatus, status) {
 		const status_label = docstatus === 0 ? "Draft" : (status || "Submitted");
 		const status_class = status_label.toLowerCase().replace(/\s+/g, "-");
 		return { status_class, status_label };
 	}
 
-	// Once a released run's detail is loaded, its badge names what it is
-	// waiting on: the stage still in production ("Waiting for Bubble Hash",
-	// then "Waiting for Rosin"), then "Waiting for Tiering" until a Rosin
-	// stage's product is tiered, and Completed only when all of that is done.
-	// Draft / Pending / Stopped runs keep the Material Request status.
 	_run_stage_badge(run, tiering_pending) {
 		const mr = run.material_request;
 		if (mr.docstatus !== 1 || !run.work_orders.length || ["Stopped", "Cancelled"].includes(mr.status)) {
@@ -282,9 +247,6 @@ class ManufacturingRun {
 		return { status_class: "completed", status_label: "Completed" };
 	}
 
-	// A stage is named for what it makes, by its operation — item names vary
-	// ("Rosin", "Raw Rosin", "Garlic Budder-Rosin"). Anything else falls back
-	// to the part of the item name after the strain.
 	_stage_name(wo) {
 		const STAGE_NAMES = { "Hash Processing": "Bubble Hash", "Rosin Pressing": "Rosin" };
 		const op = ((wo.job_cards || [])[0] || {}).operation;
@@ -293,18 +255,13 @@ class ManufacturingRun {
 		return item.split(/\s*-\s*/).pop() || op || item;
 	}
 
-	// Masonry: the list is a grid of short rows and each card spans as many
-	// as its height needs, so the cards under a short one move up instead of
-	// leaving a gap beside a tall one. Re-measured whenever a card resizes
-	// (its body loads, it is expanded or collapsed).
 	_observe_card_heights() {
 		if (this._card_observer) this._card_observer.disconnect();
 		const list = this.$app.find(".mc-run-list")[0];
 		if (!list || typeof ResizeObserver === "undefined") return;
-		// Every batch group has its own list; they share the same grid metrics.
 		const row = parseFloat(getComputedStyle(list).gridAutoRows) || 8;
 		const gap = parseFloat(getComputedStyle(list).rowGap) || 0;
-		const GUTTER = 16; // space kept under each card
+		const GUTTER = 16;
 		this._card_observer = new ResizeObserver((entries) => {
 			for (const entry of entries) {
 				const card = entry.target;
@@ -315,16 +272,12 @@ class ManufacturingRun {
 		this.$app[0].querySelectorAll(".mc-run-list .mc-run-card").forEach((card) => this._card_observer.observe(card));
 	}
 
-	// Release is a one-time action: once the run has Work Orders it reads
-	// "Released" and can't be pressed again.
 	_render_release_action(released) {
 		return released
 			? `<span class="mc-btn mc-btn-sm mc-step-done">Released</span>`
 			: `<button class="mc-btn mc-btn-sm mc-btn-pending" data-action="release_run">Release</button>`;
 	}
 
-	// Print Log: the run's Production Log sheet for the log book, once its
-	// Rosin has been created (the Rosin yield is known).
 	_render_print_log_action(run) {
 		const rosin_done = run.work_orders.some(wo => wo.manufacture_entry
 			&& (wo.job_cards || []).some(jc => jc.operation === "Rosin Pressing"));
@@ -333,8 +286,6 @@ class ManufacturingRun {
 			: "";
 	}
 
-	// The files on the run's Material Request (its Attachments table). Before
-	// the run's detail loads they aren't known yet, so it reads plain "Attach".
 	_render_attach_action(files) {
 		const n = (files || []).length;
 		return n
@@ -342,16 +293,12 @@ class ManufacturingRun {
 			: `<button class="mc-btn mc-btn-sm mc-btn-secondary" data-action="attachments" title="Attach files to the Material Request"><i class="ti ti-paperclip" aria-hidden="true"></i> Attach</button>`;
 	}
 
-	// The card's button follows the list without refetching the whole run.
 	_set_attachments(mr_name, files) {
 		if (this.runs[mr_name]) this.runs[mr_name].attachments = files;
 		this.$app.find(`.mc-run-card[data-mr="${mr_name}"] [data-action="attachments"]`)
 			.replaceWith(this._render_attach_action(files));
 	}
 
-	// Uploads onto the Material Request, several files at once; each becomes a
-	// row of its Attachments table. Rows are added one after another as the
-	// uploads finish, so two never take the same row number.
 	async _upload_attachments(mr_name, on_added) {
 		await frappe.require("file_uploader.bundle.js");
 		let queue = Promise.resolve();
@@ -373,9 +320,6 @@ class ManufacturingRun {
 		});
 	}
 
-	// Every file on the run as a tile showing what is in it: images and PDFs
-	// as a preview, videos by their first frame, anything else by its type.
-	// Clicking a tile opens the file full size in its own popup.
 	_open_attachments_dialog(mr_name) {
 		const files = () => (this.runs[mr_name] && this.runs[mr_name].attachments) || [];
 		const d = new frappe.ui.Dialog({
@@ -437,7 +381,6 @@ class ManufacturingRun {
 		</div>`;
 	}
 
-	// One file, full size. A type the browser can't show says so, with Open.
 	_preview_attachment(f) {
 		const url = f.attachment;
 		const kind = this._file_kind(url);
@@ -485,12 +428,6 @@ class ManufacturingRun {
 		return "ti-file";
 	}
 
-	// Fetched in parallel; each card fills in with its own operations as
-	// soon as its call resolves, instead of blocking the whole list. Runs
-	// already cached (e.g. re-shown after a filter change) render instantly
-	// instead of being re-fetched.
-	// Every run is listed (no cap), so details load a few at a time, in card
-	// order, instead of firing one request per card at once.
 	async _load_all_run_details(mrs) {
 		const queue = [];
 		mrs.forEach((m) => {
@@ -518,7 +455,6 @@ class ManufacturingRun {
 			this.runs[mr_name] = run;
 			this._render_run_card_body(mr_name);
 		} catch (e) {
-			// A background (live-sync) refresh must not pop errors at the user.
 			if (!quiet) frappe.msgprint(e.message || e);
 		}
 	}
@@ -529,9 +465,6 @@ class ManufacturingRun {
 		const active_wo = run.work_orders.find(w => w.name === run.active_work_order);
 		const $card = this.$app.find(`.mc-run-card[data-mr="${mr_name}"]`);
 
-		// Each job card renders its own "Send Material to WIP" button
-		// already carrying the right data-wo (its own jc.work_order) —
-		// no header-level button to sync here anymore.
 		let body = this._render_ops_body(run, active_wo);
 		const typing = this._note_being_typed($card);
 		$card.find(".mc-run-card-body").html(body);
@@ -539,10 +472,6 @@ class ManufacturingRun {
 		$card.find(".mc-ops-card-actions").html(
 			this._render_attach_action(run.attachments) + this._render_release_action(run.work_orders.length > 0)
 			+ this._render_print_log_action(run));
-		// A finished run keeps its card, collapsed by default -- unless
-		// someone has opened or closed it by hand this session. "Finished"
-		// includes Tiering Product: a Completed run with a Rosin stage stays
-		// open until its product has been tiered.
 		const tiering_pending = run.work_orders.some(wo =>
 			(wo.job_cards || []).some(jc => jc.operation === "Rosin Pressing") && !wo.tiering_entry);
 		const badge = this._run_stage_badge(run, tiering_pending);
@@ -557,8 +486,6 @@ class ManufacturingRun {
 		this._start_ticks();
 	}
 
-	// A live refresh re-renders the card body; whoever is typing a note
-	// keeps their text, cursor and focus.
 	_note_being_typed($card) {
 		const el = $card.find(".mc-sub-op-note:focus")[0];
 		if (!el) return null;
@@ -572,7 +499,7 @@ class ManufacturingRun {
 		if (!el) return;
 		el.value = typing.value;
 		el.focus();
-		try { el.setSelectionRange(typing.start, typing.end); } catch (e) { /* not a text input */ }
+		try { el.setSelectionRange(typing.start, typing.end); } catch (e) {  }
 	}
 
 	_clear_filters() {
@@ -587,15 +514,12 @@ class ManufacturingRun {
 		const self = this;
 		const $app = this.$app;
 
-		// render_picker() re-runs this on every Refresh — drop the previous
-		// delegated handlers first, or each click would fire once per render.
 		$app.off("click");
 
 		$app.find('[data-action="new_run"]').click(() => self.show_new_mr_modal());
 		$app.find('[data-action="open_dashboard"]').click(() => frappe.set_route("manufacturing-runs"));
 		$app.find('[data-action="refresh"]').click(() => self.load_picker());
 
-		// Item + Project filters — Link fields, same as Operation below.
 		this.item_filter_control = this._make_filter_control("#mc-item-filter-wrap", "Item", "item_filter", "Filter by Item");
 		this.project_filter_control = this._make_filter_control("#mc-project-filter-wrap", "Project", "project_filter", "Filter by Project");
 
@@ -617,12 +541,11 @@ class ManufacturingRun {
 			self._set_card_collapsed($card, collapse);
 		});
 
-		// Operation filter — Link field against the Operation doctype.
 		this.operation_filter_control = this._make_filter_control("#mc-operation-filter-wrap", "Operation", "operation_filter", "Filter by Operation");
 
 		$app.find("#mc-view-select").on("change", function () {
 			self.view = $(this).val() === "calendar" ? "calendar" : "list";
-			try { localStorage.setItem("mc_view", self.view); } catch (e) { /* no storage */ }
+			try { localStorage.setItem("mc_view", self.view); } catch (e) {  }
 			self._show_view();
 		});
 		$app.find("#mc-date-filter").on("change", function () {
@@ -631,9 +554,6 @@ class ManufacturingRun {
 		});
 		$app.find('[data-action="clear_filters"]').click(() => self._clear_filters());
 
-		// Delegated on $app (not the individual card) so buttons inside a
-		// card's operations body keep working after that body re-renders —
-		// no per-card rebinding needed.
 		$app.on("click", '[data-action="release_run"]', async function () {
 			const $btn = $(this);
 			if ($btn.prop("disabled")) return;
@@ -653,9 +573,6 @@ class ManufacturingRun {
 			}
 		});
 
-		// Attach — files are saved in the run's Material Request (its
-		// Attachments table). With none yet it goes straight to the uploader;
-		// otherwise it shows what is attached, with Add Files there.
 		$app.on("click", '[data-action="attachments"]', function () {
 			const mr_name = $(this).closest(".mc-run-card").data("mr");
 			const files = (self.runs[mr_name] && self.runs[mr_name].attachments) || [];
@@ -672,9 +589,6 @@ class ManufacturingRun {
 			window.open(`/printview?${params}`, "_blank");
 		});
 
-		// Note box on each process row: saved when it loses focus or on Enter,
-		// if it differs from what is saved (a re-render while typing puts the
-		// text back into a fresh box, which never fires "change").
 		$app.off(".mcnote");
 		$app.on("keydown.mcnote", ".mc-sub-op-note", function (e) {
 			if (e.key === "Enter") { e.preventDefault(); this.blur(); }
@@ -698,10 +612,6 @@ class ManufacturingRun {
 			self._refresh_one($(this).closest(".mc-run-card").data("mr"));
 		});
 
-		// Start (and Resume, same action/button) always asks for From time,
-		// Employee and Workstation first — pre-filled with defaults (now, the
-		// last employee on this card or the user's own, the operation's
-		// workstation), all editable; Confirm actually starts it.
 		$app.on("click", '[data-action="start_sub_op"]', function () {
 			const $btn = $(this);
 			if ($btn.prop("disabled")) return;
@@ -724,7 +634,6 @@ class ManufacturingRun {
 			});
 		});
 
-		// "Pause" — stops the clock but keeps the sub-op resumable.
 		$app.on("click", '[data-action="stop_sub_op"]', async function () {
 			const $btn = $(this);
 			if ($btn.prop("disabled")) return;
@@ -741,10 +650,6 @@ class ManufacturingRun {
 			}
 		});
 
-		// "End" — if the timer's currently running, asks for a To time first
-		// (defaults to now) and closes it with that; marks the sub-op ended
-		// on the Job Card either way (row then switches to View instead of
-		// Resume, and stays that way after a reload).
 		$app.on("click", '[data-action="end_sub_op"]', function () {
 			const $btn = $(this);
 			if ($btn.prop("disabled")) return;
@@ -752,13 +657,9 @@ class ManufacturingRun {
 			const jc_name = $btn.data("jc");
 			const operation = $btn.data("op");
 			const jc = self.find_job_card(jc_name);
-			// Looked up per sub-op, not via active_timer: several timers can
-			// run at once, and active_timer names only one.
 			const running_so = jc && (jc.sub_operations || []).find(s => s.operation === operation);
 			const is_running = running_so ? running_so.status === "active"
 				: !!(jc && jc.active_timer && jc.active_timer.operation === operation);
-			// End only closes the time. The Completed Qty comes from the
-			// Microns (their grams total), not from here.
 			const finish = async (v) => {
 				$btn.prop("disabled", true).text("Ending…");
 				try {
@@ -794,8 +695,6 @@ class ManufacturingRun {
 			d.show();
 		});
 
-		// "View" — shows the logged time, and it can be corrected manually
-		// (From/To per row) right here too.
 		$app.on("click", '[data-action="view_sub_op"]', function () {
 			const jc_name = $(this).data("jc");
 			const operation = $(this).data("op");
@@ -807,8 +706,6 @@ class ManufacturingRun {
 			self._open_view_time_modal(jc, so, mr_name);
 		});
 
-		// Assign To — pick who should run this (sub-)operation. Saved on the
-		// Job Card, so Start pre-fills this employee for whoever opens it.
 		$app.on("click", '[data-action="assign_sub_op"]', function () {
 			const $btn = $(this);
 			const mr_name = $btn.closest(".mc-run-card").data("mr");
@@ -883,10 +780,6 @@ class ManufacturingRun {
 			self._open_micron_modal(jc, mr_name);
 		});
 
-		// Create Bubble Hash / Create Rosin -- also what "Complete — Enter
-		// Output" used to do: a Job Card still open asks for the output,
-		// is completed, and the Manufacture entry is made and submitted
-		// right after. A card already completed goes to the entry preview.
 		$app.on("click", '[data-action="create_sku"]', async function () {
 			const $btn = $(this);
 			const mr_name = $btn.closest(".mc-run-card").data("mr");
@@ -903,8 +796,6 @@ class ManufacturingRun {
 				return;
 			}
 
-			// Bubble Hash / Rosin output is what the micron bags weighed: the
-			// Microns total is the Completed Qty, so it is shown, not typed.
 			const micron_grams = (jc.micron_rows || []).reduce((t, r) => t + flt(r.grams_collected), 0);
 			const from_microns = ["Hash Processing", "Rosin Pressing"].includes(jc.operation);
 			if (from_microns && !micron_grams) {
@@ -951,7 +842,6 @@ class ManufacturingRun {
 			d.show();
 		});
 
-		// Bubble Hash Created / Rosin Created -- read-only look at the entry.
 		$app.on("click", '[data-action="view_output"]', async function () {
 			const mr_name = $(this).closest(".mc-run-card").data("mr");
 			const wo_name = $(this).data("wo");
@@ -962,10 +852,6 @@ class ManufacturingRun {
 			} catch (e) { frappe.msgprint(e.message || e); }
 		});
 
-		// Tiering Product — stays on this page: a dialog holding the Conversion
-		// Entry's own Conversion Item table, pre-filled from this Rosin
-		// Pressing Work Order; Create & Submit saves and submits the entry the
-		// standard way, with its Stock Entries.
 		$app.on("click", '[data-action="tiering_product"]', async function () {
 			const mr_name = $(this).closest(".mc-run-card").data("mr");
 			const wo_name = $(this).data("wo");
@@ -978,11 +864,6 @@ class ManufacturingRun {
 		});
 	}
 
-	// ── NEW RUN ──────────────────────────────────────────────────────────────
-
-	// Mirrors the Material Request form (material_request.js): same fields,
-	// same Finished Goods Detail columns, same Routing × Raw Materials row
-	// build and yield chaining (calculate_finished_qty).
 	show_new_mr_modal() {
 		const self = this;
 		const new_row_name = () => frappe.utils.get_random(10);
@@ -1127,8 +1008,6 @@ class ManufacturingRun {
 		d.$wrapper.on("click", ".mc-recalc-fg", (e) => { e.preventDefault(); this._calculate_finished_qty(d); });
 	}
 
-	// Top "Source Warehouse" → every Raw Material row, then re-read each
-	// row's actual qty for its (new) warehouse.
 	_apply_warehouse_to_items(dialog) {
 		const wh = dialog.get_value("warehouse");
 		const rows = dialog.fields_dict.items.df.data || [];
@@ -1156,9 +1035,6 @@ class ManufacturingRun {
 		dialog.fields_dict.items.grid.refresh();
 	}
 
-	// Raw Material rows changed — rebuild Finished Goods if the Routing is
-	// already picked (row count depends on how many raw materials there
-	// are), otherwise wait for Routing.
 	_on_rm_changed(dialog) {
 		const rm_count = (dialog.fields_dict.items.df.data || []).filter(r => r.item_code).length;
 		if (!dialog.get_value("routing") || !rm_count) return;
@@ -1171,11 +1047,6 @@ class ManufacturingRun {
 		}
 	}
 
-	// Same as the Material Request form's populate_fg_rows(): one Finished
-	// Goods row per (raw material × Routing operation). Finished Item +
-	// Expected Yield % are auto-filled only when exactly one Item declares
-	// that Operation (Item.custom_operation); already-picked items on a
-	// matching row are kept.
 	async _rebuild_fg_rows(dialog) {
 		const routing = dialog.get_value("routing");
 		const rm_rows = (dialog.fields_dict.items.df.data || []).filter(r => r.item_code);
@@ -1243,9 +1114,6 @@ class ManufacturingRun {
 		this._calculate_finished_qty(dialog);
 	}
 
-	// Port of material_request.js calculate_finished_qty(): each Raw
-	// Material's qty (LBS → grams) is chained through its Routing-operation
-	// cycle, each row's Expected Yield % applied to the previous row's output.
 	_calculate_finished_qty(dialog) {
 		const LBS_TO_GRAM = 453.592;
 		const rm_rows = (dialog.fields_dict.items.df.data || []).filter(r => r.item_code);
@@ -1275,10 +1143,6 @@ class ManufacturingRun {
 		dialog.fields_dict.finished_goods.grid.refresh();
 	}
 
-	// ── Body content for a run's card ───────────────────────────────────────
-
-	// Body-only content for a run's card (the header with Release already
-	// lives in the always-rendered card shell).
 	_render_ops_body(run, active_wo) {
 		const multi_stage = run.work_orders.length > 1;
 		const stage_idx = active_wo ? run.work_orders.indexOf(active_wo) : -1;
@@ -1286,11 +1150,6 @@ class ManufacturingRun {
 			? `<div class="mc-step-desc">Stage ${stage_idx + 1} of ${run.work_orders.length}${active_wo ? " — " + esc(active_wo.item_name) : ""}</div>`
 			: "";
 
-		// A multi-stage run has one Work Order per operation (e.g. Hash
-		// Processing and Rosin Pressing are two separate Work Orders, not
-		// two job cards on one) — job cards from every stage are shown
-		// together here, not just the currently-"active" stage's, so both
-		// operations stay visible at once.
 		const all_job_cards = run.work_orders.flatMap(wo => wo.job_cards);
 
 		let body;
@@ -1299,9 +1158,6 @@ class ManufacturingRun {
 		} else if (!all_job_cards.length) {
 			body = `<div class="mc-step-desc">No job cards yet.</div>`;
 		} else {
-			// Every job card stays visible — completed ones too — each with
-			// its own transfer / SKU / micron actions. Hash Processing
-			// always renders before Rosin Pressing.
 			const ordered = this._order_job_cards(all_job_cards);
 			const wo_by_name = Object.fromEntries(run.work_orders.map(wo => [wo.name, wo]));
 			body = `<div class="mc-run-operations-card">${ordered.map(jc => this._render_op_group(jc, wo_by_name[jc.work_order] || {})).join("")}</div>`;
@@ -1310,8 +1166,6 @@ class ManufacturingRun {
 		return stage_line + body;
 	}
 
-	// Fixed operation order for display — Hash Processing before Rosin
-	// Pressing — anything else keeps its original (creation) order after.
 	_order_job_cards(job_cards) {
 		const OP_ORDER = ["Hash Processing", "Rosin Pressing"];
 		return [...job_cards].sort((a, b) => {
@@ -1321,12 +1175,6 @@ class ManufacturingRun {
 		});
 	}
 
-	// ── Per-operation group: timers, micron entry, complete action ──────────
-
-	// Every step button is filled (mc-btn-pending) until its step is done;
-	// then it reads what was done, white with black text. One-time steps
-	// (Send Material to WIP, Tiering) can't be pressed again; the output
-	// ones (Bubble Hash / Rosin Created) open the entry they made.
 	_render_op_group(jc, wo) {
 		const timer_html = jc.sub_operations.length
 			? `<div class="mc-sub-ops">${jc.sub_operations.map(so => this._render_sub_op_row(so, jc)).join("")}</div>`
@@ -1339,8 +1187,6 @@ class ManufacturingRun {
 		const output = wo.manufacture_entry
 			? `<button class="mc-op-btn" data-action="view_output" ${wo_attr}>${esc(this._output_done_label(jc.operation))}</button>`
 			: `<button class="mc-op-btn mc-btn-pending" data-action="create_sku" ${wo_attr}>${esc(this._sku_button_label(jc.operation))}</button>`;
-		// How much Bubble Hash / Rosin: once made, what was booked; until then,
-		// the Microns total it will be made from.
 		const micron_grams = (jc.micron_rows || []).reduce((t, r) => t + flt(r.grams_collected), 0);
 		const output_qty = wo.manufacture_entry ? flt(jc.total_completed_qty) : micron_grams;
 		const qty = ["Hash Processing", "Rosin Pressing"].includes(jc.operation) && output_qty
@@ -1374,13 +1220,6 @@ class ManufacturingRun {
 		return LABELS[operation] || "Output Created";
 	}
 
-	// The Conversion Item table of a Conversion Entry, in a dialog: its fields
-	// come from the Conversion Entry Item doctype itself, so the per-type
-	// Raw Material 2-7 / Finished Good 2-3 fields show and hide exactly as on
-	// the form (their depends_on), with the form's warehouse pickers.
-	// Key columns show in the table; every other field is in the row's edit
-	// form. Left out: the Tolling micron fields (they depend on the parent
-	// form) and the item-group fields the entry fills in itself.
 	_open_tiering_dialog(wo_name, doc, mr_name) {
 		const LIST = { conversion_type: 1, raw_material_1: 2, qty_rm_1: 1, finished_good_1: 2, qty_fg_1: 1, target_warehouse: 2 };
 		const company = doc.company;
@@ -1391,7 +1230,6 @@ class ManufacturingRun {
 			if (df.fieldname === "source_warehouse" || df.fieldname === "target_warehouse") {
 				f.get_query = () => ({ filters: { company, is_group: 0 } });
 			} else if (df.fieldname === "conversion_type") {
-				// As on the form: fields the new type doesn't use are cleared.
 				f.onchange = function () {
 					const row = this.doc;
 					if (!row) return;
@@ -1417,7 +1255,7 @@ class ManufacturingRun {
 			primary_action_label: "Create & Submit",
 			primary_action: async () => {
 				if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
-				const values = d.get_values();   // runs the table's own required-field checks
+				const values = d.get_values();
 				if (!values) return;
 				d.disable_primary_action();
 				try {
@@ -1440,22 +1278,15 @@ class ManufacturingRun {
 		return d;
 	}
 
-	// Create SKU is named after what the operation produces.
 	_sku_button_label(operation) {
 		const LABELS = { "Hash Processing": "Create Bubble Hash", "Rosin Pressing": "Create Rosin" };
 		return LABELS[operation] || "Create SKU";
 	}
 
-	// Row state machine: Pending -> Start; Running -> Pause + End;
-	// Paused (has time, not ended) -> Resume + End; Ended -> View (popup
-	// shows the time, read-only — the chance to correct it was the
-	// End-confirmation step).
 	_render_sub_op_row(so, jc) {
 		const running = so.status === "active";
 		const done = so.status === "done";
 		const is_complete = jc.status === "Completed";
-		// Several operations may run at once, so another running timer never
-		// disables this operation's Start/Resume.
 		const any_running = false;
 		const ended = !!so.ended;
 
@@ -1465,8 +1296,6 @@ class ManufacturingRun {
 		const who = (running || done) && (so.employee_name || so.workstation)
 			? `<div class="mc-sub-op-who">${so.employee_name ? `<i class="ti ti-user" aria-hidden="true"></i> ${esc(so.employee_name)}` : ""}${so.workstation ? ` <span class="mc-muted">· ${esc(so.workstation)}</span>` : ""}</div>`
 			: "";
-		// Once someone is assigned, their name replaces the button as plain
-		// text -- the assignment is final and cannot be picked again here.
 		const assign_btn = so.assigned_employee_name
 			? `<span class="mc-assigned-name">${esc(so.assigned_employee_name)}</span>`
 			: `<button class="mc-op-btn mc-btn-pending" data-action="assign_sub_op" data-jc="${esc(jc.name)}" data-op="${esc(so.operation)}">Assign To</button>`;
@@ -1497,9 +1326,6 @@ class ManufacturingRun {
 		</div>`;
 	}
 
-	// A short note per process row (sub-operation, or the whole Job Card when
-	// it has none) — kept on the Job Card, printed on the Production Log.
-	// Editable at any status, so a note can be added after the step is done.
 	_render_note_input(jc, operation, note) {
 		return `<input type="text" class="mc-sub-op-note" maxlength="140" placeholder="Note"
 			data-jc="${esc(jc.name)}" data-op="${esc(operation || "")}" value="${esc(note || "")}" title="Note for ${esc(operation || "")}">`;
@@ -1523,7 +1349,6 @@ class ManufacturingRun {
 		}
 	}
 
-	// The box may have been re-rendered while saving — look it up again.
 	_flash_note(job_card, operation, cls) {
 		const $input = this.$app.find(".mc-sub-op-note")
 			.filter((i, el) => el.getAttribute("data-jc") === job_card && el.getAttribute("data-op") === operation);
@@ -1531,9 +1356,6 @@ class ManufacturingRun {
 		setTimeout(() => $input.removeClass(cls), 1200);
 	}
 
-	// Fallback for a Job Card whose operation has no defined sub-steps —
-	// one Start/Pause timer for the whole operation, same as before
-	// sub-operation timers existed.
 	_render_whole_jc_timer(jc) {
 		const running = !!jc.active_timer;
 		const is_complete = jc.status === "Completed";
@@ -1558,8 +1380,6 @@ class ManufacturingRun {
 		</div>`;
 	}
 
-	// ── Time-log popups ──────────────────────────────────────────────────────
-
 	_make_filter_control(selector, doctype, key, placeholder) {
 		const control = frappe.ui.form.make_control({
 			parent: this.$app.find(selector)[0],
@@ -1569,7 +1389,6 @@ class ManufacturingRun {
 		control.refresh();
 		if (this[key]) control.set_value(this[key]);
 		control.$input.on("change awesomplete-selectcomplete", () => {
-			// Link validation resolves after the input event — read it next tick.
 			setTimeout(() => {
 				const value = control.get_value() || null;
 				if (value === this[key]) return;
@@ -1588,13 +1407,10 @@ class ManufacturingRun {
 			.attr("aria-expanded", collapsed ? "false" : "true");
 	}
 
-	// Start / Resume popup: From time, Employee, Workstation — each
-	// pre-filled with its default and editable.
 	async _ask_start(title, jc, so, on_confirm) {
 		if (this.default_employee === null) {
 			try { this.default_employee = await this.api("get_default_employee"); } catch (e) { this.default_employee = ""; }
 		}
-		// Whoever was picked with Assign To comes first.
 		const assigned = so ? so.assigned_employee : jc && jc.assigned_employee;
 		const employee = assigned || (so && so.employee) || (jc && jc.last_employee) || this.default_employee || "";
 		const workstation = (so && (so.workstation || so.default_workstation)) || (jc && jc.default_workstation) || "";
@@ -1615,8 +1431,6 @@ class ManufacturingRun {
 		d.show();
 	}
 
-	// Small Datetime prompt used by both Start (asks "From") and End (asks
-	// "To") — defaults to now, Confirm hands the chosen value to on_confirm.
 	_ask_time(title, label, on_confirm) {
 		const d = new frappe.ui.Dialog({
 			title,
@@ -1630,8 +1444,6 @@ class ManufacturingRun {
 		d.show();
 	}
 
-	// "YYYY-MM-DD HH:MM:SS(.ffffff)" (what the backend sends) <-> the value
-	// format <input type="datetime-local" step="1"> needs/produces.
 	_to_datetime_local(str) {
 		if (!str) return "";
 		return str.replace(" ", "T").split(".")[0];
@@ -1640,9 +1452,6 @@ class ManufacturingRun {
 		return (str || "").replace("T", " ");
 	}
 
-	// The time_logs table for one operation on a job card. Read-only unless
-	// editable=true (the "View" popup) — then every closed row's From/To
-	// becomes directly editable; the still-running row (if any) never is.
 	_render_time_logs_table(jc, operation, editable) {
 		const rows = (jc.time_logs || []).filter(tl => tl.operation === operation);
 		if (!rows.length) return '<div class="mc-empty" style="padding:12px;">No time logs yet.</div>';
@@ -1654,7 +1463,6 @@ class ManufacturingRun {
 			const to_cell = can_edit
 				? `<input type="datetime-local" step="1" class="mc-tl-time-input" data-idx="${tl.idx}" data-field="to" value="${this._to_datetime_local(tl.to_time)}">`
 				: (tl.to_time ? esc(tl.to_time) : "running");
-			// Filled with a Workstation Link control once the dialog is shown.
 			const ws_cell = can_edit
 				? `<div class="mc-tl-ws" data-idx="${tl.idx}" data-value="${esc(tl.workstation || "")}"></div>`
 				: (tl.workstation ? esc(tl.workstation) : "—");
@@ -1672,8 +1480,6 @@ class ManufacturingRun {
 		</table>`;
 	}
 
-	// "View" — shows the logged time, editable: change From/To and the
-	// Workstation on any closed row and Save corrects it.
 	_open_view_time_modal(jc, so, mr_name) {
 		const self = this;
 		const d = new frappe.ui.Dialog({
@@ -1724,16 +1530,8 @@ class ManufacturingRun {
 		});
 	}
 
-	// ── Micron popup ─────────────────────────────────────────────────────────
-
-	// The Job Card's own Micron Collection Detail table (same columns as on
-	// the Job Card form), edited in a modal. A submitted Job Card can't take
-	// changes, so it opens read-only.
 	_open_micron_modal(jc, mr_name) {
 		const read_only = jc.docstatus !== 0;
-		// Every run collects these three bag sizes, so an editable popup opens
-		// with a row for each size that isn't entered yet -- only the grams
-		// are left to type. Rows left without grams are dropped on Save.
 		const sizes = ["150u", "120u - 73u", "45u"];
 		const rows = (jc.micron_rows || []).map(r => ({ ...r }));
 		if (!read_only) {
@@ -1793,12 +1591,8 @@ class ManufacturingRun {
 		});
 		d.show();
 		d.set_value("total_quantity", grams_total());
-		// The grid writes an edit into its row on change; a deleted row only
-		// goes after the click, hence reading the rows a moment later.
 		d.fields_dict.microns.grid.wrapper.on("change click", update_total);
 	}
-
-	// ── Create SKU modal — preview the Manufacture Stock Entry, then submit ──
 
 	_show_sku_modal(preview, wo_name, mr_name) {
 		const self = this;
@@ -1864,8 +1658,6 @@ class ManufacturingRun {
 		d.show();
 	}
 
-	// ── Transfer modal ────────────────────────────────────────────────────────
-
 	async show_transfer_modal(wo_name, mr_name) {
 		try {
 			const preview = await this.api("get_transfer_preview", { work_order: wo_name });
@@ -1928,20 +1720,11 @@ class ManufacturingRun {
 		}
 	}
 
-	// ── Live sync with the rest of the ERP ──────────────────────────────────
-	//
-	// Every save of these doctypes -- from this page, the Desk forms, or
-	// another user's screen -- publishes a list_update to the doctype's room.
-	// Listening there refreshes just the run card the document belongs to, so
-	// the page never shows stale timers, quantities or statuses.
-
 	_start_live_sync() {
 		this._live_doctypes = ["Job Card", "Work Order", "Material Request", "Stock Entry", "Conversion Entry"];
 		this._pending_refresh = new Set();
 		this._live_subscribe();
 		frappe.realtime.on("list_update", (data) => this._on_live_update(data));
-		// A List View unsubscribes its doctype's room when it is left, which
-		// would silently drop ours too -- so re-join on show and every minute.
 		$(this.page.wrapper).on("show", () => this._live_subscribe());
 		setInterval(() => this._live_subscribe(), 60000);
 	}
@@ -1970,8 +1753,6 @@ class ManufacturingRun {
 				|| (data.doctype === "Job Card" && (wo.job_cards || []).some(jc => jc.name === data.name))));
 
 		if (!hits.length) {
-			// A run this page hasn't loaded yet (e.g. a new Material Request):
-			// reload the list, unless someone is mid-way through a dialog.
 			if (data.doctype === "Material Request" && !(window.cur_dialog && cur_dialog.display)) {
 				clearTimeout(this._picker_timer);
 				this._picker_timer = setTimeout(() => this.load_picker(), 800);
@@ -1979,8 +1760,6 @@ class ManufacturingRun {
 			return;
 		}
 
-		// Batch the burst one action produces (Job Card + Stock Entry + Work
-		// Order all save together) into a single refresh per run.
 		hits.forEach(([mr]) => this._pending_refresh.add(mr));
 		clearTimeout(this._refresh_timer);
 		this._refresh_timer = setTimeout(() => {
@@ -1989,8 +1768,6 @@ class ManufacturingRun {
 			mrs.forEach(mr => this._refresh_one(mr, { quiet: true }));
 		}, 500);
 	}
-
-	// ── Event binding helpers ───────────────────────────────────────────────
 
 	find_job_card(name) {
 		for (const run of Object.values(this.runs)) {
@@ -2001,8 +1778,6 @@ class ManufacturingRun {
 		}
 		return null;
 	}
-
-	// ── Live ticking for whole-Job-Card fallback timers, across all cards ────
 
 	_start_ticks() {
 		this._stop_ticks();
@@ -2033,8 +1808,6 @@ class ManufacturingRun {
 		}
 	}
 
-	// ── Helpers ──────────────────────────────────────────────────────────────
-
 	_fmt_secs(s) {
 		const h = Math.floor(s / 3600);
 		const m = Math.floor((s % 3600) / 60);
@@ -2051,7 +1824,6 @@ class ManufacturingRun {
 	}
 }
 
-// Optional precision rounds, like frappe's own flt (which this shadows).
 function flt(v, precision) {
 	const n = parseFloat(v) || 0;
 	return precision == null ? n : Math.round(n * 10 ** precision) / 10 ** precision;

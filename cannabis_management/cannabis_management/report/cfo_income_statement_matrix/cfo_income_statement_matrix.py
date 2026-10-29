@@ -1,9 +1,3 @@
-# Copyright (c) 2026, alltechvirtual.com and contributors
-# For license information, please see license.txt
-#
-# Tabular/exportable twin of the CFO Dashboard's Income Statement tab: FTM vs
-# selected Period vs trailing Full Year, each with Actual / PY / vs PY / Budget / vs Budget.
-
 import frappe
 from frappe import _
 

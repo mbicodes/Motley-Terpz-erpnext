@@ -1,14 +1,3 @@
-/* Time Clock — portal page logic
- *
- * No PIN, no employee picker, no camera: the Frappe session is the identity, so the
- * only thing this page has to decide is which direction the next punch goes — and
- * even that is confirmed server-side.
- *
- * All clicks go through one delegated listener reading data-* attributes. Nothing is
- * ever built with inline onclick="..." string interpolation, so a name or note
- * containing quotes or angle brackets can never break a button.
- */
-
 frappe.ready(function () {
 	const API = "cannabis_management.time_clock.api.";
 
@@ -18,23 +7,10 @@ frappe.ready(function () {
 
 	const canManageNotes = wrap.dataset.canManageNotes === "1";
 
-	// Difference between site time and this device's clock. The site runs on its own
-	// timezone setting, which may not match the phone's, so every displayed time is
-	// derived from the server's clock rather than the browser's.
 	let serverSkewMs = 0;
 	let status = null;
 	let noteTarget = null;
 
-	// ── helpers ──────────────────────────────────────────────────
-
-	/* Escape for BOTH text and quoted-attribute contexts.
-	 *
-	 * The textContent/innerHTML trick escapes & < > but leaves quotes intact, which
-	 * is safe in a text node and unsafe inside data-note="...": a note containing a
-	 * double quote would close the attribute and let the rest inject markup. Notes
-	 * are free text typed by one user and rendered in another's browser, so they are
-	 * treated as hostile.
-	 */
 	function escapeHtml(value) {
 		return String(value == null ? "" : value)
 			.replace(/&/g, "&amp;")
@@ -44,9 +20,6 @@ frappe.ready(function () {
 			.replace(/'/g, "&#39;");
 	}
 
-	/* Parse a naive "YYYY-MM-DD HH:MM:SS[.ffffff]" site timestamp.
-	 * Built and read back as local components so the wall-clock digits survive
-	 * regardless of the device's own timezone. */
 	function parseNaive(text) {
 		if (!text) return null;
 		const cleaned = String(text).replace(" ", "T").split(".")[0];
@@ -77,8 +50,6 @@ frappe.ready(function () {
 		target.textContent = text || "";
 		target.className = "tc-msg" + (kind ? ` is-${kind}` : "");
 	}
-
-	// ── rendering ────────────────────────────────────────────────
 
 	function renderClockFace() {
 		const now = siteNow();
@@ -219,7 +190,6 @@ frappe.ready(function () {
 					? `<div class="tc-roster-note">&#9679; ${escapeHtml(noteText)}</div>`
 					: "";
 
-				// Values ride in data-* attributes, read by the delegated listener.
 				const buttonLabel = noteText ? "Edit note" : "Add note";
 
 				return (
@@ -238,8 +208,6 @@ frappe.ready(function () {
 			})
 			.join("");
 	}
-
-	// ── data loading ─────────────────────────────────────────────
 
 	function syncSkew(serverTime) {
 		const parsed = parseNaive(serverTime);
@@ -275,7 +243,6 @@ frappe.ready(function () {
 	}
 
 	function doPunch(button) {
-		// Guard against a double tap racing two inserts through.
 		button.disabled = true;
 		setMessage("");
 
@@ -293,14 +260,10 @@ frappe.ready(function () {
 				loadRoster();
 			})
 			.catch(function () {
-				// Frappe surfaces the server's reason in its own dialog; keep the
-				// inline line short and re-enable so the user can retry.
 				setMessage("Punch not recorded.", "error");
 				loadStatus();
 			});
 	}
-
-	// ── note editor ──────────────────────────────────────────────
 
 	function openNoteModal(user, fullName, existingNote) {
 		noteTarget = user;
@@ -361,8 +324,6 @@ frappe.ready(function () {
 			});
 	}
 
-	// ── one delegated listener for every click ───────────────────
-
 	document.addEventListener("click", function (event) {
 		const trigger = event.target.closest("[data-action]");
 
@@ -385,7 +346,6 @@ frappe.ready(function () {
 		if (event.target.id === "tcNoteRemove") removeNote();
 		if (event.target.id === "tcNoteCancel") closeNoteModal();
 
-		// Click the backdrop to dismiss.
 		if (event.target.id === "tcNoteModal") closeNoteModal();
 	});
 
@@ -393,13 +353,10 @@ frappe.ready(function () {
 		if (event.key === "Escape") closeNoteModal();
 	});
 
-	// ── boot ─────────────────────────────────────────────────────
-
 	renderClockFace();
 	loadStatus();
 	loadRoster();
 
 	setInterval(renderClockFace, 1000);
-	// Keep a long-open tab honest without hammering the server.
 	setInterval(loadStatus, 120000);
 });
