@@ -419,6 +419,9 @@ scheduler_events = {
         ],
         "0 14 * * 5": [
         ],
+        "0 * * * 5,6": [
+            "cannabis_management.manufacturing_timesheet_kiosk.weekly_hours.send_weekly_hours_emails",
+        ],
         "0 6 1 * *": [
             "cannabis_management.credit_and_ar.finance_charge.apply_finance_charges",
         ],
