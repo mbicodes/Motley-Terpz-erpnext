@@ -1,4 +1,5 @@
 import frappe
+from frappe.utils import flt
 
 from cannabis_management.cannabis_management.page.manufacturing_runs.manufacturing_runs import (
     JC_FROM,
@@ -56,6 +57,10 @@ def get_stock_by_item_group(item_group, project=None, _=None):
         item["hash_to_rosin"] = data.get("hash_to_rosin", "")
         item["yield_to_hash_parts"] = data.get("yield_to_hash_parts", [])
         item["hash_to_rosin_parts"] = data.get("hash_to_rosin_parts", [])
+
+    grade_map = get_quality_grades_for_items(item_codes) if item_group in FRESH_FROZEN_GROUPS else {}
+    for item in items:
+        item["quality_grade"] = grade_map.get(item.item_code)
 
     total_qty = sum(item.actual_qty or 0 for item in items)
     unique_items = len(set(item.item_code for item in items))
@@ -213,6 +218,168 @@ def get_yield_data_for_items(item_codes):
     return result
 
 
+
+QUALITY_TIERS = {"Tier 1": "t1", "Tier 1 Plus": "t1", "Tier 2": "t2", "Tier 3": "t3"}
+QUALITY_GRADE_CACHE_KEY = "mtm_inventory_dashboard_quality_grades"
+
+CONVERSION_RM_SLOTS = 7
+CONVERSION_FG_SLOTS = 3
+
+
+def get_quality_grades_for_items(item_codes):
+    grades = frappe.cache().get_value(QUALITY_GRADE_CACHE_KEY)
+    if grades is None:
+        grades = build_quality_grades()
+        frappe.cache().set_value(QUALITY_GRADE_CACHE_KEY, grades, expires_in_sec=600)
+    return {code: grades[code] for code in item_codes if code in grades}
+
+
+def build_quality_grades():
+    from collections import defaultdict
+
+    from cannabis_management.cannabis_management.doctype.conversion_entry.conversion_entry import grams_per_unit
+
+    rows = frappe.db.sql("""
+        SELECT sed.parent, sed.item_code, sed.s_warehouse, sed.t_warehouse, sed.transfer_qty,
+               i.stock_uom, i.item_group
+        FROM `tabStock Entry Detail` sed
+        INNER JOIN `tabStock Entry` se ON se.name = sed.parent
+        INNER JOIN `tabItem` i ON i.name = sed.item_code
+        WHERE se.docstatus = 1 AND se.purpose IN ('Manufacture', 'Repack')
+    """, as_dict=True)
+
+    factors = {}
+    groups = {}
+    entries = defaultdict(lambda: {"in": defaultdict(float), "out": defaultdict(float)})
+
+    def to_grams(qty, uom):
+        if uom not in factors:
+            factors[uom] = grams_per_unit(uom) or 1.0
+        return flt(qty) * factors[uom]
+
+    for r in rows:
+        grams = to_grams(r.transfer_qty, r.stock_uom)
+        groups[r.item_code] = r.item_group or ""
+        side = "in" if r.s_warehouse else "out" if r.t_warehouse else None
+        if side and grams:
+            entries[r.parent][side][r.item_code] += grams
+
+    add_unposted_conversion_rows(entries, groups, to_grams)
+
+    produced_by = defaultdict(list)
+    for name, e in entries.items():
+        for code, grams in e["out"].items():
+            if code not in e["in"]:
+                produced_by[code].append((grams, e["in"]))
+
+    def is_fresh_frozen(code):
+        return groups.get(code, "").startswith("Fresh Frozen")
+
+    memo = {}
+    stack = set()
+
+    def input_origins(inputs, exclude=None):
+        total = sum(g for c, g in inputs.items() if c != exclude)
+        mix = defaultdict(float)
+        if not total:
+            return mix
+        for code, grams in inputs.items():
+            if code == exclude:
+                continue
+            for ff, share in origins(code).items():
+                mix[ff] += grams / total * share
+        return mix
+
+    def origins(code):
+        if is_fresh_frozen(code):
+            return {code: 1.0}
+        if code in memo:
+            return memo[code]
+        if code in stack:
+            return {}
+        stack.add(code)
+        acc = defaultdict(float)
+        made = 0.0
+        for grams, inputs in produced_by.get(code, []):
+            made += grams
+            for ff, share in input_origins(inputs, code).items():
+                acc[ff] += grams * share
+        stack.discard(code)
+        memo[code] = {ff: v / made for ff, v in acc.items()} if made else {}
+        return memo[code]
+
+    tiers_by_ff = defaultdict(lambda: {"t1": 0.0, "t2": 0.0, "t3": 0.0})
+    for e in entries.values():
+        if any(groups.get(c) in QUALITY_TIERS for c in e["in"]):
+            continue
+        tier_out = [(QUALITY_TIERS[groups[c]], g) for c, g in e["out"].items() if groups.get(c) in QUALITY_TIERS]
+        if not tier_out:
+            continue
+        for ff, share in input_origins(e["in"]).items():
+            for tier, grams in tier_out:
+                tiers_by_ff[ff][tier] += grams * share
+
+    result = {}
+    for ff, t in tiers_by_ff.items():
+        total = t["t1"] + t["t2"] + t["t3"]
+        if total:
+            result[ff] = {k + "_pct": round(t[k] / total * 100, 1) for k in ("t1", "t2", "t3")}
+    return result
+
+
+def add_unposted_conversion_rows(entries, groups, to_grams):
+    from collections import defaultdict
+
+    se_states = defaultdict(set)
+    for ce, docstatus in frappe.db.sql("""
+        SELECT custom_conversion_entry_reference, docstatus FROM `tabStock Entry`
+        WHERE IFNULL(custom_conversion_entry_reference, '') != ''
+    """):
+        se_states[ce].add(docstatus)
+
+    rows = frappe.db.sql("""
+        SELECT ci.*
+        FROM `tabConversion Entry Item` ci
+        INNER JOIN `tabConversion Entry` ce ON ce.name = ci.parent
+        WHERE ce.docstatus = 1 AND ci.parenttype = 'Conversion Entry'
+        ORDER BY ci.parent, ci.idx
+    """, as_dict=True)
+    codes = {r.get("{}_{}".format(f, i)) for r in rows
+             for f, n in (("raw_material", CONVERSION_RM_SLOTS), ("finished_good", CONVERSION_FG_SLOTS))
+             for i in range(1, n + 1)} - {None, ""}
+    meta = {d.name: d for d in frappe.get_all(
+        "Item", filters={"name": ["in", list(codes)]}, fields=["name", "item_group", "stock_uom"]
+    )} if codes else {}
+
+    by_entry = defaultdict(list)
+    for r in rows:
+        entry = {"in": defaultdict(float), "out": defaultdict(float)}
+        for side, field, qty_field, slots in (("in", "raw_material", "qty_rm", CONVERSION_RM_SLOTS),
+                                              ("out", "finished_good", "qty_fg", CONVERSION_FG_SLOTS)):
+            for i in range(1, slots + 1):
+                code = r.get("{}_{}".format(field, i))
+                item = meta.get(code)
+                qty = flt(r.get("{}_{}".format(qty_field, i)))
+                if item and qty > 0:
+                    groups[code] = item.item_group or ""
+                    entry[side][code] += to_grams(qty, item.stock_uom)
+        if entry["in"] and entry["out"]:
+            by_entry[r.parent].append((r.name, entry))
+
+    def fingerprint(entry):
+        return (tuple(sorted(entry["in"].items())), tuple(sorted(entry["out"].items())))
+
+    posted_rows = {fingerprint(e) for ce, ce_rows in by_entry.items() if 1 in se_states[ce] for _, e in ce_rows}
+
+    for ce, ce_rows in by_entry.items():
+        states = se_states[ce]
+        if 1 in states or 2 in states:
+            continue
+        if all(fingerprint(e) in posted_rows for _, e in ce_rows):
+            continue
+        for name, entry in ce_rows:
+            entries["CE:" + name] = entry
+
 def _yield_entry(yield_map, item_code):
     return yield_map.setdefault(item_code, {"yield_to_hash": [], "hash_to_rosin": []})
 
@@ -337,3 +504,39 @@ def get_batch_warehouse_summary(item_group):
         ORDER BY batch_count DESC
     """.format(voucher_project_union=VOUCHER_PROJECT_UNION), (item_group,), as_dict=True)
     return data
+
+
+RESERVE_EXCLUDED_COMPANY = "Motley Terpz"
+
+
+@frappe.whitelist()
+def get_reserved_sales_orders():
+    rows = frappe.db.sql("""
+        SELECT sre.name, sre.voucher_no, sre.item_code, i.item_name, sre.warehouse,
+               sre.reserved_qty, sre.delivered_qty, sre.reserved_qty - sre.delivered_qty AS open_qty,
+               sre.stock_uom, sre.status, sre.project
+        FROM `tabStock Reservation Entry` sre
+        LEFT JOIN `tabItem` i ON i.name = sre.item_code
+        WHERE sre.docstatus = 1
+          AND sre.voucher_type = 'Sales Order'
+          AND sre.company != %s
+          AND sre.status IN ('Reserved', 'Partially Reserved', 'Partially Delivered')
+        ORDER BY sre.voucher_no, sre.item_code
+    """, (RESERVE_EXCLUDED_COMPANY,), as_dict=True)
+    if not rows:
+        return []
+
+    orders = {
+        so.name: dict(so, items=[])
+        for so in frappe.get_list(
+            "Sales Order",
+            filters={"name": ["in", list({r.voucher_no for r in rows})]},
+            fields=["name", "customer", "customer_name", "company", "transaction_date",
+                    "delivery_date", "status"],
+            limit_page_length=0,
+        )
+    }
+    for r in rows:
+        if r.voucher_no in orders:
+            orders[r.voucher_no]["items"].append(r)
+    return sorted(orders.values(), key=lambda o: (o["delivery_date"] or o["transaction_date"], o["name"]))
