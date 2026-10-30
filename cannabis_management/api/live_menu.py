@@ -15,7 +15,7 @@ def get_live_menu_groups():
             ig.custom_min_quantity AS min_qty
         FROM `tabItem Group` ig
         WHERE ig.is_group = 0
-          AND ig.custom_show_in_dashboard = 1
+          AND ig.custom_show_in_extracts_live = 1
           AND EXISTS (
               SELECT 1 FROM `tabItem` i 
               WHERE i.item_group = ig.name 

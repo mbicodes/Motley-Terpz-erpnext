@@ -11,7 +11,7 @@ def get_item_groups():
             AND i.disabled = 0 
             AND i.custom_show_in_dashboard = 1
 		WHERE ig.is_group = 0
-          AND ig.custom_show_in_dashboard = 1
+          AND ig.custom_show_in_inventory_dashboard = 1
 		GROUP BY ig.name
 		ORDER BY ig.name
 	""", as_dict=True)
