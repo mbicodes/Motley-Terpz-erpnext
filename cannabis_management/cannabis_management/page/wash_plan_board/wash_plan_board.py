@@ -101,13 +101,13 @@ def board(scope):
 	rows, booked = [], {}
 	for p in plans:
 		can_write = p.has_permission("write")
-		remaining = p.allocate()[0] if p.status != "Cancelled" else {}
+		remaining, holders = p.allocate() if p.status != "Cancelled" else ({}, {})
 		for r in p.items:
 			if not plan and not (start <= getdate(r.planned_date) <= end):
 				continue
-			rows.append(row_view(p, r, remaining, can_write, cache))
+			rows.append(row_view(p, r, remaining, holders, can_write, cache))
 			if r.row_status in ("Planned", "MR Created") and not wpp._transferred(r.hash_work_order):
-				k = (r.fresh_frozen_item, r.source_freezer)
+				k = (r.fresh_frozen_item, r.source_freezer, r.project or "")
 				booked[k] = booked.get(k, 0) + flt(r.planned_qty_lbs)
 	rows.sort(key=lambda x: (x["planned_date"], x["plan"], x["idx"]))
 
@@ -156,7 +156,7 @@ def _stock_projects(item, freezer, cache):
 	return cache["projects"][k]
 
 
-def row_view(p, r, remaining, can_write, cache):
+def row_view(p, r, remaining, holders, can_write, cache):
 	editable = bool(can_write) and p.status != "Cancelled" and r.row_status == "Planned"
 	left = remaining.get(r.name) if r.row_status == "Planned" else None
 	name = r.item_name or _item_name(r.fresh_frozen_item, cache)
@@ -181,6 +181,7 @@ def row_view(p, r, remaining, can_write, cache):
 		"notes": r.notes or "",
 		"editable": editable,
 		"blocked": wpp.block_reason(r, remaining) if editable else None,
+		"held_by": holders.get(r.name, []) if editable else [],
 	}
 	if editable:
 		if r.fresh_frozen_item not in cache["freezers"]:
@@ -191,22 +192,45 @@ def row_view(p, r, remaining, can_write, cache):
 
 
 def freezer_stock(booked):
-	"""Per configured freezer: Fresh Frozen items that have stock or washes booked in this view."""
+	"""Per configured freezer, per stock project: Fresh Frozen items with stock or with washes booked
+	in this view. Stock is the Stock Ledger balance by item + freezer + project dimension."""
 	s = wpp.get_settings()
-	stock = {}
-	for st in strains(s):
-		for w, q in st["stock"].items():
-			stock[(st["item"], w)] = (st["item_name"], q)
+	freezers = [x.warehouse for x in s.freezers]
+	if not freezers:
+		return []
+	groups = frappe.db.get_descendants("Item Group", s.fresh_frozen_item_group) + [s.fresh_frozen_item_group]
+	stock, names = {}, {}
+	for r in frappe.db.sql(
+		"""select sle.item_code, i.item_name, sle.warehouse, ifnull(sle.project, '') project, sum(sle.actual_qty) qty
+		from `tabStock Ledger Entry` sle join `tabItem` i on i.name = sle.item_code
+		where sle.warehouse in %(w)s and sle.is_cancelled = 0 and i.item_group in %(g)s
+		group by sle.item_code, sle.warehouse, ifnull(sle.project, '') having sum(sle.actual_qty) > 0.0001""",
+		{"w": freezers, "g": groups}, as_dict=True):
+		stock[(r.item_code, r.warehouse, r.project)] = flt(r.qty, 3)
+		names[r.item_code] = r.item_name or r.item_code
+	net = dict(frappe.db.sql(
+		"""select sle.warehouse, sum(sle.actual_qty) from `tabStock Ledger Entry` sle join `tabItem` i on i.name = sle.item_code
+		where sle.warehouse in %(w)s and sle.is_cancelled = 0 and i.item_group in %(g)s group by sle.warehouse""",
+		{"w": freezers, "g": groups}))
+	pnames = {}
 	out = []
-	for f in (x.warehouse for x in s.freezers):
-		items = []
+	for f in freezers:
+		projects = {}
 		for k in {k for k in stock if k[1] == f} | {k for k in booked if k[1] == f}:
-			name = stock[k][0] if k in stock else (frappe.db.get_value("Item", k[0], "item_name") or k[0])
-			items.append({"item": k[0], "item_name": name,
-				"stock": flt(stock[k][1], 3) if k in stock else 0, "booked": flt(booked.get(k), 3)})
-		items.sort(key=lambda x: (-x["booked"], x["item_name"].lower()))
-		out.append({"name": f, "stock": sum(i["stock"] for i in items),
-			"booked": sum(i["booked"] for i in items), "items": items})
+			if k[0] not in names:
+				names[k[0]] = frappe.db.get_value("Item", k[0], "item_name") or k[0]
+			if k[2] and k[2] not in pnames:
+				pnames[k[2]] = frappe.db.get_value("Project", k[2], "project_name") or ""
+			g = projects.setdefault(k[2], {"project": k[2], "project_name": pnames.get(k[2], ""), "stock": 0, "booked": 0, "items": []})
+			a, b = stock.get(k, 0), flt(booked.get(k), 3)
+			g["items"].append({"item": k[0], "item_name": names[k[0]], "stock": a, "booked": b})
+			g["stock"] += a
+			g["booked"] += b
+		plist = sorted(projects.values(), key=lambda x: (x["project"] == "", -x["booked"], x["project"]))
+		for g in plist:
+			g["items"].sort(key=lambda x: (-x["booked"], x["item_name"].lower()))
+		out.append({"name": f, "stock": sum(g["stock"] for g in plist), "booked": sum(g["booked"] for g in plist),
+			"ledger_total": flt(net.get(f), 3), "projects": plist})
 	return out
 
 
