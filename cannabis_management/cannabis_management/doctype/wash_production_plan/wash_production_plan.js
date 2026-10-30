@@ -1,6 +1,10 @@
 const P = "cannabis_management.cannabis_management.doctype.wash_production_plan.wash_production_plan";
 
 frappe.ui.form.on("Wash Production Plan", {
+    onload(frm) {
+        // the Board is the only screen for non-admins; the form stays as storage and for System Managers
+        if (!frappe.user.has_role("System Manager")) frappe.set_route("wash-plan-board", frm.is_new() ? "new" : frm.doc.name);
+    },
     setup(frm) {
         frappe.db.get_single_value("Wash Plan Settings", "fresh_frozen_item_group").then(g => {
             frm.set_query("fresh_frozen_item", "items", () => ({ filters: { item_group: ["descendants of (inclusive)", g] } }));

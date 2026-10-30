@@ -64,6 +64,8 @@ jinja = {
 	],
 }
 
+boot_session = "cannabis_management.wash_plan_install.boot_session"
+
 before_migrate = ["cannabis_management.compat.install_frappe_shims"]
 
 after_migrate = [
@@ -311,9 +313,9 @@ doc_events = {
         "before_submit": [
             "cannabis_management.overrides.warehouse_account_utils.validate_item_group_mapping",
         ],
-        "after_insert": "cannabis_management.doc_hooks.wash_plan_sync.work_order_after_insert",
     },
     "Work Order": {
+        "after_insert": "cannabis_management.doc_hooks.wash_plan_sync.work_order_after_insert",
         "before_submit": "cannabis_management.credit_and_ar.hold_engine.enforce_hold",
         "on_submit": "cannabis_management.overrides.mr_run_status.on_work_order_change",
         "on_cancel": "cannabis_management.overrides.mr_run_status.on_work_order_change",

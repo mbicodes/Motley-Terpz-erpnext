@@ -7,6 +7,17 @@ import frappe
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 
 
+def boot_session(bootinfo):
+    """Non-admins plan washes on the Wash Plan Board only: keep the DocType out of their desk search
+    (List / New entries). It stays readable and writable, because the Board saves through it."""
+    if "System Manager" in frappe.get_roles():
+        return
+    user = bootinfo.get("user") or {}
+    for key in ("can_search", "can_create"):
+        if isinstance(user.get(key), list):
+            user[key] = [d for d in user[key] if d != "Wash Production Plan"]
+
+
 def install():
     create_custom_fields({
         "Material Request": [
@@ -30,18 +41,25 @@ def install():
 
 
 def add_workspace_shortcut():
-    """Wash Plan Board shortcut on the Manufacturing workspace. Idempotent; runs after every
+    """Wash Plan Board shortcut on the Manufacturing workspace, and every workspace link to the
+    Wash Production Plan DocType pointed at the Board instead. Idempotent; runs after every
     migrate because the standard workspace is re-imported from ERPNext."""
     import json
+
+    for s in frappe.get_all("Workspace Shortcut", filters={"type": "DocType", "link_to": "Wash Production Plan"}, fields=["name", "parent"]):
+        frappe.db.set_value("Workspace Shortcut", s.name, {"type": "Page", "link_to": "wash-plan-board"})
+    for l in frappe.get_all("Workspace Link", filters={"link_type": "DocType", "link_to": "Wash Production Plan"}, pluck="name"):
+        frappe.db.set_value("Workspace Link", l, {"link_type": "Page", "link_to": "wash-plan-board"})
 
     if not frappe.db.exists("Workspace", "Manufacturing"):
         return
     ws = frappe.get_doc("Workspace", "Manufacturing")
-    if any(s.label == "Wash Plan Board" for s in ws.shortcuts):
+    if any(s.link_to == "wash-plan-board" for s in ws.shortcuts):
         return
-    ws.append("shortcuts", {"label": "Wash Plan Board", "type": "Page", "link_to": "wash-plan-board", "color": "Grey"})
+    ws.append("shortcuts", {"label": "Wash Plan Board", "type": "Page", "link_to": "wash-plan-board", "color": "Green"})
     content = json.loads(ws.content or "[]")
     content.insert(0, {"id": "wash-plan-board", "type": "shortcut", "data": {"shortcut_name": "Wash Plan Board", "col": 3}})
     ws.content = json.dumps(content)
     ws.flags.ignore_permissions = True
     ws.save()
+    frappe.db.commit()
