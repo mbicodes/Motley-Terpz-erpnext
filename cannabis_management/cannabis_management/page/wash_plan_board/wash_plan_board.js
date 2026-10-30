@@ -5,15 +5,15 @@ const LB_KG = 0.453592;
 const WPB_LIVE_DOCTYPES = ['Wash Production Plan', 'Material Request', 'Work Order', 'Stock Entry'];
 
 const WPB_PILLS = {
-	'Planned': ['#EEF1EF', '#3E4A43'],
+	'Planned': ['#f1ecf7', '#4a3f5c'],
 	'MR Created': ['#E3EDFA', '#1E4E8C'],
 	'Washed': ['#FBEBD9', '#8A4508'],
-	'Completed': ['#DDF0E3', '#1E5B3A'],
-	'Skipped': ['#EEF1EF', '#4F5D55'],
-	'Draft': ['#EEF1EF', '#3E4A43'],
+	'Completed': ['#f3e6fb', '#4d129e'],
+	'Skipped': ['#f1ecf7', '#6b6080'],
+	'Draft': ['#f1ecf7', '#4a3f5c'],
 	'In Progress': ['#FBEBD9', '#8A4508'],
 	'Cancelled': ['#FDE8E1', '#9A3412'],
-	'Not saved': ['#F3F5F2', '#4F5D55'],
+	'Not saved': ['#f7f3fc', '#6b6080'],
 	'All plans': ['#E3EDFA', '#1E4E8C'],
 };
 
@@ -317,9 +317,9 @@ class WashPlanBoard {
 	status_html() {
 		const s = this.saving ? 'saving' : this.saveState;
 		const map = {
-			pending: ['#F3F5F2', 'var(--muted)', __('Unsaved change…')],
-			saving: ['#F3F5F2', 'var(--muted)', __('Saving…')],
-			saved: ['#DDF0E3', 'var(--brand2)', __('Saved')],
+			pending: ['#f7f3fc', 'var(--muted)', __('Unsaved change…')],
+			saving: ['#f7f3fc', 'var(--muted)', __('Saving…')],
+			saved: ['#f3e6fb', 'var(--brand2)', __('Saved')],
 			error: ['#FFF6F1', 'var(--warn)', __('Not saved')],
 		};
 		const m = map[s];
@@ -359,7 +359,7 @@ class WashPlanBoard {
 		const at = this.updatedAt ? new Date(this.updatedAt) : null;
 		const live = at ? '<span class="wpb-live" title="' + __('Refreshes automatically when plans, Material Requests, Work Orders or Stock Entries change') + '"><span class="wpb-live-dot"></span>' + __('Live') + ' · ' + __('updated {0}', [String(at.getHours()).padStart(2, '0') + ':' + String(at.getMinutes()).padStart(2, '0')]) + '</span>' : '';
 		return '<header class="wpb-band"><div class="wpb-brand"><div class="wpb-logo">' + wpb_esc(app.charAt(0).toUpperCase()) + '</div>' +
-			'<div style="display:flex;flex-direction:column"><span style="font-weight:800;font-size:16px">' + wpb_esc(app) + '</span><span style="font-size:12px;color:#CFE3D6">' + wpb_esc(this.ctx.company) + '</span></div></div>' +
+			'<div style="display:flex;flex-direction:column"><span style="font-weight:800;font-size:16px">' + wpb_esc(app) + '</span><span style="font-size:12px;color:#e4d6f7">' + wpb_esc(this.ctx.company) + '</span></div></div>' +
 			'<nav aria-label="Breadcrumb" class="wpb-crumbs"><a href="/app/manufacturing">' + __('Manufacturing') + '</a><span aria-hidden="true">/</span>' +
 			'<a data-action="home" href="#">' + __('Wash Production Plan') + '</a><span aria-hidden="true">/</span><span style="color:#fff;font-weight:700">' + wpb_esc(crumb) + '</span></nav>' +
 			'<div style="display:flex;align-items:center;gap:14px">' + live + '<div style="display:flex;align-items:center;gap:10px"><div class="wpb-avatar">' + wpb_esc(user.charAt(0).toUpperCase()) + '</div><span style="font-size:13px">' + wpb_esc(user) + '</span></div></div></header>';
@@ -557,7 +557,7 @@ class WashPlanBoard {
 		// qty
 		h += '<div>' + (r.editable
 			? '<div style="display:flex;align-items:center;gap:4px"><button type="button" class="icon-btn" data-action="dec" data-id="' + r.name + '" aria-label="' + __('Decrease by 5 lbs') + '">' + WPB_SVG.minus + '</button>' +
-			'<label style="display:flex"><span class="sr">' + __('Planned pounds') + '</span><input type="number" min="0" step="5" data-input="rowQty" data-change="rowQty" data-id="' + r.name + '" data-focus="qty:' + r.name + '" value="' + wpb_esc(r.planned_lbs) + '" class="mono wpb-qty" style="border-color:' + (over ? 'var(--warnline)' : '#C9D2CC') + '"></label>' +
+			'<label style="display:flex"><span class="sr">' + __('Planned pounds') + '</span><input type="number" min="0" step="5" data-input="rowQty" data-change="rowQty" data-id="' + r.name + '" data-focus="qty:' + r.name + '" value="' + wpb_esc(r.planned_lbs) + '" class="mono wpb-qty" style="border-color:' + (over ? 'var(--warnline)' : '#d8cceb') + '"></label>' +
 			'<button type="button" class="icon-btn" data-action="inc" data-id="' + r.name + '" aria-label="' + __('Increase by 5 lbs') + '">' + WPB_SVG.plus + '</button></div>'
 			: '<span class="mono" style="font-weight:600">' + wpb_lbs(r.planned_lbs) + ' lbs</span>') + '</div>';
 
@@ -694,7 +694,7 @@ class WashPlanBoard {
 
 	html_next() {
 		const step = (n, t) => '<div style="display:flex;gap:10px"><span class="wpb-step">' + n + '</span><span>' + t + '</span></div>';
-		return '<section class="wpb-next"><h2 class="h2">' + __('What happens next') + '</h2><div style="display:flex;flex-direction:column;gap:12px;font-size:13px;color:#DCEBE1">' +
+		return '<section class="wpb-next"><h2 class="h2">' + __('What happens next') + '</h2><div style="display:flex;flex-direction:column;gap:12px;font-size:13px;color:#ece3f9">' +
 			step(1, __('Plan washes by day, week or a custom date range, with a freezer and an optional project per wash.')) +
 			step(2, __('Create MR raises a Manufacture Material Request from that freezer; the wash’s project maps to the MR, or stays empty if none is set.')) +
 			step(3, __('On approval, Work Orders for Hash Processing and Rosin Pressing are created and their BOMs are generated.')) +

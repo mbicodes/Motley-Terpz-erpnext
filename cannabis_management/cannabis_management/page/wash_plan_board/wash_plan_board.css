@@ -1,6 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap');
 
-/* page chrome: this page only. The green band replaces the standard title bar; navbar and sidebar stay. */
+/* page chrome: this page only. The theme-coloured band replaces the standard title bar; navbar and sidebar stay. */
 .wash-plan-board-page .page-head { display: none; }
 .wash-plan-board-page .page-body.container,
 .wash-plan-board-page .container.page-body { max-width: 100%; padding-left: 0; padding-right: 0; }
@@ -8,8 +8,8 @@
 .wash-plan-board-page .layout-main-section { background: transparent; border: 0; box-shadow: none; padding: 0; }
 
 .wash-plan-board {
-	--ink: #14231B; --muted: #4F5D55; --line: #DDE3DE; --line2: #E8ECE9; --ground: #F3F5F2; --soft: #F7F9F6;
-	--brand: #13402A; --brand2: #1E5B3A; --warn: #9A3412; --warnline: #C2410C;
+	--ink: #1c1526; --muted: #6b6080; --line: #e6ddf2; --line2: #efe9f7; --ground: #f7f3fc; --soft: #faf7fe;
+	--brand: #4d129e; --brand2: #6a2bc4; --warn: #9A3412; --warnline: #C2410C;
 	background: var(--ground); color: var(--ink); font-family: 'Manrope', system-ui, sans-serif; font-size: 14px;
 	min-height: calc(100vh - 60px); border-radius: 0; line-height: 1.4;
 }
@@ -26,7 +26,7 @@
 .wash-plan-board .card { background: #fff; border: 1px solid var(--line); border-radius: 14px; box-shadow: none; }
 .wash-plan-board .muted { color: var(--muted); }
 .wash-plan-board .lbl { font-size: 12px; font-weight: 700; color: var(--muted); display: flex; flex-direction: column; gap: 6px; }
-.wash-plan-board .field { height: 44px; border: 1px solid #C9D2CC; border-radius: 10px; padding: 0 10px; font-size: 14px; color: var(--ink); background: #fff; }
+.wash-plan-board .field { height: 44px; border: 1px solid #d8cceb; border-radius: 10px; padding: 0 10px; font-size: 14px; color: var(--ink); background: #fff; }
 .wash-plan-board .field:disabled { background: var(--soft); color: var(--muted); }
 .wash-plan-board .pill { padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; }
 .wash-plan-board .seg { display: flex; background: var(--ground); border: 1px solid var(--line); border-radius: 10px; padding: 3px; gap: 3px; }
@@ -35,7 +35,7 @@
 .wash-plan-board .wpb-grid { min-width: 1250px; }
 .wash-plan-board .grid-head { padding: 12px 20px; background: var(--soft); font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; }
 .wash-plan-board .fg-row { display: grid; grid-template-columns: 150px minmax(240px, 2fr) 110px 90px 120px 110px 110px; gap: 12px; padding: 10px 14px; align-items: center; font-size: 13px; }
-.wash-plan-board .icon-btn { width: 34px; height: 36px; border: 1px solid #C9D2CC; background: #fff; border-radius: 8px; color: var(--ink); display: flex; align-items: center; justify-content: center; padding: 0; }
+.wash-plan-board .icon-btn { width: 34px; height: 36px; border: 1px solid #d8cceb; background: #fff; border-radius: 8px; color: var(--ink); display: flex; align-items: center; justify-content: center; padding: 0; }
 .wash-plan-board .kpi { padding: 18px 20px; display: flex; flex-direction: column; gap: 6px; }
 .wash-plan-board .kpi .k { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; }
 .wash-plan-board .kpi .v { font-size: 30px; font-weight: 600; }
@@ -44,21 +44,21 @@
 .wash-plan-board .wpb-loading { padding: 60px 20px; text-align: center; color: var(--muted); }
 
 /* header band */
-.wash-plan-board .wpb-band { background: var(--brand); color: #fff; padding: 14px 28px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.wash-plan-board .wpb-band { background: linear-gradient(120deg, #4d129e 0%, #5a1ab0 100%); color: #fff; padding: 14px 28px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
 .wash-plan-board .wpb-brand { display: flex; align-items: center; gap: 12px; }
-.wash-plan-board .wpb-logo { width: 36px; height: 36px; border-radius: 9px; background: #D9F2C4; color: var(--brand); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 18px; }
-.wash-plan-board .wpb-crumbs { font-size: 13px; color: #CFE3D6; display: flex; gap: 8px; flex-wrap: wrap; }
-.wash-plan-board .wpb-crumbs a { color: #CFE3D6; }
-.wash-plan-board .wpb-live { font-size: 12px; color: #CFE3D6; display: flex; align-items: center; gap: 6px; }
-.wash-plan-board .wpb-live-dot { width: 8px; height: 8px; border-radius: 50%; background: #7BD88F; box-shadow: 0 0 0 3px rgba(123, 216, 143, .25); }
-.wash-plan-board .wpb-avatar { width: 32px; height: 32px; border-radius: 50%; background: #2E6B49; display: flex; align-items: center; justify-content: center; font-weight: 700; }
+.wash-plan-board .wpb-logo { width: 36px; height: 36px; border-radius: 9px; background: #f3e6fb; color: var(--brand); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 18px; }
+.wash-plan-board .wpb-crumbs { font-size: 13px; color: #e4d6f7; display: flex; gap: 8px; flex-wrap: wrap; }
+.wash-plan-board .wpb-crumbs a { color: #e4d6f7; }
+.wash-plan-board .wpb-live { font-size: 12px; color: #e4d6f7; display: flex; align-items: center; gap: 6px; }
+.wash-plan-board .wpb-live-dot { width: 8px; height: 8px; border-radius: 50%; background: #d98bef; box-shadow: 0 0 0 3px rgba(217, 139, 239, .3); }
+.wash-plan-board .wpb-avatar { width: 32px; height: 32px; border-radius: 50%; background: #6a2bc4; display: flex; align-items: center; justify-content: center; font-weight: 700; }
 
-.wash-plan-board .wpb-main { max-width: 1360px; margin: 0 auto; padding: 24px 28px 48px; display: flex; flex-direction: column; gap: 20px; }
+.wash-plan-board .wpb-main { max-width: none; margin: 0; padding: 24px 28px 48px; display: flex; flex-direction: column; gap: 20px; }
 .wash-plan-board .wpb-meta { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; }
 .wash-plan-board .wpb-period { padding: 11px 14px; border: 1px solid var(--line); border-radius: 10px; font-weight: 700; font-size: 13px; color: var(--ink); white-space: nowrap; }
 .wash-plan-board .wpb-eyebrow { font-size: 12px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; }
 .wash-plan-board .wpb-proj { border: 1px solid var(--line); background: var(--soft); border-radius: 12px; padding: 10px 14px; display: flex; flex-direction: column; gap: 3px; min-width: 170px; }
-.wash-plan-board .wpb-proj.none { border-color: #C9D2CC; background: #fff; }
+.wash-plan-board .wpb-proj.none { border-color: #d8cceb; background: #fff; }
 .wash-plan-board .wpb-formlink { font-size: 12px; font-weight: 700; align-self: center; }
 
 /* buttons */
@@ -75,7 +75,7 @@
 
 /* toast */
 .wash-plan-board .wpb-toast { border-radius: 12px; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.wash-plan-board .wpb-toast.ok { background: #DDF0E3; border: 1px solid #A9D3B6; color: var(--brand); }
+.wash-plan-board .wpb-toast.ok { background: #f3e6fb; border: 1px solid #d8cceb; color: var(--brand); }
 .wash-plan-board .wpb-toast.err { background: #FFF6F1; border: 1px solid #F1C3A8; color: var(--warn); }
 .wash-plan-board .wpb-toast-x { border: 0; background: transparent; color: inherit; width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex: none; }
 
@@ -83,7 +83,7 @@
 .wash-plan-board .wpb-tab { border: 1px solid var(--line); background: #fff; color: var(--ink); border-radius: 10px; padding: 8px 14px; min-height: 44px; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 92px; }
 .wash-plan-board .wpb-tab .wpb-tab-sub { font-size: 12px; color: var(--muted); }
 .wash-plan-board .wpb-tab.on { border-color: var(--brand); background: var(--brand); color: #fff; }
-.wash-plan-board .wpb-tab.on .wpb-tab-sub { color: #CFE3D6; }
+.wash-plan-board .wpb-tab.on .wpb-tab-sub { color: #e4d6f7; }
 
 .wash-plan-board .wpb-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
 
@@ -93,7 +93,7 @@
 .wash-plan-board .wpb-filter .field { font-size: 13px; }
 .wash-plan-board .wpb-planlink { font-size: 11px; font-weight: 600; white-space: nowrap; }
 .wash-plan-board .wpb-warn { font-size: 12px; font-weight: 700; color: var(--warn); display: flex; align-items: flex-start; gap: 6px; }
-.wash-plan-board .wpb-qty { width: 58px; height: 34px; border: 1px solid #C9D2CC; border-radius: 8px; text-align: center; font-size: 14px; color: var(--ink); background: #fff; padding: 0 4px; }
+.wash-plan-board .wpb-qty { width: 58px; height: 34px; border: 1px solid #d8cceb; border-radius: 8px; text-align: center; font-size: 14px; color: var(--ink); background: #fff; padding: 0 4px; }
 .wash-plan-board .wpb-fg { margin: 0 20px 16px 62px; border: 1px solid var(--line); border-radius: 12px; background: #fff; overflow: hidden; }
 .wash-plan-board .wpb-fg-head { padding: 10px 14px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; background: var(--soft); border-bottom: 1px solid var(--line); }
 .wash-plan-board .wpb-fg-cols { padding: 8px 14px; font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; }
@@ -117,7 +117,7 @@
 .wash-plan-board .wpb-bar > div { height: 8px; border-radius: 999px; }
 .wash-plan-board .wpb-next { flex: 1 1 280px; min-width: 0; background: var(--brand); color: #fff; border-radius: 14px; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
 .wash-plan-board .wpb-next .h2 { color: #fff; }
-.wash-plan-board .wpb-step { width: 24px; height: 24px; flex: none; border-radius: 50%; background: #D9F2C4; color: var(--brand); font-weight: 800; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+.wash-plan-board .wpb-step { width: 24px; height: 24px; flex: none; border-radius: 50%; background: #f3e6fb; color: var(--brand); font-weight: 800; display: flex; align-items: center; justify-content: center; font-size: 12px; }
 
 /* tablet */
 @media (max-width: 900px) {
