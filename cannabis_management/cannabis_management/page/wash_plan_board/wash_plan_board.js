@@ -124,7 +124,7 @@ class WashPlanBoard {
 
 	idle() {
 		const a = document.activeElement;
-		const typing = a && this.el.contains(a) && (a.tagName === 'INPUT' || a.tagName === 'SELECT');
+		const typing = a && this.el.contains(a) && (a.tagName === 'INPUT' || a.tagName === 'SELECT' || a.tagName === 'TEXTAREA');
 		return !this.saving && !this.pending && !typing && !(window.cur_dialog && cur_dialog.display);
 	}
 
@@ -332,7 +332,7 @@ class WashPlanBoard {
 		if (!a || !this.el.contains(a) || !a.dataset.focus) return null;
 		let start = null, end = null;
 		try { start = a.selectionStart; end = a.selectionEnd; } catch (e) { /* number inputs */ }
-		return { key: a.dataset.focus, value: a.tagName === 'INPUT' ? a.value : null, start, end };
+		return { key: a.dataset.focus, value: (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA') ? a.value : null, start, end };
 	}
 
 	restore_focus(f) {
@@ -575,7 +575,8 @@ class WashPlanBoard {
 			const mr = '<a class="mono" href="/app/material-request/' + encodeURIComponent(r.material_request) + '">' + wpb_esc(r.material_request) + '</a>';
 			h += '<span class="muted" style="font-size:12px;font-weight:600">' + (r.hash_work_order
 				? __('Hash Work Order') + ' <a class="mono" href="/app/work-order/' + encodeURIComponent(r.hash_work_order) + '">' + wpb_esc(r.hash_work_order) + '</a>'
-				: r.mr_state === 'Draft' ? __('Submit {0} to create the Work Orders', [mr]) : __('Waiting for Work Orders')) + '</span>';
+				: r.mr_state === 'Draft' ? __('Draft MR {0}', [mr]) : __('Waiting for Work Orders')) + '</span>';
+			if (r.mr_state === 'Draft' && r.can_write) h += '<button type="button" data-action="submitMr" data-id="' + r.name + '" class="wpb-btn-mr" style="background:var(--brand);color:#fff;border-color:var(--brand)">' + __('Submit MR') + '</button>';
 		} else if (r.status === 'Washed') {
 			h += '<span style="font-size:12px;font-weight:700;color:var(--brand2)">' + __('Washed · rosin pressing next') + '</span>';
 		} else if (r.status === 'Completed') {
@@ -594,14 +595,15 @@ class WashPlanBoard {
 		const done = r.actual_hash_g > 0;
 		const proj = r.project ? __('MR project: {0}', [r.project]) : __('MR project: none');
 		const fg = [
-			{ op: __('Hash Processing'), code: r.bubble_hash_item, name: r.bubble_hash_name || (r.base + ' - Bubble Hash'), want: r.base + ' - Bubble Hash', group: this.ctx.bubble_hash_group, y: r.expected_hash_yield, yf: 'expected_hash_yield', q: r.expected_hash_g, ay: done ? wpb_pct(r.actual_hash_yield) : '—', act: done ? wpb_fmt(r.actual_hash_g) : '—', kind: 'bubble_hash' },
-			{ op: __('Rosin Pressing'), code: r.rosin_item, name: r.rosin_name || (r.base + ' - Rosin'), want: r.base + ' - Rosin', group: this.ctx.rosin_group, y: r.expected_rosin_yield, yf: 'expected_rosin_yield', q: r.expected_rosin_g, ay: r.actual_rosin_g ? wpb_pct(r.actual_rosin_yield) : '—', act: r.actual_rosin_g ? wpb_fmt(r.actual_rosin_g) : '—', kind: 'rosin' },
+			{ op: __('Hash Processing'), wo: r.hash_work_order, code: r.bubble_hash_item, name: r.bubble_hash_name || (r.base + ' - Bubble Hash'), want: r.base + ' - Bubble Hash', group: this.ctx.bubble_hash_group, y: r.expected_hash_yield, yf: 'expected_hash_yield', q: r.expected_hash_g, ay: done ? wpb_pct(r.actual_hash_yield) : '—', act: done ? wpb_fmt(r.actual_hash_g) : '—', kind: 'bubble_hash' },
+			{ op: __('Rosin Pressing'), wo: r.rosin_work_order, code: r.rosin_item, name: r.rosin_name || (r.base + ' - Rosin'), want: r.base + ' - Rosin', group: this.ctx.rosin_group, y: r.expected_rosin_yield, yf: 'expected_rosin_yield', q: r.expected_rosin_g, ay: r.actual_rosin_g ? wpb_pct(r.actual_rosin_yield) : '—', act: r.actual_rosin_g ? wpb_fmt(r.actual_rosin_g) : '—', kind: 'rosin' },
 		];
 		let h = '<div class="wpb-fg"><div class="wpb-fg-head"><span style="font-weight:800;font-size:13px">' + __('Finished Goods') + '</span><span class="muted" style="font-size:12px">' +
 			wpb_esc((planned ? __('Copied to the MR Finished Goods table on Create MR') : __('Sent to the Finished Goods table of {0}', [r.material_request])) + ' · ' + proj) + '</span></div>' +
 			'<div class="fg-row wpb-fg-cols"><span>' + __('Operation') + '</span><span>' + __('Finished Item') + '</span><span>' + __('Item Group') + '</span><span>' + __('Exp. Yield') + '</span><span>' + __('Exp. Qty (g)') + '</span><span>' + __('Actual Yield') + '</span><span>' + __('Actual (g)') + '</span></div>';
 		fg.forEach(g => {
-			h += '<div class="fg-row" style="border-top:1px solid var(--line2)"><span style="font-weight:700">' + g.op + '</span><div style="display:flex;flex-direction:column;gap:3px;min-width:0">' +
+			h += '<div class="fg-row" style="border-top:1px solid var(--line2)"><span style="display:flex;flex-direction:column;gap:2px"><span style="font-weight:700">' + g.op + '</span>' +
+				(g.wo ? '<a class="mono" style="font-size:11px" href="/app/work-order/' + encodeURIComponent(g.wo) + '">' + wpb_esc(g.wo) + '</a>' : '') + '</span><div style="display:flex;flex-direction:column;gap:3px;min-width:0">' +
 				(g.code ? '<span class="mono" style="font-weight:600">' + wpb_esc(g.code) + '</span><span class="muted" style="font-size:12px">' + wpb_esc(g.name) + '</span>'
 					: '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:12px;font-weight:700;color:var(--warn)">' + __('Not created yet') + '</span><span class="muted" style="font-size:12px">' + wpb_esc(g.want) + '</span></div>' +
 					(r.editable ? '<button type="button" data-action="createItem" data-id="' + r.name + '" data-arg="' + g.kind + '" class="wpb-btn-mr" style="min-height:34px;padding:6px 10px">' + __('Create Item') + '</button>' : '') + '</div>') +
@@ -611,6 +613,9 @@ class WashPlanBoard {
 					: '<span class="mono">' + wpb_pct(g.y) + '</span>') +
 				'<span class="mono" style="font-weight:600">' + wpb_fmt(g.q) + '</span><span class="mono" style="font-weight:600">' + g.ay + '</span><span class="mono" style="font-weight:600">' + g.act + '</span></div>';
 		});
+		h += '<div class="wpb-fg-notes"><label class="lbl" style="flex:1">' + __('Notes') +
+			(r.can_write ? '<textarea class="field wpb-notes" rows="2" data-input="rowNotes" data-change="rowNotes" data-id="' + r.name + '" data-focus="notes:' + r.name + '" placeholder="' + __('Notes for this wash') + '">' + wpb_esc(r.notes) + '</textarea>'
+				: '<span style="font-weight:500;color:var(--ink)">' + (wpb_esc(r.notes) || '—') + '</span>') + '</label></div>';
 		return h + '<div class="muted wpb-fg-foot">' + WPB_SVG.info + '<span>' +
 			(planned ? __('No BOM is needed at planning time. BOMs for these items are created automatically when the Material Request is submitted.') : __('BOMs for these items are created automatically when {0} is submitted.', [r.material_request])) + '</span></div></div>';
 	}
@@ -775,7 +780,12 @@ class WashPlanBoard {
 				const r = this.board.rows.find(x => x.name === id);
 				frappe.confirm(__('Remove {0} ({1}) from the plan?', [r.item_name, r.freezer]), () => this.mutate('remove_wash', { row: id }));
 			},
-			createItem: (id, arg) => this.mutate('create_item', { row: id, kind: arg }, { row: id }),
+			createItem: (id, arg) => this.create_item_dialog(id, arg),
+			submitMr: id => {
+				const r = this.board.rows.find(x => x.name === id);
+				frappe.confirm(__('Submit {0}? The BOMs and the Hash Processing and Rosin Pressing Work Orders are created on submit.', [r.material_request]),
+					() => this.mutate('submit_mr', { row: id }, { row: id }));
+			},
 			addWash: () => {
 				const f = this.form, args = { planned_date: f.date, item: f.item, freezer: f.freezer, project: f.project, qty: f.lbs };
 				if (this.scope.mode === 'plan') args.plan = this.scope.plan;
@@ -796,6 +806,7 @@ class WashPlanBoard {
 			rowProject: (v, id) => this.update_row(id, 'project', v),
 			rowQty: (v, id) => this.update_row(id, 'planned_qty_lbs', v === '' ? 0 : v),
 			rowYield: (v, id, arg) => this.update_row(id, arg, v === '' ? 0 : v),
+			rowNotes: (v, id) => this.update_row(id, 'notes', v),
 			formDate: v => { this.form.date = v; this.refresh_preview(); },
 			formLbs: v => { this.form.lbs = v; this.formError = ''; this.refresh_preview(); },
 			formItem: v => { this.form.item = v; this.form.freezer = ''; this.form.project = ''; this.formProjectTouched = false; this.refresh_preview(); },
@@ -805,6 +816,7 @@ class WashPlanBoard {
 		const inputs = {
 			rowQty: (v, id) => this.update_row(id, 'planned_qty_lbs', v === '' ? 0 : v, 700),
 			rowYield: (v, id, arg) => this.update_row(id, arg, v === '' ? 0 : v, 700),
+			rowNotes: (v, id) => this.update_row(id, 'notes', v, 1200),
 			formLbs: v => { this.form.lbs = v; this.refresh_preview(); },
 		};
 
@@ -827,6 +839,29 @@ class WashPlanBoard {
 			const fn = inputs[el.dataset.input];
 			if (fn) fn(el.value, el.dataset.id, el.dataset.arg);
 		});
+	}
+
+	create_item_dialog(id, kind) {
+		const r = this.board.rows.find(x => x.name === id);
+		const bh = kind === 'bubble_hash';
+		const suffix = bh ? 'Bubble Hash' : 'Rosin';
+		const d = new frappe.ui.Dialog({
+			title: bh ? __('Create Bubble Hash Item') : __('Create Rosin Item'),
+			fields: [
+				{ fieldname: 'base', fieldtype: 'Data', label: __('Strain Name'), reqd: 1, default: r.base,
+					description: __('Fresh Frozen item: {0}', [r.item_name]),
+					onchange: () => d.set_value('item_name', (d.get_value('base') || '').trim() + ' - ' + suffix) },
+				{ fieldname: 'item_name', fieldtype: 'Data', label: __('Item Name'), read_only: 1, default: r.base + ' - ' + suffix },
+				{ fieldname: 'item_group', fieldtype: 'Data', label: __('Item Group'), read_only: 1, default: bh ? this.ctx.bubble_hash_group : this.ctx.rosin_group },
+				{ fieldname: 'code', fieldtype: 'Data', label: __('Item Code'), read_only: 1, default: bh ? __('Next code in the BH-##### series') : __('Next code in the RS##### series') },
+			],
+			primary_action_label: __('Create Item'),
+			primary_action: v => {
+				d.hide();
+				this.mutate('create_item', { row: id, kind, base: v.base }, { row: id });
+			},
+		});
+		d.show();
 	}
 
 	reload_view() {

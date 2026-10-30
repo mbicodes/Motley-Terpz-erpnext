@@ -14,7 +14,7 @@
 	min-height: calc(100vh - 60px); border-radius: 0; line-height: 1.4;
 }
 .wash-plan-board *, .wash-plan-board *::before, .wash-plan-board *::after { box-sizing: border-box; }
-.wash-plan-board button, .wash-plan-board select, .wash-plan-board input { font-family: inherit; }
+.wash-plan-board button, .wash-plan-board select, .wash-plan-board input, .wash-plan-board textarea { font-family: inherit; }
 .wash-plan-board button { cursor: pointer; }
 .wash-plan-board button:disabled { cursor: not-allowed; }
 .wash-plan-board :focus-visible { outline: 2px solid var(--brand2); outline-offset: 2px; }
@@ -97,6 +97,8 @@
 .wash-plan-board .wpb-fg { margin: 0 20px 16px 62px; border: 1px solid var(--line); border-radius: 12px; background: #fff; overflow: hidden; }
 .wash-plan-board .wpb-fg-head { padding: 10px 14px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; background: var(--soft); border-bottom: 1px solid var(--line); }
 .wash-plan-board .wpb-fg-cols { padding: 8px 14px; font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; }
+.wash-plan-board .wpb-fg-notes { padding: 10px 14px; border-top: 1px solid var(--line2); display: flex; }
+.wash-plan-board .wpb-notes { height: auto; min-height: 56px; padding: 8px 10px; resize: vertical; width: 100%; font-size: 13px; }
 .wash-plan-board .wpb-fg-foot { padding: 10px 14px; border-top: 1px solid var(--line2); background: var(--soft); font-size: 12px; display: flex; align-items: center; gap: 8px; }
 
 /* bottom row */

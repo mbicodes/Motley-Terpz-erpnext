@@ -181,6 +181,7 @@ def row_view(p, r, remaining, holders, can_write, cache):
 		"rosin_item": r.rosin_item or "", "rosin_name": _item_name(r.rosin_item, cache),
 		"notes": r.notes or "",
 		"editable": editable,
+		"can_write": bool(can_write) and p.status != "Cancelled",
 		"blocked": wpp.block_reason(r, remaining) if editable else None,
 		"held_by": holders.get(r.name, []) if editable else [],
 	}
@@ -401,13 +402,16 @@ def remove_wash(row, scope=None):
 
 
 @frappe.whitelist()
-def create_item(row, kind, scope=None):
+def create_item(row, kind, base=None, scope=None):
 	if kind not in ("bubble_hash", "rosin"):
 		frappe.throw(_("Unknown item type."))
 
 	def run(sc):
 		doc, r = _get_row(row)
-		code = wpp.create_finished_item(wpp.base_name(r.item_name), kind)
+		name = (base or "").strip() or wpp.base_name(r.item_name)
+		if not name:
+			frappe.throw(_("Enter the strain name for the new item."))
+		code = wpp.create_finished_item(name, kind)
 		field = "bubble_hash_item" if kind == "bubble_hash" else "rosin_item"
 		for x in doc.items:
 			if x.row_status == "Planned" and x.fresh_frozen_item == r.fresh_frozen_item and not x.get(field):
@@ -417,6 +421,27 @@ def create_item(row, kind, scope=None):
 		group = s.bubble_hash_item_group if kind == "bubble_hash" else s.rosin_item_group
 		return {"message": _("Item {0} ({1}) is set on the wash, in the {2} item group.").format(
 			code, frappe.db.get_value("Item", code, "item_name"), group)}
+	return _mutate(scope, run)
+
+
+@frappe.whitelist()
+def submit_mr(row, scope=None):
+	"""Submit the wash's Draft Material Request. The existing Material Request on_submit code creates
+	the BOMs and the Hash Processing / Rosin Pressing Work Orders; the wash-plan hooks link them back."""
+
+	def run(sc):
+		doc, r = _get_row(row)
+		if not r.material_request:
+			frappe.throw(_("This wash has no Material Request yet."))
+		mr = frappe.get_doc("Material Request", r.material_request)
+		if mr.docstatus != 0:
+			frappe.throw(_("Material Request {0} is already submitted.").format(mr.name))
+		mr.check_permission("submit")
+		mr.submit()
+		wos = frappe.get_all("Work Order", filters={"material_request": mr.name, "docstatus": ["<", 2]}, pluck="name", order_by="creation")
+		msg = _("Material Request {0} submitted.").format(mr.name)
+		msg += " " + (_("Work Orders: {0}.").format(", ".join(wos)) if wos else _("No Work Order was created."))
+		return {"message": msg}
 	return _mutate(scope, run)
 
 
