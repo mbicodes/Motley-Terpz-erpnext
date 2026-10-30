@@ -63,6 +63,24 @@ function wpb_period(from, to) {
 	return a.md + (a.year !== b.year ? ', ' + a.year : '') + ' – ' + b.md + ', ' + b.year;
 }
 
+// "60 lbs, 0 free" for dropdowns
+const wpb_qf = (qty, free) => wpb_lbs(qty) + ' lbs' + (free == null ? '' : ', ' + wpb_lbs(free) + ' free');
+
+// "Held by: MAT-MR-2026-00121 (60 lbs, Oct 27, In Progress); …" with links; plan rows open on the board
+function wpb_holds(list, warn) {
+	if (!list || !list.length) return '';
+	const one = d => {
+		const link = d.doctype === 'Material Request'
+			? '<a class="mono" href="/app/material-request/' + encodeURIComponent(d.name) + '" target="_blank" rel="noopener">' + wpb_esc(d.name) + '</a>'
+			: '<a href="#" class="mono" data-action="openPlan" data-id="' + wpb_esc(d.name) + '">' + wpb_esc(d.name) + '</a>' + (d.row ? ' ' + __('row {0}', [d.row]) : '');
+		const bits = [wpb_lbs(d.qty) + ' lbs', wpb_day(d.date).md];
+		if (d.status) bits.push(d.status);
+		if (d.project) bits.push(d.project);
+		return link + ' (' + wpb_esc(bits.join(', ')) + ')';
+	};
+	return '<span class="wpb-held' + (warn ? '' : ' wpb-held-info') + '">' + __('Held by:') + ' ' + list.map(one).join('; ') + '</span>';
+}
+
 function wpb_opts(list, sel) {
 	return list.map(o => '<option value="' + wpb_esc(o.key) + '"' + (String(o.key) === String(sel == null ? '' : sel) ? ' selected' : '') + '>' + wpb_esc(o.label) + '</option>').join('');
 }
@@ -524,14 +542,14 @@ class WashPlanBoard {
 		// strain / freezer
 		h += '<div style="display:flex;flex-direction:column;gap:4px;min-width:0"><span style="font-weight:700">' + wpb_esc(r.item_name) + '</span>';
 		if (r.editable) {
-			const fo = (r.freezer_options || []).map(o => ({ key: o.warehouse, label: o.warehouse + ' · ' + wpb_lbs(o.qty) + ' lbs' }));
-			if (!fo.some(o => o.key === r.freezer)) fo.unshift({ key: r.freezer, label: r.freezer + ' · 0 lbs' });
+			const fo = (r.freezer_options || []).map(o => ({ key: o.warehouse, label: o.warehouse + ' · ' + wpb_qf(o.qty, o.free) }));
+			if (!fo.some(o => o.key === r.freezer)) fo.unshift({ key: r.freezer, label: r.freezer + ' · ' + wpb_qf(0, 0) });
 			h += '<label style="display:flex"><span class="sr">' + __('Source freezer') + '</span><select class="field" data-change="rowFreezer" data-id="' + r.name + '" data-focus="fz:' + r.name + '" style="height:34px;max-width:260px;font-size:12px;border-radius:8px">' + wpb_opts(fo, r.freezer) + '</select></label>';
 		} else {
 			h += '<span class="muted" style="font-size:12px">' + wpb_esc(r.freezer) + '</span>';
 		}
 		if (over) h += '<span class="wpb-warn">' + wpb_esc(__('Exceeds stock in {0} by {1} lbs', [r.freezer, wpb_lbs(r.over_by)])) + '</span>';
-		if (over && r.held_by && r.held_by.length) h += '<span class="wpb-held">' + wpb_esc(__('Held by: {0}', [r.held_by.join('; ')])) + '</span>';
+		if (r.editable) h += wpb_holds(r.held_by, over);
 		if (missing) h += '<span class="wpb-warn">' + __('Finished items not created yet. Expand the row to create them.') + '</span>';
 		else if (r.blocked && !over) h += '<span class="wpb-warn">' + wpb_esc(r.blocked.charAt(0).toUpperCase() + r.blocked.slice(1)) + '</span>';
 		if (err) h += '<span class="wpb-warn" role="alert">' + WPB_SVG.warn + ' ' + wpb_esc(err) + '</span>';
@@ -542,10 +560,10 @@ class WashPlanBoard {
 		if (r.editable) {
 			const po = [{ key: '', label: __('No Project') }];
 			(r.project_options || []).forEach(o => {
-				if (!o.project) po[0].label = __('No Project') + ' · ' + wpb_lbs(o.qty) + ' lbs';
-				else po.push({ key: o.project, label: o.project + (o.project_name ? ' · ' + o.project_name : '') + ' · ' + wpb_lbs(o.qty) + ' lbs' });
+				if (!o.project) po[0].label = __('No Project') + ' · ' + wpb_qf(o.qty, o.free);
+				else po.push({ key: o.project, label: o.project + (o.project_name ? ' · ' + o.project_name : '') + ' · ' + wpb_qf(o.qty, o.free) });
 			});
-			if (r.project && !po.some(o => o.key === r.project)) po.push({ key: r.project, label: r.project + (r.project_name ? ' · ' + r.project_name : '') + ' · 0 lbs' });
+			if (r.project && !po.some(o => o.key === r.project)) po.push({ key: r.project, label: r.project + (r.project_name ? ' · ' + r.project_name : '') + ' · ' + wpb_qf(0, 0) });
 			h += '<label style="display:flex"><span class="sr">' + __('Project') + '</span><select class="field" data-change="rowProject" data-id="' + r.name + '" data-focus="pj:' + r.name + '" style="height:36px;width:100%;font-size:12px;border-radius:8px">' + wpb_opts(po, r.project) + '</select></label>';
 		} else {
 			h += '<div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:13px;font-weight:700;color:' + (r.project ? 'var(--ink)' : 'var(--muted)') + '">' + wpb_esc(r.project ? (r.project_name || r.project) : __('No Project')) + '</span><span class="mono muted" style="font-size:11px">' + wpb_esc(r.project || __('MR project left empty')) + '</span></div>';
@@ -627,8 +645,11 @@ class WashPlanBoard {
 				'<span class="muted" style="font-size:13px">' + (ctx.freezers.length ? __('No Fresh Frozen stock in the configured freezers.') : __('No freezers are configured in Wash Plan Settings.')) + '</span></div></section>';
 		}
 		const st = ctx.strains.find(x => x.item === f.item) || ctx.strains[0];
-		const fz = Object.keys(st.stock).map(k => ({ key: k, label: k + ' · ' + wpb_lbs(st.stock[k]) + ' lbs' }));
-		const po = [{ key: '', label: __('No Project') }].concat((p.projects || []).filter(x => x.project).map(x => ({ key: x.project, label: x.project + (x.project_name ? ' · ' + x.project_name : '') + ' · ' + wpb_lbs(x.qty) + ' lbs' })));
+		const pf = {};
+		if (p.item === st.item) (p.freezers || []).forEach(x => { pf[x.warehouse] = x.free; });
+		const fz = Object.keys(st.stock).map(k => ({ key: k, label: k + ' · ' + wpb_qf(st.stock[k], k in pf ? pf[k] : (st.free || {})[k]) }));
+		const blank = (p.projects || []).find(x => !x.project);
+		const po = [{ key: '', label: __('No Project') + (blank ? ' · ' + wpb_qf(blank.qty, blank.free) : '') }].concat((p.projects || []).filter(x => x.project).map(x => ({ key: x.project, label: x.project + (x.project_name ? ' · ' + x.project_name : '') + ' · ' + wpb_qf(x.qty, x.free) })));
 		const per = this.period();
 		const dates = wpb_range(per.from, per.to).map(d => ({ key: d.key, label: d.label + ', ' + d.year }));
 		let target = '';
@@ -653,17 +674,18 @@ class WashPlanBoard {
 			'<span>' + __('Bubble Hash item') + ' ' + strong(wpb_esc(p.bubble_hash_item || __('Not created yet'))) + '</span>' +
 			'<span>' + __('Rosin item') + ' ' + strong(wpb_esc(p.rosin_item || __('Not created yet'))) + '</span>' +
 			(target ? '<span>' + __('Goes into') + ' ' + strong(wpb_esc(target)) + '</span>' : '') + '</div>' +
+			(p.item === st.item ? wpb_holds(p.held_by, p.available != null && Number(f.lbs || 0) > p.available) : '') +
 			(this.formError ? '<span role="alert" class="wpb-warn" style="font-size:13px">' + wpb_esc(this.formError) + '</span>' : '') +
 			'<button type="button" data-action="addWash" class="wpb-btn-brand" style="align-self:flex-start"' + (this.scope.mode === 'plan' && !this.board.plan.can_write ? ' disabled' : '') + '>' + WPB_SVG.plus + __('Add to Plan') + '</button></section>';
 	}
 
 	html_freezers() {
 		const bar = x => {
-			const over = x.booked > x.stock + 0.0001;
-			const pct = x.stock > 0 ? Math.min(100, x.booked / x.stock * 100) : (x.booked ? 100 : 0);
+			const held = x.held || 0, over = x.booked + held > x.stock + 0.0001;
+			const pct = x.stock > 0 ? Math.min(100, (x.booked + held) / x.stock * 100) : (x.booked ? 100 : 0);
 			return '<div style="display:flex;flex-direction:column;gap:5px"><div style="display:flex;justify-content:space-between;gap:10px;font-size:13px"><span style="font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="' + wpb_esc(x.item) + '">' + wpb_esc(x.item_name) + '</span><span class="mono muted" style="white-space:nowrap">' + wpb_lbs(x.booked) + ' / ' + wpb_lbs(x.stock) + ' lbs</span></div>' +
 				'<div class="wpb-bar"><div style="width:' + pct + '%;background:' + (over ? 'var(--warnline)' : 'var(--brand2)') + '"></div></div>' +
-				'<span style="font-size:12px;font-weight:600;color:' + (over ? 'var(--warn)' : 'var(--muted)') + '">' + (over ? __('Over-booked by {0} lbs', [wpb_lbs(x.booked - x.stock)]) : __('{0} lbs free to plan', [wpb_lbs(x.stock - x.booked)])) + '</span></div>';
+				'<span style="font-size:12px;font-weight:600;color:' + (over ? 'var(--warn)' : 'var(--muted)') + '">' + (over ? __('Over-booked by {0} lbs', [wpb_lbs(x.booked + held - x.stock)]) : __('{0} lbs free to plan', [wpb_lbs(x.stock - x.booked - held)])) + (held ? ' · ' + __('{0} lbs held by open MRs', [wpb_lbs(held)]) : '') + '</span></div>';
 		};
 		let h = '<section class="card wpb-fz"><div style="display:flex;flex-direction:column;gap:2px"><h2 class="h2">' + __('Freezer Stock vs Plan') + '</h2><span class="muted" style="font-size:13px">' +
 			__('Booked by the washes shown here that have not consumed stock yet, per item, freezer and project. One freezer can hold stock for several projects.') + '</span></div>';
@@ -673,8 +695,8 @@ class WashPlanBoard {
 			let left = all ? Infinity : Math.max(fz.projects.reduce((c, g) => c + g.items.filter(x => x.booked > 0).length, 0), 4);
 			h += '<div class="wpb-fz-box"><div style="display:flex;justify-content:space-between;gap:10px;align-items:baseline"><span style="font-weight:800">' + wpb_esc(fz.name) + '</span><span class="mono muted" style="font-size:12px">' + wpb_lbs(fz.booked) + ' / ' + wpb_lbs(fz.stock) + ' lbs ' + __('booked') + '</span></div>';
 			if (!n) h += '<span class="muted" style="font-size:12px">' + __('No Fresh Frozen stock.') + '</span>';
-			if (Math.abs((fz.ledger_total || 0) - fz.stock) > 0.5) {
-				h += '<span class="wpb-held">' + wpb_esc(__('Ledger total in this freezer is {0} lbs, but project balances add up to {1} lbs. Some stock left the freezer without a project, so project availability may be overstated.', [wpb_lbs(fz.ledger_total), wpb_lbs(fz.stock)])) + '</span>';
+			if (this.ctx.is_admin && fz.phantom > 0.5) {
+				h += '<span class="wpb-held">' + wpb_esc(__('Admin note: project balances in this freezer claim {0} lbs more than the real stock ({1} lbs). Stock left the freezer without a project, so those project balances are hidden and every wash is capped by the real stock.', [wpb_lbs(fz.phantom), wpb_lbs(fz.stock)])) + '</span>';
 			}
 			fz.projects.forEach(g => {
 				if (left <= 0) return;
@@ -686,6 +708,15 @@ class WashPlanBoard {
 			});
 			if (n > 4 && (all || left <= 0)) {
 				h += '<button type="button" class="wpb-more" data-action="toggleFz" data-id="' + wpb_esc(fz.name) + '">' + (all ? __('Show fewer') : __('Show all {0} items with stock', [n])) + '</button>';
+			}
+			if ((fz.mr_holds || []).length) {
+				const tot = fz.mr_holds.reduce((c, x) => c + x.qty, 0);
+				h += '<details class="wpb-mrholds"><summary>' + __('Stock held by open MRs') + ' <span class="mono muted">(' + fz.mr_holds.length + ' · ' + wpb_lbs(tot) + ' lbs)</span></summary>' +
+					'<span class="muted" style="font-size:12px">' + __('Submitted Manufacture MRs not linked to a plan whose stock has not been transferred yet. Stop the ones that are no longer needed to free their stock.') + '</span>' +
+					fz.mr_holds.map(m => '<div class="wpb-mrhold"><a class="mono" href="/app/material-request/' + encodeURIComponent(m.name) + '" target="_blank" rel="noopener">' + wpb_esc(m.name) + '</a>' +
+						'<span class="wpb-mrhold-item" title="' + wpb_esc(m.item) + '">' + wpb_esc(m.item_name) + '</span>' +
+						'<span class="mono muted">' + wpb_lbs(m.qty) + ' lbs · ' + wpb_esc(wpb_day(m.date).md + ', ' + wpb_day(m.date).year) + ' · ' + wpb_esc(m.status) + (m.project ? ' · ' + wpb_esc(m.project) : '') + '</span></div>').join('') +
+					'</details>';
 			}
 			h += '</div>';
 		});
@@ -737,6 +768,7 @@ class WashPlanBoard {
 					f.project = '';
 					return this.refresh_preview();
 				}
+				p.item = args.item;
 				this.preview = p;
 				this.render();
 			});

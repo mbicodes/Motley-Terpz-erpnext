@@ -103,6 +103,19 @@ class TestWashProductionPlan(FrappeTestCase):
         self.assertEqual(w.get_available_qty(self.ff, FRZ, project="PROJ-0055"), 20)
         self.assertEqual(w.get_available_qty(self.ff, FRZ), 100)
 
+    def test_project_balance_capped_by_real_stock(self):
+        # 100 lbs received under a project, 80 lbs issued without one: only 20 lbs are really there
+        frappe.db.delete("Stock Ledger Entry", {"item_code": self.ff})
+        frappe.db.set_value("Bin", {"item_code": self.ff, "warehouse": FRZ}, "actual_qty", 0)
+        _stock(self.ff, FRZ, 100, "PROJ-0055")
+        _stock(self.ff, FRZ, -80)
+        self.assertEqual([(x.project, x.qty, x.ledger_qty) for x in w.get_stock_projects(self.ff, FRZ)], [("PROJ-0055", 20, 100)])
+        self.assertEqual(w.get_available_qty(self.ff, FRZ, project="PROJ-0055"), 20)
+        p = _plan([_row(self.ff, 15, project="PROJ-0055", bh=self.bh, rs=self.rs),
+                   _row(self.ff, 10, project="PROJ-0055", bh=self.bh, rs=self.rs)]).insert()
+        self.assertEqual([r.available_qty_lbs for r in p.items], [20, 5])
+        self.assertEqual(w.get_item_freezers(self.ff), [{"warehouse": FRZ, "qty": 20, "free": 0}])
+
     def test_project_less_row_blocked_when_stock_is_under_a_project(self):
         frappe.db.delete("Stock Ledger Entry", {"item_code": self.ff})
         _stock(self.ff, FRZ, 100, "PROJ-0055")

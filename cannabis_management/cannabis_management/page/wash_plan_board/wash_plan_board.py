@@ -49,22 +49,31 @@ def get_context():
 
 
 def strains(s=None):
-	"""Fresh Frozen items with stock in a configured freezer, with qty per freezer (all projects)."""
+	"""Fresh Frozen items with real stock (Bin.actual_qty > 0) in a configured freezer, with qty and
+	free qty (after other plans and open MRs) per freezer."""
 	s = s or wpp.get_settings()
 	freezers = [f.warehouse for f in s.freezers]
 	if not freezers:
 		return []
-	groups = frappe.db.get_descendants("Item Group", s.fresh_frozen_item_group) + [s.fresh_frozen_item_group]
+	holds = wpp.all_holds(freezers)
 	out = {}
-	for r in frappe.db.sql(
-		"""select sle.item_code, i.item_name, sle.warehouse, sum(sle.actual_qty) qty
-		from `tabStock Ledger Entry` sle join `tabItem` i on i.name = sle.item_code
-		where sle.warehouse in %(w)s and sle.is_cancelled = 0 and i.item_group in %(g)s and i.disabled = 0
-		group by sle.item_code, sle.warehouse having sum(sle.actual_qty) > 0.0001""",
-		{"w": freezers, "g": groups}, as_dict=True):
-		e = out.setdefault(r.item_code, {"item": r.item_code, "item_name": r.item_name or r.item_code, "stock": {}})
+	for r in _real_stock(freezers, s):
+		e = out.setdefault(r.item_code, {"item": r.item_code, "item_name": r.item_name or r.item_code, "stock": {}, "free": {}})
 		e["stock"][r.warehouse] = flt(r.qty, 3)
+		e["free"][r.warehouse] = flt(max(r.qty - sum(h.qty for h in holds.get((r.item_code, r.warehouse), [])), 0), 3)
 	return sorted(out.values(), key=lambda x: x["item_name"].lower())
+
+
+def _ff_groups(s):
+	return frappe.db.get_descendants("Item Group", s.fresh_frozen_item_group) + [s.fresh_frozen_item_group]
+
+
+def _real_stock(freezers, s):
+	return frappe.db.sql(
+		"""select b.item_code, i.item_name, b.warehouse, b.actual_qty qty
+		from `tabBin` b join `tabItem` i on i.name = b.item_code
+		where b.warehouse in %(w)s and b.actual_qty > 0.0001 and i.item_group in %(g)s and i.disabled = 0""",
+		{"w": freezers, "g": _ff_groups(s)}, as_dict=True)
 
 
 def open_plans():
@@ -102,7 +111,7 @@ def board(scope):
 	rows, booked = [], {}
 	for p in plans:
 		can_write = p.has_permission("write")
-		remaining, holders = p.allocate() if p.status != "Cancelled" else ({}, {})
+		remaining, holders = p.allocate(with_docs=True)[::2] if p.status != "Cancelled" else ({}, {})
 		for r in p.items:
 			if not plan and not (start <= getdate(r.planned_date) <= end):
 				continue
@@ -148,13 +157,20 @@ def _project_name(project, cache):
 	return cache["project_names"][project]
 
 
-def _stock_projects(item, freezer, cache):
-	k = (item, freezer)
+def _stock_projects(item, freezer, cache, row=None):
+	"""Projects holding the item in the freezer: qty capped by the real stock, and free after bookings."""
+	k = (item, freezer, row)
 	if k not in cache["projects"]:
 		cache["projects"][k] = [
-			{"project": x.project, "qty": flt(x.qty, 3), "project_name": _project_name(x.project, cache)}
+			{"project": x.project, "qty": flt(x.qty, 3), "project_name": _project_name(x.project, cache),
+				"free": flt(max(wpp.availability(item, freezer, x.project, exclude_row=row).available, 0), 3)}
 			for x in wpp.get_stock_projects(item, freezer)]
 	return cache["projects"][k]
+
+
+def _holds_view(docs):
+	return [{"doctype": d.doctype, "name": d.name, "row": d.row, "qty": flt(d.qty, 3), "date": d.date,
+		"status": d.status or "", "project": d.project or "", "label": d.label} for d in docs or []]
 
 
 def row_view(p, r, remaining, holders, can_write, cache):
@@ -183,56 +199,87 @@ def row_view(p, r, remaining, holders, can_write, cache):
 		"editable": editable,
 		"can_write": bool(can_write) and p.status != "Cancelled",
 		"blocked": wpp.block_reason(r, remaining) if editable else None,
-		"held_by": holders.get(r.name, []) if editable else [],
+		"held_by": _holds_view(holders.get(r.name)) if editable else [],
 	}
 	if editable:
-		if r.fresh_frozen_item not in cache["freezers"]:
-			cache["freezers"][r.fresh_frozen_item] = wpp.get_item_freezers(r.fresh_frozen_item)
-		out["freezer_options"] = cache["freezers"][r.fresh_frozen_item]
-		out["project_options"] = _stock_projects(r.fresh_frozen_item, r.source_freezer, cache)
+		out["freezer_options"] = wpp.get_item_freezers(r.fresh_frozen_item, row=r.name)
+		out["project_options"] = _stock_projects(r.fresh_frozen_item, r.source_freezer, cache, row=r.name)
 	return out
 
 
 def freezer_stock(booked):
-	"""Per configured freezer, per stock project: Fresh Frozen items with stock or with washes booked
-	in this view. Stock is the Stock Ledger balance by item + freezer + project dimension."""
+	"""Per configured freezer, per stock project: Fresh Frozen items with real stock (Bin.actual_qty > 0),
+	booked by the washes in this view, plus the open MRs holding stock there. Project balances are
+	capped so a freezer never shows more than is physically there: the real qty goes to the projects
+	with the latest receipts first; anything a project balance claims beyond that is reported as
+	phantom (admin only)."""
 	s = wpp.get_settings()
 	freezers = [x.warehouse for x in s.freezers]
 	if not freezers:
 		return []
-	groups = frappe.db.get_descendants("Item Group", s.fresh_frozen_item_group) + [s.fresh_frozen_item_group]
-	stock, names = {}, {}
-	for r in frappe.db.sql(
-		"""select sle.item_code, i.item_name, sle.warehouse, ifnull(sle.project, '') project, sum(sle.actual_qty) qty
-		from `tabStock Ledger Entry` sle join `tabItem` i on i.name = sle.item_code
-		where sle.warehouse in %(w)s and sle.is_cancelled = 0 and i.item_group in %(g)s
-		group by sle.item_code, sle.warehouse, ifnull(sle.project, '') having sum(sle.actual_qty) > 0.0001""",
-		{"w": freezers, "g": groups}, as_dict=True):
-		stock[(r.item_code, r.warehouse, r.project)] = flt(r.qty, 3)
+	real, names = {}, {}
+	for r in _real_stock(freezers, s):
+		real[(r.item_code, r.warehouse)] = flt(r.qty, 3)
 		names[r.item_code] = r.item_name or r.item_code
-	net = dict(frappe.db.sql(
-		"""select sle.warehouse, sum(sle.actual_qty) from `tabStock Ledger Entry` sle join `tabItem` i on i.name = sle.item_code
-		where sle.warehouse in %(w)s and sle.is_cancelled = 0 and i.item_group in %(g)s group by sle.warehouse""",
-		{"w": freezers, "g": groups}))
+	stock, phantom, bal = {}, {}, {}
+	for r in frappe.db.sql(
+		"""select sle.item_code, sle.warehouse, ifnull(sle.project, '') project, sum(sle.actual_qty) qty,
+			max(case when sle.actual_qty > 0 then sle.posting_date end) last_in
+		from `tabStock Ledger Entry` sle join `tabItem` i on i.name = sle.item_code
+		where sle.is_cancelled = 0 and sle.warehouse in %(w)s and i.item_group in %(g)s
+		group by sle.item_code, sle.warehouse, ifnull(sle.project, '') having sum(sle.actual_qty) > 0.0001""",
+		{"w": freezers, "g": _ff_groups(s)}, as_dict=True):
+		if (r.item_code, r.warehouse) in real:
+			bal.setdefault((r.item_code, r.warehouse), []).append(r)
+		else:  # no real stock left: the whole project balance is phantom
+			phantom[r.warehouse] = phantom.get(r.warehouse, 0) + flt(r.qty)
+	if real:
+		for k, total in real.items():
+			left = total
+			for r in sorted(bal.get(k, []), key=lambda x: str(x.last_in or ""), reverse=True):
+				take = min(flt(r.qty), left)
+				if take > 0:
+					stock[k + (r.project,)] = flt(take, 3)
+				left -= take
+				phantom[k[1]] = phantom.get(k[1], 0) + flt(r.qty) - take
+			if left > 0.0001:
+				stock[k + ("",)] = stock.get(k + ("",), 0) + flt(left, 3)
+	holds = wpp.all_holds(freezers)
+	mr_held = {}
+	for (item, wh), hs in holds.items():
+		for h in hs:
+			if h.doctype == "Material Request":
+				k = (item, wh, h.project or "")
+				mr_held[k] = mr_held.get(k, 0) + h.qty
 	pnames = {}
 	out = []
 	for f in freezers:
 		projects = {}
-		for k in {k for k in stock if k[1] == f} | {k for k in booked if k[1] == f}:
-			if k[0] not in names:
-				names[k[0]] = frappe.db.get_value("Item", k[0], "item_name") or k[0]
+		keys = {k for k in stock if k[1] == f} | {k for k in booked if k[1] == f and (k[0], f) in real}
+		for k in keys:
 			if k[2] and k[2] not in pnames:
 				pnames[k[2]] = frappe.db.get_value("Project", k[2], "project_name") or ""
 			g = projects.setdefault(k[2], {"project": k[2], "project_name": pnames.get(k[2], ""), "stock": 0, "booked": 0, "items": []})
 			a, b = stock.get(k, 0), flt(booked.get(k), 3)
-			g["items"].append({"item": k[0], "item_name": names[k[0]], "stock": a, "booked": b})
+			g["items"].append({"item": k[0], "item_name": names[k[0]], "stock": a, "booked": b, "held": flt(mr_held.get(k), 3)})
 			g["stock"] += a
 			g["booked"] += b
 		plist = sorted(projects.values(), key=lambda x: (x["project"] == "", -x["booked"], x["project"]))
 		for g in plist:
 			g["items"].sort(key=lambda x: (-x["booked"], x["item_name"].lower()))
-		out.append({"name": f, "stock": sum(g["stock"] for g in plist), "booked": sum(g["booked"] for g in plist),
-			"ledger_total": flt(net.get(f), 3), "projects": plist})
+		mr_holds = []
+		for (item, wh), hs in holds.items():
+			if wh != f:
+				continue
+			for h in hs:
+				if h.doctype == "Material Request":
+					if item not in names:
+						names[item] = frappe.db.get_value("Item", item, "item_name") or item
+					mr_holds.append(dict(_holds_view([h])[0], item=item, item_name=names[item]))
+		mr_holds.sort(key=lambda x: (x["date"], x["name"]))
+		out.append({"name": f, "stock": flt(sum(v for k, v in real.items() if k[1] == f), 3),
+			"booked": sum(g["booked"] for g in plist), "phantom": flt(phantom.get(f, 0), 3),
+			"projects": plist, "mr_holds": mr_holds})
 	return out
 
 
@@ -323,9 +370,14 @@ def preview_wash(item, freezer=None, project=None, qty=0, planned_date=None, pla
 		"expected_hash_g": row.expected_hash_g, "expected_rosin_g": row.expected_rosin_g,
 		"bubble_hash_item": fin.get("bubble_hash_item"), "rosin_item": fin.get("rosin_item"),
 		"projects": _stock_projects(item, freezer, cache) if freezer else [],
-		"available": wpp.get_available_qty(item, freezer, project=project or "") if freezer else None,
+		"freezers": wpp.get_item_freezers(item),
+		"available": None, "held_by": [],
 		"target": None,
 	}
+	if freezer:
+		a = wpp.availability(item, freezer, project or "")
+		out["available"] = max(a.available, 0)
+		out["held_by"] = _holds_view(a.hold_docs)
 	if planned_date:
 		name, new = _target(planned_date, plan, frappe.parse_json(new_plan) if new_plan else None)
 		if name:

@@ -56,66 +56,154 @@ def stock_balance(item, freezer, project=None):
         (item, freezer, _blank(project)))[0][0])
 
 
+def item_total(item, freezer):
+    """Real stock of the item in the freezer, all projects together (Bin.actual_qty)."""
+    return flt(frappe.db.get_value("Bin", {"item_code": item, "warehouse": freezer}, "actual_qty"))
+
+
+def usable_balance(item, freezer, project=None):
+    """Project balance capped by the real item + freezer stock. Historic outflows posted without a
+    project leave project balances too high; they can never exceed what is physically there."""
+    return max(min(stock_balance(item, freezer, project), item_total(item, freezer)), 0)
+
+
 @frappe.whitelist()
 def get_stock_projects(item, freezer):
-    """Projects (blank = no project) that hold stock of the item in the freezer, with qty."""
-    return frappe.db.sql(
+    """Projects (blank = no project) that hold stock of the item in the freezer, with qty capped by the
+    real item + freezer stock (ledger_qty keeps the uncapped project balance)."""
+    total = item_total(item, freezer)
+    if total <= 0:
+        return []
+    rows = frappe.db.sql(
         """select ifnull(project, '') as project, sum(actual_qty) as qty from `tabStock Ledger Entry`
         where item_code = %s and warehouse = %s and is_cancelled = 0
         group by ifnull(project, '') having sum(actual_qty) > 0.0001 order by project""",
         (item, freezer), as_dict=True)
-
-
-def external_holds(item, freezer, project=None, exclude_plan=None, exclude_row=None):
-    """Stock held by other Wash Production Plans and by open Manufacture MRs not linked to a plan.
-    Returns (qty, [description, ...])."""
-    qty, holders = 0.0, []
-    rows = frappe.db.sql(
-        """select i.name, i.parent, i.idx, i.planned_qty_lbs, i.hash_work_order, i.planned_date
-        from `tabWash Production Plan Item` i join `tabWash Production Plan` p on p.name = i.parent
-        where i.fresh_frozen_item = %s and i.source_freezer = %s and ifnull(i.project, '') = %s
-          and i.row_status in ('Planned', 'MR Created') and p.status != 'Cancelled'""",
-        (item, freezer, _blank(project)), as_dict=True)
     for r in rows:
+        r.ledger_qty = flt(r.qty)
+        r.qty = min(flt(r.qty), total)
+    return rows
+
+
+def _short(d):
+    return getdate(d).strftime("%b %-d") if d else ""
+
+
+def hold_docs(item, freezer, project=None, exclude_plan=None, exclude_row=None, all_projects=False):
+    """Plan rows of other Wash Production Plans and open Manufacture MRs not linked to a plan that hold
+    stock of the item in the freezer and have not transferred material yet. With all_projects, every
+    project's holds count (they all draw on the same physical stock)."""
+    out = []
+    cond, args = ("", (item, freezer)) if all_projects else (" and ifnull(i.project, '') = %s", (item, freezer, _blank(project)))
+    for r in frappe.db.sql(
+        """select i.name, i.parent, i.idx, i.planned_qty_lbs, i.hash_work_order, i.planned_date, i.project, i.material_request
+        from `tabWash Production Plan Item` i join `tabWash Production Plan` p on p.name = i.parent
+        where i.fresh_frozen_item = %s and i.source_freezer = %s""" + cond + """
+          and i.row_status in ('Planned', 'MR Created') and p.status != 'Cancelled'""", args, as_dict=True):
         if r.name == exclude_row or r.parent == exclude_plan or _transferred(r.hash_work_order):
             continue
-        qty += flt(r.planned_qty_lbs)
-        holders.append(_("{0} row {1}: {2} lbs ({3})").format(r.parent, r.idx, flt(r.planned_qty_lbs), r.planned_date))
-    for mr, q, dt in frappe.db.sql(
-        """select mr.name, sum(mri.stock_qty), mr.transaction_date from `tabMaterial Request` mr
-        join `tabMaterial Request Item` mri on mri.parent = mr.name
+        q = flt(r.planned_qty_lbs)
+        out.append(frappe._dict(
+            doctype="Wash Production Plan", name=r.parent, row=r.idx, qty=q, date=str(r.planned_date or ""),
+            project=r.project or "", status=_("MR {0}").format(r.material_request) if r.material_request else _("Planned"),
+            label=_("{0} row {1} ({2} lbs, {3})").format(r.parent, r.idx, q, _short(r.planned_date))))
+    cond = "" if all_projects else " and ifnull(mr.custom_project, '') = %s"
+    args = (item, freezer) if all_projects else (item, freezer, _blank(project))
+    for mr, q, dt, st, proj in frappe.db.sql(
+        """select mr.name, sum(mri.stock_qty), mr.transaction_date, mr.status, ifnull(mr.custom_project, '')
+        from `tabMaterial Request` mr join `tabMaterial Request Item` mri on mri.parent = mr.name
         where mr.material_request_type = 'Manufacture' and mr.docstatus = 1
           and mr.status not in ('Stopped', 'Cancelled', 'Completed')
           and ifnull(mr.custom_wash_production_plan, '') = ''
-          and ifnull(mr.custom_project, '') = %s and mri.item_code = %s and mri.warehouse = %s
-        group by mr.name""", (_blank(project), item, freezer)):
+          and mri.item_code = %s and mri.warehouse = %s""" + cond + """
+        group by mr.name order by mr.transaction_date""", args):
         if frappe.db.exists("Work Order", {"material_request": mr, "docstatus": 1, "material_transferred_for_manufacturing": [">", 0]}):
             continue
-        qty += flt(q)
-        holders.append(_("{0}: {1} lbs ({2})").format(mr, flt(q), dt))
-    return qty, holders
+        out.append(frappe._dict(
+            doctype="Material Request", name=mr, row=None, qty=flt(q), date=str(dt or ""), project=proj, status=st,
+            label=_("{0} ({1} lbs, {2})").format(mr, flt(q), _short(dt))))
+    return out
+
+
+def all_holds(freezers):
+    """Every hold (other plan rows + open unlinked Manufacture MRs, not transferred yet) on the given
+    freezers in one pass: {(item, freezer): [hold, ...]}. Same rules as hold_docs."""
+    out = {}
+    if not freezers:
+        return out
+    for r in frappe.db.sql(
+        """select i.fresh_frozen_item item, i.source_freezer wh, i.parent, i.idx, i.planned_qty_lbs, i.hash_work_order,
+            i.planned_date, i.project, i.material_request
+        from `tabWash Production Plan Item` i join `tabWash Production Plan` p on p.name = i.parent
+        where i.source_freezer in %(w)s and i.row_status in ('Planned', 'MR Created') and p.status != 'Cancelled'""",
+        {"w": freezers}, as_dict=True):
+        if _transferred(r.hash_work_order):
+            continue
+        q = flt(r.planned_qty_lbs)
+        out.setdefault((r.item, r.wh), []).append(frappe._dict(
+            doctype="Wash Production Plan", name=r.parent, row=r.idx, qty=q, date=str(r.planned_date or ""),
+            project=r.project or "", status=_("MR {0}").format(r.material_request) if r.material_request else _("Planned"),
+            label=_("{0} row {1} ({2} lbs, {3})").format(r.parent, r.idx, q, _short(r.planned_date))))
+    mrs = frappe.db.sql(
+        """select mr.name, mri.item_code item, mri.warehouse wh, sum(mri.stock_qty) qty, mr.transaction_date dt, mr.status,
+            ifnull(mr.custom_project, '') project
+        from `tabMaterial Request` mr join `tabMaterial Request Item` mri on mri.parent = mr.name
+        where mr.material_request_type = 'Manufacture' and mr.docstatus = 1
+          and mr.status not in ('Stopped', 'Cancelled', 'Completed')
+          and ifnull(mr.custom_wash_production_plan, '') = '' and mri.warehouse in %(w)s
+        group by mr.name, mri.item_code, mri.warehouse order by mr.transaction_date""", {"w": freezers}, as_dict=True)
+    done = set(frappe.db.sql_list(
+        """select distinct material_request from `tabWork Order` where docstatus = 1
+        and material_transferred_for_manufacturing > 0 and material_request in %(m)s""",
+        {"m": [m.name for m in mrs] or [""]}))
+    for m in mrs:
+        if m.name in done:
+            continue
+        out.setdefault((m.item, m.wh), []).append(frappe._dict(
+            doctype="Material Request", name=m.name, row=None, qty=flt(m.qty), date=str(m.dt or ""),
+            project=m.project, status=m.status, label=_("{0} ({1} lbs, {2})").format(m.name, flt(m.qty), _short(m.dt))))
+    return out
+
+
+def external_holds(item, freezer, project=None, exclude_plan=None, exclude_row=None, all_projects=False):
+    """Stock held by other Wash Production Plans and by open Manufacture MRs not linked to a plan.
+    Returns (qty, [description, ...])."""
+    docs = hold_docs(item, freezer, project, exclude_plan, exclude_row, all_projects)
+    return sum(d.qty for d in docs), [d.label for d in docs]
+
+
+def availability(item, freezer, project=None, exclude_plan=None, exclude_row=None):
+    """Free qty for one project = the lower of (project balance - that project's bookings) and
+    (real item + freezer stock - every booking on it). Never more than Bin.actual_qty."""
+    total = item_total(item, freezer)
+    own = hold_docs(item, freezer, project, exclude_plan, exclude_row)
+    every = hold_docs(item, freezer, None, exclude_plan, exclude_row, all_projects=True)
+    bal = usable_balance(item, freezer, project)
+    free = min(bal - sum(d.qty for d in own), max(total, 0) - sum(d.qty for d in every))
+    return frappe._dict(balance=bal, ledger_balance=stock_balance(item, freezer, project), total=total,
+        available=free, holders=[d.label for d in every], hold_docs=every)
 
 
 def get_available_qty(item, freezer, exclude_row=None, exclude_plan=None, project=None):
-    """Balance of the chosen project's stock minus everything booked against it elsewhere."""
-    return stock_balance(item, freezer, project) - external_holds(item, freezer, project, exclude_plan, exclude_row)[0]
+    """Free stock for the chosen project after everything booked against it elsewhere."""
+    return availability(item, freezer, project, exclude_plan, exclude_row).available
 
 
 @frappe.whitelist()
 def get_row_availability(item, freezer, project=None, plan=None, row=None):
-    ext, holders = external_holds(item, freezer, project, exclude_plan=plan, exclude_row=row)
-    bal = stock_balance(item, freezer, project)
-    return {"balance": bal, "available": bal - ext, "holders": holders}
+    return availability(item, freezer, project, exclude_plan=plan, exclude_row=row)
 
 
 @frappe.whitelist()
-def get_item_freezers(item):
+def get_item_freezers(item, plan=None, row=None):
+    """Configured freezers with real stock of the item, with the qty still free after bookings."""
     s = get_settings()
     out = []
     for f in s.freezers:
-        q = flt(frappe.db.get_value("Bin", {"item_code": item, "warehouse": f.warehouse}, "actual_qty"))
+        q = item_total(item, f.warehouse)
         if q > 0:
-            out.append({"warehouse": f.warehouse, "qty": q})
+            held = sum(d.qty for d in hold_docs(item, f.warehouse, None, plan, row, all_projects=True))
+            out.append({"warehouse": f.warehouse, "qty": q, "free": max(q - held, 0)})
     return out
 
 
@@ -340,20 +428,27 @@ class WashProductionPlan(Document):
         if over:
             frappe.msgprint("<br>".join(over), title=_("Over-booked"), indicator="orange")
 
-    def allocate(self):
+    def allocate(self, with_docs=False):
         """Allocate stock row by row in (planned_date, idx) order, after other plans and open MRs.
-        Returns ({row name: qty left for that row}, {row name: [holders]})."""
-        used, remaining, holders = {}, {}, {}
+        Each row draws on two pools: its project's balance and the real item + freezer stock.
+        Returns ({row name: qty left for that row}, {row name: [holders]}) and, with_docs, the holder docs."""
+        proj, total, remaining, holders, docs = {}, {}, {}, {}, {}
         for r in sorted(self.items, key=lambda x: (str(x.planned_date or ""), x.idx)):
-            key = (r.fresh_frozen_item, r.source_freezer, _blank(r.project))
-            if key not in used:
-                ext, hold = external_holds(*key[:2], key[2], exclude_plan=self.name)
-                used[key] = [stock_balance(*key[:2], key[2]) - ext, hold]
-            remaining[r.name] = used[key][0]
-            holders[r.name] = used[key][1]
+            kt = (r.fresh_frozen_item, r.source_freezer)
+            kp = kt + (_blank(r.project),)
+            if kt not in total:
+                every = hold_docs(*kt, exclude_plan=self.name, all_projects=True)
+                total[kt] = [max(item_total(*kt), 0) - sum(d.qty for d in every), every]
+            if kp not in proj:
+                own = hold_docs(*kt, kp[2], exclude_plan=self.name)
+                proj[kp] = usable_balance(*kp) - sum(d.qty for d in own)
+            remaining[r.name] = min(proj[kp], total[kt][0])
+            docs[r.name] = total[kt][1]
+            holders[r.name] = [d.label for d in total[kt][1]]
             if r.row_status in ("Planned", "MR Created") and not _transferred(r.hash_work_order):
-                used[key][0] -= flt(r.planned_qty_lbs)
-        return remaining, holders
+                proj[kp] -= flt(r.planned_qty_lbs)
+                total[kt][0] -= flt(r.planned_qty_lbs)
+        return (remaining, holders, docs) if with_docs else (remaining, holders)
 
     def set_totals_and_status(self):
         rows = self.items

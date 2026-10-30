@@ -113,6 +113,15 @@
 .wash-plan-board .wpb-fz-proj { display: flex; flex-direction: column; gap: 8px; padding-top: 8px; border-top: 1px dashed var(--line2); }
 .wash-plan-board .wpb-fz-proj:first-of-type { border-top: 0; padding-top: 0; }
 .wash-plan-board .wpb-held { font-size: 12px; font-weight: 600; color: var(--warn); }
+.wash-plan-board .wpb-held a { color: inherit; text-decoration: underline; }
+.wash-plan-board .wpb-held-info { color: var(--muted); }
+.wash-plan-board .wpb-held-info a { color: var(--brand2); }
+.wash-plan-board .wpb-mrholds { border-top: 1px dashed var(--line2); padding-top: 8px; font-size: 13px; }
+.wash-plan-board .wpb-mrholds summary { cursor: pointer; font-weight: 700; color: var(--warn); }
+.wash-plan-board .wpb-mrholds[open] summary { margin-bottom: 6px; }
+.wash-plan-board .wpb-mrhold { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 2px 10px; padding: 6px 0; border-top: 1px solid var(--line2); font-size: 12px; }
+.wash-plan-board .wpb-mrhold .mono.muted { grid-column: 2; }
+.wash-plan-board .wpb-mrhold-item { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wash-plan-board .wpb-bar { height: 8px; background: var(--line2); border-radius: 999px; overflow: hidden; }
 .wash-plan-board .wpb-bar > div { height: 8px; border-radius: 999px; }
 .wash-plan-board .wpb-next { flex: 1 1 280px; min-width: 0; background: var(--brand); color: #fff; border-radius: 14px; padding: 20px; display: flex; flex-direction: column; gap: 14px; }

@@ -96,9 +96,9 @@ frappe.ui.form.on("Wash Production Plan Item", {
     fresh_frozen_item(frm, cdt, cdn) {
         const r = locals[cdt][cdn];
         if (!r.fresh_frozen_item) return;
-        frappe.call({ method: `${P}.get_item_freezers`, args: { item: r.fresh_frozen_item } }).then(x => {
+        frappe.call({ method: `${P}.get_item_freezers`, args: { item: r.fresh_frozen_item, row: r.name } }).then(x => {
             const f = x.message || [];
-            frm.fields_dict.items.grid.update_docfield_property("source_freezer", "description", f.map(i => `${i.warehouse}: ${i.qty}`).join(" | "));
+            frm.fields_dict.items.grid.update_docfield_property("source_freezer", "description", f.map(i => `${i.warehouse}: ${i.qty} lbs, ${i.free} free`).join(" | "));
             if (f.length === 1) frappe.model.set_value(cdt, cdn, "source_freezer", f[0].warehouse);
             else if (!f.length) frappe.show_alert({ message: __("No configured freezer holds this item."), indicator: "orange" });
         });
