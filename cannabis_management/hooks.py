@@ -19,7 +19,7 @@ app_include_js = [
     "/assets/cannabis_management/js/pnl_gl_export.js",
     "/assets/cannabis_management/js/company_filter.js",
     "/assets/cannabis_management/js/cash_tracking_actions.js",
-    "/assets/cannabis_management/js/data_export_presets.js?v=1",
+    "/assets/cannabis_management/js/data_export_presets.js?v=2",
     "/assets/cannabis_management/js/connection_tool_menu.js?v=1",
     "/assets/cannabis_management/js/login_location.js?v=5",
     "/assets/cannabis_management/js/idle_logout.js?v=1",
