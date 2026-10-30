@@ -2,6 +2,7 @@
 // All rules (stock allocation, blocking, yields, MR creation) run on the server; this file only renders and calls.
 const WPB_M = 'cannabis_management.cannabis_management.page.wash_plan_board.wash_plan_board.';
 const LB_KG = 0.453592;
+const WPB_LIVE_DOCTYPES = ['Wash Production Plan', 'Material Request', 'Work Order', 'Stock Entry'];
 
 const WPB_PILLS = {
 	'Planned': ['#EEF1EF', '#3E4A43'],
@@ -99,8 +100,46 @@ class WashPlanBoard {
 		this.queue = Promise.resolve();
 		this.timers = {};
 		this.lastWrite = 0;
+		this.pending = 0;
+		this.dirty = false;
+		this.updatedAt = null;
 		this.bind();
-		frappe.realtime.on('doc_update', d => this.on_doc_update(d));
+		// live: refresh when a plan, MR, Work Order or Stock Entry changes anywhere, plus a slow poll for other stock moves
+		frappe.realtime.on('list_update', d => this.on_change(d));
+		frappe.realtime.on('doc_update', d => this.on_change(d));
+		this.subscribe();
+		setInterval(() => this.tick(), 60000);
+		document.addEventListener('visibilitychange', () => {
+			if (document.visibilityState === 'visible' && this.updatedAt && Date.now() - this.updatedAt > 30000) this.tick();
+		});
+	}
+
+	subscribe() {
+		WPB_LIVE_DOCTYPES.forEach(dt => frappe.realtime.doctype_subscribe && frappe.realtime.doctype_subscribe(dt));
+	}
+
+	on_board() {
+		return frappe.get_route()[0] === 'wash-plan-board';
+	}
+
+	idle() {
+		const a = document.activeElement;
+		const typing = a && this.el.contains(a) && (a.tagName === 'INPUT' || a.tagName === 'SELECT');
+		return !this.saving && !this.pending && !typing && !(window.cur_dialog && cur_dialog.display);
+	}
+
+	on_change(d) {
+		if (!d || !WPB_LIVE_DOCTYPES.includes(d.doctype) || !this.board || !this.on_board()) return;
+		this.dirty = true;
+		this.debounce('live', () => this.tick(), 1500);
+	}
+
+	tick() {
+		if (!this.ctx || !this.scope || !this.on_board() || document.visibilityState !== 'visible') return;
+		if (!this.idle()) { this.dirty = true; return this.debounce('live', () => this.tick(), 3000); }
+		this.dirty = false;
+		this.subscribe();
+		return this.load_context().then(() => this.load());
 	}
 
 	// ---------- routing / loading ----------
@@ -151,6 +190,7 @@ class WashPlanBoard {
 
 	apply(b) {
 		this.board = b;
+		this.updatedAt = Date.now();
 		if (b.mode === 'plan' && this.scope.mode !== 'plan') {
 			this.scope = { mode: 'plan', plan: b.plan.name };
 			this.draft = null;
@@ -158,16 +198,6 @@ class WashPlanBoard {
 		}
 		this.render();
 		this.refresh_preview();
-	}
-
-	on_doc_update(d) {
-		if (d.doctype !== 'Wash Production Plan' || !this.board || frappe.get_route()[0] !== 'wash-plan-board') return;
-		if (this.saving || Date.now() - this.lastWrite < 3000) return;
-		const shown = this.board.plan ? [this.board.plan.name] : this.board.plans_in_view.map(p => p.name);
-		if (shown.includes(d.name) || this.scope.mode === 'view') {
-			clearTimeout(this.timers.rt);
-			this.timers.rt = setTimeout(() => this.load(), 800);
-		}
 	}
 
 	// ---------- writes ----------
@@ -207,8 +237,17 @@ class WashPlanBoard {
 
 	update_row(row, field, value, ms) {
 		const go = () => this.mutate('update_wash', { row, field, value }, { row });
-		if (ms) { this.saveState = 'pending'; this.paint_status(); this.debounce('row:' + row + ':' + field, go, ms); }
-		else { clearTimeout(this.timers['row:' + row + ':' + field]); go(); }
+		const key = 'row:' + row + ':' + field;
+		const wasPending = !!this.timers[key];
+		clearTimeout(this.timers[key]);
+		if (wasPending) this.pending--;
+		delete this.timers[key];
+		if (ms) {
+			this.pending++;
+			this.saveState = 'pending';
+			this.paint_status();
+			this.timers[key] = setTimeout(() => { delete this.timers[key]; this.pending--; go(); }, ms);
+		} else go();
 	}
 
 	// ---------- view model ----------
@@ -316,11 +355,14 @@ class WashPlanBoard {
 	html_band() {
 		const crumb = this.scope.mode === 'plan' ? this.board.plan.name : this.scope.mode === 'draft' ? __('New plan') : __('All plans');
 		const user = this.ctx.user.full_name || this.ctx.user.name;
-		return '<header class="wpb-band"><div class="wpb-brand"><div class="wpb-logo">M</div>' +
-			'<div style="display:flex;flex-direction:column"><span style="font-weight:800;font-size:16px">Motley</span><span style="font-size:12px;color:#CFE3D6">' + wpb_esc(this.ctx.company) + '</span></div></div>' +
+		const app = this.ctx.app_name || '';
+		const at = this.updatedAt ? new Date(this.updatedAt) : null;
+		const live = at ? '<span class="wpb-live" title="' + __('Refreshes automatically when plans, Material Requests, Work Orders or Stock Entries change') + '"><span class="wpb-live-dot"></span>' + __('Live') + ' · ' + __('updated {0}', [String(at.getHours()).padStart(2, '0') + ':' + String(at.getMinutes()).padStart(2, '0')]) + '</span>' : '';
+		return '<header class="wpb-band"><div class="wpb-brand"><div class="wpb-logo">' + wpb_esc(app.charAt(0).toUpperCase()) + '</div>' +
+			'<div style="display:flex;flex-direction:column"><span style="font-weight:800;font-size:16px">' + wpb_esc(app) + '</span><span style="font-size:12px;color:#CFE3D6">' + wpb_esc(this.ctx.company) + '</span></div></div>' +
 			'<nav aria-label="Breadcrumb" class="wpb-crumbs"><a href="/app/manufacturing">' + __('Manufacturing') + '</a><span aria-hidden="true">/</span>' +
 			'<a data-action="home" href="#">' + __('Wash Production Plan') + '</a><span aria-hidden="true">/</span><span style="color:#fff;font-weight:700">' + wpb_esc(crumb) + '</span></nav>' +
-			'<div style="display:flex;align-items:center;gap:10px"><div class="wpb-avatar">' + wpb_esc(user.charAt(0).toUpperCase()) + '</div><span style="font-size:13px">' + wpb_esc(user) + '</span></div></header>';
+			'<div style="display:flex;align-items:center;gap:14px">' + live + '<div style="display:flex;align-items:center;gap:10px"><div class="wpb-avatar">' + wpb_esc(user.charAt(0).toUpperCase()) + '</div><span style="font-size:13px">' + wpb_esc(user) + '</span></div></div></header>';
 	}
 
 	html_header(v) {

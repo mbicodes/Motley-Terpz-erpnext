@@ -32,6 +32,7 @@ def get_context():
 	s = wpp.get_settings()
 	start, end = week_of(nowdate())
 	return {
+		"app_name": frappe.db.get_single_value("Website Settings", "app_name") or frappe.db.get_single_value("System Settings", "app_name") or "ERPNext",
 		"company": s.default_company,
 		"routing": s.routing,
 		"hash_yield": flt(s.default_hash_yield),
