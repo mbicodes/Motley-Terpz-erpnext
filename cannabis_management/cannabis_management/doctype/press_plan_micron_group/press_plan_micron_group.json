@@ -1,0 +1,32 @@
+{
+ "istable": 1,
+ "editable_grid": 1,
+ "name": "Press Plan Micron Group",
+ "fields": [
+  {
+   "fieldname": "micron_label",
+   "fieldtype": "Data",
+   "label": "Micron",
+   "reqd": 1,
+   "in_list_view": 1,
+   "description": "Exactly as entered in the job card Micron Collection Detail, e.g. 150u"
+  },
+  {
+   "fieldname": "expected_yield",
+   "fieldtype": "Percent",
+   "label": "Expected Rosin Yield %",
+   "reqd": 1,
+   "in_list_view": 1
+  }
+ ],
+ "doctype": "DocType",
+ "module": "Cannabis Management",
+ "engine": "InnoDB",
+ "owner": "Administrator",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "field_order": [
+  "micron_label",
+  "expected_yield"
+ ]
+}

@@ -1,0 +1,171 @@
+{
+ "autoname": "naming_series:",
+ "title_field": "name",
+ "track_changes": 1,
+ "name": "Press Production Plan",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "Manufacturing Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "Manufacturing User",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  }
+ ],
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "options": "PPP-.YYYY.-.####",
+   "default": "PPP-.YYYY.-.####",
+   "hidden": 1
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "read_only": 1
+  },
+  {
+   "fieldname": "plan_type",
+   "fieldtype": "Select",
+   "label": "Plan Type",
+   "options": "Daily\nWeekly\nCustom",
+   "default": "Weekly",
+   "reqd": 1
+  },
+  {
+   "fieldname": "from_date",
+   "fieldtype": "Date",
+   "label": "From Date",
+   "default": "Today",
+   "reqd": 1
+  },
+  {
+   "fieldname": "to_date",
+   "fieldtype": "Date",
+   "label": "To Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_main",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "planned_by",
+   "fieldtype": "Link",
+   "label": "Planned By",
+   "options": "User",
+   "default": "__user"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Draft\nIn Progress\nCompleted",
+   "default": "Draft",
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "totals_section",
+   "fieldtype": "Section Break",
+   "label": "Totals"
+  },
+  {
+   "fieldname": "washes",
+   "fieldtype": "Int",
+   "label": "Washes",
+   "read_only": 1
+  },
+  {
+   "fieldname": "bh_planned_g",
+   "fieldtype": "Float",
+   "label": "Bubble Hash Planned (g)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_totals",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "expected_rosin_g",
+   "fieldtype": "Float",
+   "label": "Expected Rosin (g)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "actual_rosin_g",
+   "fieldtype": "Float",
+   "label": "Actual Rosin (g)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "items_section",
+   "fieldtype": "Section Break",
+   "label": "Washes"
+  },
+  {
+   "fieldname": "items",
+   "fieldtype": "Table",
+   "label": "Washes",
+   "options": "Press Plan Item"
+  }
+ ],
+ "doctype": "DocType",
+ "module": "Cannabis Management",
+ "engine": "InnoDB",
+ "owner": "Administrator",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "field_order": [
+  "naming_series",
+  "company",
+  "plan_type",
+  "from_date",
+  "to_date",
+  "column_break_main",
+  "planned_by",
+  "status",
+  "totals_section",
+  "washes",
+  "bh_planned_g",
+  "column_break_totals",
+  "expected_rosin_g",
+  "actual_rosin_g",
+  "items_section",
+  "items"
+ ]
+}

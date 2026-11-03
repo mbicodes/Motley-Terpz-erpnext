@@ -1,0 +1,351 @@
+{
+ "istable": 1,
+ "name": "Press Plan Item",
+ "fields": [
+  {
+   "fieldname": "planned_date",
+   "fieldtype": "Date",
+   "label": "Planned Date",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 1
+  },
+  {
+   "fieldname": "sequence",
+   "fieldtype": "Int",
+   "label": "Sequence"
+  },
+  {
+   "fieldname": "rosin_work_order",
+   "fieldtype": "Link",
+   "label": "Rosin Work Order",
+   "options": "Work Order",
+   "reqd": 1,
+   "in_list_view": 1,
+   "columns": 2,
+   "search_index": 1
+  },
+  {
+   "fieldname": "strain",
+   "fieldtype": "Data",
+   "label": "Strain",
+   "read_only": 1,
+   "in_list_view": 1,
+   "columns": 2
+  },
+  {
+   "fieldname": "row_status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Scheduled\nPressed\nWhipped\nCancelled",
+   "default": "Scheduled",
+   "read_only": 1,
+   "in_list_view": 1,
+   "columns": 1
+  },
+  {
+   "fieldname": "hash_work_order",
+   "fieldtype": "Link",
+   "label": "Hash Work Order",
+   "options": "Work Order",
+   "read_only": 1
+  },
+  {
+   "fieldname": "material_request",
+   "fieldtype": "Link",
+   "label": "Material Request",
+   "options": "Material Request",
+   "read_only": 1
+  },
+  {
+   "fieldname": "wash_plan",
+   "fieldtype": "Link",
+   "label": "Wash Production Plan",
+   "options": "Wash Production Plan",
+   "read_only": 1
+  },
+  {
+   "fieldname": "wash_plan_row",
+   "fieldtype": "Data",
+   "label": "Wash Plan Row",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "column_break_src",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "bubble_hash_item",
+   "fieldtype": "Link",
+   "label": "Bubble Hash Item",
+   "options": "Item",
+   "read_only": 1
+  },
+  {
+   "fieldname": "rosin_item",
+   "fieldtype": "Link",
+   "label": "Rosin Item",
+   "options": "Item",
+   "read_only": 1
+  },
+  {
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "label": "Project",
+   "options": "Project",
+   "read_only": 1
+  },
+  {
+   "fieldname": "hash_finished_on",
+   "fieldtype": "Datetime",
+   "label": "Washed On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "wash_job_card",
+   "fieldtype": "Link",
+   "label": "Wash Job Card",
+   "options": "Job Card",
+   "read_only": 1
+  },
+  {
+   "fieldname": "job_card",
+   "fieldtype": "Link",
+   "label": "Press Job Card",
+   "options": "Job Card",
+   "read_only": 1
+  },
+  {
+   "fieldname": "metrc_tag",
+   "fieldtype": "Data",
+   "label": "METRC Tag",
+   "read_only": 1
+  },
+  {
+   "fieldname": "bh_section",
+   "fieldtype": "Section Break",
+   "label": "Bubble Hash"
+  },
+  {
+   "fieldname": "bh_actual_g",
+   "fieldtype": "Float",
+   "label": "BH Actual (g)",
+   "read_only": 1,
+   "description": "Produced qty of the hash Work Order."
+  },
+  {
+   "fieldname": "bh_planned_g",
+   "fieldtype": "Float",
+   "label": "BH to Press (g)",
+   "in_list_view": 1,
+   "columns": 1,
+   "description": "The Rosin Work Order is set to consume this Bubble Hash."
+  },
+  {
+   "fieldname": "g_150",
+   "fieldtype": "Float",
+   "label": "150u BH (g)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "g_120_73",
+   "fieldtype": "Float",
+   "label": "120u - 73u BH (g)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "g_45",
+   "fieldtype": "Float",
+   "label": "45u BH (g)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "micron_note",
+   "fieldtype": "Small Text",
+   "label": "Micron Check",
+   "read_only": 1
+  },
+  {
+   "fieldname": "expected_section",
+   "fieldtype": "Section Break",
+   "label": "Expected Rosin"
+  },
+  {
+   "fieldname": "exp_yield_150",
+   "fieldtype": "Percent",
+   "label": "150u Expected Yield %"
+  },
+  {
+   "fieldname": "exp_yield_120_73",
+   "fieldtype": "Percent",
+   "label": "120u - 73u Expected Yield %"
+  },
+  {
+   "fieldname": "exp_yield_45",
+   "fieldtype": "Percent",
+   "label": "45u Expected Yield %"
+  },
+  {
+   "fieldname": "column_break_exp",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "exp_rosin_150",
+   "fieldtype": "Float",
+   "label": "150u Expected Rosin (g)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "exp_rosin_120_73",
+   "fieldtype": "Float",
+   "label": "120u - 73u Expected Rosin (g)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "exp_rosin_45",
+   "fieldtype": "Float",
+   "label": "45u Expected Rosin (g)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "expected_rosin_g",
+   "fieldtype": "Float",
+   "label": "Expected Rosin (g)",
+   "read_only": 1,
+   "in_list_view": 1,
+   "columns": 1
+  },
+  {
+   "fieldname": "actual_section",
+   "fieldtype": "Section Break",
+   "label": "Actual Rosin"
+  },
+  {
+   "fieldname": "act_rosin_150",
+   "fieldtype": "Float",
+   "label": "150u Actual Rosin (g)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "act_rosin_120_73",
+   "fieldtype": "Float",
+   "label": "120u - 73u Actual Rosin (g)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "act_rosin_45",
+   "fieldtype": "Float",
+   "label": "45u Actual Rosin (g)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "actual_rosin_g",
+   "fieldtype": "Float",
+   "label": "Actual Rosin (g)",
+   "read_only": 1,
+   "in_list_view": 1,
+   "columns": 1
+  },
+  {
+   "fieldname": "column_break_act",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "act_yield_150",
+   "fieldtype": "Percent",
+   "label": "150u Actual Yield %",
+   "read_only": 1
+  },
+  {
+   "fieldname": "act_yield_120_73",
+   "fieldtype": "Percent",
+   "label": "120u - 73u Actual Yield %",
+   "read_only": 1
+  },
+  {
+   "fieldname": "act_yield_45",
+   "fieldtype": "Percent",
+   "label": "45u Actual Yield %",
+   "read_only": 1
+  },
+  {
+   "fieldname": "actual_yield",
+   "fieldtype": "Percent",
+   "label": "Actual Yield %",
+   "read_only": 1
+  },
+  {
+   "fieldname": "restore_section",
+   "fieldtype": "Section Break",
+   "label": "Original Dates",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "orig_wo_start",
+   "fieldtype": "Datetime",
+   "label": "Work Order Start Before Scheduling",
+   "read_only": 1
+  },
+  {
+   "fieldname": "orig_jc_start",
+   "fieldtype": "Datetime",
+   "label": "Job Card Start Before Scheduling",
+   "read_only": 1
+  }
+ ],
+ "doctype": "DocType",
+ "module": "Cannabis Management",
+ "engine": "InnoDB",
+ "owner": "Administrator",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "field_order": [
+  "planned_date",
+  "sequence",
+  "rosin_work_order",
+  "strain",
+  "row_status",
+  "hash_work_order",
+  "material_request",
+  "wash_plan",
+  "wash_plan_row",
+  "column_break_src",
+  "bubble_hash_item",
+  "rosin_item",
+  "project",
+  "hash_finished_on",
+  "wash_job_card",
+  "job_card",
+  "metrc_tag",
+  "bh_section",
+  "bh_actual_g",
+  "bh_planned_g",
+  "g_150",
+  "g_120_73",
+  "g_45",
+  "micron_note",
+  "expected_section",
+  "exp_yield_150",
+  "exp_yield_120_73",
+  "exp_yield_45",
+  "column_break_exp",
+  "exp_rosin_150",
+  "exp_rosin_120_73",
+  "exp_rosin_45",
+  "expected_rosin_g",
+  "actual_section",
+  "act_rosin_150",
+  "act_rosin_120_73",
+  "act_rosin_45",
+  "actual_rosin_g",
+  "column_break_act",
+  "act_yield_150",
+  "act_yield_120_73",
+  "act_yield_45",
+  "actual_yield",
+  "restore_section",
+  "orig_wo_start",
+  "orig_jc_start"
+ ]
+}

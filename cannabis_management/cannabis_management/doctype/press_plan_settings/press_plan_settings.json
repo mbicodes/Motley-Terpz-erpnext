@@ -1,0 +1,116 @@
+{
+ "issingle": 1,
+ "name": "Press Plan Settings",
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "Manufacturing Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "Manufacturing User",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  }
+ ],
+ "fields": [
+  {
+   "fieldname": "press_workstation",
+   "fieldtype": "Link",
+   "label": "Press Workstation",
+   "options": "Workstation",
+   "default": "Rosin Press - Low Temp",
+   "reqd": 1,
+   "description": "Rosin Pressing Work Orders are the Work Orders with an operation on this workstation."
+  },
+  {
+   "fieldname": "source_warehouse",
+   "fieldtype": "Link",
+   "label": "Bubble Hash Source Warehouse",
+   "options": "Warehouse",
+   "default": "Finished Goods - MTM",
+   "reqd": 1
+  },
+  {
+   "fieldname": "aging_warning_days",
+   "fieldtype": "Int",
+   "label": "Aging Warning (days)",
+   "default": "5",
+   "description": "Washed Bubble Hash waiting this many days or more is flagged in Ready to Press."
+  },
+  {
+   "fieldname": "column_break_ops",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "press_sub_operation",
+   "fieldtype": "Link",
+   "label": "Press Sub-Operation",
+   "options": "Operation",
+   "default": "Press Run",
+   "description": "When this sub-operation is complete on the job card, the wash is Pressed."
+  },
+  {
+   "fieldname": "whipping_sub_operation",
+   "fieldtype": "Link",
+   "label": "Whipping Sub-Operation",
+   "options": "Operation",
+   "default": "Whipping",
+   "description": "When this sub-operation is complete on the job card, the wash is Whipped."
+  },
+  {
+   "fieldname": "microns_section",
+   "fieldtype": "Section Break",
+   "label": "Micron Groups",
+   "description": "Up to three micron groups, in the order they are shown on the Press Plan Board."
+  },
+  {
+   "fieldname": "micron_groups",
+   "fieldtype": "Table",
+   "label": "Micron Groups",
+   "options": "Press Plan Micron Group"
+  }
+ ],
+ "doctype": "DocType",
+ "module": "Cannabis Management",
+ "engine": "InnoDB",
+ "owner": "Administrator",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "field_order": [
+  "press_workstation",
+  "source_warehouse",
+  "aging_warning_days",
+  "column_break_ops",
+  "press_sub_operation",
+  "whipping_sub_operation",
+  "microns_section",
+  "micron_groups"
+ ]
+}

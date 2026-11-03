@@ -64,7 +64,10 @@ jinja = {
 	],
 }
 
-boot_session = "cannabis_management.wash_plan_install.boot_session"
+boot_session = [
+    "cannabis_management.wash_plan_install.boot_session",
+    "cannabis_management.press_plan_install.boot_session",
+]
 
 before_migrate = ["cannabis_management.compat.install_frappe_shims"]
 
@@ -82,6 +85,7 @@ after_migrate = [
     "cannabis_management.credit_and_ar.dashboard_button.install",
     "cannabis_management.overrides.material_request_dashboard.install",
     "cannabis_management.wash_plan_install.install",
+    "cannabis_management.press_plan_install.install",
     "cannabis_management.doc_hooks.job_card.install_custom_fields",
     "cannabis_management.api.manufacturing_process.install_custom_fields",
     "cannabis_management.doc_hooks.stock_reconciliation.install_custom_fields",
@@ -256,10 +260,12 @@ doc_events = {
             "cannabis_management.doc_hooks.stock_entry.carry_produced_qty_to_sibling_work_order",
             "cannabis_management.doc_hooks.wash_plan_sync.stock_entry_sync",
             "cannabis_management.overrides.mr_run_status.on_stock_entry_change",
+            "cannabis_management.doc_hooks.press_plan_sync.stock_entry_sync",
         ],
         "on_cancel": [
             "cannabis_management.overrides.mr_run_status.on_stock_entry_change",
             "cannabis_management.doc_hooks.wash_plan_sync.stock_entry_sync",
+            "cannabis_management.doc_hooks.press_plan_sync.stock_entry_sync",
         ],
     },
     "Sales Order": {
@@ -318,7 +324,10 @@ doc_events = {
         "after_insert": "cannabis_management.doc_hooks.wash_plan_sync.work_order_after_insert",
         "before_submit": "cannabis_management.credit_and_ar.hold_engine.enforce_hold",
         "on_submit": "cannabis_management.overrides.mr_run_status.on_work_order_change",
-        "on_cancel": "cannabis_management.overrides.mr_run_status.on_work_order_change",
+        "on_cancel": [
+            "cannabis_management.overrides.mr_run_status.on_work_order_change",
+            "cannabis_management.doc_hooks.press_plan_sync.work_order_sync",
+        ],
     },
     "Timesheet": {
         "after_insert": "cannabis_management.overrides.timesheet_hooks.auto_submit_timesheet",
@@ -367,6 +376,8 @@ doc_events = {
             "cannabis_management.doc_hooks.job_card.calculate_sub_op_costs",
             "cannabis_management.doc_hooks.job_card.validate",
         ],
+        # after every save, submit, cancel and db_set (sub-op notes): rosin actuals back to the press plan
+        "on_change": "cannabis_management.doc_hooks.press_plan_sync.job_card_sync",
     },
     "Conversion Entry": {
         "on_submit": [

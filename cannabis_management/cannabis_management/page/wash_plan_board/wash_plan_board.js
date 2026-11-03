@@ -420,6 +420,7 @@ class WashPlanBoard {
 		h += '<div style="display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end">' +
 			'<label class="lbl">' + __('Plan') + '<select class="field" data-change="pickPlan" style="min-width:260px;height:42px">' + wpb_opts(selOpts, selected) + '</select></label>' +
 			'<button type="button" class="wpb-btn-out" data-action="newPlan">' + WPB_SVG.plus + __('New Plan') + '</button>' +
+			'<a class="wpb-formlink" href="/app/press-plan-board">' + __('Press Plan Board') + '</a>' +
 			(mode === 'plan' && ctx.is_admin ? '<a class="wpb-formlink" href="/app/wash-production-plan/' + encodeURIComponent(p.name) + '">' + __('Open in form') + '</a>' : '') +
 			'</div></div>';
 
