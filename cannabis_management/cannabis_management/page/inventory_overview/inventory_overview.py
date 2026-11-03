@@ -25,6 +25,8 @@ NATURES = ["Natures Lab - MTM"]
 
 ALL_GROUPS = "*"
 
+VRR_GROUP = "VRR"
+
 BLOCKS = [
 	{"key": "ready_to_sell", "title": "Ready to Sell Qty - Main Storage Warehouse",
 	 "warehouses": ["Main Storage - MTM"], "groups": None, "reserved": True},
@@ -71,19 +73,23 @@ def _require_access():
 
 def _strain(item_name, item_code, groups):
 	name = (item_name or item_code or "").strip()
-	if " - " not in name:
+	if not name:
 		return name
 
-	head, _sep, tail = name.rpartition(" - ")
 	candidates = set()
-	for g in list(groups) + list(TIERS):
+	for g in (list(groups) if groups != ALL_GROUPS else []) + list(TIERS):
 		candidates.add(g.lower())
 		candidates.add(g.replace("Tier ", "T").lower())
 		for word in g.split():
 			if len(word) > 2:
 				candidates.add(word.lower())
 
-	return head.strip() if tail.strip().lower() in candidates else name
+	# longest first, so "Fresh Frozen - BHO" is not read as a bare "BHO"
+	for suffix in sorted(candidates, key=len, reverse=True):
+		m = re.search(r"\s*[-\u2013]\s*" + re.escape(suffix) + r"\s*$", name, re.IGNORECASE)
+		if m and m.start() > 0:
+			return name[: m.start()].strip()
+	return name
 
 
 def _group_condition(groups):
@@ -226,3 +232,48 @@ def get_overview():
 		})
 
 	return {"blocks": blocks, "as_of": nowdate()}
+
+
+@frappe.whitelist()
+def get_vrr_inventory():
+	_require_access()
+
+	rows = frappe.db.sql(
+		"""
+		SELECT b.warehouse, b.item_code, i.item_name, i.stock_uom,
+		       b.actual_qty, {reserved} AS reserved_qty
+		FROM `tabBin` b
+		JOIN `tabItem` i ON i.name = b.item_code
+		WHERE i.item_group = %(group)s
+		  AND i.disabled = 0
+		  AND b.actual_qty > 0
+		ORDER BY b.warehouse, i.item_name
+		""".format(reserved=RESERVED_SQL),
+		{"group": VRR_GROUP}, as_dict=True)
+
+	by = {}
+	for r in rows:
+		w = by.setdefault(r.warehouse, {"warehouse": r.warehouse, "rows": []})
+		w["rows"].append({
+			"strain": _strain(r.item_name, r.item_code, [VRR_GROUP]),
+			"item_code": r.item_code,
+			"item_name": r.item_name,
+			"uom": r.stock_uom,
+			"qty": flt(r.actual_qty, 3),
+			"reserved_qty": flt(r.reserved_qty, 3),
+			"available": flt(flt(r.actual_qty) - flt(r.reserved_qty), 3),
+		})
+
+	warehouses = []
+	for w in by.values():
+		w["total_qty"] = flt(sum(x["qty"] for x in w["rows"]), 3)
+		w["strains"] = len({x["strain"] for x in w["rows"]})
+		warehouses.append(w)
+	warehouses.sort(key=lambda w: -w["total_qty"])
+
+	return {
+		"group": VRR_GROUP,
+		"warehouses": warehouses,
+		"total_qty": flt(sum(w["total_qty"] for w in warehouses), 3),
+		"as_of": nowdate(),
+	}

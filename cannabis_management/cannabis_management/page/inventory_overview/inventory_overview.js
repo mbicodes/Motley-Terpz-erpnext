@@ -33,10 +33,12 @@ frappe.pages['inventory-overview'].on_page_load = function (wrapper) {
 				<span class="iov-title">${__('Inventory Overview')}</span>
 				<span class="iov-sub" id="iov-sub">${__('Loading…')}</span>
 				<div class="iov-spacer"></div>
+				<button class="iov-btn" id="iov-vrr">${__('VRR-Inventory')}</button>
 				<button class="iov-btn" id="iov-print">${__('Print')}</button>
 				<button class="iov-btn primary" id="iov-refresh">${__('Refresh')}</button>
 			</div>
 			<div class="iov-banner" id="iov-banner"></div>
+			<div id="iov-vrr-panel"></div>
 			<div id="iov-blocks"><div class="iov-loading">${__('Loading stock…')}</div></div>
 			<div class="iov-note">
 				${__('Strain is the item name with its tier suffix removed. Batch (Fresh Frozen only) is the Project Name the stock was posted against — this site tracks batches as Projects on the Stock Ledger, so stock posted without one shows as (no batch). Reserved follows ERPNext’s own commitments: Sales Orders, Work Orders, subcontracting and production plans.')}
@@ -46,6 +48,7 @@ frappe.pages['inventory-overview'].on_page_load = function (wrapper) {
 
 	page.main.find('#iov-refresh').on('click', () => load(page));
 	page.main.find('#iov-print').on('click', () => window.print());
+	page.main.find('#iov-vrr').on('click', () => toggle_vrr(page));
 	load(page);
 };
 
@@ -125,4 +128,69 @@ function render(page) {
 	}).join('');
 
 	page.main.find('#iov-blocks').html(html);
+}
+
+
+function toggle_vrr(page) {
+	const $panel = page.main.find('#iov-vrr-panel');
+	const $btn = page.main.find('#iov-vrr');
+
+	if ($panel.children().length) {
+		$panel.empty();
+		$btn.removeClass('primary');
+		return;
+	}
+
+	$btn.addClass('primary');
+	$panel.html(`<div class="iov-loading">${__('Loading VRR stock…')}</div>`);
+
+	frappe.call({
+		method: IOV + 'get_vrr_inventory',
+		callback: (r) => {
+			if (!r || !r.message) { $panel.empty(); $btn.removeClass('primary'); return; }
+			render_vrr(page, r.message);
+		},
+		error: () => { $panel.empty(); $btn.removeClass('primary'); },
+	});
+}
+
+function render_vrr(page, d) {
+	const esc = frappe.utils.escape_html;
+	if (!d.warehouses.length) {
+		page.main.find('#iov-vrr-panel').html(
+			`<div class="iov-block"><div class="iov-blockhead">${esc(d.group)} ${__('Inventory')}</div>
+			<div class="iov-empty">${__('No warehouse is holding {0} stock.', [esc(d.group)])}</div></div>`);
+		return;
+	}
+
+	const cols = d.warehouses.map((w, i) => `
+		<div class="iov-col">
+			<div class="iov-collabel" style="background:${IOV_BLOCK_COLOURS[i % IOV_BLOCK_COLOURS.length]}">${esc(w.warehouse)}</div>
+			<table class="iov-table">
+				<thead><tr>
+					<th>${__('Strain')}</th>
+					<th class="iov-num">${__('Avail (g)')}</th>
+				</tr></thead>
+				<tbody>
+					${w.rows.map((x) => `<tr>
+						<td title="${esc(x.item_code)}">${esc(x.strain)}</td>
+						<td class="iov-num">${num(x.qty)}</td>
+					</tr>`).join('')}
+					<tr class="iov-total">
+						<td>${w.strains} ${w.strains === 1 ? __('strain') : __('strains')}</td>
+						<td class="iov-num">${num(w.total_qty)}</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>`).join('');
+
+	page.main.find('#iov-vrr-panel').html(`
+		<div class="iov-block">
+			<div class="iov-blockhead">
+				${esc(d.group)} ${__('Inventory')} —
+				${d.warehouses.length} ${d.warehouses.length === 1 ? __('warehouse') : __('warehouses')},
+				${num(d.total_qty)} g
+			</div>
+			<div class="iov-cols">${cols}</div>
+		</div>`);
 }
