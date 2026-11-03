@@ -214,7 +214,7 @@ frappe.pages['ar-weekly-review'].on_page_load = function (wrapper) {
 		open: {},
 		logs: {},
 		edits: {},
-		ui: { mode: 'tier', ledger: 'New AR', search: '' },
+		ui: { mode: 'tier', ledger: 'New AR', search: '', company: '', division: '' },
 	};
 
 	page.main.html(`
@@ -245,6 +245,18 @@ frappe.pages['ar-weekly-review'].on_page_load = function (wrapper) {
 
 			<div class="arw-toolbar">
 				<input class="arw-search" id="arw-search" type="text" placeholder="${__('Search customer…')}">
+				<label class="arw-fl">${__('Division')}
+					<select class="arw-search arw-fsel" id="arw-division">
+						<option value=""></option>
+						<option value="Extracts">${__('Extracts')}</option>
+						<option value="Fresh Frozen">${__('Fresh Frozen')}</option>
+					</select>
+				</label>
+				<label class="arw-fl">${__('Company')}
+					<select class="arw-search arw-fsel" id="arw-company">
+						<option value="">${__('All Entities')}</option>
+					</select>
+				</label>
 				<div class="arw-seg" id="arw-ledgerseg">
 					<button data-ledger="New AR" class="on">${__('New AR')}</button>
 					<button data-ledger="Legacy AR">${__('Legacy AR')}</button>
@@ -288,6 +300,21 @@ function bind_events(page) {
 		render(page);
 	});
 
+	page.main.find('#arw-company').on('change', function () {
+		page.arw.ui.company = this.value;
+		load(page);
+	});
+
+	// Division locks Company: Extracts = MTM + MT, Fresh Frozen = TSBC only. Clearing it
+	// restores whatever company was picked before.
+	page.main.find('#arw-division').on('change', function () {
+		const ui = page.arw.ui;
+		if (this.value && !ui.division) ui.company_before_division = ui.company;
+		ui.division = this.value;
+		ui.company = this.value ? '' : (ui.company_before_division || '');
+		load(page);
+	});
+
 	page.main.find('#arw-search').on('input', function () {
 		page.arw.ui.search = this.value;
 		render(page);
@@ -321,20 +348,42 @@ function bind_events(page) {
 }
 
 function load(page) {
+	page.main.find('#arw-sub').text(__('Loading…'));
 	frappe.call({
 		method: ARW_METHOD + 'get_ar_weekly_review',
-		args: { ledger: null },
+		args: { ledger: null, company: page.arw.ui.company || null, division: page.arw.ui.division || null },
 		callback: function (r) {
 			if (!r || !r.message) return;
 			page.arw.rows = r.message.rows || [];
 			page.arw.meta = r.message;
 			page.arw.logs = {};
+			arw_fill_company(page);
 			page.main.find('#arw-sub').text(
-				__('One row per customer per ledger · all entities · as of {0}', [r.message.as_of])
+				__('One row per customer per ledger · {0} · as of {1}', [arw_scope_label(page), r.message.as_of])
 			);
 			render(page);
 		},
 	});
+}
+
+function arw_fill_company(page) {
+	const esc = frappe.utils.escape_html;
+	const ui = page.arw.ui;
+	const $co = page.main.find('#arw-company');
+	if (ui.division) {
+		$co.html(`<option value="">${esc(arw_scope_label(page))}</option>`);
+	} else {
+		$co.html(`<option value="">${__('All Entities')}</option>` + (page.arw.meta.companies || [])
+			.map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join(''));
+		$co.val(ui.company);
+	}
+	$co.prop('disabled', !!ui.division);
+}
+
+function arw_scope_label(page) {
+	const ui = page.arw.ui;
+	if (ui.division) return (page.arw.meta.division_companies || []).join(' + ') || ui.division;
+	return ui.company || __('all entities');
 }
 
 function log_key(row) { return row.customer + '|' + row.ledger; }
@@ -675,6 +724,8 @@ function export_review(page, format) {
 	frappe.dom.freeze(format === 'csv' ? __('Building CSV…') : __('Building workbook…'));
 	open_url_post(frappe.request.url, {
 		cmd: ARW_METHOD + (format === 'csv' ? 'export_csv' : 'export_xlsx'),
+		company: page.arw.ui.company || '',
+		division: page.arw.ui.division || '',
 	});
 	setTimeout(() => frappe.dom.unfreeze(), 3000);
 }
@@ -750,7 +801,7 @@ function print_review(page) {
 			@media print{body{margin:0;-webkit-print-color-adjust:exact;print-color-adjust:exact;}}
 		</style></head><body>
 		<h1>${__('Accounts Receivable — Weekly Review')}</h1>
-		<div class="dim">${__('As of {0}', [esc(page.arw.meta.as_of || '')])} · ${__('Grouped')} ${{ tier: __('by debt level'), status: __('by status'), owner: __('by ownership'), reach_out: __('by reach out status') }[mode]} · ${__('Printed by {0}', [esc(frappe.session.user_fullname || frappe.session.user)])}</div>
+		<div class="dim">${__('As of {0}', [esc(page.arw.meta.as_of || '')])} · ${esc(arw_scope_label(page))} · ${__('Grouped')} ${{ tier: __('by debt level'), status: __('by status'), owner: __('by ownership'), reach_out: __('by reach out status') }[mode]} · ${__('Printed by {0}', [esc(frappe.session.user_fullname || frappe.session.user)])}</div>
 		${ledger_html}
 		</body></html>`;
 

@@ -36,6 +36,20 @@ AR_SEGMENT_DOCTYPE = "AR Segment"
 AR_MODES = ("legacy", "new", "all")
 
 
+# Business line -> companies; drives the Division filter on Categorized AR and AR Accountability.
+DIVISION_COMPANIES = {
+	"Extracts": ["Master Touch Manufacturing", "Motley Terpz"],
+	"Fresh Frozen": ["TSBC Ranch"],
+}
+
+
+def resolve_companies(company=None, division=None):
+	"""Division's companies if one is picked, else the single company, else None (no company filter)."""
+	if division:
+		return DIVISION_COMPANIES.get(division) or ["__none__"]
+	return [company] if company else None
+
+
 def get_segments():
 	fallback = [{"value": s, "color": None} for s in SEGMENTS]
 
@@ -102,8 +116,9 @@ def _can_edit(user=None):
 
 
 @frappe.whitelist()
-def get_data(ar_mode="legacy"):
+def get_data(ar_mode="legacy", division=None):
 	permitted = _permitted_companies()
+	division_companies = resolve_companies(division=division)
 	internal = _internal_customer_names()
 
 	has_field = frappe.db.has_column("Customer", SEGMENT_FIELD)
@@ -129,6 +144,10 @@ def get_data(ar_mode="legacy"):
 	if permitted is not None:
 		conditions.append("si.company IN %(companies)s")
 		params["companies"] = tuple(permitted) or ("__none__",)
+
+	if division_companies:
+		conditions.append("si.company IN %(division_companies)s")
+		params["division_companies"] = tuple(division_companies)
 
 	rows = frappe.db.sql(
 		f"""
@@ -168,6 +187,7 @@ def get_data(ar_mode="legacy"):
 	return {
 		"rows": rows,
 		"companies": sorted(companies),
+		"division_companies": division_companies or [],
 		"segments": [s["value"] for s in segments],
 		"segment_colors": {s["value"]: s["color"] for s in segments if s["color"]},
 		"unassigned_label": UNASSIGNED,
@@ -292,7 +312,7 @@ def install_segment_field():
 
 def _export_tables(ar_mode="legacy", filters=None):
 	filters = frappe.parse_json(filters) if isinstance(filters, str) else (filters or {})
-	data = get_data(ar_mode)
+	data = get_data(ar_mode, filters.get("division"))
 	rows = data["rows"]
 
 	search = (filters.get("search") or "").strip().lower()

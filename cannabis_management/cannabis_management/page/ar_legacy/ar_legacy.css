@@ -106,6 +106,9 @@
 .arl-input:focus {
 	outline: none; border-color: #6d28d9; box-shadow: 0 0 0 3px rgba(109, 40, 217, .12);
 }
+.arl-input:disabled {
+	opacity: .7; cursor: not-allowed; background: var(--border-color, #dfe6ee);
+}
 .arl-btn {
 	min-height: 32px; padding: 7px 14px; border-radius: 8px; cursor: pointer;
 	font-size: 12.5px; font-weight: 600;

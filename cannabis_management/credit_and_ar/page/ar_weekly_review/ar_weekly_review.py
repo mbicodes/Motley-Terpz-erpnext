@@ -15,6 +15,7 @@ from cannabis_management.cannabis_management.page.ar_legacy.ar_legacy import (
 	SEGMENT_FIELD,
 	UNASSIGNED,
 	get_segments,
+	resolve_companies,
 )
 from cannabis_management.cannabis_management.page.ar_legacy.ar_legacy import _can_edit as _can_edit_segment
 from cannabis_management.credit_and_ar.utils import NEW_AR_START
@@ -109,26 +110,35 @@ def _ledger_for(posting_date):
 	return LEDGER_NEW if str(posting_date or "") >= NEW_AR_START else LEDGER_LEGACY
 
 
-def _open_invoices():
+def _open_invoices(companies=None):
 	internal = _internal_customers()
+	company_cond = "and si.company in %(companies)s" if companies else ""
 	rows = frappe.db.sql(
-		"""
+		f"""
 		select si.name, si.customer, si.posting_date, si.due_date,
 		       si.outstanding_amount, si.company,
 		       if(ifnull(si.base_rounded_total, 0) != 0, si.base_rounded_total, si.base_grand_total) as invoiced
 		from `tabSales Invoice` si
-		where si.docstatus = 1 and si.outstanding_amount > 0
+		where si.docstatus = 1 and si.outstanding_amount > 0 {company_cond}
 		""",
+		{"companies": tuple(companies or ())},
 		as_dict=True,
 	)
 	return [r for r in rows if r.customer not in internal]
 
 
-def _build_rows(ledger=None):
+def _ar_companies():
+	return frappe.db.sql_list(
+		"""select distinct company from `tabSales Invoice`
+		   where docstatus = 1 and outstanding_amount > 0 order by company"""
+	)
+
+
+def _build_rows(ledger=None, companies=None):
 	today = getdate(nowdate())
 	groups = {}
 
-	for inv in _open_invoices():
+	for inv in _open_invoices(companies):
 		inv_ledger = _ledger_for(inv.posting_date)
 		if ledger and ledger != "all" and inv_ledger != ledger:
 			continue
@@ -227,9 +237,10 @@ def _latest_entries():
 
 
 @frappe.whitelist()
-def get_ar_weekly_review(ledger=None):
+def get_ar_weekly_review(ledger=None, company=None, division=None):
 	_require_access()
-	rows = _build_rows(ledger)
+	companies = resolve_companies(company, division)
+	rows = _build_rows(ledger, companies)
 	latest = _latest_entries()
 
 	for r in rows:
@@ -244,6 +255,8 @@ def get_ar_weekly_review(ledger=None):
 		"as_of": nowdate(),
 		"week_of": str(week_start()),
 		"new_ar_start": NEW_AR_START,
+		"companies": _ar_companies(),
+		"division_companies": companies if division else [],
 	}
 	out.update(_attach_customer_info(rows))
 	return out
@@ -311,8 +324,8 @@ TIER_LABELS = {
 }
 
 
-def _export_tables(ledger=None):
-	rows = _build_rows(ledger)
+def _export_tables(ledger=None, companies=None):
+	rows = _build_rows(ledger, companies)
 	latest = _latest_entries()
 	for r in rows:
 		info = latest.get((r["customer"], r["ledger"]))
@@ -363,9 +376,9 @@ def _export_tables(ledger=None):
 
 
 @frappe.whitelist()
-def export_xlsx(ledger=None):
+def export_xlsx(ledger=None, company=None, division=None):
 	_require_access()
-	grid, aging, log = _export_tables(ledger)
+	grid, aging, log = _export_tables(ledger, resolve_companies(company, division))
 	send_xlsx(
 		_("AR Accountability {0}").format(nowdate()),
 		[
@@ -377,7 +390,7 @@ def export_xlsx(ledger=None):
 
 
 @frappe.whitelist()
-def export_csv(ledger=None):
+def export_csv(ledger=None, company=None, division=None):
 	_require_access()
-	grid, _aging, _log = _export_tables(ledger)
+	grid, _aging, _log = _export_tables(ledger, resolve_companies(company, division))
 	send_csv(_("AR Accountability {0}").format(nowdate()), grid)

@@ -227,6 +227,11 @@
 	border-color: var(--ard-primary);
 	background: #fff;
 }
+.ard-select:disabled {
+	opacity: .75;
+	cursor: not-allowed;
+	background: var(--ard-border);
+}
 .ard-btn-primary {
 	height: 36px;
 	padding: 0 20px;

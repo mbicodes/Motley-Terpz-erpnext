@@ -1,6 +1,11 @@
 var LEGACY_CUTOFF = "2026-05-31";
 var NEW_AR_START  = "2026-06-01";
 var ALL_ENTITIES  = "__ALL__";
+var DIVISION_MULTI = "__DIVISION__";
+var DIVISION_COMPANIES = {
+    "Extracts":     ["Master Touch Manufacturing", "Motley Terpz"],
+    "Fresh Frozen": ["TSBC Ranch"],
+};
 
 frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
     var page = frappe.ui.make_app_page({
@@ -41,6 +46,14 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
 						<button id="ard-new-btn"    class="ard-mode-btn">New AR</button>
 						<button id="ard-all-btn"    class="ard-mode-btn">Legacy + New</button>
 					</div>
+				</div>
+				<div class="ard-filter-group">
+					<label class="ard-label">Division</label>
+					<select id="ard-division" class="ard-select">
+						<option value=""></option>
+						<option value="Extracts">Extracts</option>
+						<option value="Fresh Frozen">Fresh Frozen</option>
+					</select>
 				</div>
 				<div class="ard-filter-group">
 					<label class="ard-label">Company</label>
@@ -160,6 +173,12 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
     });
 
     page.main.find('#ard-company').on('change', function () {
+        update_motley_btn_visibility(page);
+        apply_filters(page);
+    });
+
+    page.main.find('#ard-division').on('change', function () {
+        apply_division(page);
         update_motley_btn_visibility(page);
         apply_filters(page);
     });
@@ -428,6 +447,51 @@ function set_ar_mode(page, mode) {
     apply_filters(page);
 }
 
+// Division locks the Company filter: Extracts = MTM + MT merged, Fresh Frozen = TSBC
+// only. Clearing it unlocks Company and restores whatever was picked before.
+function apply_division(page) {
+    let division = page.main.find('#ard-division').val();
+    let $sel = page.main.find('#ard-company');
+    $sel.find('option[value="' + DIVISION_MULTI + '"]').remove();
+
+    if (!division) {
+        $sel.prop('disabled', false);
+        if (page._ard_company_before_division != null) $sel.val(page._ard_company_before_division);
+        page._ard_company_before_division = null;
+        return;
+    }
+
+    let companies = division_companies(page, division);
+    if (!companies.length) {
+        frappe.msgprint(__("You do not have access to any {0} company.", [division]));
+        page.main.find('#ard-division').val('');
+        apply_division(page);
+        return;
+    }
+
+    if (page._ard_company_before_division == null) page._ard_company_before_division = $sel.val();
+    if (companies.length === 1) {
+        $sel.val(companies[0]);
+    } else {
+        $sel.append(`<option value="${DIVISION_MULTI}">${esc(companies.join(' + '))}</option>`);
+        $sel.val(DIVISION_MULTI);
+    }
+    $sel.prop('disabled', true);
+}
+
+// Division companies the user can actually see (the Company dropdown is already permission-scoped).
+function division_companies(page, division) {
+    let available = {};
+    page.main.find('#ard-company option').each(function () { available[$(this).val()] = true; });
+    return (DIVISION_COMPANIES[division] || []).filter(function (c) { return available[c]; });
+}
+
+// Company value to send to the server for labels (PDF filename / email subject).
+function company_scope(page) {
+    let v = page.main.find('#ard-company').val() || '';
+    return v === DIVISION_MULTI ? page.main.find('#ard-company option:selected').text() : v;
+}
+
 function update_motley_btn_visibility(page) {
     let company = page.main.find('#ard-company').val() || "";
     let is_tsbc = company.toLowerCase().indexOf("tsbc ranch") !== -1 || company === "TMM Group";
@@ -644,7 +708,8 @@ function set_new_ar_only(page, on) {
 function apply_filters(page) {
     page._ard_excl_motley = false;
     set_new_ar_only(page, page._ard_ar_mode === 'new');
-    if (page.main.find('#ard-company').val() === ALL_ENTITIES) {
+    let company = page.main.find('#ard-company').val();
+    if (company === ALL_ENTITIES || company === DIVISION_MULTI) {
         load_all_entities(page);
     } else {
         page._ard_all_mode = false;
@@ -1383,10 +1448,16 @@ function add_excel_grid(page) {
 
 function load_all_entities(page) {
     let companies = [];
-    page.main.find('#ard-company option').each(function () {
-        let v = $(this).val();
-        if (v && v !== ALL_ENTITIES && v !== 'TMM Group') companies.push(v);
-    });
+    let scope_label = "All Entities";
+    if (page.main.find('#ard-company').val() === DIVISION_MULTI) {
+        companies = division_companies(page, page.main.find('#ard-division').val());
+        scope_label = company_scope(page);
+    } else {
+        page.main.find('#ard-company option').each(function () {
+            let v = $(this).val();
+            if (v && v !== ALL_ENTITIES && v !== DIVISION_MULTI && v !== 'TMM Group') companies.push(v);
+        });
+    }
 
     if (!companies.length) {
         frappe.msgprint("No companies available.");
@@ -1420,7 +1491,7 @@ function load_all_entities(page) {
         page._ard_all_result = {
             rows: merged_rows,
             ranges: ranges || [],
-            company: "All Entities",
+            company: scope_label,
             report_date: date,
             ar_mode: page._ard_ar_mode,
             can_edit_recon: false,
@@ -1502,7 +1573,7 @@ function render_all_entities(page) {
         <div id="ard-summary-section">${build_summary_html(page, ranges, summary_totals, overdue)}</div>
         <div id="ard-projection-section">${build_projection_html(new_rows, result.report_date)}</div>
         <div id="ard-aging-section">${build_aging_html(page, ranges, summary_totals)}</div>
-        <div id="ard-table-section">${build_table_html(page, ranges, "All Entities", display_rows, table_totals, true, true)}</div>
+        <div id="ard-table-section">${build_table_html(page, ranges, result.company, display_rows, table_totals, true, true)}</div>
     `);
     add_excel_grid(page);
     apply_col_visibility(page);
@@ -1881,7 +1952,7 @@ function ard_export_report(page) {
             args: {
                 html: ard_report_document($table, mode, label, logo_src),
                 mode: mode,
-                company: page.main.find('#ard-company').val() || '',
+                company: company_scope(page),
                 report_date: get_report_date(page) || '',
                 preview: 1
             },
@@ -1915,7 +1986,7 @@ function ard_send_report(page, mode, label, $table, recipients) {
             args: {
                 html: html,
                 mode: mode,
-                company: page.main.find('#ard-company').val() || '',
+                company: company_scope(page),
                 report_date: get_report_date(page) || '',
                 recipients: JSON.stringify(recipients || [])
             },
@@ -1941,7 +2012,7 @@ function export_excel(page, use_all) {
             return;
         }
         res = page._ard_all_result;
-        company = "All_Entities";
+        company = res.company;
         display_rows = filter_rows(page, res, page._ard_excl_motley);
     } else {
         res = current_result(page);
