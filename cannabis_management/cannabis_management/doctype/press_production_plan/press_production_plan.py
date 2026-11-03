@@ -379,6 +379,12 @@ class PressProductionPlan(Document):
         elif self.plan_type == "Weekly" and self.from_date:
             self.to_date = add_days(self.from_date, 6)
 
+    def _validate_links(self):
+        # Row links are filled from the source documents and a new row's Work Order is checked in validate(). A wash
+        # whose Work Order or job card was cancelled must not make the whole plan unsaveable ("Cannot link cancelled").
+        # save() runs this before before_validate, so a flag set there would come too late.
+        return
+
     def validate(self):
         if self.flags.from_sync:
             return
