@@ -2,6 +2,7 @@ var LEGACY_CUTOFF = "2026-05-31";
 var NEW_AR_START  = "2026-06-01";
 var ALL_ENTITIES  = "__ALL__";
 var DIVISION_MULTI = "__DIVISION__";
+var PRINT_STMT_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>';
 var DIVISION_COMPANIES = {
     "Extracts":     ["Master Touch Manufacturing", "Motley Terpz"],
     "Fresh Frozen": ["TSBC Ranch"],
@@ -207,6 +208,12 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
         email_ar_report(page, 'new');
     });
 
+    page.main.on('click', '.ard-print-stmt-btn', function (e) {
+        e.stopPropagation();
+        e.preventDefault();
+        print_customer_statement(page, $(this).data('party'));
+    });
+
     page.main.on('click', '.ard-copy-btn', function (e) {
         e.stopPropagation();
         copy_customer(page, $(this).data('party'));
@@ -286,6 +293,43 @@ frappe.pages['ar-dashboard'].on_page_load = function (wrapper) {
         $btn.toggleClass('ard-expanded').html(isExpanded ? '&#9654;' : '&#9660;');
     });
 };
+
+// Opens the customer's GL-based Statement of Account PDF in a new tab.
+function print_customer_statement(page, customer) {
+    let company = page.main.find('#ard-company').val() || ALL_ENTITIES;
+    if (company === DIVISION_MULTI) {
+        company = JSON.stringify(division_companies(page, page.main.find('#ard-division').val()));
+    }
+    let to_date = page.main.find('#ard-report-date').val() || frappe.datetime.get_today();
+    let qs = $.param({ customer: customer, company: company, from_date: '2024-01-01', to_date: to_date });
+    let url = '/api/method/cannabis_management.api.customer_statement.get_customer_statement?' + qs;
+
+    // open the tab synchronously (popup blockers), fill it once the PDF is ready
+    let win = window.open('', '_blank');
+    fetch(url, { credentials: 'same-origin', headers: { 'X-Frappe-CSRF-Token': frappe.csrf_token } })
+        .then(function (res) {
+            if (res.ok) {
+                return res.blob().then(function (blob) {
+                    let blobUrl = URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
+                    if (win) win.location.href = blobUrl; else window.open(blobUrl, '_blank');
+                });
+            }
+            return res.json().catch(function () { return {}; }).then(function (err) {
+                if (win) win.close();
+                let msg = __('Could not generate statement');
+                try {
+                    if (err._server_messages) {
+                        msg = JSON.parse(JSON.parse(err._server_messages)[0]).message || msg;
+                    }
+                } catch (e) { /* keep default */ }
+                frappe.msgprint({ title: __('Print Statement'), message: msg, indicator: 'orange' });
+            });
+        })
+        .catch(function () {
+            if (win) win.close();
+            frappe.msgprint(__('Could not generate statement'));
+        });
+}
 
 function load_monthly_collection(page) {
     let area = page.main.find('#ard-monthly-area');
@@ -1315,7 +1359,7 @@ function build_table_html(page, ranges, company, display_rows, view_totals, read
         html += `
 			<tr class="ard-customer-group-row" data-party="${esc_attr(party)}">
 				<td class="ard-td-sticky">
-					<button class="ard-expand-btn" data-party="${esc_attr(party)}" title="Expand invoices">&#9654;</button><span class="ard-customer-group-name">${esc(group.name)}</span><button class="ard-copy-btn" data-party="${esc_attr(party)}" title="Copy this customer's summary">&#128203;</button>
+					<button class="ard-expand-btn" data-party="${esc_attr(party)}" title="Expand invoices">&#9654;</button><span class="ard-customer-group-name">${esc(group.name)}</span><button class="ard-copy-btn" data-party="${esc_attr(party)}" title="Copy this customer's summary">&#128203;</button>${page._ard_ar_mode !== 'new' ? `<button class="ard-print-stmt-btn" data-party="${esc_attr(party)}" title="Print Statement">${PRINT_STMT_ICON}</button>` : ``}
 					${group.name !== group.party ? `<div class="ard-customer-group-id">${esc(group.party)}</div>` : ""}
 					<div class="ard-invoice-count-compact" style="color:var(--ard-muted);font-size:11px;margin-top:2px;">${group.rows.length} invoice(s)${(paid_map[party] || []).length ? ` &bull; ${paid_map[party].length} paid` : ""}</div>
 				</td>
@@ -1715,7 +1759,7 @@ function ard_print_css() {
         '#ard-pdf-page{padding:0;}' +
         '.ard-pdf-logo-banner{background:#5a1a9e;padding:12px 18px;margin:0 0 8px;text-align:left;}' +
         '.ard-pdf-logo-banner img{height:64px;width:auto;display:inline-block;}' +
-        '.ard-filter-bar,.ard-copy-btn,.ard-expand-btn,.ard-btn-secondary,.ard-btn-danger,' +
+        '.ard-filter-bar,.ard-copy-btn,.ard-print-stmt-btn,.ard-expand-btn,.ard-btn-secondary,.ard-btn-danger,' +
         '.ard-header-right,.ard-btn-group,' +
         '#ard-summary-section,#ard-projection-section,#ard-aging-section{display:none!important;}' +
         '.ard-invoice-row{display:none!important;}' +

@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+	body { font-family: Helvetica, Arial, sans-serif; font-size: 11px; color: #1a1a1a; margin: 0; }
+	.hdr { text-align: center; margin-bottom: 14px; }
+	.hdr .title { font-size: 28px; font-weight: bold; margin: 0 0 12px; }
+	.hdr .cust { font-size: 18px; font-weight: bold; margin: 0 0 4px; }
+	.hdr .sub { font-size: 12px; color: #666; margin: 2px 0; }
+	table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+	thead { display: table-header-group; }
+	tr { page-break-inside: avoid; }
+	th { background: #2F6DB5; color: #fff; font-weight: bold; text-align: left; padding: 6px 5px; border: 1px solid #2F6DB5; }
+	td { padding: 6px 5px; border: 1px solid #d9d9d9; vertical-align: middle; }
+	.num { text-align: right; white-space: nowrap; }
+	th.num { text-align: right; }
+	tr.shade td { background: #f2f2f2; font-weight: bold; }
+	.printed { margin-top: 12px; font-size: 12px; color: #666; }
+</style>
+</head>
+<body>
+	<div class="hdr">
+		<div class="title">Statement of Account</div>
+		<div class="cust">{{ customer_name }}</div>
+		<div class="sub">{{ from_date }} to {{ to_date }}</div>
+		<div class="sub">{{ company_label }}</div>
+	</div>
+	<table>
+		<colgroup>
+			<col style="width:11%"><col style="width:16%"><col style="width:21%"><col style="width:13%">
+			<col style="width:13%"><col style="width:12%"><col style="width:14%">
+		</colgroup>
+		<thead>
+			<tr>
+				<th>Date</th><th>Company</th><th>Reference</th><th>Remarks</th>
+				<th class="num">Debit</th><th class="num">Credit</th><th class="num">Balance (Dr - Cr)</th>
+			</tr>
+		</thead>
+		<tbody>
+			<tr class="shade">
+				<td colspan="3"></td><td>Opening</td>
+				<td class="num">{{ opening.debit }}</td><td class="num">{{ opening.credit }}</td><td class="num">{{ opening.balance }}</td>
+			</tr>
+			{% for r in rows %}
+			<tr>
+				<td style="white-space:nowrap">{{ r.date }}</td><td>{{ r.company }}</td><td style="white-space:nowrap">{{ r.voucher_no }}</td><td style="white-space:nowrap">{{ r.voucher_type }}</td>
+				<td class="num">{{ r.debit }}</td><td class="num">{{ r.credit }}</td><td class="num">{{ r.balance }}</td>
+			</tr>
+			{% endfor %}
+			<tr class="shade">
+				<td colspan="3"></td><td>Total</td>
+				<td class="num">{{ total.debit }}</td><td class="num">{{ total.credit }}</td><td class="num">{{ total.balance }}</td>
+			</tr>
+			<tr class="shade">
+				<td colspan="3"></td><td>Closing (Opening + Total)</td>
+				<td class="num">{{ closing.debit }}</td><td class="num">{{ closing.credit }}</td><td class="num">{{ closing.balance }}</td>
+			</tr>
+		</tbody>
+	</table>
+	<div class="printed">Printed on {{ printed_on }}</div>
+</body>
+</html>

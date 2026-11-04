@@ -750,6 +750,21 @@
 .ard-copy-btn:hover   { opacity: 1; }
 .ard-copy-btn:active  { transform: scale(.9); }
 
+.ard-print-stmt-btn {
+	background: none;
+	border: none;
+	cursor: pointer;
+	color: var(--ard-text);
+	line-height: 1;
+	padding: 0 4px;
+	margin-left: 4px;
+	opacity: .55;
+	vertical-align: middle;
+	transition: opacity .1s, transform .1s;
+}
+.ard-print-stmt-btn:hover  { opacity: 1; color: var(--ard-primary); }
+.ard-print-stmt-btn:active { transform: scale(.9); }
+
 .ard-customer-group-name {
 	font-weight: 700;
 	color: var(--ard-text);
