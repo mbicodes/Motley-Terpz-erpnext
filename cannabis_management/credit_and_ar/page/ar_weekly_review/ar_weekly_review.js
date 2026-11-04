@@ -1,5 +1,7 @@
 const ARW_METHOD = 'cannabis_management.credit_and_ar.page.ar_weekly_review.ar_weekly_review.';
 
+const ARW_PRINT_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>';
+
 const ARW_TIER_DEF = {
 	upcoming: { label: 'Upcoming', full: 'Upcoming Terms Due',
 		desc: 'On agreed terms, not yet due.' },
@@ -342,9 +344,52 @@ function bind_events(page) {
 	});
 
 	page.main.on('click', '.arw-inline, .arw-inline-ro', (e) => e.stopPropagation());
+	page.main.on('click', '.arw-print-stmt-btn', function (e) {
+		e.stopPropagation();
+		e.preventDefault();
+		arw_print_statement(page, $(this).attr('data-customer'));
+	});
 	page.main.on('change', 'select.arw-inline', function () {
 		arw_save_customer_field(page, $(this));
 	});
+}
+
+// Opens the customer's GL-based Statement of Account PDF (all time from 01-01-2024 to as-of date).
+function arw_print_statement(page, customer) {
+	const ui = page.arw.ui;
+	let company = ui.company || '__ALL__';
+	if (ui.division) company = JSON.stringify(page.arw.meta.division_companies || []);
+	const qs = $.param({
+		customer: customer,
+		company: company,
+		from_date: '2024-01-01',
+		to_date: page.arw.meta.as_of || frappe.datetime.get_today(),
+	});
+	const url = '/api/method/cannabis_management.api.customer_statement.get_customer_statement?' + qs;
+
+	// open the tab synchronously (popup blockers), fill it once the PDF is ready
+	const win = window.open('', '_blank');
+	fetch(url, { credentials: 'same-origin', headers: { 'X-Frappe-CSRF-Token': frappe.csrf_token } })
+		.then(function (res) {
+			if (res.ok) {
+				return res.blob().then(function (blob) {
+					const blobUrl = URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
+					if (win) win.location.href = blobUrl; else window.open(blobUrl, '_blank');
+				});
+			}
+			return res.json().catch(function () { return {}; }).then(function (err) {
+				if (win) win.close();
+				let msg = __('Could not generate statement');
+				try {
+					if (err._server_messages) msg = JSON.parse(JSON.parse(err._server_messages)[0]).message || msg;
+				} catch (e) { /* keep default */ }
+				frappe.msgprint({ title: __('Print Statement'), message: msg, indicator: 'orange' });
+			});
+		})
+		.catch(function () {
+			if (win) win.close();
+			frappe.msgprint(__('Could not generate statement'));
+		});
 }
 
 function load(page) {
@@ -535,7 +580,7 @@ function build_table(page, rows, mode) {
 		html += `<tr class="arw-rowline${open ? ' open' : ''}" data-rowid="${frappe.utils.escape_html(r.id)}">
 			<td><span class="arw-arrow">▸</span></td>
 			<td>
-				<div class="arw-cust">${frappe.utils.escape_html(r.customer)}</div>
+				<div class="arw-cust">${frappe.utils.escape_html(r.customer)}<button class="arw-print-stmt-btn" data-customer="${frappe.utils.escape_html(r.customer)}" title="${__('Print Statement')}">${ARW_PRINT_ICON}</button></div>
 				<div class="arw-ledgertag">${r.ledger} · ${r.portion === 'upcoming' ? __('on terms') : __('overdue')} · ${r.invoice_count} ${__('inv')}</div>
 			</td>
 			${show_level ? `<td><span class="arw-tierchip ${r.tier}">${ARW_TIER_DEF[r.tier].label}</span></td>` : ''}

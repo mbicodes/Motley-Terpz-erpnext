@@ -63,6 +63,10 @@ table.arw-rows tbody tr:last-child td{border-bottom:none;}
 tr.arw-rowline{cursor:pointer;}
 tr.arw-rowline:hover{background:rgba(107,70,193,.035);}
 .arw-cust{font-weight:700;}
+.arw-print-stmt-btn{background:none;border:none;cursor:pointer;color:inherit;line-height:1;padding:0 4px;margin-left:6px;opacity:.55;vertical-align:middle;transition:opacity .1s,transform .1s;}
+.arw-print-stmt-btn:hover{opacity:1;}
+.arw-print-stmt-btn:active{transform:scale(.9);}
+@media print{.arw-print-stmt-btn{display:none!important;}}
 .arw-ledgertag{font-size:10.5px;color:var(--ink-dim);margin-top:1px;}
 .arw-amt{font-weight:700;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}
 .arw-days{background:var(--orange-soft);color:var(--orange);border-radius:5px;font-size:11px;

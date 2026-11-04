@@ -18,6 +18,7 @@ ALLOWED_ROLES = {
 	"System Manager",
 	"Account Receivable",
 	"AR Dashboard Viewer",
+	"AR Weekly Review",
 }
 TEMPLATE = "cannabis_management/templates/statement/customer_statement.html"
 
