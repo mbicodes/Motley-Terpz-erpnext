@@ -107,6 +107,9 @@ ALLOWED_FLAG_VALUES = ("", "Yes", "No")
 
 _INTERNAL_CUSTOMER_FALLBACK = ("Motley Terpz", "MT", "MTPZ")
 
+# Customers hidden from the AR Dashboard (display only; ERP data is untouched).
+_HIDDEN_CUSTOMERS = ("AB Customer",)
+
 
 def _internal_customer_names():
     company_names = frappe.db.sql_list("SELECT name FROM `tabCompany`")
@@ -115,7 +118,7 @@ def _internal_customer_names():
         WHERE is_internal_customer = 1
            OR (represents_company IS NOT NULL AND represents_company != '')
     """)
-    return set(company_names) | set(internal) | set(_INTERNAL_CUSTOMER_FALLBACK)
+    return set(company_names) | set(internal) | set(_INTERNAL_CUSTOMER_FALLBACK) | set(_HIDDEN_CUSTOMERS)
 
 
 def _can_edit_recon():
