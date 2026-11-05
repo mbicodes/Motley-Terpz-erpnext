@@ -708,3 +708,12 @@ def add_yield(item_code, source="Our Lab", customer=None, date=None, quantity=No
         "hash_to_rosin": flt(saved.hash_to_rosin, 2),
         "bho_yield": flt(saved.get("bho_yield"), 2),
     }
+
+
+@frappe.whitelist()
+def yield_customers():
+    """Customer choices for the Add Yield form (only for users who may add yields)."""
+    if not can_add_yield():
+        return []
+    return frappe.get_all("Customer", filters={"disabled": 0}, fields=["name", "customer_name"],
+                          order_by="customer_name asc", limit_page_length=0)
