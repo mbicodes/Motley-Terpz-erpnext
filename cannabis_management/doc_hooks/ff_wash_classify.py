@@ -15,6 +15,9 @@ A wash run is one submitted Stock Entry that consumes FF and produces Bubble Has
     Bubble Hash, so FF -> Primes / FF -> FF / FF -> Tier repacks are not counted.
 Yield = hash grams / FF grams consumed x 100, rounded to 2 decimals (exactly 2.50% is SHO). When one
 entry washes several FF items together, the combined yield of the entry counts for each of them.
+
+Every submitted Customer Yield Feedback line (Item Yield row with a Yield To Hash % above 0) also counts
+as one run, Customer and Our Lab lines alike, so customer-reported washes classify the item too.
 """
 import frappe
 from frappe import _
@@ -132,6 +135,39 @@ def wash_runs(items=None, ff=None, hashg=None):
     return out
 
 
+def cyf_runs(items=None, ff=None):
+    """{ff item: [run dicts]} from submitted Customer Yield Feedback lines with a yield."""
+    ff = tuple(ff or ff_groups())
+    cond, params = "", {"ff": ff}
+    if items is not None:
+        if not items:
+            return {}
+        cond = "and y.item_code in %(items)s"
+        params["items"] = tuple(items)
+    rows = frappe.db.sql(f"""
+        select f.name, f.date, y.item_code, y.yield_percentage
+        from `tabCustomer Yield Feedback` f
+        join `tabItem Yield` y on y.parent = f.name and y.parenttype = 'Customer Yield Feedback'
+        join `tabItem` i on i.name = y.item_code
+        where f.docstatus = 1 and ifnull(y.yield_percentage, 0) > 0 and i.item_group in %(ff)s {cond}
+        order by f.date, f.name, y.idx""", params, as_dict=True)
+    out = {}
+    for r in rows:
+        out.setdefault(r.item_code, []).append(frappe._dict(
+            stock_entry=r.name, source_doctype="Customer Yield Feedback", posting_date=r.date or getdate(),
+            purpose="Customer Yield Feedback", ff_items=[r.item_code], **{"yield": round(flt(r.yield_percentage), 2)}))
+    return out
+
+
+def all_runs(items=None, ff=None):
+    """Wash Stock Entry runs + Customer Yield Feedback runs per FF item."""
+    ff = ff or ff_groups()
+    out = wash_runs(items, ff=ff)
+    for it, rs in cyf_runs(items, ff=ff).items():
+        out.setdefault(it, []).extend(rs)
+    return out
+
+
 def summarize(runs):
     runs = runs or []
     yields = [r["yield"] for r in runs]
@@ -184,8 +220,9 @@ def plan_item(item, summary, ff=None):
     )
 
 
-def apply_plan(p, trigger=None, source=None):
-    """Write one plan_item() result. trigger = Stock Entry name; source = text for backfill comments."""
+def apply_plan(p, trigger=None, source=None, trigger_doctype="Stock Entry"):
+    """Write one plan_item() result. trigger = name of the Stock Entry / Customer Yield Feedback;
+    source = text for backfill comments."""
     if p.stats_changed or p.group_changed:
         vals = {k: v for k, v in p.stats.items() if frappe.db.has_column("Item", k)}
         if p.group_changed:
@@ -195,10 +232,9 @@ def apply_plan(p, trigger=None, source=None):
     if p.accounts and p.default_row:
         frappe.db.set_value("Item Default", p.default_row, p.accounts, update_modified=False)
     if p.group_changed:
-        why = (_("Stock Entry {0} ({1})").format(frappe.utils.get_link_to_form("Stock Entry", trigger), source)
-               if trigger and source else
-               _("Stock Entry {0}").format(frappe.utils.get_link_to_form("Stock Entry", trigger)) if trigger
-               else source or _("Backfill"))
+        link = frappe.utils.get_link_to_form(trigger_doctype, trigger) if trigger else None
+        why = (f"{_(trigger_doctype)} {link} ({source})" if trigger and source else
+               f"{_(trigger_doctype)} {link}" if trigger else source or _("Backfill"))
         msg = _("Item Group changed automatically from {0} to {1} by {2}. Wash runs: {3}, best yield: {4}%.").format(
             frappe.bold(p.old_group), frappe.bold(p.new_group), why, p.stats["custom_wash_runs"],
             p.stats["custom_best_wash_yield"])
@@ -213,14 +249,14 @@ def apply_plan(p, trigger=None, source=None):
         frappe.clear_document_cache("Item", p.item)
 
 
-def reclassify_items(items, trigger=None, source=None):
+def reclassify_items(items, trigger=None, source=None, trigger_doctype="Stock Entry"):
     ff = ff_groups()
-    history = wash_runs(items, ff=ff)
+    history = all_runs(items, ff=ff)
     changed = []
     for it in items:
         p = plan_item(it, summarize(history.get(it)), ff=ff)
         if p:
-            apply_plan(p, trigger=trigger, source=source)
+            apply_plan(p, trigger=trigger, source=source, trigger_doctype=trigger_doctype)
             if p.group_changed:
                 changed.append(p)
     return changed
@@ -254,6 +290,28 @@ def stock_entry_on_change(doc, method=None):
     except Exception:
         frappe.db.rollback(save_point="ff_wash_classify")
         frappe.log_error(title=f"FF wash classify failed for {doc.name}")
+        frappe.msgprint(_("Fresh Frozen item group could not be updated automatically. See Error Log."),
+                        indicator="orange", alert=True)
+        return
+    for p in changed:
+        frappe.msgprint(_("{0}: Item Group {1} &rarr; {2}").format(p.item, p.old_group, p.new_group),
+                        indicator="blue", alert=True)
+
+
+def customer_yield_feedback_on_change(doc, method=None):
+    """Customer Yield Feedback on_submit / on_cancel: re-classify the FF items on it."""
+    ff = set(ff_groups())
+    items = sorted({d.item_code for d in doc.get("item_yield") or []
+                    if d.item_code and frappe.db.get_value("Item", d.item_code, "item_group") in ff})
+    if not items:
+        return
+    source = _("cancelled") if method == "on_cancel" else _("submitted")
+    frappe.db.savepoint("ff_cyf_classify")
+    try:
+        changed = reclassify_items(items, trigger=doc.name, source=source, trigger_doctype="Customer Yield Feedback")
+    except Exception:
+        frappe.db.rollback(save_point="ff_cyf_classify")
+        frappe.log_error(title=f"FF classify failed for {doc.name}")
         frappe.msgprint(_("Fresh Frozen item group could not be updated automatically. See Error Log."),
                         indicator="orange", alert=True)
         return

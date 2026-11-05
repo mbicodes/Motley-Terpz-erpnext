@@ -137,6 +137,10 @@ on_session_creation = [
 ]
 
 doc_events = {
+    "Customer Yield Feedback": {
+        "on_submit": "cannabis_management.doc_hooks.ff_wash_classify.customer_yield_feedback_on_change",
+        "on_cancel": "cannabis_management.doc_hooks.ff_wash_classify.customer_yield_feedback_on_change",
+    },
     "Item": {
         "before_insert": "cannabis_management.doc_hooks.ff_wash_classify.item_before_insert",
     },

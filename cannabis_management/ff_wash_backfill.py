@@ -24,11 +24,11 @@ CUSTOM_FIELDS = {
         {"fieldname": "custom_wash_runs", "label": "Wash Runs", "fieldtype": "Int", "read_only": 1,
          "insert_after": "item_group", "no_copy": 1, "default": "0",
          "depends_on": "eval:(doc.item_group||'').indexOf('Fresh Frozen')===0",
-         "description": "Submitted wash Stock Entries that consumed this item (set automatically)"},
+         "description": "Submitted wash Stock Entries + Customer Yield Feedback yields (set automatically)"},
         {"fieldname": "custom_best_wash_yield", "label": "Best Yield %", "fieldtype": "Percent",
          "read_only": 1, "insert_after": "custom_wash_runs", "no_copy": 1, "precision": "2",
          "depends_on": "eval:(doc.item_group||'').indexOf('Fresh Frozen')===0",
-         "description": "Highest hash yield of any wash run; 2.5% or above = SHO"},
+         "description": "Highest hash yield of any run (wash or Customer Yield Feedback); 2.5% or above = SHO"},
         {"fieldname": "custom_last_wash_date", "label": "Last Wash Date", "fieldtype": "Date",
          "read_only": 1, "insert_after": "custom_best_wash_yield", "no_copy": 1,
          "depends_on": "eval:(doc.item_group||'').indexOf('Fresh Frozen')===0"},
@@ -52,7 +52,7 @@ def build_plans():
     ff = fwc.ff_groups()
     items = frappe.get_all("Item", filters={"item_group": ["in", ff], "disabled": 0},
                            fields=["name", "item_name", "disabled"], order_by="name")
-    history = fwc.wash_runs(None, ff=ff)
+    history = fwc.all_runs(None, ff=ff)
     stock = dict(frappe.db.sql(
         """select item_code, sum(actual_qty) from tabBin where item_code in %s group by item_code""",
         (tuple(i.name for i in items) or ("",),)))
