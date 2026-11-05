@@ -4,6 +4,22 @@ MANAGER_ROLES = {"System Manager", "Sales Manager", "Accounts Manager"}
 SUPER_ADMIN_ROLE = "Super Admin"
 
 
+def _ownership_scoping_enabled():
+    """Whether a sales person is limited to their own customers.
+
+    Single source of truth is crm.motley_terpz.access, so turning scoping off
+    there turns it off here too -- the two sides disagreeing is exactly the
+    bug this module already carries scars from. Falls back to scoped if the
+    CRM app is absent, which is the safer direction to fail.
+    """
+    try:
+        from crm.motley_terpz.access import ownership_scoping_enabled
+
+        return ownership_scoping_enabled()
+    except Exception:
+        return True
+
+
 def _sees_all_customers(user):
     if user == "Administrator":
         return True
@@ -70,6 +86,9 @@ def customer_query_conditions(user):
     if not user:
         user = frappe.session.user
 
+    if not _ownership_scoping_enabled():
+        return ""
+
     if _sees_all_customers(user):
         return ""
 
@@ -85,6 +104,9 @@ def customer_query_conditions(user):
 def customer_has_permission(doc, user=None, ptype="read"):
     if not user:
         user = frappe.session.user
+
+    if not _ownership_scoping_enabled():
+        return True
 
     if _sees_all_customers(user):
         return True
@@ -102,6 +124,9 @@ def sales_invoice_query_conditions(user):
     if not user:
         user = frappe.session.user
 
+    if not _ownership_scoping_enabled():
+        return ""
+
     if user == "Administrator":
         return ""
 
@@ -117,6 +142,9 @@ def sales_invoice_query_conditions(user):
 def sales_invoice_has_permission(doc, user=None, ptype="read"):
     if not user:
         user = frappe.session.user
+
+    if not _ownership_scoping_enabled():
+        return True
 
     if user == "Administrator":
         return True
