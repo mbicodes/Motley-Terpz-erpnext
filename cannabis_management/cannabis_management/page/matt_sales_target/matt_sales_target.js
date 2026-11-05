@@ -167,6 +167,7 @@ frappe.pages['matt-sales-target'].on_page_load = function (wrapper) {
             igs:[
               {d:'Fresh Frozen Main', m:['Fresh Frozen Main','Fresh Frozen - Main',
                                         'Fresh Frozen','Fresh Frozen - SHO','Fresh Frozen - BHO',
+                                        'Fresh Frozen Untested','Fresh Frozen - To Be Determined',
                                         'Frozen']},
             ]},
         ];

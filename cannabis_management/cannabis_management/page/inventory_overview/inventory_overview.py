@@ -17,7 +17,7 @@ RESERVED_SQL = """(
   + COALESCE(b.reserved_qty_for_production_plan, 0)
 )"""
 
-FRESH_FROZEN = ("Fresh Frozen", "Fresh Frozen - BHO", "Fresh Frozen - SHO")
+from cannabis_management.ff_groups import FF_GROUPS as FRESH_FROZEN  # noqa: E402
 
 FREEZERS = ["Freezer - MTM", "Freezer 2 - MTM", "Freezer 3 - MTM", "Freezer 4 - MTM"]
 

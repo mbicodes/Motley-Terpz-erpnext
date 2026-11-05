@@ -18,7 +18,7 @@ def get_live_menu_groups():
           AND ig.custom_show_in_extracts_live = 1
           AND EXISTS (
               SELECT 1 FROM `tabItem` i 
-              WHERE i.item_group = ig.name 
+              WHERE (i.item_group = ig.name OR (ig.name = 'Fresh Frozen' AND i.item_group IN ('Fresh Frozen', 'Fresh Frozen - BHO', 'Fresh Frozen - SHO', 'Fresh Frozen Untested', 'Fresh Frozen - To Be Determined')))
                 AND i.custom_show_in_dashboard = 1
                 AND i.disabled = 0
                 AND i.custom_hide_from_client = 0

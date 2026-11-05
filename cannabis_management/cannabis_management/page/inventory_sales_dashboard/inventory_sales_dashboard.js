@@ -714,6 +714,8 @@ frappe.pages['inventory-sales-dashboard'].on_page_load = function (wrapper) {
         const g = String(item.item_group || '');
         if (g === 'Fresh Frozen - BHO') return 'BHO';
         if (g === 'Fresh Frozen - SHO') return 'SHO';
+        if (g === 'Fresh Frozen Untested') return 'Untested';
+        if (g === 'Fresh Frozen - To Be Determined') return 'TBD';
         return '';
     }
 
@@ -740,7 +742,8 @@ frappe.pages['inventory-sales-dashboard'].on_page_load = function (wrapper) {
     const GROUP_ORDER = ['Fresh Frozen','Primes','Subprimes','VRR','O2 Vape','1g O2 Vapes','LIQUID LIVE RESIN','Full Spec','Food Grade','Gummies','Farm Supplies','Drawings'];
 
     function filterSubgroups(groups) {
-        return groups.filter(g => g.name !== 'Fresh Frozen - BHO' && g.name !== 'Fresh Frozen - SHO');
+        // every Fresh Frozen sub group is shown inside the single 'Fresh Frozen' entry
+        return groups.filter(g => g.name === 'Fresh Frozen' || !String(g.name || '').startsWith('Fresh Frozen'));
     }
 
     function sortGroups(groups) {

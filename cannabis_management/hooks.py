@@ -137,6 +137,9 @@ on_session_creation = [
 ]
 
 doc_events = {
+    "Item": {
+        "before_insert": "cannabis_management.doc_hooks.ff_wash_classify.item_before_insert",
+    },
     "Journal Entry": {
         "on_submit": "cannabis_management.api.undelivered_cogs.journal_entry_on_submit",
         "before_cancel": "cannabis_management.api.undelivered_cogs.journal_entry_before_cancel",
@@ -261,11 +264,13 @@ doc_events = {
             "cannabis_management.doc_hooks.wash_plan_sync.stock_entry_sync",
             "cannabis_management.overrides.mr_run_status.on_stock_entry_change",
             "cannabis_management.doc_hooks.press_plan_sync.stock_entry_sync",
+            "cannabis_management.doc_hooks.ff_wash_classify.stock_entry_on_change",
         ],
         "on_cancel": [
             "cannabis_management.overrides.mr_run_status.on_stock_entry_change",
             "cannabis_management.doc_hooks.wash_plan_sync.stock_entry_sync",
             "cannabis_management.doc_hooks.press_plan_sync.stock_entry_sync",
+            "cannabis_management.doc_hooks.ff_wash_classify.stock_entry_on_change",
         ],
     },
     "Sales Order": {

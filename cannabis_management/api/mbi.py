@@ -11,7 +11,8 @@ MBI_ITEM_GROUPS = (
     '1g Jarred Rosin', '3g Jarred Rosin',
 )
 
-_IG_ALIAS = {'Fresh Frozen - BHO': 'Fresh Frozen'}
+_IG_ALIAS = {'Fresh Frozen - BHO': 'Fresh Frozen', 'Fresh Frozen Untested': 'Fresh Frozen',
+             'Fresh Frozen - To Be Determined': 'Fresh Frozen'}
 
 MBI_CONV_GROUPS = (
     'Primes', 'Subprimes', 'Full Spec', 'Food Grade', 'VRR',

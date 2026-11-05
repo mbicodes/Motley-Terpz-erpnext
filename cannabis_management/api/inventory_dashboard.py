@@ -7,7 +7,7 @@ from cannabis_management.cannabis_management.page.manufacturing_runs.manufacturi
 )
 
 MTM_COMPANY = "Master Touch Manufacturing"
-FRESH_FROZEN_GROUPS = ("Fresh Frozen", "Fresh Frozen - BHO", "Fresh Frozen - SHO")
+from cannabis_management.ff_groups import FF_GROUPS as FRESH_FROZEN_GROUPS  # noqa: E402
 
 RESERVED_SUBQUERY = """
     SELECT item_code, warehouse, SUM(reserved_qty - delivered_qty) AS reserved_qty

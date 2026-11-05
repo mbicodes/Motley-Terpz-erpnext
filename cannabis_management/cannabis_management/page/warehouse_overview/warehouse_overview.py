@@ -12,7 +12,7 @@ def get_item_groups():
             ig.name,
             COUNT(i.name) as item_count
         FROM `tabItem Group` ig
-        INNER JOIN `tabItem` i ON i.item_group = ig.name
+        INNER JOIN `tabItem` i ON (i.item_group = ig.name OR (ig.name = 'Fresh Frozen' AND i.item_group IN ('Fresh Frozen', 'Fresh Frozen - BHO', 'Fresh Frozen - SHO', 'Fresh Frozen Untested', 'Fresh Frozen - To Be Determined')))
             AND i.disabled = 0
             AND i.custom_show_in_dashboard = 1
         WHERE ig.is_group = 0

@@ -150,7 +150,8 @@ const WO_GROUP_ORDER = [
 ];
 
 const WO_FRESH_FROZEN_MAIN = 'Fresh Frozen';
-const WO_FRESH_FROZEN_SUBS = ['Fresh Frozen', 'Fresh Frozen - BHO', 'Fresh Frozen - SHO'];
+const WO_FRESH_FROZEN_SUBS = ['Fresh Frozen', 'Fresh Frozen - BHO', 'Fresh Frozen - SHO',
+    'Fresh Frozen Untested', 'Fresh Frozen - To Be Determined'];
 
 const WO_DEFAULT_WAREHOUSE       = "Nature's Lab - MT";
 const WO_GROUP_DEFAULT_WAREHOUSE = {
@@ -399,7 +400,7 @@ function woLoad() {
 
             const topLevel = r.message.filter(function (g) {
                 const n = String(g.name || '').trim();
-                return n !== 'Fresh Frozen - BHO' && n !== 'Fresh Frozen - SHO';
+                return n === WO_FRESH_FROZEN_MAIN || WO_FRESH_FROZEN_SUBS.indexOf(n) === -1;
             });
 
             const sorted = topLevel.slice().sort(function (a, b) {
@@ -753,5 +754,7 @@ function woGetTypeLabel(item) {
     const g = String(item.item_group || '').trim();
     if (g === 'Fresh Frozen - BHO') return 'BHO';
     if (g === 'Fresh Frozen - SHO') return 'SHO';
+    if (g === 'Fresh Frozen Untested') return 'Untested';
+    if (g === 'Fresh Frozen - To Be Determined') return 'TBD';
     return '';
 }

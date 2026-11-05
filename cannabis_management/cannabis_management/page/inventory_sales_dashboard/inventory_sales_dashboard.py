@@ -1,12 +1,14 @@
 import frappe
 
+from cannabis_management.ff_groups import FF_GROUPS, FF_UMBRELLA
+
 
 @frappe.whitelist()
 def get_item_groups():
     return frappe.db.sql("""
         SELECT ig.name, COUNT(i.name) AS item_count
         FROM `tabItem Group` ig
-        INNER JOIN `tabItem` i ON i.item_group = ig.name
+        INNER JOIN `tabItem` i ON (i.item_group = ig.name OR (ig.name = 'Fresh Frozen' AND i.item_group IN ('Fresh Frozen', 'Fresh Frozen - BHO', 'Fresh Frozen - SHO', 'Fresh Frozen Untested', 'Fresh Frozen - To Be Determined')))
             AND i.disabled = 0
             AND i.custom_show_in_dashboard = 1
         WHERE ig.is_group = 0
@@ -77,8 +79,8 @@ def get_stock_with_sales(item_group):
 
 
 def _get_groups_to_load(item_group):
-    if item_group == "Fresh Frozen":
-        return ["Fresh Frozen", "Fresh Frozen - BHO", "Fresh Frozen - SHO"]
+    if item_group == FF_UMBRELLA:
+        return list(FF_GROUPS)
     return [item_group]
 
 

@@ -1,7 +1,8 @@
 import frappe
 from frappe.utils import flt
 
-FROZEN_FLIP_ITEM_GROUP = "Fresh Frozen"
+# FF items move between the Fresh Frozen Main child groups by wash yield, so use the whole subtree
+from cannabis_management.doc_hooks.ff_wash_classify import ff_groups  # noqa: E402
 
 
 @frappe.whitelist()
@@ -40,7 +41,7 @@ def set_harvest_status(harvest_name, new_status):
 
 @frappe.whitelist()
 def get_procurement_cards():
-    items = frappe.get_all("Item", filters={"item_group": FROZEN_FLIP_ITEM_GROUP}, pluck="name")
+    items = frappe.get_all("Item", filters={"item_group": ["in", ff_groups()]}, pluck="name")
     if not items:
         return []
 
@@ -91,7 +92,7 @@ def get_procurement_cards():
 
 @frappe.whitelist()
 def get_archived_procurement_cards():
-    items = frappe.get_all("Item", filters={"item_group": FROZEN_FLIP_ITEM_GROUP}, pluck="name")
+    items = frappe.get_all("Item", filters={"item_group": ["in", ff_groups()]}, pluck="name")
     if not items:
         return []
 
