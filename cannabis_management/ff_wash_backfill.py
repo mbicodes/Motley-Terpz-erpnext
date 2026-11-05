@@ -16,7 +16,7 @@ from frappe.utils import now_datetime
 from cannabis_management.doc_hooks import ff_wash_classify as fwc
 
 CSV_COLUMNS = ["item", "item_name", "disabled", "stock_lbs", "wash_runs", "best_yield", "yields",
-               "last_wash_date", "wash_entries", "old_group", "new_group", "group_changes",
+               "avg_yield_to_hash", "last_wash_date", "wash_entries", "old_group", "new_group", "group_changes",
                "mtm_row", "mtm_accounts_change", "rule"]
 
 CUSTOM_FIELDS = {
@@ -29,8 +29,12 @@ CUSTOM_FIELDS = {
          "read_only": 1, "insert_after": "custom_wash_runs", "no_copy": 1, "precision": "2",
          "depends_on": "eval:(doc.item_group||'').indexOf('Fresh Frozen')===0",
          "description": "Highest hash yield of any run (wash or Customer Yield Feedback); 2.5% or above = SHO"},
+        {"fieldname": "custom_avg_yield_to_hash", "label": "Avg Yield to Hash %", "fieldtype": "Percent",
+         "read_only": 1, "insert_after": "custom_best_wash_yield", "no_copy": 1, "precision": "2",
+         "depends_on": "eval:(doc.item_group||'').indexOf('Fresh Frozen')===0",
+         "description": "Average of the Yield To Hash values shown on the Inventory Dashboard (values under 0.5% ignored); 2.5% or above = SHO"},
         {"fieldname": "custom_last_wash_date", "label": "Last Wash Date", "fieldtype": "Date",
-         "read_only": 1, "insert_after": "custom_best_wash_yield", "no_copy": 1,
+         "read_only": 1, "insert_after": "custom_avg_yield_to_hash", "no_copy": 1,
          "depends_on": "eval:(doc.item_group||'').indexOf('Fresh Frozen')===0"},
     ]
 }
@@ -53,17 +57,18 @@ def build_plans():
     items = frappe.get_all("Item", filters={"item_group": ["in", ff], "disabled": 0},
                            fields=["name", "item_name", "disabled"], order_by="name")
     history = fwc.all_runs(None, ff=ff)
+    values = fwc.yield_values([i.name for i in items])
     stock = dict(frappe.db.sql(
         """select item_code, sum(actual_qty) from tabBin where item_code in %s group by item_code""",
         (tuple(i.name for i in items) or ("",),)))
     out = []
     for it in items:
         runs = history.get(it.name) or []
-        p = fwc.plan_item(it.name, fwc.summarize(runs), ff=ff)
+        p = fwc.plan_item(it.name, fwc.summarize(runs, values.get(it.name, [])), ff=ff)
         if not p:
             continue
         p.update(item_name=it.item_name, disabled=it.disabled, stock_lbs=round(stock.get(it.name) or 0, 3),
-                 runs=runs)
+                 runs=runs, yth_values=values.get(it.name, []))
         out.append(p)
     return out
 
@@ -72,7 +77,8 @@ def _row(p):
     return {
         "item": p.item, "item_name": p.item_name, "disabled": p.disabled, "stock_lbs": p.stock_lbs,
         "wash_runs": p.stats["custom_wash_runs"], "best_yield": p.stats["custom_best_wash_yield"],
-        "yields": " / ".join(f"{r['yield']:.2f}" for r in p.runs),
+        "yields": " / ".join(f"{v:.2f}" for v in p.yth_values),
+        "avg_yield_to_hash": p.stats["custom_avg_yield_to_hash"],
         "last_wash_date": p.stats["custom_last_wash_date"] or "",
         "wash_entries": " ".join(r.stock_entry for r in p.runs),
         "old_group": p.old_group, "new_group": p.new_group,
@@ -80,7 +86,9 @@ def _row(p):
         "mtm_row": "yes" if p.default_row else "no (group defaults apply)",
         "mtm_accounts_change": "; ".join(f"{f}: {p.old_accounts.get(f) or '-'} -> {v or '-'}"
                                          for f, v in p.accounts.items()),
-        "rule": "0 runs: Untested" if not p.stats["custom_wash_runs"] else "wash yield rules",
+        "rule": ("no yield: Untested" if not p.stats["custom_wash_runs"] else
+                 "avg >= 2.5: SHO" if p.stats["custom_avg_yield_to_hash"] >= fwc.SHO_THRESHOLD else
+                 "1 value < 2.5: TBD" if p.stats["custom_wash_runs"] == 1 else "2+ values, avg < 2.5: BHO"),
     }
 
 

@@ -137,6 +137,13 @@ on_session_creation = [
 ]
 
 doc_events = {
+    "Rosin Recording": {
+        "on_update": "cannabis_management.doc_hooks.ff_wash_classify.rosin_recording_on_change",
+        "on_submit": "cannabis_management.doc_hooks.ff_wash_classify.rosin_recording_on_change",
+        "on_cancel": "cannabis_management.doc_hooks.ff_wash_classify.rosin_recording_on_change",
+        "on_update_after_submit": "cannabis_management.doc_hooks.ff_wash_classify.rosin_recording_on_change",
+        "after_delete": "cannabis_management.doc_hooks.ff_wash_classify.rosin_recording_on_change",
+    },
     "Customer Yield Feedback": {
         "on_submit": "cannabis_management.doc_hooks.ff_wash_classify.customer_yield_feedback_on_change",
         "on_cancel": "cannabis_management.doc_hooks.ff_wash_classify.customer_yield_feedback_on_change",

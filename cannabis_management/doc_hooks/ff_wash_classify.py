@@ -1,23 +1,18 @@
-"""Auto-classify Fresh Frozen (FF) items into Item Groups by wash yield.
+"""Auto-classify Fresh Frozen (FF) items into Item Groups by their AVERAGE Yield To Hash.
 
-Every time a wash Stock Entry is submitted or cancelled, each FF item it consumed is re-classified
-from its FULL submitted wash history (never incremented), so cancellations undo themselves:
+The yield values are exactly the ones the Inventory Dashboard shows in "Yield To Hash%"
+(api/inventory_dashboard.yield_to_hash_values: Lab Tolling Data, manufacturing run yields and
+submitted Customer Yield Feedback lines), and their average is the dashboard's "Avg Yield to Hash%":
 
-    never washed (0 submitted runs)            -> Fresh Frozen Untested, whatever the current group
-    washed once, yield below 2.5%              -> Fresh Frozen - To Be Determined
-    any run ever at 2.5% or above              -> Fresh Frozen - SHO   (later low runs keep it there)
-    washed 2+ times, every run below 2.5%      -> Fresh Frozen - BHO
+    no yield value                              -> Fresh Frozen Untested, whatever the current group
+    average >= 2.5%                             -> Fresh Frozen - SHO
+    one value, below 2.5%                       -> Fresh Frozen - To Be Determined
+    two or more values, average below 2.5%      -> Fresh Frozen - BHO
 
-A wash run is one submitted Stock Entry that consumes FF and produces Bubble Hash:
-  * Manufacture: at least one FF input row and at least one Bubble Hash output row
-    (all micron grades are Bubble Hash items and are added together);
-  * Repack (the pre-Work Order washes of Sept 2026): every input row is FF and every output row is
-    Bubble Hash, so FF -> Primes / FF -> FF / FF -> Tier repacks are not counted.
-Yield = hash grams / FF grams consumed x 100, rounded to 2 decimals (exactly 2.50% is SHO). When one
-entry washes several FF items together, the combined yield of the entry counts for each of them.
-
-Every submitted Customer Yield Feedback line (Item Yield row with a Yield To Hash % above 0) also counts
-as one run, Customer and Our Lab lines alike, so customer-reported washes classify the item too.
+Values below 0.5% are treated as data-entry slips and left out (MIN_VALID_YIELD_TO_HASH).
+Re-classification always recalculates from all values (never incremented) and runs on submit / cancel
+of a wash Stock Entry, of a Customer Yield Feedback and on changes to a Rosin Recording (Lab Tolling Data).
+Wash Stock Entries and Customer Yield Feedback dates also give the item's Last Wash Date.
 """
 import frappe
 from frappe import _
@@ -31,7 +26,7 @@ BHO = "Fresh Frozen - BHO"
 SHO_THRESHOLD = 2.5
 CLASSIFY_COMPANY = "Master Touch Manufacturing"
 DEFAULT_FIELDS = ("expense_account", "income_account", "custom_asset_account")
-STAT_FIELDS = ("custom_wash_runs", "custom_best_wash_yield", "custom_last_wash_date")
+STAT_FIELDS = ("custom_wash_runs", "custom_best_wash_yield", "custom_avg_yield_to_hash", "custom_last_wash_date")
 
 # grams per 1 unit of stock UOM; same LBS factor as Wash Production Plan
 GRAMS_PER_UOM = {"lbs": 453.592, "lb": 453.592, "pound": 453.592, "gram": 1.0, "grams": 1.0, "g": 1.0,
@@ -68,11 +63,15 @@ def hash_groups():
     return subtree(grp)
 
 
+def average(yields):
+    return round(sum(flt(y) for y in yields) / len(yields), 2) if yields else 0
+
+
 def classify(yields):
-    """yields: list of per-run yield % (already rounded). Returns the Item Group name."""
+    """yields: all Yield To Hash % values of the item. Returns the Item Group name (average based)."""
     if not yields:
         return UNTESTED
-    if any(flt(y) >= SHO_THRESHOLD for y in yields):
+    if average(yields) >= SHO_THRESHOLD:
         return SHO
     return TBD if len(yields) == 1 else BHO
 
@@ -168,13 +167,21 @@ def all_runs(items=None, ff=None):
     return out
 
 
-def summarize(runs):
+def yield_values(items):
+    from cannabis_management.api.inventory_dashboard import yield_to_hash_values
+    return yield_to_hash_values(items)
+
+
+def summarize(runs, values=None):
+    """runs: wash Stock Entry / Customer Yield Feedback runs (dates only); values: the dashboard's
+    Yield To Hash values (the classification input). values=None falls back to the runs' yields."""
     runs = runs or []
-    yields = [r["yield"] for r in runs]
+    yields = [flt(v, 2) for v in values] if values is not None else [r["yield"] for r in runs]
     return frappe._dict(
         group=classify(yields),
-        wash_runs=len(runs),
+        wash_runs=len(yields),
         best_yield=max(yields) if yields else 0,
+        avg_yield=average(yields),
         last_wash_date=max(getdate(r.posting_date) for r in runs) if runs else None,
     )
 
@@ -206,10 +213,12 @@ def plan_item(item, summary, ff=None):
     stats = {
         "custom_wash_runs": summary.wash_runs,
         "custom_best_wash_yield": summary.best_yield,
+        "custom_avg_yield_to_hash": summary.avg_yield,
         "custom_last_wash_date": summary.last_wash_date,
     }
     stats_changed = (cint(cur.custom_wash_runs) != stats["custom_wash_runs"]
                      or flt(cur.custom_best_wash_yield, 2) != flt(stats["custom_best_wash_yield"], 2)
+                     or flt(cur.get("custom_avg_yield_to_hash"), 2) != flt(stats["custom_avg_yield_to_hash"], 2)
                      or (getdate(cur.custom_last_wash_date) if cur.custom_last_wash_date else None)
                      != stats["custom_last_wash_date"])
     return frappe._dict(
@@ -235,9 +244,9 @@ def apply_plan(p, trigger=None, source=None, trigger_doctype="Stock Entry"):
         link = frappe.utils.get_link_to_form(trigger_doctype, trigger) if trigger else None
         why = (f"{_(trigger_doctype)} {link} ({source})" if trigger and source else
                f"{_(trigger_doctype)} {link}" if trigger else source or _("Backfill"))
-        msg = _("Item Group changed automatically from {0} to {1} by {2}. Wash runs: {3}, best yield: {4}%.").format(
+        msg = _("Item Group changed automatically from {0} to {1} by {2}. Yield values: {3}, average Yield To Hash: {4}%.").format(
             frappe.bold(p.old_group), frappe.bold(p.new_group), why, p.stats["custom_wash_runs"],
-            p.stats["custom_best_wash_yield"])
+            p.stats["custom_avg_yield_to_hash"])
         if p.accounts:
             msg += " " + _("MTM item defaults updated: {0}.").format(
                 ", ".join(f"{f}: {p.old_accounts.get(f) or '-'} &rarr; {v or '-'}" for f, v in p.accounts.items()))
@@ -252,9 +261,10 @@ def apply_plan(p, trigger=None, source=None, trigger_doctype="Stock Entry"):
 def reclassify_items(items, trigger=None, source=None, trigger_doctype="Stock Entry"):
     ff = ff_groups()
     history = all_runs(items, ff=ff)
+    values = yield_values(items)
     changed = []
     for it in items:
-        p = plan_item(it, summarize(history.get(it)), ff=ff)
+        p = plan_item(it, summarize(history.get(it), values.get(it, [])), ff=ff)
         if p:
             apply_plan(p, trigger=trigger, source=source, trigger_doctype=trigger_doctype)
             if p.group_changed:
@@ -318,6 +328,22 @@ def customer_yield_feedback_on_change(doc, method=None):
     for p in changed:
         frappe.msgprint(_("{0}: Item Group {1} &rarr; {2}").format(p.item, p.old_group, p.new_group),
                         indicator="blue", alert=True)
+
+
+def rosin_recording_on_change(doc, method=None):
+    """Rosin Recording (Lab Tolling Data) saved / submitted / cancelled / deleted: its Yield To Hash
+    values are part of the average, so re-classify the FF items on it."""
+    ff = set(ff_groups())
+    items = sorted({d.strain_name for d in doc.get("lab_tolling_data") or []
+                    if d.get("strain_name") and frappe.db.get_value("Item", d.strain_name, "item_group") in ff})
+    if not items:
+        return
+    frappe.db.savepoint("ff_rr_classify")
+    try:
+        reclassify_items(items, trigger=doc.name, source=method or "", trigger_doctype="Rosin Recording")
+    except Exception:
+        frappe.db.rollback(save_point="ff_rr_classify")
+        frappe.log_error(title=f"FF classify failed for {doc.name}")
 
 
 def item_before_insert(doc, method=None):

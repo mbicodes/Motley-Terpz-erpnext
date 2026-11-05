@@ -56,6 +56,7 @@ def get_stock_by_item_group(item_group, project=None, _=None):
         item["yield_to_hash"] = data.get("yield_to_hash", "")
         item["hash_to_rosin"] = data.get("hash_to_rosin", "")
         item["yield_to_hash_parts"] = data.get("yield_to_hash_parts", [])
+        item["yield_to_hash_avg"] = data.get("yield_to_hash_avg")
         item["hash_to_rosin_parts"] = data.get("hash_to_rosin_parts", [])
 
     grade_map = get_quality_grades_for_items(item_codes) if item_group in FRESH_FROZEN_GROUPS else {}
@@ -198,13 +199,7 @@ def get_yield_data_for_items(item_codes):
     """.format(placeholders=placeholders), tuple(item_codes), as_dict=True)
 
     yield_map = {}
-    for row in records:
-        entry = _yield_entry(yield_map, row.item_code)
-        _add_yield(entry["yield_to_hash"], row.get("yield_to_hash"))
-        _add_yield(entry["hash_to_rosin"], row.get("actual_rosin_yield"))
-
-    add_run_yields(item_codes, yield_map)
-    add_customer_yields(item_codes, yield_map)
+    _collect_yields(item_codes, yield_map, records)
 
     result = {}
     for code, entry in yield_map.items():
@@ -213,9 +208,30 @@ def get_yield_data_for_items(item_codes):
             "hash_to_rosin": ", ".join(dict.fromkeys(p["value"] for p in entry["hash_to_rosin"])),
             "yield_to_hash_parts": entry["yield_to_hash"],
             "hash_to_rosin_parts": entry["hash_to_rosin"],
+            "yield_to_hash_avg": yield_to_hash_avg(yth_values_from_parts(entry["yield_to_hash"])),
+            "yield_to_hash_count": len(yth_values_from_parts(entry["yield_to_hash"])),
         }
 
     return result
+
+
+def _collect_yields(item_codes, yield_map, records=None):
+    if records is None:
+        placeholders = ", ".join(["%s"] * len(item_codes))
+        records = frappe.db.sql("""
+            SELECT ltd.strain_name AS item_code, ltd.yield_to_hash, ltd.actual_rosin_yield
+            FROM `tabLab Tolling Data` ltd
+            INNER JOIN `tabRosin Recording` rr ON rr.name = ltd.parent
+            WHERE ltd.strain_name IN ({placeholders}) AND rr.docstatus < 2
+            ORDER BY ltd.strain_name, rr.creation
+        """.format(placeholders=placeholders), tuple(item_codes), as_dict=True)
+    for row in records:
+        entry = _yield_entry(yield_map, row.item_code)
+        _add_yield(entry["yield_to_hash"], row.get("yield_to_hash"))
+        _add_yield(entry["hash_to_rosin"], row.get("actual_rosin_yield"))
+    add_run_yields(item_codes, yield_map)
+    add_repack_wash_yields(item_codes, yield_map)
+    add_customer_yields(item_codes, yield_map)
 
 
 
@@ -384,6 +400,52 @@ def _yield_entry(yield_map, item_code):
     return yield_map.setdefault(item_code, {"yield_to_hash": [], "hash_to_rosin": []})
 
 
+# Below this a Yield To Hash value is a data-entry slip (e.g. 0.03 typed for 3%), not a real wash.
+MIN_VALID_YIELD_TO_HASH = 0.5
+
+
+def yth_values_from_parts(parts):
+    """The Yield To Hash values exactly as the dashboard shows them (one per badge), minus slips < 0.5%."""
+    out = []
+    for p in parts or []:
+        v = _yield_number(p.get("value"))
+        if v is not None and v >= MIN_VALID_YIELD_TO_HASH:
+            out.append(v)
+    return out
+
+
+def _yield_number(value):
+    """2.76, "2.76", "2.76%" or " 2.76 % " -> 2.76 (Lab Tolling Data stores Yield To Hash as text)."""
+    if value is None or value == "":
+        return None
+    if isinstance(value, (int, float)):
+        return round(float(value), 2)
+    import re
+    m = re.search(r"-?\d+(?:\.\d+)?", str(value).replace(",", ""))
+    return round(float(m.group()), 2) if m else None
+
+
+def yield_to_hash_values(item_codes):
+    """{item: [Yield To Hash %, ...]} from the same sources the dashboard shows: Lab Tolling Data,
+    manufacturing run yields and submitted Customer Yield Feedback. The FF auto-classification
+    (doc_hooks/ff_wash_classify.py) uses the average of these values."""
+    item_codes = list(item_codes or [])
+    if not item_codes:
+        return {}
+    yield_map = {}
+    _collect_yields(item_codes, yield_map)
+    out = {}
+    for code, entry in yield_map.items():
+        vals = yth_values_from_parts(entry["yield_to_hash"])
+        if vals:
+            out[code] = vals
+    return out
+
+
+def yield_to_hash_avg(values):
+    return round(sum(values) / len(values), 2) if values else None
+
+
 def _add_yield(parts, value, customer=None, customer_name=None, colour=None):
     if value is None or value == "" or value == 0:
         return
@@ -422,6 +484,17 @@ def add_run_yields(item_codes, yield_map):
         entry = _yield_entry(yield_map, run.item_code)
         _add_yield(entry["yield_to_hash"], row.get("hash_yield"))
         _add_yield(entry["hash_to_rosin"], row.get("hash_to_rosin_yield"))
+
+def add_repack_wash_yields(item_codes, yield_map):
+    """Washes posted as Repack Stock Entries (Sept 2026, before Work Orders) have no manufacturing run,
+    so their Yield To Hash is added here. Manufacture washes are already in add_run_yields."""
+    from cannabis_management.doc_hooks.ff_wash_classify import wash_runs
+    for code, runs in wash_runs(item_codes).items():
+        for r in runs:
+            if r.purpose == "Repack":
+                entry = _yield_entry(yield_map, code)
+                _add_yield(entry["yield_to_hash"], r["yield"])
+
 
 CUSTOMER_YIELD_COLOURS = [
     {"color": "Blue", "fg": "#ffffff", "bg": "#2563eb", "swatch": "#2563eb"},
