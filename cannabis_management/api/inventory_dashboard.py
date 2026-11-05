@@ -57,6 +57,9 @@ def get_stock_by_item_group(item_group, project=None, _=None):
         item["hash_to_rosin"] = data.get("hash_to_rosin", "")
         item["yield_to_hash_parts"] = data.get("yield_to_hash_parts", [])
         item["yield_to_hash_avg"] = data.get("yield_to_hash_avg")
+        item["bho_yield"] = data.get("bho_yield", "")
+        item["bho_yield_parts"] = data.get("bho_yield_parts", [])
+        item["bho_yield_avg"] = data.get("bho_yield_avg")
         item["hash_to_rosin_parts"] = data.get("hash_to_rosin_parts", [])
 
     grade_map = get_quality_grades_for_items(item_codes) if item_group in FRESH_FROZEN_GROUPS else {}
@@ -209,6 +212,9 @@ def get_yield_data_for_items(item_codes):
             "yield_to_hash_parts": entry["yield_to_hash"],
             "hash_to_rosin_parts": entry["hash_to_rosin"],
             "yield_to_hash_avg": yield_to_hash_avg(yth_values_from_parts(entry["yield_to_hash"])),
+            "bho_yield": ", ".join(dict.fromkeys(p["value"] for p in entry["bho_yield"])),
+            "bho_yield_parts": entry["bho_yield"],
+            "bho_yield_avg": yield_to_hash_avg(yth_values_from_parts(entry["bho_yield"])),
             "yield_to_hash_count": len(yth_values_from_parts(entry["yield_to_hash"])),
         }
 
@@ -231,6 +237,7 @@ def _collect_yields(item_codes, yield_map, records=None):
         _add_yield(entry["hash_to_rosin"], row.get("actual_rosin_yield"))
     add_run_yields(item_codes, yield_map)
     add_repack_wash_yields(item_codes, yield_map)
+    add_bho_run_yields(item_codes, yield_map)
     add_customer_yields(item_codes, yield_map)
 
 
@@ -397,7 +404,7 @@ def add_unposted_conversion_rows(entries, groups, to_grams):
             entries["CE:" + name] = entry
 
 def _yield_entry(yield_map, item_code):
-    return yield_map.setdefault(item_code, {"yield_to_hash": [], "hash_to_rosin": []})
+    return yield_map.setdefault(item_code, {"yield_to_hash": [], "hash_to_rosin": [], "bho_yield": []})
 
 
 # Below this a Yield To Hash value is a data-entry slip (e.g. 0.03 typed for 3%), not a real wash.
@@ -494,11 +501,26 @@ def add_repack_wash_yields(item_codes, yield_map):
     """Washes posted as Repack Stock Entries (Sept 2026, before Work Orders) have no manufacturing run,
     so their Yield To Hash is added here. Manufacture washes are already in add_run_yields."""
     from cannabis_management.doc_hooks.ff_wash_classify import wash_runs
+    wanted = set(item_codes)
     for code, runs in wash_runs(item_codes).items():
+        if code not in wanted:  # other strains washed in the same entry
+            continue
         for r in runs:
             if r.purpose == "Repack":
                 entry = _yield_entry(yield_map, code)
                 _add_yield(entry["yield_to_hash"], r["yield"])
+
+
+def add_bho_run_yields(item_codes, yield_map):
+    """Run to BHO: our BHO extraction yields from Repack Stock Entries (FF -> Primes / Subprimes / LLR)."""
+    from cannabis_management.doc_hooks.ff_wash_classify import bho_runs
+    wanted = set(item_codes)
+    for code, runs in bho_runs(item_codes).items():
+        if code not in wanted:  # other strains extracted in the same entry
+            continue
+        entry = _yield_entry(yield_map, code)
+        for r in runs:
+            _add_yield(entry["bho_yield"], r["yield"])
 
 
 CUSTOMER_YIELD_COLOURS = [
@@ -532,7 +554,7 @@ def add_customer_yields(item_codes, yield_map):
     placeholders = ", ".join(["%s"] * len(item_codes))
 
     rows = frappe.db.sql("""
-        SELECT iy.item_code, iy.yield_percentage, iy.hash_to_rosin, iy.yield_source,
+        SELECT iy.item_code, iy.yield_percentage, iy.hash_to_rosin, iy.yield_source, {bho_col},
                cyf.customer, COALESCE(NULLIF(cyf.customer_name, ''), cyf.customer) AS customer_name
         FROM `tabItem Yield` iy
         INNER JOIN `tabCustomer Yield Feedback` cyf ON cyf.name = iy.parent
@@ -540,7 +562,9 @@ def add_customer_yields(item_codes, yield_map):
             AND cyf.docstatus = 1
             AND iy.item_code IN ({placeholders})
         ORDER BY cyf.date, cyf.creation, iy.idx
-    """.format(placeholders=placeholders), tuple(item_codes), as_dict=True)
+    """.format(placeholders=placeholders,
+               bho_col="iy.bho_yield" if frappe.db.has_column("Item Yield", "bho_yield") else "NULL AS bho_yield"),
+        tuple(item_codes), as_dict=True)
     if not rows:
         return
 
@@ -549,7 +573,8 @@ def add_customer_yields(item_codes, yield_map):
         entry = _yield_entry(yield_map, row.item_code)
         colour = colours.get(row.customer) or CUSTOMER_YIELD_COLOURS[-1]
         for parts, value in ((entry["yield_to_hash"], row.yield_percentage),
-                             (entry["hash_to_rosin"], row.hash_to_rosin)):
+                             (entry["hash_to_rosin"], row.hash_to_rosin),
+                             (entry["bho_yield"], row.bho_yield)):
             if row.yield_source == "Our Lab":
                 _add_yield(parts, value)
             else:

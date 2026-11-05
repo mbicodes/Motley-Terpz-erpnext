@@ -160,6 +160,75 @@ def cyf_runs(items=None, ff=None):
     return out
 
 
+BHO_GROUPS = ("Primes", "Subprimes", "Liquid Live Resin")
+# Above this a BHO yield is a data error, e.g. Subprimes item SP-0100 has stock UOM LBS for a gram figure.
+MAX_PLAUSIBLE_BHO_YIELD = 20
+
+
+def bho_runs(items=None, ff=None):
+    """{ff item: [run dicts]} for BHO extraction: submitted Repack Stock Entries whose inputs are all
+    Fresh Frozen and whose outputs are all BHO products (Primes / Subprimes / Liquid Live Resin).
+    One entry often extracts several strains; outputs belong to the input they follow (interleaved rows),
+    or pair with the inputs by position (all inputs first, same count), otherwise the entry's combined
+    yield counts for each input. Yield = BHO grams / FF grams x 100. Entries that also make Bubble Hash
+    are left out (they are neither a clean wash nor a clean extraction)."""
+    ff = set(ff or ff_groups())
+    bho = set()
+    for g in BHO_GROUPS:
+        bho.update(subtree(g))
+    cond, params = "", {}
+    if items is not None:
+        if not items:
+            return {}
+        cond = """and se.name in (select d2.parent from `tabStock Entry Detail` d2
+            where d2.item_code in %(items)s and ifnull(d2.s_warehouse, '') != '')"""
+        params["items"] = tuple(items)
+    rows = frappe.db.sql(f"""
+        select se.name, se.posting_date, d.idx, d.item_code, i.item_group, d.transfer_qty, d.stock_uom,
+            ifnull(d.s_warehouse, '') s_wh, ifnull(d.t_warehouse, '') t_wh
+        from `tabStock Entry` se
+        join `tabStock Entry Detail` d on d.parent = se.name and d.parenttype = 'Stock Entry'
+        join `tabItem` i on i.name = d.item_code
+        where se.docstatus = 1 and se.purpose = 'Repack' {cond}
+        order by se.posting_date, se.name, d.idx""", params, as_dict=True)
+    entries = {}
+    for r in rows:
+        entries.setdefault(r.name, []).append(r)
+    out = {}
+    for name, lines in entries.items():
+        ins = [r for r in lines if r.s_wh and not r.t_wh]
+        outs = [r for r in lines if r.t_wh and not r.s_wh]
+        if not ins or not outs or any(r.item_group not in ff for r in ins) or any(r.item_group not in bho for r in outs):
+            continue
+        if min(r.idx for r in outs) < max(r.idx for r in ins):       # interleaved: FF, its outputs, next FF ...
+            groups = []
+            for r in sorted(lines, key=lambda x: x.idx):
+                if r in ins:
+                    if groups and not groups[-1][1]:   # FF lots listed back to back share the outputs after them
+                        groups[-1][0].append(r)
+                    else:
+                        groups.append(([r], []))
+                elif groups:
+                    groups[-1][1].append(r)
+        elif len(outs) == len(ins):                                   # all FF first, then one output each
+            groups = [([a], [b]) for a, b in zip(sorted(ins, key=lambda x: x.idx), sorted(outs, key=lambda x: x.idx))]
+        else:                                                         # e.g. two FF lots into one LLR
+            groups = [(ins, outs)]
+        for g_in, g_out in groups:
+            ff_g = [_grams(r.transfer_qty, r.stock_uom) for r in g_in]
+            out_g = [_grams(r.transfer_qty, r.stock_uom) for r in g_out]
+            if not g_out or None in ff_g or None in out_g or not sum(ff_g):
+                continue
+            y = round(sum(out_g) / sum(ff_g) * 100, 2)
+            if y <= 0 or y > MAX_PLAUSIBLE_BHO_YIELD:
+                continue
+            for it in sorted({r.item_code for r in g_in}):
+                out.setdefault(it, []).append(frappe._dict(
+                    stock_entry=name, posting_date=lines[0].posting_date, purpose="BHO extraction",
+                    ff_g=sum(ff_g), bho_g=sum(out_g), **{"yield": y}))
+    return out
+
+
 def all_runs(items=None, ff=None):
     """Wash Stock Entry runs + Customer Yield Feedback runs per FF item."""
     ff = ff or ff_groups()
