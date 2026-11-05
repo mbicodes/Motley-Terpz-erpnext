@@ -2,34 +2,48 @@
 # For license information, please see license.txt
 """Cash Basis Profit and Loss.
 
-The Profit and Loss Statement's filters and period columns, built only from
-the GL Entries on Bank and Cash accounts:
+ERPNext's Profit and Loss Statement, switched from accrual to cash basis. The
+layout, filters, account tree, totals, "Profit for the year", chart, summary
+and Growth / Margin views are the P&L's own code; only the entries fed into it
+differ.
 
-  * Income  = what came in:  the debit on a Bank/Cash entry
-  * Expense = what went out: the credit on a Bank/Cash entry
+The accrual P&L takes every GL Entry on an Income or Expense account. This one
+takes an Income / Expense GL Entry only when cash moved for it: it sits in a
+voucher with a Bank or Cash GL Entry, and its account is in that Bank / Cash
+entry's Against column. Each such line counts once, at its own debit / credit,
+so a bank line against several heads splits into the real amount per head.
 
-Each row is the entry's Against value, shown as stored: an account for a
-Journal Entry, the party for a Payment Entry, or several accounts joined by
-commas when one bank line was booked against more than one. So a $100 debit
-on a bank account against Account B is a $100 Income row "Account B".
-
-Period columns, the Growth / Margin views and every filter (cost center,
-project, finance book, accounting dimensions...) come from ERPNext's own
-financial_statements helpers, so they behave exactly as on the P&L. Opening
-entries and Period Closing Vouchers are left out: they are not cash moving.
+Everything on the Bank / Cash side that is against a Balance Sheet head (bank
+to bank transfers, Debtors / Creditors, a party on a Payment Entry, loans...)
+is left out: only Profit and Loss accounts of the selected company count.
 """
 
 import frappe
 from frappe import _
-from frappe.utils import flt, getdate
+from frappe.desk.reportview import build_match_conditions
 
 from erpnext.accounts.report.financial_statements import (
+	accumulate_values_into_parents,
+	add_total_row,
 	apply_additional_conditions,
+	calculate_values,
 	compute_growth_view_data,
 	compute_margin_view_data,
+	filter_accounts,
+	filter_out_zero_value_rows,
+	get_accounts,
+	get_appropriate_currency,
 	get_columns,
 	get_period_list,
+	prepare_data,
 )
+from erpnext.accounts.report.profit_and_loss_statement.profit_and_loss_statement import (
+	get_chart_data,
+	get_net_profit_loss,
+	get_report_summary,
+)
+
+CASH_ACCOUNT_TYPES = ("Bank", "Cash")
 
 
 def execute(filters=None):
@@ -43,178 +57,103 @@ def execute(filters=None):
 		filters.periodicity,
 		company=filters.company,
 	)
-	currency = frappe.get_cached_value("Company", filters.company, "default_currency")
 
-	entries = _bank_cash_entries(filters, period_list)
-	labels = _labels(entries)
+	income = get_cash_data(filters.company, "Income", "Credit", period_list, filters)
+	expense = get_cash_data(filters.company, "Expense", "Debit", period_list, filters)
 
-	income = _section(_("Income"), "debit", entries, labels, period_list, filters, currency)
-	expense = _section(_("Expense"), "credit", entries, labels, period_list, filters, currency)
-	net = _net_row(income, expense, period_list, currency)
+	net_profit_loss = get_net_profit_loss(
+		income, expense, period_list, filters.company, filters.presentation_currency
+	)
 
-	data = income + expense + ([net] if net else [])
+	data = []
+	data.extend(income or [])
+	data.extend(expense or [])
+	if net_profit_loss:
+		data.append(net_profit_loss)
+
 	columns = get_columns(filters.periodicity, period_list, filters.accumulated_values, filters.company)
-	chart = _chart(columns, income, expense, net, currency)
-	summary = _summary(period_list, income, expense, net, currency)
+
+	currency = filters.presentation_currency or frappe.get_cached_value(
+		"Company", filters.company, "default_currency"
+	)
+	chart = get_chart_data(filters, columns, income, expense, net_profit_loss, currency)
+	report_summary, primitive_summary = get_report_summary(
+		period_list, filters.periodicity, income, expense, net_profit_loss, currency, filters
+	)
 
 	if filters.get("selected_view") == "Growth":
 		compute_growth_view_data(data, period_list)
 	if filters.get("selected_view") == "Margin":
 		compute_margin_view_data(data, period_list, filters.accumulated_values)
 
-	return columns, data, None, chart, summary
+	return columns, data, None, chart, report_summary, primitive_summary
 
 
-def _bank_cash_entries(filters, period_list):
-	"""Every live, non-opening GL Entry on a Bank or Cash account in the range."""
+def get_cash_data(company, root_type, balance_must_be, period_list, filters):
+	"""financial_statements.get_data, with the cash-basis entries in place of
+	set_gl_entries_by_account."""
+	accounts = get_accounts(company, root_type)
+	if not accounts:
+		return None
+
+	accounts, accounts_by_name, parent_children_map = filter_accounts(accounts)
+	company_currency = get_appropriate_currency(company, filters)
+
+	gl_entries_by_account = {}
+	for entry in get_cash_entries(company, root_type, period_list, filters):
+		gl_entries_by_account.setdefault(entry.account, []).append(entry)
+
+	calculate_values(accounts_by_name, gl_entries_by_account, period_list, filters.accumulated_values, False)
+	accumulate_values_into_parents(accounts, accounts_by_name, period_list)
+	out = prepare_data(accounts, balance_must_be, period_list, company_currency,
+	                   accumulated_values=filters.accumulated_values)
+	out = filter_out_zero_value_rows(out, parent_children_map, filters.show_zero_values)
+	if out:
+		add_total_row(out, root_type, balance_must_be, period_list, company_currency)
+	return out
+
+
+def get_cash_entries(company, root_type, period_list, filters):
+	"""Income / Expense GL Entries that a Bank or Cash GL Entry of the same
+	voucher was posted against.
+
+	Same window, cost center / project / finance book / dimension filters and
+	Period Closing Voucher exclusion as the accrual P&L (apply_additional_conditions).
+	"""
 	gle = frappe.qb.DocType("GL Entry")
 	acc = frappe.qb.DocType("Account")
 	query = (
 		frappe.qb.from_(gle)
 		.join(acc).on(acc.name == gle.account)
-		.select(gle.posting_date, gle.against, gle.debit, gle.credit)
-		.where(gle.company == filters.company)
+		.select(gle.name, gle.account, gle.posting_date, gle.debit, gle.credit, gle.fiscal_year)
+		.where(gle.company == company)
 		.where(gle.is_cancelled == 0)
-		.where(gle.is_opening != "Yes")
-		.where(acc.account_type.isin(["Bank", "Cash"]))
-		.where(gle.posting_date <= period_list[-1].to_date)
+		.where(acc.root_type == root_type)
+		.where(acc.is_group == 0)
+		.where(gle.posting_date <= period_list[-1]["to_date"])
 	)
-	# Same cost center / project / finance book / dimension handling as the P&L;
-	# ignore_closing_entries drops Period Closing Vouchers.
-	query = apply_additional_conditions("GL Entry", query, period_list[0].from_date, True, filters)
-
-	from frappe.desk.reportview import build_match_conditions
-
+	query = apply_additional_conditions(
+		"GL Entry", query, period_list[0]["year_start_date"], True, filters
+	)
 	sql, params = query.walk()
+
+	# The cash link: a Bank / Cash entry in the same voucher lists this
+	# account in its Against column (stored as "Head A, Head B").
+	types = ", ".join(frappe.db.escape(t) for t in CASH_ACCOUNT_TYPES)
+	sql += f"""
+		and exists (
+			select 1 from `tabGL Entry` cash_gle
+			join `tabAccount` cash_acc on cash_acc.name = cash_gle.account
+			where cash_gle.voucher_type = `tabGL Entry`.voucher_type
+			  and cash_gle.voucher_no = `tabGL Entry`.voucher_no
+			  and cash_gle.company = `tabGL Entry`.company
+			  and cash_gle.is_cancelled = 0
+			  and cash_acc.account_type in ({types})
+			  and find_in_set(`tabGL Entry`.account, replace(cash_gle.against, ', ', ',')) > 0
+		)"""
+
 	match = build_match_conditions("GL Entry")
 	if match:
 		sql += " and " + match
+
 	return frappe.db.sql(sql, params, as_dict=True)
-
-
-def _labels(entries):
-	"""Against value -> row details. Accounts and parties link to their ledger;
-	an employee ID gets the employee's name after it."""
-	values = {(e.against or "").strip() or _("(no against)") for e in entries}
-	single = [v for v in values if "," not in v]
-	accounts = set(frappe.get_all("Account", filters={"name": ["in", single]}, pluck="name")) if single else set()
-	employees = dict(frappe.get_all("Employee", filters={"name": ["in", single]},
-	                                fields=["name", "employee_name"], as_list=True)) if single else {}
-	out = {}
-	for v in values:
-		info = {"label": v}
-		if v in accounts:
-			info["account"] = v
-		elif v in employees:
-			info["label"] = f"{v}: {employees[v]}"
-			info["party_type"], info["party"] = "Employee", v
-		elif "," not in v:
-			for party_type in ("Customer", "Supplier"):
-				if frappe.db.exists(party_type, v):
-					info["party_type"], info["party"] = party_type, v
-					break
-		out[v] = info
-	return out
-
-
-def _section(title, side, entries, labels, period_list, filters, currency):
-	"""Header row (section totals, as the P&L's root account), one row per
-	Against value, a Total row, then the blank spacer the P&L leaves."""
-	rows = {}
-	for e in entries:
-		amount = flt(e[side])
-		if not amount:
-			continue
-		key = (e.against or "").strip() or _("(no against)")
-		row = rows.setdefault(key, {p.key: 0.0 for p in period_list})
-		posted = getdate(e.posting_date)
-		for p in period_list:
-			if getdate(p.from_date) <= posted <= getdate(p.to_date):
-				row[p.key] += amount
-				break
-
-	def finish(values):
-		if filters.accumulated_values:
-			running = 0.0
-			for p in period_list:
-				running += values[p.key]
-				values[p.key] = running
-			values["total"] = values[period_list[-1].key]
-		else:
-			values["total"] = sum(values[p.key] for p in period_list)
-		for p in period_list:
-			values[p.key] = flt(values[p.key], 3)
-		return values
-
-	children = []
-	for key, values in rows.items():
-		info = labels.get(key, {"label": key})
-		row = finish(values)
-		if not filters.show_zero_values and not any(row[p.key] for p in period_list):
-			continue
-		row.update({
-			"account_name": info["label"],
-			"account": info.get("account") or info["label"],
-			"parent_account": title,
-			"indent": 1,
-			"currency": currency,
-			"has_value": True,
-			"year_start_date": period_list[0].year_start_date,
-			"year_end_date": period_list[-1].year_end_date,
-			"is_ledger_account": 1 if info.get("account") else 0,
-			"party_type": info.get("party_type"),
-			"party": info.get("party"),
-		})
-		children.append(row)
-	children.sort(key=lambda r: -abs(r["total"]))
-
-	totals = {p.key: sum(r[p.key] for r in children) for p in period_list}
-	totals["total"] = sum(r["total"] for r in children)
-	header = dict(totals, account_name=title, account=title, indent=0, currency=currency,
-	              has_value=bool(children))
-	total_row = dict(totals, account_name="'" + _("Total {0}").format(title) + "'",
-	                 account="'" + _("Total {0}").format(title) + "'", currency=currency)
-	return [header] + children + [total_row, {}]
-
-
-def _net_row(income, expense, period_list, currency):
-	net = {"account_name": "'" + _("Net Cash Profit / Loss") + "'",
-	       "account": "'" + _("Net Cash Profit / Loss") + "'",
-	       "warn_if_negative": True, "currency": currency}
-	inc, exp = income[-2], expense[-2]
-	for p in period_list:
-		net[p.key] = flt(inc.get(p.key), 3) - flt(exp.get(p.key), 3)
-	net["total"] = flt(inc.get("total"), 3) - flt(exp.get("total"), 3)
-	return net if any(net[p.key] for p in period_list) or net["total"] else None
-
-
-def _chart(columns, income, expense, net, currency):
-	periods = [c for c in columns if c.get("fieldtype") == "Currency" and c["fieldname"] != "total"]
-	datasets = [
-		{"name": _("Income"), "values": [income[-2].get(c["fieldname"]) or 0 for c in periods]},
-		{"name": _("Expense"), "values": [expense[-2].get(c["fieldname"]) or 0 for c in periods]},
-	]
-	if net:
-		datasets.append({"name": _("Net Cash Profit / Loss"), "values": [net.get(c["fieldname"]) or 0 for c in periods]})
-	return {
-		"data": {"labels": [c["label"] for c in periods], "datasets": datasets},
-		"type": "bar",
-		"fieldtype": "Currency",
-		"options": "currency",
-		"currency": currency,
-	}
-
-
-def _summary(period_list, income, expense, net, currency):
-	key = "total"
-	inc = flt(income[-2].get(key))
-	exp = flt(expense[-2].get(key))
-	net_value = inc - exp
-	return [
-		{"value": inc, "label": _("Total Cash In (Income)"), "datatype": "Currency", "currency": currency},
-		{"type": "separator", "value": "-"},
-		{"value": exp, "label": _("Total Cash Out (Expense)"), "datatype": "Currency", "currency": currency},
-		{"type": "separator", "value": "=", "color": "blue"},
-		{"value": net_value, "indicator": "Green" if net_value > 0 else "Red",
-		 "label": _("Net Cash Profit / Loss"), "datatype": "Currency", "currency": currency},
-	]
