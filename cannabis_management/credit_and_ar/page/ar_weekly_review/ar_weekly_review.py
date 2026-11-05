@@ -263,6 +263,81 @@ def get_ar_weekly_review(ledger=None, company=None, division=None):
 
 
 @frappe.whitelist()
+def get_legacy_collection(company=None, division=None):
+	"""Collections on/after NEW_AR_START against Legacy AR invoices (posted before it): Payment
+	Entries and Journal Entries, read from the Payment Ledger so cancelled / reconciled entries
+	count once. One line per entry per invoice; the page groups them by customer / month / week."""
+	_require_access()
+	si_conditions = ["si.docstatus = 1", "si.posting_date < %(start)s"]
+	params = {"start": NEW_AR_START}
+	internal = _internal_customers()
+	if internal:
+		si_conditions.append("si.customer not in %(internal)s")
+		params["internal"] = tuple(internal)
+	companies = resolve_companies(company, division)
+	if companies:
+		si_conditions.append("si.company in %(companies)s")
+		params["companies"] = tuple(companies)
+
+	rows = frappe.db.sql(
+		f"""
+		select ple.voucher_type, ple.voucher_no as payment_entry, ple.posting_date,
+		       si.customer, si.name as invoice, si.posting_date as invoice_date, si.company,
+		       -sum(ple.amount) as amount
+		from `tabPayment Ledger Entry` ple
+		join `tabSales Invoice` si on si.name = ple.against_voucher_no
+		where ple.delinked = 0 and ple.against_voucher_type = 'Sales Invoice'
+		  and ple.voucher_type in ('Payment Entry', 'Journal Entry')
+		  and ple.posting_date >= %(start)s and {" and ".join(si_conditions)}
+		group by ple.voucher_type, ple.voucher_no, ple.posting_date, si.name
+		order by ple.posting_date desc, ple.voucher_no
+		""",
+		params,
+		as_dict=True,
+	)
+
+	# An entry that only moves balance between one customer's legacy invoices (e.g. a credit-note
+	# JV paying one invoice and re-debiting another) nets to zero: it is not a collection.
+	net = {}
+	for r in rows:
+		key = (r.payment_entry, r.customer)
+		net[key] = net.get(key, 0) + flt(r.amount)
+	lines = []
+	for r in rows:
+		if abs(net[(r.payment_entry, r.customer)]) < 0.005 or not flt(r.amount, 2):
+			continue
+		r.posting_date = str(r.posting_date)
+		r.invoice_date = str(r.invoice_date)
+		r.amount = flt(r.amount, 2)
+		lines.append(r)
+
+	# Payment Ledger per customer: balance of these invoices on the day before the cut-over
+	# (opening), and movements since that are not PE/JV collections (credit notes etc.).
+	ledger = frappe.db.sql(
+		f"""
+		select si.customer,
+		       sum(if(ple.posting_date < %(start)s, ple.amount, 0)) as opening,
+		       sum(if(ple.posting_date >= %(start)s and ple.voucher_type not in ('Payment Entry', 'Journal Entry'), -ple.amount, 0)) as adjusted
+		from `tabPayment Ledger Entry` ple
+		join `tabSales Invoice` si on si.name = ple.against_voucher_no
+		where ple.delinked = 0 and ple.against_voucher_type = 'Sales Invoice'
+		  and {" and ".join(si_conditions)}
+		group by si.customer
+		""",
+		params,
+		as_dict=True,
+	)
+
+	return {
+		"new_ar_start": NEW_AR_START,
+		"today": nowdate(),
+		"lines": lines,
+		"opening": {r.customer: flt(r.opening, 2) for r in ledger if flt(r.opening, 2)},
+		"adjusted": {r.customer: flt(r.adjusted, 2) for r in ledger if flt(r.adjusted, 2)},
+	}
+
+
+@frappe.whitelist()
 def get_ar_weekly_log(customer, ledger):
 	_require_access()
 	return frappe.get_all(

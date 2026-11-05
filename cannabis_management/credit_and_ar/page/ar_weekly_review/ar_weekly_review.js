@@ -216,7 +216,9 @@ frappe.pages['ar-weekly-review'].on_page_load = function (wrapper) {
 		open: {},
 		logs: {},
 		edits: {},
-		ui: { mode: 'tier', ledger: 'New AR', search: '', company: '', division: '' },
+		collection: null,
+		coll_open: {},
+		ui: { mode: 'tier', ledger: 'New AR', search: '', company: '', division: '', coll_view: 'overall' },
 	};
 
 	page.main.html(`
@@ -243,6 +245,7 @@ frappe.pages['ar-weekly-review'].on_page_load = function (wrapper) {
 				<button data-mode="status">${__('By status')}</button>
 				<button data-mode="owner">${__('By ownership')}</button>
 				<button data-mode="reach_out">${__('By reach out status')}</button>
+				<button data-mode="collection">${__('Monthly Legacy AR Collection')}</button>
 			</div>
 
 			<div class="arw-toolbar">
@@ -259,6 +262,11 @@ frappe.pages['ar-weekly-review'].on_page_load = function (wrapper) {
 						<option value="">${__('All Entities')}</option>
 					</select>
 				</label>
+				<div class="arw-seg" id="arw-collseg" style="display:none;">
+					<button data-view="overall" class="on">${__('Overall')}</button>
+					<button data-view="month">${__('Month-wise')}</button>
+					<button data-view="week">${__('Week-wise')}</button>
+				</div>
 				<div class="arw-seg" id="arw-ledgerseg">
 					<button data-ledger="New AR" class="on">${__('New AR')}</button>
 					<button data-ledger="Legacy AR">${__('Legacy AR')}</button>
@@ -292,6 +300,9 @@ function bind_events(page) {
 		page.main.find('#arw-modeseg button').removeClass('on');
 		$(this).addClass('on');
 		page.arw.ui.mode = $(this).data('mode');
+		const collection = page.arw.ui.mode === 'collection';
+		page.main.find('#arw-collseg').toggle(collection);
+		page.main.find('#arw-ledgerseg').toggle(!collection);
 		render(page);
 	});
 
@@ -317,15 +328,28 @@ function bind_events(page) {
 		load(page);
 	});
 
+	page.main.find('#arw-collseg button').on('click', function () {
+		page.main.find('#arw-collseg button').removeClass('on');
+		$(this).addClass('on');
+		page.arw.ui.coll_view = String($(this).data('view'));
+		render(page);
+	});
+
 	page.main.find('#arw-search').on('input', function () {
 		page.arw.ui.search = this.value;
 		render(page);
 	});
 
-	page.main.on('click', '.arw-rowline', function () {
+	page.main.on('click', '.arw-rowline:not(.arw-collrow)', function () {
 		const id = $(this).data('rowid');
 		page.arw.open[id] = !page.arw.open[id];
 		if (page.arw.open[id]) load_log(page, id);
+		render(page);
+	});
+
+	page.main.on('click', '.arw-collrow', function () {
+		const id = $(this).data('rowid');
+		page.arw.coll_open[id] = !page.arw.coll_open[id];
 		render(page);
 	});
 
@@ -393,6 +417,7 @@ function arw_print_statement(page, customer) {
 }
 
 function load(page) {
+	load_collection(page);
 	page.main.find('#arw-sub').text(__('Loading…'));
 	frappe.call({
 		method: ARW_METHOD + 'get_ar_weekly_review',
@@ -409,6 +434,219 @@ function load(page) {
 			render(page);
 		},
 	});
+}
+
+function load_collection(page) {
+	page.arw.collection = null;
+	frappe.call({
+		method: ARW_METHOD + 'get_legacy_collection',
+		args: { company: page.arw.ui.company || null, division: page.arw.ui.division || null },
+		callback: function (r) {
+			page.arw.collection = (r && r.message) || null;
+			if (page.arw.ui.mode === 'collection') render(page);
+		},
+		error: function () {
+			page.arw.collection = { lines: [], failed: true };
+			if (page.arw.ui.mode === 'collection') render(page);
+		},
+	});
+}
+
+// "Monthly Legacy AR Collection" group-by: payments received on/after the cut-over against
+// invoices posted before it, per customer — overall, or split into months / Mon–Sun weeks.
+function arw_coll_lines(page) {
+	const needle = (page.arw.ui.search || '').toLowerCase();
+	return ((page.arw.collection || {}).lines || []).filter(
+		(l) => !needle || (l.customer || '').toLowerCase().indexOf(needle) !== -1);
+}
+
+function arw_coll_period(view, date) {
+	if (view === 'month') {
+		const key = date.slice(0, 7);
+		return { key: key, label: moment(key + '-01').format('MMMM YYYY') };
+	}
+	const start = moment(date).startOf('isoWeek');
+	return {
+		key: start.format('YYYY-MM-DD'),
+		label: start.format('MMM D') + ' – ' + start.clone().add(6, 'days').format('MMM D, YYYY'),
+	};
+}
+
+function arw_coll_customers(lines, prefix) {
+	const by = {};
+	lines.forEach(function (l) {
+		const c = by[l.customer] = by[l.customer] || {
+			id: prefix + '|' + l.customer, customer: l.customer, total: 0,
+			_pe: {}, _inv: {}, last: '', lines: [],
+		};
+		c.total += l.amount;
+		c._pe[l.payment_entry] = 1;
+		c._inv[l.invoice] = 1;
+		if (l.posting_date > c.last) c.last = l.posting_date;
+		c.lines.push(l);
+	});
+	return Object.values(by).map(function (c) {
+		c.payments = Object.keys(c._pe).length;
+		c.invoices = Object.keys(c._inv).length;
+		return c;
+	}).sort((a, b) => b.total - a.total);
+}
+
+function arw_coll_groups(page) {
+	const c = page.arw.collection;
+	const view = page.arw.ui.coll_view;
+	const lines = arw_coll_lines(page);
+	const cutover = moment(c.new_ar_start).format('MMM D, YYYY');
+	if (view === 'overall') {
+		return [{ key: 'overall', label: __('Collected since {0}', [cutover]),
+			desc: __('Payments received on or after {0} against invoices posted before it.', [cutover]),
+			rows: arw_coll_customers(lines, 'overall') }];
+	}
+	// Every period from the cut-over to today, so weeks/months with no collection show up too.
+	const periods = {};
+	const step = view === 'month' ? 'month' : 'week';
+	let cur = moment(c.new_ar_start);
+	const end = moment(c.today);
+	while (cur.isSameOrBefore(end, 'day')) {
+		const p = arw_coll_period(view, cur.format('YYYY-MM-DD'));
+		periods[p.key] = { key: p.key, label: p.label, lines: [] };
+		cur = cur.add(1, step);
+		if (step === 'week') cur = cur.startOf('isoWeek');
+	}
+	lines.forEach(function (l) {
+		const p = arw_coll_period(view, l.posting_date);
+		(periods[p.key] = periods[p.key] || { key: p.key, label: p.label, lines: [] }).lines.push(l);
+	});
+	const current = arw_coll_period(view, c.today).key;
+	return Object.values(periods).sort((a, b) => (a.key < b.key ? 1 : -1)).map((p) => ({
+		key: p.key, label: p.label,
+		desc: p.key === current ? (view === 'month' ? __('This month') : __('This week')) : '',
+		rows: arw_coll_customers(p.lines, view + '|' + p.key),
+	}));
+}
+
+function render_collection_kpis(page) {
+	const c = page.arw.collection;
+	const lines = arw_coll_lines(page);
+	const sum = (ls) => ls.reduce((s, l) => s + l.amount, 0);
+	const count = (ls) => new Set(ls.map((l) => l.payment_entry)).size;
+	const month = arw_coll_period('month', c.today).key;
+	const week = arw_coll_period('week', c.today).key;
+	const in_month = lines.filter((l) => l.posting_date.slice(0, 7) === month);
+	const in_week = lines.filter((l) => arw_coll_period('week', l.posting_date).key === week);
+	const needle = (page.arw.ui.search || '').toLowerCase();
+	const match = (name) => !needle || (name || '').toLowerCase().indexOf(needle) !== -1;
+	const per_customer = (map) => Object.keys(map || {}).filter(match).reduce((s, k) => s + map[k], 0);
+	const still_open = page.arw.rows.filter((r) => r.ledger === 'Legacy AR' && match(r.customer))
+		.reduce((s, r) => s + r.amount, 0);
+	const adjusted = per_customer(c.adjusted);
+	const kpis = [
+		{ cls: 'acc-blue', label: __('OPENING BALANCE'), value: fmt_money(per_customer(c.opening)),
+			sub: __('legacy AR on {0}', [moment(c.new_ar_start).subtract(1, 'day').format('MMM D, YYYY')]) },
+		{ cls: 'acc-green', label: __('COLLECTED SINCE {0}', [moment(c.new_ar_start).format('MMM D').toUpperCase()]),
+			value: fmt_money(sum(lines)), sub: count(lines) + ' ' + __('entries') + ' (PE + JV)' },
+		{ cls: '', label: __('THIS MONTH'), value: fmt_money(sum(in_month)), sub: count(in_month) + ' ' + __('entries') },
+		{ cls: '', label: __('THIS WEEK'), value: fmt_money(sum(in_week)), sub: count(in_week) + ' ' + __('entries') },
+		{ cls: 'acc-orange', label: __('LEGACY AR STILL OPEN'), value: fmt_money(still_open),
+			sub: Math.round(adjusted) ? __('outstanding today · {0} adjusted by credit notes / other', [fmt_money(adjusted)])
+				: __('outstanding today') },
+	];
+	page.main.find('#arw-kpis').addClass('arw-kpis-5').html(kpis.map((k) => `
+		<div class="arw-kpi ${k.cls}">
+			<div class="arw-kpi-label">${k.label}</div>
+			<div class="arw-kpi-value">${k.value}</div>
+			<div class="arw-kpi-sub">${k.sub}</div>
+		</div>`).join(''));
+}
+
+function render_collection_groups(page) {
+	const esc = frappe.utils.escape_html;
+	const $wrap = page.main.find('#arw-groups').empty();
+	const c = page.arw.collection;
+	if (c.failed) {
+		$wrap.html(`<div class="arw-loading">${__('Could not load legacy collections.')}</div>`);
+		return;
+	}
+	const nice = (d) => (d ? moment(d).format('MMM D, YYYY') : '');
+	let customers = {}, total = 0;
+
+	arw_coll_groups(page).forEach(function (g) {
+		const amt = g.rows.reduce((s, r) => s + r.total, 0);
+		total += amt;
+		g.rows.forEach((r) => { customers[r.customer] = 1; });
+
+		const $box = $(`<div class="arw-box"></div>`);
+		$box.append(`
+			<div class="arw-boxhead">
+				<div class="arw-titlerow">
+					<div>
+						<div class="arw-name">${esc(g.label)}</div>
+						${g.desc ? `<div class="arw-desc">${esc(g.desc)}</div>` : ''}
+					</div>
+					<div class="arw-meta">
+						<span class="arw-cnt">${g.rows.length} ${g.rows.length === 1 ? __('customer') : __('customers')}</span>${fmt_money(amt)}
+					</div>
+				</div>
+			</div>`);
+
+		if (!g.rows.length) {
+			$box.append(`<div class="arw-empty">${__('No legacy AR collected in this period.')}</div>`);
+			$wrap.append($box);
+			return;
+		}
+
+		let html = `<div class="arw-tablescroll"><table class="arw-rows"><thead><tr>
+				<th style="width:22px"></th>
+				<th>${__('Customer')}</th>
+				<th class="arw-amt">${__('Collected')}</th>
+				<th class="arw-amt">${__('Entries')}</th>
+				<th class="arw-amt">${__('Invoices')}</th>
+				<th>${__('Last payment')}</th>
+			</tr></thead><tbody>`;
+		g.rows.forEach(function (r) {
+			const open = !!page.arw.coll_open[r.id];
+			html += `<tr class="arw-rowline arw-collrow${open ? ' open' : ''}" data-rowid="${esc(r.id)}">
+				<td><span class="arw-arrow">▸</span></td>
+				<td><div class="arw-cust">${esc(r.customer)}</div></td>
+				<td class="arw-amt">${fmt_money(r.total)}</td>
+				<td class="arw-amt">${r.payments}</td>
+				<td class="arw-amt">${r.invoices}</td>
+				<td>${esc(nice(r.last))}</td>
+			</tr>`;
+			if (open) {
+				const money2 = (n) => '$' + (n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+				const lines = r.lines.map((l) => `<tr>
+						<td class="c-inv"><a href="/app/${l.voucher_type === 'Journal Entry' ? 'journal-entry' : 'payment-entry'}/${encodeURIComponent(l.payment_entry)}" target="_blank">${esc(l.payment_entry)}</a></td>
+						<td>${l.voucher_type === 'Journal Entry' ? __('Journal Entry') : __('Payment Entry')}</td>
+						<td class="c-date">${esc(nice(l.posting_date))}</td>
+						<td class="c-inv"><a href="/app/sales-invoice/${encodeURIComponent(l.invoice)}" target="_blank">${esc(l.invoice)}</a></td>
+						<td class="c-date">${esc(nice(l.invoice_date))}</td>
+						<td class="c-co">${esc(l.company || '')}</td>
+						<td class="c-amt c-paid">${money2(l.amount)}</td>
+					</tr>`).join('');
+				html += `<tr class="arw-detail"><td colspan="6"><div class="arw-detailwrap">
+					<section class="arw-sec arw-sec-inv">
+						<header class="arw-sechead"><span class="arw-sectitle">${__('Entries')} (${r.lines.length})</span></header>
+						<div class="arw-secscroll"><table class="arw-sheet"><thead><tr>
+							<th class="c-inv">${__('Entry')}</th><th>${__('Type')}</th><th class="c-date">${__('Date')}</th>
+							<th class="c-inv">${__('Invoice')}</th><th class="c-date">${__('Invoice date')}</th>
+							<th class="c-co">${__('Company')}</th>
+							<th class="c-amt c-paid">${__('Amount')}</th>
+						</tr></thead><tbody>${lines}</tbody>
+						<tfoot><tr><td colspan="6">${__('Total')}</td><td class="c-amt c-paid">${money2(r.total)}</td></tr></tfoot>
+						</table></div>
+					</section>
+				</div></td></tr>`;
+			}
+		});
+		$box.append(html + '</tbody></table></div>');
+		$wrap.append($box);
+	});
+
+	const n = Object.keys(customers).length;
+	page.main.find('#arw-count').text(
+		n + ' ' + (n === 1 ? __('customer') : __('customers')) + ' · ' + fmt_money(total) + ' ' + __('collected')
+	);
 }
 
 function arw_fill_company(page) {
@@ -468,6 +706,15 @@ function visible_rows(page) {
 }
 
 function render(page) {
+	if (page.arw.ui.mode === 'collection') {
+		if (!page.arw.collection) {
+			page.main.find('#arw-groups').html(`<div class="arw-loading">${__('Loading legacy collections…')}</div>`);
+			return;
+		}
+		render_collection_kpis(page);
+		render_collection_groups(page);
+		return;
+	}
 	render_kpis(page);
 	render_groups(page);
 	ensure_open_logs(page);
@@ -480,6 +727,7 @@ function ensure_open_logs(page) {
 }
 
 function render_kpis(page) {
+	page.main.find('#arw-kpis').removeClass('arw-kpis-5');
 	const rows = visible_rows(page);
 	const total = rows.reduce((s, r) => s + r.amount, 0);
 	const unfiled = rows.filter((r) => !r.current_status);
