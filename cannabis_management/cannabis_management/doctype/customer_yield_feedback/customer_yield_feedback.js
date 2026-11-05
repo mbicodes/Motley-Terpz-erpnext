@@ -2,6 +2,9 @@ const CYF_GRAMS_PER_LB = 453.59237;
 
 frappe.ui.form.on("Customer Yield Feedback", {
 	setup(frm) {
+		frm.set_query("item_code", () => ({
+			filters: { item_group: ["descendants of (inclusive)", "Fresh Frozen Main"], disabled: 0 },
+		}));
 		frm.set_query("sales_order", () => ({
 			filters: { docstatus: 1, ...(frm.doc.customer ? { customer: frm.doc.customer } : {}) },
 		}));
@@ -56,4 +59,24 @@ frappe.ui.form.on("Item Yield", {
 	rosin_qty: cyf_calculate,
 	yield_percentage: cyf_calculate,
 	hash_to_rosin: cyf_calculate,
+});
+
+// Yield entry on the form: % from grams, like the table lines
+function cyf_entry_calculate(frm) {
+	const d = frm.doc;
+	const raw_g = flt(d.quantity) * CYF_GRAMS_PER_LB;
+	if (d.run_to === "BHO") {
+		if (raw_g && flt(d.bho_qty)) frm.set_value("bho_yield", (flt(d.bho_qty) / raw_g) * 100);
+		return;
+	}
+	if (raw_g && flt(d.hash_qty)) frm.set_value("yield_percentage", (flt(d.hash_qty) / raw_g) * 100);
+	if (flt(d.hash_qty) && flt(d.rosin_qty)) frm.set_value("hash_to_rosin", (flt(d.rosin_qty) / flt(d.hash_qty)) * 100);
+}
+
+frappe.ui.form.on("Customer Yield Feedback", {
+	quantity: cyf_entry_calculate,
+	hash_qty: cyf_entry_calculate,
+	rosin_qty: cyf_entry_calculate,
+	bho_qty: cyf_entry_calculate,
+	run_to: cyf_entry_calculate,
 });

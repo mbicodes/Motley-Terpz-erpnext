@@ -7,6 +7,9 @@ GRAMS_PER_LB = 453.59237
 
 class CustomerYieldFeedback(Document):
 	def validate(self):
+		self.sync_entry_to_table()
+		if not self.item_yield:
+			frappe.throw("Enter the Item and its yield, or add lines in the Yields table.")
 		if not self.customer and any((row.yield_source or "Customer") == "Customer" for row in self.item_yield):
 			frappe.throw("Customer is required when a line's Source is Customer (use Source = Our Lab for our own yields).")
 		if self.sales_order:
@@ -15,9 +18,30 @@ class CustomerYieldFeedback(Document):
 				frappe.throw(f"Sales Order {self.sales_order} belongs to {so_customer}, not {self.customer}")
 		for row in self.item_yield:
 			calculate_row(row)
+		self.copy_entry_back()
+
+	def sync_entry_to_table(self):
+		"""Item filled on the form = a one-item feedback: that entry is the only Yields line."""
+		if not self.get("item_code"):
+			return
+		values = {f: self.get(f) for f in ENTRY_FIELDS}
+		row = self.item_yield[0] if len(self.item_yield) == 1 and self.item_yield[0].item_code == self.item_code else None
+		if row is None:
+			self.set("item_yield", [])
+			row = self.append("item_yield", {})
+		row.update(values)
+
+	def copy_entry_back(self):
+		"""Show the calculated % on the form fields too."""
+		if self.get("item_code") and self.item_yield:
+			for f in ENTRY_FIELDS:
+				self.set(f, self.item_yield[0].get(f))
 
 
 SHO_FIELDS = ("hash_qty", "yield_percentage", "rosin_qty", "hash_to_rosin", "rosin_yield")
+# form-level yield entry (same field names as the Item Yield line it fills)
+ENTRY_FIELDS = ("item_code", "run_to", "yield_source", "quantity", "hash_qty", "yield_percentage",
+                "rosin_qty", "hash_to_rosin", "bho_qty", "bho_yield")
 BHO_FIELDS = ("bho_qty", "bho_yield")
 
 

@@ -33,7 +33,7 @@
    "options": "Item",
    "reqd": 1,
    "in_list_view": 1,
-   "columns": 1
+   "columns": 2
   },
   {
    "fieldname": "item_name",
@@ -135,8 +135,6 @@
    "fieldtype": "Float",
    "label": "BHO (g)",
    "depends_on": "eval:doc.run_to=='BHO'",
-   "in_list_view": 1,
-   "columns": 1,
    "read_only_depends_on": "eval:doc.run_to!='BHO'"
   },
   {
@@ -172,7 +170,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-11-05 22:00:00.000000",
+ "modified": "2026-11-05 22:30:00.000000",
  "modified_by": "Administrator",
  "module": "Cannabis Management",
  "name": "Item Yield",

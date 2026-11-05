@@ -15,6 +15,22 @@
   "company",
   "attachment",
   "amended_from",
+  "section_break_entry",
+  "item_code",
+  "run_to",
+  "column_break_entry",
+  "yield_source",
+  "quantity",
+  "section_break_sho",
+  "hash_qty",
+  "yield_percentage",
+  "column_break_sho",
+  "rosin_qty",
+  "hash_to_rosin",
+  "section_break_bho",
+  "bho_qty",
+  "column_break_bho",
+  "bho_yield",
   "section_break_ll9s",
   "item_yield",
   "section_break_notes",
@@ -100,16 +116,110 @@
    "search_index": 1
   },
   {
+   "fieldname": "section_break_entry",
+   "fieldtype": "Section Break",
+   "label": "Yield"
+  },
+  {
+   "fieldname": "item_code",
+   "fieldtype": "Link",
+   "label": "Item",
+   "options": "Item",
+   "description": "Fresh Frozen item. Leave empty to enter several items in the Yields table below."
+  },
+  {
+   "fieldname": "run_to",
+   "fieldtype": "Select",
+   "label": "Run To",
+   "options": "SHO\nBHO",
+   "default": "SHO",
+   "depends_on": "eval:doc.item_code"
+  },
+  {
+   "fieldname": "column_break_entry",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "yield_source",
+   "fieldtype": "Select",
+   "label": "Source",
+   "options": "Customer\nOur Lab",
+   "default": "Customer",
+   "depends_on": "eval:doc.item_code"
+  },
+  {
+   "fieldname": "quantity",
+   "fieldtype": "Float",
+   "label": "Qty Sent / Ran (LBS)",
+   "depends_on": "eval:doc.item_code"
+  },
+  {
+   "fieldname": "section_break_sho",
+   "fieldtype": "Section Break",
+   "label": "Run to SHO",
+   "depends_on": "eval:doc.item_code && doc.run_to!='BHO'"
+  },
+  {
+   "fieldname": "hash_qty",
+   "fieldtype": "Float",
+   "label": "Hash (g)"
+  },
+  {
+   "fieldname": "yield_percentage",
+   "fieldtype": "Percent",
+   "label": "Yield To Hash %",
+   "precision": "2",
+   "description": "Filled from Hash (g) and Qty, or type it"
+  },
+  {
+   "fieldname": "column_break_sho",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "rosin_qty",
+   "fieldtype": "Float",
+   "label": "Rosin (g)"
+  },
+  {
+   "fieldname": "hash_to_rosin",
+   "fieldtype": "Percent",
+   "label": "Hash to Rosin %",
+   "precision": "2",
+   "description": "Filled from Rosin (g) and Hash (g), or type it"
+  },
+  {
+   "fieldname": "section_break_bho",
+   "fieldtype": "Section Break",
+   "label": "Run to BHO",
+   "depends_on": "eval:doc.item_code && doc.run_to=='BHO'"
+  },
+  {
+   "fieldname": "bho_qty",
+   "fieldtype": "Float",
+   "label": "BHO (g)"
+  },
+  {
+   "fieldname": "column_break_bho",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "bho_yield",
+   "fieldtype": "Percent",
+   "label": "BHO Yield %",
+   "precision": "2",
+   "description": "Filled from BHO (g) and Qty, or type it"
+  },
+  {
    "fieldname": "section_break_ll9s",
    "fieldtype": "Section Break",
-   "label": "Yields"
+   "label": "Yields (several items)",
+   "depends_on": "eval:!doc.item_code"
   },
   {
    "fieldname": "item_yield",
    "fieldtype": "Table",
    "label": "Item Yield",
-   "options": "Item Yield",
-   "reqd": 1
+   "options": "Item Yield"
   },
   {
    "fieldname": "section_break_notes",
@@ -125,7 +235,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-11-05 16:00:00.000000",
+ "modified": "2026-11-05 22:30:00.000000",
  "modified_by": "Administrator",
  "module": "Cannabis Management",
  "name": "Customer Yield Feedback",
