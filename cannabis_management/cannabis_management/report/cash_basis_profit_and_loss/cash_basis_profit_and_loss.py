@@ -8,14 +8,20 @@ and Growth / Margin views are the P&L's own code; only the entries fed into it
 differ.
 
 The accrual P&L takes every GL Entry on an Income or Expense account. This one
-takes an Income / Expense GL Entry only when cash moved for it: it sits in a
-voucher with a Bank or Cash GL Entry, and its account is in that Bank / Cash
-entry's Against column. Each such line counts once, at its own debit / credit,
-so a bank line against several heads splits into the real amount per head.
+takes an Income / Expense GL Entry only when cash moved for it: the same
+Journal / Payment Entry moves a Bank or Cash account the opposite way (the
+pairing the GL's Against column shows, read from the voucher because Against
+keeps old account names after a rename). Each line counts once, at its own
+debit / credit, so a bank line against several heads splits by head.
 
-Everything on the Bank / Cash side that is against a Balance Sheet head (bank
-to bank transfers, Debtors / Creditors, a party on a Payment Entry, loans...)
-is left out: only Profit and Loss accounts of the selected company count.
+Customer payments are income on a cash basis: a credit to the company's Debtors
+account posted against a Bank or Cash account means the customer paid us. That
+shows in the Income section as "Debtors (customer payments)"; a refund paid back
+from the bank reduces it. Only Debtors: intercompany receivables, Other
+Receivables and UnEarned Income are money between the group or advances.
+
+Every other Balance Sheet head on the Bank / Cash side (bank to bank transfers,
+Creditors, intercompany, loans...) is left out.
 """
 
 import frappe
@@ -96,13 +102,31 @@ def get_cash_data(company, root_type, balance_must_be, period_list, filters):
 	if not accounts:
 		return None
 
-	accounts, accounts_by_name, parent_children_map = filter_accounts(accounts)
 	company_currency = get_appropriate_currency(company, filters)
 
 	gl_entries_by_account = {}
 	for entry in get_cash_entries(company, root_type, period_list, filters):
 		gl_entries_by_account.setdefault(entry.account, []).append(entry)
 
+	if root_type == "Income":
+		# Customer payments: each Debtors account becomes a line directly under
+		# the Income root, so the P&L code totals it like any income head.
+		receipts = {}
+		for entry in get_cash_entries(company, root_type, period_list, filters, receivable=True):
+			receipts.setdefault(entry.account, []).append(entry)
+		root = next((a for a in accounts if not a.parent_account), None)
+		if root and receipts:
+			names = dict(frappe.get_all("Account", filters={"name": ["in", list(receipts)]},
+			                            fields=["name", "account_name"], as_list=True))
+			for name, entries in receipts.items():
+				accounts.append(frappe._dict(
+					name=name, account_number=None, parent_account=root.name, root_type="Income",
+					report_type="Profit and Loss", account_name=_("{0} (customer payments)").format(names.get(name, name)),
+					include_in_gross=0, account_type="Receivable", is_group=0, lft=0, rgt=0,
+				))
+				gl_entries_by_account[name] = entries
+
+	accounts, accounts_by_name, parent_children_map = filter_accounts(accounts)
 	calculate_values(accounts_by_name, gl_entries_by_account, period_list, filters.accumulated_values, False)
 	accumulate_values_into_parents(accounts, accounts_by_name, period_list)
 	out = prepare_data(accounts, balance_must_be, period_list, company_currency,
@@ -113,9 +137,23 @@ def get_cash_data(company, root_type, balance_must_be, period_list, filters):
 	return out
 
 
-def get_cash_entries(company, root_type, period_list, filters):
-	"""Income / Expense GL Entries that a Bank or Cash GL Entry of the same
-	voucher was posted against.
+def debtors_accounts(company):
+	"""The company's Debtors: its default receivable account and any receivable
+	account named Debtors."""
+	names = set(frappe.get_all("Account", filters={"company": company, "account_type": "Receivable",
+	                                                 "account_name": "Debtors", "is_group": 0}, pluck="name"))
+	default = frappe.get_cached_value("Company", company, "default_receivable_account")
+	if default:
+		names.add(default)
+	return list(names) or ["__none__"]
+
+
+def get_cash_entries(company, root_type, period_list, filters, receivable=False):
+	"""Income / Expense GL Entries paid in or out through a Bank or Cash account
+	in the same Journal / Payment Entry.
+
+	receivable=True instead returns the company's Debtors GL Entries paired the
+	same way: customer payments (Debtors credited, bank debited), and refunds.
 
 	Same window, cost center / project / finance book / dimension filters and
 	Period Closing Voucher exclusion as the accrual P&L (apply_additional_conditions).
@@ -128,7 +166,7 @@ def get_cash_entries(company, root_type, period_list, filters):
 		.select(gle.name, gle.account, gle.posting_date, gle.debit, gle.credit, gle.fiscal_year)
 		.where(gle.company == company)
 		.where(gle.is_cancelled == 0)
-		.where(acc.root_type == root_type)
+		.where(acc.name.isin(debtors_accounts(company)) if receivable else (acc.root_type == root_type))
 		.where(acc.is_group == 0)
 		.where(gle.posting_date <= period_list[-1]["to_date"])
 	)
@@ -137,10 +175,14 @@ def get_cash_entries(company, root_type, period_list, filters):
 	)
 	sql, params = query.walk()
 
-	# The cash link: a Bank / Cash entry in the same voucher lists this
-	# account in its Against column (stored as "Head A, Head B").
+	# The cash link: the same voucher moves a Bank or Cash account the other way
+	# (this line debited while the bank / cash is credited, or the reverse). That
+	# is the pairing the GL's Against column describes, but read from the voucher
+	# itself: Against is stored as text and keeps an account's old name after a
+	# rename (e.g. "Blue Sky Bank - 7008 - MT", now "Bank-7008 - MT").
 	types = ", ".join(frappe.db.escape(t) for t in CASH_ACCOUNT_TYPES)
 	sql += f"""
+		and `tabGL Entry`.voucher_type in ('Journal Entry', 'Payment Entry')
 		and exists (
 			select 1 from `tabGL Entry` cash_gle
 			join `tabAccount` cash_acc on cash_acc.name = cash_gle.account
@@ -149,7 +191,8 @@ def get_cash_entries(company, root_type, period_list, filters):
 			  and cash_gle.company = `tabGL Entry`.company
 			  and cash_gle.is_cancelled = 0
 			  and cash_acc.account_type in ({types})
-			  and find_in_set(`tabGL Entry`.account, replace(cash_gle.against, ', ', ',')) > 0
+			  and ((`tabGL Entry`.debit > 0 and cash_gle.credit > 0)
+			       or (`tabGL Entry`.credit > 0 and cash_gle.debit > 0))
 		)"""
 
 	match = build_match_conditions("GL Entry")
