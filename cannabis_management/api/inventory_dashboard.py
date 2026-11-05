@@ -648,7 +648,7 @@ def can_add_yield():
 @frappe.whitelist()
 def add_yield(item_code, source="Our Lab", customer=None, date=None, quantity=None, hash_qty=None,
               yield_percentage=None, rosin_qty=None, hash_to_rosin=None, bho_qty=None, bho_yield=None,
-              remarks=None):
+              remarks=None, run_to="SHO"):
     """Save one yield line from the Inventory Dashboard as a submitted Customer Yield Feedback, so it shows
     in Run to SHO / Run to BHO, the averages and the SHO / BHO / TBD classification straight away.
     Grams given with Qty (LBS) are turned into % by the Customer Yield Feedback controller."""
@@ -672,11 +672,17 @@ def add_yield(item_code, source="Our Lab", customer=None, date=None, quantity=No
                                       ("bho_qty", bho_qty), ("bho_yield", bho_yield))}
     if any(v < 0 for v in values.values()):
         frappe.throw(_("Values cannot be negative"))
-    has_sho = values["yield_percentage"] or (values["quantity"] and values["hash_qty"])
-    has_bho = values["bho_yield"] or (values["quantity"] and values["bho_qty"])
-    if not (has_sho or has_bho or values["hash_to_rosin"]):
-        frappe.throw(_("Enter at least one yield: Yield to Hash %, Hash to Rosin % or BHO Yield % (or the grams with Qty)"))
-    row = {"item_code": item_code, "yield_source": source}
+    run_to = run_to or "SHO"
+    if run_to not in ("SHO", "BHO"):
+        frappe.throw(_("Run To must be SHO or BHO"))
+    keep = ("quantity", "bho_qty", "bho_yield") if run_to == "BHO" else \
+        ("quantity", "hash_qty", "yield_percentage", "rosin_qty", "hash_to_rosin")
+    values = {k: (v if k in keep else 0) for k, v in values.items()}
+    if run_to == "SHO" and not (values["yield_percentage"] or (values["quantity"] and values["hash_qty"]) or values["hash_to_rosin"]):
+        frappe.throw(_("Run to SHO: enter Yield to Hash % (or Hash g with Qty) and / or Hash to Rosin %"))
+    if run_to == "BHO" and not (values["bho_yield"] or (values["quantity"] and values["bho_qty"])):
+        frappe.throw(_("Run to BHO: enter BHO Yield % (or BHO g with Qty)"))
+    row = {"item_code": item_code, "yield_source": source, "run_to": run_to}
     row.update({k: v for k, v in values.items() if v})
     doc = frappe.get_doc({
         "doctype": YIELD_DOCTYPE,

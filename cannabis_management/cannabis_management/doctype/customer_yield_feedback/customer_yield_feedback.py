@@ -17,7 +17,17 @@ class CustomerYieldFeedback(Document):
 			calculate_row(row)
 
 
+SHO_FIELDS = ("hash_qty", "yield_percentage", "rosin_qty", "hash_to_rosin", "rosin_yield")
+BHO_FIELDS = ("bho_qty", "bho_yield")
+
+
 def calculate_row(row):
+	"""Run To SHO keeps the wash fields (Yield to Hash, Hash to Rosin); Run To BHO keeps only the BHO
+	fields, so a line never counts in both Run to SHO and Run to BHO on the Inventory Dashboard."""
+	run_to = row.get("run_to") or "SHO"
+	for f in (SHO_FIELDS if run_to == "BHO" else BHO_FIELDS):
+		if row.meta.has_field(f):
+			row.set(f, 0)
 	raw_g = flt(row.quantity) * GRAMS_PER_LB
 	if raw_g and flt(row.hash_qty):
 		row.yield_percentage = flt(row.hash_qty) / raw_g * 100
@@ -27,7 +37,7 @@ def calculate_row(row):
 		row.rosin_yield = flt(row.rosin_qty) / raw_g * 100
 	elif flt(row.yield_percentage) and flt(row.hash_to_rosin):
 		row.rosin_yield = flt(row.yield_percentage) * flt(row.hash_to_rosin) / 100
-	else:
+	elif run_to != "BHO":
 		row.rosin_yield = 0
 	if raw_g and flt(row.get("bho_qty")):
 		row.bho_yield = flt(row.bho_qty) / raw_g * 100
