@@ -36,10 +36,10 @@
    "fieldtype": "Link",
    "label": "Customer",
    "options": "Customer",
-   "reqd": 1,
    "in_list_view": 1,
    "in_standard_filter": 1,
-   "search_index": 1
+   "search_index": 1,
+   "description": "Required when a line's Source is Customer; leave empty for Our Lab yields"
   },
   {
    "fieldname": "customer_name",
@@ -125,7 +125,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-10-23 12:00:00.000000",
+ "modified": "2026-11-05 16:00:00.000000",
  "modified_by": "Administrator",
  "module": "Cannabis Management",
  "name": "Customer Yield Feedback",

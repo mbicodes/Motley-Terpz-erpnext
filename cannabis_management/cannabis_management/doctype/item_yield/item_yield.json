@@ -18,6 +18,7 @@
   "rosin_qty",
   "hash_to_rosin",
   "rosin_yield",
+  "bho_qty",
   "bho_yield",
   "section_break_rem",
   "remarks",
@@ -111,6 +112,12 @@
    "read_only": 1
   },
   {
+   "description": "BHO out (g) from the Qty Sent / Ran; fills BHO Yield %",
+   "fieldname": "bho_qty",
+   "fieldtype": "Float",
+   "label": "BHO (g)"
+  },
+  {
    "description": "BHO extraction yield (BHO out / Fresh Frozen in). Shows under Run to BHO on the Inventory Dashboard.",
    "fieldname": "bho_yield",
    "fieldtype": "Percent",
@@ -139,7 +146,7 @@
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-11-05 14:00:00.000000",
+ "modified": "2026-11-05 16:00:00.000000",
  "modified_by": "Administrator",
  "module": "Cannabis Management",
  "name": "Item Yield",

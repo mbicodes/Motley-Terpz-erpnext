@@ -7,6 +7,8 @@ GRAMS_PER_LB = 453.59237
 
 class CustomerYieldFeedback(Document):
 	def validate(self):
+		if not self.customer and any((row.yield_source or "Customer") == "Customer" for row in self.item_yield):
+			frappe.throw("Customer is required when a line's Source is Customer (use Source = Our Lab for our own yields).")
 		if self.sales_order:
 			so_customer = frappe.db.get_value("Sales Order", self.sales_order, "customer")
 			if so_customer != self.customer:
@@ -27,6 +29,8 @@ def calculate_row(row):
 		row.rosin_yield = flt(row.yield_percentage) * flt(row.hash_to_rosin) / 100
 	else:
 		row.rosin_yield = 0
+	if raw_g and flt(row.get("bho_qty")):
+		row.bho_yield = flt(row.bho_qty) / raw_g * 100
 
 
 @frappe.whitelist()

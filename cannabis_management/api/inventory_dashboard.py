@@ -1,4 +1,5 @@
 import frappe
+from frappe import _
 from frappe.utils import flt
 
 from cannabis_management.cannabis_management.page.manufacturing_runs.manufacturing_runs import (
@@ -643,3 +644,67 @@ def get_reserved_sales_orders():
         if r.voucher_no in orders:
             orders[r.voucher_no]["items"].append(r)
     return sorted(orders.values(), key=lambda o: (o["delivery_date"] or o["transaction_date"], o["name"]))
+
+
+# ---------------------------------------------------------------- Add Yield (Fresh Frozen view)
+YIELD_DOCTYPE = "Customer Yield Feedback"
+
+
+@frappe.whitelist(allow_guest=True)
+def can_add_yield():
+    """The dashboard shows Add Yield only to logged-in users who may create and submit Customer Yield Feedback."""
+    if frappe.session.user == "Guest":
+        return False
+    return bool(frappe.has_permission(YIELD_DOCTYPE, "create") and frappe.has_permission(YIELD_DOCTYPE, "submit"))
+
+
+@frappe.whitelist()
+def add_yield(item_code, source="Our Lab", customer=None, date=None, quantity=None, hash_qty=None,
+              yield_percentage=None, rosin_qty=None, hash_to_rosin=None, bho_qty=None, bho_yield=None,
+              remarks=None):
+    """Save one yield line from the Inventory Dashboard as a submitted Customer Yield Feedback, so it shows
+    in Run to SHO / Run to BHO, the averages and the SHO / BHO / TBD classification straight away.
+    Grams given with Qty (LBS) are turned into % by the Customer Yield Feedback controller."""
+    if not can_add_yield():
+        frappe.throw(_("You are not permitted to add yields."), frappe.PermissionError)
+    from cannabis_management.doc_hooks.ff_wash_classify import ff_groups
+    group = frappe.db.get_value("Item", item_code, "item_group")
+    if not group:
+        frappe.throw(_("Item {0} not found").format(item_code))
+    if group not in ff_groups():
+        frappe.throw(_("{0} is not a Fresh Frozen item").format(item_code))
+    if source not in ("Our Lab", "Customer"):
+        frappe.throw(_("Source must be Our Lab or Customer"))
+    if source == "Customer":
+        if not customer:
+            frappe.throw(_("Pick the customer who sent this yield"))
+        if not frappe.db.exists("Customer", customer):
+            frappe.throw(_("Customer {0} not found").format(customer))
+    values = {f: flt(v) for f, v in (("quantity", quantity), ("hash_qty", hash_qty), ("yield_percentage", yield_percentage),
+                                      ("rosin_qty", rosin_qty), ("hash_to_rosin", hash_to_rosin),
+                                      ("bho_qty", bho_qty), ("bho_yield", bho_yield))}
+    if any(v < 0 for v in values.values()):
+        frappe.throw(_("Values cannot be negative"))
+    has_sho = values["yield_percentage"] or (values["quantity"] and values["hash_qty"])
+    has_bho = values["bho_yield"] or (values["quantity"] and values["bho_qty"])
+    if not (has_sho or has_bho or values["hash_to_rosin"]):
+        frappe.throw(_("Enter at least one yield: Yield to Hash %, Hash to Rosin % or BHO Yield % (or the grams with Qty)"))
+    row = {"item_code": item_code, "yield_source": source}
+    row.update({k: v for k, v in values.items() if v})
+    doc = frappe.get_doc({
+        "doctype": YIELD_DOCTYPE,
+        "customer": customer if source == "Customer" else None,
+        "date": date or frappe.utils.nowdate(),
+        "remarks": remarks or _("Added from the Inventory Dashboard"),
+        "item_yield": [row],
+    })
+    doc.insert()
+    doc.submit()
+    saved = doc.item_yield[0]
+    return {
+        "name": doc.name,
+        "item_group": frappe.db.get_value("Item", item_code, "item_group"),
+        "yield_percentage": flt(saved.yield_percentage, 2),
+        "hash_to_rosin": flt(saved.hash_to_rosin, 2),
+        "bho_yield": flt(saved.get("bho_yield"), 2),
+    }
