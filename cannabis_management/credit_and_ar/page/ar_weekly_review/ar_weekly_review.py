@@ -35,10 +35,16 @@ def _require_access():
 		)
 
 RECON_FIELD = "custom_reconciliation_status"
+# "This Week's Status": the payment state used by the Nikki / Matt filters of the reach-out group-by
+WEEKLY_STATUS_FIELD = "custom_ar_weekly_status"
+PAY_STATUSES = ["Paying now or Terms", "Payments coming. WIP", "Reconcile", "Dodging us"]
+# AR Legacy Segment values that mean "Matt has contact"
+MATT_SEGMENTS = ["Matt's Accounts", "Matt has Relationships"]
 
 
 def _attach_customer_info(rows):
-	wanted = {"recon_status": RECON_FIELD, "segment": SEGMENT_FIELD, "reach_out": REACH_OUT_FIELD}
+	wanted = {"recon_status": RECON_FIELD, "segment": SEGMENT_FIELD, "reach_out": REACH_OUT_FIELD,
+	          "weekly_status": WEEKLY_STATUS_FIELD}
 	wanted.update(AR_FLAG_FIELDS)
 	present = {k: f for k, f in wanted.items() if frappe.db.has_column("Customer", f)}
 
@@ -64,13 +70,32 @@ def _attach_customer_info(rows):
 		"can_edit_segment": bool(_can_edit_segment() and "segment" in present),
 		"reach_out_statuses": REACH_OUT_STATUSES,
 		"can_edit_reach_out": bool(_can_edit_segment() and "reach_out" in present),
+		"pay_statuses": PAY_STATUSES,
+		"matt_segments": MATT_SEGMENTS,
+		"can_edit_weekly_status": bool(_can_edit_recon() and "weekly_status" in present),
 	}
 
 
 def _customer_columns(r):
 	return [r.get("recon_status") or "", r.get("onboarding") or "",
 	        r.get("company_made_contact") or "", r.get("segment") or UNASSIGNED,
-	        r.get("reach_out") or NOT_REACHED_OUT]
+	        r.get("reach_out") or NOT_REACHED_OUT, r.get("weekly_status") or ""]
+
+
+@frappe.whitelist()
+def set_weekly_status(customer, status=None):
+	"""Set the customer's This Week's Status (Paying now or Terms / Payments coming. WIP / Reconcile /
+	Dodging us); same edit right as Recon Status / Company Made Contact."""
+	_require_access()
+	if not _can_edit_recon():
+		frappe.throw(_("You do not have permission to change this field."), frappe.PermissionError)
+	status = status or ""
+	if status and status not in PAY_STATUSES:
+		frappe.throw(_("Invalid status"))
+	if not frappe.db.exists("Customer", customer):
+		frappe.throw(_("Customer {0} not found").format(customer))
+	frappe.db.set_value("Customer", customer, WEEKLY_STATUS_FIELD, status)
+	return {"customer": customer, "status": status}
 
 LEDGER_NEW = "New AR"
 LEDGER_LEGACY = "Legacy AR"
@@ -413,6 +438,7 @@ def _export_tables(ledger=None, companies=None):
 		"Customer", "Ledger", "Portion", "Level", "Worst Aging", "Amount",
 		"Invoices", "Recon Status", "Onboarding", "Company Made Contact", "Segment",
 		"Reach Out Status",
+		"This Week's Status",
 		"Current Status", "Latest Note", "Entries Filed",
 	]]
 	aging = [["Customer", "Ledger", "Portion", "Aging Bucket", "Amount"]]

@@ -88,6 +88,48 @@ const ARW_REACH_OUT_DEF = {
 	'Reached Out': { color: '#16a34a', desc: '' },
 };
 
+// Nikki / Matt filters of "By reach out status" (New + Legacy AR combined): grouped by
+// This Week's Status inside "Company has contact / no contact" (Company Made Contact) or
+// "Matt has contact" (AR Legacy Segment Matt's Accounts / Matt has Relationships).
+const ARW_NO_PAY = '__none__';
+const ARW_PAY_COLORS = {
+	'Paying now or Terms': '#16a34a',
+	'Payments coming. WIP': '#2563eb',
+	'Reconcile': '#7c3aed',
+	'Dodging us': '#dc2626',
+};
+const ARW_RO_FILTER_LABEL = { nikki: 'Nikki filter', matt: 'Matt filter' };
+
+function arw_pay_style(value) {
+	const c = ARW_PAY_COLORS[value];
+	return c ? arw_cell_style(c + '1f', c, c) : '';
+}
+
+function arw_pay_groups(page, pool, sections) {
+	const statuses = (page.arw.meta.pay_statuses || []).concat([ARW_NO_PAY]);
+	const out = [];
+	sections.forEach(function (sec) {
+		const rows_in = pool.filter(sec.test);
+		statuses.forEach(function (st) {
+			const label = st === ARW_NO_PAY ? __('No status yet') : ((sec.rename || {})[st] || st);
+			out.push({
+				key: sec.key + '|' + st,
+				def: { full: sec.label + ' · ' + label,
+					desc: st === ARW_NO_PAY ? __("This Week's Status is not set yet.") : '' },
+				cls: 'owner',
+				color: ARW_PAY_COLORS[st] || '#9aa0a6',
+				rows: rows_in.filter((r) => (st === ARW_NO_PAY ? !r.weekly_status : r.weekly_status === st)),
+			});
+		});
+	});
+	return out;
+}
+
+function arw_ro_suffix(page) {
+	const f = ARW_RO_FILTER_LABEL[page.arw.ui.ro_filter];
+	return f ? ' · ' + __(f) + ' · ' + __('New + Legacy AR') : '';
+}
+
 function arw_reach_out_style(value) {
 	const d = ARW_REACH_OUT_DEF[value || ARW_NOT_REACHED];
 	return d ? arw_cell_style(d.color + '1f', d.color, d.color) : '';
@@ -119,7 +161,10 @@ function arw_customer_cells(page, r) {
 			arw_segment_style(page, r.segment), meta.can_edit_segment)}</td>
 		<td class="arw-cf">${arw_select('reach_out', 'reach_out', r.customer, r.reach_out || ARW_NOT_REACHED,
 			(meta.reach_out_statuses || [ARW_NOT_REACHED]).map((s) => [s, s]),
-			arw_reach_out_style(r.reach_out), meta.can_edit_reach_out)}</td>`;
+			arw_reach_out_style(r.reach_out), meta.can_edit_reach_out)}</td>
+		<td class="arw-cf">${arw_select('weekly', 'weekly_status', r.customer, r.weekly_status || '',
+			[['', '—']].concat((meta.pay_statuses || []).map((s) => [s, s])),
+			arw_pay_style(r.weekly_status), meta.can_edit_weekly_status)}</td>`;
 }
 
 function arw_save_customer_field(page, $sel) {
@@ -141,6 +186,10 @@ function arw_save_customer_field(page, $sel) {
 		method = ARW_ARL_METHOD + 'set_reach_out_status';
 		args = { customer: customer, status: value };
 		label = __('Reach Out Status');
+	} else if (kind === 'weekly') {
+		method = ARW_METHOD + 'set_weekly_status';
+		args = { customer: customer, status: value };
+		label = __("This Week's Status");
 	} else {
 		method = ARW_ARL_METHOD + 'set_segment';
 		args = { customer: customer, segment: value };
@@ -179,6 +228,18 @@ function arw_groups(page, pool) {
 			color: arw_segment_color(page, k) || '#9aa0a6',
 			rows: pool.filter((r) => (r.segment || '') === k),
 		}));
+	} else if (mode === 'reach_out' && page.arw.ui.ro_filter === 'nikki') {
+		groups = arw_pay_groups(page, pool, [
+			{ key: 'contact', label: __('Company has contact'), test: (r) => r.company_made_contact === 'Yes' },
+			{ key: 'nocontact', label: __('Company has no contact'), test: (r) => r.company_made_contact !== 'Yes',
+				rename: { 'Payments coming. WIP': 'Payments coming. Working on it' } },
+		]);
+	} else if (mode === 'reach_out' && page.arw.ui.ro_filter === 'matt') {
+		const matt = page.arw.meta.matt_segments || [];
+		groups = arw_pay_groups(page, pool, [
+			{ key: 'matt', label: __('Matt has contact'), test: (r) => matt.indexOf(r.segment) !== -1,
+				rename: { 'Paying now or Terms': 'Paying now' } },
+		]);
 	} else if (mode === 'reach_out') {
 		groups = (page.arw.meta.reach_out_statuses || [ARW_NOT_REACHED]).map((k) => ({
 			key: k,
@@ -218,7 +279,7 @@ frappe.pages['ar-weekly-review'].on_page_load = function (wrapper) {
 		edits: {},
 		collection: null,
 		coll_open: {},
-		ui: { mode: 'tier', ledger: 'New AR', search: '', company: '', division: '', coll_view: 'overall' },
+		ui: { mode: 'tier', ledger: 'New AR', search: '', company: '', division: '', coll_view: 'overall', ro_filter: 'status' },
 	};
 
 	page.main.html(`
@@ -267,6 +328,11 @@ frappe.pages['ar-weekly-review'].on_page_load = function (wrapper) {
 					<button data-view="month">${__('Month-wise')}</button>
 					<button data-view="week">${__('Week-wise')}</button>
 				</div>
+				<div class="arw-seg" id="arw-roseg" style="display:none;">
+					<button data-ro="status" class="on">${__('Reach out status')}</button>
+					<button data-ro="nikki">${__('Nikki filter')}</button>
+					<button data-ro="matt">${__('Matt filter')}</button>
+				</div>
 				<div class="arw-seg" id="arw-ledgerseg">
 					<button data-ledger="New AR" class="on">${__('New AR')}</button>
 					<button data-ledger="Legacy AR">${__('Legacy AR')}</button>
@@ -303,6 +369,20 @@ function bind_events(page) {
 		const collection = page.arw.ui.mode === 'collection';
 		page.main.find('#arw-collseg').toggle(collection);
 		page.main.find('#arw-ledgerseg').toggle(!collection);
+		page.main.find('#arw-roseg').toggle(page.arw.ui.mode === 'reach_out');
+		render(page);
+	});
+
+	page.main.find('#arw-roseg button').on('click', function () {
+		page.main.find('#arw-roseg button').removeClass('on');
+		$(this).addClass('on');
+		page.arw.ui.ro_filter = String($(this).data('ro'));
+		if (page.arw.ui.ro_filter !== 'status' && page.arw.ui.ledger !== 'all') {
+			// Nikki / Matt filters are New + Legacy AR combined
+			page.arw.ui.ledger = 'all';
+			page.main.find('#arw-ledgerseg button').removeClass('on');
+			page.main.find('#arw-ledgerseg button[data-ledger="all"]').addClass('on');
+		}
 		render(page);
 	});
 
@@ -803,7 +883,7 @@ function render_groups(page) {
 function build_table(page, rows, mode) {
 	const show_level = mode !== 'tier';
 	const show_status = mode !== 'status';
-	const cols = 10 + (show_level ? 1 : 0) + (show_status ? 1 : 0);
+	const cols = 11 + (show_level ? 1 : 0) + (show_status ? 1 : 0);
 	let html = `<div class="arw-tablescroll"><table class="arw-rows"><thead><tr>
 			<th style="width:22px"></th>
 			<th>${__('Customer')}</th>
@@ -816,6 +896,7 @@ function build_table(page, rows, mode) {
 			<th>${__('Company Made Contact')}</th>
 			<th>${__('Segment')}</th>
 			<th>${__('Reach Out Status')}</th>
+			<th>${__("This Week's Status")}</th>
 			<th>${__('Latest note')}</th>
 		</tr></thead><tbody>`;
 
@@ -1050,6 +1131,7 @@ function print_review(page) {
 					${show_status ? `<th>${__('Status')}</th>` : ''}
 					<th>${__('Segment')}</th>
 					<th>${__('Reach Out Status')}</th>
+					<th>${__("This Week's Status")}</th>
 					<th>${__('Latest note')}</th>
 				</tr></thead><tbody>${rows.map((r) => `<tr>
 					<td><b>${esc(r.customer)}</b><div class="dim">${r.portion === 'upcoming' ? __('on terms') : __('overdue')} · ${r.invoice_count} ${__('inv')}</div></td>
@@ -1059,6 +1141,7 @@ function print_review(page) {
 					${show_status ? `<td>${r.current_status ? esc(r.current_status) : '<span class="dim">' + __('No status yet') + '</span>'}</td>` : ''}
 					<td>${esc(r.segment || page.arw.meta.unassigned_label || __('Unassigned'))}</td>
 					<td>${esc(r.reach_out || ARW_NOT_REACHED)}</td>
+					<td>${esc(r.weekly_status || '—')}</td>
 					<td>${r.latest_note ? esc(r.latest_note) : '—'}</td>
 				</tr>`).join('')}</tbody></table>`
 				: `<div class="dim empty">${__('No accounts in this group.')}</div>`;
@@ -1094,7 +1177,7 @@ function print_review(page) {
 			@media print{body{margin:0;-webkit-print-color-adjust:exact;print-color-adjust:exact;}}
 		</style></head><body>
 		<h1>${__('Accounts Receivable — Weekly Review')}</h1>
-		<div class="dim">${__('As of {0}', [esc(page.arw.meta.as_of || '')])} · ${esc(arw_scope_label(page))} · ${__('Grouped')} ${{ tier: __('by debt level'), status: __('by status'), owner: __('by ownership'), reach_out: __('by reach out status') }[mode]} · ${__('Printed by {0}', [esc(frappe.session.user_fullname || frappe.session.user)])}</div>
+		<div class="dim">${__('As of {0}', [esc(page.arw.meta.as_of || '')])} · ${esc(arw_scope_label(page))} · ${__('Grouped')} ${{ tier: __('by debt level'), status: __('by status'), owner: __('by ownership'), reach_out: __('by reach out status') + arw_ro_suffix(page) }[mode]} · ${__('Printed by {0}', [esc(frappe.session.user_fullname || frappe.session.user)])}</div>
 		${ledger_html}
 		</body></html>`;
 
