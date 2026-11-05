@@ -238,7 +238,6 @@ def _collect_yields(item_codes, yield_map, records=None):
         _add_yield(entry["hash_to_rosin"], row.get("actual_rosin_yield"))
     add_run_yields(item_codes, yield_map)
     add_repack_wash_yields(item_codes, yield_map)
-    add_bho_run_yields(item_codes, yield_map)
     add_customer_yields(item_codes, yield_map)
 
 
@@ -510,18 +509,6 @@ def add_repack_wash_yields(item_codes, yield_map):
             if r.purpose == "Repack":
                 entry = _yield_entry(yield_map, code)
                 _add_yield(entry["yield_to_hash"], r["yield"])
-
-
-def add_bho_run_yields(item_codes, yield_map):
-    """Run to BHO: our BHO extraction yields from Repack Stock Entries (FF -> Primes / Subprimes / LLR)."""
-    from cannabis_management.doc_hooks.ff_wash_classify import bho_runs
-    wanted = set(item_codes)
-    for code, runs in bho_runs(item_codes).items():
-        if code not in wanted:  # other strains extracted in the same entry
-            continue
-        entry = _yield_entry(yield_map, code)
-        for r in runs:
-            _add_yield(entry["bho_yield"], r["yield"])
 
 
 CUSTOMER_YIELD_COLOURS = [
