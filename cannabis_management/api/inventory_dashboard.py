@@ -443,7 +443,12 @@ def yield_to_hash_values(item_codes):
 
 
 def yield_to_hash_avg(values):
-    return round(sum(values) / len(values), 2) if values else None
+    """Average to 2 decimals, half-up like a calculator (3.315 -> 3.32), from the 2-decimal values."""
+    if not values:
+        return None
+    from decimal import ROUND_HALF_UP, Decimal
+    total = sum(Decimal(str(v)) for v in values)
+    return float((total / len(values)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
 
 
 def _add_yield(parts, value, customer=None, customer_name=None, colour=None):

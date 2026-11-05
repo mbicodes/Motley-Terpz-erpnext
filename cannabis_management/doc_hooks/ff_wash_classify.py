@@ -64,7 +64,9 @@ def hash_groups():
 
 
 def average(yields):
-    return round(sum(flt(y) for y in yields) / len(yields), 2) if yields else 0
+    """Same average as the dashboard's Avg Yield to Hash% column."""
+    from cannabis_management.api.inventory_dashboard import yield_to_hash_avg
+    return yield_to_hash_avg([flt(y, 2) for y in yields]) or 0
 
 
 def classify(yields):
