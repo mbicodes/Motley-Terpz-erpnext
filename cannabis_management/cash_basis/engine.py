@@ -67,6 +67,8 @@ EPS = 0.005
 IC_DAYS = 10          # exact amount within this many days: a firm match
 IC_WIDE_DAYS = 60     # exact amount (or within IC_CENTS) up to this: a match, noted
 IC_CENTS = 0.10
+IC_SHORT_DAYS = 3     # cash on both sides, amounts within IC_SHORT_RATIO: same movement
+IC_SHORT_RATIO = 0.01
 PAYROLL_DAYS = 75
 
 # Intercompany account -> (other company, its mirror accounts).
@@ -517,14 +519,21 @@ class Engine:
 				for r in pool.get(m, []):
 					rv = flt(r.credit) if d_dr else flt(r.debit)
 					diff = abs(rv - value)
-					if rv <= EPS or diff > IC_CENTS:
+					if rv <= EPS:
 						continue
 					gap = abs((getdate(r.posting_date) - getdate(d.posting_date)).days)
 					together = abs((r.creation - d.creation).total_seconds()) <= 86400
+					both_cash = (r.voucher_type, r.voucher_no) in self.vlines
 					if diff <= EPS and (gap <= IC_DAYS or together):
 						tier = 0
-					elif gap <= IC_WIDE_DAYS:
+					elif diff <= IC_CENTS and gap <= IC_WIDE_DAYS:
 						tier = 1 if diff <= EPS else 2
+					elif both_cash and gap <= IC_SHORT_DAYS and diff <= max(1.0, value * IC_SHORT_RATIO):
+						# Money out of one company's bank, into the other's, same few
+						# days, amounts a little apart: the same movement, booked short
+						# on one side. Matched for the smaller amount; the excess stays
+						# Unclassified.
+						tier = 3
 					else:
 						continue
 					pairs.append((tier, diff, 0 if together else gap, d.name, r.name, d, r))
@@ -547,6 +556,18 @@ class Engine:
 			                 reason=f"Intercompany with {other_co}: no entry of {self._value(l):,.2f} on the other "
 			                        f"side in {other_co} within {IC_WIDE_DAYS} days" + self._near_ic(l))
 		r, tier, diff, gap = m
+		if tier == 3:
+			own, other = self._value(l), self._value(r)
+			ratio = min(own, other) / own if own > EPS else 1.0
+			self.emit(c, amt * ratio, INTERCOMPANY, c.company, partner=l.account, via=r.voucher_no,
+			          reason=f"Money moved between {c.company} and {other_co}: {other_co} booked "
+			                 f"{other:,.2f} in {r.voucher_no}, {c.company} {own:,.2f}; matched for the smaller amount")
+			if ratio < 1:
+				self.emit(c, amt * (1 - ratio), UNCLASSIFIED, c.company, partner=l.account, via=r.voucher_no,
+				          review=True,
+				          reason=f"{c.company} booked {own - other:,.2f} more than {other_co} did for the same "
+				                 f"movement ({r.voucher_no}: {other:,.2f}); no transaction accounts for the difference")
+			return
 		note = ""
 		if tier:
 			note = f" (matched {gap} days apart" + (f", amounts differ by {diff:,.2f}" if diff > EPS else "") + ")"
