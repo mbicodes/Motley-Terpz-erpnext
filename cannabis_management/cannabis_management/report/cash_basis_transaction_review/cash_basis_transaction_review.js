@@ -49,6 +49,11 @@ frappe.query_reports["Cash Basis Transaction Review"] = {
 			),
 		},
 		{
+			fieldname: "head",
+			label: __("P&L Head"),
+			fieldtype: "Data",
+		},
+		{
 			fieldname: "review_only",
 			label: __("Only items needing review"),
 			fieldtype: "Check",

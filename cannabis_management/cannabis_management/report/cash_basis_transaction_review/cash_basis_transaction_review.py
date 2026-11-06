@@ -61,6 +61,8 @@ def execute(filters=None):
 
 	if f.classification:
 		out = [o for o in out if o.cls == f.classification]
+	if f.head:
+		out = [o for o in out if o.head == f.head]
 	if f.review_only:
 		out = [o for o in out if o.review or o.cls == UNCLASSIFIED]
 	rows = [
