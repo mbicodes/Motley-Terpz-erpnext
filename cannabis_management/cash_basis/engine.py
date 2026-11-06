@@ -69,25 +69,37 @@ IC_WIDE_DAYS = 60     # exact amount (or within IC_CENTS) up to this: a match, n
 IC_CENTS = 0.10
 IC_SHORT_DAYS = 3     # cash on both sides, amounts within IC_SHORT_RATIO: same movement
 IC_SHORT_RATIO = 0.01
+IC_TOGETHER_SECONDS = 900   # both sides keyed in within 15 minutes: one entry, even if a date is mistyped
+IC_TWIN_RATIO = 0.10        # same-day twins whose amounts disagree by up to this share
 PAYROLL_DAYS = 75
 
+# The intercompany accounts each pair of companies keeps for each other. Any
+# account of one side mirrors any account of the other: whether a company
+# books against its "Receivable" or its "Payable" account for the other only
+# labels the same position, and both labels are in use (TSBC debits "IC Payable
+# - MTM" for MTM costs it pays as well as "IC Receivable MTM"). The direction
+# must be opposite: one company's debit is the other's credit.
+IC_PAIRS = (
+	(("TSBC Ranch", ["IC Receivable MTM - TSBC", "IC Payable - MTM - TSBC"]),
+	 ("Master Touch Manufacturing", ["IC Payable - TSBC - MTM", "IC Receivable - TSBC - MTM"])),
+	(("TSBC Ranch", ["IC Payable MT - TSBC", "Inter-Company Receivable - TSBC"]),
+	 ("Motley Terpz", ["IC Receivable - TSBC - MT", "Due From TSBC Ranch - MT", "Inter-Company Payable - MT",
+	                   "Due To TSBC Ranch - MT"])),
+	(("Master Touch Manufacturing", ["IC Payable - Motley Terpz - MTM", "Inter Company Payable MT - MTM"]),
+	 ("Motley Terpz", ["IC Receivable - MTM - MT", "Inter-Company Receivable MTM - MT"])),
+)
 # Intercompany account -> (other company, its mirror accounts).
-IC_MIRRORS = {
-	"IC Receivable MTM - TSBC": ("Master Touch Manufacturing", ["IC Payable - TSBC - MTM"]),
-	"IC Payable - MTM - TSBC": ("Master Touch Manufacturing", ["IC Receivable - TSBC - MTM"]),
-	"IC Payable MT - TSBC": ("Motley Terpz", ["IC Receivable - TSBC - MT", "Due From TSBC Ranch - MT"]),
-	"Inter-Company Receivable - TSBC": ("Motley Terpz", ["Inter-Company Payable - MT", "Due To TSBC Ranch - MT"]),
-	"IC Payable - TSBC - MTM": ("TSBC Ranch", ["IC Receivable MTM - TSBC"]),
-	"IC Receivable - TSBC - MTM": ("TSBC Ranch", ["IC Payable - MTM - TSBC"]),
-	"IC Payable - Motley Terpz - MTM": ("Motley Terpz", ["IC Receivable - MTM - MT", "Inter-Company Receivable MTM - MT"]),
-	"Inter Company Payable MT - MTM": ("Motley Terpz", ["Inter-Company Receivable MTM - MT", "IC Receivable - MTM - MT"]),
-	"IC Receivable - TSBC - MT": ("TSBC Ranch", ["IC Payable MT - TSBC"]),
-	"Due From TSBC Ranch - MT": ("TSBC Ranch", ["IC Payable MT - TSBC"]),
-	"Due To TSBC Ranch - MT": ("TSBC Ranch", ["Inter-Company Receivable - TSBC"]),
-	"Inter-Company Payable - MT": ("TSBC Ranch", ["Inter-Company Receivable - TSBC"]),
-	"IC Receivable - MTM - MT": ("Master Touch Manufacturing", ["IC Payable - Motley Terpz - MTM", "Inter Company Payable MT - MTM"]),
-	"Inter-Company Receivable MTM - MT": ("Master Touch Manufacturing", ["Inter Company Payable MT - MTM", "IC Payable - Motley Terpz - MTM"]),
-}
+IC_MIRRORS = {}
+for (_co_a, _accs_a), (_co_b, _accs_b) in IC_PAIRS:
+	for _acc in _accs_a:
+		IC_MIRRORS[_acc] = (_co_b, _accs_b)
+	for _acc in _accs_b:
+		IC_MIRRORS[_acc] = (_co_a, _accs_a)
+
+
+def _ic_kind(account):
+	a = account.lower()
+	return "R" if ("receivable" in a or "due from" in a) else "P"
 
 PL = "P&L"
 TRANSFER = "Bank / Cash transfer"
@@ -262,12 +274,12 @@ class Engine:
 				return self.emit(c, amt, UNCLASSIFIED, company, partner=l.account, via=via, review=True,
 				                 reason="The other company's entry passes the amount on to a further intercompany account")
 			return self._intercompany(c, amt, l)
-		if l.party_type == "Customer" or l.account in self.debtors:
+		if (l.party_type == "Customer" and l.party) or l.account in self.debtors:
 			if l.party in self.internal_customers:
 				return self.emit(c, amt, INTERCOMPANY, company, partner=l.account, party=l.party, via=via,
 				                 reason=f"Internal customer {l.party}")
 			return self._party(c, amt, l, company, "Customer", via)
-		if l.party_type == "Supplier" or l.account in self.creditors:
+		if (l.party_type == "Supplier" and l.party) or l.account in self.creditors:
 			if l.party in self.internal_suppliers:
 				return self.emit(c, amt, INTERCOMPANY, company, partner=l.account, party=l.party, via=via,
 				                 reason=f"Internal supplier {l.party}")
@@ -461,6 +473,7 @@ class Engine:
 				if words:
 					self._payroll_heads[r.company][r.head] = words
 		self._payroll_section = {co: next(iter(s)) for co, s in sections.items() if len(s) == 1}
+		self._accruals = accruals
 		pairs = []
 		for p in payments:
 			for r in by_amount.get((p.account, round(flt(p.debit), 2)), []):
@@ -477,6 +490,14 @@ class Engine:
 
 	def _payroll(self, c, amt, l, company, via):
 		r = self._payroll_match.get(l.name)
+		if not r:
+			# The payment line's own amount may be mistyped (an intercompany twin):
+			# the payroll posting of the cash actually paid, up to 20 days earlier.
+			value, paid_on = round(abs(amt), 2), getdate(c.posting_date)
+			cands = [a for a in getattr(self, "_accruals", []) if a.company == company and a.account == l.account
+			         and round(flt(a.credit), 2) == value and 0 <= (paid_on - getdate(a.posting_date)).days <= 20]
+			if cands:
+				r = min(cands, key=lambda a: (paid_on - getdate(a.posting_date)).days)
 		if r and self.is_pl(r.head):
 			return self.emit(c, amt, PL, company, head=r.head, partner=l.account, via=via or r.voucher_no,
 			                 reason=f"Payroll posting {r.voucher_no} of the same amount")
@@ -522,12 +543,14 @@ class Engine:
 					if rv <= EPS:
 						continue
 					gap = abs((getdate(r.posting_date) - getdate(d.posting_date)).days)
-					together = abs((r.creation - d.creation).total_seconds()) <= 86400
+					together = abs((r.creation - d.creation).total_seconds()) <= IC_TOGETHER_SECONDS
 					both_cash = (r.voucher_type, r.voucher_no) in self.vlines
-					if diff <= EPS and (gap <= IC_DAYS or together):
+					if diff <= EPS and gap <= IC_DAYS:
 						tier = 0
+					elif diff <= EPS and together:
+						tier = 1      # keyed in as a pair; one of the dates is mistyped
 					elif diff <= IC_CENTS and gap <= IC_WIDE_DAYS:
-						tier = 1 if diff <= EPS else 2
+						tier = 2
 					elif both_cash and gap <= IC_SHORT_DAYS and diff <= max(1.0, value * IC_SHORT_RATIO):
 						# Money out of one company's bank, into the other's, same few
 						# days, amounts a little apart: the same movement, booked short
@@ -536,21 +559,48 @@ class Engine:
 						tier = 3
 					else:
 						continue
-					pairs.append((tier, diff, 0 if together else gap, d.name, r.name, d, r))
-		pairs.sort(key=lambda x: x[:5])
+					label = 0 if _ic_kind(d.account) != _ic_kind(r.account) else 1
+					pairs.append((tier, round(diff, 2), gap, label, d.name, r.name, d, r))
+		# Nearest first: exact before cents, same day before later, the usual
+		# Receivable <-> Payable labelling before a same-label pair.
+		pairs.sort(key=lambda x: x[:6])
 		used = set()
-		for tier, diff, gap, dn, rn, d, r in pairs:
+		for tier, diff, gap, _label, dn, rn, d, r in pairs:
 			if dn in used or rn in used:
 				continue
 			used.update((dn, rn))
 			self._ic_match[dn] = (r, tier, diff, gap)
 			self._ic_match.setdefault(rn, (d, tier, diff, gap))
+		# Twins keyed with different amounts: on one posting date, exactly one
+		# line left unmatched on each side of a company pair, in opposite
+		# directions, amounts within IC_TWIN_RATIO. One movement, mistyped on one
+		# side; the cash side's amount is what moved.
+		groups = collections.defaultdict(lambda: ([], []))
+		for d in demand:
+			if d.name not in used:
+				co, _m = IC_MIRRORS[d.account]
+				groups[(d.company, co, getdate(d.posting_date), flt(d.debit) > flt(d.credit))][0].append(d)
+		for acc, rows in pool.items():
+			co, _m = IC_MIRRORS[acc]
+			for r in rows:
+				if r.name not in used:
+					groups[(co, r.company, getdate(r.posting_date), flt(r.credit) > flt(r.debit))][1].append(r)
+		for ds, rs in groups.values():
+			if len(ds) == 1 and len(rs) == 1:
+				d, r = ds[0], rs[0]
+				value, rv = self._value(d), self._value(r)
+				if abs(rv - value) <= max(value, rv) * IC_TWIN_RATIO:
+					used.update((d.name, r.name))
+					self._ic_match[d.name] = (r, 4, abs(rv - value), 0)
+					self._ic_match.setdefault(r.name, (d, 4, abs(rv - value), 0))
 		self._ic_used = used
 		self._load_lines({(m[0].voucher_type, m[0].voucher_no) for m in self._ic_match.values()})
 
 	def _intercompany(self, c, amt, l):
 		other_co, _mirrors = IC_MIRRORS[l.account]
 		m = self._ic_match.get(l.name)
+		if not m and self._ic_unbooked_wages(c, amt, l, other_co):
+			return
 		if not m:
 			return self.emit(c, amt, UNCLASSIFIED, c.company, partner=l.account, review=True,
 			                 reason=f"Intercompany with {other_co}: no entry of {self._value(l):,.2f} on the other "
@@ -569,7 +619,10 @@ class Engine:
 				                 f"movement ({r.voucher_no}: {other:,.2f}); no transaction accounts for the difference")
 			return
 		note = ""
-		if tier:
+		if tier == 4:
+			note = (f" with {self._value(r):,.2f} where {c.company} paid {self._value(l):,.2f}: the amounts disagree, "
+			        "one side is mistyped")
+		elif tier:
 			note = f" (matched {gap} days apart" + (f", amounts differ by {diff:,.2f}" if diff > EPS else "") + ")"
 		mv = self.vlines.get((r.voucher_type, r.voucher_no), [])
 		mirror = next((x for x in mv if x.name == r.name), None)
@@ -590,6 +643,26 @@ class Engine:
 				for o in self.out[before:]:
 					o.reason = (f"Paid / received by {c.company} for {other_co} via {l.account}; "
 					            f"{other_co} booked it in {r.voucher_no}{note}") + (f". {o.reason}" if o.reason else "")
+					if tier == 4:
+						o.review = 1
+
+	def _ic_unbooked_wages(self, c, amt, l, other_co):
+		"""Wages paid for the other company that it never booked: its own payroll
+		posting of exactly this amount, up to 20 days before the payment, names
+		the wages head. Flagged so the missing entry gets booked."""
+		if not flt(l.debit) > flt(l.credit):
+			return False
+		value, paid_on = round(self._value(l), 2), getdate(c.posting_date)
+		cands = [r for r in getattr(self, "_accruals", [])
+		         if r.company == other_co and round(flt(r.credit), 2) == value and self.is_pl(r.head)
+		         and 0 <= (paid_on - getdate(r.posting_date)).days <= 20]
+		if not cands:
+			return False
+		r = min(cands, key=lambda x: (paid_on - getdate(x.posting_date)).days)
+		self.emit(c, amt, PL, other_co, head=r.head, partner=l.account, via=r.voucher_no, review=True,
+		          reason=f"Paid by {c.company} for {other_co} via {l.account}; {other_co} has not booked this payment. "
+		                 f"Its payroll posting {r.voucher_no} ({r.posting_date}, same amount) names the wages head")
+		return True
 
 	def _near_ic(self, l):
 		_co, mirrors = IC_MIRRORS[l.account]
