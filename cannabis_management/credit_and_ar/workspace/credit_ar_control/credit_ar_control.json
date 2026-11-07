@@ -1,6 +1,6 @@
 {
  "charts": [],
- "content": "[{\"id\":\"cr_hdr\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Credit &amp; AR Control</b></span>\",\"col\":12}},{\"id\":\"cr_par\",\"type\":\"paragraph\",\"data\":{\"text\":\"Credit is an unsecured loan. Every customer is COD until a documented credit file, a signed agreement and written MD approval say otherwise.\",\"col\":12}},{\"id\":\"cr_c1\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Credit \\u2014 Total AR (New Book)\",\"col\":3}},{\"id\":\"cr_c2\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Credit \\u2014 AR Cap Headroom\",\"col\":3}},{\"id\":\"cr_c3\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Credit \\u2014 DSO\",\"col\":3}},{\"id\":\"cr_c4\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Credit \\u2014 CEI\",\"col\":3}},{\"id\":\"cr_c5\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Credit \\u2014 Accounts On Hold\",\"col\":3}},{\"id\":\"cr_c6\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Credit \\u2014 Pending MD Approvals\",\"col\":3}},{\"id\":\"cr_c7\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Credit \\u2014 Freeze Active\",\"col\":3}},{\"id\":\"cr_c8\",\"type\":\"number_card\",\"data\":{\"number_card_name\":\"Credit \\u2014 Legacy Outstanding\",\"col\":3}},{\"id\":\"cr_s1\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"cr_h2\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports</b></span>\",\"col\":12}},{\"id\":\"cr_sc1\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Customer Credit Scorecard\",\"col\":3}},{\"id\":\"cr_sc2\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Terms and Credit Line Register\",\"col\":3}},{\"id\":\"cr_sc3\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Red List\",\"col\":3}},{\"id\":\"cr_sc4\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Legacy Recovery Register\",\"col\":3}},{\"id\":\"cr_h3\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Work queues</b></span>\",\"col\":12}},{\"id\":\"cr_sc5\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Pending MD Approval\",\"col\":3}},{\"id\":\"cr_sc6\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Terms Orders Awaiting Approval\",\"col\":3}},{\"id\":\"cr_sc7\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Open AR Cases\",\"col\":3}},{\"id\":\"cr_sc8\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Credit Policy Settings\",\"col\":3}},{\"id\":\"cr_h4\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Masters</b></span>\",\"col\":12}},{\"id\":\"cr_card1\",\"type\":\"card\",\"data\":{\"card_name\":\"Credit &amp; AR\",\"col\":4}}]",
+ "content": "[{\"id\": \"cr_hdr\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Credit &amp; AR Control</b></span>\", \"col\": 12}}, {\"id\": \"cr_par\", \"type\": \"paragraph\", \"data\": {\"text\": \"Credit is an unsecured loan. Every customer is COD until a documented credit file, a signed agreement and written MD approval say otherwise.\", \"col\": 12}}, {\"id\": \"cr_c1\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Credit \\u2014 Total AR (New Book)\", \"col\": 3}}, {\"id\": \"cr_c2\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Credit \\u2014 AR Cap Headroom\", \"col\": 3}}, {\"id\": \"cr_c3\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Credit \\u2014 DSO\", \"col\": 3}}, {\"id\": \"cr_c4\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Credit \\u2014 CEI\", \"col\": 3}}, {\"id\": \"cr_c5\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Credit \\u2014 Accounts On Hold\", \"col\": 3}}, {\"id\": \"cr_c6\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Credit \\u2014 Pending MD Approvals\", \"col\": 3}}, {\"id\": \"cr_c7\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Credit \\u2014 Freeze Active\", \"col\": 3}}, {\"id\": \"cr_c8\", \"type\": \"number_card\", \"data\": {\"number_card_name\": \"Credit \\u2014 Legacy Outstanding\", \"col\": 3}}, {\"id\": \"cr_s1\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"cr_h2\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Reports</b></span>\", \"col\": 12}}, {\"id\": \"cr_sc1\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Customer Credit Scorecard\", \"col\": 3}}, {\"id\": \"cr_sc2\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Terms and Credit Line Register\", \"col\": 3}}, {\"id\": \"cr_sc3\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Red List\", \"col\": 3}}, {\"id\": \"cr_sc4\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Legacy Recovery Register\", \"col\": 3}}, {\"id\": \"cr_h3\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Work queues</b></span>\", \"col\": 12}}, {\"id\": \"cr_sc5\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Pending MD Approval\", \"col\": 3}}, {\"id\": \"cr_sc6\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Terms Orders Awaiting Approval\", \"col\": 3}}, {\"id\": \"cr_sc7\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Open AR Cases\", \"col\": 3}}, {\"id\": \"cr_sc8\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Credit Policy Settings\", \"col\": 3}}, {\"id\": \"cr_sc9\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"AR Collections\", \"col\": 3}}, {\"id\": \"cr_h4\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Masters</b></span>\", \"col\": 12}}, {\"id\": \"cr_card1\", \"type\": \"card\", \"data\": {\"card_name\": \"Credit &amp; AR\", \"col\": 4}}]",
  "creation": "2026-08-06 00:00:00.000000",
  "custom_blocks": [],
  "docstatus": 0,
@@ -95,9 +95,19 @@
    "link_type": "Page",
    "onboard": 0,
    "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "AR Collections",
+   "link_count": 0,
+   "link_to": "ar-collections",
+   "link_type": "Page",
+   "onboard": 0,
+   "type": "Link"
   }
  ],
- "modified": "2026-10-15 14:50:00.000000",
+ "modified": "2026-11-06 13:00:00.000000",
  "modified_by": "Administrator",
  "module": "Credit and AR",
  "name": "Credit and AR Control",
@@ -187,6 +197,15 @@
    "label": "Credit Policy Settings",
    "link_to": "Credit Policy Settings",
    "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "",
+   "format": null,
+   "label": "AR Collections",
+   "link_to": "ar-collections",
+   "stats_filter": null,
+   "type": "Page"
   }
  ],
  "title": "Credit and AR Control"

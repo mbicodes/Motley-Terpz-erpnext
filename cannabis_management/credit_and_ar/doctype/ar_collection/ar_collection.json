@@ -1,0 +1,401 @@
+{
+ "actions": [],
+ "autoname": "ARCOL-.YYYY.-.#####",
+ "creation": "2026-11-06 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "customer",
+  "customer_name",
+  "ledger",
+  "column_break_main",
+  "stage",
+  "assigned_to",
+  "outstanding_cached",
+  "column_break_status",
+  "collected_on",
+  "written_off",
+  "write_off_journal_entry",
+  "consider_escalation",
+  "section_contact",
+  "contact",
+  "contact_email",
+  "contact_phone",
+  "column_break_contact",
+  "next_action",
+  "next_action_date",
+  "google_sheet_link",
+  "section_promise",
+  "promise_date",
+  "promise_amount",
+  "promise_made_on",
+  "column_break_promise",
+  "promise_status",
+  "promises_broken",
+  "section_dispute",
+  "dispute_reason",
+  "dispute_details",
+  "column_break_dispute",
+  "escalation_reason",
+  "escalated_to",
+  "section_plan",
+  "plan_amount",
+  "plan_frequency",
+  "plan_installments",
+  "plan_first_due_date",
+  "column_break_plan",
+  "payment_method",
+  "payment_instructions",
+  "plan_signed_document",
+  "plan_created_on",
+  "section_installments",
+  "installments",
+  "payments",
+  "section_calls",
+  "call_log"
+ ],
+ "fields": [
+  {
+   "bold": 1,
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Customer",
+   "options": "Customer",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fetch_from": "customer.customer_name",
+   "fieldname": "customer_name",
+   "fieldtype": "Data",
+   "in_global_search": 1,
+   "label": "Customer Name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "ledger",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Ledger",
+   "options": "New AR\nLegacy AR",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_main",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "To Collect",
+   "fieldname": "stage",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Stage",
+   "options": "To Collect\nReached Out\nPromise to Pay\nPayment Plan\nDisputed\nEscalated\nCollected",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "assigned_to",
+   "fieldtype": "Link",
+   "in_standard_filter": 1,
+   "label": "Assigned To",
+   "options": "User"
+  },
+  {
+   "description": "Refreshed by the daily job and on payment. The board always shows the live balance.",
+   "fieldname": "outstanding_cached",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Outstanding (Cached)",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_status",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "collected_on",
+   "fieldtype": "Date",
+   "label": "Collected On",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "written_off",
+   "fieldtype": "Check",
+   "label": "Written Off",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "write_off_journal_entry",
+   "fieldtype": "Link",
+   "label": "Write-off Journal Entry",
+   "no_copy": 1,
+   "options": "Journal Entry"
+  },
+  {
+   "fieldname": "consider_escalation",
+   "fieldtype": "Check",
+   "label": "Consider Escalation",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_contact",
+   "fieldtype": "Section Break",
+   "label": "Contact and Next Action"
+  },
+  {
+   "fieldname": "contact",
+   "fieldtype": "Link",
+   "label": "Contact",
+   "options": "Contact"
+  },
+  {
+   "fieldname": "contact_email",
+   "fieldtype": "Data",
+   "label": "Contact Email",
+   "options": "Email"
+  },
+  {
+   "fieldname": "contact_phone",
+   "fieldtype": "Data",
+   "label": "Contact Phone",
+   "options": "Phone"
+  },
+  {
+   "fieldname": "column_break_contact",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "next_action",
+   "fieldtype": "Data",
+   "label": "Next Action"
+  },
+  {
+   "fieldname": "next_action_date",
+   "fieldtype": "Date",
+   "label": "Next Action Date"
+  },
+  {
+   "fieldname": "google_sheet_link",
+   "fieldtype": "Data",
+   "label": "Google Sheet Link",
+   "options": "URL"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_promise",
+   "fieldtype": "Section Break",
+   "label": "Promise to Pay"
+  },
+  {
+   "fieldname": "promise_date",
+   "fieldtype": "Date",
+   "label": "Promise Date"
+  },
+  {
+   "fieldname": "promise_amount",
+   "fieldtype": "Currency",
+   "label": "Promise Amount"
+  },
+  {
+   "fieldname": "promise_made_on",
+   "fieldtype": "Date",
+   "label": "Promise Made On",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_promise",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "promise_status",
+   "fieldtype": "Select",
+   "label": "Promise Status",
+   "no_copy": 1,
+   "options": "\nOpen\nKept\nBroken",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "promises_broken",
+   "fieldtype": "Int",
+   "label": "Promises Broken",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_dispute",
+   "fieldtype": "Section Break",
+   "label": "Dispute and Escalation"
+  },
+  {
+   "fieldname": "dispute_reason",
+   "fieldtype": "Select",
+   "label": "Dispute Reason",
+   "options": "\nPricing\nQuality\nPayment not applied\nIncorrect invoice\nOther"
+  },
+  {
+   "fieldname": "dispute_details",
+   "fieldtype": "Small Text",
+   "label": "Dispute Details"
+  },
+  {
+   "fieldname": "column_break_dispute",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "escalation_reason",
+   "fieldtype": "Select",
+   "label": "Escalation Reason",
+   "options": "\nNo response\nPromises broken\nInstallments missed\nBusiness closed\nOwner-managed client\nOther"
+  },
+  {
+   "fieldname": "escalated_to",
+   "fieldtype": "Link",
+   "label": "Escalated To",
+   "options": "User"
+  },
+  {
+   "fieldname": "section_plan",
+   "fieldtype": "Section Break",
+   "label": "Payment Plan"
+  },
+  {
+   "fieldname": "plan_amount",
+   "fieldtype": "Currency",
+   "label": "Plan Amount",
+   "no_copy": 1
+  },
+  {
+   "fieldname": "plan_frequency",
+   "fieldtype": "Select",
+   "label": "Plan Frequency",
+   "no_copy": 1,
+   "options": "\nWeekly\nBi-weekly\nMonthly"
+  },
+  {
+   "fieldname": "plan_installments",
+   "fieldtype": "Int",
+   "label": "Number of Installments",
+   "no_copy": 1
+  },
+  {
+   "fieldname": "plan_first_due_date",
+   "fieldtype": "Date",
+   "label": "First Due Date",
+   "no_copy": 1
+  },
+  {
+   "fieldname": "column_break_plan",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "payment_method",
+   "fieldtype": "Select",
+   "label": "Payment Method",
+   "no_copy": 1,
+   "options": "\nACH\nWire\nCheck\nZelle\nCash"
+  },
+  {
+   "fieldname": "payment_instructions",
+   "fieldtype": "Small Text",
+   "label": "Payment Instructions",
+   "no_copy": 1
+  },
+  {
+   "fieldname": "plan_signed_document",
+   "fieldtype": "Attach",
+   "label": "Signed Plan Document",
+   "no_copy": 1
+  },
+  {
+   "fieldname": "plan_created_on",
+   "fieldtype": "Date",
+   "label": "Plan Created On",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_installments",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "installments",
+   "fieldtype": "Table",
+   "label": "Installments",
+   "no_copy": 1,
+   "options": "AR Collection Installment"
+  },
+  {
+   "fieldname": "payments",
+   "fieldtype": "Table",
+   "label": "Payments",
+   "no_copy": 1,
+   "options": "AR Collection Payment",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_calls",
+   "fieldtype": "Section Break",
+   "label": "Call Log"
+  },
+  {
+   "fieldname": "call_log",
+   "fieldtype": "Table",
+   "label": "Call Log",
+   "no_copy": 1,
+   "options": "AR Collection Call"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-11-06 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Credit and AR",
+ "name": "AR Collection",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounts Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "search_fields": "customer_name,ledger,stage",
+ "show_title_field_in_link": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "customer_name",
+ "track_changes": 1
+}

@@ -152,8 +152,12 @@ doc_events = {
         "before_insert": "cannabis_management.doc_hooks.ff_wash_classify.item_before_insert",
     },
     "Journal Entry": {
-        "on_submit": "cannabis_management.api.undelivered_cogs.journal_entry_on_submit",
+        "on_submit": [
+            "cannabis_management.api.undelivered_cogs.journal_entry_on_submit",
+            "cannabis_management.credit_and_ar.collections_engine.realtime_on_change",
+        ],
         "before_cancel": "cannabis_management.api.undelivered_cogs.journal_entry_before_cancel",
+        "on_cancel": "cannabis_management.credit_and_ar.collections_engine.realtime_on_change",
     },
     "Repost Accounting Ledger": {
         "validate": "cannabis_management.api.undelivered_cogs.repost_ledger_validate",
@@ -241,8 +245,12 @@ doc_events = {
             "cannabis_management.doc_hooks.sales_invoice.on_submit",
             "cannabis_management.credit_and_ar.hold_engine.on_sales_invoice_submit",
             "cannabis_management.credit_and_ar.sales_invoice_hooks.on_submit",
+            "cannabis_management.credit_and_ar.collections_engine.realtime_on_change",
         ],
-        "on_cancel": "cannabis_management.credit_and_ar.sales_invoice_hooks.on_cancel",
+        "on_cancel": [
+            "cannabis_management.credit_and_ar.sales_invoice_hooks.on_cancel",
+            "cannabis_management.credit_and_ar.collections_engine.realtime_on_change",
+        ],
     },
     "Quotation": {
         "validate": [
@@ -376,11 +384,19 @@ doc_events = {
         "on_submit": [
             "cannabis_management.cannabis_management.utils.irs_8300.check_cash_threshold",
             "cannabis_management.credit_and_ar.payment_entry_hooks.on_submit",
+            "cannabis_management.credit_and_ar.collections_engine.payment_entry_on_change",
         ],
         "on_cancel": [
             "cannabis_management.credit_and_ar.hold_engine.on_payment_entry_cancel",
             "cannabis_management.credit_and_ar.payment_entry_hooks.on_cancel",
+            "cannabis_management.credit_and_ar.collections_engine.payment_entry_on_change",
         ],
+    },
+    # AR Collections: auto-CC the collections person on emails sent from an AR Collection only,
+    # and log customer replies (strict reference_doctype / type / direction checks inside).
+    "Communication": {
+        "before_insert": "cannabis_management.credit_and_ar.collections_engine.communication_before_insert",
+        "after_insert": "cannabis_management.credit_and_ar.collections_engine.communication_after_insert",
     },
     "Job Card": {
         "before_validate": "cannabis_management.doc_hooks.job_card.sync_micron_total_to_time_log",
@@ -472,6 +488,9 @@ scheduler_events = {
         ],
         "0 3 * * 5": [
             "cannabis_management.api.ar_report.send_ar_report",
+        ],
+        "0 6 * * *": [
+            "cannabis_management.credit_and_ar.collections_engine.ar_collections_daily",
         ],
     },
     "monthly": [

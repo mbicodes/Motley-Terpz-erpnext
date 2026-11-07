@@ -1,0 +1,85 @@
+{
+ "actions": [],
+ "creation": "2026-11-06 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "cc_email",
+  "default_assignee",
+  "statement_print_format",
+  "column_break_hints",
+  "escalation_hint_after_broken_promises",
+  "escalation_hint_after_missed_installments"
+ ],
+ "fields": [
+  {
+   "default": "muhammad@motleyterpz.com",
+   "description": "Copied on every email sent from an AR Collection.",
+   "fieldname": "cc_email",
+   "fieldtype": "Data",
+   "label": "CC Email",
+   "options": "Email"
+  },
+  {
+   "default": "muhammad@motleyterpz.com",
+   "fieldname": "default_assignee",
+   "fieldtype": "Link",
+   "label": "Default Assignee",
+   "options": "User"
+  },
+  {
+   "default": "AR Collection Statement",
+   "fieldname": "statement_print_format",
+   "fieldtype": "Link",
+   "label": "Statement Print Format",
+   "options": "Print Format"
+  },
+  {
+   "fieldname": "column_break_hints",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "2",
+   "fieldname": "escalation_hint_after_broken_promises",
+   "fieldtype": "Int",
+   "label": "Escalation Hint After Broken Promises"
+  },
+  {
+   "default": "2",
+   "fieldname": "escalation_hint_after_missed_installments",
+   "fieldtype": "Int",
+   "label": "Escalation Hint After Missed Installments"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-11-06 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Credit and AR",
+ "name": "AR Collections Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "Accounts Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
