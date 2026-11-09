@@ -67,7 +67,7 @@ def get_stock_by_item_group(item_group, project=None, _=None):
     notes = get_item_notes(item_codes)
     for item in items:
         item["quality_grade"] = grade_map.get(item.item_code)
-        item["note"] = notes.get(item.item_code, "")
+        item.update(note_fields(notes.get(item.item_code)))
 
     total_qty = sum(item.actual_qty or 0 for item in items)
     unique_items = len(set(item.item_code for item in items))
@@ -719,11 +719,24 @@ NOTE_DOCTYPE = "Inventory Item Note"
 
 
 def get_item_notes(item_codes):
-    """{item_code: note} for logged-in users; the dashboard's data is also served to guests, notes are not."""
+    """{item_code: {note, by, at}} for logged-in users; the dashboard's data is also served to guests, notes are not."""
     if not item_codes or frappe.session.user == "Guest":
         return {}
-    return dict(frappe.get_all(NOTE_DOCTYPE, filters={"item": ["in", list(set(item_codes))]},
-                               fields=["item", "note"], as_list=True))
+    rows = frappe.get_all(NOTE_DOCTYPE, filters={"item": ["in", list(set(item_codes))]},
+                          fields=["item", "note", "modified_by", "modified"])
+    names = {}
+    out = {}
+    for r in rows:
+        if r.modified_by not in names:
+            names[r.modified_by] = frappe.utils.get_fullname(r.modified_by)
+        out[r.item] = {"note": r.note or "", "by": names[r.modified_by], "at": str(r.modified)}
+    return out
+
+
+def note_fields(note):
+    """The note keys each dashboard row carries: the text, who last changed it and when."""
+    note = note or {}
+    return {"note": note.get("note", ""), "note_by": note.get("by"), "note_at": note.get("at")}
 
 
 @frappe.whitelist(allow_guest=True)
@@ -751,7 +764,8 @@ def save_item_note(item_code, note=None):
         doc = frappe.get_doc({"doctype": NOTE_DOCTYPE, "item": item_code, "note": note}).insert(ignore_permissions=True)
     else:
         return {"item_code": item_code, "note": ""}
-    return {"item_code": item_code, "note": doc.note or "", "modified_by": doc.modified_by, "modified": str(doc.modified)}
+    return {"item_code": item_code, "note": doc.note or "", "modified_by": doc.modified_by,
+            "modified_by_name": frappe.utils.get_fullname(doc.modified_by), "modified": str(doc.modified)}
 
 
 # ---------------------------------------------------------------- Yields view (Fresh Frozen)
@@ -813,7 +827,7 @@ def get_fresh_frozen_yields(project=None):
             "bho_yield_parts": data.get("bho_yield_parts", []),
             "bho_yield_avg": data.get("bho_yield_avg"),
             "quality_grade": grades.get(code),
-            "note": notes.get(code, ""),
+            **note_fields(notes.get(code)),
         })
 
     projects = {}
