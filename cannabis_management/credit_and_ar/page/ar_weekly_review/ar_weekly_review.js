@@ -79,6 +79,7 @@ function arw_segment_style(page, seg) {
 	return c ? arw_cell_style(c + '1f', c, c) : '';
 }
 
+const ARW_BUCKET_ORDER = ['On terms', '0-7 days', '7-15 days', '15-21 days', '21-30 days', '30-60 days', '60-90 days', '90-120 days', '120+ days'];
 const ARW_NOT_REACHED = "Haven't Reached Out";
 const ARW_REACH_OUT_DEF = {
 	"Haven't Reached Out": { color: '#d97706', desc: 'Nobody has reached out to this account yet.' },
@@ -775,14 +776,73 @@ function fmt_money(n) {
 	return '$' + Math.round(n || 0).toLocaleString('en-US');
 }
 
+// "New + Legacy AR": the server sends one row per customer x ledger x (on terms / overdue), so a
+// customer would show up 2-4 times. Fold them into a single row per customer.
+function arw_merge_customer_rows(rows) {
+	const by = {};
+	const order = [];
+	rows.forEach(function (r) {
+		let m = by[r.customer];
+		if (!m) {
+			m = by[r.customer] = Object.assign({}, r, {
+				id: r.customer + '|all',
+				ledger: __('New + Legacy AR'),
+				merged: true,
+				ledgers: [],
+				portions: [],
+				amount: 0, invoice_count: 0, invoices: [], breakdown: [], tier_amounts: {},
+				tier: 'upcoming', days: ARW_BUCKET_ORDER[0], _bd: {}, _rank: -1,
+			});
+			order.push(r.customer);
+		}
+		m.amount += r.amount;
+		m.tier_amounts[r.tier] = (m.tier_amounts[r.tier] || 0) + r.amount;
+		m.invoice_count += r.invoice_count;
+		m.invoices = m.invoices.concat(r.invoices || []);
+		if (m.ledgers.indexOf(r.ledger) === -1) m.ledgers.push(r.ledger);
+		if (m.portions.indexOf(r.portion) === -1) m.portions.push(r.portion);
+		(r.breakdown || []).forEach(function (b) {
+			const x = m._bd[b.label] = m._bd[b.label] || { label: b.label, tier: b.tier, amount: 0 };
+			x.amount += b.amount;
+		});
+		if (ARW_TIER_ORDER.indexOf(r.tier) > ARW_TIER_ORDER.indexOf(m.tier)) m.tier = r.tier;
+		if (ARW_BUCKET_ORDER.indexOf(r.days) >= ARW_BUCKET_ORDER.indexOf(m.days)) m.days = r.days;
+		// show the most recent weekly status / note among the merged rows
+		if (r.current_status && (!m.current_status || (r.latest_week || '') > (m._week || ''))) {
+			m.current_status = r.current_status;
+			m.latest_note = r.latest_note;
+			m._week = r.latest_week || '';
+		} else if (!r.current_status && !m.current_status) {
+			m.latest_note = m.latest_note || r.latest_note;
+		}
+	});
+	return order.map(function (c) {
+		const m = by[c];
+		m.breakdown = Object.keys(m._bd).map((k) => m._bd[k]).sort((a, b) => ARW_BUCKET_ORDER.indexOf(a.label) - ARW_BUCKET_ORDER.indexOf(b.label));
+		m.invoices.sort((a, b) => (a.due_date || '9999-12-31').localeCompare(b.due_date || '9999-12-31') || a.name.localeCompare(b.name));
+		m.statuses = [];
+		delete m._bd; delete m._rank; delete m._week;
+		return m;
+	}).sort((a, b) => b.amount - a.amount);
+}
+
+// Merged (New + Legacy) row: how much of the customer's balance sits in each level.
+function arw_tier_split(r) {
+	if (!r.merged) return '';
+	const parts = ARW_TIER_ORDER.filter((k) => r.tier_amounts[k]).map((k) =>
+		`<span class="arw-tierchip ${k}" style="margin:2px 3px 0 0;display:inline-block;">${ARW_TIER_DEF[k].label}: ${fmt_money(r.tier_amounts[k])}</span>`);
+	return parts.length > 1 ? `<div style="font-weight:400;white-space:nowrap;">${parts.join('')}</div>` : '';
+}
+
 function visible_rows(page) {
 	const ui = page.arw.ui;
 	const needle = (ui.search || '').toLowerCase();
-	return page.arw.rows.filter(function (r) {
+	const rows = page.arw.rows.filter(function (r) {
 		if (ui.ledger !== 'all' && r.ledger !== ui.ledger) return false;
 		if (needle && r.customer.toLowerCase().indexOf(needle) === -1) return false;
 		return true;
 	});
+	return ui.ledger === 'all' ? arw_merge_customer_rows(rows) : rows;
 }
 
 function render(page) {
@@ -910,10 +970,10 @@ function build_table(page, rows, mode) {
 			<td><span class="arw-arrow">▸</span></td>
 			<td>
 				<div class="arw-cust">${frappe.utils.escape_html(r.customer)}<button class="arw-print-stmt-btn" data-customer="${frappe.utils.escape_html(r.customer)}" title="${__('Print Statement')}">${ARW_PRINT_ICON}</button></div>
-				<div class="arw-ledgertag">${r.ledger} · ${r.portion === 'upcoming' ? __('on terms') : __('overdue')} · ${r.invoice_count} ${__('inv')}</div>
+				<div class="arw-ledgertag">${r.merged ? r.ledgers.join(' + ') + ' · ' + r.portions.map((p) => p === 'upcoming' ? __('on terms') : __('overdue')).join(' + ') : r.ledger + ' · ' + (r.portion === 'upcoming' ? __('on terms') : __('overdue'))} · ${r.invoice_count} ${__('inv')}</div>
 			</td>
 			${show_level ? `<td><span class="arw-tierchip ${r.tier}">${ARW_TIER_DEF[r.tier].label}</span></td>` : ''}
-			<td class="arw-amt">${fmt_money(r.amount)}</td>
+			<td class="arw-amt">${fmt_money(r.amount)}${arw_tier_split(r)}</td>
 			<td><span class="arw-days">${frappe.utils.escape_html(r.days)}</span></td>
 			${show_status ? `<td>${status_html}</td>` : ''}
 			${arw_customer_cells(page, r)}
@@ -974,6 +1034,12 @@ function detail_html(page, r) {
 				<td class="c-amt c-out">${money2(inv_total('outstanding'))}</td></tr></tfoot>
 			</table></div>` : `<div class="arw-secempty">${__('No open invoices.')}</div>`}
 		</section>`;
+
+	if (r.merged) {
+		return `<div class="arw-detailwrap">${inv_html}
+			<div class="arw-secempty">${__('This row combines {0}. Switch to New AR or Legacy AR to log this week\'s entry or see its history.', [esc(r.ledgers.join(' + '))])}</div>
+		</div>`;
+	}
 
 	const statuses = r.statuses || [];
 	const opts = ['<option value="">— ' + __('pick status') + ' —</option>'].concat(
