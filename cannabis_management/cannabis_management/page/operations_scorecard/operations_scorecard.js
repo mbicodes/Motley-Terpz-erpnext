@@ -43,6 +43,8 @@
 				filters: { company, view, from_date, to_date, location, tier, customer },
 				open: state.open,
 				closed: state.closed,
+				live_tier: state.live ? state.live.tier : undefined,
+				live_zeros: state.live ? state.live.zeros : undefined,
 			}));
 		} catch (e) {
 			/* storage unavailable */
@@ -108,11 +110,21 @@
 			data: null,
 			req: 0,
 			syncing: 0,
+			live: {
+				data: null,
+				req: 0,
+				company: null,
+				tier: saved.live_tier || 'T1',
+				zeros: !!saved.live_zeros,
+				search: '',
+				sort: { key: 'on_hand', dir: -1 },
+			},
 		};
 		if (!VIEWS.some((v) => v.value === state.filters.view)) state.filters.view = 'week_month';
 
 		page.set_secondary_action(__('Export CSV'), () => exportCsv());
-		page.add_action_icon('refresh', () => load(), '', __('Refresh'));
+		page.add_action_icon('refresh', () => { load(); loadLive(); }, '', __('Refresh'));
+		page.add_inner_button(__('Live inventory'), () => showLive());
 
 		const $root = $(`
 			<div class="osc">
@@ -142,6 +154,23 @@
 						</div>
 					</header>
 					<div class="osc-table-wrap"><div class="osc-empty-state">${__('Loading…')}</div></div>
+				</section>
+				<section class="osc-card osc-live" aria-label="${__('Live inventory by SKU')}">
+					<header class="osc-card-head">
+						<div class="osc-live-headtext">
+							<div class="osc-nav-title">${__('Live inventory by SKU')}</div>
+							<div class="osc-nav-sub osc-live-sub">${__('Loading…')}</div>
+						</div>
+						<div class="osc-card-tools osc-live-tools">
+							<input type="search" class="form-control input-xs osc-live-search" placeholder="${__('Search SKU, strain or warehouse')}" aria-label="${__('Search SKUs')}">
+							<label class="osc-live-zero"><input type="checkbox" class="osc-live-zeros"> ${__('Show zero stock')}</label>
+							<button type="button" class="btn btn-default btn-xs osc-live-csv">${__('Export')}</button>
+							<button type="button" class="btn btn-default btn-xs osc-live-refresh">${__('Refresh')}</button>
+						</div>
+					</header>
+					<div class="osc-live-tabs" role="tablist" aria-label="${__('Tier')}"></div>
+					<div class="osc-live-summary"></div>
+					<div class="osc-live-scroll"><div class="osc-empty-state">${__('Loading…')}</div></div>
 				</section>
 				<details class="osc-notes">
 					<summary>${__('How these numbers are worked out')}</summary>
@@ -231,6 +260,7 @@
 			}
 			if (!next.as_of) next.as_of = today;
 			if (JSON.stringify(next) === JSON.stringify(prev)) return;
+			if (next.tier && next.tier !== prev.tier) state.live.tier = next.tier;
 			state.filters = next;
 			writeStore(state);
 			syncControls();
@@ -361,6 +391,7 @@
 			$kpis.addClass('is-loading');
 			$status.text(__('Updating…'));
 			layoutFilters();
+			if (state.live.company !== state.filters.company) loadLive();
 			frappe.call({ method: METHOD + 'get_data', args: args() }).then((r) => {
 				if (req !== state.req) return;
 				state.data = r.message;
@@ -400,8 +431,8 @@
 			}
 			const scope = [state.filters.company || __('All companies')];
 			['location', 'tier', 'customer'].forEach((k) => state.filters[k] && scope.push(state.filters[k]));
-			$root.find('.osc-nav-title').text(title);
-			$root.find('.osc-nav-sub').text(`${sub} · ${scope.join(' · ')}`);
+			$root.find('.osc-nav .osc-nav-title').text(title);
+			$root.find('.osc-nav .osc-nav-sub').text(`${sub} · ${scope.join(' · ')}`);
 		}
 
 		function renderKpis() {
@@ -486,10 +517,13 @@
 					<tbody class="osc-sec osc-sec-${esc(s.key)}${closed ? ' is-closed' : ''}">
 						<tr class="osc-sec-row">
 							<th colspan="${span}" scope="rowgroup">
-								<button type="button" class="osc-sec-btn" data-section="${esc(s.key)}" aria-expanded="${!closed}">
-									${ICON.chevron}<span class="osc-sec-title">${esc(s.title)}</span>
-									<span class="osc-sec-note">${esc(s.note || '')}</span>
-								</button>
+								<div class="osc-sec-head">
+									<button type="button" class="osc-sec-btn" data-section="${esc(s.key)}" aria-expanded="${!closed}">
+										${ICON.chevron}<span class="osc-sec-title">${esc(s.title)}</span>
+										<span class="osc-sec-note">${esc(s.note || '')}</span>
+									</button>
+									${s.key === 'inventory' ? `<button type="button" class="osc-sec-link osc-live-jump">${__('Live inventory by SKU')} ${ICON.right}</button>` : ''}
+								</div>
 							</th>
 						</tr>`;
 				if (!closed) s.rows.forEach((r) => { html += rowHtml(r, r.level || 0, periods); });
@@ -631,6 +665,211 @@
 				date: __('Total'), qty: formatValue(qty, 'g'), amount: formatValue(amount, '$'),
 				price: qty ? formatValue(amount / qty, '$/g') : '',
 			});
+		}
+
+		const $live = $root.find('.osc-live');
+		const $liveTabs = $live.find('.osc-live-tabs');
+		const $liveScroll = $live.find('.osc-live-scroll');
+		$live.find('.osc-live-zeros').prop('checked', state.live.zeros);
+
+		$wrap.on('click', '.osc-live-jump', () => showLive(state.filters.tier || null));
+		$liveTabs.on('click', '.osc-live-tab', function () {
+			state.live.tier = $(this).attr('data-tier');
+			writeStore(state);
+			renderLive();
+		});
+		$live.on('input', '.osc-live-search', frappe.utils.debounce((e) => {
+			state.live.search = String($(e.target).val() || '').trim().toLowerCase();
+			renderLive();
+		}, 200));
+		$live.on('change', '.osc-live-zeros', function () {
+			state.live.zeros = $(this).is(':checked');
+			writeStore(state);
+			renderLive();
+		});
+		$live.on('click', '.osc-live-sort', function () {
+			const key = $(this).attr('data-key');
+			const sort = state.live.sort;
+			state.live.sort = { key, dir: sort.key === key ? -sort.dir : (key === 'item_name' || key === 'group_label' ? 1 : -1) };
+			renderLive();
+		});
+		$live.on('click', '.osc-live-refresh', () => loadLive());
+		$live.on('click', '.osc-live-csv', () => exportLive());
+
+		function showLive(tier) {
+			if (tier) {
+				state.live.tier = tier;
+				renderLive();
+			}
+			$live[0].scrollIntoView({ behavior: 'smooth', block: 'start' });
+		}
+
+		function loadLive() {
+			const req = ++state.live.req;
+			state.live.company = state.filters.company;
+			$live.addClass('is-loading');
+			frappe.call({
+				method: METHOD + 'get_live_inventory',
+				args: { company: state.filters.company },
+			}).then((r) => {
+				if (req !== state.live.req) return;
+				state.live.data = r.message;
+				state.live.loadedAt = moment();
+				renderLive();
+			}).always(() => {
+				if (req === state.live.req) $live.removeClass('is-loading');
+			});
+		}
+
+		setInterval(() => {
+			const route = frappe.get_route ? frappe.get_route() : ['operations-scorecard'];
+			if (document.visibilityState === 'visible' && route[0] === 'operations-scorecard') loadLive();
+		}, 120000);
+
+		function liveQty(v, item) {
+			if (Math.abs(v) < 0.005) return '<span class="osc-blank">—</span>';
+			const text = item.grams ? num(v, 0) : `${num(v, 1)} ${esc(item.uom)}`;
+			return v < 0 ? `<span class="is-neg">${text}</span>` : text;
+		}
+
+		function liveTotals(items) {
+			const t = { skus: items.length, in_stock: 0, on_hand: 0, reserved: 0, available: 0, value: 0, other: 0 };
+			items.forEach((i) => {
+				if (Math.abs(i.on_hand) >= 0.005) t.in_stock += 1;
+				t.value += i.value;
+				if (!i.grams) { t.other += i.on_hand; return; }
+				t.on_hand += i.on_hand;
+				t.reserved += i.reserved;
+				t.available += i.available;
+			});
+			return t;
+		}
+
+		function liveVisible(items) {
+			const q = state.live.search;
+			return items.filter((i) => {
+				if (!state.live.zeros && Math.abs(i.on_hand) < 0.005 && Math.abs(i.reserved) < 0.005) return false;
+				if (!q) return true;
+				return [i.item_name, i.item_code, i.group_label, ...i.warehouses.map((w) => w.warehouse)]
+					.some((v) => (v || '').toLowerCase().includes(q));
+			});
+		}
+
+		function liveSorted(items) {
+			const { key, dir } = state.live.sort;
+			return items.slice().sort((a, b) => {
+				const x = a[key], y = b[key];
+				if (typeof x === 'number' || typeof y === 'number') return ((x || 0) - (y || 0)) * dir;
+				return String(x || '').localeCompare(String(y || '')) * dir;
+			});
+		}
+
+		function renderLive() {
+			const d = state.live.data;
+			if (!d) return;
+			const tiers = d.tiers.map((t) => t.tier);
+			if (state.live.tier !== 'all' && !tiers.includes(state.live.tier)) state.live.tier = 'T1';
+			const byTier = (t) => d.items.filter((i) => t === 'all' || i.tier === t);
+			const tabs = ['all', ...tiers].map((t) => {
+				const tot = liveTotals(byTier(t));
+				const active = state.live.tier === t;
+				return `<button type="button" role="tab" class="osc-live-tab${active ? ' is-active' : ''}" data-tier="${esc(t)}" aria-selected="${active}">
+					<span class="osc-live-tab-name">${t === 'all' ? __('All tiers') : esc(t)}</span>
+					<span class="osc-live-tab-qty">${tot.on_hand ? `${num(tot.on_hand, 0)} g` : '—'}</span>
+				</button>`;
+			}).join('');
+			$liveTabs.html(tabs);
+
+			const tierItems = byTier(state.live.tier);
+			const all = liveTotals(tierItems);
+			const shown = liveVisible(tierItems);
+			const sub = [
+				__('On hand right now'),
+				__('updated {0}', [(state.live.loadedAt || moment()).format('h:mm A')]),
+				d.company || __('All companies'),
+			];
+			$live.find('.osc-live-sub').text(sub.join(' · '));
+			const label = state.live.tier === 'all' ? __('All tiers') : state.live.tier;
+			$live.find('.osc-live-summary').html(`
+				<div class="osc-live-stat"><span>${esc(label)} ${__('on hand')}</span><b>${num(all.on_hand, 0)} g</b></div>
+				<div class="osc-live-stat"><span>${__('Reserved for orders')}</span><b>${num(all.reserved, 0)} g</b></div>
+				<div class="osc-live-stat"><span>${__('Available')}</span><b class="${all.available < 0 ? 'is-neg' : ''}">${num(all.available, 0)} g</b></div>
+				<div class="osc-live-stat"><span>${__('Stock value')}</span><b>$${num(all.value, 0)}</b></div>
+				<div class="osc-live-stat"><span>${__('SKUs in stock')}</span><b>${all.in_stock} <small>${__('of {0}', [all.skus])}</small></b></div>
+				${all.other ? `<div class="osc-live-stat"><span>${__('Counted in units')}</span><b>${num(all.other, 1)}</b></div>` : ''}`);
+
+			if (!shown.length) {
+				$liveScroll.html(`<div class="osc-empty-state">${state.live.search ? __('No SKU matches that search.') : __('Nothing on hand in this tier.')}</div>`);
+				return;
+			}
+			const sortTh = (key, labelText, cls = '') => {
+				const on = state.live.sort.key === key;
+				const arrow = on ? (state.live.sort.dir > 0 ? ' ↑' : ' ↓') : '';
+				return `<th scope="col" class="${cls}" aria-sort="${on ? (state.live.sort.dir > 0 ? 'ascending' : 'descending') : 'none'}">
+					<button type="button" class="osc-live-sort" data-key="${key}">${esc(labelText)}${arrow}</button></th>`;
+			};
+			const head = `<thead><tr>
+				${sortTh('item_name', __('SKU'))}
+				${sortTh('group_label', __('Grade'))}
+				<th scope="col">${__('Where it is')}</th>
+				${sortTh('on_hand', __('On hand (g)'), 'osc-num')}
+				${sortTh('reserved', __('Reserved'), 'osc-num')}
+				${sortTh('available', __('Available'), 'osc-num')}
+				${sortTh('value', __('Value'), 'osc-num')}
+				${sortTh('last_moved', __('Last moved'), 'osc-num')}
+			</tr></thead>`;
+			const itemRow = (i) => `
+				<tr class="${i.disabled ? 'is-disabled' : ''}">
+					<td class="osc-live-sku">
+						<a href="/app/item/${encodeURIComponent(i.item_code)}" target="_blank" rel="noopener">${esc(i.item_name || i.item_code)}</a>
+						<span class="osc-live-code">${esc(i.item_code)}${i.disabled ? ` · ${__('disabled')}` : ''}</span>
+					</td>
+					<td class="osc-live-grade">${esc(i.group_label)}</td>
+					<td class="osc-live-where">${i.warehouses.length
+						? i.warehouses.map((w) => `<div><span>${esc(w.warehouse)}</span><b>${liveQty(w.qty, i)}</b></div>`).join('')
+						: '<span class="osc-blank">—</span>'}</td>
+					<td class="osc-num osc-live-onhand">${liveQty(i.on_hand, i)}</td>
+					<td class="osc-num">${liveQty(i.reserved, i)}</td>
+					<td class="osc-num">${liveQty(i.available, i)}</td>
+					<td class="osc-num">${Math.abs(i.value) >= 0.5 ? '$' + num(i.value, 0) : '<span class="osc-blank">—</span>'}</td>
+					<td class="osc-num osc-live-date" title="${i.last_moved ? esc(moment(i.last_moved).fromNow()) : ''}">${i.last_moved ? esc(moment(i.last_moved).format(moment(i.last_moved).isSame(moment(), 'year') ? 'MMM D' : 'MMM D, YYYY')) : '<span class="osc-blank">—</span>'}</td>
+				</tr>`;
+			const totalRow = (t, labelText, cls, countText) => `
+				<tr class="${cls}">
+					<td colspan="3">${esc(labelText)} <span class="osc-live-count">${esc(countText)}</span></td>
+					<td class="osc-num">${num(t.on_hand, 0)}</td>
+					<td class="osc-num">${num(t.reserved, 0)}</td>
+					<td class="osc-num${t.available < 0 ? ' is-neg' : ''}">${num(t.available, 0)}</td>
+					<td class="osc-num">$${num(t.value, 0)}</td>
+					<td></td>
+				</tr>`;
+			let body = '';
+			if (state.live.tier === 'all') {
+				tiers.forEach((t) => {
+					const group = shown.filter((i) => i.tier === t);
+					if (!group.length) return;
+					body += `<tbody>${totalRow(liveTotals(group), t, 'osc-live-group', __('{0} SKUs', [group.length]))}${liveSorted(group).map(itemRow).join('')}</tbody>`;
+				});
+			} else {
+				body = `<tbody>${liveSorted(shown).map(itemRow).join('')}</tbody>`;
+			}
+			const foot = `<tfoot>${totalRow(liveTotals(shown), __('Total'), 'osc-live-total', __('{0} SKUs shown', [shown.length]))}</tfoot>`;
+			$liveScroll.html(`<table class="osc-live-table">${head}${body}${foot}</table>`);
+		}
+
+		function exportLive() {
+			const d = state.live.data;
+			if (!d) return;
+			const items = liveSorted(liveVisible(d.items.filter((i) => state.live.tier === 'all' || i.tier === state.live.tier)));
+			const out = [[__('Tier'), __('Grade'), __('Item code'), __('Item name'), __('Where it is'), __('On hand'), __('UOM'),
+				__('Reserved'), __('Available'), __('Value'), __('Last moved')]];
+			items.forEach((i) => out.push([
+				i.tier, i.item_group, i.item_code, i.item_name,
+				i.warehouses.map((w) => `${w.warehouse}: ${Math.round(w.qty * 100) / 100}`).join('; '),
+				Math.round(i.on_hand * 100) / 100, i.uom, Math.round(i.reserved * 100) / 100,
+				Math.round(i.available * 100) / 100, Math.round(i.value * 100) / 100, i.last_moved || '',
+			]));
+			frappe.tools.downloadify(out, null, `Live inventory ${state.live.tier === 'all' ? 'all tiers' : state.live.tier} ${moment(d.as_of).format('YYYY-MM-DD HHmm')}`);
 		}
 
 		syncControls();

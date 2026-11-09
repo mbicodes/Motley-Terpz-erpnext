@@ -1,6 +1,16 @@
 import frappe
 from frappe import _
-from frappe.utils import add_days, add_months, date_diff, flt, get_first_day, get_last_day, getdate, nowdate
+from frappe.utils import (
+	add_days,
+	add_months,
+	date_diff,
+	flt,
+	get_first_day,
+	get_last_day,
+	getdate,
+	now_datetime,
+	nowdate,
+)
 
 PAGE_ROLE = "Operations Scorecard"
 G_PER_LB = 453.59237
@@ -532,6 +542,83 @@ def get_data(as_of=None, company=None, view=None, from_date=None, to_date=None,
 		"kpi": {"current": current, "compare": compare},
 		"sections": sections,
 		"options": {"locations": WASH_LOCATIONS, "tiers": TIER_NAMES},
+	}
+
+
+@frappe.whitelist()
+def get_live_inventory(company=None):
+	_require_access()
+	company = company or None
+	if company and not frappe.db.exists("Company", company):
+		frappe.throw(_("Unknown company {0}").format(company))
+	groups = _tier_groups(None)
+	items = frappe.db.sql(
+		"""
+		select i.name as item_code, i.item_name, i.item_group, i.stock_uom, i.disabled
+		from `tabItem` i
+		where i.item_group in %(groups)s
+		  and (i.disabled = 0 or exists (
+			select 1 from `tabBin` b where b.item_code = i.name and b.actual_qty != 0
+		  ))
+		""",
+		{"groups": groups},
+		as_dict=True,
+	)
+	bins = frappe.db.sql(
+		f"""
+		select b.item_code, b.warehouse, b.actual_qty, b.reserved_qty, b.stock_value
+		from `tabBin` b
+		join `tabWarehouse` w on w.name = b.warehouse
+		join `tabItem` i on i.name = b.item_code
+		where i.item_group in %(groups)s and (b.actual_qty != 0 or b.reserved_qty != 0)
+		  {_company_cond(company, "w")}
+		""",
+		{"groups": groups, "company": company},
+		as_dict=True,
+	)
+	last_moved = dict(frappe.db.sql(
+		f"""
+		select sle.item_code, max(sle.posting_date)
+		from `tabStock Ledger Entry` sle
+		join `tabItem` i on i.name = sle.item_code
+		where sle.is_cancelled = 0 and i.item_group in %(groups)s
+		  {_company_cond(company, "sle")}
+		group by sle.item_code
+		""",
+		{"groups": groups, "company": company},
+	))
+	by_item = {}
+	for b in bins:
+		by_item.setdefault(b.item_code, []).append(b)
+	out = []
+	for i in items:
+		rows = by_item.get(i.item_code, [])
+		on_hand = sum(flt(b.actual_qty) for b in rows)
+		reserved = sum(flt(b.reserved_qty) for b in rows)
+		out.append({
+			"item_code": i.item_code,
+			"item_name": i.item_name,
+			"item_group": i.item_group,
+			"group_label": GROUP_LABELS.get(i.item_group, i.item_group),
+			"tier": GROUP_TIER.get(i.item_group),
+			"uom": i.stock_uom,
+			"grams": int(i.stock_uom in GRAM_UOMS),
+			"disabled": i.disabled,
+			"on_hand": on_hand,
+			"reserved": reserved,
+			"available": on_hand - reserved,
+			"value": sum(flt(b.stock_value) for b in rows),
+			"warehouses": [
+				{"warehouse": b.warehouse, "qty": flt(b.actual_qty)}
+				for b in sorted(rows, key=lambda b: -flt(b.actual_qty)) if abs(flt(b.actual_qty)) >= 0.005
+			],
+			"last_moved": str(last_moved[i.item_code]) if last_moved.get(i.item_code) else None,
+		})
+	return {
+		"as_of": str(now_datetime()),
+		"company": company or "",
+		"tiers": [{"tier": t, "groups": list(g)} for t, g in TIERS],
+		"items": out,
 	}
 
 
