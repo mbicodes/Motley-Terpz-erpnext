@@ -1,4 +1,5 @@
 [pre_model_sync]
+cannabis_management.patches.install_operations_scorecard
 cannabis_management.patches.create_credit_and_ar_module
 cannabis_management.patches.migrate_ar_case_to_single_case_model
 

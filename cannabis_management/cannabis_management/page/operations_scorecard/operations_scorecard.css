@@ -1,0 +1,593 @@
+.osc,
+.osc-drill {
+	--osc-bg: var(--card-bg, #ffffff);
+	--osc-text: #202124;
+	--osc-muted: #5f6368;
+	--osc-grid: #d9d9d9;
+	--osc-frame: #b7b7b7;
+	--osc-head: #f3f3f3;
+	--osc-sub: #efefef;
+	--osc-week-band: #c9daf8;
+	--osc-week-ink: #1c4587;
+	--osc-week-head: #dde8fb;
+	--osc-week-cur: #f3f7fe;
+	--osc-week-prev: #fafcff;
+	--osc-month-band: #b6d7a8;
+	--osc-month-ink: #274e13;
+	--osc-month-head: #d9ead3;
+	--osc-month-cur: #f3f9f0;
+	--osc-month-prev: #fafdf9;
+	--osc-total: #fff2cc;
+	--osc-total-ink: #4d3a00;
+	--osc-sec-inventory: #1c4587;
+	--osc-sec-production: #38761d;
+	--osc-sec-sales: #b45f06;
+	--osc-sec-yield: #741b47;
+	--osc-link: #1155cc;
+	--osc-neg: #990000;
+	--osc-empty: #b7b7b7;
+	--osc-toggle-bg: #ffffff;
+	--osc-toggle-line: #9aa0a6;
+	--osc-hover: rgba(0, 0, 0, 0.035);
+	color: var(--osc-text);
+}
+
+[data-theme="dark"] .osc,
+[data-theme="dark"] .osc-drill {
+	--osc-text: #e8eaed;
+	--osc-muted: #a8adb4;
+	--osc-grid: #3b4048;
+	--osc-frame: #4a5059;
+	--osc-head: #2a2f36;
+	--osc-sub: #2a2f36;
+	--osc-week-band: #1d3a6b;
+	--osc-week-ink: #c9daf8;
+	--osc-week-head: #1a3159;
+	--osc-week-cur: rgba(74, 134, 232, 0.1);
+	--osc-week-prev: rgba(74, 134, 232, 0.04);
+	--osc-month-band: #2b5016;
+	--osc-month-ink: #d9ead3;
+	--osc-month-head: #233f17;
+	--osc-month-cur: rgba(106, 168, 79, 0.1);
+	--osc-month-prev: rgba(106, 168, 79, 0.04);
+	--osc-total: #463a12;
+	--osc-total-ink: #ffe599;
+	--osc-link: #8ab4f8;
+	--osc-neg: #f28b82;
+	--osc-empty: #5f6368;
+	--osc-toggle-bg: #22272e;
+	--osc-toggle-line: #6b717a;
+	--osc-hover: rgba(255, 255, 255, 0.04);
+}
+
+.osc {
+	padding: 6px 0 48px;
+	font-size: 13px;
+}
+
+.osc *,
+.osc-drill * {
+	box-sizing: border-box;
+}
+
+.osc-toolbar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-end;
+	gap: 10px 12px;
+	padding: 12px 14px;
+	background: var(--osc-bg);
+	border: 1px solid var(--osc-frame);
+}
+
+.osc-field {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	margin: 0;
+	font-weight: 400;
+}
+
+.osc-field > span {
+	font-size: 12px;
+	color: var(--osc-muted);
+}
+
+.osc-company {
+	min-width: 230px;
+}
+
+.osc-weeknav {
+	display: flex;
+	align-items: stretch;
+}
+
+.osc-weeknav .btn {
+	min-width: 32px;
+	font-size: 16px;
+	line-height: 1;
+	padding: 0 8px;
+}
+
+.osc-weeknav .osc-prev {
+	border-top-right-radius: 0;
+	border-bottom-right-radius: 0;
+}
+
+.osc-weeknav .osc-next {
+	border-top-left-radius: 0;
+	border-bottom-left-radius: 0;
+}
+
+.osc-weeknav .osc-date {
+	width: 150px;
+	border-radius: 0;
+	margin: 0 -1px;
+}
+
+.osc-spacer {
+	flex: 1 1 auto;
+}
+
+.osc-caption {
+	margin: 14px 2px 8px;
+	color: var(--osc-muted);
+	font-size: 13px;
+}
+
+.osc-caption b {
+	color: var(--osc-text);
+	font-weight: 600;
+}
+
+.osc-caption .osc-dot {
+	margin: 0 8px;
+	color: var(--osc-frame);
+}
+
+.osc-sheet-wrap {
+	position: relative;
+	overflow-x: auto;
+	background: var(--osc-bg);
+	border: 1px solid var(--osc-frame);
+}
+
+.osc-sheet-wrap.is-loading .osc-sheet {
+	opacity: 0.45;
+	transition: opacity 0.15s;
+}
+
+.osc-loading {
+	padding: 48px 16px;
+	text-align: center;
+	color: var(--osc-muted);
+}
+
+.osc-sheet {
+	width: 100%;
+	min-width: 860px;
+	border-collapse: collapse;
+	font-variant-numeric: tabular-nums;
+	background: var(--osc-bg);
+}
+
+.osc-sheet .osc-col-metric {
+	width: 320px;
+}
+
+.osc-sheet .osc-col-unit {
+	width: 64px;
+}
+
+.osc-sheet .osc-col-num {
+	width: auto;
+}
+
+.osc-sheet th,
+.osc-sheet td {
+	border: 1px solid var(--osc-grid);
+	padding: 0 12px;
+	height: 32px;
+	vertical-align: middle;
+}
+
+.osc-sheet thead th {
+	font-weight: 700;
+	color: var(--osc-text);
+}
+
+.osc-sheet .osc-h-metric,
+.osc-sheet .osc-h-unit {
+	background: var(--osc-head);
+	text-align: left;
+	vertical-align: bottom;
+	padding-bottom: 8px;
+}
+
+.osc-sheet .osc-h-unit {
+	text-align: center;
+}
+
+.osc-sheet .osc-band {
+	height: 28px;
+	text-align: center;
+	letter-spacing: 0.01em;
+}
+
+.osc-sheet .osc-band-week {
+	background: var(--osc-week-band);
+	color: var(--osc-week-ink);
+}
+
+.osc-sheet .osc-band-month {
+	background: var(--osc-month-band);
+	color: var(--osc-month-ink);
+}
+
+.osc-sheet .osc-h-period {
+	text-align: right;
+	padding: 6px 12px;
+	line-height: 1.3;
+}
+
+.osc-sheet .osc-h-period.osc-week {
+	background: var(--osc-week-head);
+	color: var(--osc-week-ink);
+}
+
+.osc-sheet .osc-h-period.osc-month {
+	background: var(--osc-month-head);
+	color: var(--osc-month-ink);
+}
+
+.osc-h-title {
+	display: block;
+	font-size: 13px;
+	font-weight: 700;
+}
+
+.osc-h-range {
+	display: block;
+	font-size: 12px;
+	font-weight: 400;
+	opacity: 0.85;
+	white-space: nowrap;
+}
+
+.osc-sheet td.osc-week.is-cur {
+	background: var(--osc-week-cur);
+}
+
+.osc-sheet td.osc-week.is-prev {
+	background: var(--osc-week-prev);
+}
+
+.osc-sheet td.osc-month.is-cur {
+	background: var(--osc-month-cur);
+}
+
+.osc-sheet td.osc-month.is-prev {
+	background: var(--osc-month-prev);
+}
+
+.osc-sheet tr.osc-section > th {
+	height: 36px;
+	padding: 0 12px;
+	text-align: left;
+	color: #ffffff;
+	background: var(--osc-sec-inventory);
+	border-color: var(--osc-sec-inventory);
+}
+
+.osc-sheet tr.osc-sec-production > th {
+	background: var(--osc-sec-production);
+	border-color: var(--osc-sec-production);
+}
+
+.osc-sheet tr.osc-sec-sales > th {
+	background: var(--osc-sec-sales);
+	border-color: var(--osc-sec-sales);
+}
+
+.osc-sheet tr.osc-sec-yield > th {
+	background: var(--osc-sec-yield);
+	border-color: var(--osc-sec-yield);
+}
+
+.osc-sec-title {
+	font-size: 14px;
+	font-weight: 700;
+}
+
+.osc-sec-note {
+	margin-left: 12px;
+	font-size: 12px;
+	font-weight: 400;
+	opacity: 0.88;
+}
+
+.osc-sheet .osc-metric {
+	position: sticky;
+	left: 0;
+	z-index: 1;
+	text-align: left;
+	font-weight: 400;
+	white-space: nowrap;
+	background: var(--osc-bg);
+}
+
+.osc-sheet .osc-h-metric {
+	position: sticky;
+	left: 0;
+	z-index: 2;
+}
+
+.osc-sheet .lvl-1 > .osc-metric {
+	padding-left: 32px;
+}
+
+.osc-sheet .lvl-2 > .osc-metric {
+	padding-left: 58px;
+}
+
+.osc-sheet .osc-unit {
+	text-align: center;
+	color: var(--osc-muted);
+	font-size: 12px;
+	white-space: nowrap;
+}
+
+.osc-sheet .osc-num {
+	text-align: right;
+	white-space: nowrap;
+}
+
+.osc-sheet tr.osc-row:hover > td,
+.osc-sheet tr.osc-row:hover > th {
+	box-shadow: inset 0 0 0 999px var(--osc-hover);
+}
+
+.osc-sheet tr.osc-subhead > th,
+.osc-sheet tr.osc-subhead > td,
+.osc-sheet tr.osc-subhead > td.osc-num {
+	background: var(--osc-sub);
+}
+
+.osc-sheet tr.osc-subhead .osc-label {
+	font-weight: 700;
+}
+
+.osc-sheet tr.osc-total > th,
+.osc-sheet tr.osc-total > td,
+.osc-sheet tr.osc-total > td.osc-num {
+	background: var(--osc-total);
+	color: var(--osc-total-ink);
+	font-weight: 700;
+}
+
+.osc-sheet tr.osc-child > .osc-metric,
+.osc-sheet tr.osc-child > td {
+	font-size: 12.5px;
+}
+
+.osc-sheet tr.osc-child > .osc-metric {
+	color: var(--osc-muted);
+}
+
+.osc-sheet td.is-neg {
+	color: var(--osc-neg);
+}
+
+.osc-empty {
+	color: var(--osc-empty);
+}
+
+.osc-toggle {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 18px;
+	height: 18px;
+	margin: 0 8px 0 0;
+	padding: 0;
+	vertical-align: middle;
+	font-size: 14px;
+	font-weight: 700;
+	line-height: 1;
+	color: var(--osc-text);
+	background: var(--osc-toggle-bg);
+	border: 1px solid var(--osc-toggle-line);
+	border-radius: 2px;
+	cursor: pointer;
+}
+
+.osc-toggle:hover,
+.osc-toggle.is-open {
+	background: var(--osc-head);
+}
+
+.osc-toggle-gap {
+	display: inline-block;
+	width: 18px;
+	margin-right: 8px;
+	vertical-align: middle;
+}
+
+.osc-label {
+	vertical-align: middle;
+}
+
+.osc-label.has-hint {
+	border-bottom: 1px dotted var(--osc-toggle-line);
+	cursor: help;
+}
+
+.osc-val {
+	padding: 0;
+	margin: 0;
+	border: 0;
+	background: none;
+	font: inherit;
+	color: inherit;
+	cursor: pointer;
+}
+
+.osc-val:hover {
+	color: var(--osc-link);
+	text-decoration: underline;
+}
+
+.osc-toggle:focus-visible,
+.osc-val:focus-visible {
+	outline: 2px solid var(--osc-link);
+	outline-offset: 2px;
+}
+
+.osc-notes {
+	margin-top: 16px;
+	background: var(--osc-bg);
+	border: 1px solid var(--osc-frame);
+}
+
+.osc-notes summary {
+	padding: 10px 14px;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.osc-notes ul {
+	margin: 0;
+	padding: 2px 16px 14px 34px;
+	color: var(--osc-muted);
+	line-height: 1.6;
+}
+
+.osc-notes b {
+	color: var(--osc-text);
+}
+
+.osc-drill-count {
+	margin-bottom: 6px;
+	font-size: 12px;
+	color: var(--osc-muted);
+}
+
+.osc-drill-scroll {
+	max-height: 62vh;
+	overflow: auto;
+	border: 1px solid var(--osc-frame);
+}
+
+.osc-drill-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 12.5px;
+	font-variant-numeric: tabular-nums;
+	background: var(--osc-bg);
+}
+
+.osc-drill-table th,
+.osc-drill-table td {
+	padding: 5px 9px;
+	border: 1px solid var(--osc-grid);
+	vertical-align: top;
+}
+
+.osc-drill-table thead th {
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	text-align: left;
+	font-weight: 700;
+	background: var(--osc-head);
+}
+
+.osc-drill-table .osc-num {
+	text-align: right;
+	white-space: nowrap;
+}
+
+.osc-drill-table .osc-nowrap {
+	white-space: nowrap;
+}
+
+.osc-drill-table tfoot td {
+	position: sticky;
+	bottom: 0;
+	font-weight: 700;
+	color: var(--osc-total-ink);
+	background: var(--osc-total);
+}
+
+.osc-drill-empty {
+	padding: 28px 12px;
+	text-align: center;
+	color: var(--osc-muted);
+	border: 1px dashed var(--osc-frame);
+}
+
+@media (max-width: 767px) {
+	.osc-toolbar {
+		padding: 10px;
+	}
+
+	.osc-company {
+		min-width: 0;
+		width: 100%;
+	}
+
+	.osc-toolbar > .osc-field:first-child {
+		flex: 1 1 100%;
+	}
+
+	.osc-spacer {
+		display: none;
+	}
+
+	.osc-sec-note {
+		display: block;
+		margin: 0 0 6px;
+	}
+
+	.osc-sheet tr.osc-section > th {
+		height: auto;
+		padding-top: 6px;
+	}
+
+	.osc-sheet {
+		min-width: 680px;
+	}
+
+	.osc-sheet .osc-col-metric {
+		width: 150px;
+	}
+
+	.osc-sheet .osc-col-unit {
+		width: 44px;
+	}
+
+	.osc-sheet th,
+	.osc-sheet td {
+		padding: 0 8px;
+	}
+
+	.osc-sheet .osc-metric {
+		white-space: normal;
+		line-height: 1.25;
+		padding-top: 5px;
+		padding-bottom: 5px;
+	}
+
+	.osc-sheet .lvl-1 > .osc-metric {
+		padding-left: 16px;
+	}
+
+	.osc-sheet .lvl-2 > .osc-metric {
+		padding-left: 28px;
+	}
+
+	.osc-sheet tr.osc-section > th {
+		position: sticky;
+		left: 0;
+	}
+}
