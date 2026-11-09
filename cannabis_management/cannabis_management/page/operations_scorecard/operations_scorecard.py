@@ -1,10 +1,13 @@
 import frappe
 from frappe import _
-from frappe.utils import add_days, add_months, flt, get_first_day, get_last_day, getdate, nowdate
+from frappe.utils import add_days, add_months, date_diff, flt, get_first_day, get_last_day, getdate, nowdate
 
 PAGE_ROLE = "Operations Scorecard"
 G_PER_LB = 453.59237
 MTM_COMPANY = "Master Touch Manufacturing"
+TREND_PERIODS = 6
+MAX_RANGE_DAYS = 400
+VIEWS = ("week_month", "weeks", "months", "custom")
 
 TIERS = (
 	("T1+", ("Tier 1 Plus",)),
@@ -16,6 +19,7 @@ TIERS = (
 	("VRR", ("VRR",)),
 	("Other rosin", ("Raw Rosin", "Full Spec")),
 )
+TIER_NAMES = tuple(tier for tier, _groups in TIERS)
 GROUP_LABELS = {
 	"Primes": "Primes (old T1 grade)",
 	"Subprimes": "Subprimes (old T2 grade)",
@@ -33,25 +37,77 @@ def _require_access():
 		frappe.throw(_("Not permitted"), frappe.PermissionError)
 
 
-def _periods(as_of):
-	d = getdate(as_of or nowdate())
-	today = getdate(nowdate())
-	week = add_days(d, -d.weekday())
-	month = get_first_day(d)
-	spans = (
-		("week", _("Week"), week, add_days(week, 6)),
-		("prev_week", _("Previous week"), add_days(week, -7), add_days(week, -1)),
-		("month", _("Month"), month, get_last_day(d)),
-		("prev_month", _("Previous month"), get_first_day(add_months(d, -1)), add_days(month, -1)),
+def _period(key, band, start, end, today):
+	start, end = getdate(start), getdate(end)
+	return frappe._dict(
+		key=key, band=band, start=start, end=end,
+		snapshot=min(end, today), partial=start <= today < end, future=start > today,
 	)
-	out = []
-	for key, label, start, end in spans:
-		start, end = getdate(start), getdate(end)
-		out.append(frappe._dict(
-			key=key, label=label, start=start, end=end,
-			snapshot=min(end, today), partial=end > today, future=start > today,
-		))
-	return out
+
+
+def _periods(view, as_of, from_date=None, to_date=None):
+	today = getdate(nowdate())
+	d = getdate(as_of)
+	week = getdate(add_days(d, -d.weekday()))
+	month = getdate(get_first_day(d))
+
+	if view == "weeks":
+		return [
+			_period(f"w{i}", "week", add_days(week, -7 * back), add_days(week, -7 * back + 6), today)
+			for i, back in enumerate(range(TREND_PERIODS - 1, -1, -1))
+		]
+	if view == "months":
+		out = []
+		for i, back in enumerate(range(TREND_PERIODS - 1, -1, -1)):
+			start = getdate(add_months(month, -back))
+			out.append(_period(f"m{i}", "month", start, get_last_day(start), today))
+		return out
+	if view == "custom":
+		if not (from_date and to_date):
+			frappe.throw(_("Pick a From date and a To date for the custom range."))
+		start, end = sorted((getdate(from_date), getdate(to_date)))
+		days = date_diff(end, start) + 1
+		if days > MAX_RANGE_DAYS:
+			frappe.throw(_("Keep the custom range to {0} days or less.").format(MAX_RANGE_DAYS))
+		return [
+			_period("range", "range", start, end, today),
+			_period("prev_range", "range", add_days(start, -days), add_days(start, -1), today),
+		]
+	return [
+		_period("week", "week", week, add_days(week, 6), today),
+		_period("prev_week", "week", add_days(week, -7), add_days(week, -1), today),
+		_period("month", "month", month, get_last_day(d), today),
+		_period("prev_month", "month", get_first_day(add_months(d, -1)), add_days(month, -1), today),
+	]
+
+
+def _kpi_pair(view, periods):
+	if view in ("weeks", "months"):
+		return periods[-1].key, periods[-2].key
+	return periods[0].key, periods[1].key
+
+
+def _context(as_of=None, company=None, view=None, from_date=None, to_date=None,
+             location=None, tier=None, customer=None):
+	_require_access()
+	ctx = frappe._dict(
+		view=view if view in VIEWS else "week_month",
+		as_of=getdate(as_of or nowdate()),
+		company=company or None,
+		location=location or None,
+		tier=tier or None,
+		customer=customer or None,
+	)
+	if ctx.company and not frappe.db.exists("Company", ctx.company):
+		frappe.throw(_("Unknown company {0}").format(ctx.company))
+	if ctx.customer and not frappe.db.exists("Customer", ctx.customer):
+		frappe.throw(_("Unknown customer {0}").format(ctx.customer))
+	if ctx.location and ctx.location not in WASH_LOCATIONS:
+		frappe.throw(_("Unknown wash location {0}").format(ctx.location))
+	if ctx.tier and ctx.tier not in TIER_NAMES:
+		frappe.throw(_("Unknown tier {0}").format(ctx.tier))
+	ctx.periods = _periods(ctx.view, ctx.as_of, from_date, to_date)
+	return ctx
 
 
 def _fresh_frozen_groups():
@@ -77,10 +133,17 @@ def _company_cond(company, alias):
 	return f" and {alias}.company = %(company)s" if company else ""
 
 
-def _inventory_items(periods, company):
+def _tier_groups(tier):
+	return tuple(g for t, groups in TIERS if not tier or t == tier for g in groups)
+
+
+def _inventory_items(periods, company, tier=None):
 	items = {}
 	balances = {}
+	groups = _tier_groups(tier)
 	for p in periods:
+		if p.future:
+			continue
 		if p.snapshot not in balances:
 			balances[p.snapshot] = frappe.db.sql(
 				f"""
@@ -100,7 +163,7 @@ def _inventory_items(periods, company):
 				where rn = 1
 				group by item_code, item_name, item_group
 				""",
-				{"date": p.snapshot, "groups": tuple(GROUP_TIER), "uoms": GRAM_UOMS, "company": company},
+				{"date": p.snapshot, "groups": groups, "uoms": GRAM_UOMS, "company": company},
 				as_dict=True,
 			)
 		for r in balances[p.snapshot]:
@@ -114,7 +177,7 @@ def _inventory_items(periods, company):
 	return list(items.values())
 
 
-def _process_entries(start, end, company):
+def _process_entries(start, end, company, location=None):
 	ff = _fresh_frozen_groups()
 	if not ff:
 		return []
@@ -148,17 +211,17 @@ def _process_entries(start, end, company):
 		))
 		consumed = r.s_wh and not r.t_wh
 		produced = r.t_wh and not r.s_wh
+		label = r.item_name or r.item_code
 		if r.item_group in ff:
 			if consumed:
 				e.ff_in[r.item_group] = e.ff_in.get(r.item_group, 0) + flt(r.qty)
 				e.wh_lbs[r.s_wh] = e.wh_lbs.get(r.s_wh, 0) + flt(r.qty)
-				e.inputs[r.item_name or r.item_code] = e.inputs.get(r.item_name or r.item_code, 0) + flt(r.qty)
+				e.inputs[label] = e.inputs.get(label, 0) + flt(r.qty)
 			elif produced:
 				e.ff_out += flt(r.qty)
 		elif produced and r.stock_uom in GRAM_UOMS:
 			e.outputs[r.item_group] = e.outputs.get(r.item_group, 0) + flt(r.qty)
-			name = r.item_name or r.item_code
-			e.out_items[name] = e.out_items.get(name, 0) + flt(r.qty)
+			e.out_items[label] = e.out_items.get(label, 0) + flt(r.qty)
 
 	out = []
 	for e in entries.values():
@@ -181,11 +244,15 @@ def _process_entries(start, end, company):
 			e.location = "MTM"
 		else:
 			e.location = "Other partners"
+		if location and e.location not in (location, LIVE_RESIN):
+			continue
 		out.append(e)
 	return out
 
 
-def _sales_lines(start, end, company):
+def _sales_lines(start, end, company, tier=None, customer=None):
+	groups = _tier_groups(tier) + (() if tier else LIVE_RESIN_GROUPS)
+	customer_cond = " and si.customer = %(customer)s" if customer else ""
 	return frappe.db.sql(
 		f"""
 		select si.name as invoice, si.posting_date, si.customer, si.company,
@@ -197,12 +264,12 @@ def _sales_lines(start, end, company):
 		where si.docstatus = 1 and si.posting_date between %(start)s and %(end)s
 		  and i.item_group in %(groups)s and i.stock_uom in %(uoms)s
 		  and si.customer not in %(internal)s
-		  {_company_cond(company, "si")}
+		  {_company_cond(company, "si")}{customer_cond}
 		order by si.posting_date, si.name, sii.idx
 		""",
 		{
-			"start": start, "end": end, "company": company, "uoms": GRAM_UOMS,
-			"groups": tuple(GROUP_TIER) + LIVE_RESIN_GROUPS, "internal": _internal_customers(),
+			"start": start, "end": end, "company": company, "customer": customer,
+			"uoms": GRAM_UOMS, "groups": groups, "internal": _internal_customers(),
 		},
 		as_dict=True,
 	)
@@ -228,11 +295,41 @@ def _row(rid, label, unit, values, **kw):
 	return {"id": rid, "label": label, "unit": unit, "values": values, **kw}
 
 
-def _inventory_section(periods, items):
+def _by(records, periods, field, keep=lambda r: True):
+	groups = {}
+	for r in records:
+		if keep(r):
+			for k, v in r[field].items():
+				groups.setdefault(k, []).append((r, v))
+	out = []
+	for k, pairs in sorted(groups.items()):
+		values = {p.key: sum(v for r, v in pairs if _in(p, r.posting_date)) for p in periods}
+		if _has_value(values):
+			out.append((k, values))
+	return out
+
+
+def _ff_label(group):
+	label = group.replace("Fresh Frozen", "").strip(" -")
+	return label[:1].upper() + label[1:].lower() if label and not label.isupper() else (label or group)
+
+
+def _location_hint(loc):
+	return {
+		"MTM": _("Washed in-house at Master Touch Manufacturing (freezers and work orders)"),
+		"Nature": _("Tolled at Nature's Lab"),
+		"Other partners": _("Washed by other tolling partners, e.g. Bloom"),
+	}.get(loc, "")
+
+
+def _inventory_section(ctx, items):
+	periods = ctx.periods
 	existing = set(frappe.get_all("Item Group", filters={"name": ["in", list(GROUP_TIER)]}, pluck="name"))
 	rows = []
 	totals = {p.key: 0.0 for p in periods}
 	for tier, groups in TIERS:
+		if ctx.tier and tier != ctx.tier:
+			continue
 		children = []
 		tier_values = {p.key: 0.0 for p in periods}
 		for group in groups:
@@ -253,138 +350,122 @@ def _inventory_section(periods, items):
 		rows.append(_row(f"inv:{tier}", tier, "g", tier_values, hint=hint,
 		                 children=children if len(children) > 1 else [],
 		                 drill={"metric": "inventory", "tier": tier}))
-	rows.insert(0, _row("inv:total", _("Total"), "g", totals, total=1, drill={"metric": "inventory"}))
+	if ctx.tier:
+		rows[0].update(id="inv:total", total=1)
+	else:
+		rows.insert(0, _row("inv:total", _("Total"), "g", totals, total=1, drill={"metric": "inventory"}))
 	return {
 		"key": "inventory",
 		"title": _("Rosin inventory by tier"),
-		"note": _("Grams on hand at the end of each period (today for the current one)"),
+		"note": _("Grams on hand at the end of each period, today for a period still running"),
 		"rows": rows,
 	}
 
 
-def _by(records, periods, field_key, value_key, keep=lambda r: True):
-	groups = {}
-	for r in records:
-		if not keep(r):
-			continue
-		for k, v in r[field_key].items():
-			groups.setdefault(k, []).append((r, v))
-	out = []
-	for k, pairs in sorted(groups.items()):
-		values = {p.key: sum(v for r, v in pairs if _in(p, r.posting_date)) for p in periods}
-		if _has_value(values):
-			out.append((k, values))
-	return out
+def _wash_block(ctx, wash, head_id, head_label, unit, value, field, scale=1):
+	periods = ctx.periods
+	locations = [ctx.location] if ctx.location else [
+		loc for loc in WASH_LOCATIONS
+		if loc != "Other partners" or _has_value(_sum(periods, wash, lambda e: e.lbs, lambda e, l=loc: e.location == l))
+	]
+	drill_key = "ff_group" if field == "ff_types" else "product"
 
+	def breakdown(loc):
+		keep = lambda e, l=loc: e.location == l  # noqa: E731
+		return [
+			_row(f"{head_id}:{loc}:{g}", _ff_label(g) if field == "ff_types" else g, unit,
+			     {k: x * scale for k, x in v.items()}, level=2,
+			     drill={"metric": "process", "process": "wash", "location": loc, drill_key: g})
+			for g, v in _by(wash, periods, field, keep)
+		]
 
-def _production_section(periods, entries):
-	wash = [e for e in entries if e.location != LIVE_RESIN]
-	resin = [e for e in entries if e.location == LIVE_RESIN]
-	rows = []
-
-	locations = [loc for loc in WASH_LOCATIONS
-	             if loc != "Other partners" or _has_value(_sum(periods, wash, lambda e: e.lbs, lambda e, l=loc: e.location == l))]
-
-	rows.append({"id": "wash:lbs:head", "label": _("Pounds washed"), "unit": "lbs", "sub": 1})
-	rows.append(_row("wash:lbs:total", _("Total"), "lbs", _sum(periods, wash, lambda e: e.lbs), total=1, level=1,
+	rows = [{"id": f"{head_id}:head", "label": head_label, "unit": unit, "sub": 1}]
+	if ctx.location:
+		rows.append(_row(f"{head_id}:total", ctx.location, unit, _sum(periods, wash, value), total=1, level=1,
+		                 children=breakdown(ctx.location), hint=_location_hint(ctx.location),
+		                 drill={"metric": "process", "process": "wash", "location": ctx.location}))
+		return rows
+	rows.append(_row(f"{head_id}:total", _("Total"), unit, _sum(periods, wash, value), total=1, level=1,
 	                 drill={"metric": "process", "process": "wash"}))
 	for loc in locations:
-		keep = lambda e, l=loc: e.location == l  # noqa: E731
-		children = [
-			_row(f"wash:lbs:{loc}:{g}", g, "lbs", v, level=2,
-			     drill={"metric": "process", "process": "wash", "location": loc, "ff_group": g})
-			for g, v in _by(wash, periods, "ff_types", None, keep)
-		]
-		rows.append(_row(f"wash:lbs:{loc}", loc, "lbs", _sum(periods, wash, lambda e: e.lbs, keep), level=1,
-		                 children=children, hint=_location_hint(loc),
+		rows.append(_row(f"{head_id}:{loc}", loc, unit,
+		                 _sum(periods, wash, value, lambda e, l=loc: e.location == l), level=1,
+		                 children=breakdown(loc), hint=_location_hint(loc),
 		                 drill={"metric": "process", "process": "wash", "location": loc}))
+	return rows
 
-	rows.append({"id": "wash:kg:head", "label": _("Kilos produced"), "unit": "kg", "sub": 1})
-	rows.append(_row("wash:kg:total", _("Total"), "kg", _sum(periods, wash, lambda e: e.grams / 1000), total=1,
-	                 level=1, drill={"metric": "process", "process": "wash"}))
-	for loc in locations:
-		keep = lambda e, l=loc: e.location == l  # noqa: E731
-		children = [
-			_row(f"wash:kg:{loc}:{g}", g, "kg", {k: x / 1000 for k, x in v.items()}, level=2,
-			     drill={"metric": "process", "process": "wash", "location": loc, "product": g})
-			for g, v in _by(wash, periods, "outputs", None, keep)
+
+def _production_section(ctx, entries):
+	periods = ctx.periods
+	wash = [e for e in entries if e.location != LIVE_RESIN]
+	resin = [e for e in entries if e.location == LIVE_RESIN]
+	rows = _wash_block(ctx, wash, "wash:lbs", _("Pounds washed"), "lbs", lambda e: e.lbs, "ff_types")
+	rows += _wash_block(ctx, wash, "wash:kg", _("Kilos produced"), "kg", lambda e: e.grams / 1000, "outputs",
+	                    scale=1 / 1000)
+
+	if not ctx.location:
+		resin_lbs = _sum(periods, resin, lambda e: e.lbs)
+		resin_g = _sum(periods, resin, lambda e: e.grams)
+		drill = {"metric": "process", "process": "resin"}
+		rows += [
+			{"id": "resin:head", "label": _("Live resin extraction (BHO, not a wash)"), "unit": "", "sub": 1},
+			_row("resin:lbs", _("Pounds extracted"), "lbs", resin_lbs, level=1, drill=drill,
+			     hint=_("Fresh frozen sent to hydrocarbon extraction (Leaf, Buddies Brand). Kept out of the wash totals.")),
+			_row("resin:kg", _("Kilos produced"), "kg", {k: v / 1000 for k, v in resin_g.items()}, level=1, drill=drill),
+			_row("resin:yield", _("Yield"), "%",
+			     _ratio(periods, resin_g, {k: v * G_PER_LB for k, v in resin_lbs.items()}, 100), level=1, drill=drill),
 		]
-		rows.append(_row(f"wash:kg:{loc}", loc, "kg", _sum(periods, wash, lambda e: e.grams / 1000, keep), level=1,
-		                 children=children, hint=_location_hint(loc),
-		                 drill={"metric": "process", "process": "wash", "location": loc}))
-
-	resin_lbs = _sum(periods, resin, lambda e: e.lbs)
-	resin_g = _sum(periods, resin, lambda e: e.grams)
-	rows.append({"id": "resin:head", "label": _("Live resin extraction (BHO, not a wash)"), "unit": "", "sub": 1})
-	rows.append(_row("resin:lbs", _("Pounds extracted"), "lbs", resin_lbs, level=1,
-	                 drill={"metric": "process", "process": "resin"},
-	                 hint=_("Fresh frozen sent to hydrocarbon extraction (Leaf, Buddies Brand, etc.). Kept out of the wash totals.")))
-	rows.append(_row("resin:kg", _("Kilos produced"), "kg", {k: v / 1000 for k, v in resin_g.items()}, level=1,
-	                 drill={"metric": "process", "process": "resin"}))
-	rows.append(_row("resin:yield", _("Yield"), "%", _ratio(periods, resin_g, {k: v * G_PER_LB for k, v in resin_lbs.items()}, 100),
-	                 level=1, drill={"metric": "process", "process": "resin"}))
-
 	return {
 		"key": "production",
 		"title": _("Washing and production"),
-		"note": _("Fresh frozen consumed by wash runs, and what came out of them"),
+		"note": _("Fresh frozen used by wash runs, and what came out of them"),
 		"rows": rows,
-	}, locations
+	}
 
 
-def _location_hint(loc):
-	return {
-		"MTM": _("Washed in-house at Master Touch Manufacturing (freezers and work orders)"),
-		"Nature": _("Tolled at Nature's Lab"),
-		"Other partners": _("Washed by other tolling partners, e.g. Bloom"),
-	}.get(loc, "")
-
-
-def _sales_section(periods, lines):
+def _sales_section(ctx, lines):
+	periods = ctx.periods
 	rosin = lambda r: r.item_group in GROUP_TIER  # noqa: E731
 	grams = lambda r: flt(r.qty)  # noqa: E731
 	amount = lambda r: flt(r.amount)  # noqa: E731
+	price_children, volume_children, revenue_children = [], [], []
+	if not ctx.tier:
+		for tier, groups in TIERS:
+			keep = lambda r, gs=groups: r.item_group in gs  # noqa: E731
+			g = _sum(periods, lines, grams, keep)
+			amt = _sum(periods, lines, amount, keep)
+			if not (_has_value(g) or _has_value(amt)):
+				continue
+			drill = {"metric": "sales", "tier": tier}
+			price_children.append(_row(f"sales:price:{tier}", tier, "$/g", _ratio(periods, amt, g), level=1, drill=drill))
+			volume_children.append(_row(f"sales:g:{tier}", tier, "g", g, level=1, drill=drill))
+			revenue_children.append(_row(f"sales:amt:{tier}", tier, "$", amt, level=1, drill=drill))
+		resin_keep = lambda r: r.item_group in LIVE_RESIN_GROUPS  # noqa: E731
+		resin_g = _sum(periods, lines, grams, resin_keep)
+		resin_amt = _sum(periods, lines, amount, resin_keep)
+		if _has_value(resin_g) or _has_value(resin_amt):
+			price_children.append(_row("sales:price:resin", LIVE_RESIN, "$/g", _ratio(periods, resin_amt, resin_g),
+			                           level=1, drill={"metric": "sales", "kind": "resin"}))
 
-	oil_g = _sum(periods, lines, grams)
-	oil_amt = _sum(periods, lines, amount)
-	price_children = []
-	volume_children = []
-	revenue_children = []
-	for tier, groups in TIERS:
-		keep = lambda r, gs=groups: r.item_group in gs  # noqa: E731
-		g = _sum(periods, lines, grams, keep)
-		amt = _sum(periods, lines, amount, keep)
-		if not (_has_value(g) or _has_value(amt)):
-			continue
-		drill = {"metric": "sales", "tier": tier}
-		price_children.append(_row(f"sales:price:{tier}", tier, "$/g", _ratio(periods, amt, g), level=1, drill=drill))
-		volume_children.append(_row(f"sales:g:{tier}", tier, "g", g, level=1, drill=drill))
-		revenue_children.append(_row(f"sales:amt:{tier}", tier, "$", amt, level=1, drill=drill))
-	resin_keep = lambda r: r.item_group in LIVE_RESIN_GROUPS  # noqa: E731
-	resin_g = _sum(periods, lines, grams, resin_keep)
-	resin_amt = _sum(periods, lines, amount, resin_keep)
-	if _has_value(resin_g) or _has_value(resin_amt):
-		price_children.append(_row("sales:price:resin", LIVE_RESIN, "$/g", _ratio(periods, resin_amt, resin_g),
-		                           level=1, drill={"metric": "sales", "kind": "resin"}))
-
+	price_label = _("Avg sales price – {0}").format(ctx.tier) if ctx.tier else _("Avg sales price – oil")
 	rows = [
-		_row("sales:price", _("Avg sales price – oil"), "$/g", _ratio(periods, oil_amt, oil_g),
+		_row("sales:price", price_label, "$/g",
+		     _ratio(periods, _sum(periods, lines, amount), _sum(periods, lines, grams)),
 		     children=price_children, drill={"metric": "sales"},
-		     hint=_("Revenue ÷ grams for rosin (all tiers) and live resin sold to outside customers")),
+		     hint=_("Revenue ÷ grams sold. Oil means rosin of every tier plus live resin.")),
 		_row("sales:g", _("Rosin volume sold"), "g", _sum(periods, lines, grams, rosin),
 		     children=volume_children, drill={"metric": "sales", "kind": "rosin"}),
 		_row("sales:amt", _("Rosin revenue"), "$", _sum(periods, lines, amount, rosin),
 		     children=revenue_children, drill={"metric": "sales", "kind": "rosin"}),
 	]
-	return {
-		"key": "sales",
-		"title": _("Sales"),
-		"note": _("Submitted sales invoices to outside customers, net of returns; intercompany sales left out"),
-		"rows": rows,
-	}
+	note = _("Submitted invoices to outside customers, net of returns")
+	if ctx.customer:
+		note = _("Invoices to {0}, net of returns").format(ctx.customer)
+	return {"key": "sales", "title": _("Sales"), "note": note, "rows": rows}
 
 
-def _yield_section(periods, entries, locations):
+def _yield_section(ctx, entries):
+	periods = ctx.periods
 	wash = [e for e in entries if e.location != LIVE_RESIN]
 
 	def yld(keep=lambda e: True):
@@ -392,13 +473,17 @@ def _yield_section(periods, entries, locations):
 		frozen = _sum(periods, wash, lambda e: e.lbs * G_PER_LB, keep)
 		return _ratio(periods, g, frozen, 100)
 
-	rows = [_row("yield:total", _("Average yield"), "%", yld(), total=1,
+	label = _("Average yield – {0}").format(ctx.location) if ctx.location else _("Average yield")
+	rows = [_row("yield:total", label, "%", yld(), total=1,
 	             drill={"metric": "process", "process": "wash"},
 	             hint=_("Grams produced ÷ grams of fresh frozen washed, weighted by weight"))]
-	for loc in locations:
-		rows.append(_row(f"yield:{loc}", loc, "%", yld(lambda e, l=loc: e.location == l), level=1,
-		                 hint=_location_hint(loc),
-		                 drill={"metric": "process", "process": "wash", "location": loc}))
+	if not ctx.location:
+		locations = [loc for loc in WASH_LOCATIONS
+		             if loc != "Other partners" or any(e.location == loc for e in wash)]
+		for loc in locations:
+			rows.append(_row(f"yield:{loc}", loc, "%", yld(lambda e, l=loc: e.location == l), level=1,
+			                 hint=_location_hint(loc),
+			                 drill={"metric": "process", "process": "wash", "location": loc}))
 	return {
 		"key": "yield",
 		"title": _("Yield"),
@@ -407,59 +492,61 @@ def _yield_section(periods, entries, locations):
 	}
 
 
-def _companies():
-	return frappe.get_all("Company", pluck="name", order_by="name")
+def _blank_future(rows, future):
+	for r in rows:
+		if r.get("values"):
+			for k in future:
+				r["values"][k] = None
+		_blank_future(r.get("children") or [], future)
 
 
-def _clean_company(company):
-	if company and company not in _companies():
-		frappe.throw(_("Unknown company {0}").format(company))
-	return company or None
+def _period_dict(p):
+	return {"key": p.key, "band": p.band, "start": str(p.start), "end": str(p.end),
+	        "snapshot": str(p.snapshot), "partial": int(p.partial), "future": int(p.future)}
 
 
 @frappe.whitelist()
-def get_data(as_of=None, company=None):
-	_require_access()
-	company = _clean_company(company)
-	periods = _periods(as_of)
+def get_data(as_of=None, company=None, view=None, from_date=None, to_date=None,
+             location=None, tier=None, customer=None):
+	ctx = _context(as_of, company, view, from_date, to_date, location, tier, customer)
+	periods = ctx.periods
 	start = min(p.start for p in periods)
 	end = max(p.end for p in periods)
 
-	entries = _process_entries(start, end, company)
-	production, locations = _production_section(periods, entries)
+	entries = _process_entries(start, end, ctx.company, ctx.location)
 	sections = [
-		_inventory_section(periods, _inventory_items(periods, company)),
-		production,
-		_sales_section(periods, _sales_lines(start, end, company)),
-		_yield_section(periods, entries, locations),
+		_inventory_section(ctx, _inventory_items(periods, ctx.company, ctx.tier)),
+		_production_section(ctx, entries),
+		_sales_section(ctx, _sales_lines(start, end, ctx.company, ctx.tier, ctx.customer)),
+		_yield_section(ctx, entries),
 	]
+	future = [p.key for p in periods if p.future]
+	for s in sections:
+		_blank_future(s["rows"], future)
+	current, compare = _kpi_pair(ctx.view, periods)
 	return {
-		"as_of": str(getdate(as_of or nowdate())),
 		"today": nowdate(),
-		"company": company or "",
-		"companies": _companies(),
-		"periods": [
-			{"key": p.key, "label": p.label, "start": str(p.start), "end": str(p.end),
-			 "snapshot": str(p.snapshot), "partial": int(p.partial), "future": int(p.future)}
-			for p in periods
-		],
+		"as_of": str(ctx.as_of),
+		"view": ctx.view,
+		"periods": [_period_dict(p) for p in periods],
+		"kpi": {"current": current, "compare": compare},
 		"sections": sections,
+		"options": {"locations": WASH_LOCATIONS, "tiers": TIER_NAMES},
 	}
 
 
 @frappe.whitelist()
-def get_drill(drill, period, as_of=None, company=None):
-	_require_access()
-	company = _clean_company(company)
+def get_drill(drill, period, as_of=None, company=None, view=None, from_date=None, to_date=None,
+              location=None, tier=None, customer=None):
+	ctx = _context(as_of, company, view, from_date, to_date, location, tier, customer)
 	drill = frappe._dict(frappe.parse_json(drill) or {})
-	p = next((x for x in _periods(as_of) if x.key == period), None)
+	p = next((x for x in ctx.periods if x.key == period), None)
 	if not p:
 		frappe.throw(_("Unknown period"))
 
 	if drill.metric == "inventory":
-		items = _inventory_items([p], company)
 		rows = []
-		for r in items:
+		for r in _inventory_items([p], ctx.company, ctx.tier):
 			if drill.group and r.item_group != drill.group:
 				continue
 			if drill.tier and GROUP_TIER.get(r.item_group) != drill.tier:
@@ -474,7 +561,7 @@ def get_drill(drill, period, as_of=None, company=None):
 
 	if drill.metric == "process":
 		rows = []
-		for e in _process_entries(p.start, p.end, company):
+		for e in _process_entries(p.start, p.end, ctx.company, ctx.location):
 			if (e.location == LIVE_RESIN) != (drill.process == "resin"):
 				continue
 			if drill.location and e.location != drill.location:
@@ -485,8 +572,7 @@ def get_drill(drill, period, as_of=None, company=None):
 				continue
 			rows.append({
 				"name": e.name, "posting_date": str(e.posting_date), "location": e.location,
-				"warehouse": e.warehouse,
-				"inputs": ", ".join(sorted(e.inputs)),
+				"warehouse": e.warehouse, "inputs": ", ".join(sorted(e.inputs)),
 				"lbs": e.lbs, "outputs": ", ".join(sorted(e.out_items)), "grams": e.grams,
 				"yield": e.grams / (e.lbs * G_PER_LB) * 100,
 			})
@@ -494,7 +580,7 @@ def get_drill(drill, period, as_of=None, company=None):
 
 	if drill.metric == "sales":
 		rows = []
-		for r in _sales_lines(p.start, p.end, company):
+		for r in _sales_lines(p.start, p.end, ctx.company, ctx.tier, ctx.customer):
 			if drill.tier and GROUP_TIER.get(r.item_group) != drill.tier:
 				continue
 			if drill.kind == "rosin" and r.item_group not in GROUP_TIER:
@@ -510,7 +596,3 @@ def get_drill(drill, period, as_of=None, company=None):
 		return {"kind": "sales", "period": _period_dict(p), "rows": rows}
 
 	frappe.throw(_("Unknown metric"))
-
-
-def _period_dict(p):
-	return {"key": p.key, "label": p.label, "start": str(p.start), "end": str(p.end), "snapshot": str(p.snapshot)}
