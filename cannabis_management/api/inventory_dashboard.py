@@ -64,8 +64,10 @@ def get_stock_by_item_group(item_group, project=None, _=None):
         item["hash_to_rosin_parts"] = data.get("hash_to_rosin_parts", [])
 
     grade_map = get_quality_grades_for_items(item_codes) if item_group in FRESH_FROZEN_GROUPS else {}
+    notes = get_item_notes(item_codes)
     for item in items:
         item["quality_grade"] = grade_map.get(item.item_code)
+        item["note"] = notes.get(item.item_code, "")
 
     total_qty = sum(item.actual_qty or 0 for item in items)
     unique_items = len(set(item.item_code for item in items))
@@ -710,3 +712,117 @@ def yield_customers():
         return []
     return frappe.get_all("Customer", filters={"disabled": 0}, fields=["name", "customer_name"],
                           order_by="customer_name asc", limit_page_length=0)
+
+
+# ---------------------------------------------------------------- Notes (Fresh Frozen view)
+NOTE_DOCTYPE = "Inventory Item Note"
+
+
+def get_item_notes(item_codes):
+    """{item_code: note} for logged-in users; the dashboard's data is also served to guests, notes are not."""
+    if not item_codes or frappe.session.user == "Guest":
+        return {}
+    return dict(frappe.get_all(NOTE_DOCTYPE, filters={"item": ["in", list(set(item_codes))]},
+                               fields=["item", "note"], as_list=True))
+
+
+@frappe.whitelist(allow_guest=True)
+def can_edit_notes():
+    """Any logged-in desk user may write the Note column."""
+    if frappe.session.user == "Guest":
+        return False
+    return frappe.db.get_value("User", frappe.session.user, "user_type") == "System User"
+
+
+@frappe.whitelist(methods=["POST"])
+def save_item_note(item_code, note=None):
+    """One note per item, kept until someone changes it. Every change is in the note's version history."""
+    if not can_edit_notes():
+        frappe.throw(_("Log in to edit notes."), frappe.PermissionError)
+    if not item_code or not frappe.db.exists("Item", item_code):
+        frappe.throw(_("Item {0} not found").format(item_code))
+    note = (note or "").strip()
+    if frappe.db.exists(NOTE_DOCTYPE, item_code):
+        doc = frappe.get_doc(NOTE_DOCTYPE, item_code)
+        if (doc.note or "") != note:
+            doc.note = note
+            doc.save(ignore_permissions=True)
+    elif note:
+        doc = frappe.get_doc({"doctype": NOTE_DOCTYPE, "item": item_code, "note": note}).insert(ignore_permissions=True)
+    else:
+        return {"item_code": item_code, "note": ""}
+    return {"item_code": item_code, "note": doc.note or "", "modified_by": doc.modified_by, "modified": str(doc.modified)}
+
+
+# ---------------------------------------------------------------- Yields view (Fresh Frozen)
+@frappe.whitelist(allow_guest=True)
+def get_fresh_frozen_yields(project=None):
+    """Every Fresh Frozen item with its yields as the Stock view shows them (Run to SHO / Run to BHO,
+    averages, quality grade), whether it has stock or not. With a project: every item that moved in it."""
+    groups = tuple(FRESH_FROZEN_GROUPS)
+    if project:
+        codes = frappe.db.sql_list("""
+            SELECT DISTINCT sle.item_code
+            FROM `tabStock Ledger Entry` sle
+            INNER JOIN `tabItem` i ON i.name = sle.item_code
+            LEFT JOIN ({union}) vp ON vp.voucher_type = sle.voucher_type AND vp.voucher_no = sle.voucher_no
+            WHERE i.item_group IN %(groups)s AND i.disabled = 0 AND i.custom_show_in_dashboard = 1
+              AND sle.is_cancelled = 0
+              AND IFNULL(NULLIF(sle.project, ''), IFNULL(vp.project, '')) = %(project)s
+        """.format(union=VOUCHER_PROJECT_UNION), {"groups": groups, "project": project})
+    else:
+        codes = frappe.get_all("Item", filters={"item_group": ["in", groups], "disabled": 0,
+                                                "custom_show_in_dashboard": 1}, pluck="name")
+    info = {i.name: i for i in frappe.get_all("Item", filters={"name": ["in", codes or [""]]},
+                                              fields=["name", "item_name", "item_group"])}
+
+    on_hand, warehouses = {}, {}
+    if project:
+        rows = [r for g in groups for r in get_project_balances(g, "", [g], project)]
+    else:
+        rows = frappe.db.sql("""
+            SELECT b.item_code, b.warehouse, b.actual_qty
+            FROM `tabBin` b INNER JOIN `tabItem` i ON i.name = b.item_code
+            WHERE i.item_group IN %(groups)s AND b.actual_qty != 0 AND b.warehouse NOT LIKE 'Virtual%%'
+        """, {"groups": groups}, as_dict=True)
+    for r in rows:
+        on_hand[r.item_code] = on_hand.get(r.item_code, 0) + flt(r.actual_qty)
+        warehouses.setdefault(r.item_code, set()).add(r.warehouse)
+
+    yield_map = get_yield_data_for_items(codes)
+    grades = get_quality_grades_for_items(codes)
+    notes = get_item_notes(codes)
+    items = []
+    for code in codes:
+        i = info.get(code)
+        if not i:
+            continue
+        data = yield_map.get(code) or {}
+        items.append({
+            "item_code": code,
+            "item_name": i.item_name,
+            "item_group": i.item_group,
+            "on_hand": flt(on_hand.get(code), 6),
+            "warehouses": sorted(warehouses.get(code, [])),
+            "yield_to_hash": data.get("yield_to_hash", ""),
+            "hash_to_rosin": data.get("hash_to_rosin", ""),
+            "yield_to_hash_parts": data.get("yield_to_hash_parts", []),
+            "yield_to_hash_avg": data.get("yield_to_hash_avg"),
+            "hash_to_rosin_parts": data.get("hash_to_rosin_parts", []),
+            "bho_yield": data.get("bho_yield", ""),
+            "bho_yield_parts": data.get("bho_yield_parts", []),
+            "bho_yield_avg": data.get("bho_yield_avg"),
+            "quality_grade": grades.get(code),
+            "note": notes.get(code, ""),
+        })
+
+    projects = {}
+    for g in groups:
+        for p in get_projects_with_stock(g, "", [g]):
+            projects[p["name"]] = p["project_name"]
+    if project and project not in projects:
+        projects[project] = (frappe.db.get_value("Project", project, "project_name") or "").strip() or project
+    return {
+        "items": items,
+        "projects": [{"name": k, "project_name": v} for k, v in sorted(projects.items(), key=lambda kv: kv[1].lower())],
+    }
