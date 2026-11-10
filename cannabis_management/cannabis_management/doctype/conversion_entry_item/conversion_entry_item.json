@@ -41,12 +41,15 @@
   "finished_good_1",
   "qty_fg_1",
   "metrc_tag_fg_1",
+  "fg_1_picture",
   "finished_good_2",
   "qty_fg_2",
   "metrc_tag_fg_2",
+  "fg_2_picture",
   "finished_good_3",
   "qty_fg_3",
   "metrc_tag_fg_3",
+  "fg_3_picture",
   "rm_1_item_group",
   "rm_2_item_group",
   "rm_3_item_group",
@@ -658,11 +661,24 @@
    "description": "Available Metrc tag for Finished Good 1. Search by MUID."
   },
   {
+   "description": "Picture of Finished Good 1. Required when tiering from the Manufacturing Process page.",
+   "fieldname": "fg_1_picture",
+   "fieldtype": "Attach Image",
+   "label": "Picture (FG 1)"
+  },
+  {
    "fieldname": "metrc_tag_fg_2",
    "fieldtype": "Link",
    "label": "Metrc Tag (FG 2)",
    "options": "Metrc Tag",
    "description": "Available Metrc tag for Finished Good 2. Search by MUID.",
+   "depends_on": "eval:in_list([\"1 to 2\", \"2 to 2\", \"1 to 3\", \"3 to 2\", \"3 to 3\", \"4 to 2\", \"4 to 3\"], doc.conversion_type)"
+  },
+  {
+   "description": "Picture of Finished Good 2. Required when tiering from the Manufacturing Process page.",
+   "fieldname": "fg_2_picture",
+   "fieldtype": "Attach Image",
+   "label": "Picture (FG 2)",
    "depends_on": "eval:in_list([\"1 to 2\", \"2 to 2\", \"1 to 3\", \"3 to 2\", \"3 to 3\", \"4 to 2\", \"4 to 3\"], doc.conversion_type)"
   },
   {
@@ -672,12 +688,19 @@
    "options": "Metrc Tag",
    "description": "Available Metrc tag for Finished Good 3. Search by MUID.",
    "depends_on": "eval:in_list([\"1 to 3\", \"3 to 3\", \"4 to 3\"], doc.conversion_type)"
+  },
+  {
+   "description": "Picture of Finished Good 3. Required when tiering from the Manufacturing Process page.",
+   "fieldname": "fg_3_picture",
+   "fieldtype": "Attach Image",
+   "label": "Picture (FG 3)",
+   "depends_on": "eval:in_list([\"1 to 3\", \"3 to 3\", \"4 to 3\"], doc.conversion_type)"
   }
  ],
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-10-21 12:00:00.000000",
+ "modified": "2026-11-09 20:00:00.000000",
  "modified_by": "Administrator",
  "module": "Cannabis Management",
  "name": "Conversion Entry Item",

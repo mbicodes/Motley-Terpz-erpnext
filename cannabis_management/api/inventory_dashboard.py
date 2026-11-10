@@ -64,9 +64,11 @@ def get_stock_by_item_group(item_group, project=None, _=None):
         item["hash_to_rosin_parts"] = data.get("hash_to_rosin_parts", [])
 
     grade_map = get_quality_grades_for_items(item_codes) if item_group in FRESH_FROZEN_GROUPS else {}
+    picture_map = get_tier_pictures_for_items(item_codes) if item_group in FRESH_FROZEN_GROUPS else {}
     notes = get_item_notes(item_codes)
     for item in items:
         item["quality_grade"] = grade_map.get(item.item_code)
+        item["tier_pictures"] = picture_map.get(item.item_code, [])
         item.update(note_fields(notes.get(item.item_code)))
 
     total_qty = sum(item.actual_qty or 0 for item in items)
@@ -476,6 +478,42 @@ def _add_yield(parts, value, customer=None, customer_name=None, colour=None):
         part.update(colour or {})
     if part not in parts:
         parts.append(part)
+
+
+def get_tier_pictures_for_items(item_codes):
+    """Pictures of the tier products each Fresh Frozen item was tiered into on the Manufacturing
+    Process page: Conversion Entry -> its Work Order -> the run's Material Request item. Newest first."""
+    from cannabis_management.api.manufacturing_process import tiering_pictures
+
+    if not item_codes:
+        return {}
+    runs = frappe.db.sql("""
+        SELECT DISTINCT mri.item_code, ce.name AS conversion_entry, ce.posting_date, wo.material_request
+        FROM `tabConversion Entry` ce
+        INNER JOIN `tabWork Order` wo ON wo.name = ce.custom_work_order
+        INNER JOIN `tabMaterial Request Item` mri ON mri.parent = wo.material_request
+        WHERE ce.docstatus = 1 AND mri.item_code IN %(codes)s
+        ORDER BY ce.posting_date DESC, ce.creation DESC
+    """, {"codes": tuple(item_codes)}, as_dict=True)
+    if not runs:
+        return {}
+    by_ce = {}
+    for p in tiering_pictures(list({r.conversion_entry for r in runs})):
+        if p["picture"]:
+            by_ce.setdefault(p["conversion_entry"], []).append(p)
+    out = {}
+    for r in runs:
+        for p in by_ce.get(r.conversion_entry, []):
+            out.setdefault(r.item_code, []).append({
+                "tier": p["tier"],
+                "url": p["picture"],
+                "item_name": p["item_name"],
+                "qty": p["qty"],
+                "uom": p["uom"],
+                "date": str(r.posting_date or ""),
+                "run": r.material_request,
+            })
+    return out
 
 
 def add_run_yields(item_codes, yield_map):

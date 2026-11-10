@@ -215,6 +215,7 @@ def get_run_detail(material_request):
             {"custom_work_order": wo["name"], "docstatus": 1},
             "name",
         )
+        wo["tiering_pictures"] = tiering_pictures(wo["tiering_entry"]) if wo["tiering_entry"] else []
 
         jc_names = frappe.get_all(
             "Job Card",
@@ -1287,11 +1288,16 @@ def create_tiering_conversion(work_order, items):
             for f in ("raw_material_{0}", "qty_rm_{0}", "rm_{0}_tag"):
                 values.pop(f.format(n), None)
         for n in range(fg_count + 1, 4):
-            for f in ("finished_good_{0}", "qty_fg_{0}", "fg_{0}_tag"):
+            for f in ("finished_good_{0}", "qty_fg_{0}", "fg_{0}_tag", "fg_{0}_picture"):
                 values.pop(f.format(n), None)
         ce.append("items", values)
     if not ce.items:
         frappe.throw(_("Add at least one row with a Raw Material and a Finished Good."))
+    for row in ce.items:
+        for n in range(1, 4):
+            code = row.get("finished_good_{0}".format(n))
+            if code and not row.get("fg_{0}_picture".format(n)):
+                frappe.throw(_("Row {0}: add a picture of Finished Good {1} ({2}).").format(row.idx, n, code))
 
     own = {src.item_code: src for src in _tiering_sources(wo)}
     used = {}
@@ -1311,6 +1317,7 @@ def create_tiering_conversion(work_order, items):
     ce.flags.ignore_permissions = True
     ce.insert()
     ce.submit()
+    _attach_tier_pictures(ce)
     return {
         "conversion_entry": ce.name,
         "stock_entries": frappe.get_all(
@@ -1320,6 +1327,50 @@ def create_tiering_conversion(work_order, items):
             order_by="creation asc",
         ),
     }
+
+
+TIER_LABELS = {"Tier 1": "T1", "Tier 1 Plus": "T1+", "Tier 2": "T2", "Tier 3": "T3"}
+
+
+def _attach_tier_pictures(ce):
+    """The pictures are uploaded before the Conversion Entry exists; file them under it."""
+    urls = {row.get("fg_{0}_picture".format(n)) for row in ce.items for n in range(1, 4)} - {None, ""}
+    for url in urls:
+        for name in frappe.get_all("File", filters={"file_url": url, "attached_to_name": ["is", "not set"]}, pluck="name"):
+            frappe.db.set_value("File", name, {"attached_to_doctype": "Conversion Entry", "attached_to_name": ce.name})
+
+
+def tiering_pictures(conversion_entries):
+    """Every tier product of the given Conversion Entries, with its picture (blank before pictures were asked)."""
+    if isinstance(conversion_entries, str):
+        conversion_entries = [conversion_entries]
+    if not conversion_entries:
+        return []
+    fields = ["parent", "idx"] + [f.format(n) for n in range(1, 4)
+                                  for f in ("finished_good_{0}", "qty_fg_{0}", "fg_{0}_picture")]
+    rows = frappe.get_all("Conversion Entry Item", fields=fields, order_by="parent, idx",
+                          filters={"parenttype": "Conversion Entry", "parent": ["in", conversion_entries]})
+    codes = {r.get("finished_good_{0}".format(n)) for r in rows for n in range(1, 4)} - {None, ""}
+    info = {i.name: i for i in frappe.get_all("Item", filters={"name": ["in", list(codes) or [""]]},
+                                              fields=["name", "item_name", "item_group", "stock_uom"])}
+    out = []
+    for r in rows:
+        for n in range(1, 4):
+            code = r.get("finished_good_{0}".format(n))
+            if not code:
+                continue
+            i = info.get(code) or frappe._dict()
+            out.append({
+                "conversion_entry": r.parent,
+                "item_code": code,
+                "item_name": i.item_name or code,
+                "item_group": i.item_group or "",
+                "tier": TIER_LABELS.get(i.item_group, i.item_group or ""),
+                "qty": flt(r.get("qty_fg_{0}".format(n)), 3),
+                "uom": i.stock_uom or "",
+                "picture": r.get("fg_{0}_picture".format(n)) or "",
+            })
+    return out
 
 
 def submit_tiering_stock_entries(doc, method=None):

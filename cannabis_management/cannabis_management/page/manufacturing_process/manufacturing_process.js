@@ -1221,13 +1221,19 @@ class ManufacturingRun {
 	}
 
 	_open_tiering_dialog(wo_name, doc, mr_name) {
-		const LIST = { conversion_type: 1, raw_material_1: 2, qty_rm_1: 1, finished_good_1: 2, qty_fg_1: 1, target_warehouse: 2 };
+		const LIST = { conversion_type: 1, raw_material_1: 2, qty_rm_1: 1, finished_good_1: 2, qty_fg_1: 1, fg_1_picture: 1, target_warehouse: 1 };
 		const company = doc.company;
 		const skip = (df) => /^micron_|_microns$/.test(df.fieldname) || /_item_group$/.test(df.fieldname);
 
 		const fields = frappe.meta.get_docfields("Conversion Entry Item").filter(df => !skip(df)).map(df => {
 			const f = { ...df, in_list_view: LIST[df.fieldname] ? 1 : 0, columns: LIST[df.fieldname] || df.columns };
-			if (df.fieldname === "source_warehouse" || df.fieldname === "target_warehouse") {
+			if (/^fg_\d_picture$/.test(df.fieldname)) {
+				// Public, so the Inventory Dashboard can show it to everyone who opens it.
+				f.options = { make_attachments_public: 1 };
+				f.formatter = (value) => value
+					? `<img src="${esc(value)}" alt="" style="height:28px;width:28px;object-fit:cover;border-radius:4px">`
+					: `<span class="text-danger small">Add picture</span>`;
+			} else if (df.fieldname === "source_warehouse" || df.fieldname === "target_warehouse") {
 				f.get_query = () => ({ filters: { company, is_group: 0 } });
 			} else if (df.fieldname === "conversion_type") {
 				f.onchange = function () {
@@ -1247,6 +1253,11 @@ class ManufacturingRun {
 			size: "extra-large",
 			fields: [
 				{
+					fieldtype: "HTML",
+					options: `<p class="text-muted small" style="margin-bottom:6px"><i class="ti ti-camera" aria-hidden="true"></i>
+						Every Finished Good needs a picture. For a row with 2 or 3 Finished Goods, open the row (pencil) to add the pictures of FG 2 / FG 3.</p>`,
+				},
+				{
 					fieldtype: "Table", fieldname: "items", label: __("Conversion Item"), reqd: 1,
 					fields,
 					data: (doc.items || []).map((r, i) => ({ ...r, name: frappe.utils.get_random(10), idx: i + 1 })),
@@ -1257,6 +1268,19 @@ class ManufacturingRun {
 				if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
 				const values = d.get_values();
 				if (!values) return;
+				const missing = [];
+				(values.items || []).forEach((row, i) => {
+					const m = /^(\d+) to (\d+)$/.exec(row.conversion_type || "") || [0, 1, 1];
+					for (let n = 1; n <= Math.min(+m[2], 3); n++) {
+						if (row["finished_good_" + n] && !row[`fg_${n}_picture`]) {
+							missing.push(`Row ${i + 1}: picture of Finished Good ${n} (${esc(row["finished_good_" + n])})`);
+						}
+					}
+				});
+				if (missing.length) {
+					frappe.msgprint({ title: "Pictures missing", indicator: "red", message: `Add a picture for every Finished Good:<br>${missing.join("<br>")}` });
+					return;
+				}
 				d.disable_primary_action();
 				try {
 					const r = await this.api("create_tiering_conversion", { work_order: wo_name, items: values.items || [] });
@@ -1530,7 +1554,28 @@ class ManufacturingRun {
 		});
 	}
 
+	_render_tier_pictures_table(tiers) {
+		const rows = tiers.map((t, i) => `
+			<tr>
+				<td><b>${esc(t.item_name)}</b><div class="mc-muted small">${esc(t.item_code)}</div></td>
+				<td>${t.tier ? `<span class="mc-tier-badge">${esc(t.tier)}</span>` : "—"}</td>
+				<td style="text-align:right">${esc(String(t.qty))} ${esc(t.uom)}</td>
+				<td>${t.picture
+					? `<button type="button" class="mc-tier-pic" data-tier-pic="${i}" title="Open picture"><img src="${esc(t.picture)}" alt="${esc(t.item_name)}"></button>`
+					: '<span class="mc-muted small">No picture</span>'}</td>
+			</tr>`).join("");
+		return `<div class="mc-tier-pics">
+			<div class="mc-tier-pics-title">Tiering Products</div>
+			<table class="table table-bordered mc-tier-table">
+				<thead><tr><th>Tier Product</th><th>Tier</th><th style="text-align:right">Qty</th><th>Picture</th></tr></thead>
+				<tbody>${rows}</tbody>
+			</table>
+		</div>`;
+	}
+
 	_open_micron_modal(jc, mr_name) {
+		const run = this.runs[mr_name];
+		const tiers = run ? run.work_orders.flatMap(wo => wo.tiering_pictures || []) : [];
 		const read_only = jc.docstatus !== 0;
 		const sizes = ["150u", "120u - 73u", "45u"];
 		const rows = (jc.micron_rows || []).map(r => ({ ...r }));
@@ -1561,6 +1606,7 @@ class ManufacturingRun {
 				},
 				{ fieldtype: "Float", fieldname: "total_quantity", label: "Total Quantity", read_only: 1 },
 				read_only ? { fieldtype: "HTML", options: '<p class="text-muted small">This Job Card is submitted — micron data is read-only.</p>' } : null,
+				tiers.length ? { fieldtype: "HTML", fieldname: "tier_pictures", options: this._render_tier_pictures_table(tiers) } : null,
 			].filter(Boolean),
 			primary_action_label: read_only ? "Close" : "Save",
 			primary_action: async () => {
@@ -1592,6 +1638,12 @@ class ManufacturingRun {
 		d.show();
 		d.set_value("total_quantity", grams_total());
 		d.fields_dict.microns.grid.wrapper.on("change click", update_total);
+		if (d.fields_dict.tier_pictures) {
+			d.fields_dict.tier_pictures.$wrapper.on("click", "[data-tier-pic]", (e) => {
+				const t = tiers[+$(e.currentTarget).attr("data-tier-pic")];
+				if (t) this._preview_attachment({ attachment: t.picture, uploaded_by_name: [t.tier, t.item_name, `${t.qty} ${t.uom}`].filter(Boolean).join(" · ") });
+			});
+		}
 	}
 
 	_show_sku_modal(preview, wo_name, mr_name) {

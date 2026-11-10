@@ -872,3 +872,17 @@
 .mc-sub-op-note.is-saved { border-color: var(--mc-green); box-shadow: 0 0 0 2px #d4edda; }
 .mc-sub-op-note.is-error { border-color: var(--mc-red); box-shadow: 0 0 0 2px #f8d7da; }
 .mc-whole-timer .mc-sub-op-note { margin: 8px auto 0; }
+
+/* Tiering product pictures (Microns popup) */
+.mc-tier-pics { margin-top: 14px; }
+.mc-tier-pics-title { font-weight: 600; margin-bottom: 6px; }
+.mc-tier-table td { vertical-align: middle !important; }
+.mc-tier-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 999px;
+  background: #efe7ff; color: #4b1d8f; font-weight: 600; font-size: 12px;
+}
+.mc-tier-pic {
+  padding: 0; border: 1px solid var(--border-color, #ddd); border-radius: 6px;
+  background: none; cursor: zoom-in; line-height: 0;
+}
+.mc-tier-pic img { width: 56px; height: 56px; object-fit: cover; border-radius: 5px; }
