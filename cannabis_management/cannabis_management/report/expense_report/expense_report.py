@@ -12,6 +12,14 @@ PURCHASE_INVOICE = "Purchase Invoice"
 JOURNAL_ENTRY = "Journal Entry"
 
 
+def as_tuple(value):
+	if not value:
+		return ()
+	if isinstance(value, str):
+		value = frappe.parse_json(value) if value.strip().startswith("[") else [value]
+	return tuple(v for v in value if v)
+
+
 def get_purchase_invoice_amounts(filters, from_date, to_date):
 	conditions = ""
 	values = {
@@ -20,13 +28,13 @@ def get_purchase_invoice_amounts(filters, from_date, to_date):
 		"to_date": to_date,
 	}
 
-	if filters.get("cost_center"):
-		conditions += " and item.cost_center = %(cost_center)s"
-		values["cost_center"] = filters.get("cost_center")
+	if as_tuple(filters.get("cost_center")):
+		conditions += " and item.cost_center in %(cost_center)s"
+		values["cost_center"] = as_tuple(filters.get("cost_center"))
 
-	if filters.get("project"):
-		conditions += " and item.project = %(project)s"
-		values["project"] = filters.get("project")
+	if as_tuple(filters.get("project")):
+		conditions += " and coalesce(nullif(item.project, ''), inv.project) in %(project)s"
+		values["project"] = as_tuple(filters.get("project"))
 
 	return frappe.db.sql(
 		f"""
@@ -58,13 +66,13 @@ def get_journal_entry_amounts(filters, from_date, to_date):
 		"to_date": to_date,
 	}
 
-	if filters.get("cost_center"):
-		conditions += " and account.cost_center = %(cost_center)s"
-		values["cost_center"] = filters.get("cost_center")
+	if as_tuple(filters.get("cost_center")):
+		conditions += " and account.cost_center in %(cost_center)s"
+		values["cost_center"] = as_tuple(filters.get("cost_center"))
 
-	if filters.get("project"):
-		conditions += " and account.project = %(project)s"
-		values["project"] = filters.get("project")
+	if as_tuple(filters.get("project")):
+		conditions += " and account.project in %(project)s"
+		values["project"] = as_tuple(filters.get("project"))
 
 	if filters.get("finance_book"):
 		values["finance_book"] = filters.get("finance_book")
