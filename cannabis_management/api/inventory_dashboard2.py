@@ -5,6 +5,7 @@ def get_item_groups():
 	groups = frappe.db.sql("""
 		SELECT 
 			ig.name,
+			ig.parent_item_group,
 			COUNT(i.name) as item_count
 		FROM `tabItem Group` ig
 		INNER JOIN `tabItem` i ON (i.item_group = ig.name OR (ig.name = 'Fresh Frozen' AND i.item_group IN ('Fresh Frozen', 'Fresh Frozen - BHO', 'Fresh Frozen - SHO', 'Fresh Frozen Untested', 'Fresh Frozen - To Be Determined'))) 
@@ -12,7 +13,7 @@ def get_item_groups():
             AND i.custom_show_in_dashboard = 1
 		WHERE ig.is_group = 0
           AND ig.custom_show_in_inventory_dashboard = 1
-		GROUP BY ig.name
+		GROUP BY ig.name, ig.parent_item_group
 		ORDER BY ig.name
 	""", as_dict=True)
 

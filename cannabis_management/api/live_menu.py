@@ -10,6 +10,7 @@ def get_live_menu_groups():
     groups = frappe.db.sql("""
         SELECT
             ig.name,
+            ig.parent_item_group,
             ig.custom_dashboard_text AS notes,
             ig.custom_sequence_number AS sequence,
             ig.custom_min_quantity AS min_qty
