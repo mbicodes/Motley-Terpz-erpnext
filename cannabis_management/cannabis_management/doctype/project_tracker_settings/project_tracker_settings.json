@@ -1,0 +1,152 @@
+{
+ "actions": [],
+ "creation": "2026-11-12 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "targets_section",
+  "default_hash_target",
+  "default_rosin_target",
+  "column_break_targets",
+  "rosin_warning_threshold",
+  "pending_alert_days",
+  "item_groups_section",
+  "ff_item_group",
+  "hash_item_groups",
+  "column_break_groups",
+  "rosin_item_groups",
+  "accounts_section",
+  "labor_accounts",
+  "column_break_accounts",
+  "consumable_accounts"
+ ],
+ "fields": [
+  {
+   "fieldname": "targets_section",
+   "fieldtype": "Section Break",
+   "label": "Targets and Alerts"
+  },
+  {
+   "default": "2.5",
+   "description": "Used when a project has no Expected Hash Yield %.",
+   "fieldname": "default_hash_target",
+   "fieldtype": "Percent",
+   "label": "Default Hash Target (% of Fresh Frozen)"
+  },
+  {
+   "default": "75",
+   "description": "Used when a project has no Expected Rosin Yield %.",
+   "fieldname": "default_rosin_target",
+   "fieldtype": "Percent",
+   "label": "Default Rosin Target (% of Hash)"
+  },
+  {
+   "fieldname": "column_break_targets",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "72",
+   "description": "A strain pressed below this rosin yield raises a Yield alert.",
+   "fieldname": "rosin_warning_threshold",
+   "fieldtype": "Percent",
+   "label": "Rosin Yield Warning Threshold"
+  },
+  {
+   "default": "30",
+   "description": "Fresh Frozen still at the partner after this many days is shown in orange.",
+   "fieldname": "pending_alert_days",
+   "fieldtype": "Int",
+   "label": "Pending Alert Threshold (days)"
+  },
+  {
+   "fieldname": "item_groups_section",
+   "fieldtype": "Section Break",
+   "label": "Item Groups"
+  },
+  {
+   "default": "Fresh Frozen Main",
+   "description": "Root group; every group under it counts as Fresh Frozen.",
+   "fieldname": "ff_item_group",
+   "fieldtype": "Link",
+   "label": "Fresh Frozen Item Group (root)",
+   "options": "Item Group"
+  },
+  {
+   "description": "Groups (and their sub-groups) that count as hash output.",
+   "fieldname": "hash_item_groups",
+   "fieldtype": "Table MultiSelect",
+   "label": "Hash Item Groups",
+   "options": "Project Tracker Item Group"
+  },
+  {
+   "fieldname": "column_break_groups",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Groups (and their sub-groups) that count as rosin output. The tier comes from the item group name (Tier 1 / Tier 2 / Tier 3).",
+   "fieldname": "rosin_item_groups",
+   "fieldtype": "Table MultiSelect",
+   "label": "Rosin Item Groups",
+   "options": "Project Tracker Item Group"
+  },
+  {
+   "fieldname": "accounts_section",
+   "fieldtype": "Section Break",
+   "label": "Cost Accounts"
+  },
+  {
+   "description": "Journal Entry and Purchase Invoice rows tagged with a project on these accounts are shown as Labor.",
+   "fieldname": "labor_accounts",
+   "fieldtype": "Table MultiSelect",
+   "label": "Labor Expense Accounts",
+   "options": "Project Tracker Account"
+  },
+  {
+   "fieldname": "column_break_accounts",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Journal Entry and Purchase Invoice rows tagged with a project on these accounts are shown as Consumables.",
+   "fieldname": "consumable_accounts",
+   "fieldtype": "Table MultiSelect",
+   "label": "Consumable Expense Accounts",
+   "options": "Project Tracker Account"
+  }
+ ],
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-11-12 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Project Tracker Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "read": 1,
+   "role": "Manufacturing Manager",
+   "write": 1
+  },
+  {
+   "read": 1,
+   "role": "Accounts Manager"
+  },
+  {
+   "read": 1,
+   "role": "Stock Manager"
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

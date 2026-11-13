@@ -86,6 +86,7 @@ after_migrate = [
     "cannabis_management.overrides.material_request_dashboard.install",
     "cannabis_management.wash_plan_install.install",
     "cannabis_management.press_plan_install.install",
+    "cannabis_management.project_tracker_hooks.install",
     "cannabis_management.doc_hooks.job_card.install_custom_fields",
     "cannabis_management.api.manufacturing_process.install_custom_fields",
     "cannabis_management.doc_hooks.stock_reconciliation.install_custom_fields",
@@ -421,6 +422,11 @@ doc_events = {
 from cannabis_management.mt_dispatch import hooks_wiring as _mt_dispatch_hooks
 
 _mt_dispatch_hooks.extend_doc_events(doc_events)
+
+# Project Tracker: cache bust on submit/cancel, dispatch / return dates on Project (appends, never replaces)
+from cannabis_management import project_tracker_hooks as _project_tracker_hooks
+
+_project_tracker_hooks.extend_doc_events(doc_events)
 
 scheduler_events = {
     "hourly": [
