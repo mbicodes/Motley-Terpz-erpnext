@@ -13,6 +13,46 @@ frappe.query_reports["Expense Report"] = $.extend({}, erpnext.financial_statemen
 	},
 });
 
+frappe.query_reports["Expense Report"].filters = expense_report_base_filters();
+
+function expense_report_base_filters() {
+	const own = [
+		"cost_center", "project", "selected_view", "accumulated_values",
+		"include_default_book_entries", "show_zero_values", "tree_view",
+	];
+	const seen = {};
+	const base = (erpnext.financial_statements.filters || [])
+		.filter((f) => {
+			if (!f || own.includes(f.fieldname) || seen[f.fieldname]) return false;
+			seen[f.fieldname] = true;
+			return true;
+		})
+		.map((f) => $.extend(true, {}, f));
+
+	const link_filter = (fieldname, label, doctype) => ({
+		fieldname: fieldname,
+		label: label,
+		placeholder: label,
+		fieldtype: "MultiSelectList",
+		options: doctype,
+		get_data: function (txt) {
+			return frappe.db.get_link_options(doctype, txt, {
+				company: frappe.query_report.get_filter_value("company"),
+			});
+		},
+	});
+
+	let at = base.findIndex((f) => f.fieldname === "periodicity") + 1;
+	if (!at) at = base.length;
+	base.splice(
+		at,
+		0,
+		link_filter("cost_center", "Cost Center", "Cost Center"),
+		link_filter("project", "Project", "Project")
+	);
+	return base;
+}
+
 function apply_tree_view(report) {
 	if (!report || !report.datatable) return;
 	if (report.get_filter_value("tree_view") === "Collapse All") {
@@ -22,7 +62,28 @@ function apply_tree_view(report) {
 	}
 }
 
-erpnext.utils.add_dimensions("Expense Report", 10);
+frappe.call({
+	method: "erpnext.accounts.doctype.accounting_dimension.accounting_dimension.get_dimensions",
+	callback: function (r) {
+		const filters = frappe.query_reports["Expense Report"].filters;
+		((r.message && r.message[0]) || []).forEach((dimension) => {
+			const existing = filters.findIndex((f) => f.fieldname === dimension.fieldname);
+			const df =
+				existing === -1
+					? {
+							fieldname: dimension.fieldname,
+							label: __(dimension.label),
+							fieldtype: "MultiSelectList",
+							get_data: function (txt) {
+								return frappe.db.get_link_options(dimension.document_type, txt);
+							},
+					  }
+					: filters.splice(existing, 1)[0];
+			const at = filters.findIndex((f) => f.fieldname === "cost_center");
+			filters.splice(at === -1 ? filters.length : at, 0, df);
+		});
+	},
+});
 
 frappe.query_reports["Expense Report"]["filters"].push(
 	{
