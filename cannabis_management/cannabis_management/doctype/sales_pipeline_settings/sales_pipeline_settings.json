@@ -1,0 +1,280 @@
+{
+ "actions": [],
+ "creation": "2026-11-13 09:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "stages_section",
+  "stages",
+  "owners_section",
+  "owners",
+  "product_section",
+  "stock_company",
+  "product_lines",
+  "lists_section",
+  "priority_options",
+  "tier_options",
+  "samples_options",
+  "samples_done_options",
+  "column_break_lists",
+  "hardware_options",
+  "payment_terms_options",
+  "lead_source_options",
+  "alerts_section",
+  "alert_followup_overdue",
+  "alert_followup_today",
+  "alert_stalled",
+  "alert_missing_owner",
+  "column_break_alerts",
+  "alert_missing_value",
+  "alert_short_stock",
+  "alert_sample_due",
+  "sample_due_days",
+  "hide_closed_after_days",
+  "notifications_section",
+  "send_daily_digest",
+  "notify_on_reassign",
+  "column_break_notify",
+  "notify_managers_on_stage",
+  "unassigned_alert_days"
+ ],
+ "fields": [
+  {
+   "fieldname": "stages_section",
+   "fieldtype": "Section Break",
+   "label": "Stages"
+  },
+  {
+   "fieldname": "stages",
+   "fieldtype": "Table",
+   "label": "Stages",
+   "options": "Sales Pipeline Stage",
+   "reqd": 1
+  },
+  {
+   "fieldname": "owners_section",
+   "fieldtype": "Section Break",
+   "label": "Owners"
+  },
+  {
+   "fieldname": "owners",
+   "fieldtype": "Table",
+   "label": "Owners",
+   "options": "Sales Pipeline Owner"
+  },
+  {
+   "fieldname": "product_section",
+   "fieldtype": "Section Break",
+   "label": "Product Lines and Stock"
+  },
+  {
+   "default": "Master Touch Manufacturing",
+   "description": "Used for stock checks when a product line has no sellable warehouses",
+   "fieldname": "stock_company",
+   "fieldtype": "Link",
+   "label": "Stock Company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "product_lines",
+   "fieldtype": "Table",
+   "label": "Product Lines",
+   "options": "Sales Pipeline Product Line"
+  },
+  {
+   "fieldname": "lists_section",
+   "fieldtype": "Section Break",
+   "label": "Lists"
+  },
+  {
+   "default": "High\nMedium\nLow",
+   "description": "One per line, highest first",
+   "fieldname": "priority_options",
+   "fieldtype": "Small Text",
+   "label": "Priorities"
+  },
+  {
+   "default": "Food grade\nT1\nT1 or T2\nT2\nT3",
+   "description": "One option per line",
+   "fieldname": "tier_options",
+   "fieldtype": "Small Text",
+   "label": "Tiers"
+  },
+  {
+   "default": "Needed\nSamples\nSamples today\nSent\nApproved\n?",
+   "description": "One option per line",
+   "fieldname": "samples_options",
+   "fieldtype": "Small Text",
+   "label": "Samples Options"
+  },
+  {
+   "default": "Sent\nApproved",
+   "description": "No Sample Due alert for these values",
+   "fieldname": "samples_done_options",
+   "fieldtype": "Small Text",
+   "label": "Samples Values That Count as Done"
+  },
+  {
+   "fieldname": "column_break_lists",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "YES\nNO\nClient provides",
+   "description": "One option per line",
+   "fieldname": "hardware_options",
+   "fieldtype": "Small Text",
+   "label": "Hardware Options"
+  },
+  {
+   "default": "Prepaid\nCOD\nNet 7\nNet 15\nNet 30\nConsignment",
+   "description": "One option per line",
+   "fieldname": "payment_terms_options",
+   "fieldtype": "Small Text",
+   "label": "Payment Terms"
+  },
+  {
+   "default": "Referral\nExisting client\nInbound\nOutbound\nEvent",
+   "description": "One option per line",
+   "fieldname": "lead_source_options",
+   "fieldtype": "Small Text",
+   "label": "Lead Sources"
+  },
+  {
+   "fieldname": "alerts_section",
+   "fieldtype": "Section Break",
+   "label": "Alerts"
+  },
+  {
+   "default": "1",
+   "fieldname": "alert_followup_overdue",
+   "fieldtype": "Check",
+   "label": "Follow-up Overdue"
+  },
+  {
+   "default": "1",
+   "fieldname": "alert_followup_today",
+   "fieldtype": "Check",
+   "label": "Follow-up Today"
+  },
+  {
+   "default": "1",
+   "fieldname": "alert_stalled",
+   "fieldtype": "Check",
+   "label": "Stalled Deal"
+  },
+  {
+   "default": "1",
+   "fieldname": "alert_missing_owner",
+   "fieldtype": "Check",
+   "label": "Missing Owner"
+  },
+  {
+   "fieldname": "column_break_alerts",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1",
+   "fieldname": "alert_missing_value",
+   "fieldtype": "Check",
+   "label": "Missing Value"
+  },
+  {
+   "default": "1",
+   "fieldname": "alert_short_stock",
+   "fieldtype": "Check",
+   "label": "Short Stock"
+  },
+  {
+   "default": "1",
+   "fieldname": "alert_sample_due",
+   "fieldtype": "Check",
+   "label": "Sample Due"
+  },
+  {
+   "default": "2",
+   "fieldname": "sample_due_days",
+   "fieldtype": "Int",
+   "label": "Sample Due Window (days)"
+  },
+  {
+   "default": "30",
+   "fieldname": "hide_closed_after_days",
+   "fieldtype": "Int",
+   "label": "Hide Closed Deals After (days)"
+  },
+  {
+   "fieldname": "notifications_section",
+   "fieldtype": "Section Break",
+   "label": "Notifications"
+  },
+  {
+   "default": "1",
+   "fieldname": "send_daily_digest",
+   "fieldtype": "Check",
+   "label": "Daily 8:00 AM Digest to Each Owner"
+  },
+  {
+   "default": "1",
+   "fieldname": "notify_on_reassign",
+   "fieldtype": "Check",
+   "label": "Notify New Owner on Reassignment"
+  },
+  {
+   "fieldname": "column_break_notify",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1",
+   "description": "For stages with Notify Managers ticked",
+   "fieldname": "notify_managers_on_stage",
+   "fieldtype": "Check",
+   "label": "Notify Managers on Stage Change"
+  },
+  {
+   "default": "2",
+   "fieldname": "unassigned_alert_days",
+   "fieldtype": "Int",
+   "label": "Alert Managers When Unassigned Longer Than (days)"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-11-13 09:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Sales Pipeline Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "permlevel": 0,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "permlevel": 0,
+   "print": 1,
+   "read": 1,
+   "role": "Sales Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "permlevel": 0,
+   "read": 1,
+   "role": "Sales User"
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

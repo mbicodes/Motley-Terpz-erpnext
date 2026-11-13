@@ -1,0 +1,91 @@
+{
+ "actions": [],
+ "creation": "2026-11-13 09:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "stage",
+  "sort_order",
+  "probability",
+  "max_days",
+  "colour",
+  "is_closed",
+  "is_won",
+  "notify_managers"
+ ],
+ "fields": [
+  {
+   "columns": 2,
+   "fieldname": "stage",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Stage",
+   "reqd": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "sort_order",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Sort Order"
+  },
+  {
+   "columns": 1,
+   "fieldname": "probability",
+   "fieldtype": "Percent",
+   "in_list_view": 1,
+   "label": "Win Probability %"
+  },
+  {
+   "columns": 1,
+   "description": "0 = no stalled alert",
+   "fieldname": "max_days",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Max Days in Stage"
+  },
+  {
+   "columns": 2,
+   "fieldname": "colour",
+   "fieldtype": "Color",
+   "in_list_view": 1,
+   "label": "Card Colour"
+  },
+  {
+   "columns": 1,
+   "fieldname": "is_closed",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Is Closed"
+  },
+  {
+   "columns": 1,
+   "fieldname": "is_won",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Counts as Won"
+  },
+  {
+   "columns": 1,
+   "description": "Tell pipeline managers when a deal enters this stage",
+   "fieldname": "notify_managers",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Notify Managers"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-11-13 09:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Sales Pipeline Stage",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0
+}

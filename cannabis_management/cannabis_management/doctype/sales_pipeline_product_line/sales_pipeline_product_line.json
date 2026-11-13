@@ -1,0 +1,76 @@
+{
+ "actions": [],
+ "creation": "2026-11-13 09:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "product_line",
+  "tier",
+  "item_groups",
+  "warehouses",
+  "default_price",
+  "quotation_item"
+ ],
+ "fields": [
+  {
+   "columns": 2,
+   "fieldname": "product_line",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Product Line",
+   "reqd": 1
+  },
+  {
+   "columns": 1,
+   "description": "Leave empty to apply to every tier of this product line",
+   "fieldname": "tier",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Tier"
+  },
+  {
+   "columns": 3,
+   "description": "One Item Group per line",
+   "fieldname": "item_groups",
+   "fieldtype": "Small Text",
+   "in_list_view": 1,
+   "label": "Item Groups for Stock"
+  },
+  {
+   "columns": 2,
+   "description": "One warehouse per line. Empty = every warehouse of the stock company",
+   "fieldname": "warehouses",
+   "fieldtype": "Small Text",
+   "in_list_view": 1,
+   "label": "Sellable Warehouses"
+  },
+  {
+   "columns": 1,
+   "fieldname": "default_price",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Default Price per Gram"
+  },
+  {
+   "description": "Item used when a Quotation is created from a deal",
+   "fieldname": "quotation_item",
+   "fieldtype": "Link",
+   "label": "Quotation Item",
+   "options": "Item"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-11-13 09:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Sales Pipeline Product Line",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0
+}

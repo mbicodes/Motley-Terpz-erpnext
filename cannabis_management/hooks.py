@@ -109,6 +109,7 @@ permission_query_conditions = {
     "Motley Cash Tracking":   "cannabis_management.cash_management.permissions.motley_cash_tracking_query",
     "TSBC Cash Tracking":     "cannabis_management.cash_management.permissions.tsbc_cash_tracking_query",
     "Safe Cash Tracking":     "cannabis_management.cash_management.permissions.safe_cash_tracking_query",
+    "Sales Pipeline Deal":    "cannabis_management.sales_ops.deal_query_conditions",
 }
 
 has_permission = {
@@ -119,6 +120,8 @@ has_permission = {
     "Motley Cash Tracking":   "cannabis_management.cash_management.permissions.motley_cash_tracking_has_permission",
     "TSBC Cash Tracking":     "cannabis_management.cash_management.permissions.tsbc_cash_tracking_has_permission",
     "Safe Cash Tracking":     "cannabis_management.cash_management.permissions.safe_cash_tracking_has_permission",
+    "Sales Pipeline Deal":     "cannabis_management.sales_ops.deal_has_permission",
+    "Sales Pipeline Settings": "cannabis_management.sales_ops.settings_has_permission",
 }
 
 override_doctype_class = {
@@ -465,6 +468,9 @@ scheduler_events = {
         ],
         "0 8 * * 5": [
             "cannabis_management.credit_and_ar.weekly_report.send_weekly_report",
+        ],
+        "0 8 * * *": [
+            "cannabis_management.sales_ops.send_daily_digest",
         ],
         "0 14 * * 5": [
         ],

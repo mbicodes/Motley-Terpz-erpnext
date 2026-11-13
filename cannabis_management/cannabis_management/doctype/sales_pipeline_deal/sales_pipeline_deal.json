@@ -1,0 +1,430 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "SPD-.#####",
+ "creation": "2026-11-12 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "deal_section",
+  "account",
+  "stage",
+  "deal_owner",
+  "priority",
+  "column_break_deal",
+  "contact_name",
+  "phone",
+  "email",
+  "location_address",
+  "license_number",
+  "customer",
+  "lead",
+  "next_step_due",
+  "sample_date",
+  "expected_close",
+  "delivery_pickup",
+  "stage_changed_on",
+  "product_section",
+  "product_line",
+  "tier",
+  "form",
+  "column_break_value",
+  "total_grams",
+  "price_per_gram",
+  "value_override",
+  "column_break_calc",
+  "deal_value",
+  "probability",
+  "weighted_value",
+  "buyer_section",
+  "timeline",
+  "status_detail",
+  "samples",
+  "column_break_buyer",
+  "copack",
+  "hardware",
+  "size_per_strain",
+  "strain_profiles",
+  "notes_section",
+  "buyer_notes",
+  "deal_notes",
+  "column_break_notes",
+  "next_steps",
+  "fulfillment_notes",
+  "ops_notes",
+  "payment_terms",
+  "lead_source",
+  "lost_reason",
+  "history_section",
+  "stage_log"
+ ],
+ "fields": [
+  {
+   "fieldname": "deal_section",
+   "fieldtype": "Section Break",
+   "label": "Deal"
+  },
+  {
+   "allow_in_quick_entry": 1,
+   "bold": 1,
+   "fieldname": "account",
+   "fieldtype": "Data",
+   "in_global_search": 1,
+   "in_list_view": 1,
+   "label": "Account",
+   "reqd": 1
+  },
+  {
+   "allow_in_quick_entry": 1,
+   "default": "Lead",
+   "fieldname": "stage",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Stage",
+   "options": "Lead\nQualified\nSampling\nTesting / QC\nPending Buyer\nBuyer Ready\nClosed Won\nClosed Lost",
+   "reqd": 1
+  },
+  {
+   "allow_in_quick_entry": 1,
+   "default": "__user",
+   "fieldname": "deal_owner",
+   "fieldtype": "Link",
+   "ignore_user_permissions": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Owner",
+   "options": "User",
+   "reqd": 1
+  },
+  {
+   "allow_in_quick_entry": 1,
+   "default": "Medium",
+   "fieldname": "priority",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Priority",
+   "options": "High\nMedium\nLow"
+  },
+  {
+   "fieldname": "column_break_deal",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "contact_name",
+   "fieldtype": "Data",
+   "label": "Contact Name"
+  },
+  {
+   "fieldname": "phone",
+   "fieldtype": "Data",
+   "label": "Phone"
+  },
+  {
+   "fieldname": "email",
+   "fieldtype": "Data",
+   "label": "Email",
+   "options": "Email"
+  },
+  {
+   "fieldname": "location_address",
+   "fieldtype": "Small Text",
+   "label": "Location / Address"
+  },
+  {
+   "fieldname": "license_number",
+   "fieldtype": "Data",
+   "label": "License #"
+  },
+  {
+   "description": "Required for a won deal and to create a Quotation",
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "ignore_user_permissions": 1,
+   "label": "Customer",
+   "options": "Customer"
+  },
+  {
+   "description": "Prospect record; created from Account automatically when no Customer or Lead is set",
+   "fieldname": "lead",
+   "fieldtype": "Link",
+   "ignore_user_permissions": 1,
+   "label": "Lead",
+   "options": "Lead"
+  },
+  {
+   "allow_in_quick_entry": 1,
+   "description": "Required once a deal is past the first stage and still open",
+   "fieldname": "next_step_due",
+   "fieldtype": "Date",
+   "label": "Next Follow-up"
+  },
+  {
+   "fieldname": "sample_date",
+   "fieldtype": "Date",
+   "label": "Sample Date"
+  },
+  {
+   "fieldname": "expected_close",
+   "fieldtype": "Date",
+   "label": "Expected Close"
+  },
+  {
+   "fieldname": "delivery_pickup",
+   "fieldtype": "Date",
+   "label": "Delivery / Pickup"
+  },
+  {
+   "fieldname": "stage_changed_on",
+   "fieldtype": "Datetime",
+   "label": "In Stage Since",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "product_section",
+   "fieldtype": "Section Break",
+   "label": "Product & Value"
+  },
+  {
+   "allow_in_quick_entry": 1,
+   "fieldname": "product_line",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Product Line",
+   "options": "\nCold Cure\nVRR\nLLR\nDistillate\nEdibles\nBubble Hash\nFresh Frozen"
+  },
+  {
+   "allow_in_quick_entry": 1,
+   "fieldname": "tier",
+   "fieldtype": "Select",
+   "label": "Tier",
+   "options": "\nFood grade\nT1\nT1 or T2\nT2\nT3"
+  },
+  {
+   "fieldname": "form",
+   "fieldtype": "Data",
+   "label": "Form"
+  },
+  {
+   "fieldname": "column_break_value",
+   "fieldtype": "Column Break"
+  },
+  {
+   "allow_in_quick_entry": 1,
+   "fieldname": "total_grams",
+   "fieldtype": "Float",
+   "label": "Total Grams",
+   "precision": "0"
+  },
+  {
+   "allow_in_quick_entry": 1,
+   "fieldname": "price_per_gram",
+   "fieldtype": "Currency",
+   "label": "Price per Gram"
+  },
+  {
+   "description": "Used instead of Total Grams \u00d7 Price per Gram when set",
+   "fieldname": "value_override",
+   "fieldtype": "Currency",
+   "label": "Value Override"
+  },
+  {
+   "fieldname": "column_break_calc",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "deal_value",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Deal Value",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "probability",
+   "fieldtype": "Percent",
+   "label": "Win Probability",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "weighted_value",
+   "fieldtype": "Currency",
+   "label": "Weighted Value",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "buyer_section",
+   "fieldtype": "Section Break",
+   "label": "Buyer Requirements"
+  },
+  {
+   "fieldname": "timeline",
+   "fieldtype": "Data",
+   "label": "Timeline"
+  },
+  {
+   "fieldname": "status_detail",
+   "fieldtype": "Data",
+   "label": "Status Detail"
+  },
+  {
+   "fieldname": "samples",
+   "fieldtype": "Select",
+   "label": "Samples",
+   "options": "\nNeeded\nSamples\nSamples today\nSent\nApproved\n?"
+  },
+  {
+   "fieldname": "column_break_buyer",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "copack",
+   "fieldtype": "Select",
+   "label": "Copack",
+   "options": "\nYES\nNO"
+  },
+  {
+   "fieldname": "hardware",
+   "fieldtype": "Select",
+   "label": "Hardware",
+   "options": "\nYES\nNO\nClient provides"
+  },
+  {
+   "fieldname": "size_per_strain",
+   "fieldtype": "Data",
+   "label": "Size per Strain"
+  },
+  {
+   "fieldname": "strain_profiles",
+   "fieldtype": "Data",
+   "label": "Strain Profiles"
+  },
+  {
+   "fieldname": "notes_section",
+   "fieldtype": "Section Break",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "buyer_notes",
+   "fieldtype": "Small Text",
+   "label": "Buyer Notes / Requests"
+  },
+  {
+   "fieldname": "deal_notes",
+   "fieldtype": "Small Text",
+   "label": "Deal Notes"
+  },
+  {
+   "fieldname": "column_break_notes",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "next_steps",
+   "fieldtype": "Small Text",
+   "label": "Next Steps to Close"
+  },
+  {
+   "fieldname": "fulfillment_notes",
+   "fieldtype": "Small Text",
+   "label": "Fulfillment Notes"
+  },
+  {
+   "fieldname": "ops_notes",
+   "fieldtype": "Small Text",
+   "label": "Ops Notes"
+  },
+  {
+   "fieldname": "payment_terms",
+   "fieldtype": "Select",
+   "label": "Payment Terms",
+   "options": "\nPrepaid\nCOD\nNet 7\nNet 15\nNet 30\nConsignment"
+  },
+  {
+   "fieldname": "lead_source",
+   "fieldtype": "Select",
+   "label": "Lead Source",
+   "options": "\nReferral\nExisting client\nInbound\nOutbound\nEvent"
+  },
+  {
+   "description": "Required when the deal is marked lost",
+   "fieldname": "lost_reason",
+   "fieldtype": "Small Text",
+   "label": "Lost Reason"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "history_section",
+   "fieldtype": "Section Break",
+   "label": "Stage History"
+  },
+  {
+   "fieldname": "stage_log",
+   "fieldtype": "Table",
+   "label": "Stage Log",
+   "no_copy": 1,
+   "options": "Sales Pipeline Stage Log",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-11-13 09:30:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Sales Pipeline Deal",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "permlevel": 0,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "permlevel": 0,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sales Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "permlevel": 0,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sales User",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "quick_entry": 1,
+ "search_fields": "account,contact_name,product_line,stage",
+ "show_title_field_in_link": 1,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "account",
+ "track_changes": 1
+}

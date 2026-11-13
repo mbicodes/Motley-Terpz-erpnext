@@ -1,0 +1,72 @@
+{
+ "actions": [],
+ "creation": "2026-11-13 09:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "from_stage",
+  "to_stage",
+  "changed_on",
+  "changed_by",
+  "days_in_previous"
+ ],
+ "fields": [
+  {
+   "columns": 2,
+   "fieldname": "from_stage",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "From Stage",
+   "read_only": 1
+  },
+  {
+   "columns": 2,
+   "fieldname": "to_stage",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "To Stage",
+   "read_only": 1
+  },
+  {
+   "columns": 2,
+   "fieldname": "changed_on",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Changed On",
+   "read_only": 1
+  },
+  {
+   "columns": 2,
+   "fieldname": "changed_by",
+   "fieldtype": "Link",
+   "ignore_user_permissions": 1,
+   "in_list_view": 1,
+   "label": "Changed By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "columns": 2,
+   "fieldname": "days_in_previous",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Days in Previous Stage",
+   "precision": "1",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-11-13 09:30:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Sales Pipeline Stage Log",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 0
+}
