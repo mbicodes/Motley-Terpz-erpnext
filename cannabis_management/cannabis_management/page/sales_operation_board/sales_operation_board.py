@@ -26,8 +26,10 @@ FIELDS = [
 BUYER_FIELDS = {"contact_name", "phone", "email", "location_address", "license_number", "customer", "lead", "pipeline_account"}
 PRODUCT_FIELDS = {"product_line", "tier", "total_grams", "price_per_gram", "requirements", "value_override"}
 NOTE_FIELDS = {"buyer_notes", "deal_notes", "next_steps", "fulfillment_notes", "ops_notes"}
+# deal details filled in from the List view
+DETAIL_FIELDS = {"timeline", "status_detail", "copack", "hardware", "payment_terms", "lead_source", "form", "size_per_strain", "strain_profiles"}
 # Owners may change these only on their own deals (pipeline managers on any deal).
-OWN_ONLY = BUYER_FIELDS | PRODUCT_FIELDS | NOTE_FIELDS
+OWN_ONLY = BUYER_FIELDS | PRODUCT_FIELDS | NOTE_FIELDS | DETAIL_FIELDS
 EDITABLE = {
 	"stage", "deal_owner", "co_owners", "priority", "next_step_due", "sample_date", "expected_close",
 	"delivery_pickup", "lost_reason", "samples",

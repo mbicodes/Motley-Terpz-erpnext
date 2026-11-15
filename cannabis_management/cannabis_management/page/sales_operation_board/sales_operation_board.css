@@ -864,6 +864,44 @@ textarea.sob-ed-input { height: auto; padding: 6px 10px; resize: vertical; }
 .sob-kpis[data-anim="prev"] > .sob-hero, .sob-kpis[data-anim="prev"] > .sob-stats { animation: sob-k-prev .3s var(--sob-ease) both; }
 .sob-kpis[data-anim] > .sob-stats { animation-delay: .04s; }
 @media (prefers-reduced-motion: reduce) { .sob-kpis[data-anim] > * { animation: none !important; } }
+
+/* ---------- List view as a sheet you can fill in ---------- */
+.sob-list-acts { display: flex; align-items: center; gap: 8px; }
+.sob-table td.ed { padding: 0 4px; }
+.sob-table td.need { background: color-mix(in srgb, var(--sob-act-bg) 70%, var(--sob-ghost)); }
+.sob-table tbody tr:hover td.need { background-color: color-mix(in srgb, var(--sob-act-bg) 85%, var(--sob-surface)); }
+.sob-table tbody tr.busy td { opacity: .7; }
+.sob-inline.sob-cell-in, .sob-cell-btn {
+	width: 100%; min-width: 112px; max-width: none; height: 32px; margin: 0; border: 0; border-radius: 6px; padding: 0 8px;
+	background: transparent; color: inherit; font: inherit; font-size: 13px; box-shadow: none; box-sizing: border-box;
+	transition: background-color .12s var(--sob-ease), box-shadow .12s var(--sob-ease);
+}
+.sob-table td.r .sob-cell-in { text-align: right; }
+.sob-inline.sob-cell-in:hover, .sob-cell-btn:hover { background: var(--sob-hover); }
+.sob-inline.sob-cell-in:focus, .sob-cell-btn:focus-visible { outline: none; background: var(--sob-surface); box-shadow: inset 0 0 0 2px var(--sob-accent); }
+.sob-cell-in::placeholder { color: var(--sob-act-fg); opacity: .85; }
+select.sob-cell-in { cursor: pointer; padding-right: 4px; }
+select.sob-cell-in[data-field="stage"], select.sob-cell-in[data-field="lead_status"] { min-width: 184px; }
+select.sob-cell-in[data-field="deal_owner"], select.sob-cell-in[data-field="account_owner"] { min-width: 128px; }
+.sob-cell-in[data-money] { min-width: 104px; font-variant-numeric: tabular-nums; }
+input[type="date"].sob-cell-in { min-width: 136px; }
+input[type="number"].sob-cell-in { min-width: 96px; font-variant-numeric: tabular-nums; }
+.sob-cell-btn { display: block; text-align: left; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sob-cell-btn.empty { color: var(--sob-accent); font-weight: 500; }
+.sob-table td.need .sob-cell-btn.empty { color: var(--sob-act-fg); }
+.sob-table td.late .sob-cell-in { color: var(--sob-bad-fg); }
+
+/* the sheet scrolls inside itself: header, totals and the Account column stay in view while filling it in */
+.sob-table-wrap { max-height: max(360px, calc(100vh - 176px)); overflow: auto; overscroll-behavior: contain; }
+.sob-table thead th { z-index: 2; background-color: var(--sob-surface); }
+.sob-table thead th.money { background: linear-gradient(var(--sob-money-head), var(--sob-money-head)), var(--sob-surface); }
+.sob-table tfoot td { position: sticky; bottom: 0; z-index: 2; background-color: var(--sob-surface); }
+.sob-table tfoot td.money { background: linear-gradient(var(--sob-money-head), var(--sob-money-head)), var(--sob-surface); }
+.sob-table td.pin, .sob-table th.pin { position: sticky; left: 0; z-index: 1; background-color: var(--sob-surface); box-shadow: 1px 0 0 var(--sob-line2); }
+.sob-table thead th.pin, .sob-table tfoot td.pin { z-index: 3; }
+/* hover and selection tints are see-through; on the pinned column they sit on a solid surface */
+.sob-table tbody tr:hover td.pin { background: linear-gradient(var(--sob-hover), var(--sob-hover)), var(--sob-surface); }
+.sob-table tbody tr.sel td.pin { background: linear-gradient(var(--sob-accent-soft), var(--sob-accent-soft)), var(--sob-surface); }
 @media (max-width: 1200px) {
 	.sob-kpis { grid-template-columns: minmax(0, 1fr); }
 	.sob-stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
