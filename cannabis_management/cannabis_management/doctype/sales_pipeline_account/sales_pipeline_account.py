@@ -73,18 +73,32 @@ class SalesPipelineAccount(Document):
 				frappe.throw(_("Volume row {0}: please choose a Product Line.").format(i))
 			if r.product_line not in s.product_line_names and not self._had_line(r):
 				frappe.throw(_("Volume row {0}: {1} is not a Product Line in Sales Pipeline Settings.").format(i, r.product_line))
-			for f in ("weekly_volume", "wants_qty", "price_per_gram"):
+			for f in ("weekly_volume", "wants_qty", "price"):
 				if flt(r.get(f)) < 0:
 					frappe.throw(_("Volume row {0}: amounts cannot be negative.").format(i))
-			r.uom = r.uom if r.uom in sales_ops.UNIT_GRAMS else "g"
+			# the unit follows the product line's SKUs: lb for fresh frozen, g or kg for extracts
+			allowed = sales_ops.line_units_allowed(s, r.product_line)
+			if r.uom not in allowed:
+				unit = sales_ops.line_unit(s, r.product_line)
+				r.uom = unit if unit in allowed else allowed[0]
 			r.wants_per = r.wants_per if r.wants_per in ("Week", "Month") else "Month"
 			r.activity = r.activity if r.activity in ("Procure", "Produce") else "Procure"
-			if not flt(r.price_per_gram):
-				r.price_per_gram = sales_ops.default_price(s, r.product_line, r.tier)
+			pu = sales_ops.price_unit(s, r.product_line)
+			old = self._old_row(r)
+			if old and old.price_unit and old.price_unit != pu and flt(r.price) and flt(r.price) == flt(old.price):
+				# the saved row moved between an lb line and a g line: keep the same price per gram
+				r.price = flt(r.price) / sales_ops.UNIT_GRAMS[old.price_unit] * sales_ops.UNIT_GRAMS[pu]
+			r.price_unit = pu
+			if not flt(r.price):
+				r.price = sales_ops.default_price(s, r.product_line, r.tier)
 			sales_ops.volume_row(r)
 		self.weekly_volume = sum(flt(r.weekly_grams) for r in rows)
 		self.monthly_demand = sum(flt(r.monthly_grams) for r in rows)
 		self.monthly_potential = sum(flt(r.monthly_value) for r in rows)
+
+	def _old_row(self, row):
+		before = self._before()
+		return next((r for r in (before.get("volume") or []) if r.name == row.name), None) if before and row.name else None
 
 	def _had_line(self, row):
 		"""A product line removed from Settings stays valid on rows that already had it."""

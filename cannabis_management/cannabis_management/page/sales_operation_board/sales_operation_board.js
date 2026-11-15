@@ -42,8 +42,8 @@
 		scale: '<path d="M12 3v18M5 21h14M3 7h18"/><path d="m6 7-3 7a3 3 0 0 0 6 0zM18 7l-3 7a3 3 0 0 0 6 0z"/>',
 		deal: '<path d="M3 7h18v13H3z"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 13h18"/>',
 	};
-	// One line-icon style everywhere (lucide shapes): stroke 1.75, colour from the text it sits in.
-	const svg = (p, size) => `<svg width="${size || 14}" height="${size || 14}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+	// One line-icon style everywhere (lucide shapes): stroke 1.5, colour from the text it sits in.
+	const svg = (p, size) => `<svg width="${size || 14}" height="${size || 14}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
 
 	// Liquid Glass kit (JS half): edge refraction in Chromium, tone flipping everywhere. From the liquid-glass skill,
 	// unchanged except that it is called by the page instead of on DOMContentLoaded (desk pages mount later).
@@ -161,7 +161,7 @@
 	// Leads board list: one row per account
 	const ACC_COLS = [
 		['lead_status', 'Lead Status', 'stage'], ['account', 'Account'], ['account_owner', 'Relationship Manager', 'owner'],
-		['products', 'Product Lines'], ['weekly_volume', 'Volume / Week (g)', 'num'], ['monthly_demand', 'Wants / Month (g)', 'num'],
+		['products', 'Product Lines'], ['vol_week', 'Volume / Week', 'qty'], ['vol_month', 'Wants / Month', 'qty'],
 		['monthly_potential', 'Potential / Month', 'money'], ['weighted_potential', 'Weighted / Month', 'money'],
 		['open_deals', 'Open Deals', 'num'], ['open_value', 'Open Deal Value', 'money'], ['next_step_due', 'Next Follow-up', 'date_edit'],
 		['modified', 'Last Updated', 'datetime'], ['customer', 'Customer'], ['lead', 'Lead'], ['contact_name', 'Contact'],
@@ -189,6 +189,15 @@
 	const nq = n => (+n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
 	// weights on cards and widgets: grams up to a kilo, then kilos
 	const wt = g => { g = +g || 0; return g >= 1000 ? (Math.round(g / 100) / 10).toLocaleString('en-US') + ' kg' : n0(g) + ' g'; };
+	// Quantities in the unit the team counts them in: lb for fresh frozen, g or kg for extracts (Settings > Product Lines > Unit)
+	const LB = 453.59237;
+	const FAMS = ['lb', 'g'];
+	const fmt_lb = lb => { lb = +lb || 0; return (Math.abs(lb) >= 100 ? n0(lb) : (Math.round(lb * 10) / 10).toLocaleString('en-US')) + ' lb'; };
+	const qty = (g, fam) => (fam === 'lb' ? fmt_lb((+g || 0) / LB) : wt(g));
+	const qty_pair = by => FAMS.filter(f => +by[f] > 0).map(f => qty(by[f], f)).join(' · ');
+	const r2 = n => Math.round((+n || 0) * 100) / 100;
+	const r3 = n => Math.round((+n || 0) * 1000) / 1000;
+	const MEASURES = [['money', 'Dollars'], ['volume', 'Volume']];
 	const fdate = s => (s ? frappe.datetime.str_to_user(String(s).slice(0, 10)) : '');
 	const fdt = s => {
 		if (!s) return '';
@@ -215,7 +224,7 @@
 			this.busy = {};
 			this.drag = null;
 			this.state = {
-				view: 'board', board: 'deal', owners: null, prods: [], priority: '', q: '', attn: false, closed: false,
+				view: 'board', board: 'deal', measure: 'money', owners: null, prods: [], priority: '', q: '', attn: false, closed: false,
 				cal_mode: 'month', cal_date: null, cal_type: 'all', sort: { key: '', dir: 1 }, sel: null, tab: 'overview',
 			};
 			this.cols = this.read_cols(LS_COLS, LIST_COLS, DEFAULT_COLS);
@@ -230,22 +239,29 @@
 			// Two layers. Content (KPIs, columns, cards, list, calendar) stays plain; the controls float above it
 			// on Liquid Glass: three capsules in a sticky bar, their menus, and the deal sheet. Menus sit beside
 			// the capsules, not inside them, because a backdrop filter inside another one cannot see the page.
-			const menu_btn = (key, label) => `<button type="button" class="lg-item sob-mbtn" data-menu="${key}" aria-haspopup="true" aria-expanded="false">
+			const menu_btn = (key, label, tip) => `<button type="button" class="lg-item sob-mbtn" data-menu="${key}" aria-haspopup="true" aria-expanded="false" data-tip="${esc(tip)}">
 				<span class="sob-mbtn-k">${label}</span><span class="sob-mbtn-v" data-menu-value="${key}"></span>${svg(ICON.down, 14)}</button>`;
 			this.$root = $(`
 				<div class="sob" data-tone="light" data-board="deal">
 					<div class="sob-bg" aria-hidden="true"><i class="sob-bg-lead"></i><i class="sob-bg-deal"></i></div>
 					<div class="lg-edge sob-edge" aria-hidden="true"></div>
 					<div class="sob-bar">
-						<div class="lg lg-group sob-boards" role="group" aria-label="${__('Board')}" data-lg-adapt data-lg-refract>
-							${BOARDS.map(b => `<button type="button" class="lg-item sob-board-btn" data-board="${b[0]}" aria-pressed="false">${__(b[1])}<span class="sob-board-n"></span></button>`).join('')}
+						<div class="lg lg-group sob-boards" role="group" aria-label="${__('Board')}" data-seg="boards" data-lg-adapt data-lg-refract>
+							${BOARDS.map(b => `<button type="button" class="lg-item sob-board-btn" data-board="${b[0]}" aria-pressed="false" data-tip="${esc(b[0] === 'lead'
+								? __('One card per account and where the relationship stands. An account can have several deals')
+								: __('Every sale being worked, by stage. Each deal belongs to an account on Leads'))}">${__(b[1])}<span class="sob-board-n"></span></button>`).join('')}
 						</div>
-						<div class="lg lg-group sob-tabs" role="tablist" aria-label="${__('Views')}" data-lg-adapt data-lg-refract></div>
+						<div class="lg lg-group sob-tabs" role="tablist" aria-label="${__('Views')}" data-seg="views" data-lg-adapt data-lg-refract></div>
+						<div class="lg lg-group sob-measure" role="group" aria-label="${__('Show amounts in')}" data-seg="measure" data-lg-adapt data-lg-refract>
+							${MEASURES.map(m => `<button type="button" class="lg-item" data-measure="${m[0]}" aria-pressed="false" data-tip="${esc(m[0] === 'money'
+								? __('Cards and totals in dollars: open deals and monthly potential')
+								: __('Cards and totals in volume: lb for fresh frozen, g and kg for extracts'))}">${__(m[1])}</button>`).join('')}
+						</div>
 						<div class="lg lg-group sob-tools" data-lg-adapt data-lg-refract>
-							<label class="lg-item sob-search">${svg(ICON.search, 16)}<input type="search" class="sob-q" autocomplete="off" aria-label="${__('Search deals')}" placeholder="${__('Search deals')}"></label>
-							<span class="sob-owner-group">${menu_btn('owner', __('Owner'))}</span>
-							${menu_btn('prod', __('Product line'))}
-							${menu_btn('more', __('Filters'))}
+							<label class="lg-item sob-search" data-tip="${esc(__('Finds names, contacts, buyers and notes'))}">${svg(ICON.search, 16)}<input type="search" class="sob-q" autocomplete="off" aria-label="${__('Search deals')}" placeholder="${__('Search deals')}"></label>
+							<span class="sob-owner-group">${menu_btn('owner', __('Owner'), __('Only the cards of the people you pick'))}</span>
+							${menu_btn('prod', __('Product line'), __('Only cards that buy or want these product lines'))}
+							${menu_btn('more', __('Filters'), __('Priority, cards that need attention, closed deals and tips'))}
 						</div>
 						<div class="lg lg--thick sob-menu lg-in" data-menu-panel="owner" role="group" aria-label="${__('Owner')}" hidden><div class="sob-owner-pills"></div></div>
 						<div class="lg lg--thick sob-menu lg-in" data-menu-panel="prod" role="group" aria-label="${__('Product line')}" hidden><div class="sob-ms-menu"></div></div>
@@ -253,6 +269,7 @@
 							<label class="sob-mrow" for="sob-prio"><span>${__('Priority')}</span><select id="sob-prio" class="sob-select sob-prio"></select></label>
 							<button type="button" class="lg-item sob-mi sob-toggle" data-toggle="attn" role="switch" aria-checked="false"></button>
 							<button type="button" class="lg-item sob-mi sob-toggle" data-toggle="closed" role="switch" aria-checked="false"></button>
+							<button type="button" class="lg-item sob-mi sob-toggle" data-tips-toggle role="switch" aria-checked="true"><span>${__('Show tips on hover')}</span><span class="sob-switch" aria-hidden="true"></span></button>
 						</div>
 					</div>
 					<div class="sob-kpis"></div>
@@ -263,8 +280,12 @@
 				<aside class="sob-drawer lg lg--thick lg-in" role="dialog" aria-modal="false" aria-label="${__('Deal')}"></aside></div>`).appendTo(page.main);
 
 			this.$pop = $(`<div class="sob-pop lg lg--thick lg-in" role="dialog" aria-modal="false" hidden></div>`).appendTo(page.main);
+			// hover tutorials: one glass tooltip for every [data-tip]
+			this.$tip = $(`<div class="sob-tipbox lg lg--thick" id="sob-tip" role="tooltip" hidden></div>`).appendTo(page.main);
 			this.bind();
 			this.bind_pop();
+			this.bind_tips();
+			this.bind_segs();
 			this.mount_glass();
 			frappe.realtime.on('sales_pipeline_update', msg => this.queue_reload(msg));
 		}
@@ -343,6 +364,7 @@
 			if (p.has('q')) s.q = p.get('q');
 			if (p.has('attn')) s.attn = p.get('attn') === '1';
 			if (p.has('closed')) s.closed = p.get('closed') === '1';
+			if (p.get('measure') === 'volume' || p.get('measure') === 'money') s.measure = p.get('measure');
 			if (p.get('cal') === 'week' || p.get('cal') === 'month') s.cal_mode = p.get('cal');
 			if (p.get('date') && pd(p.get('date'))) s.cal_date = p.get('date');
 			if (p.get('show')) s.cal_type = p.get('show');
@@ -361,6 +383,7 @@
 			if (s.q) p.set('q', s.q);
 			if (s.attn) p.set('attn', '1');
 			if (s.closed) p.set('closed', '1');
+			if (s.measure === 'volume') p.set('measure', 'volume');
 			if (s.view === 'calendar') {
 				p.set('cal', s.cal_mode);
 				if (s.cal_date) p.set('date', s.cal_date);
@@ -419,6 +442,28 @@
 			own_field(d) { return d && d._acc ? 'account_owner' : 'deal_owner'; }
 			acc_of(d) { return d && d.pipeline_account ? (this.data.accounts || []).find(a => a.name === d.pipeline_account) || null : null; }
 			deals_of(a) { return (this.data.deals || []).filter(d => d.pipeline_account === a.name); }
+			unit_of(line) { return ((this.s && this.s.line_units) || {})[line] || 'g'; }
+			fam_of(line) { return this.unit_of(line) === 'lb' ? 'lb' : 'g'; }
+			// what a family of lines is called: "Fresh Frozen & Tolling" (lb), "Extracts" (g and kg)
+			fam_name(f) {
+				const names = (this.s.product_lines || []).filter(l => this.fam_of(l) === f);
+				if (f === 'g' && names.length > 2) return __('Extracts');
+				return names.length ? names.join(' & ') : (f === 'lb' ? __('By the lb') : __('By the gram'));
+			}
+			// grams a deal asks for, per family
+			deal_qty(d) {
+				const by = { lb: 0, g: 0 };
+				const lines = this.lines_of(d).filter(l => l.product_line);
+				if (lines.length) lines.forEach(l => { by[this.fam_of(l.product_line)] += +l.total_grams || 0; });
+				else if (+d.total_grams) by[this.fam_of(d.product_line)] += +d.total_grams;
+				return by;
+			}
+			// grams an account moves a week and wants a month, per family
+			acc_qty(a) {
+				const week = { lb: 0, g: 0 }, month = { lb: 0, g: 0 };
+				(a.volume || []).forEach(v => { const c = this.vol_calc(v); const f = this.fam_of(v.product_line); week[f] += c.weekly_grams; month[f] += c.monthly_grams; });
+				return { week, month };
+			}
 			lines_of(d) {
 				const w = this.work && this.work[d.name];
 				return (w || d.lines || []).filter(l => !l.draft || w);
@@ -487,15 +532,23 @@
 			const s = this.state;
 			const views = VIEWS[s.board] || VIEWS.deal;
 			if (!views.some(v => v[0] === s.view)) s.view = 'board';
+			const tips = {
+				board: s.board === 'lead' ? __('Columns by lead status. Drag an account to change its status') : __('Columns by stage. Drag a deal to move it on'),
+				owner: s.board === 'lead' ? __('One column per relationship manager. Drag to reassign') : __('One column per owner. Drag to reassign; the new owner is notified'),
+				projection: __('What accounts want each month, added up by product line and lead status'),
+				calendar: __('Follow-ups, samples, closes and deliveries by date. Drag to reschedule'),
+				list: __('Every card as a sheet: sort, choose columns, edit in place'),
+			};
 			// the views differ per board (Projection on Leads, Calendar on Deals); rebuilt only when the board changes
 			const $tabs = this.$root.find('.sob-tabs');
 			if ($tabs.attr('data-board') !== s.board) {
-				$tabs.attr('data-board', s.board).html(views.map(v => `<button type="button" class="lg-item sob-tab" role="tab" data-view="${v[0]}" aria-selected="false">${__(v[1])}</button>`).join(''));
+				$tabs.attr('data-board', s.board).html(views.map(v => `<button type="button" class="lg-item sob-tab" role="tab" data-view="${v[0]}" aria-selected="false" data-tip="${esc(tips[v[0]])}">${__(v[1])}</button>`).join(''));
 			}
 			$tabs.find('.sob-tab').each((_, el) => {
 				const on = $(el).attr('data-view') === s.view;
 				$(el).toggleClass('on', on).attr('aria-selected', on);
 			});
+			this.$root.find('[data-measure]').each((_, el) => el.setAttribute('aria-pressed', String(el.getAttribute('data-measure') === s.measure)));
 			const counts = { lead: this.filtered_acc().length, deal: this.filtered().length };
 			this.$root.find('.sob-board-btn').each((_, el) => {
 				const b = $(el).attr('data-board');
@@ -526,58 +579,150 @@
 			this.write_url();
 			this.apply_tones();
 			this.place_bar();
+			this.$root.find('[data-seg]').each((_, g) => this.seg_sync(g));
 		}
 
+		// Deals: the open pipeline as one figure and one grape funnel bar (stage by stage), then four compact stats
 		render_kpis(list) {
 			const open = list.filter(d => !d.is_closed);
 			const sum = (arr, f) => arr.reduce((a, d) => a + (+f(d) || 0), 0);
-			const grams = sum(open, d => d.total_grams);
 			const won = list.filter(d => d.won_this_month);
 			const attn = open.filter(d => d.attention);
 			const count = k => open.filter(d => (d.flags || []).some(f => f.key === k)).length;
-			const today = pd(this.data.today);
-			const won_value = sum(won, d => d.deal_value);
-			// [label, figure, caption, state]: state colours the one cell that carries meaning
+			const month = MONTHS[pd(this.data.today).getMonth()];
 			const lost = list.filter(d => d.is_lost).length;
-			const kpis = [
-				[__('Open deals'), n0(open.length), lost ? __('{0} lost deals kept in {1}', [lost, this.first_stage_of('deal')]) : __('Excluding closed deals')],
-				[__('Open value'), usd(sum(open, d => d.deal_value)), __('Grams × price per gram, or override')],
-				[__('Weighted value'), usd(sum(open, d => d.weighted_value)), __('Value × stage probability')],
-				[__('Grams in pipeline'), n0(grams) + ' g', (grams / 1000).toFixed(1) + ' kg ' + __('in open deals')],
-				[__('Won value'), usd(won_value), won.length + ' ' + __('won in') + ' ' + MONTHS[today.getMonth()], won_value ? 'good' : ''],
-				[__('Needs attention'), n0(attn.length), `${count('overdue')} ${__('overdue')} · ${count('stalled')} ${__('stalled')} · ${count('no_owner')} ${__('no owner')} · ${count('short')} ${__('short')}`, attn.length ? 'attn' : ''],
-			];
-			this.$root.find('.sob-kpis').html(kpis.map(k => `
-				<div class="sob-kpi${k[3] ? ' ' + k[3] : ''}">
-					<div class="sob-kpi-label">${esc(k[0])}</div>
-					<div class="sob-kpi-value">${esc(k[1])}</div>
-					<div class="sob-kpi-sub">${esc(k[2])}</div>
-				</div>`).join(''));
+			const stages = this.stages_of('deal').filter(st => !st.is_closed);
+			const by = d => this.deal_qty(d);
+			const fam_sum = (arr, f) => arr.reduce((a, d) => a + by(d)[f], 0);
+			const attention = [__('Needs attention'), n0(attn.length), `${count('overdue')} ${__('overdue')} · ${count('stalled')} ${__('stalled')} · ${count('no_owner')} ${__('no owner')} · ${count('short')} ${__('short')}`,
+				attn.length ? 'attn' : '', __('Open deals with an overdue follow-up, too long in one stage, no owner or not enough stock')];
+			let hero, stats;
+			if (this.state.measure === 'volume') {
+				const tot = { lb: fam_sum(open, 'lb'), g: fam_sum(open, 'g') };
+				const won_q = { lb: fam_sum(won, 'lb'), g: fam_sum(won, 'g') };
+				hero = {
+					label: __('In open deals'), tip: __('Everything the open deals ask for, in lb for fresh frozen and g or kg for extracts'),
+					figures: FAMS.filter(f => tot[f]).map(f => [qty(tot[f], f), this.fam_name(f)]),
+					sub: __('{0} open deals · {1} with a quantity', [open.length, open.filter(d => qty_pair(by(d))).length]),
+					bars: FAMS.filter(f => tot[f]).map(f => ({ caption: this.fam_name(f), parts: stages.map(st => ({ name: st.name, colour: st.colour,
+						value: fam_sum(open.filter(d => d.stage === st.name), f), text: v => qty(v, f) })) })),
+					empty: __('No quantities on open deals yet'),
+				};
+				stats = [
+					[__('Open deals'), n0(open.length), __('{0} lost deals kept in {1}', [lost, this.first_stage_of('deal')]), '', __('Deals not won or lost yet')],
+					[__('Won in {0}', [month]), qty_pair(won_q) || '—', __('{0} deals won', [won.length]), won.length ? 'good' : '', __('Quantity of the deals won this month')],
+					[__('Short in stock'), wt(sum(open, d => d.short)), __('Extracts needed beyond what is available'), '', __('Grams the open deals need beyond the stock on hand (sellable warehouses)')],
+					attention,
+				];
+			} else {
+				const value = sum(open, d => d.deal_value);
+				const won_value = sum(won, d => d.deal_value);
+				hero = {
+					label: __('Open pipeline'), tip: __('Value of every open deal: grams or lb × price, or the manual value'),
+					figures: [[usd(value), '']],
+					sub: __('{0} open deals · {1} weighted by stage', [open.length, usd(sum(open, d => d.weighted_value))]),
+					bars: [{ caption: '', parts: stages.map(st => ({ name: st.name, colour: st.colour, value: sum(open.filter(d => d.stage === st.name), d => d.deal_value), text: usd })) }],
+					empty: __('No open deal has a value yet'),
+				};
+				stats = [
+					[__('Weighted value'), usd(sum(open, d => d.weighted_value)), __('Value × stage probability'), '', __('What the pipeline is likely worth: each deal\'s value times its stage\'s win probability')],
+					[__('Won in {0}', [month]), usd(won_value), __('{0} deals won', [won.length]), won_value ? 'good' : '', __('Deals moved to Closed Won this month')],
+					[__('Lost deals'), n0(lost), __('Kept in {0} to win back', [this.first_stage_of('deal')]), '', __('Lost deals stay at the bottom of Active Opportunity with their reason')],
+					attention,
+				];
+			}
+			this.kpi_html(hero, stats);
 		}
 
 		// Leads board widgets: what the accounts move, what they want from us and what that is worth
+		// Leads: dollars in open deals (or the volume they want) by lead status, then four compact stats
 		render_kpis_acc(list) {
 			const sum = f => list.reduce((a, x) => a + (+f(x) || 0), 0);
 			const customers = list.filter(a => a.is_customer).length;
-			const want = sum(a => a.monthly_demand);
-			const pot = sum(a => a.monthly_potential);
 			const attn = list.filter(a => a.attention);
 			const count = k => list.filter(a => (a.flags || []).some(f => f.key === k)).length;
-			const with_vol = list.filter(a => (a.volume || []).length).length;
-			const kpis = [
-				[__('Accounts'), n0(list.length), __('{0} customers · {1} leads', [customers, list.length - customers])],
-				[__('Volume / week'), wt(sum(a => a.weekly_volume)), with_vol === 1 ? __('Procured or produced by 1 account') : __('Procured or produced by {0} accounts', [with_vol])],
-				[__('Wants / month'), wt(want), wt(want / WPM) + ' ' + __('a week')],
-				[__('Potential / month'), usd(pot), usd(pot * 12) + ' ' + __('a year'), pot ? 'good' : ''],
-				[__('Weighted / month'), usd(sum(a => a.weighted_potential)), __('Potential × lead-status probability')],
-				[__('Needs attention'), n0(attn.length), `${count('overdue')} ${__('overdue')} · ${count('stalled')} ${__('stalled')} · ${count('no_owner')} ${__('no owner')}`, attn.length ? 'attn' : ''],
-			];
-			this.$root.find('.sob-kpis').html(kpis.map(k => `
-				<div class="sob-kpi${k[3] ? ' ' + k[3] : ''}">
-					<div class="sob-kpi-label">${esc(k[0])}</div>
-					<div class="sob-kpi-value">${esc(k[1])}</div>
-					<div class="sob-kpi-sub">${esc(k[2])}</div>
-				</div>`).join(''));
+			const statuses = this.stages_of('lead');
+			const with_vol = list.filter(a => (a.volume || []).length);
+			const attention = [__('Needs attention'), n0(attn.length), `${count('overdue')} ${__('overdue')} · ${count('stalled')} ${__('stalled')} · ${count('no_owner')} ${__('no owner')}`,
+				attn.length ? 'attn' : '', __('Accounts with an overdue follow-up, too long in one status, or no relationship manager')];
+			let hero, stats;
+			if (this.state.measure === 'volume') {
+				const q = list.map(a => [a, this.acc_qty(a)]);
+				const tot = k => ({ lb: q.reduce((s, x) => s + x[1][k].lb, 0), g: q.reduce((s, x) => s + x[1][k].g, 0) });
+				const month = tot('month'), week = tot('week');
+				hero = {
+					label: __('Wanted each month'), tip: __('What accounts told us they want from us, per month. Per-week amounts count 52 / 12 weeks a month'),
+					figures: FAMS.filter(f => month[f]).map(f => [qty(month[f], f), this.fam_name(f)]),
+					sub: __('From {0} of {1} accounts with volume recorded', [with_vol.length, list.length]),
+					bars: FAMS.filter(f => month[f]).map(f => ({ caption: this.fam_name(f), parts: statuses.map(st => ({ name: st.name, colour: st.colour,
+						value: q.filter(x => x[0].lead_status === st.name).reduce((s, x) => s + x[1].month[f], 0), text: v => qty(v, f) })) })),
+					empty: __('No volume recorded yet. Open an account and add what it buys each week'),
+				};
+				stats = [
+					[__('Moves each week'), qty_pair(week) || '—', __('What they procure or produce'), '', __('How much these accounts buy from anyone or make themselves in a week: the size of each account')],
+					[__('Wants each week'), qty_pair({ lb: month.lb / WPM, g: month.g / WPM }) || '—', __('Monthly demand ÷ 4.33'), '', __('The monthly demand spread over a week')],
+					[__('Accounts with volume'), `${with_vol.length} / ${list.length}`, __('Record the rest to complete the projection'), '', __('Accounts that have at least one volume row')],
+					attention,
+				];
+			} else {
+				const open = sum(a => a.open_value);
+				const pot = sum(a => a.monthly_potential);
+				hero = {
+					label: __('In open deals'), tip: __('The value of the open deals with these accounts, by the account\'s lead status'),
+					figures: [[usd(open), '']],
+					sub: __('{0} open deals with {1} accounts · {2} weighted by stage', [sum(a => a.open_deals), list.filter(a => a.open_deals).length, usd(sum(a => a.open_weighted))]),
+					bars: [{ caption: '', parts: statuses.map(st => ({ name: st.name, colour: st.colour, value: list.filter(a => a.lead_status === st.name).reduce((s, a) => s + (+a.open_value || 0), 0), text: usd })) }],
+					empty: __('No open deal with these accounts has a value yet'),
+				};
+				stats = [
+					[__('Potential / month'), usd(pot), usd(pot * 12) + ' ' + __('a year'), '', __('What the accounts want each month × their price: the business they could bring every month')],
+					[__('Won'), usd(sum(a => a.won_value)), __('{0} deals won with these accounts', [sum(a => a.won_deals)]), '', __('Value of every Closed Won deal with these accounts')],
+					[__('Accounts'), n0(list.length), __('{0} customers · {1} leads', [customers, list.length - customers]), '', __('Customers are accounts in Active or Recurring Customer')],
+					attention,
+				];
+			}
+			this.kpi_html(hero, stats);
+		}
+
+		// The KPI strip: one hero panel (figure, sub line, thin segmented bars with a legend) and compact stat tiles.
+		// Bar colours are the stage colours (one grape ramp, light to dark along the pipeline); hovering a part
+		// gives its name, amount and share.
+		kpi_html(hero, stats) {
+			const total = b => b.parts.reduce((a, p) => a + p.value, 0);
+			const bar = b => {
+				const t = total(b);
+				const parts = b.parts.filter(p => p.value > 0);
+				const label = parts.map(p => `${__(p.name)} ${p.text(p.value)} (${Math.round(p.value / t * 100)}%)`).join(', ');
+				return `<div class="sob-pipe">
+					${b.caption ? `<div class="sob-pipe-cap"><span>${esc(b.caption)}</span></div>` : ''}
+					<div class="sob-pipe-bar" role="img" aria-label="${esc((b.caption ? b.caption + ': ' : '') + label)}">${parts.map(p =>
+						`<i style="--sob-stage:${esc(p.colour || '#A1A1AA')};flex-grow:${p.value}" data-tip="${esc(`${__(p.name)}: ${p.text(p.value)} · ${Math.round(p.value / t * 100)}%`)}"></i>`).join('')}</div>
+				</div>`;
+			};
+			const shown = (hero.bars || []).filter(b => total(b) > 0);
+			// legend in pipeline order (every bar lists the parts in the same order)
+			const names = shown.length ? shown[0].parts.map(p => p.name).filter(n => shown.some(b => b.parts.some(p => p.name === n && p.value > 0))) : [];
+			const colours = {};
+			shown.forEach(b => b.parts.forEach(p => { colours[p.name] = p.colour; }));
+			const one = shown.length === 1 ? shown[0] : null;
+			const legend = names.map(n => {
+				const p = one && one.parts.find(x => x.name === n);
+				return `<span style="--sob-stage:${esc(colours[n] || '#A1A1AA')}"><i class="sob-stage-dot"></i>${esc(__(n))}${p ? `<b>${esc(p.text(p.value))}</b>` : ''}</span>`;
+			}).join('');
+			const figures = (hero.figures || []).length ? hero.figures : [['—', '']];
+			this.$root.find('.sob-kpis').html(`
+				<section class="sob-hero" data-tip="${esc(hero.tip || '')}">
+					<div class="sob-kpi-label">${esc(hero.label)}</div>
+					<div class="sob-hero-figs">${figures.map(f => `<div class="sob-hero-fig"><b>${esc(f[0])}</b>${f[1] && figures.length > 1 ? `<span>${esc(f[1])}</span>` : ''}</div>`).join('')}</div>
+					<div class="sob-kpi-sub">${esc(hero.sub || '')}</div>
+					${shown.length ? `${shown.map(bar).join('')}<div class="sob-pipe-legend">${legend}</div>` : `<div class="sob-pipe-empty">${esc(hero.empty || '')}</div>`}
+				</section>
+				<div class="sob-stats">${stats.map(k => `
+					<div class="sob-kpi${k[3] ? ' ' + k[3] : ''}" data-tip="${esc(k[4] || '')}">
+						<div class="sob-kpi-label">${esc(k[0])}</div>
+						<div class="sob-kpi-value">${esc(k[1])}</div>
+						<div class="sob-kpi-sub">${esc(k[2])}</div>
+					</div>`).join('')}</div>`);
 		}
 
 		// New Lead on the Leads board, New Deal on the Deals board
@@ -646,6 +791,7 @@
 				$b.attr('aria-checked', String(!!s[k]));
 			};
 			toggle('attn', __('Needs attention only'));
+			this.$root.find('[data-tips-toggle]').attr('aria-checked', String(!this.tips_off));
 			toggle('closed', __('Show closed'));
 			this.$root.find('[data-toggle="closed"]').attr('title', __('Closed deals hide {0} days after closing', [this.s.hide_closed_after_days || 0]));
 		}
@@ -698,35 +844,46 @@
 			const one = (user, cls, role) => {
 				const o = this.owner(user);
 				const name = o ? o.name : user;
-				return `<span class="sob-av${cls}" style="background:${esc((o && o.colour) || '#18181B')}" title="${esc(name + role)}">${esc((name[0] || '?').toUpperCase())}</span>`;
+				return `<span class="sob-av${cls}" style="background:${esc((o && o.colour) || '#18181B')}" data-tip="${esc(name + role)}">${esc((name[0] || '?').toUpperCase())}</span>`;
 			};
 			const co = this.co_list(d);
 			const ow = this.own(d);
-			const parts = [ow ? one(ow, '', ' (' + (d._acc ? __('relationship manager') : __('owner')) + ')') : `<span class="sob-av none" title="${__('Unassigned')}">?</span>`];
+			const parts = [ow ? one(ow, '', ' (' + (d._acc ? __('relationship manager') : __('owner')) + ')') : `<span class="sob-av none" data-tip="${__('Unassigned')}">?</span>`];
 			co.slice(0, 2).forEach(u => parts.push(one(u, ' co', ' (' + __('co-owner') + ')')));
-			if (co.length > 2) parts.push(`<span class="sob-av more" title="${esc(co.slice(2).map(u => this.owner_name(u)).join(', '))}">+${co.length - 2}</span>`);
+			if (co.length > 2) parts.push(`<span class="sob-av more" data-tip="${esc(co.slice(2).map(u => this.owner_name(u)).join(', '))}">+${co.length - 2}</span>`);
 			if (!co.length) return parts[0];
 			const label = (d.deal_owner ? this.owner_name(d.deal_owner) : __('Unassigned')) + ' · ' + __('Co-owners') + ': ' + co.map(u => this.owner_name(u)).join(', ');
 			return `<span class="sob-avs" role="img" aria-label="${esc(label)}">${parts.join('')}</span>`;
 		}
 
+		// a stage or lead status as quiet text with its dot; the colour lives in the dot only
 		stage_chip(stage, acc) {
 			const st = (acc ? this.status(stage) : this.stage(stage)) || {};
-			const c = st.colour || '#71717A';
-			return `<span class="sob-stage-chip" style="background:${tint(c, .14)};color:${esc(c)};border-color:${tint(c, .35)}">${esc(__(stage))}</span>`;
+			return `<span class="sob-stage-chip" style="--sob-stage:${esc(st.colour || '#A1A1AA')}"><i class="sob-stage-dot"></i>${esc(__(stage))}</span>`;
 		}
 
+		// One deal. Dollars or volume lead depending on the switch; quantities are in lb for fresh frozen, g / kg for extracts.
 		card(d, opts) {
 			opts = opts || {};
 			const lines = d.lines || [];
-			const grams = d.total_grams ? n0(d.total_grams) + ' g' + (d.price_per_gram && lines.length < 2 ? ' @ ' + money2(d.price_per_gram) + '/g' : '') : '';
-			const prods = lines.length ? lines.map(l => [l.product_line, l.tier].filter(Boolean).join(' · ') + (lines.length > 1 && +l.total_grams ? ' · ' + n0(l.total_grams) + ' g' : ''))
+			const by = this.deal_qty(d);
+			const fams = FAMS.filter(f => by[f] > 0);
+			let amount = '';
+			if (fams.length === 1) {
+				const f = fams[0];
+				const ppg = lines.length < 2 ? (+(lines[0] || {}).price_per_gram || +d.price_per_gram || 0) : 0;
+				amount = qty(by[f], f) + (ppg ? ' @ ' + (f === 'lb' ? money2(ppg * LB) + '/lb' : money2(ppg) + '/g') : '');
+			} else if (fams.length) amount = qty_pair(by);
+			const prods = lines.length ? lines.map(l => [l.product_line, l.tier].filter(Boolean).join(' · ') + (lines.length > 1 && +l.total_grams ? ' · ' + qty(l.total_grams, this.fam_of(l.product_line)) : ''))
 				: [[d.product_line, d.tier].filter(Boolean).join(' · ')].filter(Boolean);
+			const volume = this.state.measure === 'volume';
+			const big = volume ? (qty_pair(by) || '—') : (d.deal_value ? usd(d.deal_value) : '—');
+			const small = volume ? (d.deal_value ? usd(d.deal_value) : '') : amount;
 			const line = this.next_date_line(d);
 			const meta = this.card_meta(d);
 			const flags = this.badges(d);
 			const st = this.stage(d.stage) || {};
-			const lost = d.is_lost ? `<div class="sob-lost-tag">${svg(ICON.x, 12)}<span>${esc(__('Lost'))}${d.lost_reason ? ' · ' + esc(d.lost_reason) : ''}</span></div>` : '';
+			const lost = d.is_lost ? `<div class="sob-lost-tag">${svg(ICON.x, 14)}<span>${esc(__('Lost'))}${d.lost_reason ? ' · ' + esc(d.lost_reason) : ''}</span></div>` : '';
 			return `
 				<div class="sob-card${this.state.sel === d.name ? ' sel' : ''}${this.busy[d.name] ? ' busy' : ''}${opts.co ? ' co' : ''}${d.is_lost ? ' lost' : ''}" role="button" tabindex="0"
 					draggable="${this.data.can_write ? 'true' : 'false'}" data-card="${esc(d.name)}"${opts.col ? ` data-from-owner="${esc(opts.col)}"` : ''}
@@ -734,15 +891,13 @@
 					style="--sob-stage:${esc(st.colour || '#A1A1AA')}">
 					${opts.co ? `<span class="sob-card-tag">${__('Co-owner')}</span>` : ''}
 					<div class="sob-card-top">
-						<span class="sob-card-acc">${this.is_top_priority(d.priority) ? `<span class="sob-prio-dot" title="${esc(__('Priority') + ': ' + d.priority)}"></span>` : ''}${esc(d.account)}</span>
-						<span class="sob-card-side">
-							${this.avatar(d)}
-						</span>
+						<span class="sob-card-acc">${this.is_top_priority(d.priority) ? `<span class="sob-prio-dot" data-tip="${esc(__('Priority') + ': ' + d.priority)}"></span>` : ''}${esc(d.account)}</span>
+						<span class="sob-card-side">${this.avatar(d)}</span>
 					</div>
 					${opts.stage_chip && !d.is_lost ? this.stage_chip(d.stage) : ''}
 					${lost}
 					${prods.length ? `<div class="sob-prods">${prods.map(p => `<span class="sob-prod">${esc(p)}</span>`).join('')}</div>` : ''}
-					<div class="sob-card-nums"><b>${d.deal_value ? usd(d.deal_value) : '—'}</b><span>${esc(grams)}</span></div>
+					<div class="sob-card-nums"><b>${esc(big)}</b><span>${esc(small)}</span></div>
 					${d.timeline ? `<div class="sob-card-when">${esc(d.timeline)}</div>` : ''}
 					${meta ? `<div class="sob-card-meta">${esc(meta)}</div>` : ''}
 					${line}
@@ -755,37 +910,58 @@
 		// stage open a pop-up from the button; call, email and purchases appear when the deal has them.
 		card_acts(d) {
 			const can = this.data.can_write;
-			const b = (attrs, icon, label) => `<button type="button" class="sob-ca" ${attrs} draggable="false" title="${esc(label)}" aria-label="${esc(label + ': ' + d.account)}">${svg(icon, 16)}</button>`;
+			const b = (attrs, icon, label) => `<button type="button" class="sob-ca" ${attrs} draggable="false" data-tip="${esc(label)}" aria-label="${esc(label + ': ' + d.account)}">${svg(icon, 16)}</button>`;
 			const n = esc(d.name);
 			const acts = [
-				b(`data-pop="notes" data-deal="${n}" aria-haspopup="dialog"`, NOTE_ICON, __('Notes')),
-				b(`data-pop="reqs" data-deal="${n}" aria-haspopup="dialog"`, ICON.box, __('Requirements')),
+				b(`data-pop="notes" data-deal="${n}" aria-haspopup="dialog"`, NOTE_ICON, __('Notes: add one or read the latest')),
+				b(`data-pop="reqs" data-deal="${n}" aria-haspopup="dialog"`, ICON.box, __('Requirements: product lines, quantity and price')),
 			];
 			if (can) {
-				acts.push(b(`data-pop="follow" data-deal="${n}" aria-haspopup="dialog"`, ICON.clock, __('Next follow-up')));
+				acts.push(b(`data-pop="follow" data-deal="${n}" aria-haspopup="dialog"`, ICON.clock, __('Set the next follow-up')));
 				if (d.is_lost) acts.push(b(`data-reopen="${n}"`, ICON.undo, __('Reopen in {0}', [this.first_stage_of('deal')])));
 				else acts.push(b(`data-pop="stage" data-deal="${n}" aria-haspopup="dialog"`, ICON.move, __('Move to another stage')));
 			}
 			const side = [];
-			if (d.phone) side.push(`<a class="sob-ca" data-card-call href="tel:${esc(String(d.phone).replace(/[^0-9+]/g, ''))}" draggable="false" title="${esc(__('Call {0}', [d.phone]))}" aria-label="${esc(__('Call {0}', [d.phone]))}">${svg(ICON.phone, 16)}</a>`);
+			if (d.phone) side.push(`<a class="sob-ca" data-card-call href="tel:${esc(String(d.phone).replace(/[^0-9+]/g, ''))}" draggable="false" data-tip="${esc(__('Call {0}', [d.phone]))}" aria-label="${esc(__('Call {0}', [d.phone]))}">${svg(ICON.phone, 16)}</a>`);
 			if (this.email_to(d)) side.push(b(`data-card-email="${n}"`, ICON.mail, __('Email {0}', [this.email_to(d)])));
-			if (this.has_buyer(d)) side.push(b(`data-card-hist="${n}"`, ICON.receipt, __('Purchase history')));
+			if (this.has_buyer(d)) side.push(b(`data-card-hist="${n}"`, ICON.receipt, __('What this buyer has bought from us')));
 			return `<div class="sob-card-acts" role="toolbar" aria-label="${esc(__('Shortcuts'))}">${acts.join('')}${side.length ? `<span class="sob-ca-gap"></span>${side.join('')}` : ''}</div>`;
 		}
 
 		// One account on the Leads board: what it is worth a month, what it wants and moves, and its deals.
+		// One account on the Leads board. Dollars: its open deals and monthly potential. Volume: what it wants from us
+		// each month per product line, in lb or g / kg, and what it moves a week.
 		acc_card(a, opts) {
 			opts = opts || {};
 			const vols = a.volume || [];
-			const prods = [...new Set(vols.map(v => [v.product_line, v.tier].filter(Boolean).join(' · ')))];
-			const deals = [];
-			if (a.open_deals) deals.push(__('{0} open {1}', [a.open_deals, a.open_deals === 1 ? __('deal') : __('deals')]) + (+a.open_value ? ' · ' + usd(a.open_value) : ''));
-			if (a.won_deals) deals.push(__('{0} won', [a.won_deals]));
-			if (a.lost_deals) deals.push(__('{0} lost', [a.lost_deals]));
-			const moves = +a.weekly_volume ? __('Moves {0} a week', [wt(a.weekly_volume)]) : '';
+			const money = this.state.measure !== 'volume';
+			const open = this.deals_of(a).filter(d => !d.is_closed);
 			const st = this.status(a.lead_status) || {};
 			const flags = this.badges(a);
-			const none = !vols.length ? `<div class="sob-card-meta sob-novol">${__('No volume recorded')}</div>` : '';
+			const deals = [];
+			if (a.open_deals) deals.push(__('{0} open {1}', [a.open_deals, a.open_deals === 1 ? __('deal') : __('deals')]));
+			if (a.won_deals) deals.push(__('{0} won', [a.won_deals]));
+			if (a.lost_deals) deals.push(__('{0} lost', [a.lost_deals]));
+			let body;
+			if (money) {
+				// what they buy (volume rows), else what the open deals are for
+				const src = vols.length ? vols : open.flatMap(d => ((d.lines || []).length ? d.lines : [d]));
+				const prods = [...new Set(src.map(x => [x.product_line, x.tier].filter(Boolean).join(' · ')).filter(Boolean))];
+				const nums = +a.open_value || +a.monthly_potential;
+				body = `${prods.length ? `<div class="sob-prods">${prods.map(p => `<span class="sob-prod">${esc(p)}</span>`).join('')}</div>` : ''}
+					${nums ? `<div class="sob-card-nums"><b>${+a.open_value ? usd(a.open_value) : ''}</b><span${+a.monthly_potential ? ` data-tip="${esc(__('Monthly potential from the volume they want'))}"` : ''}>${+a.monthly_potential ? esc(usd(a.monthly_potential) + '/' + __('mo')) : ''}</span></div>` : ''}`;
+			} else if (vols.length) {
+				const rows = vols.slice(0, 3).map(v => {
+					const c = this.vol_calc(v);
+					const f = this.fam_of(v.product_line);
+					const moves = +v.weekly_volume ? (v.activity === 'Produce' ? __('makes {0} a week', [qty(c.weekly_grams, f)]) : __('buys {0} a week', [qty(c.weekly_grams, f)])) : '';
+					return `<div class="sob-vrow"><span>${esc([v.product_line, v.tier].filter(Boolean).join(' · '))}</span><b>${c.monthly_grams ? esc(qty(c.monthly_grams, f) + '/' + __('mo')) : '—'}</b></div>
+						${moves ? `<div class="sob-vrow-sub">${esc(moves)}</div>` : ''}`;
+				}).join('');
+				body = `<div class="sob-vrows">${rows}${vols.length > 3 ? `<div class="sob-vrow-sub">${esc(__('+{0} more product lines', [vols.length - 3]))}</div>` : ''}</div>`;
+			} else {
+				body = `<div class="sob-card-meta sob-novol">${__('No volume yet')}</div>`;
+			}
 			return `
 				<div class="sob-card sob-acc${this.state.sel === a.name ? ' sel' : ''}${this.busy[a.name] ? ' busy' : ''}" role="button" tabindex="0"
 					draggable="${this.can_edit(a) ? 'true' : 'false'}" data-card="${esc(a.name)}"${opts.col ? ` data-from-owner="${esc(opts.col)}"` : ''}
@@ -795,10 +971,8 @@
 						<span class="sob-card-side">${this.avatar(a)}</span>
 					</div>
 					${opts.stage_chip ? this.stage_chip(a.lead_status, true) : ''}
-					${prods.length ? `<div class="sob-prods">${prods.map(p => `<span class="sob-prod">${esc(p)}</span>`).join('')}</div>` : ''}
-					${vols.length ? `<div class="sob-card-nums"><b>${+a.monthly_potential ? usd(a.monthly_potential) + '<small>/' + __('mo') + '</small>' : '—'}</b><span>${+a.monthly_demand ? esc(__('wants {0}/mo', [wt(a.monthly_demand)])) : ''}</span></div>` : none}
-					${moves ? `<div class="sob-card-when">${esc(moves)}</div>` : ''}
-					${deals.length ? `<div class="sob-card-meta sob-card-deals">${svg(ICON.deal, 12)}<span>${esc(deals.join(' · '))}</span></div>` : ''}
+					${body}
+					${deals.length ? `<div class="sob-card-meta sob-card-deals">${svg(ICON.deal, 14)}<span>${esc(deals.join(' · '))}</span></div>` : ''}
 					${this.next_date_line(a)}
 					${flags ? `<div class="sob-badges">${flags}</div>` : ''}
 					${this.acc_acts(a)}
@@ -807,28 +981,34 @@
 
 		acc_acts(a) {
 			const can = this.can_edit(a);
-			const b = (attrs, icon, label) => `<button type="button" class="sob-ca" ${attrs} draggable="false" title="${esc(label)}" aria-label="${esc(label + ': ' + a.account)}">${svg(icon, 16)}</button>`;
+			const b = (attrs, icon, label) => `<button type="button" class="sob-ca" ${attrs} draggable="false" data-tip="${esc(label)}" aria-label="${esc(label + ': ' + a.account)}">${svg(icon, 16)}</button>`;
 			const n = esc(a.name);
 			const acts = [
-				b(`data-pop="notes" data-deal="${n}" aria-haspopup="dialog"`, NOTE_ICON, __('Notes')),
-				b(`data-pop="vol" data-deal="${n}" aria-haspopup="dialog"`, ICON.scale, __('Volume and demand')),
+				b(`data-pop="notes" data-deal="${n}" aria-haspopup="dialog"`, NOTE_ICON, __('Notes: add one or read the latest')),
+				b(`data-pop="vol" data-deal="${n}" aria-haspopup="dialog"`, ICON.scale, __('Volume: what they buy each week and want from us')),
 			];
 			if (can) {
-				acts.push(b(`data-pop="follow" data-deal="${n}" aria-haspopup="dialog"`, ICON.clock, __('Next follow-up')));
-				acts.push(b(`data-pop="stage" data-deal="${n}" aria-haspopup="dialog"`, ICON.move, __('Change lead status')));
+				acts.push(b(`data-pop="follow" data-deal="${n}" aria-haspopup="dialog"`, ICON.clock, __('Set the next follow-up')));
+				acts.push(b(`data-pop="stage" data-deal="${n}" aria-haspopup="dialog"`, ICON.move, __('Change the lead status')));
 			}
-			if (this.data.can_create) acts.push(b(`data-new-deal="${n}"`, ICON.plus, __('New deal')));
+			if (this.data.can_create) acts.push(b(`data-new-deal="${n}"`, ICON.plus, __('Start a new deal with this account')));
 			const side = [];
-			if (a.phone) side.push(`<a class="sob-ca" data-card-call href="tel:${esc(String(a.phone).replace(/[^0-9+]/g, ''))}" draggable="false" title="${esc(__('Call {0}', [a.phone]))}" aria-label="${esc(__('Call {0}', [a.phone]))}">${svg(ICON.phone, 16)}</a>`);
+			if (a.phone) side.push(`<a class="sob-ca" data-card-call href="tel:${esc(String(a.phone).replace(/[^0-9+]/g, ''))}" draggable="false" data-tip="${esc(__('Call {0}', [a.phone]))}" aria-label="${esc(__('Call {0}', [a.phone]))}">${svg(ICON.phone, 16)}</a>`);
 			if (this.email_to(a)) side.push(b(`data-card-email="${n}"`, ICON.mail, __('Email {0}', [this.email_to(a)])));
-			if (this.has_buyer(a)) side.push(b(`data-card-hist="${n}"`, ICON.receipt, __('Purchase history')));
+			if (this.has_buyer(a)) side.push(b(`data-card-hist="${n}"`, ICON.receipt, __('What this buyer has bought from us')));
 			return `<div class="sob-card-acts" role="toolbar" aria-label="${esc(__('Shortcuts'))}">${acts.join('')}${side.length ? `<span class="sob-ca-gap"></span>${side.join('')}` : ''}</div>`;
 		}
 
 		acc_col_sub(items) {
+			const n = `${items.length} ${items.length === 1 ? __('account') : __('accounts')}`;
+			if (this.state.measure === 'volume') {
+				const by = { lb: 0, g: 0 };
+				items.forEach(a => { const q = this.acc_qty(a); by.lb += q.month.lb; by.g += q.month.g; });
+				return `${n} · ${qty_pair(by) ? qty_pair(by) + '/' + __('mo') : __('no volume yet')}`;
+			}
+			const open = items.reduce((a, x) => a + (+x.open_value || 0), 0);
 			const pot = items.reduce((a, x) => a + (+x.monthly_potential || 0), 0);
-			const w = items.reduce((a, x) => a + (+x.weighted_potential || 0), 0);
-			return `${items.length} ${items.length === 1 ? __('account') : __('accounts')} · ${usd(pot)}/${__('mo')} · ${usd(w)} ${__('weighted')}`;
+			return `${n} · ${usd(open)}${pot ? ` · ${usd(pot)}/${__('mo')}` : ''}`;
 		}
 
 		render_board_acc($v, list) {
@@ -837,7 +1017,7 @@
 				return `
 					<section class="sob-col" data-drop-stage="${esc(st.name)}" aria-label="${esc(st.name)}" style="--sob-stage:${esc(st.colour || '#A1A1AA')}">
 						<header class="sob-col-head">
-							<div class="sob-col-title"><span>${esc(__(st.name))}</span><span class="sob-col-prob" title="${esc(__('Weighs the monthly potential'))}">${+st.probability}%</span></div>
+							<div class="sob-col-title"><span>${esc(__(st.name))}</span><span class="sob-col-prob" data-tip="${esc(__('Weighted figures count {0}% of the potential of accounts in {1}', [+st.probability, __(st.name)]))}">${+st.probability}%</span></div>
 							<div class="sob-col-sub">${esc(this.acc_col_sub(items))}</div>
 						</header>
 						${items.map(a => this.acc_card(a)).join('')}
@@ -848,9 +1028,15 @@
 		}
 
 		col_sub(items) {
+			const n = `${items.length} ${items.length === 1 ? __('deal') : __('deals')}`;
+			if (this.state.measure === 'volume') {
+				const by = { lb: 0, g: 0 };
+				items.forEach(d => { const q = this.deal_qty(d); by.lb += q.lb; by.g += q.g; });
+				return `${n} · ${qty_pair(by) || __('no quantity yet')}`;
+			}
 			const v = items.reduce((a, d) => a + (+d.deal_value || 0), 0);
 			const w = items.reduce((a, d) => a + (+d.weighted_value || 0), 0);
-			return `${items.length} ${items.length === 1 ? __('deal') : __('deals')} · ${usd(v)} · ${usd(w)} ${__('weighted')}`;
+			return `${n} · ${usd(v)} · ${usd(w)} ${__('weighted')}`;
 		}
 
 		keep_scroll($v, html, sel) {
@@ -871,12 +1057,12 @@
 				return `
 					<section class="sob-col" data-drop-stage="${esc(st.name)}" aria-label="${esc(st.name)}" style="--sob-stage:${esc(st.colour || '#A1A1AA')}">
 						<header class="sob-col-head">
-							<div class="sob-col-title"><span>${esc(__(st.name))}</span><span class="sob-col-prob">${+st.probability}%</span></div>
+							<div class="sob-col-title"><span>${esc(__(st.name))}</span><span class="sob-col-prob" data-tip="${esc(__('Chance to win from {0}. Weighted value = value × {1}%', [__(st.name), +st.probability]))}">${+st.probability}%</span></div>
 							<div class="sob-col-sub">${esc(this.col_sub(items))}</div>
 						</header>
 						${items.map(d => this.card(d)).join('')}
 						${items.length || extra.length ? '' : `<div class="sob-col-empty">${this.data.can_write ? __('Drop a deal here') : __('No deals')}</div>`}
-						${extra.length ? `<div class="sob-lost-sep" role="separator"><span>${esc(__('Lost'))} · ${extra.length}</span><small>${esc(__('Drag back or reopen to work on it again'))}</small></div>${extra.map(d => this.card(d)).join('')}` : ''}
+						${extra.length ? `<div class="sob-lost-sep" role="separator" data-tip="${esc(__('Lost deals stay here with their reason. Drag one into a stage or press Reopen to work on it again'))}"><span>${esc(__('Lost'))} · ${extra.length}</span><small>${esc(__('Drag back or reopen to work on it again'))}</small></div>${extra.map(d => this.card(d)).join('')}` : ''}
 					</section>`;
 			}).join('');
 			this.keep_scroll($v, `<div class="sob-hint">${__('Drag a card to another stage, or click it to open the deal. Lost deals stay at the bottom of {0}.', [esc(first)])}</div><div class="sob-scroll"><div class="sob-columns">${html}</div></div>`, '.sob-scroll');
@@ -923,81 +1109,82 @@
 
 		// ---------- projection (Leads board): the volume recorded on accounts, rolled up ----------
 
+		// Projection (Leads board): the volume and demand recorded on accounts, added up. Each product line is shown in its
+		// own unit (lb for fresh frozen, g / kg for extracts); rows that mix lines show both.
 		render_projection($v, list) {
-			const lines = {};
-			const statuses = {};
-			const add = (map, key, a, v) => {
-				const r = map[key] = map[key] || { key, accounts: new Set(), with_vol: new Set(), weekly: 0, monthly: 0, value: 0, weighted: 0, deals: 0 };
+			const blank = () => ({ accounts: new Set(), with_vol: new Set(), week: { lb: 0, g: 0 }, month: { lb: 0, g: 0 }, value: 0, weighted: 0, deals: 0 });
+			const lines = {}, statuses = {};
+			const add = (r, a, v) => {
 				r.accounts.add(a.name);
-				if (v) {
-					// same sums as the server (grams per unit, 52/12 weeks a month)
-					const c = this.vol_calc(v);
-					r.with_vol.add(a.name);
-					r.weekly += c.weekly_grams;
-					r.monthly += c.monthly_grams;
-					r.value += c.monthly_value;
-					r.weighted += c.monthly_value * (+a.probability || 0) / 100;
-				}
-				return r;
+				if (!v) return;
+				const c = this.vol_calc(v);
+				const f = this.fam_of(v.product_line);
+				r.with_vol.add(a.name);
+				r.week[f] += c.weekly_grams;
+				r.month[f] += c.monthly_grams;
+				r.value += c.monthly_value;
+				r.weighted += c.monthly_value * (+a.probability || 0) / 100;
 			};
 			list.forEach(a => {
-				(a.volume || []).forEach(v => add(lines, v.product_line || __('Other'), a, v));
-				add(statuses, a.lead_status, a, null).deals += +a.open_value || 0;
-				(a.volume || []).forEach(v => add(statuses, a.lead_status, a, v));
+				const st = statuses[a.lead_status] = statuses[a.lead_status] || Object.assign(blank(), { key: a.lead_status });
+				add(st, a, null);
+				st.deals += +a.open_value || 0;
+				(a.volume || []).forEach(v => {
+					const k = v.product_line || __('Other');
+					add(lines[k] = lines[k] || Object.assign(blank(), { key: k }), a, v);
+					add(st, a, v);
+				});
 			});
 			const order = this.s.product_lines || [];
 			const line_rows = Object.values(lines).sort((a, b) => b.value - a.value || order.indexOf(a.key) - order.indexOf(b.key));
 			const status_rows = this.stages_of('lead').map(st => statuses[st.name]).filter(Boolean);
-			const tot = rows => rows.reduce((a, r) => { a.weekly += r.weekly; a.monthly += r.monthly; a.value += r.value; a.weighted += r.weighted; a.deals += r.deals; r.accounts.forEach(x => a.accounts.add(x)); r.with_vol.forEach(x => a.with_vol.add(x)); return a; },
-				{ accounts: new Set(), with_vol: new Set(), weekly: 0, monthly: 0, value: 0, weighted: 0, deals: 0 });
-			const g = n => (n ? n0(n) : '');
+			const tot = rows => rows.reduce((t, r) => {
+				FAMS.forEach(f => { t.week[f] += r.week[f]; t.month[f] += r.month[f]; });
+				t.value += r.value; t.weighted += r.weighted; t.deals += r.deals;
+				r.accounts.forEach(x => t.accounts.add(x)); r.with_vol.forEach(x => t.with_vol.add(x));
+				return t;
+			}, blank());
+			const q = by => esc(qty_pair(by));
+			const wk = by => ({ lb: by.lb / WPM, g: by.g / WPM });
 			const m = n => (n ? usd(n) : '');
-			const table = (first, rows, total, opts) => `
-				<div class="sob-table-wrap"><table class="sob-table sob-proj-t">
-					<thead><tr><th><span>${esc(first)}</span></th>
-						<th class="r"><span>${__('Accounts')}</span></th>
-						${opts.deals ? `<th class="r"><span>${__('With volume')}</span></th>` : ''}
-						<th class="r"><span>${__('Volume / week (g)')}</span></th>
-						<th class="r"><span>${__('Wants / week (g)')}</span></th>
-						<th class="r"><span>${__('Wants / month (g)')}</span></th>
-						<th class="r money"><span>${__('Potential / month')}</span></th>
-						<th class="r money"><span>${__('Weighted / month')}</span></th>
-						<th class="r money"><span>${__('Potential / year')}</span></th>
-						${opts.deals ? `<th class="r money"><span>${__('Open deal value')}</span></th>` : ''}</tr></thead>
-					<tbody>${rows.map(r => `<tr class="sob-proj-row"${opts.colour ? ` style="--sob-stage:${esc(opts.colour(r.key))}"` : ''}>
-						<td>${opts.colour ? '<span class="sob-stage-dot"></span>' : ''}<b>${esc(__(r.key))}</b></td>
-						<td class="r">${r.accounts.size}</td>
-						${opts.deals ? `<td class="r">${r.with_vol.size}</td>` : ''}
-						<td class="r">${g(r.weekly)}</td><td class="r">${g(r.monthly / WPM)}</td><td class="r">${g(r.monthly)}</td>
-						<td class="r money">${m(r.value)}</td><td class="r money">${m(r.weighted)}</td><td class="r money">${m(r.value * 12)}</td>
-						${opts.deals ? `<td class="r money">${m(r.deals)}</td>` : ''}</tr>`).join('') ||
-						`<tr><td colspan="${opts.deals ? 10 : 8}" class="sob-empty">${__('No volume recorded yet. Open an account and add what it procures or produces and what it wants from us.')}</td></tr>`}</tbody>
-					<tfoot><tr><td>${__('Total')}</td><td class="r">${total.accounts.size}</td>${opts.deals ? `<td class="r">${total.with_vol.size}</td>` : ''}
-						<td class="r">${g(total.weekly)}</td><td class="r">${g(total.monthly / WPM)}</td><td class="r">${g(total.monthly)}</td>
-						<td class="r money">${m(total.value)}</td><td class="r money">${m(total.weighted)}</td><td class="r money">${m(total.value * 12)}</td>
-						${opts.deals ? `<td class="r money">${m(total.deals)}</td>` : ''}</tr></tfoot>
-				</table></div>`;
+			const head = (first, deals) => `<thead><tr><th><span>${esc(first)}</span></th>
+				<th class="r"><span>${__('Accounts')}</span></th>
+				${deals ? `<th class="r"><span data-tip="${esc(__('Accounts in this status that have volume recorded'))}">${__('With volume')}</span></th>` : ''}
+				<th class="r"><span data-tip="${esc(__('What they procure or produce in a week'))}">${__('Volume / week')}</span></th>
+				<th class="r"><span data-tip="${esc(__('Monthly demand spread over 4.33 weeks'))}">${__('Wants / week')}</span></th>
+				<th class="r"><span data-tip="${esc(__('What they want from us each month'))}">${__('Wants / month')}</span></th>
+				<th class="r money"><span data-tip="${esc(__('Wants / month × price'))}">${__('Potential / month')}</span></th>
+				<th class="r money"><span data-tip="${esc(__('Potential × the lead-status probability'))}">${__('Weighted / month')}</span></th>
+				<th class="r money"><span>${__('Potential / year')}</span></th>
+				${deals ? `<th class="r money"><span data-tip="${esc(__('Value of the open deals with these accounts'))}">${__('Open deals')}</span></th>` : ''}</tr></thead>`;
+			const cells = (r, deals) => `<td class="r">${r.accounts.size}</td>${deals ? `<td class="r">${r.with_vol.size}</td>` : ''}
+				<td class="r">${q(r.week)}</td><td class="r">${q(wk(r.month))}</td><td class="r">${q(r.month)}</td>
+				<td class="r money">${m(r.value)}</td><td class="r money">${m(r.weighted)}</td><td class="r money">${m(r.value * 12)}</td>
+				${deals ? `<td class="r money">${m(r.deals)}</td>` : ''}`;
+			const table = (first, rows, opts) => `<div class="sob-table-wrap"><table class="sob-table sob-proj-t">${head(first, opts.deals)}
+				<tbody>${rows.map(r => `<tr class="sob-proj-row"${opts.colour ? ` style="--sob-stage:${esc(opts.colour(r.key))}"` : ''}>
+					<td>${opts.colour ? '<i class="sob-stage-dot"></i>' : ''}<b>${esc(__(r.key))}</b>${opts.unit ? `<span class="sob-unit">${esc(this.fam_of(r.key) === 'lb' ? 'lb' : 'g / kg')}</span>` : ''}</td>${cells(r, opts.deals)}</tr>`).join('') ||
+					`<tr><td colspan="${opts.deals ? 10 : 8}" class="sob-empty">${__('No volume recorded yet. Open an account and add what it procures or produces and what it wants from us')}</td></tr>`}</tbody>
+				<tfoot><tr><td>${__('Total')}</td>${cells(tot(rows), opts.deals)}</tr></tfoot></table></div>`;
 			const top = list.filter(a => +a.monthly_potential > 0).sort((a, b) => b.monthly_potential - a.monthly_potential).slice(0, 15);
 			const probs = this.stages_of('lead').map(st => `${__(st.name)} ${+st.probability}%`).join(' · ');
-			const left = $v.find('.sob-proj').scrollTop() || 0;
 			$v.html(`<div class="sob-proj">
-				<div class="sob-hint">${__('From the volume and demand recorded on each account. Weighted uses the lead-status probability: {0}.', [esc(probs)])}</div>
-				<section class="sob-proj-sec"><h3>${__('By product line')}</h3>${table(__('Product line'), line_rows, tot(line_rows), {})}</section>
-				<section class="sob-proj-sec"><h3>${__('By lead status')}</h3>${table(__('Lead status'), status_rows, tot(status_rows), { deals: true, colour: k => (this.status(k) || {}).colour || '#A1A1AA' })}</section>
+				<div class="sob-hint">${__('From the volume and demand recorded on each account, in lb for fresh frozen and g or kg for extracts. Weighted uses the lead-status probability: {0}', [esc(probs)])}</div>
+				<section class="sob-proj-sec"><h3>${__('By product line')}</h3>${table(__('Product line'), line_rows, { unit: true })}</section>
+				<section class="sob-proj-sec"><h3>${__('By lead status')}</h3>${table(__('Lead status'), status_rows, { deals: true, colour: k => (this.status(k) || {}).colour || '#A1A1AA' })}</section>
 				<section class="sob-proj-sec"><h3>${__('Biggest accounts')}</h3>
 					<div class="sob-table-wrap"><table class="sob-table">
 						<thead><tr><th><span>${__('Account')}</span></th><th><span>${__('Lead status')}</span></th><th><span>${__('Products')}</span></th>
-							<th class="r"><span>${__('Volume / week (g)')}</span></th><th class="r"><span>${__('Wants / month (g)')}</span></th>
-							<th class="r money"><span>${__('Potential / month')}</span></th><th class="r money"><span>${__('Weighted / month')}</span></th><th class="r money"><span>${__('Open deal value')}</span></th></tr></thead>
-						<tbody>${top.map(a => `<tr data-open="${esc(a.name)}" class="${this.state.sel === a.name ? 'sel' : ''}">
+							<th class="r"><span>${__('Volume / week')}</span></th><th class="r"><span>${__('Wants / month')}</span></th>
+							<th class="r money"><span>${__('Potential / month')}</span></th><th class="r money"><span>${__('Weighted / month')}</span></th><th class="r money"><span>${__('Open deals')}</span></th></tr></thead>
+						<tbody>${top.map(a => { const aq = this.acc_qty(a); return `<tr data-open="${esc(a.name)}" class="${this.state.sel === a.name ? 'sel' : ''}">
 							<td><b>${esc(a.account)}</b></td><td>${this.stage_chip(a.lead_status, true)}</td>
 							<td>${esc([...new Set((a.volume || []).map(v => v.product_line))].join(', '))}</td>
-							<td class="r">${g(a.weekly_volume)}</td><td class="r">${g(a.monthly_demand)}</td>
-							<td class="r money">${m(a.monthly_potential)}</td><td class="r money">${m(a.weighted_potential)}</td><td class="r money">${m(a.open_value)}</td></tr>`).join('') ||
-							`<tr><td colspan="8" class="sob-empty">${__('No account has a monthly potential yet.')}</td></tr>`}</tbody>
+							<td class="r">${q(aq.week)}</td><td class="r">${q(aq.month)}</td>
+							<td class="r money">${m(a.monthly_potential)}</td><td class="r money">${m(a.weighted_potential)}</td><td class="r money">${m(a.open_value)}</td></tr>`; }).join('') ||
+							`<tr><td colspan="8" class="sob-empty">${__('No account has a monthly potential yet')}</td></tr>`}</tbody>
 					</table></div></section>
 			</div>`);
-			$v.find('.sob-proj').scrollTop(left);
 		}
 
 		// ---------- calendar ----------
@@ -1110,6 +1297,7 @@
 				case 'date': case 'date_edit': return v ? fdate(v) : '';
 				case 'datetime': return v ? frappe.datetime.str_to_user(v) : '';
 				case 'owner': return v ? this.owner_name(v) : __('Unassigned');
+				case 'qty': return qty_pair(this.acc_qty(d)[c[0] === 'vol_week' ? 'week' : 'month']);
 				default:
 					if ((c[0] === 'product_line' || c[0] === 'tier') && (d.lines || []).length > 1) return [...new Set(d.lines.map(l => l[c[0]]).filter(Boolean))].join(', ');
 					if (c[0] === 'products') return [...new Set((d.volume || []).map(x => x.product_line))].join(', ');
@@ -1128,9 +1316,11 @@
 			const rows = list.slice();
 			if (sk) {
 				const col = ALL.find(c => c[0] === sk) || [];
-				const numeric = ['num', 'money', 'money2', 'pct'].includes(col[2]);
+				const numeric = ['num', 'money', 'money2', 'pct', 'qty'].includes(col[2]);
 				const sts = this.stages_of(acc ? 'lead' : 'deal');
-				const val = d => col[2] === 'owner' ? (d[sk] ? this.owner_name(d[sk]) : '') : col[2] === 'stage' ? sts.findIndex(x => x.name === this.stage_name(d)) : sk === 'priority' ? this.prio_rank(d.priority) : sk === 'products' ? this.cell_value(d, col) : d[sk];
+				// quantities sort by grams (lb rows counted in grams too)
+				const grams = d => { const q = this.acc_qty(d)[sk === 'vol_week' ? 'week' : 'month']; return q.lb + q.g; };
+				const val = d => col[2] === 'owner' ? (d[sk] ? this.owner_name(d[sk]) : '') : col[2] === 'stage' ? sts.findIndex(x => x.name === this.stage_name(d)) : sk === 'priority' ? this.prio_rank(d.priority) : sk === 'products' ? this.cell_value(d, col) : col[2] === 'qty' ? grams(d) : d[sk];
 				rows.sort((a, b) => {
 					let x = val(a), y = val(b);
 					if (numeric) return ((+x || 0) - (+y || 0)) * s.sort.dir;
@@ -1148,7 +1338,7 @@
 				if (can && c[2] === 'owner' && (!acc || this.data.is_manager)) return sel(d.name, this.own_field(d), this.own(d), owner_opts(d));
 				if (can && c[2] === 'priority') return sel(d.name, 'priority', d.priority, (this.s.lists.priority || []).map(x => [x, x]));
 				if (can && c[2] === 'date_edit') return `<input type="date" class="sob-inline" data-inline="${esc(d.name)}" data-field="${c[0]}" value="${esc(d[c[0]] || '')}" aria-label="${esc(c[1])}">`;
-				if (c[0] === 'account') return `<b>${esc(d.account)}</b>${(d.flags || []).some(f => f.kind === 'action') ? ' <span class="sob-flag-dot" title="' + esc(d.flags.map(f => f.label).join(', ')) + '"></span>' : ''}`;
+				if (c[0] === 'account') return `<b>${esc(d.account)}</b>${(d.flags || []).some(f => f.kind === 'action') ? ' <span class="sob-flag-dot" data-tip="' + esc(d.flags.map(f => f.label).join(', ')) + '"></span>' : ''}`;
 				return esc(this.cell_value(d, c));
 			};
 			const total = k => rows.reduce((a, d) => a + (+d[k] || 0), 0);
@@ -1156,12 +1346,17 @@
 				if (c[0] === 'total_grams') return n0(total('total_grams')) + ' g';
 				if (['money', 'money2'].includes(c[2]) && c[0] !== 'price_per_gram' && c[0] !== 'value_override') return usd(total(c[0]));
 				if (acc && c[2] === 'num' && c[0] !== 'days_in_stage') return n0(total(c[0]));
+				if (c[2] === 'qty') {
+					const by = { lb: 0, g: 0 };
+					rows.forEach(d => { const q = this.acc_qty(d)[c[0] === 'vol_week' ? 'week' : 'month']; by.lb += q.lb; by.g += q.g; });
+					return qty_pair(by);
+				}
 				return i === 0 ? __('Total') + ` (${rows.length})` : '';
 			});
 			// sheet colours: money columns carry a blue tint, an overdue follow-up date gets the red aging fill
 			const today = this.data.today;
 			const kls = (c, d) => [
-				['num', 'money', 'money2', 'pct'].includes(c[2]) ? 'r' : '',
+				['num', 'money', 'money2', 'pct', 'qty'].includes(c[2]) ? 'r' : '',
 				['money', 'money2'].includes(c[2]) ? 'money' : '',
 				d && c[0] === 'next_step_due' && !d.is_closed && d.next_step_due && d.next_step_due < today ? 'late' : '',
 			].filter(Boolean).join(' ');
@@ -1256,11 +1451,13 @@
 			}
 			const empty = `<span class="sob-ed-empty">${esc(opts.placeholder || __('Add'))}</span>`;
 			const pen = `<span class="sob-pen" aria-hidden="true">${svg('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>', 12)}</span>`;
-			if (tile) return `<div class="sob-tile sob-ed" role="button" tabindex="0" data-ed="${field}" title="${esc(__('Click to edit'))}"><span>${esc(label)} ${pen}</span><b>${shown || empty}</b></div>`;
-			return `<div class="sob-f sob-ed" role="button" tabindex="0" data-ed="${field}" title="${esc(__('Click to edit'))}"><span>${esc(label)}</span><span>${shown || empty}${pen}</span></div>`;
+			if (tile) return `<div class="sob-tile sob-ed" role="button" tabindex="0" data-ed="${field}" data-tip="${esc(__('Click to edit, Enter to save'))}"><span>${esc(label)} ${pen}</span><b>${shown || empty}</b></div>`;
+			return `<div class="sob-f sob-ed" role="button" tabindex="0" data-ed="${field}" data-tip="${esc(__('Click to edit, Enter to save'))}"><span>${esc(label)}</span><span>${shown || empty}${pen}</span></div>`;
 		}
 
 		// Requirement lines: a deal can ask for several product lines. Changes save as soon as a field changes.
+		// Requirement lines: a deal can ask for several product lines. Fresh frozen is entered in lb and $/lb, extracts in g
+		// and $/g; everything is stored in grams. Changes save as soon as a field changes.
 		req_editor(d, opts) {
 			opts = opts || {};
 			const editable = this.can_edit(d);
@@ -1276,21 +1473,25 @@
 					(l.product_line && !all_lines.includes(l.product_line) ? o(l.product_line, l.product_line, l.product_line) : '');
 				const tier_opts = tiers.length ? o('', __('No tier'), l.tier) + tiers.map(x => o(x, x, l.tier)).join('')
 					: o('', l.product_line ? __('No tiers for this line') : __('Tier'), '');
+				const lb = this.fam_of(l.product_line) === 'lb';
+				const f = lb ? 'lb' : 'g';
 				const amount = (+l.total_grams || 0) * (+l.price_per_gram || 0);
 				const stock = l.stock_grams == null || l.draft ? '' : (+l.short > 0
-					? `<span class="sob-badge act" title="${esc(__('{0} g available', [n0(l.stock_grams)]))}">${__('Short')} ${n0(l.short)} g</span>`
-					: `<span class="sob-badge ok" title="${esc(__('{0} g available', [n0(l.stock_grams)]))}">${__('In stock')}</span>`);
+					? `<span class="sob-badge act" data-tip="${esc(__('{0} available in the sellable warehouses', [qty(l.stock_grams, f)]))}">${__('Short')} ${esc(qty(l.short, f))}</span>`
+					: `<span class="sob-badge ok" data-tip="${esc(__('{0} available in the sellable warehouses', [qty(l.stock_grams, f)]))}">${__('In stock')}</span>`);
 				const dis = editable ? '' : ' disabled';
 				const k = esc(l.key);
+				const q = +l.total_grams ? (lb ? r3(l.total_grams / LB) : r3(l.total_grams)) : '';
+				const p = +l.price_per_gram ? (lb ? r2(l.price_per_gram * LB) : r3(l.price_per_gram)) : '';
 				return `<div class="sob-req${l.draft ? ' draft' : ''}" data-req="${k}">
 					<div class="sob-req-head"><span class="sob-req-n">${i + 1}</span>
 						<select data-req-field="product_line" aria-label="${esc(__('Product line, requirement {0}', [i + 1]))}"${dis}>${line_opts}</select>
 						<select data-req-field="tier" aria-label="${esc(__('Tier, requirement {0}', [i + 1]))}"${editable && tiers.length ? '' : ' disabled'}>${tier_opts}</select>
-						${editable ? `<button type="button" class="sob-x sm" data-req-remove="${k}" aria-label="${esc(__('Remove requirement {0}', [i + 1]))}" title="${esc(__('Remove'))}">${svg(ICON.x, 14)}</button>` : ''}
+						${editable ? `<button type="button" class="sob-x sm" data-req-remove="${k}" aria-label="${esc(__('Remove requirement {0}', [i + 1]))}" data-tip="${esc(__('Remove this line'))}">${svg(ICON.x, 14)}</button>` : ''}
 					</div>
 					<div class="sob-req-nums">
-						<label>${__('Grams')}<input type="number" min="0" step="any" inputmode="decimal" data-req-field="total_grams" data-keep="req:${k}:g" value="${+l.total_grams ? esc(l.total_grams) : ''}"${dis}></label>
-						<label>${__('Price / g')}<input type="number" min="0" step="any" inputmode="decimal" data-req-field="price_per_gram" data-keep="req:${k}:p" value="${+l.price_per_gram ? esc(l.price_per_gram) : ''}"${dis}></label>
+						<label data-tip="${esc(lb ? __('Fresh frozen is counted in lb') : __('Extracts are counted in grams'))}">${lb ? __('Pounds') : __('Grams')}<input type="number" min="0" step="any" inputmode="decimal" data-req-field="total_grams" data-unit="${f}" data-keep="req:${k}:g" value="${esc(q)}"${dis}></label>
+						<label data-tip="${esc(lb ? __('Price per lb') : __('Price per gram'))}">${lb ? __('Price / lb') : __('Price / g')}<input type="number" min="0" step="any" inputmode="decimal" data-req-field="price_per_gram" data-unit="${f}" data-keep="req:${k}:p" value="${esc(p)}"${dis}></label>
 						<div class="sob-req-amt"><span>${__('Amount')}</span><b>${amount ? usd(amount) : '—'}</b></div>
 						<div class="sob-req-stock">${stock}</div>
 					</div>
@@ -1298,7 +1499,7 @@
 			};
 			return `<div class="sob-block sob-reqs${busy}">
 				${opts.bare ? '' : `<div class="sob-cap">${__('Requirements')}</div>`}
-				${lines.length ? lines.map(row).join('') : `<div class="sob-muted">${__('No product requirements yet.')}</div>`}
+				${lines.length ? lines.map(row).join('') : `<div class="sob-muted">${__('No product requirements yet')}</div>`}
 				${editable ? `<button type="button" class="sob-btn sm sob-req-add" data-act="req-add">${svg(ICON.plus, 14)}${__('Add requirement')}</button>` : ''}
 			</div>`;
 		}
@@ -1308,21 +1509,24 @@
 			const manual = +d.value_override > 0;
 			const value = manual ? +d.value_override : calc;
 			const st = this.stage(d.stage) || {};
+			const by = this.deal_qty(d);
+			const fams = FAMS.filter(f => by[f] > 0);
+			// average price in the one unit the deal uses; a deal mixing lb and g lines shows none
+			const f = fams.length === 1 ? fams[0] : null;
+			const avg = f ? calc / (f === 'lb' ? by.lb / LB : by.g) : 0;
 			const lines = this.lines_of(d).filter(l => l.product_line);
-			const grams = lines.reduce((a, l) => a + (+l.total_grams || 0), 0);
-			const avg = grams ? calc / grams : 0;
 			const shown = (value ? usd(value) : '—') + (manual ? ` <span class="sob-badge manual">${__('Manual')}</span>` : '');
 			const tile = this.can_edit(d)
 				? this.ed(d, 'value_override', __('Deal value'), { tile: true, type: 'number', html: shown, value: value || '' })
 				: `<div class="sob-tile"><span>${__('Deal value')}</span><b>${shown}</b></div>`;
 			return `<div class="sob-tiles">
 				${tile}
-				<div class="sob-tile"><span>${__('Weighted')}</span><b>${value ? usd(value * (+st.probability || 0) / 100) : '—'}</b></div>
-				<div class="sob-tile"><span>${__('Grams')}</span><b>${grams ? n0(grams) : '—'}</b></div>
-				<div class="sob-tile"><span>${lines.length > 1 ? __('Avg price / g') : __('Price per gram')}</span><b>${avg ? money2(avg) : '—'}</b></div>
+				<div class="sob-tile" data-tip="${esc(__('Deal value × {0}% for {1}', [+st.probability || 0, __(d.stage)]))}"><span>${__('Weighted')}</span><b>${value ? usd(value * (+st.probability || 0) / 100) : '—'}</b></div>
+				<div class="sob-tile"><span>${__('Quantity')}</span><b>${esc(qty_pair(by) || '—')}</b></div>
+				<div class="sob-tile"><span>${lines.length > 1 ? __('Avg price') : __('Price')}</span><b>${avg ? money2(avg) + '/' + (f === 'lb' ? 'lb' : 'g') : '—'}</b></div>
 			</div>${manual ? `<div class="sob-manual-note"><span class="sob-muted">${__('Manual deal value. Calculated from the requirements: {0}.', [calc ? usd(calc) : '$0'])}</span>
 				${this.can_edit(d) ? `<button type="button" class="sob-link" data-act="value-reset">${__('Use calculated value')}</button>` : ''}</div>`
-				: (this.can_edit(d) ? `<div class="sob-muted">${__('Click Deal value to enter it by hand.')}</div>` : '')}`;
+				: (this.can_edit(d) ? `<div class="sob-muted">${__('Click Deal value to enter it by hand')}</div>` : '')}`;
 		}
 
 		buyer_tab(d) {
@@ -1588,7 +1792,7 @@
 				this.$drawer.find('.sob-drawer').attr('aria-label', d._acc ? __('Account') : __('Deal')).html(`
 					<header class="sob-d-head">
 						${parts.head}
-						<div class="sob-d-tabs lg-group" role="tablist">${tabs.map(t => `<button type="button" role="tab" class="lg-item${t[0] === tab ? ' on' : ''}" aria-selected="${t[0] === tab}" data-tab="${t[0]}">${esc(t[1])}</button>`).join('')}</div>
+						<div class="sob-d-tabs lg-group" role="tablist" data-seg="drawer">${tabs.map(t => `<button type="button" role="tab" class="lg-item${t[0] === tab ? ' on' : ''}" aria-selected="${t[0] === tab}" data-tab="${t[0]}">${esc(t[1])}</button>`).join('')}</div>
 					</header>
 					<div class="sob-d-body">${parts.body}</div>
 					<footer class="sob-d-foot">${parts.foot}</footer>`);
@@ -1616,6 +1820,7 @@
 				this._rendering = false;
 			}
 			this.render_bresults();
+			this.seg_sync(this.$drawer.find('.sob-d-tabs').get(0));
 		}
 
 		deal_tabs(d) {
@@ -1635,7 +1840,7 @@
 			const st = this.status(a.lead_status) || {};
 			// the deal usually carries the account's name already; then the link only needs the status
 			const label = a.account !== d.account ? a.account : __('Account');
-			return `<button type="button" class="sob-acc-link" data-open-acc="${esc(a.name)}" style="--sob-stage:${esc(st.colour || '#A1A1AA')}" title="${esc(__('Open {0} on the Leads board', [a.account]))}">
+			return `<button type="button" class="sob-acc-link" data-open-acc="${esc(a.name)}" style="--sob-stage:${esc(st.colour || '#A1A1AA')}" data-tip="${esc(__('Open {0} on the Leads board', [a.account]))}">
 				<span class="sob-stage-dot"></span><span>${esc(label)}</span><span class="sob-muted">${esc(__(a.lead_status))}</span>${svg(ICON.right, 12)}</button>`;
 		}
 
@@ -1736,11 +1941,12 @@
 		}
 
 		acc_tiles(a) {
+			const q = this.acc_qty(a);
 			return `<div class="sob-tiles">
-				<div class="sob-tile"><span>${__('Volume / week')}</span><b>${+a.weekly_volume ? wt(a.weekly_volume) : '—'}</b></div>
-				<div class="sob-tile"><span>${__('Wants / month')}</span><b>${+a.monthly_demand ? wt(a.monthly_demand) : '—'}</b></div>
-				<div class="sob-tile"><span>${__('Potential / month')}</span><b>${+a.monthly_potential ? usd(a.monthly_potential) : '—'}</b></div>
-				<div class="sob-tile"><span>${__('Weighted / month')}</span><b>${+a.weighted_potential ? usd(a.weighted_potential) : '—'}</b></div>
+				<div class="sob-tile" data-tip="${esc(__('What they procure or produce in a week'))}"><span>${__('Volume / week')}</span><b>${esc(qty_pair(q.week) || '—')}</b></div>
+				<div class="sob-tile" data-tip="${esc(__('What they want from us each month'))}"><span>${__('Wants / month')}</span><b>${esc(qty_pair(q.month) || '—')}</b></div>
+				<div class="sob-tile" data-tip="${esc(__('Wants / month × price'))}"><span>${__('Potential / month')}</span><b>${+a.monthly_potential ? usd(a.monthly_potential) : '—'}</b></div>
+				<div class="sob-tile" data-tip="${esc(__('Potential × {0}% for {1}', [+a.probability || 0, __(a.lead_status)]))}"><span>${__('Weighted / month')}</span><b>${+a.weighted_potential ? usd(a.weighted_potential) : '—'}</b></div>
 			</div>`;
 		}
 
@@ -1830,14 +2036,17 @@
 		}
 
 		vol_text(v) {
-			const unit = v.uom || 'g';
+			const c = this.vol_calc(v);
+			const f = this.fam_of(v.product_line);
 			const parts = [[v.product_line, v.tier].filter(Boolean).join(' ')];
-			if (+v.weekly_volume) parts.push(__('{0} {1} {2}/wk', [v.activity === 'Produce' ? __('makes') : __('buys'), nq(v.weekly_volume), unit]));
-			if (+v.wants_qty) parts.push(__('wants {0} {1}/{2}', [nq(v.wants_qty), unit, v.wants_per === 'Week' ? __('wk') : __('mo')]));
+			if (+v.weekly_volume) parts.push(v.activity === 'Produce' ? __('makes {0}/wk', [qty(c.weekly_grams, f)]) : __('buys {0}/wk', [qty(c.weekly_grams, f)]));
+			if (+v.wants_qty) parts.push(__('wants {0}/mo', [qty(c.monthly_grams, f)]));
 			return parts.join(', ');
 		}
 
 		// Volume rows of an account, edited like requirement lines: every change saves.
+		// Volume rows of an account, edited like requirement lines: every change saves. The unit follows the product
+		// line's SKUs: lb for fresh frozen, g or kg for extracts; the price is per lb or per gram to match.
 		vol_editor(a, opts) {
 			opts = opts || {};
 			const editable = this.can_edit(a);
@@ -1854,32 +2063,32 @@
 					(v.product_line && !all_lines.includes(v.product_line) ? o(v.product_line, v.product_line, v.product_line) : '');
 				const tier_opts = tiers.length ? o('', __('No tier'), v.tier) + tiers.map(x => o(x, x, v.tier)).join('')
 					: o('', v.product_line ? __('No tiers for this line') : __('Tier'), '');
-				const per = UNITS[v.uom || 'g'] || 1;
-				const monthly = (+v.wants_qty || 0) * per * ((v.wants_per || 'Month') === 'Week' ? WPM : 1);
-				const value = monthly * (+v.price_per_gram || 0);
+				const f = this.fam_of(v.product_line);
+				const units = f === 'lb' ? [['lb', 'lb']] : [['g', 'g'], ['kg', 'kg']];
+				const c = this.vol_calc(v);
 				const k = esc(v.key);
-				const num = (f, label, keep) => `<label>${label}<input type="number" min="0" step="any" inputmode="decimal" data-vol-field="${f}" data-keep="vol:${k}:${keep}" value="${+v[f] ? esc(v[f]) : ''}"${dis}></label>`;
-				const pick = (f, label, list, cur) => `<label>${label}<select data-vol-field="${f}"${dis}>${list.map(x => o(x[0], x[1], cur || list[0][0])).join('')}</select></label>`;
+				const num = (fld, label, keep, tip) => `<label data-tip="${esc(tip)}">${label}<input type="number" min="0" step="any" inputmode="decimal" data-vol-field="${fld}" data-keep="vol:${k}:${keep}" value="${+v[fld] ? esc(v[fld]) : ''}"${dis}></label>`;
+				const pick = (fld, label, list, cur, tip, lock) => `<label data-tip="${esc(tip)}">${label}<select data-vol-field="${fld}"${dis || (lock ? ' disabled' : '')}>${list.map(x => o(x[0], x[1], cur || list[0][0])).join('')}</select></label>`;
 				return `<div class="sob-req sob-vol${v.draft ? ' draft' : ''}" data-vol="${k}">
 					<div class="sob-req-head"><span class="sob-req-n">${i + 1}</span>
 						<select data-vol-field="product_line" aria-label="${esc(__('Product line, row {0}', [i + 1]))}"${dis}>${line_opts}</select>
 						<select data-vol-field="tier" aria-label="${esc(__('Tier, row {0}', [i + 1]))}"${editable && tiers.length ? '' : ' disabled'}>${tier_opts}</select>
-						${editable ? `<button type="button" class="sob-x sm" data-vol-remove="${k}" aria-label="${esc(__('Remove row {0}', [i + 1]))}" title="${esc(__('Remove'))}">${svg(ICON.x, 14)}</button>` : ''}
+						${editable ? `<button type="button" class="sob-x sm" data-vol-remove="${k}" aria-label="${esc(__('Remove row {0}', [i + 1]))}" data-tip="${esc(__('Remove this product line'))}">${svg(ICON.x, 14)}</button>` : ''}
 					</div>
 					<div class="sob-vol-grid">
-						${pick('activity', __('They'), [['Procure', __('Procure (buy)')], ['Produce', __('Produce (make)')]], v.activity)}
-						${num('weekly_volume', __('Volume / week'), 'w')}
-						${pick('uom', __('Unit'), [['g', 'g'], ['kg', 'kg'], ['lb', 'lb']], v.uom)}
-						${num('wants_qty', __('Wants from us'), 'q')}
-						${pick('wants_per', __('Per'), [['Month', __('Month')], ['Week', __('Week')]], v.wants_per)}
-						${num('price_per_gram', __('Price / g'), 'p')}
+						${pick('activity', __('They'), [['Procure', __('Procure (buy)')], ['Produce', __('Produce (make)')]], v.activity, __('Procure: they buy it from suppliers. Produce: they make it themselves'))}
+						${num('weekly_volume', __('Volume / week'), 'w', __('How much they buy or make in a normal week, in the unit on the right'))}
+						${pick('uom', __('Unit'), units, units.some(u => u[0] === v.uom) ? v.uom : units[0][0], f === 'lb' ? __('Fresh frozen is always counted in lb') : __('Extracts are counted in g or kg'), units.length < 2)}
+						${num('wants_qty', __('Wants from us'), 'q', __('How much of it they would take from us'))}
+						${pick('wants_per', __('Per'), [['Month', __('Month')], ['Week', __('Week')]], v.wants_per, __('Whether that amount is each week or each month'))}
+						${num('price', f === 'lb' ? __('Price / lb') : __('Price / g'), 'p', __('What they would pay. Empty uses the default price of the product line'))}
 					</div>
-					<div class="sob-vol-sum">${monthly ? `<span>${esc(__('{0} a month', [wt(monthly)]))}</span><b>${value ? usd(value) + '/' + __('mo') : esc(__('Add a price per gram'))}</b>` : `<span class="sob-muted">${__('Enter what they want from us to see the monthly potential')}</span>`}</div>
+					<div class="sob-vol-sum">${c.monthly_grams ? `<span>${esc(__('{0} a month', [qty(c.monthly_grams, f)]))}</span><b>${c.monthly_value ? usd(c.monthly_value) + '/' + __('mo') : esc(__('Add a price'))}</b>` : `<span class="sob-muted">${__('Enter what they want from us to see the monthly potential')}</span>`}</div>
 				</div>`;
 			};
 			return `<div class="sob-block sob-reqs${busy}">
-				${opts.bare ? '' : `<div class="sob-cap">${__('Volume and demand')}</div><div class="sob-muted">${__('Per product line: how much they procure or produce each week, and how much they want from us.')}</div>`}
-				${rows.length ? rows.map(row).join('') : `<div class="sob-muted">${__('No volume recorded yet.')}</div>`}
+				${opts.bare ? '' : `<div class="sob-cap">${__('Volume and demand')}</div><div class="sob-muted">${__('Per product line: what they procure or produce each week, and what they want from us')}</div>`}
+				${rows.length ? rows.map(row).join('') : `<div class="sob-muted">${__('No volume recorded yet')}</div>`}
 				${editable ? `<button type="button" class="sob-btn sm sob-req-add" data-act="vol-add">${svg(ICON.plus, 14)}${__('Add product line')}</button>` : ''}
 			</div>`;
 		}
@@ -2301,6 +2510,8 @@
 			if (f === 'total_grams' || f === 'price_per_gram') {
 				v = v === '' ? 0 : Number(v);
 				if (!isFinite(v) || v < 0) { frappe.show_alert({ message: __('Please enter a number of 0 or more.'), indicator: 'red' }); el.value = row[f] || ''; return; }
+				// fresh frozen is typed in lb and $/lb; stored in grams and $/g
+				if (el.getAttribute('data-unit') === 'lb') v = f === 'total_grams' ? v * LB : v / LB;
 			}
 			row[f] = v;
 			if (f === 'product_line' && row.tier && !this.tiers_for(v).includes(row.tier)) row.tier = '';
@@ -2314,7 +2525,8 @@
 		vol_calc(v) {
 			const per = UNITS[v.uom || 'g'] || 1;
 			const monthly = (+v.wants_qty || 0) * per * ((v.wants_per || 'Month') === 'Week' ? WPM : 1);
-			return { weekly_grams: (+v.weekly_volume || 0) * per, monthly_grams: monthly, monthly_value: monthly * (+v.price_per_gram || 0) };
+			const pu = UNITS[v.price_unit || (this.fam_of(v.product_line) === 'lb' ? 'lb' : 'g')] || 1;
+			return { weekly_grams: (+v.weekly_volume || 0) * per, monthly_grams: monthly, monthly_value: monthly / pu * (+v.price || 0) };
 		}
 
 		save_vol(name, msg) {
@@ -2327,7 +2539,7 @@
 			const payload = sent.map(v => ({
 				name: v.name || null, product_line: v.product_line, tier: v.tier || '', activity: v.activity || 'Procure',
 				weekly_volume: +v.weekly_volume || 0, wants_qty: +v.wants_qty || 0, wants_per: v.wants_per || 'Month', uom: v.uom || 'g',
-				price_per_gram: +v.price_per_gram || 0, notes: v.notes || '',
+				price: +v.price || 0, notes: v.notes || '',
 			}));
 			// show the new totals right away; the reload brings the server's figures (and default prices)
 			const prev = { volume: a.volume, weekly_volume: a.weekly_volume, monthly_demand: a.monthly_demand, monthly_potential: a.monthly_potential, weighted_potential: a.weighted_potential };
@@ -2360,7 +2572,7 @@
 		vol_add(name, $host) {
 			const a = this.find(name);
 			if (!a || !this.can_edit(a)) return;
-			this.work_copy(a).push({ key: 'n' + (++this._k), product_line: '', tier: '', activity: 'Procure', weekly_volume: '', wants_qty: '', wants_per: 'Month', uom: 'g', price_per_gram: '', notes: '', draft: true });
+			this.work_copy(a).push({ key: 'n' + (++this._k), product_line: '', tier: '', activity: 'Procure', weekly_volume: '', wants_qty: '', wants_per: 'Month', uom: 'g', price: '', notes: '', draft: true });
 			this.refresh_req(name);
 			const el = $host.find(`[data-vol="n${this._k}"] [data-vol-field="product_line"]`).get(0);
 			if (el) el.focus();
@@ -2385,12 +2597,21 @@
 			const row = this.work_copy(a).find(x => x.key === key);
 			if (!row) return;
 			let v = el.value;
-			if (['weekly_volume', 'wants_qty', 'price_per_gram'].includes(f)) {
+			if (['weekly_volume', 'wants_qty', 'price'].includes(f)) {
 				v = v === '' ? 0 : Number(v);
 				if (!isFinite(v) || v < 0) { frappe.show_alert({ message: __('Please enter a number of 0 or more.'), indicator: 'red' }); el.value = row[f] || ''; return; }
 			}
 			row[f] = v;
-			if (f === 'product_line' && row.tier && !this.tiers_for(v).includes(row.tier)) row.tier = '';
+			if (f === 'product_line') {
+				if (row.tier && !this.tiers_for(v).includes(row.tier)) row.tier = '';
+				// the unit follows the line's SKUs; a new row takes the line's own unit
+				const fam = this.fam_of(v);
+				const allowed = fam === 'lb' ? ['lb'] : ['g', 'kg'];
+				if (row.draft || !allowed.includes(row.uom)) row.uom = allowed.includes(this.unit_of(v)) ? this.unit_of(v) : allowed[0];
+				const pu = fam === 'lb' ? 'lb' : 'g';
+				if (row.price_unit && row.price_unit !== pu) row.price = '';
+				row.price_unit = pu;
+			}
 			if (row.draft && !row.product_line) { this.refresh_req(name); return; }
 			row.draft = false;
 			this.save_vol(name, f === 'product_line' || f === 'tier' ? __('Volume updated') : __('Saved'));
@@ -2538,6 +2759,175 @@
 				<span class="sob-tick">${svg(ICON.check, 14)}</span><span class="sob-stage-dot"></span><span>${esc(__(x.name))}</span><span class="sob-mi-r">${+x.probability || 0}%</span></button>`).join('')}</div>`;
 		}
 
+		// ---------- hover tutorials: one glass tooltip for every [data-tip] ----------
+
+		// Mouse and trackpad only (touch has no hover). Shows after a short rest, at once when moving between tips,
+		// and on keyboard focus. Off with "Show tips on hover" in Filters.
+		bind_tips() {
+			try { this.tips_off = localStorage.getItem('sob_tips_off') === '1'; } catch (e) { this.tips_off = false; }
+			const $t = this.$tip;
+			const hover = window.matchMedia && matchMedia('(hover: hover)').matches;
+			let timer = 0, cur = null, warm = 0;
+			const ours = el => !!(el && el.closest('.sob, .sob-drawer, .sob-pop'));
+			const hide = () => {
+				clearTimeout(timer);
+				if (cur) { cur.removeAttribute('aria-describedby'); warm = Date.now(); }
+				cur = null;
+				$t.prop('hidden', true);
+			};
+			const show = el => {
+				const text = el.getAttribute('data-tip');
+				if (!text || this.tips_off || frappe.get_route_str() !== ROUTE || !document.contains(el)) return;
+				cur = el;
+				$t.text(text).prop('hidden', false);
+				el.setAttribute('aria-describedby', 'sob-tip');
+				const r = el.getBoundingClientRect(), w = $t.outerWidth(), h = $t.outerHeight(), m = 8;
+				let top = r.top - h - 8, side = 'above';
+				if (top < 56) { top = r.bottom + 8; side = 'below'; }
+				const left = Math.max(m, Math.min(r.left + r.width / 2 - w / 2, window.innerWidth - w - m));
+				$t.css({ top: Math.round(top) + 'px', left: Math.round(left) + 'px' }).attr('data-side', side);
+			};
+			const later = el => {
+				clearTimeout(timer);
+				timer = setTimeout(() => show(el), Date.now() - warm < 600 ? 60 : 450);
+			};
+			if (hover) {
+				document.addEventListener('mouseover', e => {
+					const el = e.target.closest && e.target.closest('[data-tip]');
+					if (el === cur) return;
+					if (cur) hide();
+					if (el && ours(el) && !this.drag) later(el);
+					else clearTimeout(timer);
+				}, { passive: true });
+			}
+			document.addEventListener('focusin', e => {
+				const el = e.target.closest && e.target.closest('[data-tip]');
+				if (el && ours(el) && e.target.matches && e.target.matches(':focus-visible')) { hide(); show(el); }
+			});
+			document.addEventListener('focusout', () => { if (cur) hide(); });
+			['pointerdown', 'dragstart', 'wheel'].forEach(t => document.addEventListener(t, () => { if (cur || timer) hide(); }, { capture: true, passive: true }));
+			window.addEventListener('scroll', () => { if (cur) hide(); }, { capture: true, passive: true });
+			document.addEventListener('keydown', e => { if (e.key === 'Escape' && cur) hide(); });
+			this.hide_tip = hide;
+		}
+
+		// ---------- segmented controls: a sliding thumb that lifts into a magnifying lens (iOS 26) ----------
+
+		// The selected segment's thumb is its own element, so it slides between segments. Pressing a segment lifts the
+		// thumb into a lens that swells and magnifies the labels under it; drag it across and let go to choose.
+		seg_sync(g) {
+			if (!g || !g.offsetWidth) return;
+			let th = g.querySelector(':scope > .sob-thumb');
+			if (!th) {
+				th = document.createElement('span');
+				th.className = 'sob-thumb still';
+				th.setAttribute('aria-hidden', 'true');
+				th.innerHTML = '<span class="sob-lens"></span>';
+				g.prepend(th);
+				g.classList.add('sob-glide');
+			}
+			g.classList.toggle('scrolls', g.scrollWidth > g.clientWidth + 2);
+			if (th.classList.contains('lift')) return;  // a finger is on it
+			const on = g.querySelector(':scope > .lg-item[aria-pressed="true"], :scope > .lg-item[aria-selected="true"]');
+			if (!on) { th.style.opacity = '0'; return; }
+			const key = g.getAttribute('data-seg');
+			const x = on.offsetLeft, w = on.offsetWidth;
+			const segs = this._segs = this._segs || {};
+			const place = (px, pw, anim) => { th.classList.toggle('still', !anim); th.style.translate = `${px}px 0`; th.style.width = `${pw}px`; };
+			th.style.top = on.offsetTop + 'px';
+			th.style.height = on.offsetHeight + 'px';
+			th.style.opacity = '1';
+			const prev = segs[key];
+			if (!th._placed && prev && (prev.x !== x || prev.w !== w)) {
+				// a re-rendered group (drawer tabs) starts where its thumb was, then slides
+				place(prev.x, prev.w, false);
+				void th.offsetWidth;
+				place(x, w, true);
+			} else if (!prev || prev.x !== x || prev.w !== w || !th._placed) place(x, w, !!th._placed);
+			th._placed = true;
+			segs[key] = { x, w };
+		}
+
+		bind_segs() {
+			let drag = null;
+			const items = g => [...g.querySelectorAll(':scope > .lg-item')];
+			const fill = (g, th) => {
+				// the lens shows a copy of the labels, laid out like the real ones; the lens's swell magnifies it
+				const inner = document.createElement('div');
+				inner.className = 'sob-lens-in';
+				items(g).forEach(it => {
+					const c = it.cloneNode(true);
+					['data-tip', 'id', 'aria-describedby', 'data-board', 'data-view', 'data-measure', 'data-tab'].forEach(a => c.removeAttribute(a));
+					c.setAttribute('tabindex', '-1');
+					Object.assign(c.style, { left: it.offsetLeft + 'px', top: it.offsetTop + 'px', width: it.offsetWidth + 'px', height: it.offsetHeight + 'px' });
+					inner.appendChild(c);
+				});
+				th.querySelector('.sob-lens').replaceChildren(inner);
+				return inner;
+			};
+			const move = (x, anim) => {
+				drag.th.classList.toggle('still', !anim);
+				drag.th.style.translate = `${x}px 0`;
+				drag.inner.style.translate = `${-x}px ${-drag.y}px`;
+				drag.x = x;
+			};
+			const settle = (pick) => {
+				const d = drag;
+				drag = null;
+				if (!d) return;
+				d.th.classList.remove('lift');
+				setTimeout(() => { if (!d.th.classList.contains('lift')) d.th.querySelector('.sob-lens').replaceChildren(); }, 320);
+				const target = pick && pick(d);
+				if (target && target.getAttribute('aria-pressed') !== 'true' && target.getAttribute('aria-selected') !== 'true') {
+					this._seg_t = performance.now();
+					target.click();
+				}
+				this.seg_sync(d.g);
+			};
+			const nearest = d => {
+				if (!d.moved) return d.item;
+				const mid = d.x + d.w / 2;
+				return items(d.g).reduce((best, it) => (Math.abs(it.offsetLeft + it.offsetWidth / 2 - mid) < Math.abs(best.offsetLeft + best.offsetWidth / 2 - mid) ? it : best));
+			};
+			document.addEventListener('pointerdown', e => {
+				const g = e.target.closest && e.target.closest('.sob-glide');
+				if (!g || e.button !== 0 || drag) return;
+				const it = e.target.closest('.lg-item');
+				const th = g.querySelector(':scope > .sob-thumb');
+				if (!it || it.parentNode !== g || !th || it.disabled) return;
+				drag = { g, th, item: it, start: e.clientX, x0: it.offsetLeft, x: th._placed ? parseFloat(th.style.translate) || 0 : it.offsetLeft, w: it.offsetWidth, y: it.offsetTop, moved: false, pid: e.pointerId };
+				th.style.width = it.offsetWidth + 'px';
+				th.style.top = it.offsetTop + 'px';
+				th.style.opacity = '1';
+				drag.inner = fill(g, th);
+				move(drag.x, false);
+				void th.offsetWidth;
+				th.classList.add('lift');
+				// the lens jumps under the finger, magnifying the pressed label
+				move(it.offsetLeft, true);
+				if (!g.classList.contains('scrolls')) { try { g.setPointerCapture(e.pointerId); } catch (x) { /* old browsers */ } }
+			});
+			document.addEventListener('pointermove', e => {
+				if (!drag || e.pointerId !== drag.pid || drag.g.classList.contains('scrolls')) return;
+				const dx = e.clientX - drag.start;
+				if (!drag.moved && Math.abs(dx) < 4) return;
+				drag.moved = true;
+				const last = items(drag.g).slice(-1)[0];
+				const max = last.offsetLeft + last.offsetWidth - drag.w;
+				move(Math.max(items(drag.g)[0].offsetLeft, Math.min(max, drag.x0 + dx)), false);
+			}, { passive: true });
+			document.addEventListener('pointerup', e => { if (drag && e.pointerId === drag.pid) settle(nearest); });
+			document.addEventListener('pointercancel', e => { if (drag && e.pointerId === drag.pid) settle(null); });
+			// the lens chose the segment already; drop the browser's own click that follows the pointerup
+			document.addEventListener('click', e => {
+				if (e.isTrusted && this._seg_t && performance.now() - this._seg_t < 500 && e.target.closest && e.target.closest('.sob-glide')) {
+					e.stopPropagation();
+					e.preventDefault();
+				}
+			}, true);
+			window.addEventListener('resize', () => this.$root.find('[data-seg]').each((_, g) => this.seg_sync(g)), { passive: true });
+		}
+
 		bind_pop() {
 			const $p = this.$pop;
 			$p.on('click', '[data-pop-close]', () => this.close_pop());
@@ -2651,10 +3041,15 @@
 					{ fieldtype: 'Section Break', label: __('Product') },
 					{ fieldname: 'product_line', fieldtype: 'Select', label: __('Product Line'), options: [''].concat(lines), default: this.state.prods.length === 1 ? this.state.prods[0] : '',
 						onchange: () => {
-							const t = tier_opts(dlg.get_value('product_line'));
+							const line = dlg.get_value('product_line');
+							const t = tier_opts(line);
 							dlg.set_df_property('tier', 'options', t);
 							dlg.set_df_property('tier', 'read_only', t.length > 1 ? 0 : 1);
 							if (!t.includes(dlg.get_value('tier'))) dlg.set_value('tier', '');
+							// fresh frozen is quoted in lb and $/lb, extracts in grams and $/g
+							const lb = this.fam_of(line) === 'lb';
+							dlg.set_df_property('total_grams', 'label', lb ? __('Pounds') : __('Total Grams'));
+							dlg.set_df_property('price_per_gram', 'label', lb ? __('Price per lb') : __('Price per Gram'));
 						} },
 					{ fieldname: 'tier', fieldtype: 'Select', label: __('Tier'), options: tier_opts(this.state.prods.length === 1 ? this.state.prods[0] : ''), read_only: tier_opts(this.state.prods.length === 1 ? this.state.prods[0] : '').length > 1 ? 0 : 1 },
 					{ fieldtype: 'Column Break' },
@@ -2673,6 +3068,10 @@
 					keys.concat(['stage', 'deal_owner', 'priority', 'next_step_due', 'product_line', 'tier', 'total_grams', 'price_per_gram', 'value_override'])
 						.forEach(k => { if (v[k] !== undefined && v[k] !== null && v[k] !== '' && !(NUM_FIELDS.includes(k) && !+v[k])) values[k] = v[k]; });
 					if (co.length) values.co_owners = co.slice();
+					if (this.fam_of(values.product_line) === 'lb') {
+						if (values.total_grams) values.total_grams = +values.total_grams * LB;
+						if (values.price_per_gram) values.price_per_gram = +values.price_per_gram / LB;
+					}
 					const acc = v.pipeline_account ? this.find(v.pipeline_account) : null;
 					dlg.disable_primary_action();
 					frappe.xcall(M + 'create_deal', { values }).then(name => {
@@ -2733,10 +3132,18 @@
 					{ fieldtype: 'Section Break', label: __('Volume and demand'), description: __('Optional. More product lines can be added on the account.') },
 					{ fieldname: 'product_line', fieldtype: 'Select', label: __('Product Line'), options: [''].concat(lines),
 						onchange: () => {
-							const t = tier_opts(dlg.get_value('product_line'));
+							const line = dlg.get_value('product_line');
+							const t = tier_opts(line);
 							dlg.set_df_property('tier', 'options', t);
 							dlg.set_df_property('tier', 'read_only', t.length > 1 ? 0 : 1);
 							if (!t.includes(dlg.get_value('tier'))) dlg.set_value('tier', '');
+							// the unit comes from the line's SKUs: lb for fresh frozen, g or kg for extracts
+							const lb = this.fam_of(line) === 'lb';
+							const units = lb ? ['lb'] : ['g', 'kg'];
+							dlg.set_df_property('uom', 'options', units);
+							dlg.set_value('uom', units.includes(this.unit_of(line)) ? this.unit_of(line) : units[0]);
+							dlg.set_df_property('uom', 'read_only', lb ? 1 : 0);
+							dlg.set_df_property('price', 'label', lb ? __('Price per lb') : __('Price per Gram'));
 						} },
 					{ fieldname: 'tier', fieldtype: 'Select', label: __('Tier'), options: [''], read_only: 1 },
 					{ fieldname: 'activity', fieldtype: 'Select', label: __('They'), options: [{ value: 'Procure', label: __('Procure (buy)') }, { value: 'Produce', label: __('Produce (make)') }], default: 'Procure' },
@@ -2744,8 +3151,8 @@
 					{ fieldtype: 'Column Break' },
 					{ fieldname: 'wants_qty', fieldtype: 'Float', label: __('Wants from us') },
 					{ fieldname: 'wants_per', fieldtype: 'Select', label: __('Per'), options: [{ value: 'Month', label: __('Month') }, { value: 'Week', label: __('Week') }], default: 'Month' },
-					{ fieldname: 'uom', fieldtype: 'Select', label: __('Unit'), options: ['g', 'kg', 'lb'], default: 'g' },
-					{ fieldname: 'price_per_gram', fieldtype: 'Currency', label: __('Price per Gram'), description: __('Leave empty for the product line\'s default price.') },
+					{ fieldname: 'uom', fieldtype: 'Select', label: __('Unit'), options: ['g', 'kg'], default: 'g', description: __('Set by the product line: lb for fresh frozen, g or kg for extracts') },
+					{ fieldname: 'price', fieldtype: 'Currency', label: __('Price per Gram'), description: __('Empty uses the product line\'s default price') },
 				],
 				primary_action_label: __('Create lead'),
 				primary_action: v => {
@@ -2755,7 +3162,7 @@
 						.forEach(k => { if (v[k]) values[k] = v[k]; });
 					if (v.product_line) {
 						values.volume = [{ product_line: v.product_line, tier: v.tier || '', activity: v.activity || 'Procure', weekly_volume: +v.weekly_volume || 0,
-							wants_qty: +v.wants_qty || 0, wants_per: v.wants_per || 'Month', uom: v.uom || 'g', price_per_gram: +v.price_per_gram || 0 }];
+							wants_qty: +v.wants_qty || 0, wants_per: v.wants_per || 'Month', uom: v.uom || 'g', price: +v.price || 0 }];
 					}
 					dlg.disable_primary_action();
 					frappe.xcall(M + 'create_account', { values }).then(name => {
@@ -2772,9 +3179,9 @@
 
 		email_button(d) {
 			const to = this.email_to(d);
-			if (to) return `<button type="button" class="sob-btn" data-act="email" title="${esc(__('Email {0}', [to]))}">${__('Email')}</button>`;
+			if (to) return `<button type="button" class="sob-btn" data-act="email" data-tip="${esc(__('Email {0}', [to]))}">${__('Email')}</button>`;
 			const tip = __("Add the buyer's email in the Buyer tab first.");
-			return `<span class="sob-tip" tabindex="0" title="${esc(tip)}" aria-label="${esc(tip)}"><button type="button" class="sob-btn" disabled aria-disabled="true">${__('Email')}</button></span>`;
+			return `<span class="sob-tip" tabindex="0" data-tip="${esc(tip)}" aria-label="${esc(tip)}"><button type="button" class="sob-btn" disabled aria-disabled="true">${__('Email')}</button></span>`;
 		}
 
 		// Standard composer on the deal: the sent email is a Communication linked to the deal (timeline + Activity).
@@ -2855,6 +3262,13 @@
 			const $r = this.$root, $d = this.$drawer;
 			$r.on('click', '[data-view]', e => this.set({ view: $(e.currentTarget).attr('data-view') }));
 			$r.on('click', '[data-board]', e => this.set({ board: $(e.currentTarget).attr('data-board') }));
+			$r.on('click', '[data-measure]', e => this.set({ measure: $(e.currentTarget).attr('data-measure') }));
+			$r.on('click', '[data-tips-toggle]', () => {
+				this.tips_off = !this.tips_off;
+				try { localStorage.setItem('sob_tips_off', this.tips_off ? '1' : '0'); } catch (x) { /* storage off */ }
+				if (this.hide_tip) this.hide_tip();
+				this.render_filters();
+			});
 			// card shortcuts: keep their clicks and drags away from the card (which opens or drags the deal)
 			$r.on('mousedown dragstart', '.sob-card-acts', e => e.stopPropagation());
 			$r.on('click', '[data-pop]', e => {

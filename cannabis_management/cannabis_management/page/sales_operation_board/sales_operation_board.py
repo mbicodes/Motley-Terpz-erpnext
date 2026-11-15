@@ -50,11 +50,11 @@ ACC_EDITABLE = {
 	"phone", "email", "location_address", "license_number", "relationship_notes", "volume",
 }
 ACC_CREATE = ACC_EDITABLE - {"lead"}
-VOL_FIELDS = ("product_line", "tier", "activity", "weekly_volume", "wants_qty", "wants_per", "uom", "price_per_gram", "notes")
-VOL_NUM = ("weekly_volume", "wants_qty", "price_per_gram")
+VOL_FIELDS = ("product_line", "tier", "activity", "weekly_volume", "wants_qty", "wants_per", "uom", "price", "notes")
+VOL_NUM = ("weekly_volume", "wants_qty", "price")
 VOL_LABELS = {
 	"product_line": "Product line", "tier": "Tier", "activity": "They", "weekly_volume": "Volume / week", "wants_qty": "Wants",
-	"wants_per": "Per", "uom": "Unit", "price_per_gram": "Price per gram", "notes": "Notes",
+	"wants_per": "Per", "uom": "Unit", "price": "Price", "notes": "Notes",
 }
 DATE_FIELDS = {"next_step_due", "sample_date", "expected_close", "delivery_pickup"}
 FLOAT_FIELDS = {"total_grams", "price_per_gram", "value_override"}
@@ -104,6 +104,7 @@ def _settings_payload(s):
 		"all_owners": s.owners,
 		"product_lines": s.product_line_names,
 		"line_tiers": _line_tiers(s),
+		"line_units": s.line_units,
 		"lists": s.lists,
 		"hide_closed_after_days": s.hide_closed_after_days,
 	}
@@ -567,12 +568,15 @@ def _party_title(doctype, name):
 
 
 def _req_label(r):
+	"""Requirement in the unit the team uses for its line: lb for fresh frozen, g for extracts."""
 	r = frappe._dict(r or {})
+	lb = sales_ops.line_unit(sales_ops.get_settings(), r.product_line) == "lb"
+	per = sales_ops.UNIT_GRAMS["lb"] if lb else 1.0
 	parts = [" · ".join(x for x in (r.product_line, r.tier) if x) or _("No product line")]
 	if flt(r.total_grams):
-		parts.append("{0} g".format(frappe.utils.fmt_money(flt(r.total_grams), precision=0)))
+		parts.append("{0} {1}".format(frappe.utils.fmt_money(flt(r.total_grams) / per, precision=1 if lb else 0), "lb" if lb else "g"))
 	if flt(r.price_per_gram):
-		parts.append("@ {0}/g".format(frappe.utils.fmt_money(flt(r.price_per_gram), precision=2, currency="USD")))
+		parts.append("@ {0}/{1}".format(frappe.utils.fmt_money(flt(r.price_per_gram) * per, precision=2, currency="USD"), "lb" if lb else "g"))
 	return " ".join(parts)
 
 
@@ -863,8 +867,10 @@ def make_quotation(name):
 		row = sales_ops.product_row(s, line.product_line, line.tier)
 		if row and row.quotation_item:
 			if flt(line.total_grams):
-				q.append("items", {"item_code": row.quotation_item, "qty": flt(line.total_grams), "rate": flt(line.price_per_gram)})
-				rates.append(flt(line.price_per_gram))
+				# lb lines (fresh frozen) are quoted in lb, the rest in grams
+				per = sales_ops.UNIT_GRAMS["lb"] if sales_ops.line_unit(s, line.product_line) == "lb" else 1.0
+				q.append("items", {"item_code": row.quotation_item, "qty": flt(line.total_grams) / per, "rate": flt(line.price_per_gram) * per})
+				rates.append(flt(line.price_per_gram) * per)
 		else:
 			missing.append(" ".join(x for x in (line.product_line, line.tier) if x))
 	message = None
@@ -925,7 +931,7 @@ def _volumes(accounts):
 	if names:
 		for r in frappe.get_all(
 			sales_ops.VOLUME, filters={"parenttype": ACC, "parent": ("in", names)},
-			fields=["name", "parent"] + list(VOL_FIELDS) + ["weekly_grams", "monthly_grams", "monthly_value"],
+			fields=["name", "parent"] + list(VOL_FIELDS) + ["price_unit", "price_per_gram", "weekly_grams", "monthly_grams", "monthly_value"],
 			order_by="idx asc",
 		):
 			by.setdefault(r.parent, []).append(r)
@@ -1140,7 +1146,7 @@ ACC_EXPORT = [
 VOL_EXPORT = [
 	("Account", "account_name"), ("Lead Status", "lead_status"), ("Product Line", "product_line"), ("Tier", "tier"),
 	("They", "activity"), ("Volume / Week", "weekly_volume"), ("Wants From Us", "wants_qty"), ("Per", "wants_per"), ("Unit", "uom"),
-	("Price per Gram", "price_per_gram"), ("Volume / Week (g)", "weekly_grams"), ("Wants / Month (g)", "monthly_grams"),
+	("Price", "price"), ("Price per", "price_unit"), ("Volume / Week (g)", "weekly_grams"), ("Wants / Month (g)", "monthly_grams"),
 	("Potential / Month", "monthly_value"), ("Notes", "notes"),
 ]
 

@@ -11,6 +11,8 @@
   "wants_qty",
   "wants_per",
   "uom",
+  "price",
+  "price_unit",
   "price_per_gram",
   "weekly_grams",
   "monthly_grams",
@@ -69,7 +71,7 @@
   {
    "columns": 1,
    "default": "g",
-   "description": "Unit of Volume / Week and Wants From Us",
+   "description": "Set from the product line: lb for fresh frozen, g or kg for extracts",
    "fieldname": "uom",
    "fieldtype": "Select",
    "in_list_view": 1,
@@ -78,10 +80,28 @@
   },
   {
    "columns": 1,
-   "fieldname": "price_per_gram",
+   "description": "Per lb for lb product lines, per gram otherwise",
+   "fieldname": "price",
    "fieldtype": "Currency",
    "in_list_view": 1,
-   "label": "Price per Gram"
+   "label": "Price"
+  },
+  {
+   "fieldname": "price_unit",
+   "fieldtype": "Select",
+   "label": "Price Unit",
+   "options": "\ng\nlb",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "price_per_gram",
+   "fieldtype": "Currency",
+   "in_list_view": 0,
+   "label": "Price per Gram",
+   "read_only": 1,
+   "precision": "6",
+   "description": "Worked out from Price"
   },
   {
    "fieldname": "weekly_grams",
@@ -111,7 +131,7 @@
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-11-15 18:00:00.000000",
+ "modified": "2026-11-16 09:00:00.000000",
  "modified_by": "Administrator",
  "module": "Cannabis Management",
  "name": "Sales Pipeline Volume",

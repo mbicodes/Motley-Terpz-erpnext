@@ -93,12 +93,16 @@ def get_settings():
 				warehouses=_lines(r.warehouses),
 				default_price=flt(r.default_price),
 				quotation_item=r.quotation_item or "",
+				unit=r.get("unit") if r.get("unit") in UNIT_GRAMS else "",
 			)
 		)
 	line_names = []
+	line_units = {}
 	for r in product_lines:
 		if r.product_line not in line_names:
 			line_names.append(r.product_line)
+		if r.unit and r.product_line not in line_units:
+			line_units[r.product_line] = r.unit
 	s = frappe._dict(
 		stages=stage_list,
 		first_stage=open_stages[0].name if open_stages else (stage_list[0].name if stage_list else None),
@@ -117,6 +121,8 @@ def get_settings():
 		],
 		product_lines=product_lines,
 		product_line_names=line_names,
+		# {"Fresh Frozen": "lb", "VRR": "g"}: how the team counts each line
+		line_units={n: line_units.get(n) or "g" for n in line_names},
 		stock_company=doc.stock_company,
 		lists=frappe._dict(
 			priority=_plain_lines(doc.priority_options) or ["High", "Medium", "Low"],
@@ -534,17 +540,36 @@ def deal_flags(d, s, st, today):
 # ---------- accounts (Leads board): lead status, volume and demand ----------
 
 
+def line_unit(s, product_line):
+	"""lb, g or kg: the unit the team counts this product line in (Settings, filled from its items' stock unit)."""
+	return (s.line_units or {}).get(product_line) or "g"
+
+
+def line_units_allowed(s, product_line):
+	"""Fresh frozen is always counted in lb; extracts in g or kg."""
+	return ["lb"] if line_unit(s, product_line) == "lb" else ["g", "kg"]
+
+
+def price_unit(s, product_line):
+	"""Prices are per lb for lb lines and per gram for everything else."""
+	return "lb" if line_unit(s, product_line) == "lb" else "g"
+
+
 def volume_row(r):
-	"""Grams per week they move, grams per month they want from us, and that month's value (in place)."""
+	"""Grams per week they move, grams per month they want from us, and that month's value (in place).
+	The price is per price_unit (lb or g)."""
 	per = UNIT_GRAMS.get(r.get("uom") or "g", 1.0)
 	r.weekly_grams = flt(r.get("weekly_volume")) * per
 	wants = flt(r.get("wants_qty")) * per
 	r.monthly_grams = wants * WEEKS_PER_MONTH if (r.get("wants_per") or "Month") == "Week" else wants
-	r.monthly_value = flt(r.monthly_grams) * flt(r.get("price_per_gram"))
+	pu = UNIT_GRAMS.get(r.get("price_unit") or "g", 1.0)
+	r.price_per_gram = flt(r.get("price")) / pu
+	r.monthly_value = flt(r.monthly_grams) / pu * flt(r.get("price"))
 	return r
 
 
 def default_price(s, product_line, tier):
+	"""Settings default price, in the line's price unit (per lb or per gram)."""
 	row = product_row(s, product_line, tier)
 	return flt(row.default_price) if row else 0.0
 
