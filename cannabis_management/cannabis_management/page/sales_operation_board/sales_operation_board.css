@@ -73,14 +73,15 @@
 		radial-gradient(55% 55% at 12% 100%, rgba(232, 160, 240, .45) 0%, rgba(232, 160, 240, 0) 70%),
 		linear-gradient(135deg, #f6eefc 0%, #efe3fa 45%, #fbf2df 100%);
 }
-/* Deals: money on the table. Deep grape of the logo outline, orchid bloom, a gold glow. */
+/* Deals: money on the table, but light. The web logo's gold leads, warming a cream base, with the
+   orchid drip and a blush between them; Leads stays the cool lavender one. */
 .sob-bg-deal {
 	background:
-		radial-gradient(65% 60% at 0% 0%, rgba(201, 107, 226, .85) 0%, rgba(201, 107, 226, 0) 70%),
-		radial-gradient(55% 50% at 100% 0%, rgba(248, 216, 90, .55) 0%, rgba(248, 216, 90, 0) 68%),
-		radial-gradient(70% 65% at 85% 100%, rgba(140, 60, 230, .85) 0%, rgba(140, 60, 230, 0) 70%),
-		radial-gradient(50% 50% at 8% 100%, rgba(248, 216, 90, .28) 0%, rgba(248, 216, 90, 0) 70%),
-		linear-gradient(150deg, #5a1aae 0%, #3f0e8a 45%, #26075a 100%);
+		radial-gradient(70% 60% at 0% 0%, rgba(248, 216, 90, .6) 0%, rgba(248, 216, 90, 0) 70%),
+		radial-gradient(60% 55% at 100% 0%, rgba(201, 107, 226, .34) 0%, rgba(201, 107, 226, 0) 70%),
+		radial-gradient(65% 60% at 100% 100%, rgba(240, 150, 200, .36) 0%, rgba(240, 150, 200, 0) 70%),
+		radial-gradient(55% 55% at 10% 100%, rgba(201, 107, 226, .26) 0%, rgba(201, 107, 226, 0) 70%),
+		linear-gradient(135deg, #fdf6e3 0%, #fbeef0 50%, #f3e9fb 100%);
 }
 [data-theme="dark"] .sob-bg-lead {
 	background:
@@ -295,7 +296,7 @@
 .sob-kpi.attn .sob-kpi-value, .sob-kpi.attn .sob-kpi-label { color: var(--sob-act-fg); }
 .sob-kpi.good .sob-kpi-value { color: var(--sob-good-fg); }
 
-/* On a dark backdrop (the Deals gradient, or the dark theme) the panels turn to dark frost with white
+/* In the dark theme the panels turn to dark frost with white
    text, like widgets over a dark wallpaper; the cards inside stay white. */
 .sob[data-tone="dark"] .sob-kpi, .sob[data-tone="dark"] .sob-col { background: rgba(255, 255, 255, .12); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .16), 0 16px 40px rgba(10, 0, 30, .28); }
 .sob[data-tone="dark"] .sob-kpi-label, .sob[data-tone="dark"] .sob-kpi-sub, .sob[data-tone="dark"] .sob-col-sub { color: rgba(255, 255, 255, .74); }
@@ -370,6 +371,15 @@
 .sob-card-when, .sob-card-meta { font-size: 12px; line-height: 16px; color: var(--sob-muted); overflow-wrap: anywhere; }
 .sob-card-next { font-size: 12px; line-height: 16px; font-weight: 600; color: var(--sob-ev-fg); display: inline-flex; align-items: center; gap: 4px; }
 .sob-card-tag { align-self: flex-start; font-size: 11px; font-weight: 600; line-height: 18px; color: var(--sob-muted); background: var(--sob-fill); border-radius: 9px; padding: 0 8px; }
+
+/* Card shortcuts: one row of quiet icon buttons under a hairline; they wake on hover */
+.sob-card-acts { display: flex; align-items: center; gap: 2px; margin: 4px -6px -6px; padding-top: 6px; box-shadow: 0 -1px 0 var(--sob-line); }
+.sob-ca { width: 30px; height: 30px; border-radius: 15px; border: 0; background: transparent; color: var(--sob-muted); display: inline-flex; align-items: center; justify-content: center; padding: 0; text-decoration: none; opacity: .7; transition: background-color .15s var(--sob-ease), color .15s var(--sob-ease), opacity .15s var(--sob-ease), transform .2s var(--sob-ease); }
+.sob-card:hover .sob-ca, .sob-card:focus-within .sob-ca { opacity: 1; }
+.sob-ca:hover, .sob-ca:focus-visible, .sob-ca[aria-expanded="true"] { background: var(--sob-accent-soft); color: var(--sob-accent); opacity: 1; text-decoration: none; }
+.sob-ca:active { transform: scale(.92); }
+.sob-ca-gap { flex: 1; }
+@media (hover: none) { .sob-ca { opacity: 1; } }
 
 /* Tags: capsules, colour only for meaning */
 .sob-badges { display: flex; flex-wrap: wrap; gap: 4px; }
@@ -449,7 +459,6 @@
 .sob-table td { padding: 0 12px; height: 36px; border-bottom: 1px solid var(--sob-line); white-space: nowrap; max-width: 260px; overflow: hidden; text-overflow: ellipsis; background: var(--sob-ghost); }
 .sob-table td.r { text-align: right; font-variant-numeric: tabular-nums; }
 .sob-table td b { font-weight: 600; }
-:root:not([data-theme="dark"]) .sob[data-board="deal"] .sob-table td { background: rgba(255, 255, 255, .9); }
 .sob-table td.money { background: color-mix(in srgb, var(--sob-money-cell) 100%, var(--sob-ghost)); }
 .sob-table td.late { background: var(--sob-bad-bg); color: var(--sob-bad-fg); }
 .sob-table tbody tr { cursor: pointer; }
@@ -467,9 +476,9 @@
 .sob-drawer-backdrop { position: fixed; left: 0; right: 0; bottom: 0; top: 0; background: rgba(20, 6, 40, .22); z-index: 1034; }
 [data-theme="dark"] .sob-drawer-backdrop { background: rgba(0, 0, 0, .4); }
 .sob-drawer.lg { position: fixed; right: 12px; bottom: 12px; top: 60px; width: min(560px, calc(100vw - 24px)); padding: 0; z-index: 1035; display: flex; flex-direction: column; overflow: hidden; color: var(--sob-ink); font-family: var(--sob-font); --lg-r: 26px; --lg-origin: center right; }
-/* content on the sheet: translucent white groups, never another glass */
-.sob-drawer { --sob-surface: rgba(255, 255, 255, .78); --sob-ghost: rgba(255, 255, 255, .78); --sob-sunken: rgba(118, 118, 128, .07); --sob-hover: rgba(118, 118, 128, .1); --sob-money-cell: rgba(0, 122, 255, .05); }
-[data-theme="dark"] .sob-drawer { --sob-surface: rgba(255, 255, 255, .07); --sob-ghost: rgba(255, 255, 255, .07); --sob-sunken: rgba(0, 0, 0, .18); --sob-hover: rgba(255, 255, 255, .08); }
+/* content on the sheet and the pop-up: translucent white groups, never another glass */
+.sob-drawer, .sob-pop { --sob-surface: rgba(255, 255, 255, .78); --sob-ghost: rgba(255, 255, 255, .78); --sob-sunken: rgba(118, 118, 128, .07); --sob-hover: rgba(118, 118, 128, .1); --sob-money-cell: rgba(0, 122, 255, .05); }
+[data-theme="dark"] .sob-drawer, [data-theme="dark"] .sob-pop { --sob-surface: rgba(255, 255, 255, .07); --sob-ghost: rgba(255, 255, 255, .07); --sob-sunken: rgba(0, 0, 0, .18); --sob-hover: rgba(255, 255, 255, .08); }
 .sob-d-head { padding: 20px 20px 0; display: flex; flex-direction: column; gap: 4px; }
 .sob-d-row { display: flex; align-items: center; gap: 8px; }
 .sob-d-row .sob-muted { font-variant-numeric: tabular-nums; }
@@ -613,6 +622,33 @@ textarea.sob-ed-input { height: auto; padding: 6px 10px; resize: vertical; }
 .sob-qchip { height: auto; min-height: 30px; padding-top: 5px; padding-bottom: 5px; white-space: normal; text-align: left; }
 .sob-dlg-quick { margin-bottom: 8px; }
 
+/* Card pop-up: a thick-glass popover that opens out of the card button */
+.sob-pop[hidden] { display: none; }
+.sob-pop.lg { position: fixed; z-index: 1040; width: 344px; max-width: calc(100vw - 24px); max-height: min(580px, calc(100vh - 24px)); padding: 0; display: flex; flex-direction: column; overflow: hidden; color: var(--sob-ink); font-family: var(--sob-font); font-size: 14px; line-height: 20px; --lg-r: 22px; }
+.sob-pop.lg[data-kind="reqs"] { width: 452px; }
+.sob-pop-h { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; padding: 14px 14px 8px 16px; }
+.sob-pop-t { display: flex; flex-direction: column; min-width: 0; }
+.sob-pop-t b { font-size: 17px; line-height: 22px; font-weight: 700; letter-spacing: -.01em; }
+.sob-pop-t span { font-size: 13px; color: var(--sob-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sob-pop-b { flex: 1; overflow-y: auto; padding: 4px 16px 16px; display: flex; flex-direction: column; gap: 10px; }
+.sob-pop-b > * { flex-shrink: 0; }
+.sob-pop-chips { gap: 6px; }
+.sob-pop-chips .sob-qchip { font-size: 12px; min-height: 28px; padding: 4px 10px; }
+.sob-pop-sec { font-size: 12px; line-height: 16px; font-weight: 700; color: var(--sob-muted); margin-top: 4px; }
+.sob-pop .sob-noteitem { padding: 8px 10px; font-size: 13px; }
+.sob-pop-list { display: flex; flex-direction: column; gap: 2px; margin: 0 -8px; }
+.sob-pop .sob-mi { color: var(--sob-ink); --lg-r: 22px; --lg-pad: 8px; }
+.sob-mi-r { margin-left: auto; font-size: 12px; font-weight: 500; color: var(--sob-muted); font-variant-numeric: tabular-nums; }
+.sob-stage-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--sob-stage, var(--sob-muted)); flex: none; }
+.sob-pop-now { font-size: 13px; font-weight: 600; color: var(--sob-ink2); padding: 8px 12px; border-radius: 12px; background: var(--sob-surface); box-shadow: inset 0 0 0 1px var(--sob-line); }
+.sob-pop-now.over { color: var(--sob-act-fg); background: var(--sob-act-bg); box-shadow: none; }
+.sob-pop-pick { display: flex; gap: 8px; align-items: center; }
+.sob-pop-pick .sob-ed-input { flex: 1; box-shadow: inset 0 0 0 1px var(--sob-line); }
+.sob-pop-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-top: 4px; }
+.sob-pop-val { display: inline-flex; align-items: baseline; gap: 8px; font-size: 13px; color: var(--sob-muted); }
+.sob-pop-val b { font-size: 17px; font-weight: 700; color: var(--sob-ink); font-variant-numeric: tabular-nums; }
+.sob-pop .sob-reqs { gap: 8px; }
+
 /* Purchase history: the buyer's Sales Invoices as an inset grouped list */
 .sob-hist { border-radius: 16px; overflow: hidden; background: var(--sob-surface); box-shadow: inset 0 0 0 1px var(--sob-line); display: flex; flex-direction: column; }
 .sob-hist > header { display: flex; justify-content: space-between; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; font-size: 15px; font-weight: 700; letter-spacing: -.01em; }
@@ -676,4 +712,5 @@ textarea.sob-ed-input { height: auto; padding: 6px 10px; resize: vertical; }
 	.sob-inv-row > summary { grid-template-columns: 72px minmax(0, 1fr) 76px 16px; }
 	.sob-inv-row > summary .sob-badge { display: none; }
 	#page-sales-operation-board .page-head .title-text { font-size: 22px; }
+	.sob-pop.lg[data-kind="reqs"] { width: calc(100vw - 24px); }
 }

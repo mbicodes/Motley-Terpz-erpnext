@@ -21,6 +21,10 @@
 		search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
 		check: '<path d="M20 6 9 17l-5-5"/>',
 		receipt: '<path d="M4 2v20l3-2 3 2 3-2 3 2 3-2 1 .7V2l-1 .7-3-2-3 2-3-2-3 2-3-2z"/><path d="M8 8h8M8 12h8M8 16h5"/>',
+		box: '<path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>',
+		clock: '<path d="M21 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3.5"/><path d="M16 2v4M8 2v4M3 10h5"/><path d="M17.5 17.5 16 16.3V14"/><circle cx="16" cy="16" r="6"/>',
+		move: '<circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="m12 16 4-4-4-4"/>',
+		mail: '<rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>',
 	};
 	// One line-icon style everywhere (lucide shapes): stroke 1.75, colour from the text it sits in.
 	const svg = (p, size) => `<svg width="${size || 14}" height="${size || 14}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
@@ -227,7 +231,9 @@
 			this.$drawer = $(`<div class="sob-drawer-wrap" hidden><div class="sob-drawer-backdrop" data-act="close"></div>
 				<aside class="sob-drawer lg lg--thick lg-in" role="dialog" aria-modal="false" aria-label="${__('Deal')}"></aside></div>`).appendTo(page.main);
 
+			this.$pop = $(`<div class="sob-pop lg lg--thick lg-in" role="dialog" aria-modal="false" hidden></div>`).appendTo(page.main);
 			this.bind();
+			this.bind_pop();
 			this.mount_glass();
 			frappe.realtime.on('sales_pipeline_update', msg => this.queue_reload(msg));
 		}
@@ -240,13 +246,13 @@
 			const dark = document.documentElement.getAttribute('data-theme') === 'dark';
 			const board = this.state.board === 'lead' ? 'lead' : 'deal';
 			const panel = dark ? 'dark' : 'light';
-			this.$root.attr('data-board', board).attr('data-tone', dark || board === 'deal' ? 'dark' : 'light');
+			this.$root.attr('data-board', board).attr('data-tone', dark ? 'dark' : 'light');
 			this.$root.find('.sob-kpis, .sob-col, .sob-table-wrap, .sob-cal, .sob-agenda').attr('data-tone', panel);
 			this.$root.find('.sob-menu, .sob-colpick-menu').attr('data-on', panel);
 			this.$drawer.find('.sob-drawer').attr('data-on', panel);
-			// the panels on the Deals gradient are dark frost (KPIs) or dark frost holding white cards (columns)
-			if (!dark && board === 'deal') this.$root.find('.sob-kpis').attr('data-tone', 'dark');
-			if (dark || board === 'deal') this.$root.find('.sob-col').attr('data-tone', 'mixed');
+			if (this.$pop) this.$pop.attr('data-on', panel);
+			// in the dark theme the columns are dark frost holding cards, so the glass over them takes the heavier fill
+			if (dark) this.$root.find('.sob-col').attr('data-tone', 'mixed');
 			// re-read what sits under the glass bar now that the tones changed
 			if (this._adapt) this._adapt();
 		}
@@ -432,6 +438,8 @@
 			else if (s.view === 'list') this.render_list($v, list);
 			else this.render_board($v, list);
 			this.render_drawer();
+			this._quiet = Date.now();  // the re-render restores scroll positions; that is not the user scrolling
+			this.render_pop();
 			this.write_url();
 			this.apply_tones();
 			this.place_bar();
@@ -601,7 +609,6 @@
 					<div class="sob-card-top">
 						<span class="sob-card-acc">${this.is_top_priority(d.priority) ? `<span class="sob-prio-dot" title="${esc(__('Priority') + ': ' + d.priority)}"></span>` : ''}${esc(d.account)}</span>
 						<span class="sob-card-side">
-							<button type="button" class="sob-qn" data-quick-note="${esc(d.name)}" draggable="false" title="${esc(__('Add a quick note'))}" aria-label="${esc(__('Add a quick note to {0}', [d.account]))}">${svg(NOTE_ICON, 14)}</button>
 							${this.avatar(d)}
 						</span>
 					</div>
@@ -612,7 +619,29 @@
 					${meta ? `<div class="sob-card-meta">${esc(meta)}</div>` : ''}
 					${line}
 					${flags ? `<div class="sob-badges">${flags}</div>` : ''}
+					${this.card_acts(d)}
 				</div>`;
+		}
+
+		// Shortcuts on every card: work on the deal without opening it. Notes, requirements, follow-up and
+		// stage open a pop-up from the button; call, email and purchases appear when the deal has them.
+		card_acts(d) {
+			const can = this.data.can_write;
+			const b = (attrs, icon, label) => `<button type="button" class="sob-ca" ${attrs} draggable="false" title="${esc(label)}" aria-label="${esc(label + ': ' + d.account)}">${svg(icon, 16)}</button>`;
+			const n = esc(d.name);
+			const acts = [
+				b(`data-pop="notes" data-deal="${n}" aria-haspopup="dialog"`, NOTE_ICON, __('Notes')),
+				b(`data-pop="reqs" data-deal="${n}" aria-haspopup="dialog"`, ICON.box, __('Requirements')),
+			];
+			if (can) {
+				acts.push(b(`data-pop="follow" data-deal="${n}" aria-haspopup="dialog"`, ICON.clock, __('Next follow-up')));
+				acts.push(b(`data-pop="stage" data-deal="${n}" aria-haspopup="dialog"`, ICON.move, __('Move to another stage')));
+			}
+			const side = [];
+			if (d.phone) side.push(`<a class="sob-ca" data-card-call href="tel:${esc(String(d.phone).replace(/[^0-9+]/g, ''))}" draggable="false" title="${esc(__('Call {0}', [d.phone]))}" aria-label="${esc(__('Call {0}', [d.phone]))}">${svg(ICON.phone, 16)}</a>`);
+			if (this.email_to(d)) side.push(b(`data-card-email="${n}"`, ICON.mail, __('Email {0}', [this.email_to(d)])));
+			if (this.has_buyer(d)) side.push(b(`data-card-hist="${n}"`, ICON.receipt, __('Purchase history')));
+			return `<div class="sob-card-acts" role="toolbar" aria-label="${esc(__('Shortcuts'))}">${acts.join('')}${side.length ? `<span class="sob-ca-gap"></span>${side.join('')}` : ''}</div>`;
 		}
 
 		col_sub(items) {
@@ -924,7 +953,8 @@
 		}
 
 		// Requirement lines: a deal can ask for several product lines. Changes save as soon as a field changes.
-		req_editor(d) {
+		req_editor(d, opts) {
+			opts = opts || {};
 			const editable = this.can_edit(d);
 			const w = this.work && this.work[d.name];
 			const lines = w || (d.lines || []).map((l, i) => Object.assign({}, l, { key: l.name || 'v' + i }));
@@ -959,7 +989,7 @@
 				</div>`;
 			};
 			return `<div class="sob-block sob-reqs${busy}">
-				<div class="sob-cap">${__('Requirements')}</div>
+				${opts.bare ? '' : `<div class="sob-cap">${__('Requirements')}</div>`}
 				${lines.length ? lines.map(row).join('') : `<div class="sob-muted">${__('No product requirements yet.')}</div>`}
 				${editable ? `<button type="button" class="sob-btn sm sob-req-add" data-act="req-add">${svg(ICON.plus, 14)}${__('Add requirement')}</button>` : ''}
 			</div>`;
@@ -1092,31 +1122,8 @@
 			return frappe.xcall(M + 'add_note', { name, note: text }).then(notes => {
 				this.set_notes(name, notes);
 				frappe.show_alert({ message: __('Note added to {0}: {1}', [d.account, text]), indicator: 'green' });
+				return notes;
 			}).finally(() => { if (btn) $(btn).prop('disabled', false); });
-		}
-
-		quick_note_dialog(name) {
-			const d = this.find(name);
-			if (!d) return;
-			const qn = (this.s.lists && this.s.lists.quick_notes) || [];
-			const dlg = new frappe.ui.Dialog({
-				title: __('Quick note: {0}', [d.account]),
-				fields: [
-					{ fieldname: 'chips', fieldtype: 'HTML', options: qn.length ? `<div class="sob-pills sob-dlg-quick">${qn.map(t => `<button type="button" class="sob-pill sob-qchip" data-dlg-qnote="${esc(t)}">${esc(t)}</button>`).join('')}</div>
-						<p class="help-box small text-muted">${__('Click one to save it right away, or write your own note below.')}</p>` : '' },
-					{ fieldname: 'note', fieldtype: 'Small Text', label: __('Note') },
-				],
-				primary_action_label: __('Save note'),
-				primary_action: v => {
-					if (!(v.note || '').trim()) { frappe.msgprint(__('Please type a note first.')); return; }
-					dlg.disable_primary_action();
-					this.add_quick_note(name, v.note).then(() => dlg.hide()).catch(() => dlg.enable_primary_action());
-				},
-			});
-			dlg.$wrapper.on('click', '[data-dlg-qnote]', e => {
-				this.add_quick_note(name, $(e.currentTarget).attr('data-dlg-qnote'), e.currentTarget).then(() => dlg.hide());
-			});
-			dlg.show();
 		}
 
 		activity_tab(d) {
@@ -1380,14 +1387,15 @@
 			if (this.state.sel === name) this.render_drawer();
 		}
 
-		open(name) {
+		open(name, tab) {
+			this.close_pop();
 			if (this.state.sel !== name) {
 				this.feed = null;
 				this.editor = null;
 				this.bsearch = null;
 				this.bresults = null;
 			}
-			this.set({ sel: name, tab: this.state.sel === name ? this.state.tab : 'overview' });
+			this.set({ sel: name, tab: tab || (this.state.sel === name ? this.state.tab : 'overview') });
 			this.load_feed(name);
 		}
 
@@ -1660,6 +1668,244 @@
 			});
 		}
 
+		// ---------- requirement edits (shared by the drawer and the pop-up) ----------
+
+		refresh_req(name) {
+			if (this.state.sel === name) this.render_drawer();
+			if (this.pop && this.pop.name === name) this.render_pop();
+		}
+
+		req_add(name, $host) {
+			const d = this.find(name);
+			if (!d || !this.can_edit(d)) return;
+			this.work_copy(d).push({ key: 'n' + (++this._k), product_line: '', tier: '', total_grams: '', price_per_gram: '', details: '', draft: true });
+			this.refresh_req(name);
+			const el = $host.find(`[data-req="n${this._k}"] [data-req-field="product_line"]`).get(0);
+			if (el) el.focus();
+		}
+
+		req_remove(name, key) {
+			const d = this.find(name);
+			if (!d) return;
+			const w = this.work_copy(d);
+			const row = w.find(x => x.key === key);
+			if (!row) return;
+			w.splice(w.indexOf(row), 1);
+			if (row.draft) { this.refresh_req(name); this.drop_work(name); return; }
+			this.save_lines(name, __('Requirement removed'));
+		}
+
+		req_change(name, el) {
+			const d = this.find(name);
+			if (!d || !this.can_edit(d)) return;
+			const key = $(el).closest('[data-req]').attr('data-req');
+			const f = el.getAttribute('data-req-field');
+			const row = this.work_copy(d).find(x => x.key === key);
+			if (!row) return;
+			let v = el.value;
+			if (f === 'total_grams' || f === 'price_per_gram') {
+				v = v === '' ? 0 : Number(v);
+				if (!isFinite(v) || v < 0) { frappe.show_alert({ message: __('Please enter a number of 0 or more.'), indicator: 'red' }); el.value = row[f] || ''; return; }
+			}
+			row[f] = v;
+			if (f === 'product_line' && row.tier && !this.tiers_for(v).includes(row.tier)) row.tier = '';
+			if (row.draft && !row.product_line) { this.refresh_req(name); return; }
+			row.draft = false;
+			this.save_lines(name, f === 'product_line' || f === 'tier' ? __('Requirement updated') : __('Saved'));
+		}
+
+		// ---------- card pop-up: notes, requirements, follow-up, stage without opening the deal ----------
+
+		open_pop(kind, name, btn) {
+			if (this.pop && this.pop.kind === kind && this.pop.name === name) { this.close_pop(); return; }
+			const d = this.find(name);
+			if (!d) return;
+			this.close_pop();
+			const r = btn.getBoundingClientRect();
+			this.pop = { kind, name, anchor: { left: r.left, right: r.right, top: r.top, bottom: r.bottom }, notes: null };
+			if (kind === 'notes') {
+				frappe.xcall(M + 'get_feed', { name }).then(f => {
+					if (this.pop && this.pop.name === name && this.pop.kind === 'notes') { this.pop.notes = f.notes || []; this.render_pop(); }
+				}).catch(() => { if (this.pop && this.pop.name === name) { this.pop.notes = []; this.render_pop(); } });
+			}
+			this.$pop.prop('hidden', false);
+			this.render_pop();
+			this.place_pop();
+			const first = this.$pop.find('textarea, [data-req-field]:not([disabled]), [data-pop-date], .sob-mi').get(0);
+			if (first) first.focus({ preventScroll: true });
+		}
+
+		close_pop() {
+			if (!this.pop) return;
+			const name = this.pop.name;
+			this.pop = null;
+			this.$pop.prop('hidden', true).empty();
+			this.drop_work(name);
+		}
+
+		// Below the button, or above it when there is no room; always inside the window.
+		place_pop() {
+			if (!this.pop) return;
+			const el = this.$pop.get(0), a = this.pop.anchor, m = 12;
+			const w = el.offsetWidth, h = el.offsetHeight, vw = window.innerWidth, vh = window.innerHeight;
+			const below = vh - a.bottom - m >= h || a.top < vh / 2;
+			const top = below ? Math.min(a.bottom + 8, vh - h - m) : Math.max(m, a.top - h - 8);
+			const left = Math.max(m, Math.min(a.left - 8, vw - w - m));
+			el.style.top = Math.max(m, top) + 'px';
+			el.style.left = left + 'px';
+			el.style.setProperty('--lg-origin', `${below ? 'top' : 'bottom'} ${left < a.left - 40 ? 'right' : 'left'}`);
+		}
+
+		render_pop() {
+			if (!this.pop) return;
+			const d = this.find(this.pop.name);
+			if (!d) { this.close_pop(); return; }
+			const kind = this.pop.kind;
+			const titles = { notes: __('Notes'), reqs: __('Requirements'), follow: __('Next follow-up'), stage: __('Move to') };
+			let body = '';
+			if (kind === 'notes') body = this.pop_notes(d);
+			else if (kind === 'reqs') body = this.pop_reqs(d);
+			else if (kind === 'follow') body = this.pop_follow(d);
+			else body = this.pop_stage(d);
+			// keep what is typed and where the cursor is when the pop-up re-renders (saves, board reloads)
+			const kept = {};
+			let focus = null, range = null;
+			this.$pop.find('[data-keep]').each((_, el) => {
+				const k = el.getAttribute('data-keep');
+				kept[k] = el.value;
+				if (el === document.activeElement) { focus = k; try { range = [el.selectionStart, el.selectionEnd]; } catch (x) { range = null; } }
+			});
+			this.$pop.attr('aria-label', titles[kind] + ': ' + d.account).attr('data-kind', kind).html(`
+				<header class="sob-pop-h">
+					<div class="sob-pop-t"><b>${esc(titles[kind])}</b><span>${esc(d.account)}</span></div>
+					<button type="button" class="sob-x sm" data-pop-close aria-label="${__('Close')}">${svg(ICON.x, 14)}</button>
+				</header>
+				<div class="sob-pop-b">${body}</div>`);
+			this.$pop.find('[data-keep]').each((_, el) => {
+				const k = el.getAttribute('data-keep');
+				if (Object.prototype.hasOwnProperty.call(kept, k)) el.value = kept[k];
+				if (k === focus) { el.focus({ preventScroll: true }); if (range) { try { el.setSelectionRange(range[0], range[1]); } catch (x) { /* number inputs */ } } }
+			});
+		}
+
+		pop_notes(d) {
+			const qn = (this.s.lists && this.s.lists.quick_notes) || [];
+			const notes = this.pop.notes;
+			const list = notes === null ? `<div class="sob-muted">${__('Loading notes…')}</div>`
+				: notes.length ? notes.slice(0, 3).map(n => `<article class="sob-noteitem"><header><b>${esc(n.by)}</b><span class="sob-muted">${esc(fdt(n.on))}</span></header><div class="sob-note-text">${esc(n.text)}</div></article>`).join('')
+				: `<div class="sob-muted">${__('No notes yet')}</div>`;
+			return `
+				${qn.length ? `<div class="sob-pills sob-pop-chips">${qn.map(t => `<button type="button" class="sob-pill sob-qchip" data-pop-qnote="${esc(t)}">${esc(t)}</button>`).join('')}</div>` : ''}
+				<textarea class="sob-note" rows="3" data-keep="pop-note" data-pop-note aria-label="${__('Note')}" placeholder="${__('Write a note')}"></textarea>
+				<div class="sob-row-end">
+					<button type="button" class="sob-btn sm" data-pop-open="notes">${__('All notes')}</button>
+					<button type="button" class="sob-btn primary sm" data-pop-act="note-save">${__('Save note')}</button>
+				</div>
+				<div class="sob-pop-sec">${__('Latest')}</div>
+				<div class="sob-notes">${list}</div>`;
+		}
+
+		pop_reqs(d) {
+			const value = +d.deal_value || 0;
+			const locked = this.can_edit(d) ? '' : `<div class="sob-muted">${__('Only the deal owner or a pipeline manager can change the requirements.')}</div>`;
+			return `
+				${this.req_editor(d, { bare: true })}
+				${locked}
+				<div class="sob-pop-foot">
+					<span class="sob-pop-val"><span>${__('Deal value')}</span><b>${value ? usd(value) : '—'}</b>${+d.value_override > 0 ? `<span class="sob-badge manual">${__('Manual')}</span>` : ''}</span>
+					<button type="button" class="sob-btn sm" data-pop-open="requirements">${__('Open deal')}</button>
+				</div>`;
+		}
+
+		pop_follow(d) {
+			const today = pd(this.data.today);
+			const nextMonday = addDays(today, ((8 - today.getDay()) % 7) || 7);
+			const picks = [[__('Today'), today], [__('Tomorrow'), addDays(today, 1)], [__('In 3 days'), addDays(today, 3)],
+				[__('Next Monday'), nextMonday], [__('In 2 weeks'), addDays(today, 14)]];
+			const cur = d.next_step_due;
+			const over = cur && cur < this.data.today && !d.is_closed;
+			return `
+				<div class="sob-pop-now${over ? ' over' : ''}">${cur ? (over ? __('Overdue since {0}', [nice(cur)]) : __('Now {0}', [nice(cur)])) : __('No follow-up set')}</div>
+				<div class="sob-pop-list">${picks.filter((p, i) => picks.findIndex(q => key(q[1]) === key(p[1])) === i).map(p => {
+					const k = key(p[1]);
+					return `<button type="button" class="lg-item sob-mi" data-pop-date="${k}" aria-pressed="${k === cur}"><span class="sob-tick">${svg(ICON.check, 14)}</span><span>${esc(p[0])}</span><span class="sob-mi-r">${esc(nice(k))}</span></button>`;
+				}).join('')}</div>
+				<div class="sob-pop-pick">
+					<input type="date" class="sob-ed-input" data-keep="pop-date" value="${esc(cur || '')}" aria-label="${__('Pick a date')}">
+					<button type="button" class="sob-btn primary sm" data-pop-act="date-set">${__('Set')}</button>
+					${cur ? `<button type="button" class="sob-btn sm" data-pop-act="date-clear">${__('Clear')}</button>` : ''}
+				</div>`;
+		}
+
+		pop_stage(d) {
+			return BOARDS.map(b => {
+				const sts = this.stages_of(b[0]);
+				if (!sts.length) return '';
+				return `<div class="sob-pop-sec">${esc(b[0] === 'lead' ? __('Lead board') : __('Deal board'))}</div>
+					<div class="sob-pop-list">${sts.map(x => `<button type="button" class="lg-item sob-mi" data-pop-stage="${esc(x.name)}" aria-pressed="${x.name === d.stage}"${x.colour ? ` style="--sob-stage:${esc(x.colour)}"` : ''}>
+						<span class="sob-tick">${svg(ICON.check, 14)}</span><span class="sob-stage-dot"></span><span>${esc(__(x.name))}</span><span class="sob-mi-r">${+x.probability || 0}%</span></button>`).join('')}</div>`;
+			}).join('');
+		}
+
+		bind_pop() {
+			const $p = this.$pop;
+			$p.on('click', '[data-pop-close]', () => this.close_pop());
+			$p.on('click', '[data-pop-open]', e => { const name = this.pop && this.pop.name; const tab = $(e.currentTarget).attr('data-pop-open'); if (name) this.open(name, tab); });
+			$p.on('click', '[data-pop-qnote]', e => {
+				const name = this.pop && this.pop.name;
+				if (!name) return;
+				this.add_quick_note(name, $(e.currentTarget).attr('data-pop-qnote'), e.currentTarget).then(notes => this.pop_notes_landed(name, notes));
+			});
+			$p.on('click', '[data-pop-act="note-save"]', e => {
+				const name = this.pop && this.pop.name;
+				const $t = $p.find('[data-pop-note]');
+				const text = ($t.val() || '').trim();
+				if (!name || !text) { $t.trigger('focus'); return; }
+				this.add_quick_note(name, text, e.currentTarget).then(notes => { $t.val(''); this.pop_notes_landed(name, notes); });
+			});
+			$p.on('keydown', '[data-pop-note]', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); $p.find('[data-pop-act="note-save"]').trigger('click'); } });
+			$p.on('click', '[data-pop-date]', e => this.pop_set_date($(e.currentTarget).attr('data-pop-date')));
+			$p.on('click', '[data-pop-act="date-set"]', () => { const v = $p.find('[data-keep="pop-date"]').val(); if (v) this.pop_set_date(v); });
+			$p.on('click', '[data-pop-act="date-clear"]', () => this.pop_set_date(null));
+			$p.on('click', '[data-pop-stage]', e => {
+				const name = this.pop && this.pop.name;
+				const st = $(e.currentTarget).attr('data-pop-stage');
+				if (!name) return;
+				this.close_pop();
+				this.apply(name, { stage: st }, __('Moved to {0}', [__(st)]));
+			});
+			$p.on('click', '[data-act="req-add"]', () => this.pop && this.req_add(this.pop.name, $p));
+			$p.on('click', '[data-req-remove]', e => this.pop && this.req_remove(this.pop.name, $(e.currentTarget).attr('data-req-remove')));
+			$p.on('change', '[data-req-field]', e => this.pop && this.req_change(this.pop.name, e.currentTarget));
+			$p.on('keydown', e => {
+				if (e.key === 'Escape') { e.stopPropagation(); this.close_pop(); }
+			});
+			// close on a click outside, or when the board scrolls under it
+			$(document).on('click.sobpop', e => {
+				if (!this.pop) return;
+				const path = (e.originalEvent && e.originalEvent.composedPath && e.originalEvent.composedPath()) || [];
+				if (path.some(n => n === $p.get(0) || (n.nodeType === 1 && (n.hasAttribute('data-pop') || n.classList.contains('modal'))))) return;
+				this.close_pop();
+			});
+			window.addEventListener('scroll', e => {
+				if (!this.pop || $p.get(0).contains(e.target) || Date.now() - (this._quiet || 0) < 400) return;
+				this.close_pop();
+			}, { capture: true, passive: true });
+			window.addEventListener('resize', () => this.close_pop(), { passive: true });
+		}
+
+		// add_note answers with the deal's notes, newest first
+		pop_notes_landed(name, notes) {
+			if (this.pop && this.pop.name === name && this.pop.kind === 'notes') { this.pop.notes = notes || []; this.render_pop(); }
+		}
+
+		pop_set_date(v) {
+			const name = this.pop && this.pop.name;
+			if (!name) return;
+			this.close_pop();
+			this.apply(name, { next_step_due: v || null }, v ? __('Follow-up set for {0}', [nice(v)]) : __('Follow-up cleared'));
+		}
+
 		new_deal() {
 			const me = this.data.user;
 			const choices = this.owner_choices(null);
@@ -1837,12 +2083,17 @@
 			const $r = this.$root, $d = this.$drawer;
 			$r.on('click', '[data-view]', e => this.set({ view: $(e.currentTarget).attr('data-view') }));
 			$r.on('click', '[data-board]', e => this.set({ board: $(e.currentTarget).attr('data-board') }));
-			$r.on('click', '[data-quick-note]', e => {
+			// card shortcuts: keep their clicks and drags away from the card (which opens or drags the deal)
+			$r.on('mousedown dragstart', '.sob-card-acts', e => e.stopPropagation());
+			$r.on('click', '[data-pop]', e => {
 				e.preventDefault();
 				e.stopPropagation();
-				this.quick_note_dialog($(e.currentTarget).attr('data-quick-note'));
+				const el = e.currentTarget;
+				this.open_pop(el.getAttribute('data-pop'), el.getAttribute('data-deal'), el);
 			});
-			$r.on('mousedown dragstart', '[data-quick-note]', e => e.stopPropagation());
+			$r.on('click', '[data-card-call]', e => e.stopPropagation());
+			$r.on('click', '[data-card-email]', e => { e.preventDefault(); e.stopPropagation(); this.email_deal($(e.currentTarget).attr('data-card-email')); });
+			$r.on('click', '[data-card-hist]', e => { e.preventDefault(); e.stopPropagation(); this.open($(e.currentTarget).attr('data-card-hist'), 'purchases'); });
 			$r.on('click', '[data-owner]', e => {
 				const v = $(e.currentTarget).attr('data-owner');
 				let owners = (this.state.owners || []).slice();
@@ -1892,7 +2143,7 @@
 			});
 			$r.on('keydown', '[data-card], [data-event], .sob-agenda-row', e => {
 				if (e.key !== 'Enter' && e.key !== ' ') return;
-				if (e.target !== e.currentTarget && $(e.target).closest('button').length) return;
+				if (e.target !== e.currentTarget && $(e.target).closest('button, a').length) return;
 				e.preventDefault();
 				const el = e.currentTarget;
 				this.open($(el).attr('data-card') || $(el).attr('data-event') || $(el).attr('data-open'));
@@ -2004,45 +2255,9 @@
 			// manual deal value
 			$d.on('click', '[data-act="value-reset"]', () => this.apply(this.state.sel, { value_override: 0 }, __('Deal value now follows the requirements')));
 			// requirement lines
-			$d.on('click', '[data-act="req-add"]', () => {
-				const d = this.find(this.state.sel);
-				if (!d || !this.can_edit(d)) return;
-				const w = this.work_copy(d);
-				w.push({ key: 'n' + (++this._k), product_line: '', tier: '', total_grams: '', price_per_gram: '', details: '', draft: true });
-				this.render_drawer();
-				const el = this.$drawer.find(`[data-req="n${this._k}"] [data-req-field="product_line"]`).get(0);
-				if (el) el.focus();
-			});
-			$d.on('click', '[data-req-remove]', e => {
-				const d = this.find(this.state.sel);
-				if (!d) return;
-				const key = $(e.currentTarget).attr('data-req-remove');
-				const w = this.work_copy(d);
-				const row = w.find(x => x.key === key);
-				if (!row) return;
-				w.splice(w.indexOf(row), 1);
-				if (row.draft) { this.render_drawer(); this.drop_work(d.name); return; }
-				this.save_lines(d.name, __('Requirement removed'));
-			});
-			$d.on('change', '[data-req-field]', e => {
-				const d = this.find(this.state.sel);
-				if (!d || !this.can_edit(d)) return;
-				const el = e.currentTarget;
-				const key = $(el).closest('[data-req]').attr('data-req');
-				const f = el.getAttribute('data-req-field');
-				const row = this.work_copy(d).find(x => x.key === key);
-				if (!row) return;
-				let v = el.value;
-				if (f === 'total_grams' || f === 'price_per_gram') {
-					v = v === '' ? 0 : Number(v);
-					if (!isFinite(v) || v < 0) { frappe.show_alert({ message: __('Please enter a number of 0 or more.'), indicator: 'red' }); el.value = row[f] || ''; return; }
-				}
-				row[f] = v;
-				if (f === 'product_line' && row.tier && !this.tiers_for(v).includes(row.tier)) row.tier = '';
-				if (row.draft && !row.product_line) { this.render_drawer(); return; }
-				row.draft = false;
-				this.save_lines(d.name, f === 'product_line' || f === 'tier' ? __('Requirement updated') : __('Saved'));
-			});
+			$d.on('click', '[data-act="req-add"]', () => this.req_add(this.state.sel, this.$drawer));
+			$d.on('click', '[data-req-remove]', e => this.req_remove(this.state.sel, $(e.currentTarget).attr('data-req-remove')));
+			$d.on('change', '[data-req-field]', e => this.req_change(this.state.sel, e.currentTarget));
 			$d.on('click', '[data-co]', e => {
 				const d = this.find(this.state.sel);
 				if (!d || !this.can_edit_owners(d)) return;
@@ -2198,6 +2413,6 @@
 	};
 
 	frappe.pages[ROUTE].on_page_hide = function (wrapper) {
-		if (wrapper.sob_board) wrapper.sob_board.$drawer.prop('hidden', true);
+		if (wrapper.sob_board) { wrapper.sob_board.$drawer.prop('hidden', true); wrapper.sob_board.close_pop(); }
 	};
 })();
