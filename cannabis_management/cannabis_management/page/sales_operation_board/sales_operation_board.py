@@ -717,6 +717,86 @@ def get_feed(name):
 	return {"notes": _notes(name), "activity": _activity(doc)}
 
 
+GRAMS_PER = {"Gram": 1.0, "LBS": 453.59237}
+
+
+def _history_customer(doc):
+	"""The deal's Customer, or the Customer that was created from its Lead."""
+	if doc.customer:
+		return doc.customer
+	if doc.lead:
+		return frappe.db.get_value("Customer", {"lead_name": doc.lead}, "name")
+	return None
+
+
+@frappe.whitelist()
+def get_buyer_history(name):
+	"""Drawer Purchases tab: every submitted Sales Invoice of the deal's buyer, newest first, with its items.
+	Anyone who can open the deal sees its buyer's history; invoice links show only to users who can read invoices."""
+	doc = frappe.get_doc(DT, name)
+	doc.check_permission("read")
+	customer = _history_customer(doc)
+	out = {
+		"name": name, "customer": customer, "customer_title": None, "via_lead": bool(customer and not doc.customer),
+		"can_open": bool(frappe.has_permission("Sales Invoice", "read")), "invoices": [], "by_line": [], "totals": {},
+	}
+	if not customer:
+		return out
+	out["customer_title"] = frappe.db.get_value("Customer", customer, "customer_name") or customer
+	invoices = frappe.get_all(
+		"Sales Invoice",
+		filters={"customer": customer, "docstatus": 1},
+		fields=["name", "posting_date", "due_date", "company", "base_grand_total", "outstanding_amount", "status", "is_return"],
+		order_by="posting_date desc, creation desc",
+		limit_page_length=0,
+	)
+	if not invoices:
+		return out
+	items = frappe.get_all(
+		"Sales Invoice Item",
+		filters={"parenttype": "Sales Invoice", "parent": ("in", [i.name for i in invoices])},
+		fields=["parent", "item_code", "item_name", "item_group", "qty", "uom", "stock_qty", "stock_uom", "rate", "base_net_amount"],
+		order_by="idx asc",
+		limit_page_length=0,
+	)
+	s = sales_ops.get_settings()
+	line_of = {}
+	for r in s.product_lines:
+		for g in r.item_groups:
+			line_of.setdefault(g, r.product_line)
+	by_inv, by_line = {}, {}
+	for it in items:
+		by_inv.setdefault(it.parent, []).append({
+			"item_name": it.item_name or it.item_code, "qty": flt(it.qty), "uom": it.uom,
+			"rate": flt(it.rate), "amount": flt(it.base_net_amount),
+		})
+		label = line_of.get(it.item_group) or it.item_group or _("Other")
+		row = by_line.setdefault(label, {"label": label, "grams": 0.0, "units": 0.0, "amount": 0.0})
+		per = GRAMS_PER.get(it.stock_uom)
+		if per:
+			row["grams"] += flt(it.stock_qty) * per
+		else:
+			row["units"] += flt(it.stock_qty)
+		row["amount"] += flt(it.base_net_amount)
+	sales = [i for i in invoices if not i.is_return]
+	out["invoices"] = [{
+		"name": i.name, "date": str(i.posting_date), "due": str(i.due_date) if i.due_date else None, "company": i.company,
+		"amount": flt(i.base_grand_total), "outstanding": flt(i.outstanding_amount), "status": i.status,
+		"is_return": cint(i.is_return), "items": by_inv.get(i.name, []),
+	} for i in invoices]
+	out["by_line"] = sorted(by_line.values(), key=lambda r: -r["amount"])
+	out["totals"] = {
+		"billed": sum(flt(i.base_grand_total) for i in invoices),
+		"outstanding": sum(flt(i.outstanding_amount) for i in invoices),
+		"count": len(sales),
+		"returns": len(invoices) - len(sales),
+		"first": str(sales[-1].posting_date) if sales else None,
+		"last": str(sales[0].posting_date) if sales else None,
+		"companies": len({i.company for i in invoices}),
+	}
+	return out
+
+
 @frappe.whitelist()
 def make_quotation(name):
 	"""Unsaved Quotation for the deal's Customer: item from Product Line + Tier, qty = grams, rate = price per gram."""

@@ -18,9 +18,105 @@
 		right: '<path d="m9 18 6-6-6-6"/>',
 		x: '<path d="M18 6 6 18M6 6l12 12"/>',
 		plus: '<path d="M12 5v14M5 12h14"/>',
+		search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+		check: '<path d="M20 6 9 17l-5-5"/>',
+		receipt: '<path d="M4 2v20l3-2 3 2 3-2 3 2 3-2 1 .7V2l-1 .7-3-2-3 2-3-2-3 2-3-2z"/><path d="M8 8h8M8 12h8M8 16h5"/>',
 	};
-	// One line-icon style everywhere: stroke 2, colour from the text it sits in.
-	const svg = (p, size) => `<svg width="${size || 14}" height="${size || 14}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+	// One line-icon style everywhere (lucide shapes): stroke 1.75, colour from the text it sits in.
+	const svg = (p, size) => `<svg width="${size || 14}" height="${size || 14}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+
+	// Liquid Glass kit (JS half): edge refraction in Chromium, tone flipping everywhere. From the liquid-glass skill,
+	// unchanged except that it is called by the page instead of on DOMContentLoaded (desk pages mount later).
+	const LG = (() => {
+		const chromium = !!(navigator.userAgentData && navigator.userAgentData.brands && navigator.userAgentData.brands.some(b => b.brand === 'Chromium'));
+		const calm = () => matchMedia('(prefers-reduced-transparency: reduce), (prefers-contrast: more)').matches;
+		const NS = 'http://www.w3.org/2000/svg';
+		let host, uid = 0;
+		function lensMap(w, h, r, bezel) {
+			const c = document.createElement('canvas');
+			c.width = w; c.height = h;
+			const ctx = c.getContext('2d');
+			const img = ctx.createImageData(w, h);
+			r = Math.min(r, w / 2, h / 2);
+			bezel = Math.min(bezel, r);
+			for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+				const px = x + .5 - w / 2, py = y + .5 - h / 2;
+				const qx = Math.abs(px) - (w / 2 - r), qy = Math.abs(py) - (h / 2 - r);
+				const out = Math.hypot(Math.max(qx, 0), Math.max(qy, 0));
+				const d = r - out - Math.min(Math.max(qx, qy), 0);
+				let dx = 0, dy = 0;
+				if (d >= 0 && d < bezel) {
+					const t = 1 - d / bezel, mag = t * t * t;
+					let nx, ny;
+					if (qx > 0 && qy > 0) { nx = qx / out; ny = qy / out; }
+					else if (qx > qy) { nx = 1; ny = 0; }
+					else { nx = 0; ny = 1; }
+					dx = -Math.sign(px) * nx * mag;
+					dy = -Math.sign(py) * ny * mag;
+				}
+				const i = (y * w + x) * 4;
+				img.data[i] = 128 + dx * 127; img.data[i + 1] = 128 + dy * 127; img.data[i + 2] = 128; img.data[i + 3] = 255;
+			}
+			ctx.putImageData(img, 0, 0);
+			return c.toDataURL();
+		}
+		function refract(el, o) {
+			o = Object.assign({ bezel: 14, strength: 14, blur: 4, saturate: 1.7 }, o || {});
+			if (!chromium || calm() || el._lg) return;
+			el._lg = true;
+			if (!host) {
+				host = document.createElementNS(NS, 'svg');
+				host.setAttribute('aria-hidden', 'true');
+				host.style.cssText = 'position:absolute;width:0;height:0';
+				document.body.append(host);
+			}
+			const id = `sob-lg-${++uid}`;
+			const build = () => {
+				const w = Math.round(el.offsetWidth), h = Math.round(el.offsetHeight);
+				if (!w || !h) return;
+				const r = parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0;
+				const old = host.querySelector(`#${id}`);
+				if (old) old.remove();
+				host.insertAdjacentHTML('beforeend', `<filter id="${id}" filterUnits="userSpaceOnUse" primitiveUnits="userSpaceOnUse" x="0" y="0" width="${w}" height="${h}" color-interpolation-filters="sRGB">
+					<feGaussianBlur in="SourceGraphic" stdDeviation="${o.blur}" result="b"/>
+					<feImage href="${lensMap(w, h, r, o.bezel)}" x="0" y="0" width="${w}" height="${h}" preserveAspectRatio="none" result="m"/>
+					<feDisplacementMap in="b" in2="m" scale="${o.strength * 2}" xChannelSelector="R" yChannelSelector="G" result="d"/>
+					<feColorMatrix in="d" type="saturate" values="${o.saturate}"/>
+				</filter>`);
+				el.style.backdropFilter = `url(#${id})`;
+			};
+			build();
+			let last = `${el.offsetWidth}x${el.offsetHeight}`;
+			new ResizeObserver(() => {
+				const now = `${el.offsetWidth}x${el.offsetHeight}`;
+				if (now !== last) { last = now; build(); }
+			}).observe(el);
+		}
+		function adapt(els) {
+			let queued = false;
+			const run = () => {
+				queued = false;
+				for (const el of els) {
+					const r = el.getBoundingClientRect();
+					if (!r.width) continue;
+					const pts = [.1, .3, .5, .7, .9].map(f => [r.left + r.width * f, r.top + r.height / 2]);
+					pts.push([r.left + r.width / 2, r.top + 2], [r.left + r.width / 2, r.bottom - 2]);
+					const tones = new Set();
+					for (const [x, y] of pts) {
+						const hit = document.elementsFromPoint(x, y).find(n => !el.contains(n) && n.closest('[data-tone]'));
+						const t = hit && hit.closest('[data-tone]').dataset.tone;
+						if (t) tones.add(t);
+					}
+					if (tones.size) el.dataset.on = tones.size > 1 || tones.has('mixed') ? 'mixed' : [...tones][0];
+				}
+			};
+			const queue = () => { if (!queued) { queued = true; requestAnimationFrame(run); } };
+			addEventListener('scroll', queue, { passive: true, capture: true });
+			addEventListener('resize', queue, { passive: true });
+			run();
+		}
+		return { refract, adapt };
+	})();
 	// Event colours live in the stylesheet (.ev-<key>) so they follow light and dark themes.
 	const EVENTS = [
 		{ key: 'followup', field: 'next_step_due', label: 'Follow-up', icon: ICON.phone },
@@ -56,6 +152,7 @@
 	const n0 = n => Math.round(+n || 0).toLocaleString('en-US');
 	const usd = n => '$' + n0(n);
 	const money2 = n => '$' + (Math.round((+n || 0) * 100) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+	const nq = n => (+n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
 	const fdate = s => (s ? frappe.datetime.str_to_user(String(s).slice(0, 10)) : '');
 	const fdt = s => {
 		if (!s) return '';
@@ -92,39 +189,83 @@
 			page.add_menu_item(__('Deal List'), () => frappe.set_route('List', DT));
 			page.add_menu_item(__('Sales Pipeline Settings'), () => frappe.set_route('Form', 'Sales Pipeline Settings'));
 
-				this.$root = $(`
-				<div class="sob">
-					<div class="sob-boards" role="group" aria-label="${__('Board')}">
-						${BOARDS.map(b => `<button type="button" class="sob-board-btn" data-board="${b[0]}" aria-pressed="false">${__(b[1])} <span class="sob-board-n"></span></button>`).join('')}
+			// Two layers. Content (KPIs, columns, cards, list, calendar) stays plain; the controls float above it
+			// on Liquid Glass: three capsules in a sticky bar, their menus, and the deal sheet. Menus sit beside
+			// the capsules, not inside them, because a backdrop filter inside another one cannot see the page.
+			const menu_btn = (key, label) => `<button type="button" class="lg-item sob-mbtn" data-menu="${key}" aria-haspopup="true" aria-expanded="false">
+				<span class="sob-mbtn-k">${label}</span><span class="sob-mbtn-v" data-menu-value="${key}"></span>${svg(ICON.down, 14)}</button>`;
+			this.$root = $(`
+				<div class="sob" data-tone="light">
+					<div class="lg-edge sob-edge" aria-hidden="true"></div>
+					<div class="sob-bar">
+						<div class="lg lg-group sob-boards" role="group" aria-label="${__('Board')}" data-lg-adapt data-lg-refract>
+							${BOARDS.map(b => `<button type="button" class="lg-item sob-board-btn" data-board="${b[0]}" aria-pressed="false">${__(b[1])}<span class="sob-board-n"></span></button>`).join('')}
+						</div>
+						<div class="lg lg-group sob-tabs" role="tablist" aria-label="${__('Views')}" data-lg-adapt data-lg-refract>
+							${VIEWS.map(v => `<button type="button" class="lg-item sob-tab" role="tab" data-view="${v[0]}" aria-selected="false">${__(v[1])}</button>`).join('')}
+						</div>
+						<div class="lg lg-group sob-tools" data-lg-adapt data-lg-refract>
+							<label class="lg-item sob-search">${svg(ICON.search, 16)}<input type="search" class="sob-q" autocomplete="off" aria-label="${__('Search deals')}" placeholder="${__('Search deals')}"></label>
+							<span class="sob-owner-group">${menu_btn('owner', __('Owner'))}</span>
+							${menu_btn('prod', __('Product line'))}
+							${menu_btn('more', __('Filters'))}
+						</div>
+						<div class="lg lg--thick sob-menu lg-in" data-menu-panel="owner" role="group" aria-label="${__('Owner')}" hidden><div class="sob-owner-pills"></div></div>
+						<div class="lg lg--thick sob-menu lg-in" data-menu-panel="prod" role="group" aria-label="${__('Product line')}" hidden><div class="sob-ms-menu"></div></div>
+						<div class="lg lg--thick sob-menu lg-in" data-menu-panel="more" role="group" aria-label="${__('Filters')}" hidden>
+							<label class="sob-mrow" for="sob-prio"><span>${__('Priority')}</span><select id="sob-prio" class="sob-select sob-prio"></select></label>
+							<button type="button" class="lg-item sob-mi sob-toggle" data-toggle="attn" aria-pressed="false"></button>
+							<button type="button" class="lg-item sob-mi sob-toggle" data-toggle="closed" aria-pressed="false"></button>
+						</div>
 					</div>
 					<div class="sob-kpis"></div>
-					<nav class="sob-tabs" role="tablist" aria-label="${__('Views')}">
-						${VIEWS.map(v => `<button type="button" class="sob-tab" role="tab" data-view="${v[0]}">${__(v[1])}</button>`).join('')}
-					</nav>
-					<div class="sob-filters">
-						<div class="sob-fgroup sob-owner-group"><span class="sob-flabel">${__('Owner')}</span><div class="sob-pills sob-owner-pills"></div></div>
-						<div class="sob-fgroup">
-							<span class="sob-flabel" id="sob-prod-label">${__('Product Line')}</span>
-							<div class="sob-ms">
-								<button type="button" class="sob-pill sob-ms-btn" data-act="prod-menu" aria-haspopup="true" aria-expanded="false" aria-labelledby="sob-prod-label sob-prod-value"><span id="sob-prod-value"></span><span class="sob-caret" aria-hidden="true">${svg(ICON.down, 14)}</span></button>
-								<div class="sob-ms-menu" role="group" aria-labelledby="sob-prod-label" hidden></div>
-							</div>
-							<label class="sob-flabel" for="sob-prio">${__('Priority')}</label><select id="sob-prio" class="sob-select sob-prio"></select>
-						</div>
-						<div class="sob-fgroup sob-search"><input type="search" class="sob-q" autocomplete="off" aria-label="${__('Search')}" placeholder="${__('Search account, contact or notes')}"></div>
-						<div class="sob-fgroup">
-							<button type="button" class="sob-pill sob-toggle" data-toggle="attn"></button>
-							<button type="button" class="sob-pill sob-toggle" data-toggle="closed"></button>
-						</div>
-					</div>
 					<div class="sob-view"><div class="sob-loading">${__('Loading…')}</div></div>
 				</div>`).appendTo(page.main);
 
 			this.$drawer = $(`<div class="sob-drawer-wrap" hidden><div class="sob-drawer-backdrop" data-act="close"></div>
-				<aside class="sob-drawer" role="dialog" aria-modal="false" aria-label="${__('Deal')}"></aside></div>`).appendTo(page.main);
+				<aside class="sob-drawer lg lg--thick lg-in" role="dialog" aria-modal="false" aria-label="${__('Deal')}"></aside></div>`).appendTo(page.main);
 
 			this.bind();
+			this.mount_glass();
 			frappe.realtime.on('sales_pipeline_update', msg => this.queue_reload(msg));
+		}
+
+		// ---------- Liquid Glass: tones, refraction, sticky bar ----------
+
+		mount_glass() {
+			const tone = () => (document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
+			this.$root.attr('data-tone', tone());
+			this.$drawer.find('.sob-drawer').attr('data-on', tone());
+			this.$root.find('.sob-menu').attr('data-on', tone());
+			const bar = this.$root.find('.sob-bar').get(0);
+			// refraction needs a settled size, so wait for the brand fonts
+			const go = () => {
+				bar.querySelectorAll('[data-lg-refract]').forEach(el => LG.refract(el));
+				LG.adapt([...bar.querySelectorAll('[data-lg-adapt]')]);
+			};
+			(document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(go);
+			new MutationObserver(() => {
+				const t = tone();
+				this.$root.attr('data-tone', t);
+				this.$drawer.find('.sob-drawer').attr('data-on', t);
+				this.$root.find('.sob-menu').attr('data-on', t);
+			}).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+			const place = () => { this._raf = 0; this.place_bar(); };
+			$(window).on('scroll.sob resize.sob', () => { if (!this._raf) this._raf = requestAnimationFrame(place); });
+		}
+
+		// The bar sticks right under the desk header; the scroll edge shows only once content runs under it.
+		place_bar() {
+			if (frappe.get_route_str() !== ROUTE) return;
+			const root = this.$root.get(0);
+			const head = $(this.wrapper).find('.page-head').get(0) || document.querySelector('.navbar');
+			const stick = head ? Math.max(0, Math.round(head.getBoundingClientRect().bottom)) : 0;
+			const r = root.getBoundingClientRect();
+			root.style.setProperty('--sob-stick', stick + 'px');
+			root.style.setProperty('--sob-edge-left', Math.round(r.left) + 'px');
+			root.style.setProperty('--sob-edge-width', Math.round(r.width) + 'px');
+			const bar = this.$root.find('.sob-bar').get(0);
+			this.$root.toggleClass('stuck', !!bar && r.top < stick - 4 && bar.getBoundingClientRect().top <= stick + 1);
 		}
 
 		// ---------- state and URL ----------
@@ -278,6 +419,7 @@
 			else this.render_board($v, list);
 			this.render_drawer();
 			this.write_url();
+			this.place_bar();
 		}
 
 		render_kpis(list) {
@@ -309,22 +451,31 @@
 		render_filters() {
 			const s = this.state;
 			const owners = s.owners || [];
-			const pill = (val, label, on, colour) => `<button type="button" class="sob-pill${on ? ' on' : ''}" data-owner="${esc(val)}" aria-pressed="${on}">${colour ? `<span class="sob-dot" style="background:${esc(colour)}"></span>` : ''}${esc(label)}</button>`;
+			const tick = `<span class="sob-tick">${svg(ICON.check, 14)}</span>`;
+			const value = (key, text, on) => this.$root.find(`[data-menu-value="${key}"]`).text(text)
+				.closest('.sob-mbtn').toggleClass('on', !!on).attr('title', text);
+			// Owner (managers only): rows with the owner's colour swatch; rebuilt only when the owners change,
+			// so a click inside the open menu never removes the row under the pointer
 			this.$root.find('.sob-owner-group').toggle(!!this.data.is_manager);
-			this.$root.find('.sob-owner-pills').html(
-				pill('', __('All'), !owners.length) +
-				(this.s.owners || []).map(o => pill(o.user, o.name, owners.includes(o.user), o.colour)).join('') +
-				pill(NONE, __('Unassigned'), owners.includes(NONE)));
+			const people = [['', __('All'), '']].concat((this.s.owners || []).map(o => [o.user, o.name, o.colour]), [[NONE, __('Unassigned'), '']]);
+			const $own = this.$root.find('.sob-owner-pills');
+			const osig = people.map(p => p[0] + p[2]).join('|');
+			if ($own.attr('data-sig') !== osig) {
+				$own.attr('data-sig', osig).html(people.map(p => `<button type="button" class="lg-item sob-mi" data-owner="${esc(p[0])}" aria-pressed="false">${tick}${p[2] ? `<span class="sob-dot" style="background:${esc(p[2])}"></span>` : ''}<span>${esc(p[1])}</span></button>`).join(''));
+			}
+			$own.find('[data-owner]').each((_, el) => {
+				const v = el.getAttribute('data-owner');
+				el.setAttribute('aria-pressed', String(v ? owners.includes(v) : !owners.length));
+			});
+			const names = owners.map(u => (u === NONE ? __('Unassigned') : this.owner_name(u)));
+			value('owner', !names.length ? __('All') : names.length <= 2 ? names.join(', ') : __('{0} people', [names.length]), names.length);
 			const opt = (v, label, cur) => `<option value="${esc(v)}"${v === cur ? ' selected' : ''}>${esc(label)}</option>`;
-			// Product Line: multi-select checkbox menu
+			// Product line: checkbox rows, rebuilt only when the lines change so keyboard focus stays on the ticked box
 			const lines = this.s.product_lines || [];
 			s.prods = s.prods.filter(p => lines.includes(p));
 			const picked = s.prods;
-			const label = !picked.length ? __('All') : picked.length <= 2 ? picked.join(', ') : __('{0} selected', [picked.length]);
-			const box = (v, text, on) => `<label class="sob-ms-opt"><input type="checkbox" data-prod="${esc(v)}"${on ? ' checked' : ''}> <span>${esc(text)}</span></label>`;
-			this.$root.find('#sob-prod-value').text(label);
-			this.$root.find('.sob-ms-btn').toggleClass('on', !!picked.length).attr('title', picked.join(', '));
-			// rebuild the menu only when the lines change, so keyboard focus stays on the ticked box
+			value('prod', !picked.length ? __('All') : picked.length <= 2 ? picked.join(', ') : __('{0} lines', [picked.length]), picked.length);
+			const box = (v, text, on) => `<label class="lg-item sob-mi"><input type="checkbox" data-prod="${esc(v)}"${on ? ' checked' : ''}><span>${esc(text)}</span></label>`;
 			const $menu = this.$root.find('.sob-ms-menu');
 			const sig = lines.join('|');
 			if ($menu.attr('data-sig') !== sig) $menu.attr('data-sig', sig).html(box('', __('All'), !picked.length) + lines.map(p => box(p, p, picked.includes(p))).join(''));
@@ -332,13 +483,42 @@
 				const v = el.getAttribute('data-prod');
 				el.checked = v ? picked.includes(v) : !picked.length;
 			});
-			this.$root.find('.sob-prio').html(opt('', __('All'), s.priority) + (this.s.lists.priority || []).map(p => opt(p, p, s.priority)).join(''));
+			// Filters: priority and the two switches; the button counts what is on
+			const $prio = this.$root.find('.sob-prio');
+			const psig = (this.s.lists.priority || []).join('|');
+			if ($prio.attr('data-sig') !== psig) $prio.attr('data-sig', psig).html(opt('', __('All'), s.priority) + (this.s.lists.priority || []).map(p => opt(p, p, s.priority)).join(''));
+			$prio.val(s.priority || '');
+			const more = [s.priority, s.attn, s.closed].filter(Boolean).length;
+			value('more', more ? String(more) : '', more);
 			const $q = this.$root.find('.sob-q');
 			if ($q.val() !== s.q && document.activeElement !== $q.get(0)) $q.val(s.q);
-			this.$root.find('[data-toggle="attn"]').toggleClass('on', s.attn).attr('aria-pressed', s.attn).text(__('Needs attention only'));
-			this.$root.find('[data-toggle="closed"]').toggleClass('on', s.closed).attr('aria-pressed', s.closed)
-				.text(__('Show closed'))
-				.attr('title', __('Closed deals hide {0} days after closing', [this.s.hide_closed_after_days || 0]));
+			const toggle = (k, label) => {
+				const $b = this.$root.find(`[data-toggle="${k}"]`);
+				if (!$b.children().length) $b.html(`${tick}<span>${esc(label)}</span>`);
+				$b.attr('aria-pressed', String(!!s[k]));
+			};
+			toggle('attn', __('Needs attention only'));
+			toggle('closed', __('Show closed'));
+			this.$root.find('[data-toggle="closed"]').attr('title', __('Closed deals hide {0} days after closing', [this.s.hide_closed_after_days || 0]));
+		}
+
+		// One menu open at a time; it opens out of its button (Liquid Glass) and keeps inside the page width.
+		menu(key, open) {
+			const $bar = this.$root.find('.sob-bar');
+			$bar.find('[data-menu-panel]').each((_, p) => {
+				const on = !!open && p.getAttribute('data-menu-panel') === key;
+				if (!on) { p.hidden = true; return; }
+				const btn = $bar.find(`[data-menu="${key}"]`).get(0);
+				const b = btn.getBoundingClientRect(), r = $bar.get(0).getBoundingClientRect();
+				p.hidden = false;
+				const w = p.offsetWidth;
+				const left = Math.min(b.left - r.left, Math.max(0, r.width - w));
+				p.style.left = Math.max(0, left) + 'px';
+				p.style.top = (b.bottom - r.top + 8) + 'px';
+				p.style.setProperty('--lg-origin', left < b.left - r.left - 1 ? 'top right' : 'top left');
+			});
+			$bar.find('[data-menu]').each((_, b) => b.setAttribute('aria-expanded', String(!!open && b.getAttribute('data-menu') === key)));
+			this._menu = open ? key : null;
 		}
 
 		// Deal attributes read as one quiet line; only alerts (flags) get coloured tags.
@@ -647,7 +827,7 @@
 					<span class="sob-muted">${rows.length} ${rows.length === 1 ? __('deal') : __('deals')}</span>
 					<div class="sob-colpick">
 						<button type="button" class="sob-btn sm" data-act="cols" aria-expanded="false">${__('Columns')}</button>
-						<div class="sob-colpick-menu" hidden>
+						<div class="sob-colpick-menu lg lg--thick lg-in" data-on="${esc(this.$root.attr('data-tone') || 'light')}" style="--lg-origin: top right" hidden>
 							${LIST_COLS.map(c => `<label><input type="checkbox" data-col="${c[0]}"${this.cols.includes(c[0]) ? ' checked' : ''}> ${esc(__(c[1]))}</label>`).join('')}
 							<button type="button" class="sob-btn sm" data-act="cols-reset">${__('Reset to default')}</button>
 						</div>
@@ -934,20 +1114,134 @@
 					<div class="sob-muted">${esc(fdt(a.on))}${a.detail ? ' · ' + esc(a.detail) : ''}</div></div>`).join('')}</div>`;
 		}
 
+		// ---------- buyer purchase history (Sales Invoices of the linked Customer, or of the Customer made from the Lead) ----------
+
+		has_buyer(d) { return !!(d && (d.customer || d.lead)); }
+
+		// Fetched once per deal and buyer; the drawer renders again when it lands.
+		hist_of(d) {
+			if (!this.has_buyer(d)) return null;
+			const key = (d.customer || '') + '|' + (d.lead || '');
+			const h = this.hist;
+			if (h && h.name === d.name && h.key === key) return h;
+			const mine = { name: d.name, key, data: null };
+			this.hist = mine;
+			const land = data => {
+				if (this.hist !== mine) return;
+				mine.data = data;
+				if (this.state.sel === d.name) this.render_drawer();
+			};
+			frappe.xcall(M + 'get_buyer_history', { name: d.name }).then(land)
+				.catch(() => land({ error: true, invoices: [], by_line: [], totals: {} }));
+			return mine;
+		}
+
+		inv_status(i) {
+			const label = i.is_return ? __('Return') : __(i.status);
+			const kind = i.is_return || /Credit Note|Return/.test(i.status || '') ? '' : i.status === 'Paid' ? ' ok' : i.status === 'Overdue' ? ' bad' : ' act';
+			return `<span class="sob-badge${kind}">${esc(label)}</span>`;
+		}
+
+		hist_tiles(r) {
+			const t = r.totals || {};
+			return `<div class="sob-tiles">
+				<div class="sob-tile"><span>${__('Billed')}</span><b>${usd(t.billed)}</b></div>
+				<div class="sob-tile"><span>${__('Invoices')}</span><b>${n0(t.count)}</b></div>
+				<div class="sob-tile${t.outstanding >= 1 ? ' due' : ''}"><span>${__('Outstanding')}</span><b>${usd(t.outstanding)}</b></div>
+				<div class="sob-tile"><span>${__('Last bought')}</span><b>${t.last ? esc(fdate(t.last)) : '—'}</b></div>
+			</div>`;
+		}
+
+		inv_rows(r, limit) {
+			const list = limit ? r.invoices.slice(0, limit) : r.invoices;
+			const multi = (r.totals || {}).companies > 1;
+			const no = i => (r.can_open ? `<a href="/app/sales-invoice/${encodeURIComponent(i.name)}">${esc(i.name)}</a>` : esc(i.name));
+			return `<div class="sob-inv">${list.map(i => {
+				const meta = [multi ? i.company : '', i.due && !i.is_return ? __('Due {0}', [fdate(i.due)]) : '', i.outstanding >= 1 ? __('{0} outstanding', [usd(i.outstanding)]) : '']
+					.filter(Boolean).map(esc).join(' · ');
+				return `<details class="sob-inv-row">
+					<summary>
+						<span class="sob-inv-date">${esc(fdate(i.date))}</span>
+						<span class="sob-inv-main"><span class="sob-inv-no">${no(i)}</span><span class="sob-inv-items">${esc(i.items.map(x => x.item_name).join(', '))}</span></span>
+						${this.inv_status(i)}
+						<span class="sob-inv-amt">${usd(i.amount)}</span>
+						<span class="sob-inv-chev">${svg(ICON.down, 14)}</span>
+					</summary>
+					<table class="sob-mini">
+						<thead><tr><th>${__('Item')}</th><th class="r">${__('Qty')}</th><th class="r">${__('Rate')}</th><th class="r money">${__('Amount')}</th></tr></thead>
+						<tbody>${i.items.map(x => `<tr><td>${esc(x.item_name)}</td><td class="r">${nq(x.qty)} ${esc(x.uom || '')}</td><td class="r">${money2(x.rate)}</td><td class="r money">${usd(x.amount)}</td></tr>`).join('')}</tbody>
+					</table>
+					${meta ? `<div class="sob-muted sob-inv-meta">${meta}</div>` : ''}
+				</details>`;
+			}).join('')}</div>`;
+		}
+
+		// Overview: what this buyer already bought, before anything else about the deal.
+		history_block(d) {
+			const h = this.hist_of(d);
+			if (!h) return '';
+			const r = h.data;
+			const head = extra => `<header><span class="sob-hist-t">${svg(ICON.receipt, 16)}${__('Purchase history')}</span>${extra || ''}</header>`;
+			let body;
+			if (!r) body = `<div class="sob-hist-note sob-muted">${__('Loading invoices…')}</div>`;
+			else if (r.error) body = `<div class="sob-hist-note sob-muted">${__('The purchase history could not be loaded')}</div>`;
+			else if (!r.customer) body = `<div class="sob-hist-note sob-muted">${__('No purchases yet. This lead is not a customer.')}</div>`;
+			else if (!r.invoices.length) body = `<div class="sob-hist-note sob-muted">${__('{0} has no invoices yet', [esc(r.customer_title)])}</div>`;
+			else {
+				const more = r.invoices.length > 3 ? `<button type="button" class="sob-link" data-tab="purchases">${__('All {0} invoices', [r.invoices.length])}</button>` : '';
+				return `<section class="sob-hist">${head(more)}${this.hist_tiles(r)}${this.inv_rows(r, 3)}</section>`;
+			}
+			return `<section class="sob-hist">${head()}${body}</section>`;
+		}
+
+		purchases_tab(d) {
+			const h = this.hist_of(d);
+			if (!h) return `<div class="sob-empty">${__('Link a buyer on the Buyer tab to see what they bought')}</div>`;
+			const r = h.data;
+			if (!r) return `<div class="sob-muted">${__('Loading invoices…')}</div>`;
+			if (r.error) return `<div class="sob-empty">${__('The purchase history could not be loaded')}</div>`;
+			if (!r.customer) return `<div class="sob-empty">${__('No purchases yet. This lead is not a customer.')}</div>`;
+			if (!r.invoices.length) return `<div class="sob-empty">${__('{0} has no invoices yet', [esc(r.customer_title)])}</div>`;
+			const t = r.totals;
+			const sub = [r.via_lead ? __('Customer created from this lead') : '', t.first ? __('Buying since {0}', [fdate(t.first)]) : '',
+				t.returns ? __('{0} returns', [t.returns]) : ''].filter(Boolean).map(esc).join(' · ');
+			const qty = x => [x.grams ? n0(x.grams) + ' g' : '', x.units ? nq(x.units) + ' ' + (x.units === 1 ? __('unit') : __('units')) : ''].filter(Boolean).join(' · ');
+			return `
+				<div class="sob-block">
+					<div class="sob-cap">${esc(r.customer_title)}</div>
+					${sub ? `<div class="sob-muted">${sub}</div>` : ''}
+					${this.hist_tiles(r)}
+				</div>
+				<div class="sob-block">
+					<div class="sob-cap">${__('What they buy')}</div>
+					<table class="sob-mini"><thead><tr><th>${__('Product')}</th><th class="r">${__('Quantity')}</th><th class="r money">${__('Amount')}</th></tr></thead>
+						<tbody>${r.by_line.map(x => `<tr><td>${esc(x.label)}</td><td class="r">${qty(x)}</td><td class="r money">${usd(x.amount)}</td></tr>`).join('')}</tbody></table>
+				</div>
+				<div class="sob-block">
+					<div class="sob-cap">${__('Invoices')}</div>
+					<div class="sob-muted">${__('Newest first. Open a row for its items.')}</div>
+					${this.inv_rows(r)}
+				</div>`;
+		}
+
 		render_drawer() {
 			const d = this.state.sel ? this.find(this.state.sel) : null;
 			if (!d) { this.close_drawer(true); return; }
 			const nav = document.querySelector('header.navbar, .navbar');
 			const top = nav ? Math.max(0, nav.getBoundingClientRect().bottom) : 0;
-			this.$drawer.prop('hidden', false).find('.sob-drawer').css('top', top + 'px');
+			// the sheet floats inset from the window edges, over a dimmed board
+			this.$drawer.prop('hidden', false).find('.sob-drawer').css('top', (top + 8) + 'px');
 			this.$drawer.find('.sob-drawer-backdrop').css('top', top + 'px');
 			const tab = this.state.tab;
 			const can = this.data.can_write;
 			const st = this.stage(d.stage) || {};
 			const feed = this.feed && this.feed.name === d.name ? this.feed : null;
 			const n_notes = feed && feed.notes ? feed.notes.length : 0;
-			const tabs = [['overview', __('Overview')], ['buyer', __('Buyer')], ['requirements', __('Requirements')],
-				['notes', n_notes ? __('Notes') + ` (${n_notes})` : __('Notes')], ['activity', __('Activity')]];
+			const hist = this.hist_of(d);
+			const n_inv = hist && hist.data && hist.data.invoices ? hist.data.invoices.length : 0;
+			const tabs = [['overview', __('Overview')], ['buyer', __('Buyer')]]
+				.concat(hist ? [['purchases', n_inv ? __('Purchases') + ` (${n_inv})` : __('Purchases')]] : [])
+				.concat([['requirements', __('Requirements')], ['notes', n_notes ? __('Notes') + ` (${n_notes})` : __('Notes')], ['activity', __('Activity')]]);
 			const field = (label, value, html) => (value || html) ? `<div class="sob-f"><span>${esc(label)}</span><span>${html || esc(value)}</span></div>` : '';
 			let body = '';
 			if (tab === 'overview') {
@@ -957,6 +1251,7 @@
 						<input type="date" data-panel-field="${e.field}" value="${esc(d[e.field] || '')}"${can ? '' : ' disabled'}></label>`).join('');
 				body = `
 					${(d.flags || []).length ? `<div class="sob-badges">${(d.flags || []).map(f => `<span class="sob-badge ${f.kind === 'action' ? 'act' : 'info'}">${esc(f.label)}</span>`).join('')}</div>` : ''}
+					${this.history_block(d)}
 					${can ? `<div class="sob-block"><div class="sob-cap">${__('Stage')}</div>${BOARDS.map(b => {
 					const sts = this.stages_of(b[0]);
 					if (!sts.length) return '';
@@ -979,6 +1274,8 @@
 						${field(__('Status detail'), d.status_detail)}
 						${field(__('Lost reason'), d.lost_reason)}
 					</div>`;
+			} else if (tab === 'purchases') {
+				body = this.purchases_tab(d);
 			} else if (tab === 'buyer') {
 				body = this.buyer_tab(d);
 			} else if (tab === 'requirements') {
@@ -1019,7 +1316,7 @@
 							<button type="button" class="sob-x" data-act="close" aria-label="${__('Close')}">${svg(ICON.x, 16)}</button></div>
 						<h2>${esc(d.account)}</h2>
 						<div class="sob-muted">${esc((d.lines || []).length ? d.lines.map(l => [l.product_line, l.tier].filter(Boolean).join(' · ')).join(', ') : ([d.product_line, d.tier].filter(Boolean).join(' · ') || __('Product not set yet')))} · ${esc(d.deal_owner ? this.owner_name(d.deal_owner) : __('Unassigned'))}${this.co_list(d).length ? esc(' + ' + this.co_list(d).map(u => this.owner_name(u)).join(', ')) : ''}</div>
-						<nav class="sob-d-tabs" role="tablist">${tabs.map(t => `<button type="button" role="tab" class="${t[0] === tab ? 'on' : ''}" aria-selected="${t[0] === tab}" data-tab="${t[0]}">${esc(t[1])}</button>`).join('')}</nav>
+						<div class="sob-d-tabs lg-group" role="tablist">${tabs.map(t => `<button type="button" role="tab" class="lg-item${t[0] === tab ? ' on' : ''}" aria-selected="${t[0] === tab}" data-tab="${t[0]}">${esc(t[1])}</button>`).join('')}</div>
 					</header>
 					<div class="sob-d-body">${body}</div>
 					<footer class="sob-d-foot">
@@ -1538,12 +1835,11 @@
 				else owners = owners.includes(v) ? owners.filter(x => x !== v) : owners.concat([v]);
 				this.set({ owners });
 			});
-			// Product Line multi-select
-			const prod_menu = open => {
-				$r.find('.sob-ms-menu').prop('hidden', !open);
-				$r.find('.sob-ms-btn').attr('aria-expanded', open ? 'true' : 'false');
-			};
-			$r.on('click', '[data-act="prod-menu"]', () => prod_menu($r.find('.sob-ms-menu').prop('hidden')));
+			// Owner, Product line and Filters menus
+			$r.on('click', '[data-menu]', e => {
+				const k = $(e.currentTarget).attr('data-menu');
+				this.menu(k, this._menu !== k);
+			});
 			$r.on('change', '[data-prod]', e => {
 				const v = $(e.currentTarget).attr('data-prod');
 				let prods = this.state.prods.slice();
@@ -1553,11 +1849,20 @@
 				prods = (this.s.product_lines || []).filter(p => prods.includes(p));
 				this.set({ prods });
 			});
+			// close on a click outside; the event path is read at dispatch, so a row re-rendered by the click still counts as inside
 			$(document).on('click.sob', e => {
-				if (!$(e.target).closest('.sob-ms').length) prod_menu(false);
+				if (!this._menu) return;
+				const path = (e.originalEvent && e.originalEvent.composedPath && e.originalEvent.composedPath()) || [];
+				const inside = path.some(n => n.nodeType === 1 && (n.hasAttribute('data-menu-panel') || n.hasAttribute('data-menu')));
+				if (!inside) this.menu(null, false);
 			});
-			$r.on('keydown', '.sob-ms', e => {
-				if (e.key === 'Escape') { e.stopPropagation(); prod_menu(false); $r.find('.sob-ms-btn').trigger('focus'); }
+			$r.on('keydown', '[data-menu-panel], [data-menu]', e => {
+				if (e.key === 'Escape' && this._menu) {
+					e.stopPropagation();
+					const k = this._menu;
+					this.menu(null, false);
+					$r.find(`[data-menu="${k}"]`).trigger('focus');
+				}
 			});
 			$r.on('change', '.sob-prio', e => this.set({ priority: e.target.value }));
 			$r.on('input', '.sob-q', frappe.utils.debounce(e => this.set({ q: e.target.value }), 200));
