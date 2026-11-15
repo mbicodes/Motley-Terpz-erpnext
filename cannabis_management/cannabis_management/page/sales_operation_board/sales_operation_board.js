@@ -114,6 +114,7 @@
 			addEventListener('scroll', queue, { passive: true, capture: true });
 			addEventListener('resize', queue, { passive: true });
 			run();
+			return queue;
 		}
 		return { refract, adapt };
 	})();
@@ -195,7 +196,8 @@
 			const menu_btn = (key, label) => `<button type="button" class="lg-item sob-mbtn" data-menu="${key}" aria-haspopup="true" aria-expanded="false">
 				<span class="sob-mbtn-k">${label}</span><span class="sob-mbtn-v" data-menu-value="${key}"></span>${svg(ICON.down, 14)}</button>`;
 			this.$root = $(`
-				<div class="sob" data-tone="light">
+				<div class="sob" data-tone="light" data-board="deal">
+					<div class="sob-bg" aria-hidden="true"><i class="sob-bg-lead"></i><i class="sob-bg-deal"></i></div>
 					<div class="lg-edge sob-edge" aria-hidden="true"></div>
 					<div class="sob-bar">
 						<div class="lg lg-group sob-boards" role="group" aria-label="${__('Board')}" data-lg-adapt data-lg-refract>
@@ -214,8 +216,8 @@
 						<div class="lg lg--thick sob-menu lg-in" data-menu-panel="prod" role="group" aria-label="${__('Product line')}" hidden><div class="sob-ms-menu"></div></div>
 						<div class="lg lg--thick sob-menu lg-in" data-menu-panel="more" role="group" aria-label="${__('Filters')}" hidden>
 							<label class="sob-mrow" for="sob-prio"><span>${__('Priority')}</span><select id="sob-prio" class="sob-select sob-prio"></select></label>
-							<button type="button" class="lg-item sob-mi sob-toggle" data-toggle="attn" aria-pressed="false"></button>
-							<button type="button" class="lg-item sob-mi sob-toggle" data-toggle="closed" aria-pressed="false"></button>
+							<button type="button" class="lg-item sob-mi sob-toggle" data-toggle="attn" role="switch" aria-checked="false"></button>
+							<button type="button" class="lg-item sob-mi sob-toggle" data-toggle="closed" role="switch" aria-checked="false"></button>
 						</div>
 					</div>
 					<div class="sob-kpis"></div>
@@ -232,26 +234,38 @@
 
 		// ---------- Liquid Glass: tones, refraction, sticky bar ----------
 
+		// Which gradient shows, and the tone the glass reads: the bare backdrop is light on Leads and dark on
+		// Deals; the frosted panels and cards are light (dark in the dark theme); menus and the sheet follow the theme.
+		apply_tones() {
+			const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+			const board = this.state.board === 'lead' ? 'lead' : 'deal';
+			const panel = dark ? 'dark' : 'light';
+			this.$root.attr('data-board', board).attr('data-tone', dark || board === 'deal' ? 'dark' : 'light');
+			this.$root.find('.sob-kpis, .sob-col, .sob-table-wrap, .sob-cal, .sob-agenda').attr('data-tone', panel);
+			this.$root.find('.sob-menu, .sob-colpick-menu').attr('data-on', panel);
+			this.$drawer.find('.sob-drawer').attr('data-on', panel);
+			// the panels on the Deals gradient are dark frost (KPIs) or dark frost holding white cards (columns)
+			if (!dark && board === 'deal') this.$root.find('.sob-kpis').attr('data-tone', 'dark');
+			if (dark || board === 'deal') this.$root.find('.sob-col').attr('data-tone', 'mixed');
+			// re-read what sits under the glass bar now that the tones changed
+			if (this._adapt) this._adapt();
+		}
+
 		mount_glass() {
-			const tone = () => (document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
-			this.$root.attr('data-tone', tone());
-			this.$drawer.find('.sob-drawer').attr('data-on', tone());
-			this.$root.find('.sob-menu').attr('data-on', tone());
+			this.apply_tones();
 			const bar = this.$root.find('.sob-bar').get(0);
 			// refraction needs a settled size, so wait for the brand fonts
 			const go = () => {
 				bar.querySelectorAll('[data-lg-refract]').forEach(el => LG.refract(el));
-				LG.adapt([...bar.querySelectorAll('[data-lg-adapt]')]);
+				this._adapt = LG.adapt([...bar.querySelectorAll('[data-lg-adapt]')]);
 			};
 			(document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(go);
-			new MutationObserver(() => {
-				const t = tone();
-				this.$root.attr('data-tone', t);
-				this.$drawer.find('.sob-drawer').attr('data-on', t);
-				this.$root.find('.sob-menu').attr('data-on', t);
-			}).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+			new MutationObserver(() => this.apply_tones()).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+			// the desk scrolls inside .app-content (Motley theme), not the window, so listen in the capture phase
 			const place = () => { this._raf = 0; this.place_bar(); };
-			$(window).on('scroll.sob resize.sob', () => { if (!this._raf) this._raf = requestAnimationFrame(place); });
+			const queue = () => { if (!this._raf) this._raf = requestAnimationFrame(place); };
+			window.addEventListener('scroll', queue, { capture: true, passive: true });
+			window.addEventListener('resize', queue, { passive: true });
 		}
 
 		// The bar sticks right under the desk header; the scroll edge shows only once content runs under it.
@@ -419,6 +433,7 @@
 			else this.render_board($v, list);
 			this.render_drawer();
 			this.write_url();
+			this.apply_tones();
 			this.place_bar();
 		}
 
@@ -494,8 +509,8 @@
 			if ($q.val() !== s.q && document.activeElement !== $q.get(0)) $q.val(s.q);
 			const toggle = (k, label) => {
 				const $b = this.$root.find(`[data-toggle="${k}"]`);
-				if (!$b.children().length) $b.html(`${tick}<span>${esc(label)}</span>`);
-				$b.attr('aria-pressed', String(!!s[k]));
+				if (!$b.children().length) $b.html(`<span>${esc(label)}</span><span class="sob-switch" aria-hidden="true"></span>`);
+				$b.attr('aria-checked', String(!!s[k]));
 			};
 			toggle('attn', __('Needs attention only'));
 			toggle('closed', __('Show closed'));
@@ -827,7 +842,7 @@
 					<span class="sob-muted">${rows.length} ${rows.length === 1 ? __('deal') : __('deals')}</span>
 					<div class="sob-colpick">
 						<button type="button" class="sob-btn sm" data-act="cols" aria-expanded="false">${__('Columns')}</button>
-						<div class="sob-colpick-menu lg lg--thick lg-in" data-on="${esc(this.$root.attr('data-tone') || 'light')}" style="--lg-origin: top right" hidden>
+						<div class="sob-colpick-menu lg lg--thick lg-in" style="--lg-origin: top right" hidden>
 							${LIST_COLS.map(c => `<label><input type="checkbox" data-col="${c[0]}"${this.cols.includes(c[0]) ? ' checked' : ''}> ${esc(__(c[1]))}</label>`).join('')}
 							<button type="button" class="sob-btn sm" data-act="cols-reset">${__('Reset to default')}</button>
 						</div>
