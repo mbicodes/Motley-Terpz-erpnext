@@ -1112,16 +1112,16 @@ def _account_activity(doc):
 	deals = frappe.get_list(DT, filters={"pipeline_account": doc.name}, fields=["name", "product_line", "tier", "lost_reason"], limit_page_length=0)
 	if deals:
 		won, lost = sales_ops.won_stage(s), sales_ops.lost_stage(s)
-		label = {d.name: " · ".join(x for x in (d.product_line, d.tier) if x) or d.name for d in deals}
+		label = {d.name: (" · ".join(x for x in (d.product_line, d.tier) if x) + " ") if d.product_line else "" for d in deals}
 		reason = {d.name: d.lost_reason for d in deals}
 		for r in frappe.get_all("Sales Pipeline Stage Log", filters={"parenttype": DT, "parent": ("in", list(label))},
 				fields=["parent", "from_stage", "to_stage", "changed_by", "changed_on"], limit_page_length=0):
 			if not r.from_stage:
-				kind, text = "created", _("New deal {0} ({1}) by {2}").format(r.parent, label[r.parent], _who(r.changed_by))
+				kind, text = "created", _("New deal: {0}{1} by {2}").format(label[r.parent], r.parent, _who(r.changed_by))
 			elif won and r.to_stage == won.name:
-				kind, text = "won", _("Deal won: {0} ({1})").format(label[r.parent], r.parent)
+				kind, text = "won", _("Deal won: {0}{1}").format(label[r.parent], r.parent)
 			elif lost and r.to_stage == lost.name:
-				kind, text = "lost", _("Deal lost: {0} ({1})").format(label[r.parent], r.parent)
+				kind, text = "lost", _("Deal lost: {0}{1}").format(label[r.parent], r.parent)
 			else:
 				continue
 			items.append({"kind": kind, "text": text, "detail": (reason.get(r.parent) or "") if kind == "lost" else "", "on": str(r.changed_on)})

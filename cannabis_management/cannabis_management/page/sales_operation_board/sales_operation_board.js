@@ -1,12 +1,25 @@
-// Sales Operation Board: Board · By Owner · Calendar · List over Sales Pipeline Deal.
-// Stages, owners, lists, alert rules and stock come from the server (Sales Pipeline Settings); this file renders and calls.
+// Sales Operation Board. Leads: one card per account (Sales Pipeline Account) by lead status, with the volume it
+// procures or produces and what it wants from us (Board · By Owner · Projection · List). Deals: Sales Pipeline Deal by
+// stage (Board · By Owner · Calendar · List), several per account. Stages, statuses, owners, lists, alert rules and
+// stock come from the server (Sales Pipeline Settings); this file renders and calls.
 (function () {
 	const ROUTE = 'sales-operation-board';
 	const M = 'cannabis_management.cannabis_management.page.sales_operation_board.sales_operation_board.';
 	const DT = 'Sales Pipeline Deal';
+	const ACC_DT = 'Sales Pipeline Account';
 	const NONE = '__none';
 	const LS_COLS = 'sob_list_cols_v1';
-	const VIEWS = [['board', 'Board'], ['owner', 'By Owner'], ['calendar', 'Calendar'], ['list', 'List']];
+	const LS_ACC_COLS = 'sob_acc_cols_v1';
+	const VIEWS = {
+		lead: [['board', 'Board'], ['owner', 'By Owner'], ['projection', 'Projection'], ['list', 'List']],
+		deal: [['board', 'Board'], ['owner', 'By Owner'], ['calendar', 'Calendar'], ['list', 'List']],
+	};
+	const ALL_VIEWS = ['board', 'owner', 'calendar', 'list', 'projection'];
+	// grams per unit for the volume rows, weeks in a month (52 / 12)
+	const UNITS = { g: 1, kg: 1000, lb: 453.59237 };
+	const WPM = 52 / 12;
+	// record type from its ID (accounts are SPA-, deals SPD-), so it works before the board has loaded
+	const dt_of = name => (/^SPA-/.test(String(name || '')) ? ACC_DT : DT);
 	const ICON = {
 		phone: '<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/>',
 		flask: '<path d="M9 3h6M10 3v6L4.5 18.5A2 2 0 0 0 6.2 21h11.6a2 2 0 0 0 1.7-2.5L14 9V3"/>',
@@ -25,6 +38,9 @@
 		clock: '<path d="M21 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3.5"/><path d="M16 2v4M8 2v4M3 10h5"/><path d="M17.5 17.5 16 16.3V14"/><circle cx="16" cy="16" r="6"/>',
 		move: '<circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="m12 16 4-4-4-4"/>',
 		mail: '<rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>',
+		undo: '<path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-15-6.7L3 13"/>',
+		scale: '<path d="M12 3v18M5 21h14M3 7h18"/><path d="m6 7-3 7a3 3 0 0 0 6 0zM18 7l-3 7a3 3 0 0 0 6 0z"/>',
+		deal: '<path d="M3 7h18v13H3z"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 13h18"/>',
 	};
 	// One line-icon style everywhere (lucide shapes): stroke 1.75, colour from the text it sits in.
 	const svg = (p, size) => `<svg width="${size || 14}" height="${size || 14}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
@@ -142,6 +158,19 @@
 		['strain_profiles', 'Strain Profiles'], ['location_address', 'Location'], ['license_number', 'License #'],
 	];
 	const DEFAULT_COLS = LIST_COLS.slice(0, 13).map(c => c[0]);
+	// Leads board list: one row per account
+	const ACC_COLS = [
+		['lead_status', 'Lead Status', 'stage'], ['account', 'Account'], ['account_owner', 'Relationship Manager', 'owner'],
+		['products', 'Product Lines'], ['weekly_volume', 'Volume / Week (g)', 'num'], ['monthly_demand', 'Wants / Month (g)', 'num'],
+		['monthly_potential', 'Potential / Month', 'money'], ['weighted_potential', 'Weighted / Month', 'money'],
+		['open_deals', 'Open Deals', 'num'], ['open_value', 'Open Deal Value', 'money'], ['next_step_due', 'Next Follow-up', 'date_edit'],
+		['modified', 'Last Updated', 'datetime'], ['customer', 'Customer'], ['lead', 'Lead'], ['contact_name', 'Contact'],
+		['phone', 'Phone'], ['email', 'Email'], ['won_value', 'Won Value', 'money'], ['lost_deals', 'Lost Deals', 'num'],
+		['days_in_stage', 'Days in Status', 'num'], ['probability', 'Status %', 'pct'], ['lead_source', 'Lead Source'],
+		['location_address', 'Location'], ['license_number', 'License #'],
+	];
+	const ACC_DEFAULT_COLS = ACC_COLS.slice(0, 12).map(c => c[0]);
+	const ACC_NOTE_SECTIONS = [['relationship_notes', 'Relationship Notes']];
 	const NOTE_SECTIONS = [
 		['buyer_notes', 'Buyer Notes / Requests'], ['deal_notes', 'Deal Notes'], ['next_steps', 'Next Steps to Close'],
 		['fulfillment_notes', 'Fulfillment Notes'], ['ops_notes', 'Ops Notes'],
@@ -158,6 +187,8 @@
 	const usd = n => '$' + n0(n);
 	const money2 = n => '$' + (Math.round((+n || 0) * 100) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 	const nq = n => (+n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
+	// weights on cards and widgets: grams up to a kilo, then kilos
+	const wt = g => { g = +g || 0; return g >= 1000 ? (Math.round(g / 100) / 10).toLocaleString('en-US') + ' kg' : n0(g) + ' g'; };
 	const fdate = s => (s ? frappe.datetime.str_to_user(String(s).slice(0, 10)) : '');
 	const fdt = s => {
 		if (!s) return '';
@@ -187,11 +218,13 @@
 				view: 'board', board: 'deal', owners: null, prods: [], priority: '', q: '', attn: false, closed: false,
 				cal_mode: 'month', cal_date: null, cal_type: 'all', sort: { key: '', dir: 1 }, sel: null, tab: 'overview',
 			};
-			this.cols = this.read_cols();
+			this.cols = this.read_cols(LS_COLS, LIST_COLS, DEFAULT_COLS);
+			this.acc_cols = this.read_cols(LS_ACC_COLS, ACC_COLS, ACC_DEFAULT_COLS);
 
 			page.set_primary_action(__('New Deal'), () => this.new_deal(), 'add');
 			page.add_button(__('Export'), () => this.export_xlsx());
 			page.add_menu_item(__('Deal List'), () => frappe.set_route('List', DT));
+			page.add_menu_item(__('Account List'), () => frappe.set_route('List', ACC_DT));
 			page.add_menu_item(__('Sales Pipeline Settings'), () => frappe.set_route('Form', 'Sales Pipeline Settings'));
 
 			// Two layers. Content (KPIs, columns, cards, list, calendar) stays plain; the controls float above it
@@ -207,9 +240,7 @@
 						<div class="lg lg-group sob-boards" role="group" aria-label="${__('Board')}" data-lg-adapt data-lg-refract>
 							${BOARDS.map(b => `<button type="button" class="lg-item sob-board-btn" data-board="${b[0]}" aria-pressed="false">${__(b[1])}<span class="sob-board-n"></span></button>`).join('')}
 						</div>
-						<div class="lg lg-group sob-tabs" role="tablist" aria-label="${__('Views')}" data-lg-adapt data-lg-refract>
-							${VIEWS.map(v => `<button type="button" class="lg-item sob-tab" role="tab" data-view="${v[0]}" aria-selected="false">${__(v[1])}</button>`).join('')}
-						</div>
+						<div class="lg lg-group sob-tabs" role="tablist" aria-label="${__('Views')}" data-lg-adapt data-lg-refract></div>
 						<div class="lg lg-group sob-tools" data-lg-adapt data-lg-refract>
 							<label class="lg-item sob-search">${svg(ICON.search, 16)}<input type="search" class="sob-q" autocomplete="off" aria-label="${__('Search deals')}" placeholder="${__('Search deals')}"></label>
 							<span class="sob-owner-group">${menu_btn('owner', __('Owner'))}</span>
@@ -290,12 +321,12 @@
 
 		// ---------- state and URL ----------
 
-		read_cols() {
+		read_cols(ls, all, def) {
 			try {
-				const c = JSON.parse(localStorage.getItem(LS_COLS) || 'null');
-				if (Array.isArray(c) && c.length) return c.filter(k => LIST_COLS.some(x => x[0] === k));
+				const c = JSON.parse(localStorage.getItem(ls) || 'null');
+				if (Array.isArray(c) && c.length) return c.filter(k => all.some(x => x[0] === k));
 			} catch (e) { /* storage off */ }
-			return DEFAULT_COLS.slice();
+			return def.slice();
 		}
 
 		read_url() {
@@ -303,8 +334,8 @@
 			const ro = frappe.route_options || {};
 			frappe.route_options = null;
 			const s = this.state;
-			if (p.get('view') && VIEWS.some(v => v[0] === p.get('view'))) s.view = p.get('view');
 			if (BOARDS.some(b => b[0] === p.get('board'))) s.board = p.get('board');
+			if (p.get('view') && ALL_VIEWS.includes(p.get('view'))) s.view = p.get('view');
 			if (p.has('owner')) s.owners = p.get('owner') ? p.get('owner').split(',') : [];
 			if (p.has('product_line')) s.prods = (p.get('product_line') || '').split(',').map(x => x.trim()).filter(Boolean);
 			else if (p.has('prod')) s.prods = p.get('prod') ? [p.get('prod')] : [];  // links saved before the multi-select
@@ -315,7 +346,7 @@
 			if (p.get('cal') === 'week' || p.get('cal') === 'month') s.cal_mode = p.get('cal');
 			if (p.get('date') && pd(p.get('date'))) s.cal_date = p.get('date');
 			if (p.get('show')) s.cal_type = p.get('show');
-			const deal = ro.deal || p.get('deal');
+			const deal = ro.account || p.get('account') || ro.deal || p.get('deal');
 			if (deal) { s.sel = deal; s.tab = 'overview'; }
 		}
 
@@ -335,7 +366,7 @@
 				if (s.cal_date) p.set('date', s.cal_date);
 				if (s.cal_type !== 'all') p.set('show', s.cal_type);
 			}
-			if (s.sel) p.set('deal', s.sel);
+			if (s.sel) p.set(dt_of(s.sel) === ACC_DT ? 'account' : 'deal', s.sel);
 			// keep lists readable in the address bar: product_line=VRR,LLR
 			const url = window.location.pathname + '?' + p.toString().replace(/%2C/gi, ',');
 			if (url !== window.location.pathname + window.location.search) window.history.replaceState(window.history.state, '', url);
@@ -358,12 +389,15 @@
 
 		load() {
 			return frappe.xcall(M + 'get_board').then(r => {
+				r.accounts = r.accounts || [];
+				r.accounts.forEach(a => { a._acc = true; a.account = a.account_name; });
 				this.data = r;
 				this.s = r.settings;
+				this.s.lead_statuses = this.s.lead_statuses || [];
 				// sales people only ever see the deals they are assigned to, so they get no owner filter
 				if (!r.is_manager || this.state.owners === null) this.state.owners = [];
 				if (!this.state.cal_date) this.state.cal_date = r.today;
-				if (!r.can_create) this.page.clear_primary_action();
+				this._prim = null;
 				this.render();
 				if (this.state.sel) this.load_feed(this.state.sel);
 			}).catch(() => {
@@ -374,9 +408,17 @@
 		// ---------- lookups ----------
 
 			stage(name) { return (this.s.stages || []).find(x => x.name === name) || null; }
-			board_of(stage) { const st = this.stage(stage); return st && st.board === 'Lead' ? 'lead' : 'deal'; }
-			stages_of(board) { return (this.s.stages || []).filter(x => (x.board === 'Lead' ? 'lead' : 'deal') === board); }
+			status(name) { return (this.s.lead_statuses || []).find(x => x.name === name) || null; }
+			// a deal's stage or an account's lead status (same colour / probability shape)
+			stage_of(d) { return d && d._acc ? this.status(d.lead_status) : this.stage(d && d.stage); }
+			stage_name(d) { return d && d._acc ? d.lead_status : d && d.stage; }
+			stage_patch(d, name) { return d && d._acc ? { lead_status: name } : { stage: name }; }
+			stages_of(board) { return board === 'lead' ? (this.s.lead_statuses || []) : (this.s.stages || []); }
 			first_stage_of(board) { const open = this.stages_of(board).filter(x => !x.is_closed); return (open[0] || this.stages_of(board)[0] || {}).name || this.s.first_stage; }
+			own(d) { return d && d._acc ? d.account_owner : d && d.deal_owner; }
+			own_field(d) { return d && d._acc ? 'account_owner' : 'deal_owner'; }
+			acc_of(d) { return d && d.pipeline_account ? (this.data.accounts || []).find(a => a.name === d.pipeline_account) || null : null; }
+			deals_of(a) { return (this.data.deals || []).filter(d => d.pipeline_account === a.name); }
 			lines_of(d) {
 				const w = this.work && this.work[d.name];
 				return (w || d.lines || []).filter(l => !l.draft || w);
@@ -386,7 +428,10 @@
 		lost_stage() { return (this.s.stages || []).find(x => x.is_closed && !x.is_won); }
 		owner(user) { return (this.s.all_owners || []).find(o => o.user === user) || null; }
 		owner_name(user) { const o = this.owner(user); return o ? o.name : (user || __('Unassigned')); }
-		find(name) { return (this.data && this.data.deals || []).find(d => d.name === name); }
+		find(name) {
+			if (!this.data || !name) return undefined;
+			return (dt_of(name) === ACC_DT ? this.data.accounts : this.data.deals || []).find(d => d.name === name);
+		}
 		prio_rank(p) { const i = (this.s.lists.priority || []).indexOf(p); return i < 0 ? 99 : i; }
 		is_top_priority(p) { return p && (this.s.lists.priority || [])[0] === p; }
 
@@ -397,7 +442,6 @@
 			const owners = s.owners || [];
 			return (this.data ? this.data.deals : []).filter(d =>
 				(opts.keep_hidden || s.closed || !d.hidden_closed) &&
-				(opts.any_board || this.board_of(d.stage) === s.board) &&
 				(opts.any_owner || !owners.length || owners.includes(d.deal_owner || NONE) || (d.co_owners || []).some(u => owners.includes(u))) &&
 				(!s.prods.length || (d.lines && d.lines.length ? d.lines.some(l => s.prods.includes(l.product_line)) : s.prods.includes(d.product_line))) &&
 				(!s.priority || d.priority === s.priority) &&
@@ -405,6 +449,28 @@
 					d.buyer_notes, d.deal_notes, d.next_steps, d.fulfillment_notes, d.ops_notes, d.strain_profiles]
 					.join(' ').toLowerCase().indexOf(q) >= 0) &&
 				(!s.attn || d.attention));
+		}
+
+		// Leads board: accounts under the same owner, product line, search and attention filters
+		filtered_acc() {
+			const s = this.state;
+			const q = (s.q || '').trim().toLowerCase();
+			const owners = s.owners || [];
+			return (this.data ? this.data.accounts : []).filter(a =>
+				(!owners.length || owners.includes(a.account_owner || NONE)) &&
+				(!s.prods.length || (a.volume || []).some(v => s.prods.includes(v.product_line))) &&
+				(!q || [a.name, a.account_name, a.lead_status, a.contact_name, a.customer, a.customer_title, a.lead_title, a.email, a.phone,
+					a.relationship_notes, (a.volume || []).map(v => v.product_line + ' ' + (v.notes || '')).join(' ')]
+					.join(' ').toLowerCase().indexOf(q) >= 0) &&
+				(!s.attn || a.attention));
+		}
+
+		// overdue follow-ups first, then the biggest monthly potential
+		sorted_accs(list) {
+			const today = this.data.today;
+			const late = a => (a.next_step_due && a.next_step_due < today && !a.is_closed ? 0 : 1);
+			return list.slice().sort((a, b) => (late(a) - late(b)) || ((+b.monthly_potential || 0) - (+a.monthly_potential || 0)) ||
+				String(a.account).localeCompare(String(b.account)));
 		}
 
 		sorted_cards(list) {
@@ -419,24 +485,41 @@
 		render() {
 			if (!this.data) return;
 			const s = this.state;
-			this.$root.find('.sob-tab').each((_, el) => {
+			const views = VIEWS[s.board] || VIEWS.deal;
+			if (!views.some(v => v[0] === s.view)) s.view = 'board';
+			// the views differ per board (Projection on Leads, Calendar on Deals); rebuilt only when the board changes
+			const $tabs = this.$root.find('.sob-tabs');
+			if ($tabs.attr('data-board') !== s.board) {
+				$tabs.attr('data-board', s.board).html(views.map(v => `<button type="button" class="lg-item sob-tab" role="tab" data-view="${v[0]}" aria-selected="false">${__(v[1])}</button>`).join(''));
+			}
+			$tabs.find('.sob-tab').each((_, el) => {
 				const on = $(el).attr('data-view') === s.view;
 				$(el).toggleClass('on', on).attr('aria-selected', on);
 			});
-			const all = this.filtered({ any_board: true });
+			const counts = { lead: this.filtered_acc().length, deal: this.filtered().length };
 			this.$root.find('.sob-board-btn').each((_, el) => {
 				const b = $(el).attr('data-board');
 				const on = b === s.board;
-				$(el).toggleClass('on', on).attr('aria-pressed', on).find('.sob-board-n').text(all.filter(d => this.board_of(d.stage) === b).length);
+				$(el).toggleClass('on', on).attr('aria-pressed', on).find('.sob-board-n').text(counts[b]);
 			});
 			this.render_filters();
-			this.render_kpis(this.filtered({ keep_hidden: true }));
-			const list = this.filtered();
 			const $v = this.$root.find('.sob-view');
-			if (s.view === 'owner') this.render_owner($v, list);
-			else if (s.view === 'calendar') this.render_calendar($v, list);
-			else if (s.view === 'list') this.render_list($v, list);
-			else this.render_board($v, list);
+			if (s.board === 'lead') {
+				const accs = this.filtered_acc();
+				this.render_kpis_acc(accs);
+				if (s.view === 'owner') this.render_owner($v, accs);
+				else if (s.view === 'projection') this.render_projection($v, accs);
+				else if (s.view === 'list') this.render_list($v, accs);
+				else this.render_board_acc($v, accs);
+			} else {
+				this.render_kpis(this.filtered({ keep_hidden: true }));
+				const list = this.filtered();
+				if (s.view === 'owner') this.render_owner($v, list);
+				else if (s.view === 'calendar') this.render_calendar($v, list);
+				else if (s.view === 'list') this.render_list($v, list);
+				else this.render_board($v, list);
+			}
+			this.set_primary();
 			this.render_drawer();
 			this._quiet = Date.now();  // the re-render restores scroll positions; that is not the user scrolling
 			this.render_pop();
@@ -455,8 +538,9 @@
 			const today = pd(this.data.today);
 			const won_value = sum(won, d => d.deal_value);
 			// [label, figure, caption, state]: state colours the one cell that carries meaning
+			const lost = list.filter(d => d.is_lost).length;
 			const kpis = [
-				[this.state.board === 'lead' ? __('Open leads') : __('Open deals'), n0(open.length), __('Excluding closed deals')],
+				[__('Open deals'), n0(open.length), lost ? __('{0} lost deals kept in {1}', [lost, this.first_stage_of('deal')]) : __('Excluding closed deals')],
 				[__('Open value'), usd(sum(open, d => d.deal_value)), __('Grams × price per gram, or override')],
 				[__('Weighted value'), usd(sum(open, d => d.weighted_value)), __('Value × stage probability')],
 				[__('Grams in pipeline'), n0(grams) + ' g', (grams / 1000).toFixed(1) + ' kg ' + __('in open deals')],
@@ -471,9 +555,50 @@
 				</div>`).join(''));
 		}
 
+		// Leads board widgets: what the accounts move, what they want from us and what that is worth
+		render_kpis_acc(list) {
+			const sum = f => list.reduce((a, x) => a + (+f(x) || 0), 0);
+			const customers = list.filter(a => a.is_customer).length;
+			const want = sum(a => a.monthly_demand);
+			const pot = sum(a => a.monthly_potential);
+			const attn = list.filter(a => a.attention);
+			const count = k => list.filter(a => (a.flags || []).some(f => f.key === k)).length;
+			const with_vol = list.filter(a => (a.volume || []).length).length;
+			const kpis = [
+				[__('Accounts'), n0(list.length), __('{0} customers · {1} leads', [customers, list.length - customers])],
+				[__('Volume / week'), wt(sum(a => a.weekly_volume)), with_vol === 1 ? __('Procured or produced by 1 account') : __('Procured or produced by {0} accounts', [with_vol])],
+				[__('Wants / month'), wt(want), wt(want / WPM) + ' ' + __('a week')],
+				[__('Potential / month'), usd(pot), usd(pot * 12) + ' ' + __('a year'), pot ? 'good' : ''],
+				[__('Weighted / month'), usd(sum(a => a.weighted_potential)), __('Potential × lead-status probability')],
+				[__('Needs attention'), n0(attn.length), `${count('overdue')} ${__('overdue')} · ${count('stalled')} ${__('stalled')} · ${count('no_owner')} ${__('no owner')}`, attn.length ? 'attn' : ''],
+			];
+			this.$root.find('.sob-kpis').html(kpis.map(k => `
+				<div class="sob-kpi${k[3] ? ' ' + k[3] : ''}">
+					<div class="sob-kpi-label">${esc(k[0])}</div>
+					<div class="sob-kpi-value">${esc(k[1])}</div>
+					<div class="sob-kpi-sub">${esc(k[2])}</div>
+				</div>`).join(''));
+		}
+
+		// New Lead on the Leads board, New Deal on the Deals board
+		set_primary() {
+			const lead = this.state.board === 'lead';
+			const key = lead ? 'lead' : 'deal';
+			if (this._prim === key) return;
+			this._prim = key;
+			if (lead ? this.data.can_create_account : this.data.can_create) {
+				this.page.set_primary_action(lead ? __('New Lead') : __('New Deal'), () => (this.state.board === 'lead' ? this.new_account() : this.new_deal()), 'add');
+			} else this.page.clear_primary_action();
+		}
+
 		render_filters() {
 			const s = this.state;
 			const owners = s.owners || [];
+			const lead = s.board === 'lead';
+			// priority and closed deals mean nothing on accounts
+			this.$root.find('.sob-mrow').toggle(!lead);
+			this.$root.find('[data-toggle="closed"]').toggle(!lead);
+			this.$root.find('.sob-q').attr('placeholder', lead ? __('Search leads') : __('Search deals')).attr('aria-label', lead ? __('Search leads') : __('Search deals'));
 			const tick = `<span class="sob-tick">${svg(ICON.check, 14)}</span>`;
 			const value = (key, text, on) => this.$root.find(`[data-menu-value="${key}"]`).text(text)
 				.closest('.sob-mbtn').toggleClass('on', !!on).attr('title', text);
@@ -511,7 +636,7 @@
 			const psig = (this.s.lists.priority || []).join('|');
 			if ($prio.attr('data-sig') !== psig) $prio.attr('data-sig', psig).html(opt('', __('All'), s.priority) + (this.s.lists.priority || []).map(p => opt(p, p, s.priority)).join(''));
 			$prio.val(s.priority || '');
-			const more = [s.priority, s.attn, s.closed].filter(Boolean).length;
+			const more = (lead ? [s.attn] : [s.priority, s.attn, s.closed]).filter(Boolean).length;
 			value('more', more ? String(more) : '', more);
 			const $q = this.$root.find('.sob-q');
 			if ($q.val() !== s.q && document.activeElement !== $q.get(0)) $q.val(s.q);
@@ -566,7 +691,7 @@
 			return up ? `<div class="sob-card-next ev-${up.key}">${svg(up.icon, 12)}<span>${esc(__(up.label))} ${esc(nice(d[up.field]))}</span></div>` : '';
 		}
 
-		co_list(d) { return (d.co_owners || []).filter(u => u && u !== d.deal_owner); }
+		co_list(d) { return d._acc ? [] : (d.co_owners || []).filter(u => u && u !== d.deal_owner); }
 
 		// Primary owner, then up to two co-owners overlapped, then "+N".
 		avatar(d) {
@@ -576,7 +701,8 @@
 				return `<span class="sob-av${cls}" style="background:${esc((o && o.colour) || '#18181B')}" title="${esc(name + role)}">${esc((name[0] || '?').toUpperCase())}</span>`;
 			};
 			const co = this.co_list(d);
-			const parts = [d.deal_owner ? one(d.deal_owner, '', ' (' + __('owner') + ')') : `<span class="sob-av none" title="${__('Unassigned')}">?</span>`];
+			const ow = this.own(d);
+			const parts = [ow ? one(ow, '', ' (' + (d._acc ? __('relationship manager') : __('owner')) + ')') : `<span class="sob-av none" title="${__('Unassigned')}">?</span>`];
 			co.slice(0, 2).forEach(u => parts.push(one(u, ' co', ' (' + __('co-owner') + ')')));
 			if (co.length > 2) parts.push(`<span class="sob-av more" title="${esc(co.slice(2).map(u => this.owner_name(u)).join(', '))}">+${co.length - 2}</span>`);
 			if (!co.length) return parts[0];
@@ -584,8 +710,8 @@
 			return `<span class="sob-avs" role="img" aria-label="${esc(label)}">${parts.join('')}</span>`;
 		}
 
-		stage_chip(stage) {
-			const st = this.stage(stage) || {};
+		stage_chip(stage, acc) {
+			const st = (acc ? this.status(stage) : this.stage(stage)) || {};
 			const c = st.colour || '#71717A';
 			return `<span class="sob-stage-chip" style="background:${tint(c, .14)};color:${esc(c)};border-color:${tint(c, .35)}">${esc(__(stage))}</span>`;
 		}
@@ -600,8 +726,9 @@
 			const meta = this.card_meta(d);
 			const flags = this.badges(d);
 			const st = this.stage(d.stage) || {};
+			const lost = d.is_lost ? `<div class="sob-lost-tag">${svg(ICON.x, 12)}<span>${esc(__('Lost'))}${d.lost_reason ? ' · ' + esc(d.lost_reason) : ''}</span></div>` : '';
 			return `
-				<div class="sob-card${this.state.sel === d.name ? ' sel' : ''}${this.busy[d.name] ? ' busy' : ''}${opts.co ? ' co' : ''}" role="button" tabindex="0"
+				<div class="sob-card${this.state.sel === d.name ? ' sel' : ''}${this.busy[d.name] ? ' busy' : ''}${opts.co ? ' co' : ''}${d.is_lost ? ' lost' : ''}" role="button" tabindex="0"
 					draggable="${this.data.can_write ? 'true' : 'false'}" data-card="${esc(d.name)}"${opts.col ? ` data-from-owner="${esc(opts.col)}"` : ''}
 					aria-label="${esc(d.account + (opts.co ? ' (' + __('Co-owner') + ')' : ''))}"
 					style="--sob-stage:${esc(st.colour || '#A1A1AA')}">
@@ -612,7 +739,8 @@
 							${this.avatar(d)}
 						</span>
 					</div>
-					${opts.stage_chip ? this.stage_chip(d.stage) : ''}
+					${opts.stage_chip && !d.is_lost ? this.stage_chip(d.stage) : ''}
+					${lost}
 					${prods.length ? `<div class="sob-prods">${prods.map(p => `<span class="sob-prod">${esc(p)}</span>`).join('')}</div>` : ''}
 					<div class="sob-card-nums"><b>${d.deal_value ? usd(d.deal_value) : '—'}</b><span>${esc(grams)}</span></div>
 					${d.timeline ? `<div class="sob-card-when">${esc(d.timeline)}</div>` : ''}
@@ -635,7 +763,8 @@
 			];
 			if (can) {
 				acts.push(b(`data-pop="follow" data-deal="${n}" aria-haspopup="dialog"`, ICON.clock, __('Next follow-up')));
-				acts.push(b(`data-pop="stage" data-deal="${n}" aria-haspopup="dialog"`, ICON.move, __('Move to another stage')));
+				if (d.is_lost) acts.push(b(`data-reopen="${n}"`, ICON.undo, __('Reopen in {0}', [this.first_stage_of('deal')])));
+				else acts.push(b(`data-pop="stage" data-deal="${n}" aria-haspopup="dialog"`, ICON.move, __('Move to another stage')));
 			}
 			const side = [];
 			if (d.phone) side.push(`<a class="sob-ca" data-card-call href="tel:${esc(String(d.phone).replace(/[^0-9+]/g, ''))}" draggable="false" title="${esc(__('Call {0}', [d.phone]))}" aria-label="${esc(__('Call {0}', [d.phone]))}">${svg(ICON.phone, 16)}</a>`);
@@ -644,11 +773,84 @@
 			return `<div class="sob-card-acts" role="toolbar" aria-label="${esc(__('Shortcuts'))}">${acts.join('')}${side.length ? `<span class="sob-ca-gap"></span>${side.join('')}` : ''}</div>`;
 		}
 
+		// One account on the Leads board: what it is worth a month, what it wants and moves, and its deals.
+		acc_card(a, opts) {
+			opts = opts || {};
+			const vols = a.volume || [];
+			const prods = [...new Set(vols.map(v => [v.product_line, v.tier].filter(Boolean).join(' · ')))];
+			const deals = [];
+			if (a.open_deals) deals.push(__('{0} open {1}', [a.open_deals, a.open_deals === 1 ? __('deal') : __('deals')]) + (+a.open_value ? ' · ' + usd(a.open_value) : ''));
+			if (a.won_deals) deals.push(__('{0} won', [a.won_deals]));
+			if (a.lost_deals) deals.push(__('{0} lost', [a.lost_deals]));
+			const moves = +a.weekly_volume ? __('Moves {0} a week', [wt(a.weekly_volume)]) : '';
+			const st = this.status(a.lead_status) || {};
+			const flags = this.badges(a);
+			const none = !vols.length ? `<div class="sob-card-meta sob-novol">${__('No volume recorded')}</div>` : '';
+			return `
+				<div class="sob-card sob-acc${this.state.sel === a.name ? ' sel' : ''}${this.busy[a.name] ? ' busy' : ''}" role="button" tabindex="0"
+					draggable="${this.can_edit(a) ? 'true' : 'false'}" data-card="${esc(a.name)}"${opts.col ? ` data-from-owner="${esc(opts.col)}"` : ''}
+					aria-label="${esc(a.account)}" style="--sob-stage:${esc(st.colour || '#A1A1AA')}">
+					<div class="sob-card-top">
+						<span class="sob-card-acc">${esc(a.account)}</span>
+						<span class="sob-card-side">${this.avatar(a)}</span>
+					</div>
+					${opts.stage_chip ? this.stage_chip(a.lead_status, true) : ''}
+					${prods.length ? `<div class="sob-prods">${prods.map(p => `<span class="sob-prod">${esc(p)}</span>`).join('')}</div>` : ''}
+					${vols.length ? `<div class="sob-card-nums"><b>${+a.monthly_potential ? usd(a.monthly_potential) + '<small>/' + __('mo') + '</small>' : '—'}</b><span>${+a.monthly_demand ? esc(__('wants {0}/mo', [wt(a.monthly_demand)])) : ''}</span></div>` : none}
+					${moves ? `<div class="sob-card-when">${esc(moves)}</div>` : ''}
+					${deals.length ? `<div class="sob-card-meta sob-card-deals">${svg(ICON.deal, 12)}<span>${esc(deals.join(' · '))}</span></div>` : ''}
+					${this.next_date_line(a)}
+					${flags ? `<div class="sob-badges">${flags}</div>` : ''}
+					${this.acc_acts(a)}
+				</div>`;
+		}
+
+		acc_acts(a) {
+			const can = this.can_edit(a);
+			const b = (attrs, icon, label) => `<button type="button" class="sob-ca" ${attrs} draggable="false" title="${esc(label)}" aria-label="${esc(label + ': ' + a.account)}">${svg(icon, 16)}</button>`;
+			const n = esc(a.name);
+			const acts = [
+				b(`data-pop="notes" data-deal="${n}" aria-haspopup="dialog"`, NOTE_ICON, __('Notes')),
+				b(`data-pop="vol" data-deal="${n}" aria-haspopup="dialog"`, ICON.scale, __('Volume and demand')),
+			];
+			if (can) {
+				acts.push(b(`data-pop="follow" data-deal="${n}" aria-haspopup="dialog"`, ICON.clock, __('Next follow-up')));
+				acts.push(b(`data-pop="stage" data-deal="${n}" aria-haspopup="dialog"`, ICON.move, __('Change lead status')));
+			}
+			if (this.data.can_create) acts.push(b(`data-new-deal="${n}"`, ICON.plus, __('New deal')));
+			const side = [];
+			if (a.phone) side.push(`<a class="sob-ca" data-card-call href="tel:${esc(String(a.phone).replace(/[^0-9+]/g, ''))}" draggable="false" title="${esc(__('Call {0}', [a.phone]))}" aria-label="${esc(__('Call {0}', [a.phone]))}">${svg(ICON.phone, 16)}</a>`);
+			if (this.email_to(a)) side.push(b(`data-card-email="${n}"`, ICON.mail, __('Email {0}', [this.email_to(a)])));
+			if (this.has_buyer(a)) side.push(b(`data-card-hist="${n}"`, ICON.receipt, __('Purchase history')));
+			return `<div class="sob-card-acts" role="toolbar" aria-label="${esc(__('Shortcuts'))}">${acts.join('')}${side.length ? `<span class="sob-ca-gap"></span>${side.join('')}` : ''}</div>`;
+		}
+
+		acc_col_sub(items) {
+			const pot = items.reduce((a, x) => a + (+x.monthly_potential || 0), 0);
+			const w = items.reduce((a, x) => a + (+x.weighted_potential || 0), 0);
+			return `${items.length} ${items.length === 1 ? __('account') : __('accounts')} · ${usd(pot)}/${__('mo')} · ${usd(w)} ${__('weighted')}`;
+		}
+
+		render_board_acc($v, list) {
+			const html = this.stages_of('lead').map(st => {
+				const items = this.sorted_accs(list.filter(a => a.lead_status === st.name));
+				return `
+					<section class="sob-col" data-drop-stage="${esc(st.name)}" aria-label="${esc(st.name)}" style="--sob-stage:${esc(st.colour || '#A1A1AA')}">
+						<header class="sob-col-head">
+							<div class="sob-col-title"><span>${esc(__(st.name))}</span><span class="sob-col-prob" title="${esc(__('Weighs the monthly potential'))}">${+st.probability}%</span></div>
+							<div class="sob-col-sub">${esc(this.acc_col_sub(items))}</div>
+						</header>
+						${items.map(a => this.acc_card(a)).join('')}
+						${items.length ? '' : `<div class="sob-col-empty">${this.data.can_write_account ? __('Drop an account here') : __('No accounts')}</div>`}
+					</section>`;
+			}).join('');
+			this.keep_scroll($v, `<div class="sob-hint">${__('One card per account. Drag it to change its lead status, or open it to record volume, see its deals and start a new one.')}</div><div class="sob-scroll"><div class="sob-columns">${html}</div></div>`, '.sob-scroll');
+		}
+
 		col_sub(items) {
 			const v = items.reduce((a, d) => a + (+d.deal_value || 0), 0);
 			const w = items.reduce((a, d) => a + (+d.weighted_value || 0), 0);
-			const lead = this.state.board === 'lead';
-			return `${items.length} ${items.length === 1 ? (lead ? __('lead') : __('deal')) : (lead ? __('leads') : __('deals'))} · ${usd(v)} · ${usd(w)} ${__('weighted')}`;
+			return `${items.length} ${items.length === 1 ? __('deal') : __('deals')} · ${usd(v)} · ${usd(w)} ${__('weighted')}`;
 		}
 
 		keep_scroll($v, html, sel) {
@@ -657,9 +859,15 @@
 			$v.find(sel).scrollLeft(left);
 		}
 
+		// Lost deals get no column of their own: they stay at the foot of the first stage (Active Opportunity),
+		// where they can be reopened or dragged back into the pipeline.
 		render_board($v, list) {
-			const html = this.stages_of(this.state.board).map(st => {
+			const lost = this.lost_stage();
+			const first = this.first_stage_of('deal');
+			const gone = lost ? list.filter(d => d.stage === lost.name).sort((a, b) => ((b.stage_changed_on || b.modified || '') > (a.stage_changed_on || a.modified || '') ? 1 : -1)) : [];
+			const html = this.stages_of('deal').filter(st => !lost || st.name !== lost.name).map(st => {
 				const items = this.sorted_cards(list.filter(d => d.stage === st.name));
+				const extra = st.name === first ? gone : [];
 				return `
 					<section class="sob-col" data-drop-stage="${esc(st.name)}" aria-label="${esc(st.name)}" style="--sob-stage:${esc(st.colour || '#A1A1AA')}">
 						<header class="sob-col-head">
@@ -667,28 +875,33 @@
 							<div class="sob-col-sub">${esc(this.col_sub(items))}</div>
 						</header>
 						${items.map(d => this.card(d)).join('')}
-						${items.length ? '' : `<div class="sob-col-empty">${this.data.can_write ? __('Drop a deal here') : __('No deals')}</div>`}
+						${items.length || extra.length ? '' : `<div class="sob-col-empty">${this.data.can_write ? __('Drop a deal here') : __('No deals')}</div>`}
+						${extra.length ? `<div class="sob-lost-sep" role="separator"><span>${esc(__('Lost'))} · ${extra.length}</span><small>${esc(__('Drag back or reopen to work on it again'))}</small></div>${extra.map(d => this.card(d)).join('')}` : ''}
 					</section>`;
 			}).join('');
-			this.keep_scroll($v, `<div class="sob-hint">${(this.state.board === 'lead' ? __('Drag a lead to another status, or open it. Moving it to a deal stage puts it on the Deals board.') : __('Drag a card to another stage, or click it to open the deal'))}</div><div class="sob-scroll"><div class="sob-columns">${html}</div></div>`, '.sob-scroll');
+			this.keep_scroll($v, `<div class="sob-hint">${__('Drag a card to another stage, or click it to open the deal. Lost deals stay at the bottom of {0}.', [esc(first)])}</div><div class="sob-scroll"><div class="sob-columns">${html}</div></div>`, '.sob-scroll');
 		}
 
+		// Deals by owner, or accounts by relationship manager on the Leads board
 		render_owner($v, list) {
 			const s = this.state;
+			const acc = s.board === 'lead';
 			const picked = s.owners || [];
 			let cols = (this.s.owners || []).filter(o => !picked.length || picked.includes(o.user)).map(o => ({ id: o.user, name: o.name, colour: o.colour }));
 			if (this.data.is_manager) {
 				if (!picked.length || picked.includes(NONE)) cols.push({ id: NONE, name: __('Unassigned'), colour: '' });
 			} else {
 				cols = cols.filter(c => c.id === this.data.user);
-				if (!cols.length) cols = [{ id: this.data.user, name: __('My deals'), colour: '' }];
+				if (!cols.length) cols = [{ id: this.data.user, name: acc ? __('My accounts') : __('My deals'), colour: '' }];
 			}
 			const today = this.data.today;
-			const order = st => { const i = (this.s.stages || []).findIndex(x => x.name === st); return i < 0 ? 99 : i; };
+			const sts = this.stages_of(acc ? 'lead' : 'deal');
+			const order = st => { const i = sts.findIndex(x => x.name === st); return i < 0 ? 99 : i; };
 			const html = cols.map(c => {
-				const shared = d => c.id !== NONE && d.deal_owner !== c.id && this.co_list(d).includes(c.id);
-				const items = list.filter(d => (d.deal_owner || NONE) === c.id || shared(d))
-					.sort((a, b) => order(a.stage) - order(b.stage) || this.prio_rank(a.priority) - this.prio_rank(b.priority));
+				const shared = d => c.id !== NONE && this.own(d) !== c.id && this.co_list(d).includes(c.id);
+				const items = list.filter(d => (this.own(d) || NONE) === c.id || shared(d))
+					.sort((a, b) => order(this.stage_name(a)) - order(this.stage_name(b)) ||
+						(acc ? (+b.monthly_potential || 0) - (+a.monthly_potential || 0) : this.prio_rank(a.priority) - this.prio_rank(b.priority)));
 				const overdue = items.filter(d => !d.is_closed && d.next_step_due && d.next_step_due < today).length;
 				const unassigned = c.id === NONE;
 				return `
@@ -696,14 +909,95 @@
 						<header class="sob-col-head">
 							<div class="sob-col-title"><span>${c.colour ? `<span class="sob-dot" style="background:${esc(c.colour)}"></span>` : ''}${esc(c.name)}</span>
 								${overdue ? `<span class="sob-badge act">${overdue} ${__('overdue')}</span>` : ''}</div>
-							<div class="sob-col-sub">${esc(this.col_sub(items))}</div>
-							${unassigned && items.length ? `<div class="sob-col-note">${__('Drag these deals to an owner')}</div>` : ''}
+							<div class="sob-col-sub">${esc(acc ? this.acc_col_sub(items) : this.col_sub(items))}</div>
+							${unassigned && items.length ? `<div class="sob-col-note">${acc ? __('Drag these accounts to a relationship manager') : __('Drag these deals to an owner')}</div>` : ''}
 						</header>
-						${items.map(d => this.card(d, { stage_chip: true, co: shared(d), col: c.id })).join('')}
-						${items.length ? '' : `<div class="sob-col-empty">${unassigned ? __('Every deal has an owner') : __('Drop a deal here to reassign')}</div>`}
+						${items.map(d => (acc ? this.acc_card(d, { stage_chip: true, col: c.id }) : this.card(d, { stage_chip: true, co: shared(d), col: c.id }))).join('')}
+						${items.length ? '' : `<div class="sob-col-empty">${unassigned ? (acc ? __('Every account has an owner') : __('Every deal has an owner')) : (acc ? __('Drop an account here to reassign') : __('Drop a deal here to reassign'))}</div>`}
 					</section>`;
 			}).join('');
-			this.keep_scroll($v, `<div class="sob-hint">${__('Drag a card to another owner to change its owner. The new owner is notified. Shared deals also appear in each co-owner\'s column.')}</div><div class="sob-scroll"><div class="sob-columns">${html}</div></div>`, '.sob-scroll');
+			const hint = acc ? __('Drag an account to another relationship manager. They are notified.')
+				: __('Drag a card to another owner to change its owner. The new owner is notified. Shared deals also appear in each co-owner\'s column.');
+			this.keep_scroll($v, `<div class="sob-hint">${hint}</div><div class="sob-scroll"><div class="sob-columns">${html}</div></div>`, '.sob-scroll');
+		}
+
+		// ---------- projection (Leads board): the volume recorded on accounts, rolled up ----------
+
+		render_projection($v, list) {
+			const lines = {};
+			const statuses = {};
+			const add = (map, key, a, v) => {
+				const r = map[key] = map[key] || { key, accounts: new Set(), with_vol: new Set(), weekly: 0, monthly: 0, value: 0, weighted: 0, deals: 0 };
+				r.accounts.add(a.name);
+				if (v) {
+					// same sums as the server (grams per unit, 52/12 weeks a month)
+					const c = this.vol_calc(v);
+					r.with_vol.add(a.name);
+					r.weekly += c.weekly_grams;
+					r.monthly += c.monthly_grams;
+					r.value += c.monthly_value;
+					r.weighted += c.monthly_value * (+a.probability || 0) / 100;
+				}
+				return r;
+			};
+			list.forEach(a => {
+				(a.volume || []).forEach(v => add(lines, v.product_line || __('Other'), a, v));
+				add(statuses, a.lead_status, a, null).deals += +a.open_value || 0;
+				(a.volume || []).forEach(v => add(statuses, a.lead_status, a, v));
+			});
+			const order = this.s.product_lines || [];
+			const line_rows = Object.values(lines).sort((a, b) => b.value - a.value || order.indexOf(a.key) - order.indexOf(b.key));
+			const status_rows = this.stages_of('lead').map(st => statuses[st.name]).filter(Boolean);
+			const tot = rows => rows.reduce((a, r) => { a.weekly += r.weekly; a.monthly += r.monthly; a.value += r.value; a.weighted += r.weighted; a.deals += r.deals; r.accounts.forEach(x => a.accounts.add(x)); r.with_vol.forEach(x => a.with_vol.add(x)); return a; },
+				{ accounts: new Set(), with_vol: new Set(), weekly: 0, monthly: 0, value: 0, weighted: 0, deals: 0 });
+			const g = n => (n ? n0(n) : '');
+			const m = n => (n ? usd(n) : '');
+			const table = (first, rows, total, opts) => `
+				<div class="sob-table-wrap"><table class="sob-table sob-proj-t">
+					<thead><tr><th><span>${esc(first)}</span></th>
+						<th class="r"><span>${__('Accounts')}</span></th>
+						${opts.deals ? `<th class="r"><span>${__('With volume')}</span></th>` : ''}
+						<th class="r"><span>${__('Volume / week (g)')}</span></th>
+						<th class="r"><span>${__('Wants / week (g)')}</span></th>
+						<th class="r"><span>${__('Wants / month (g)')}</span></th>
+						<th class="r money"><span>${__('Potential / month')}</span></th>
+						<th class="r money"><span>${__('Weighted / month')}</span></th>
+						<th class="r money"><span>${__('Potential / year')}</span></th>
+						${opts.deals ? `<th class="r money"><span>${__('Open deal value')}</span></th>` : ''}</tr></thead>
+					<tbody>${rows.map(r => `<tr class="sob-proj-row"${opts.colour ? ` style="--sob-stage:${esc(opts.colour(r.key))}"` : ''}>
+						<td>${opts.colour ? '<span class="sob-stage-dot"></span>' : ''}<b>${esc(__(r.key))}</b></td>
+						<td class="r">${r.accounts.size}</td>
+						${opts.deals ? `<td class="r">${r.with_vol.size}</td>` : ''}
+						<td class="r">${g(r.weekly)}</td><td class="r">${g(r.monthly / WPM)}</td><td class="r">${g(r.monthly)}</td>
+						<td class="r money">${m(r.value)}</td><td class="r money">${m(r.weighted)}</td><td class="r money">${m(r.value * 12)}</td>
+						${opts.deals ? `<td class="r money">${m(r.deals)}</td>` : ''}</tr>`).join('') ||
+						`<tr><td colspan="${opts.deals ? 10 : 8}" class="sob-empty">${__('No volume recorded yet. Open an account and add what it procures or produces and what it wants from us.')}</td></tr>`}</tbody>
+					<tfoot><tr><td>${__('Total')}</td><td class="r">${total.accounts.size}</td>${opts.deals ? `<td class="r">${total.with_vol.size}</td>` : ''}
+						<td class="r">${g(total.weekly)}</td><td class="r">${g(total.monthly / WPM)}</td><td class="r">${g(total.monthly)}</td>
+						<td class="r money">${m(total.value)}</td><td class="r money">${m(total.weighted)}</td><td class="r money">${m(total.value * 12)}</td>
+						${opts.deals ? `<td class="r money">${m(total.deals)}</td>` : ''}</tr></tfoot>
+				</table></div>`;
+			const top = list.filter(a => +a.monthly_potential > 0).sort((a, b) => b.monthly_potential - a.monthly_potential).slice(0, 15);
+			const probs = this.stages_of('lead').map(st => `${__(st.name)} ${+st.probability}%`).join(' · ');
+			const left = $v.find('.sob-proj').scrollTop() || 0;
+			$v.html(`<div class="sob-proj">
+				<div class="sob-hint">${__('From the volume and demand recorded on each account. Weighted uses the lead-status probability: {0}.', [esc(probs)])}</div>
+				<section class="sob-proj-sec"><h3>${__('By product line')}</h3>${table(__('Product line'), line_rows, tot(line_rows), {})}</section>
+				<section class="sob-proj-sec"><h3>${__('By lead status')}</h3>${table(__('Lead status'), status_rows, tot(status_rows), { deals: true, colour: k => (this.status(k) || {}).colour || '#A1A1AA' })}</section>
+				<section class="sob-proj-sec"><h3>${__('Biggest accounts')}</h3>
+					<div class="sob-table-wrap"><table class="sob-table">
+						<thead><tr><th><span>${__('Account')}</span></th><th><span>${__('Lead status')}</span></th><th><span>${__('Products')}</span></th>
+							<th class="r"><span>${__('Volume / week (g)')}</span></th><th class="r"><span>${__('Wants / month (g)')}</span></th>
+							<th class="r money"><span>${__('Potential / month')}</span></th><th class="r money"><span>${__('Weighted / month')}</span></th><th class="r money"><span>${__('Open deal value')}</span></th></tr></thead>
+						<tbody>${top.map(a => `<tr data-open="${esc(a.name)}" class="${this.state.sel === a.name ? 'sel' : ''}">
+							<td><b>${esc(a.account)}</b></td><td>${this.stage_chip(a.lead_status, true)}</td>
+							<td>${esc([...new Set((a.volume || []).map(v => v.product_line))].join(', '))}</td>
+							<td class="r">${g(a.weekly_volume)}</td><td class="r">${g(a.monthly_demand)}</td>
+							<td class="r money">${m(a.monthly_potential)}</td><td class="r money">${m(a.weighted_potential)}</td><td class="r money">${m(a.open_value)}</td></tr>`).join('') ||
+							`<tr><td colspan="8" class="sob-empty">${__('No account has a monthly potential yet.')}</td></tr>`}</tbody>
+					</table></div></section>
+			</div>`);
+			$v.find('.sob-proj').scrollTop(left);
 		}
 
 		// ---------- calendar ----------
@@ -815,36 +1109,43 @@
 				case 'co': return this.co_list(d).map(u => this.owner_name(u)).join(', ');
 				case 'date': case 'date_edit': return v ? fdate(v) : '';
 				case 'datetime': return v ? frappe.datetime.str_to_user(v) : '';
+				case 'owner': return v ? this.owner_name(v) : __('Unassigned');
 				default:
 					if ((c[0] === 'product_line' || c[0] === 'tier') && (d.lines || []).length > 1) return [...new Set(d.lines.map(l => l[c[0]]).filter(Boolean))].join(', ');
-					return c[0] === 'deal_owner' ? (v ? this.owner_name(v) : __('Unassigned')) : (v == null ? '' : v);
+					if (c[0] === 'products') return [...new Set((d.volume || []).map(x => x.product_line))].join(', ');
+					if (c[0] === 'customer' && d.customer_title) return d.customer_title;
+					if (c[0] === 'lead' && d.lead_title) return d.lead_title;
+					return v == null ? '' : v;
 			}
 		}
 
 		render_list($v, list) {
 			const s = this.state;
-			const cols = this.cols.map(k => LIST_COLS.find(c => c[0] === k)).filter(Boolean);
-			const sk = s.sort.key;
+			const acc = s.board === 'lead';
+			const ALL = acc ? ACC_COLS : LIST_COLS;
+			const cols = (acc ? this.acc_cols : this.cols).map(k => ALL.find(c => c[0] === k)).filter(Boolean);
+			const sk = ALL.some(c => c[0] === s.sort.key) ? s.sort.key : '';
 			const rows = list.slice();
 			if (sk) {
-				const col = LIST_COLS.find(c => c[0] === sk) || [];
+				const col = ALL.find(c => c[0] === sk) || [];
 				const numeric = ['num', 'money', 'money2', 'pct'].includes(col[2]);
-				const val = d => sk === 'deal_owner' ? (d[sk] ? this.owner_name(d[sk]) : '') : sk === 'stage' ? (this.s.stages || []).findIndex(x => x.name === d.stage) : sk === 'priority' ? this.prio_rank(d.priority) : d[sk];
+				const sts = this.stages_of(acc ? 'lead' : 'deal');
+				const val = d => col[2] === 'owner' ? (d[sk] ? this.owner_name(d[sk]) : '') : col[2] === 'stage' ? sts.findIndex(x => x.name === this.stage_name(d)) : sk === 'priority' ? this.prio_rank(d.priority) : sk === 'products' ? this.cell_value(d, col) : d[sk];
 				rows.sort((a, b) => {
 					let x = val(a), y = val(b);
 					if (numeric) return ((+x || 0) - (+y || 0)) * s.sort.dir;
+					if (col[2] === 'stage' || sk === 'priority') return ((+val(a)) - (+val(b))) * s.sort.dir;
 					x = x == null || x === '' ? null : String(x).toLowerCase(); y = y == null || y === '' ? null : String(y).toLowerCase();
-					if (sk === 'stage' || sk === 'priority') return ((+val(a)) - (+val(b))) * s.sort.dir;
 					if (x === null) return 1; if (y === null) return -1;
 					return (x < y ? -1 : x > y ? 1 : 0) * s.sort.dir;
 				});
 			}
-			const can = this.data.can_write;
 			const sel = (name, field, cur, opts) => `<select class="sob-inline" data-inline="${esc(name)}" data-field="${field}" aria-label="${esc(field)}">${opts.map(o => `<option value="${esc(o[0])}"${(cur || '') === o[0] ? ' selected' : ''}>${esc(o[1])}</option>`).join('')}</select>`;
 			const owner_opts = d => [['', __('Unassigned')]].concat(this.owner_choices(d).map(o => [o.user, o.name]));
 			const cell = (d, c) => {
-				if (can && c[2] === 'stage') return sel(d.name, 'stage', d.stage, (this.s.stages || []).map(x => [x.name, __(x.name)]));
-				if (can && c[2] === 'owner') return sel(d.name, 'deal_owner', d.deal_owner, owner_opts(d));
+				const can = acc ? this.can_edit(d) : this.data.can_write;
+				if (can && c[2] === 'stage') return sel(d.name, acc ? 'lead_status' : 'stage', this.stage_name(d), this.stages_of(acc ? 'lead' : 'deal').map(x => [x.name, __(x.name)]));
+				if (can && c[2] === 'owner' && (!acc || this.data.is_manager)) return sel(d.name, this.own_field(d), this.own(d), owner_opts(d));
 				if (can && c[2] === 'priority') return sel(d.name, 'priority', d.priority, (this.s.lists.priority || []).map(x => [x, x]));
 				if (can && c[2] === 'date_edit') return `<input type="date" class="sob-inline" data-inline="${esc(d.name)}" data-field="${c[0]}" value="${esc(d[c[0]] || '')}" aria-label="${esc(c[1])}">`;
 				if (c[0] === 'account') return `<b>${esc(d.account)}</b>${(d.flags || []).some(f => f.kind === 'action') ? ' <span class="sob-flag-dot" title="' + esc(d.flags.map(f => f.label).join(', ')) + '"></span>' : ''}`;
@@ -853,8 +1154,8 @@
 			const total = k => rows.reduce((a, d) => a + (+d[k] || 0), 0);
 			const totals = cols.map((c, i) => {
 				if (c[0] === 'total_grams') return n0(total('total_grams')) + ' g';
-				if (c[0] === 'deal_value') return usd(total('deal_value'));
-				if (c[0] === 'weighted_value') return usd(total('weighted_value'));
+				if (['money', 'money2'].includes(c[2]) && c[0] !== 'price_per_gram' && c[0] !== 'value_override') return usd(total(c[0]));
+				if (acc && c[2] === 'num' && c[0] !== 'days_in_stage') return n0(total(c[0]));
 				return i === 0 ? __('Total') + ` (${rows.length})` : '';
 			});
 			// sheet colours: money columns carry a blue tint, an overdue follow-up date gets the red aging fill
@@ -866,13 +1167,14 @@
 			].filter(Boolean).join(' ');
 			const arrow = c => sk === c[0] ? svg(s.sort.dir > 0 ? ICON.up : ICON.down, 12) : '';
 			const left = $v.find('.sob-table-wrap').scrollLeft() || 0;
+			const picked = acc ? this.acc_cols : this.cols;
 			$v.html(`
 				<div class="sob-list-bar">
-					<span class="sob-muted">${rows.length} ${rows.length === 1 ? __('deal') : __('deals')}</span>
+					<span class="sob-muted">${rows.length} ${acc ? (rows.length === 1 ? __('account') : __('accounts')) : (rows.length === 1 ? __('deal') : __('deals'))}</span>
 					<div class="sob-colpick">
 						<button type="button" class="sob-btn sm" data-act="cols" aria-expanded="false">${__('Columns')}</button>
 						<div class="sob-colpick-menu lg lg--thick lg-in" style="--lg-origin: top right" hidden>
-							${LIST_COLS.map(c => `<label><input type="checkbox" data-col="${c[0]}"${this.cols.includes(c[0]) ? ' checked' : ''}> ${esc(__(c[1]))}</label>`).join('')}
+							${ALL.map(c => `<label><input type="checkbox" data-col="${c[0]}"${picked.includes(c[0]) ? ' checked' : ''}> ${esc(__(c[1]))}</label>`).join('')}
 							<button type="button" class="sob-btn sm" data-act="cols-reset">${__('Reset to default')}</button>
 						</div>
 					</div>
@@ -880,7 +1182,7 @@
 				<div class="sob-table-wrap"><table class="sob-table">
 					<thead><tr>${cols.map(c => `<th class="${kls(c)}"><button type="button" data-sort="${c[0]}" class="${sk === c[0] ? 'on' : ''}">${esc(__(c[1]))}${arrow(c)}</button></th>`).join('')}</tr></thead>
 					<tbody>${rows.map(d => `<tr data-open="${esc(d.name)}" class="${s.sel === d.name ? 'sel' : ''}">${cols.map(c => `<td class="${kls(c, d)}">${cell(d, c)}</td>`).join('')}</tr>`).join('') ||
-						`<tr><td colspan="${cols.length}" class="sob-empty">${__('No deals match these filters')}</td></tr>`}</tbody>
+						`<tr><td colspan="${cols.length}" class="sob-empty">${acc ? __('No accounts match these filters') : __('No deals match these filters')}</td></tr>`}</tbody>
 					<tfoot><tr>${totals.map((t, i) => `<td class="${kls(cols[i])}">${esc(t)}</td>`).join('')}</tr></tfoot>
 				</table></div>`);
 			$v.find('.sob-table-wrap').scrollLeft(left);
@@ -889,19 +1191,25 @@
 		owner_choices(d) {
 			const all = this.s.owners || [];
 			if (this.data.is_manager) return all;
-			return all.filter(o => o.user === this.data.user || (d && o.user === d.deal_owner));
+			return all.filter(o => o.user === this.data.user || (d && o.user === this.own(d)));
 		}
 
 		// ---------- drawer ----------
 
 		// Buyer, product and notes: owners on their own deals, pipeline managers on any deal (server checks the same).
 		can_edit(d) {
+			if (d && d._acc) {
+				// the relationship manager, anyone working a deal on the account, or a pipeline manager (server checks the same)
+				const u = this.data.user;
+				return !!(this.data.can_write_account && (this.data.is_manager || d.account_owner === u ||
+					this.deals_of(d).some(x => x.deal_owner === u || this.co_list(x).includes(u))));
+			}
 			return !!(d && this.data.can_write && (this.data.is_manager || d.deal_owner === this.data.user || this.co_list(d).includes(this.data.user)));
 		}
 
 		// Only the primary owner or a pipeline manager changes the co-owners.
 		can_edit_owners(d) {
-			return !!(d && this.data.can_write && (this.data.is_manager || d.deal_owner === this.data.user));
+			return !!(d && !d._acc && this.data.can_write && (this.data.is_manager || d.deal_owner === this.data.user));
 		}
 
 		co_owner_block(d) {
@@ -1034,7 +1342,7 @@
 			} else {
 				head = `<div class="sob-buyer-empty">
 						<div><b>${__('No buyer linked yet')}</b>
-							<div class="sob-muted">${editable ? __('Create a new Customer or Lead, or search for an existing one below.') : __('The deal owner or a pipeline manager can add the buyer.')}</div></div>
+							<div class="sob-muted">${editable ? __('Create a new Customer or Lead, or search for an existing one below.') : __('The owner or a pipeline manager can add the buyer.')}</div></div>
 						${editable ? `<button type="button" class="sob-btn primary sm" data-act="buyer-new">${__('Add buyer')}</button>` : ''}
 					</div>`;
 			}
@@ -1057,7 +1365,7 @@
 					${this.ed(d, 'location_address', __('Location / Address'), { type: 'textarea', placeholder: __('Add location') })}
 					${this.ed(d, 'license_number', __('License #'), { placeholder: __('Add license number') })}
 				</div>` : '';
-			const locked = !editable && this.data.can_write ? `<div class="sob-muted">${__('Only the deal owner or a pipeline manager can edit the buyer.')}</div>` : '';
+			const locked = !editable && this.data.can_write ? `<div class="sob-muted">${d._acc ? __('Only the relationship manager, people with a deal here or a pipeline manager can edit the buyer.') : __('Only the deal owner or a pipeline manager can edit the buyer.')}</div>` : '';
 			return `<div class="sob-block"><div class="sob-cap">${__('Customer / Lead')}</div>${head}${search}</div>${fields}${locked}`;
 		}
 
@@ -1095,15 +1403,15 @@
 				${this.quick_notes_html()}
 				<div class="sob-note-box">
 					<label class="sob-cap" for="sob-note-new">${__('Add note')}</label>
-					<textarea id="sob-note-new" class="sob-note" data-keep="note-new" rows="3" placeholder="${__('Write a note about this deal')}"></textarea>
+					<textarea id="sob-note-new" class="sob-note" data-keep="note-new" rows="3" placeholder="${d._acc ? __('Write a note about this account') : __('Write a note about this deal')}"></textarea>
 					<button type="button" class="sob-btn primary sm" data-act="note">${__('Save')}</button>
 				</div>
 				<div class="sob-notes">${list}</div>
 				<div class="sob-block">
-					<div class="sob-cap">${__('Deal notes')}</div>
-					${NOTE_SECTIONS.map(x => this.note_section(d, x[0], x[1], editable)).join('')}
+					<div class="sob-cap">${d._acc ? __('Relationship notes') : __('Deal notes')}</div>
+					${(d._acc ? ACC_NOTE_SECTIONS : NOTE_SECTIONS).map(x => this.note_section(d, x[0], x[1], editable)).join('')}
 				</div>
-				<div class="sob-fields">${field(__('Payment terms'), d.payment_terms)}${field(__('Lead source'), d.lead_source)}</div>`;
+				${d._acc ? '' : `<div class="sob-fields">${field(__('Payment terms'), d.payment_terms)}${field(__('Lead source'), d.lead_source)}</div>`}`;
 		}
 
 		quick_notes_html() {
@@ -1119,7 +1427,7 @@
 			text = (text || '').trim();
 			if (!d || !text) return Promise.resolve();
 			if (btn) $(btn).prop('disabled', true);
-			return frappe.xcall(M + 'add_note', { name, note: text }).then(notes => {
+			return frappe.xcall(M + 'add_note', { name, note: text, doctype: dt_of(name) }).then(notes => {
 				this.set_notes(name, notes);
 				frappe.show_alert({ message: __('Note added to {0}: {1}', [d.account, text]), indicator: 'green' });
 				return notes;
@@ -1153,7 +1461,7 @@
 				mine.data = data;
 				if (this.state.sel === d.name) this.render_drawer();
 			};
-			frappe.xcall(M + 'get_buyer_history', { name: d.name }).then(land)
+			frappe.xcall(M + 'get_buyer_history', { name: d.name, doctype: dt_of(d.name) }).then(land)
 				.catch(() => land({ error: true, invoices: [], by_line: [], totals: {} }));
 			return mine;
 		}
@@ -1246,6 +1554,8 @@
 				</div>`;
 		}
 
+		// The sheet for a deal or an account: header, segmented tabs, body, footer. Typed text, focus and scroll
+		// survive a re-render (board reloads, saves).
 		render_drawer() {
 			const d = this.state.sel ? this.find(this.state.sel) : null;
 			if (!d) { this.close_drawer(true); return; }
@@ -1254,68 +1564,11 @@
 			// the sheet floats inset from the window edges, over a dimmed board
 			this.$drawer.prop('hidden', false).find('.sob-drawer').css('top', (top + 8) + 'px');
 			this.$drawer.find('.sob-drawer-backdrop').css('top', top + 'px');
-			const tab = this.state.tab;
-			const can = this.data.can_write;
-			const st = this.stage(d.stage) || {};
-			const feed = this.feed && this.feed.name === d.name ? this.feed : null;
-			const n_notes = feed && feed.notes ? feed.notes.length : 0;
-			const hist = this.hist_of(d);
-			const n_inv = hist && hist.data && hist.data.invoices ? hist.data.invoices.length : 0;
-			const tabs = [['overview', __('Overview')], ['buyer', __('Buyer')]]
-				.concat(hist ? [['purchases', n_inv ? __('Purchases') + ` (${n_inv})` : __('Purchases')]] : [])
-				.concat([['requirements', __('Requirements')], ['notes', n_notes ? __('Notes') + ` (${n_notes})` : __('Notes')], ['activity', __('Activity')]]);
 			const field = (label, value, html) => (value || html) ? `<div class="sob-f"><span>${esc(label)}</span><span>${html || esc(value)}</span></div>` : '';
-			let body = '';
-			if (tab === 'overview') {
-				const stock = d.stock ? `${n0(d.stock.grams)} g ${__('available')} (${esc(d.stock.groups.join(', '))})${d.stock.on_orders ? ` · ${n0(d.stock.on_orders)} g ${__('on open Sales Orders')}` : ''}` : '';
-				const dates = EVENTS.map(e => `
-					<label class="sob-date"><span class="ev-${e.key}">${svg(e.icon, 12)} ${esc(__(e.label))}</span>
-						<input type="date" data-panel-field="${e.field}" value="${esc(d[e.field] || '')}"${can ? '' : ' disabled'}></label>`).join('');
-				body = `
-					${(d.flags || []).length ? `<div class="sob-badges">${(d.flags || []).map(f => `<span class="sob-badge ${f.kind === 'action' ? 'act' : 'info'}">${esc(f.label)}</span>`).join('')}</div>` : ''}
-					${this.history_block(d)}
-					${can ? `<div class="sob-block"><div class="sob-cap">${__('Stage')}</div>${BOARDS.map(b => {
-					const sts = this.stages_of(b[0]);
-					if (!sts.length) return '';
-					return `<div class="sob-stage-group"><span class="sob-stage-board">${esc(b[0] === 'lead' ? __('Lead board') : __('Deal board'))}</span><div class="sob-moves">${sts.map(x => `<button type="button" class="sob-move${x.name === d.stage ? ' on' : ''}" data-move="${esc(x.name)}" aria-pressed="${x.name === d.stage}"${x.colour ? ` style="--sob-stage:${esc(x.colour)}"` : ''}>${esc(__(x.name))}</button>`).join('')}</div></div>`;
-				}).join('')}</div>` : ''}
-					${this.value_tiles(d)}
-					${this.req_editor(d)}
-					<div class="sob-two">
-						<label class="sob-cap">${__('Owner')}
-							<select data-panel-field="deal_owner"${can && this.data.is_manager ? '' : ' disabled'}>${[['', __('Unassigned')]].concat(this.owner_choices(d).map(o => [o.user, o.name])).map(o => `<option value="${esc(o[0])}"${(d.deal_owner || '') === o[0] ? ' selected' : ''}>${esc(o[1])}</option>`).join('')}</select></label>
-						<label class="sob-cap">${__('Priority')}
-							<select data-panel-field="priority"${can ? '' : ' disabled'}>${(this.s.lists.priority || []).map(p => `<option${p === d.priority ? ' selected' : ''}>${esc(p)}</option>`).join('')}</select></label>
-					</div>
-					${this.co_owner_block(d)}
-					<div class="sob-dates">${dates}</div>
-					<div class="sob-fields">
-						${field(__('Stock available'), stock)}
-						${field(__('In stage'), d.days_in_stage + ' ' + __('days') + (st.max_days ? ' ' + __('(limit {0})', [st.max_days]) : ''))}
-						${field(__('Timeline'), d.timeline)}
-						${field(__('Status detail'), d.status_detail)}
-						${field(__('Lost reason'), d.lost_reason)}
-					</div>`;
-			} else if (tab === 'purchases') {
-				body = this.purchases_tab(d);
-			} else if (tab === 'buyer') {
-				body = this.buyer_tab(d);
-			} else if (tab === 'requirements') {
-				body = `${this.req_editor(d)}
-					${this.value_tiles(d)}
-					<div class="sob-fields">
-						${field(__('Stock check'), (d.lines || []).length ? (d.short ? `${__('Short')} ${n0(d.short)} g ${__('across all requirements')}` : __('In stock for all requirements')) : '')}
-						${field(__('Form'), d.form)}
-						${field(__('Size per strain'), d.size_per_strain)}${field(__('Strain profiles'), d.strain_profiles)}
-						${field(__('Samples'), d.samples)}${field(__('Copack'), d.copack)}${field(__('Hardware'), d.hardware)}
-					</div>`;
-			} else if (tab === 'notes') {
-				body = this.notes_tab(d, field);
-			} else {
-				body = this.activity_tab(d);
-			}
-			const won = this.won_stage(), lost = this.lost_stage();
-			// keep typed text, focus and scroll when the drawer re-renders (board reloads, saves)
+			const tabs = d._acc ? this.acc_tabs(d) : this.deal_tabs(d);
+			if (!tabs.some(x => x[0] === this.state.tab)) this.state.tab = 'overview';
+			const tab = this.state.tab;
+			const parts = d._acc ? this.acc_sheet(d, tab, field) : this.deal_sheet(d, tab, field);
 			const same = this._drawer_deal === d.name;
 			const kept = {};
 			let focus = null, range = null;
@@ -1332,22 +1585,13 @@
 			this._drawer_tab = tab;
 			this._rendering = true;
 			try {
-				this.$drawer.find('.sob-drawer').html(`
+				this.$drawer.find('.sob-drawer').attr('aria-label', d._acc ? __('Account') : __('Deal')).html(`
 					<header class="sob-d-head">
-						<div class="sob-d-row">${this.stage_chip(d.stage)}<span class="sob-muted">${+st.probability || 0}% · ${esc(d.name)}</span>
-							<button type="button" class="sob-x" data-act="close" aria-label="${__('Close')}">${svg(ICON.x, 16)}</button></div>
-						<h2>${esc(d.account)}</h2>
-						<div class="sob-muted">${esc((d.lines || []).length ? d.lines.map(l => [l.product_line, l.tier].filter(Boolean).join(' · ')).join(', ') : ([d.product_line, d.tier].filter(Boolean).join(' · ') || __('Product not set yet')))} · ${esc(d.deal_owner ? this.owner_name(d.deal_owner) : __('Unassigned'))}${this.co_list(d).length ? esc(' + ' + this.co_list(d).map(u => this.owner_name(u)).join(', ')) : ''}</div>
+						${parts.head}
 						<div class="sob-d-tabs lg-group" role="tablist">${tabs.map(t => `<button type="button" role="tab" class="lg-item${t[0] === tab ? ' on' : ''}" aria-selected="${t[0] === tab}" data-tab="${t[0]}">${esc(t[1])}</button>`).join('')}</div>
 					</header>
-					<div class="sob-d-body">${body}</div>
-					<footer class="sob-d-foot">
-						<button type="button" class="sob-btn" data-act="form">${__('Open full form')}</button>
-						${this.data.can_quote ? `<button type="button" class="sob-btn" data-act="quote">${__('Create Quotation')}</button>` : ''}
-						${tab === 'overview' ? this.email_button(d) : ''}
-						${can && won && d.stage !== won.name ? `<button type="button" class="sob-btn won" data-act="won">${__('Mark Won')}</button>` : ''}
-						${can && lost && d.stage !== lost.name ? `<button type="button" class="sob-btn lost" data-act="lost">${__('Mark Lost')}</button>` : ''}
-					</footer>`);
+					<div class="sob-d-body">${parts.body}</div>
+					<footer class="sob-d-foot">${parts.foot}</footer>`);
 				if (same) {
 					this.$drawer.find('[data-keep]').each((_, el) => {
 						const k = el.getAttribute('data-keep');
@@ -1374,8 +1618,274 @@
 			this.render_bresults();
 		}
 
+		deal_tabs(d) {
+			const feed = this.feed && this.feed.name === d.name ? this.feed : null;
+			const n_notes = feed && feed.notes ? feed.notes.length : 0;
+			const hist = this.hist_of(d);
+			const n_inv = hist && hist.data && hist.data.invoices ? hist.data.invoices.length : 0;
+			return [['overview', __('Overview')], ['buyer', __('Buyer')]]
+				.concat(hist ? [['purchases', n_inv ? __('Purchases') + ` (${n_inv})` : __('Purchases')]] : [])
+				.concat([['requirements', __('Requirements')], ['notes', n_notes ? __('Notes') + ` (${n_notes})` : __('Notes')], ['activity', __('Activity')]]);
+		}
+
+		// The account a deal belongs to, as a link back to the Leads card
+		acc_link(d) {
+			const a = this.acc_of(d);
+			if (!a) return '';
+			const st = this.status(a.lead_status) || {};
+			// the deal usually carries the account's name already; then the link only needs the status
+			const label = a.account !== d.account ? a.account : __('Account');
+			return `<button type="button" class="sob-acc-link" data-open-acc="${esc(a.name)}" style="--sob-stage:${esc(st.colour || '#A1A1AA')}" title="${esc(__('Open {0} on the Leads board', [a.account]))}">
+				<span class="sob-stage-dot"></span><span>${esc(label)}</span><span class="sob-muted">${esc(__(a.lead_status))}</span>${svg(ICON.right, 12)}</button>`;
+		}
+
+		deal_sheet(d, tab, field) {
+			const can = this.data.can_write;
+			const st = this.stage(d.stage) || {};
+			const first = this.first_stage_of('deal');
+			let body = '';
+			if (tab === 'overview') {
+				const stock = d.stock ? `${n0(d.stock.grams)} g ${__('available')} (${esc(d.stock.groups.join(', '))})${d.stock.on_orders ? ` · ${n0(d.stock.on_orders)} g ${__('on open Sales Orders')}` : ''}` : '';
+				const dates = EVENTS.map(e => `
+					<label class="sob-date"><span class="ev-${e.key}">${svg(e.icon, 12)} ${esc(__(e.label))}</span>
+						<input type="date" data-panel-field="${e.field}" value="${esc(d[e.field] || '')}"${can ? '' : ' disabled'}></label>`).join('');
+				const lost = d.is_lost ? `<div class="sob-lost-banner" role="status">
+						<div><b>${__('Lost')}</b>${d.lost_reason ? `<span>${esc(d.lost_reason)}</span>` : ''}<small>${esc(__('Kept in {0} so it can be won back', [first]))}</small></div>
+						${can ? `<button type="button" class="sob-btn sm" data-reopen="${esc(d.name)}">${svg(ICON.undo, 14)}${esc(__('Reopen'))}</button>` : ''}
+					</div>` : '';
+				body = `
+					${lost}
+					${(d.flags || []).length ? `<div class="sob-badges">${(d.flags || []).map(f => `<span class="sob-badge ${f.kind === 'action' ? 'act' : 'info'}">${esc(f.label)}</span>`).join('')}</div>` : ''}
+					${this.history_block(d)}
+					${can ? `<div class="sob-block"><div class="sob-cap">${__('Stage')}</div><div class="sob-moves">${this.stages_of('deal').map(x => `<button type="button" class="sob-move${x.name === d.stage ? ' on' : ''}" data-move="${esc(x.name)}" aria-pressed="${x.name === d.stage}"${x.colour ? ` style="--sob-stage:${esc(x.colour)}"` : ''}>${esc(__(x.name))}</button>`).join('')}</div></div>` : ''}
+					${this.value_tiles(d)}
+					${this.req_editor(d)}
+					<div class="sob-two">
+						<label class="sob-cap">${__('Owner')}
+							<select data-panel-field="deal_owner"${can && this.data.is_manager ? '' : ' disabled'}>${[['', __('Unassigned')]].concat(this.owner_choices(d).map(o => [o.user, o.name])).map(o => `<option value="${esc(o[0])}"${(d.deal_owner || '') === o[0] ? ' selected' : ''}>${esc(o[1])}</option>`).join('')}</select></label>
+						<label class="sob-cap">${__('Priority')}
+							<select data-panel-field="priority"${can ? '' : ' disabled'}>${(this.s.lists.priority || []).map(p => `<option${p === d.priority ? ' selected' : ''}>${esc(p)}</option>`).join('')}</select></label>
+					</div>
+					${this.co_owner_block(d)}
+					<div class="sob-dates">${dates}</div>
+					<div class="sob-fields">
+						${field(__('Stock available'), stock)}
+						${field(__('In stage'), d.days_in_stage + ' ' + __('days') + (st.max_days ? ' ' + __('(limit {0})', [st.max_days]) : ''))}
+						${field(__('Timeline'), d.timeline)}
+						${field(__('Status detail'), d.status_detail)}
+						${d.is_lost ? '' : field(__('Lost reason'), d.lost_reason)}
+					</div>`;
+			} else if (tab === 'purchases') {
+				body = this.purchases_tab(d);
+			} else if (tab === 'buyer') {
+				body = this.deal_account_block(d) + this.buyer_tab(d);
+			} else if (tab === 'requirements') {
+				body = `${this.req_editor(d)}
+					${this.value_tiles(d)}
+					<div class="sob-fields">
+						${field(__('Stock check'), (d.lines || []).length ? (d.short ? `${__('Short')} ${n0(d.short)} g ${__('across all requirements')}` : __('In stock for all requirements')) : '')}
+						${field(__('Form'), d.form)}
+						${field(__('Size per strain'), d.size_per_strain)}${field(__('Strain profiles'), d.strain_profiles)}
+						${field(__('Samples'), d.samples)}${field(__('Copack'), d.copack)}${field(__('Hardware'), d.hardware)}
+					</div>`;
+			} else if (tab === 'notes') {
+				body = this.notes_tab(d, field);
+			} else {
+				body = this.activity_tab(d);
+			}
+			const won = this.won_stage(), lost = this.lost_stage();
+			const head = `
+				<div class="sob-d-row">${this.stage_chip(d.stage)}<span class="sob-muted">${+st.probability || 0}% · ${esc(d.name)}</span>
+					<button type="button" class="sob-x" data-act="close" aria-label="${__('Close')}">${svg(ICON.x, 16)}</button></div>
+				<h2>${esc(d.account)}</h2>
+				${this.acc_link(d)}
+				<div class="sob-muted">${esc((d.lines || []).length ? d.lines.map(l => [l.product_line, l.tier].filter(Boolean).join(' · ')).join(', ') : ([d.product_line, d.tier].filter(Boolean).join(' · ') || __('Product not set yet')))} · ${esc(d.deal_owner ? this.owner_name(d.deal_owner) : __('Unassigned'))}${this.co_list(d).length ? esc(' + ' + this.co_list(d).map(u => this.owner_name(u)).join(', ')) : ''}</div>`;
+			const foot = `
+				<button type="button" class="sob-btn" data-act="form">${__('Open full form')}</button>
+				${this.data.can_quote ? `<button type="button" class="sob-btn" data-act="quote">${__('Create Quotation')}</button>` : ''}
+				${tab === 'overview' ? this.email_button(d) : ''}
+				${can && won && d.stage !== won.name && !d.is_lost ? `<button type="button" class="sob-btn won" data-act="won">${__('Mark Won')}</button>` : ''}
+				${can && lost && d.stage !== lost.name ? `<button type="button" class="sob-btn lost" data-act="lost">${__('Mark Lost')}</button>` : ''}
+				${can && d.is_lost ? `<button type="button" class="sob-btn primary" data-reopen="${esc(d.name)}">${svg(ICON.undo, 14)}${__('Reopen in {0}', [esc(first)])}</button>` : ''}`;
+			return { head, body, foot };
+		}
+
+		// Buyer tab of a deal: which account (Leads card) it belongs to, and moving it to another one
+		deal_account_block(d) {
+			const accs = (this.data.accounts || []).slice().sort((a, b) => String(a.account).localeCompare(String(b.account)));
+			const cur = this.acc_of(d);
+			const editable = this.can_edit(d);
+			return `<div class="sob-block">
+				<div class="sob-cap">${__('Lead / Account')}</div>
+				${cur ? this.acc_link(d) : `<div class="sob-muted">${__('Not linked to an account yet. Saving the deal links it.')}</div>`}
+				${editable && accs.length ? `<label class="sob-cap sob-move-acc"><span class="sob-muted">${__('Move this deal to another account')}</span>
+					<select data-panel-field="pipeline_account">${(cur ? [] : [['', '']]).concat(accs.map(a => [a.name, a.account + ' · ' + __(a.lead_status)])).map(o => `<option value="${esc(o[0])}"${(d.pipeline_account || '') === o[0] ? ' selected' : ''}>${esc(o[1])}</option>`).join('')}</select></label>` : ''}
+			</div>`;
+		}
+
+		acc_tabs(a) {
+			const feed = this.feed && this.feed.name === a.name ? this.feed : null;
+			const n_notes = feed && feed.notes ? feed.notes.length : 0;
+			const hist = this.hist_of(a);
+			const n_inv = hist && hist.data && hist.data.invoices ? hist.data.invoices.length : 0;
+			const n_deals = this.deals_of(a).length;
+			return [['overview', __('Overview')], ['volume', (a.volume || []).length ? __('Volume') + ` (${a.volume.length})` : __('Volume')],
+				['deals', n_deals ? __('Deals') + ` (${n_deals})` : __('Deals')], ['buyer', __('Buyer')]]
+				.concat(hist ? [['purchases', n_inv ? __('Purchases') + ` (${n_inv})` : __('Purchases')]] : [])
+				.concat([['notes', n_notes ? __('Notes') + ` (${n_notes})` : __('Notes')], ['activity', __('Activity')]]);
+		}
+
+		acc_tiles(a) {
+			return `<div class="sob-tiles">
+				<div class="sob-tile"><span>${__('Volume / week')}</span><b>${+a.weekly_volume ? wt(a.weekly_volume) : '—'}</b></div>
+				<div class="sob-tile"><span>${__('Wants / month')}</span><b>${+a.monthly_demand ? wt(a.monthly_demand) : '—'}</b></div>
+				<div class="sob-tile"><span>${__('Potential / month')}</span><b>${+a.monthly_potential ? usd(a.monthly_potential) : '—'}</b></div>
+				<div class="sob-tile"><span>${__('Weighted / month')}</span><b>${+a.weighted_potential ? usd(a.weighted_potential) : '—'}</b></div>
+			</div>`;
+		}
+
+		// The account's deals as an inset list; lost deals stay listed so the history is visible
+		acc_deals(a, limit) {
+			const order = st => { const i = (this.s.stages || []).findIndex(x => x.name === st); return i < 0 ? 99 : i; };
+			const all = this.deals_of(a).sort((x, y) => (x.is_closed - y.is_closed) || order(x.stage) - order(y.stage));
+			const list = limit ? all.slice(0, limit) : all;
+			if (!all.length) return `<div class="sob-empty sob-deals-empty">${__('No deals with {0} yet.', [esc(a.account)])}</div>`;
+			const rows = list.map(d => {
+				const st = this.stage(d.stage) || {};
+				const prods = (d.lines || []).length ? d.lines.map(l => [l.product_line, l.tier].filter(Boolean).join(' · ')).join(', ') : ([d.product_line, d.tier].filter(Boolean).join(' · ') || __('Product not set yet'));
+				const meta = [__(d.stage), d.deal_owner ? this.owner_name(d.deal_owner) : __('Unassigned'),
+					d.is_lost && d.lost_reason ? d.lost_reason : (d.next_step_due && !d.is_closed ? __('Follow-up {0}', [nice(d.next_step_due)]) : '')].filter(Boolean).join(' · ');
+				return `<button type="button" class="sob-deal-row${d.is_lost ? ' lost' : ''}" data-open-deal="${esc(d.name)}" style="--sob-stage:${esc(st.colour || '#A1A1AA')}">
+					<span class="sob-stage-dot"></span>
+					<span class="sob-deal-main"><b>${esc(prods)}</b><span class="sob-muted">${esc(meta)}</span></span>
+					<span class="sob-deal-val">${+d.deal_value ? usd(d.deal_value) : '—'}</span>${svg(ICON.right, 14)}</button>`;
+			}).join('');
+			const more = limit && all.length > limit ? `<button type="button" class="sob-link" data-tab="deals">${__('All {0} deals', [all.length])}</button>` : '';
+			return `<div class="sob-deals">${rows}</div>${more}`;
+		}
+
+		acc_sheet(a, tab, field) {
+			const can = this.can_edit(a);
+			const st = this.status(a.lead_status) || {};
+			const new_deal = this.data.can_create ? `<button type="button" class="sob-btn sm" data-new-deal="${esc(a.name)}">${svg(ICON.plus, 14)}${__('New deal')}</button>` : '';
+			let body = '';
+			if (tab === 'overview') {
+				const sources = [''].concat(this.s.lists.lead_source || []);
+				if (a.lead_source && !sources.includes(a.lead_source)) sources.push(a.lead_source);
+				body = `
+					${(a.flags || []).length ? `<div class="sob-badges">${a.flags.map(f => `<span class="sob-badge ${f.kind === 'action' ? 'act' : 'info'}">${esc(f.label)}</span>`).join('')}</div>` : ''}
+					${this.history_block(a)}
+					${can ? `<div class="sob-block"><div class="sob-cap">${__('Lead status')}</div><div class="sob-moves">${this.stages_of('lead').map(x => `<button type="button" class="sob-move${x.name === a.lead_status ? ' on' : ''}" data-move="${esc(x.name)}" aria-pressed="${x.name === a.lead_status}"${x.colour ? ` style="--sob-stage:${esc(x.colour)}"` : ''}>${esc(__(x.name))}</button>`).join('')}</div></div>` : ''}
+					<div class="sob-block">
+						<div class="sob-cap sob-cap-row"><span>${__('Volume and demand')}</span><button type="button" class="sob-link" data-tab="volume">${(a.volume || []).length ? __('Edit') : __('Add')}</button></div>
+						${this.acc_tiles(a)}
+						${(a.volume || []).length ? `<div class="sob-muted">${esc(a.volume.map(v => this.vol_text(v)).join(' · '))}</div>` : `<div class="sob-muted">${__('Record what they procure or produce each week and what they want from us; it feeds the Projection.')}</div>`}
+					</div>
+					<div class="sob-block">
+						<div class="sob-cap sob-cap-row"><span>${__('Deals')}</span>${new_deal}</div>
+						${this.acc_deals(a, 4)}
+					</div>
+					<div class="sob-two">
+						<label class="sob-cap">${__('Relationship manager')}
+							<select data-panel-field="account_owner"${can && this.data.is_manager ? '' : ' disabled'}>${this.owner_choices(a).map(o => [o.user, o.name]).map(o => `<option value="${esc(o[0])}"${(a.account_owner || '') === o[0] ? ' selected' : ''}>${esc(o[1])}</option>`).join('')}</select></label>
+						<label class="sob-cap">${__('Lead source')}
+							<select data-panel-field="lead_source"${can ? '' : ' disabled'}>${sources.map(p => `<option value="${esc(p)}"${p === (a.lead_source || '') ? ' selected' : ''}>${esc(p || '—')}</option>`).join('')}</select></label>
+					</div>
+					<div class="sob-dates"><label class="sob-date"><span class="ev-followup">${svg(ICON.phone, 12)} ${__('Next follow-up')}</span>
+						<input type="date" data-panel-field="next_step_due" value="${esc(a.next_step_due || '')}"${can ? '' : ' disabled'}></label></div>
+					<div class="sob-fields">
+						${field(__('In this status'), a.days_in_stage + ' ' + __('days') + (st.max_days ? ' ' + __('(limit {0})', [st.max_days]) : ''))}
+						${field(__('Weighting'), __('{0}% for {1}', [+st.probability || 0, __(a.lead_status)]))}
+						${this.ed(a, 'relationship_notes', __('Relationship notes'), { type: 'textarea', placeholder: __('Add notes about the relationship') })}
+					</div>`;
+			} else if (tab === 'volume') {
+				body = `${this.vol_editor(a)}${this.acc_tiles(a)}
+					<div class="sob-muted">${__('Wants per week counts as {0} weeks a month. The price per gram starts from the product line\'s default price in Sales Pipeline Settings.', [WPM.toFixed(2)])}</div>`;
+			} else if (tab === 'deals') {
+				body = `<div class="sob-block"><div class="sob-cap sob-cap-row"><span>${__('Deals with {0}', [esc(a.account)])}</span>${new_deal}</div>${this.acc_deals(a)}</div>
+					<div class="sob-tiles sob-tiles-3">
+						<div class="sob-tile"><span>${__('Open deal value')}</span><b>${+a.open_value ? usd(a.open_value) : '—'}</b></div>
+						<div class="sob-tile"><span>${__('Weighted')}</span><b>${+a.open_weighted ? usd(a.open_weighted) : '—'}</b></div>
+						<div class="sob-tile"><span>${__('Won')}</span><b>${+a.won_value ? usd(a.won_value) : '—'}</b></div>
+					</div>`;
+			} else if (tab === 'buyer') {
+				body = this.buyer_tab(a);
+			} else if (tab === 'purchases') {
+				body = this.purchases_tab(a);
+			} else if (tab === 'notes') {
+				body = this.notes_tab(a, field);
+			} else {
+				body = this.activity_tab(a);
+			}
+			const head = `
+				<div class="sob-d-row">${this.stage_chip(a.lead_status, true)}<span class="sob-muted">${+st.probability || 0}% · ${esc(a.name)}</span>
+					<button type="button" class="sob-x" data-act="close" aria-label="${__('Close')}">${svg(ICON.x, 16)}</button></div>
+				<h2>${esc(a.account)}</h2>
+				<div class="sob-muted">${esc(a.account_owner ? this.owner_name(a.account_owner) : __('Unassigned'))}${a.customer || a.lead ? ' · ' + esc(a.customer ? (a.customer_title || a.customer) : (a.lead_title || a.lead)) : ''}${a.open_deals ? ' · ' + esc(__('{0} open {1}', [a.open_deals, a.open_deals === 1 ? __('deal') : __('deals')])) : ''}</div>`;
+			const foot = `
+				<button type="button" class="sob-btn" data-act="form">${__('Open full form')}</button>
+				${this.data.can_create ? `<button type="button" class="sob-btn primary" data-new-deal="${esc(a.name)}">${svg(ICON.plus, 14)}${__('New deal')}</button>` : ''}
+				${tab === 'overview' ? this.email_button(a) : ''}`;
+			return { head, body, foot };
+		}
+
+		vol_text(v) {
+			const unit = v.uom || 'g';
+			const parts = [[v.product_line, v.tier].filter(Boolean).join(' ')];
+			if (+v.weekly_volume) parts.push(__('{0} {1} {2}/wk', [v.activity === 'Produce' ? __('makes') : __('buys'), nq(v.weekly_volume), unit]));
+			if (+v.wants_qty) parts.push(__('wants {0} {1}/{2}', [nq(v.wants_qty), unit, v.wants_per === 'Week' ? __('wk') : __('mo')]));
+			return parts.join(', ');
+		}
+
+		// Volume rows of an account, edited like requirement lines: every change saves.
+		vol_editor(a, opts) {
+			opts = opts || {};
+			const editable = this.can_edit(a);
+			const w = this.work && this.work[a.name];
+			const rows = w || (a.volume || []).map((v, i) => Object.assign({}, v, { key: v.name || 'v' + i }));
+			const all_lines = this.s.product_lines || [];
+			const o = (v, t, cur) => `<option value="${esc(v)}"${(cur || '') === v ? ' selected' : ''}>${esc(t)}</option>`;
+			const busy = this.busy[a.name] ? ' busy' : '';
+			const dis = editable ? '' : ' disabled';
+			const row = (v, i) => {
+				const tiers = this.tiers_for(v.product_line);
+				if (v.tier && !tiers.includes(v.tier)) tiers.unshift(v.tier);
+				const line_opts = o('', __('Choose a product line'), v.product_line) + all_lines.map(x => o(x, x, v.product_line)).join('') +
+					(v.product_line && !all_lines.includes(v.product_line) ? o(v.product_line, v.product_line, v.product_line) : '');
+				const tier_opts = tiers.length ? o('', __('No tier'), v.tier) + tiers.map(x => o(x, x, v.tier)).join('')
+					: o('', v.product_line ? __('No tiers for this line') : __('Tier'), '');
+				const per = UNITS[v.uom || 'g'] || 1;
+				const monthly = (+v.wants_qty || 0) * per * ((v.wants_per || 'Month') === 'Week' ? WPM : 1);
+				const value = monthly * (+v.price_per_gram || 0);
+				const k = esc(v.key);
+				const num = (f, label, keep) => `<label>${label}<input type="number" min="0" step="any" inputmode="decimal" data-vol-field="${f}" data-keep="vol:${k}:${keep}" value="${+v[f] ? esc(v[f]) : ''}"${dis}></label>`;
+				const pick = (f, label, list, cur) => `<label>${label}<select data-vol-field="${f}"${dis}>${list.map(x => o(x[0], x[1], cur || list[0][0])).join('')}</select></label>`;
+				return `<div class="sob-req sob-vol${v.draft ? ' draft' : ''}" data-vol="${k}">
+					<div class="sob-req-head"><span class="sob-req-n">${i + 1}</span>
+						<select data-vol-field="product_line" aria-label="${esc(__('Product line, row {0}', [i + 1]))}"${dis}>${line_opts}</select>
+						<select data-vol-field="tier" aria-label="${esc(__('Tier, row {0}', [i + 1]))}"${editable && tiers.length ? '' : ' disabled'}>${tier_opts}</select>
+						${editable ? `<button type="button" class="sob-x sm" data-vol-remove="${k}" aria-label="${esc(__('Remove row {0}', [i + 1]))}" title="${esc(__('Remove'))}">${svg(ICON.x, 14)}</button>` : ''}
+					</div>
+					<div class="sob-vol-grid">
+						${pick('activity', __('They'), [['Procure', __('Procure (buy)')], ['Produce', __('Produce (make)')]], v.activity)}
+						${num('weekly_volume', __('Volume / week'), 'w')}
+						${pick('uom', __('Unit'), [['g', 'g'], ['kg', 'kg'], ['lb', 'lb']], v.uom)}
+						${num('wants_qty', __('Wants from us'), 'q')}
+						${pick('wants_per', __('Per'), [['Month', __('Month')], ['Week', __('Week')]], v.wants_per)}
+						${num('price_per_gram', __('Price / g'), 'p')}
+					</div>
+					<div class="sob-vol-sum">${monthly ? `<span>${esc(__('{0} a month', [wt(monthly)]))}</span><b>${value ? usd(value) + '/' + __('mo') : esc(__('Add a price per gram'))}</b>` : `<span class="sob-muted">${__('Enter what they want from us to see the monthly potential')}</span>`}</div>
+				</div>`;
+			};
+			return `<div class="sob-block sob-reqs${busy}">
+				${opts.bare ? '' : `<div class="sob-cap">${__('Volume and demand')}</div><div class="sob-muted">${__('Per product line: how much they procure or produce each week, and how much they want from us.')}</div>`}
+				${rows.length ? rows.map(row).join('') : `<div class="sob-muted">${__('No volume recorded yet.')}</div>`}
+				${editable ? `<button type="button" class="sob-btn sm sob-req-add" data-act="vol-add">${svg(ICON.plus, 14)}${__('Add product line')}</button>` : ''}
+			</div>`;
+		}
+
 		load_feed(name) {
-			return frappe.xcall(M + 'get_feed', { name }).then(r => {
+			return frappe.xcall(M + 'get_feed', { name, doctype: dt_of(name) }).then(r => {
 				this.feed = { name, notes: r.notes || [], activity: r.activity || [] };
 				if (this.state.sel === name) this.render_drawer();
 			}).catch(() => { this.feed = { name, notes: [], activity: [] }; });
@@ -1502,8 +2012,8 @@
 			this.bopen = false;
 			this.render_bresults();
 			const won = this.won_stage();
-			const def_type = won && d.stage === won.name && types.includes('Customer') ? 'Customer' : types[0];
-			const need = this.missing(d, {}).filter(k => k !== 'customer');
+			const def_type = ((won && d.stage === won.name) || d.is_customer) && types.includes('Customer') ? 'Customer' : types[0];
+			const need = d._acc ? [] : this.missing(d, {}).filter(k => k !== 'customer');
 			const fields = [
 				{ fieldname: 'buyer_name', fieldtype: 'Data', label: __('Buyer Name'), reqd: 1, default: d.account },
 				{ fieldname: 'buyer_type', fieldtype: 'Select', label: __('Type'), reqd: 1, options: types.map(t => ({ value: t, label: __(t) })), default: def_type,
@@ -1534,12 +2044,12 @@
 					dlg.disable_primary_action();
 					frappe.xcall(M + 'create_buyer', {
 						name, buyer_type: v.buyer_type, buyer_name: v.buyer_name,
-						contact_name: v.contact_name || '', phone: v.phone || '', email: v.email || '', extra,
+						contact_name: v.contact_name || '', phone: v.phone || '', email: v.email || '', extra, doctype: dt_of(name),
 					}).then(r => {
 						dlg.hide();
 						this.bsearch = null;
 						this.bresults = null;
-						frappe.show_alert({ message: __('{0} {1} created and linked to this deal', [__(r.type), r.title]), indicator: 'green' });
+						frappe.show_alert({ message: d._acc ? __('{0} {1} created and linked to this account', [__(r.type), r.title]) : __('{0} {1} created and linked to this deal', [__(r.type), r.title]), indicator: 'green' });
 						this.load();
 					}).catch(() => dlg.enable_primary_action());
 				},
@@ -1573,6 +2083,14 @@
 		apply(name, patch, done_msg) {
 			const d = this.find(name);
 			if (!d || this.busy[name]) return;
+			if (d._acc) return this.apply_acc(name, patch, done_msg);
+			const lost = this.lost_stage();
+			// every way of losing a deal (drag, Mark Lost, stage pop-up, list) goes through the lost prompt
+			if (lost && patch.stage === lost.name && d.stage !== lost.name && !patch._sure) { this.lose(name, patch); return; }
+			patch = Object.assign({}, patch);
+			delete patch._sure;
+			// a reopened deal drops its lost reason (Activity keeps it)
+			if (d.is_lost && lost && patch.stage && patch.stage !== lost.name && !('lost_reason' in patch)) patch.lost_reason = null;
 			const changed = Object.keys(patch).some(k => (patch[k] || '') !== (d[k] || ''));
 			if (!changed) return;
 			if ('deal_owner' in patch && !patch.deal_owner) {
@@ -1603,6 +2121,83 @@
 			this.render();
 		}
 
+		// The little prompt when a deal is lost: why, what happened, when to try again. The deal then waits at the
+		// bottom of the first stage (Active Opportunity) so it can be won back.
+		lose(name, patch) {
+			const d = this.find(name);
+			const lost = this.lost_stage();
+			if (!d || !lost) return;
+			const first = this.first_stage_of('deal');
+			const acc = this.acc_of(d);
+			const others = acc ? this.deals_of(acc).filter(x => x.name !== d.name && !x.is_closed) : [];
+			const end = (this.s.lead_statuses || []).find(x => x.is_closed);
+			const reasons = (this.s.lists && this.s.lists.lost_reasons) || [];
+			const value = +d.deal_value ? usd(d.deal_value) : '';
+			const fields = [
+				{ fieldtype: 'HTML', options: `<p class="sob-lose-intro">${esc([d.account, value].filter(Boolean).join(' · '))}<br>
+					<span class="text-muted">${esc(__('It stays at the bottom of {0}, so it can be reopened later.', [first]))}</span></p>` },
+				{ fieldname: 'reason', fieldtype: 'Select', label: __('Why was it lost?'), reqd: 1, options: [''].concat(reasons) },
+				{ fieldname: 'details', fieldtype: 'Small Text', label: __('What happened'), description: __('Optional. Price they wanted, who they went with, what would win it back.') },
+				{ fieldname: 'revisit', fieldtype: 'Date', label: __('Try again on'), description: __('Optional. Sets the next follow-up, so it comes back on the calendar.') },
+			];
+			if (acc && end && acc.lead_status !== end.name && !others.length) {
+				fields.push({ fieldname: 'acc_lost', fieldtype: 'Check', label: __('Also mark {0} as {1}', [acc.account, __(end.name)]),
+					description: __('Only if the whole relationship has ended. {0} has no other open deals.', [acc.account]) });
+			}
+			const dlg = new frappe.ui.Dialog({
+				title: __('Mark {0} as lost?', [d.account]),
+				size: 'small',
+				fields,
+				primary_action_label: __('Mark as lost'),
+				primary_action: v => {
+					const reason = [v.reason, (v.details || '').trim()].filter(Boolean).join(': ');
+					const p = Object.assign({}, patch, { lost_reason: reason, _sure: true });
+					if (v.revisit) p.next_step_due = v.revisit;
+					dlg.hide();
+					this.apply(name, p, __('{0} marked as lost. It stays in {1}.', [d.account, first]));
+					if (v.acc_lost && acc && end) setTimeout(() => this.apply(acc.name, { lead_status: end.name }, __('{0} is now {1}', [acc.account, __(end.name)])), 600);
+				},
+			});
+			dlg.show();
+			this.render();
+		}
+
+		reopen(name) {
+			const d = this.find(name);
+			if (!d || !d.is_lost) return;
+			const first = this.first_stage_of('deal');
+			this.apply(name, { stage: first, lost_reason: null }, __('{0} reopened in {1}', [d.account, first]));
+		}
+
+		apply_acc(name, patch, done_msg) {
+			const a = this.find(name);
+			if (!a || this.busy[name]) return;
+			const changed = Object.keys(patch).some(k => (patch[k] || '') !== (a[k] || ''));
+			if (!changed) return;
+			if ('account_owner' in patch && !patch.account_owner) {
+				frappe.msgprint(__('Every account needs a relationship manager.'));
+				this.render();
+				return;
+			}
+			const prev = {};
+			Object.keys(patch).forEach(k => { prev[k] = a[k]; a[k] = patch[k]; });
+			if ('lead_status' in patch) {
+				const st = this.status(patch.lead_status) || {};
+				['probability', 'weighted_potential', 'is_customer'].forEach(k => { prev[k] = a[k]; });
+				a.probability = +st.probability || 0;
+				a.weighted_potential = (+a.monthly_potential || 0) * a.probability / 100;
+				a.is_customer = st.is_active_customer;
+			}
+			if ('customer' in patch) a.customer_title = null;
+			if ('lead' in patch) a.lead_title = null;
+			this.busy[name] = true;
+			this.render();
+			return frappe.xcall(M + 'update_account', { name, values: patch })
+				.then(() => frappe.show_alert({ message: done_msg || __('{0} updated', [a.account]), indicator: 'green' }))
+				.catch(() => Object.assign(a, prev))
+				.finally(() => { delete this.busy[name]; this.load(); });
+		}
+
 		send(name, patch, done_msg) {
 			const d = this.find(name);
 			const prev = {};
@@ -1626,7 +2221,7 @@
 		work_copy(d) {
 			this.work = this.work || {};
 			this._k = this._k || 0;
-			if (!this.work[d.name]) this.work[d.name] = (d.lines || []).map((l, i) => Object.assign({}, l, { key: l.name || 'v' + i }));
+			if (!this.work[d.name]) this.work[d.name] = ((d._acc ? d.volume : d.lines) || []).map((l, i) => Object.assign({}, l, { key: l.name || 'v' + i }));
 			return this.work[d.name];
 		}
 
@@ -1714,6 +2309,93 @@
 			this.save_lines(name, f === 'product_line' || f === 'tier' ? __('Requirement updated') : __('Saved'));
 		}
 
+		// ---------- volume rows of an account (shared by the drawer and the pop-up) ----------
+
+		vol_calc(v) {
+			const per = UNITS[v.uom || 'g'] || 1;
+			const monthly = (+v.wants_qty || 0) * per * ((v.wants_per || 'Month') === 'Week' ? WPM : 1);
+			return { weekly_grams: (+v.weekly_volume || 0) * per, monthly_grams: monthly, monthly_value: monthly * (+v.price_per_gram || 0) };
+		}
+
+		save_vol(name, msg) {
+			const a = this.find(name);
+			if (!a) return;
+			this.req_dirty = this.req_dirty || {};
+			if (this.busy[name]) { this.req_dirty[name] = msg || true; return; }
+			const w = this.work_copy(a);
+			const sent = w.filter(v => !v.draft && v.product_line);
+			const payload = sent.map(v => ({
+				name: v.name || null, product_line: v.product_line, tier: v.tier || '', activity: v.activity || 'Procure',
+				weekly_volume: +v.weekly_volume || 0, wants_qty: +v.wants_qty || 0, wants_per: v.wants_per || 'Month', uom: v.uom || 'g',
+				price_per_gram: +v.price_per_gram || 0, notes: v.notes || '',
+			}));
+			// show the new totals right away; the reload brings the server's figures (and default prices)
+			const prev = { volume: a.volume, weekly_volume: a.weekly_volume, monthly_demand: a.monthly_demand, monthly_potential: a.monthly_potential, weighted_potential: a.weighted_potential };
+			a.volume = sent.map(v => Object.assign({}, v, this.vol_calc(v)));
+			a.weekly_volume = a.volume.reduce((s, v) => s + v.weekly_grams, 0);
+			a.monthly_demand = a.volume.reduce((s, v) => s + v.monthly_grams, 0);
+			a.monthly_potential = a.volume.reduce((s, v) => s + v.monthly_value, 0);
+			a.weighted_potential = a.monthly_potential * (+a.probability || 0) / 100;
+			this.busy[name] = true;
+			this.render();
+			frappe.xcall(M + 'update_account', { name, values: { volume: payload } }).then(r => {
+				const names = (r && r.volume) || [];
+				sent.forEach((v, i) => { if (names[i]) v.name = names[i]; });
+				if (msg) frappe.show_alert({ message: msg, indicator: 'green' });
+			}).catch(() => {
+				Object.assign(a, prev);
+				delete this.work[name];
+			}).finally(() => {
+				delete this.busy[name];
+				const again = this.req_dirty[name];
+				delete this.req_dirty[name];
+				if (again && this.work[name]) { this.save_vol(name, again === true ? null : again); return; }
+				// the server may have filled the default price: take its rows on the next load
+				const ww = this.work && this.work[name];
+				if (ww && !ww.some(v => v.draft)) delete this.work[name];
+				this.load();
+			});
+		}
+
+		vol_add(name, $host) {
+			const a = this.find(name);
+			if (!a || !this.can_edit(a)) return;
+			this.work_copy(a).push({ key: 'n' + (++this._k), product_line: '', tier: '', activity: 'Procure', weekly_volume: '', wants_qty: '', wants_per: 'Month', uom: 'g', price_per_gram: '', notes: '', draft: true });
+			this.refresh_req(name);
+			const el = $host.find(`[data-vol="n${this._k}"] [data-vol-field="product_line"]`).get(0);
+			if (el) el.focus();
+		}
+
+		vol_remove(name, key) {
+			const a = this.find(name);
+			if (!a) return;
+			const w = this.work_copy(a);
+			const row = w.find(x => x.key === key);
+			if (!row) return;
+			w.splice(w.indexOf(row), 1);
+			if (row.draft) { this.refresh_req(name); this.drop_work(name); return; }
+			this.save_vol(name, __('Volume row removed'));
+		}
+
+		vol_change(name, el) {
+			const a = this.find(name);
+			if (!a || !this.can_edit(a)) return;
+			const key = $(el).closest('[data-vol]').attr('data-vol');
+			const f = el.getAttribute('data-vol-field');
+			const row = this.work_copy(a).find(x => x.key === key);
+			if (!row) return;
+			let v = el.value;
+			if (['weekly_volume', 'wants_qty', 'price_per_gram'].includes(f)) {
+				v = v === '' ? 0 : Number(v);
+				if (!isFinite(v) || v < 0) { frappe.show_alert({ message: __('Please enter a number of 0 or more.'), indicator: 'red' }); el.value = row[f] || ''; return; }
+			}
+			row[f] = v;
+			if (f === 'product_line' && row.tier && !this.tiers_for(v).includes(row.tier)) row.tier = '';
+			if (row.draft && !row.product_line) { this.refresh_req(name); return; }
+			row.draft = false;
+			this.save_vol(name, f === 'product_line' || f === 'tier' ? __('Volume updated') : __('Saved'));
+		}
+
 		// ---------- card pop-up: notes, requirements, follow-up, stage without opening the deal ----------
 
 		open_pop(kind, name, btn) {
@@ -1731,7 +2413,7 @@
 			this.$pop.prop('hidden', false);
 			this.render_pop();
 			this.place_pop();
-			const first = this.$pop.find('textarea, [data-req-field]:not([disabled]), [data-pop-date], .sob-mi').get(0);
+			const first = this.$pop.find('textarea, [data-req-field]:not([disabled]), [data-vol-field]:not([disabled]), [data-pop-date], .sob-mi').get(0);
 			if (first) first.focus({ preventScroll: true });
 		}
 
@@ -1751,7 +2433,7 @@
 			const below = vh - a.bottom - m >= h || a.top < vh / 2;
 			const top = below ? Math.min(a.bottom + 8, vh - h - m) : Math.max(m, a.top - h - 8);
 			const left = Math.max(m, Math.min(a.left - 8, vw - w - m));
-			el.style.top = Math.max(m, top) + 'px';
+			el.style.top = Math.max(m, Math.min(top, vh - h - m)) + 'px';
 			el.style.left = left + 'px';
 			el.style.setProperty('--lg-origin', `${below ? 'top' : 'bottom'} ${left < a.left - 40 ? 'right' : 'left'}`);
 		}
@@ -1761,10 +2443,11 @@
 			const d = this.find(this.pop.name);
 			if (!d) { this.close_pop(); return; }
 			const kind = this.pop.kind;
-			const titles = { notes: __('Notes'), reqs: __('Requirements'), follow: __('Next follow-up'), stage: __('Move to') };
+			const titles = { notes: __('Notes'), reqs: __('Requirements'), vol: __('Volume and demand'), follow: __('Next follow-up'), stage: d._acc ? __('Lead status') : __('Move to') };
 			let body = '';
 			if (kind === 'notes') body = this.pop_notes(d);
 			else if (kind === 'reqs') body = this.pop_reqs(d);
+			else if (kind === 'vol') body = this.pop_vol(d);
 			else if (kind === 'follow') body = this.pop_follow(d);
 			else body = this.pop_stage(d);
 			// keep what is typed and where the cursor is when the pop-up re-renders (saves, board reloads)
@@ -1817,6 +2500,17 @@
 				</div>`;
 		}
 
+		pop_vol(a) {
+			const locked = this.can_edit(a) ? '' : `<div class="sob-muted">${__('Only the relationship manager, people with a deal here or a pipeline manager can change this.')}</div>`;
+			return `
+				${this.vol_editor(a, { bare: true })}
+				${locked}
+				<div class="sob-pop-foot">
+					<span class="sob-pop-val"><span>${__('Potential')}</span><b>${+a.monthly_potential ? usd(a.monthly_potential) + '/' + __('mo') : '—'}</b></span>
+					<button type="button" class="sob-btn sm" data-pop-open="volume">${__('Open account')}</button>
+				</div>`;
+		}
+
 		pop_follow(d) {
 			const today = pd(this.data.today);
 			const nextMonday = addDays(today, ((8 - today.getDay()) % 7) || 7);
@@ -1838,13 +2532,10 @@
 		}
 
 		pop_stage(d) {
-			return BOARDS.map(b => {
-				const sts = this.stages_of(b[0]);
-				if (!sts.length) return '';
-				return `<div class="sob-pop-sec">${esc(b[0] === 'lead' ? __('Lead board') : __('Deal board'))}</div>
-					<div class="sob-pop-list">${sts.map(x => `<button type="button" class="lg-item sob-mi" data-pop-stage="${esc(x.name)}" aria-pressed="${x.name === d.stage}"${x.colour ? ` style="--sob-stage:${esc(x.colour)}"` : ''}>
-						<span class="sob-tick">${svg(ICON.check, 14)}</span><span class="sob-stage-dot"></span><span>${esc(__(x.name))}</span><span class="sob-mi-r">${+x.probability || 0}%</span></button>`).join('')}</div>`;
-			}).join('');
+			const cur = this.stage_name(d);
+			const sts = this.stages_of(d._acc ? 'lead' : 'deal');
+			return `<div class="sob-pop-list">${sts.map(x => `<button type="button" class="lg-item sob-mi" data-pop-stage="${esc(x.name)}" aria-pressed="${x.name === cur}"${x.colour ? ` style="--sob-stage:${esc(x.colour)}"` : ''}>
+				<span class="sob-tick">${svg(ICON.check, 14)}</span><span class="sob-stage-dot"></span><span>${esc(__(x.name))}</span><span class="sob-mi-r">${+x.probability || 0}%</span></button>`).join('')}</div>`;
 		}
 
 		bind_pop() {
@@ -1872,8 +2563,11 @@
 				const st = $(e.currentTarget).attr('data-pop-stage');
 				if (!name) return;
 				this.close_pop();
-				this.apply(name, { stage: st }, __('Moved to {0}', [__(st)]));
+				this.apply(name, this.stage_patch(this.find(name), st), __('Moved to {0}', [__(st)]));
 			});
+			$p.on('click', '[data-act="vol-add"]', () => this.pop && this.vol_add(this.pop.name, $p));
+			$p.on('click', '[data-vol-remove]', e => this.pop && this.vol_remove(this.pop.name, $(e.currentTarget).attr('data-vol-remove')));
+			$p.on('change', '[data-vol-field]', e => this.pop && this.vol_change(this.pop.name, e.currentTarget));
 			$p.on('click', '[data-act="req-add"]', () => this.pop && this.req_add(this.pop.name, $p));
 			$p.on('click', '[data-req-remove]', e => this.pop && this.req_remove(this.pop.name, $(e.currentTarget).attr('data-req-remove')));
 			$p.on('change', '[data-req-field]', e => this.pop && this.req_change(this.pop.name, e.currentTarget));
@@ -1906,11 +2600,14 @@
 			this.apply(name, { next_step_due: v || null }, v ? __('Follow-up set for {0}', [nice(v)]) : __('Follow-up cleared'));
 		}
 
-		new_deal() {
+		// New Deal: for an account on the Leads board (preset when started from one), or a new account by name / Customer
+		new_deal(opts) {
+			opts = opts || {};
 			const me = this.data.user;
 			const choices = this.owner_choices(null);
-			const open_stages = this.stages_of(this.state.board).filter(x => !x.is_closed);
-			const def_stage = this.first_stage_of(this.state.board);
+			const open_stages = this.stages_of('deal').filter(x => !x.is_closed);
+			const def_stage = this.first_stage_of('deal');
+			const preset = opts.account ? this.find(opts.account) : null;
 			const lines = this.s.product_lines || [];
 			const prio = this.s.lists.priority || [];
 			let co = [];
@@ -1928,10 +2625,13 @@
 			};
 			const follow_needed = st => { const x = this.stage(st) || {}; return !!x.name && !x.is_closed && x.name !== this.s.first_stage; };
 			const dlg = new frappe.ui.Dialog({
-				title: this.state.board === 'lead' ? __('New Lead') : __('New Deal'),
+				title: preset ? __('New deal for {0}', [preset.account]) : __('New Deal'),
 				fields: [
-					{ fieldname: 'account', fieldtype: 'Data', label: __('Account'), description: __('Required unless you choose a Buyer.') },
-					{ fieldname: 'customer', fieldtype: 'Link', options: 'Customer', label: __('Buyer'),
+					{ fieldname: 'pipeline_account', fieldtype: 'Link', options: ACC_DT, label: __('Lead / Account'), default: preset ? preset.name : '',
+						description: __('The account on the Leads board. Leave empty to start a new account.') },
+					{ fieldname: 'account', fieldtype: 'Data', label: __('New account name'), depends_on: 'eval:!doc.pipeline_account',
+						description: __('Required unless you choose an account or a Buyer.') },
+					{ fieldname: 'customer', fieldtype: 'Link', options: 'Customer', label: __('Buyer'), depends_on: 'eval:!doc.pipeline_account',
 						description: __('Optional. Choose an existing Customer to fill in the account and contact details.'),
 						onchange: () => {
 							const v = dlg.get_value('customer');
@@ -1941,7 +2641,7 @@
 								if (n && !dlg.get_value('account') && dlg.get_value('customer') === v) dlg.set_value('account', n);
 							});
 						} },
-					{ fieldname: 'stage', fieldtype: 'Select', label: this.state.board === 'lead' ? __('Lead status') : __('Stage'), reqd: 1, options: open_stages.map(x => ({ value: x.name, label: __(x.name) })), default: def_stage,
+					{ fieldname: 'stage', fieldtype: 'Select', label: __('Stage'), reqd: 1, options: open_stages.map(x => ({ value: x.name, label: __(x.name) })), default: def_stage,
 						onchange: () => dlg.set_df_property('next_step_due', 'reqd', follow_needed(dlg.get_value('stage')) ? 1 : 0) },
 					{ fieldname: 'deal_owner', fieldtype: 'Select', label: __('Owner'), reqd: 1, options: choices.map(o => ({ value: o.user, label: o.name })),
 						default: choices.some(o => o.user === me) ? me : (choices[0] || {}).user, onchange: () => render_co() },
@@ -1966,16 +2666,18 @@
 				],
 				primary_action_label: __('Create deal'),
 				primary_action: v => {
-					if (!(v.account || '').trim() && !v.customer) { frappe.msgprint(__('Please enter the Account or choose a Buyer.')); return; }
+					if (!v.pipeline_account && !(v.account || '').trim() && !v.customer) { frappe.msgprint(__('Please choose the account, or enter a new account name.')); return; }
 					if (follow_needed(v.stage) && !v.next_step_due) { frappe.msgprint(__('Please set a Next Follow-up date. It is required for deals in {0}.', [__(v.stage)])); return; }
 					const values = {};
-					['account', 'customer', 'stage', 'deal_owner', 'priority', 'next_step_due', 'product_line', 'tier', 'total_grams', 'price_per_gram', 'value_override']
+					const keys = v.pipeline_account ? ['pipeline_account'] : ['account', 'customer'];
+					keys.concat(['stage', 'deal_owner', 'priority', 'next_step_due', 'product_line', 'tier', 'total_grams', 'price_per_gram', 'value_override'])
 						.forEach(k => { if (v[k] !== undefined && v[k] !== null && v[k] !== '' && !(NUM_FIELDS.includes(k) && !+v[k])) values[k] = v[k]; });
 					if (co.length) values.co_owners = co.slice();
+					const acc = v.pipeline_account ? this.find(v.pipeline_account) : null;
 					dlg.disable_primary_action();
 					frappe.xcall(M + 'create_deal', { values }).then(name => {
 						dlg.hide();
-						frappe.show_alert({ message: __('Deal {0} created', [values.account || values.customer]), indicator: 'green' });
+						frappe.show_alert({ message: __('Deal created for {0}', [acc ? acc.account : (values.account || values.customer)]), indicator: 'green' });
 						this.load().then(() => this.open(name));
 					}).catch(() => dlg.enable_primary_action());
 				},
@@ -1984,7 +2686,7 @@
 					const v = dlg.get_values(true) || {};
 					dlg.hide();
 					const opts = {};
-					['account', 'customer', 'stage', 'deal_owner', 'priority', 'next_step_due', 'product_line', 'tier', 'total_grams', 'price_per_gram'].forEach(k => { if (v[k]) opts[k] = v[k]; });
+					['pipeline_account', 'account', 'customer', 'stage', 'deal_owner', 'priority', 'next_step_due', 'product_line', 'tier', 'total_grams', 'price_per_gram'].forEach(k => { if (v[k]) opts[k] = v[k]; });
 					frappe.new_doc(DT, opts);
 				},
 			});
@@ -1996,6 +2698,74 @@
 			render_co();
 			dlg.show();
 			this._new_dlg = dlg;
+		}
+
+		// New Lead (Leads board): the account, its status and owner, contact, and optionally the first volume row
+		new_account() {
+			const me = this.data.user;
+			const choices = this.owner_choices(null);
+			const statuses = this.stages_of('lead');
+			const lines = this.s.product_lines || [];
+			const tier_opts = line => [''].concat(this.tiers_for(line));
+			const dlg = new frappe.ui.Dialog({
+				title: __('New Lead'),
+				fields: [
+					{ fieldname: 'account_name', fieldtype: 'Data', label: __('Account'), description: __('Required unless you choose a Customer.') },
+					{ fieldname: 'customer', fieldtype: 'Link', options: 'Customer', label: __('Customer'),
+						description: __('Optional. For an existing customer: fills the name and contact details.'),
+						onchange: () => {
+							const c = dlg.get_value('customer');
+							if (!c || dlg.get_value('account_name')) return;
+							frappe.db.get_value('Customer', c, 'customer_name').then(r => {
+								const n = r && r.message && r.message.customer_name;
+								if (n && !dlg.get_value('account_name') && dlg.get_value('customer') === c) dlg.set_value('account_name', n);
+							});
+						} },
+					{ fieldname: 'lead_status', fieldtype: 'Select', label: __('Lead status'), reqd: 1, options: statuses.map(x => ({ value: x.name, label: __(x.name) })), default: this.s.first_status || (statuses[0] || {}).name },
+					{ fieldname: 'account_owner', fieldtype: 'Select', label: __('Relationship manager'), reqd: 1, options: choices.map(o => ({ value: o.user, label: o.name })),
+						default: choices.some(o => o.user === me) ? me : (choices[0] || {}).user },
+					{ fieldname: 'next_step_due', fieldtype: 'Date', label: __('Next Follow-up') },
+					{ fieldtype: 'Column Break' },
+					{ fieldname: 'contact_name', fieldtype: 'Data', label: __('Contact Name') },
+					{ fieldname: 'phone', fieldtype: 'Data', label: __('Phone') },
+					{ fieldname: 'email', fieldtype: 'Data', options: 'Email', label: __('Email') },
+					{ fieldname: 'lead_source', fieldtype: 'Select', label: __('Lead Source'), options: [''].concat(this.s.lists.lead_source || []) },
+					{ fieldtype: 'Section Break', label: __('Volume and demand'), description: __('Optional. More product lines can be added on the account.') },
+					{ fieldname: 'product_line', fieldtype: 'Select', label: __('Product Line'), options: [''].concat(lines),
+						onchange: () => {
+							const t = tier_opts(dlg.get_value('product_line'));
+							dlg.set_df_property('tier', 'options', t);
+							dlg.set_df_property('tier', 'read_only', t.length > 1 ? 0 : 1);
+							if (!t.includes(dlg.get_value('tier'))) dlg.set_value('tier', '');
+						} },
+					{ fieldname: 'tier', fieldtype: 'Select', label: __('Tier'), options: [''], read_only: 1 },
+					{ fieldname: 'activity', fieldtype: 'Select', label: __('They'), options: [{ value: 'Procure', label: __('Procure (buy)') }, { value: 'Produce', label: __('Produce (make)') }], default: 'Procure' },
+					{ fieldname: 'weekly_volume', fieldtype: 'Float', label: __('Volume / week') },
+					{ fieldtype: 'Column Break' },
+					{ fieldname: 'wants_qty', fieldtype: 'Float', label: __('Wants from us') },
+					{ fieldname: 'wants_per', fieldtype: 'Select', label: __('Per'), options: [{ value: 'Month', label: __('Month') }, { value: 'Week', label: __('Week') }], default: 'Month' },
+					{ fieldname: 'uom', fieldtype: 'Select', label: __('Unit'), options: ['g', 'kg', 'lb'], default: 'g' },
+					{ fieldname: 'price_per_gram', fieldtype: 'Currency', label: __('Price per Gram'), description: __('Leave empty for the product line\'s default price.') },
+				],
+				primary_action_label: __('Create lead'),
+				primary_action: v => {
+					if (!(v.account_name || '').trim() && !v.customer) { frappe.msgprint(__('Please enter the account name or choose a Customer.')); return; }
+					const values = {};
+					['account_name', 'customer', 'lead_status', 'account_owner', 'next_step_due', 'contact_name', 'phone', 'email', 'lead_source']
+						.forEach(k => { if (v[k]) values[k] = v[k]; });
+					if (v.product_line) {
+						values.volume = [{ product_line: v.product_line, tier: v.tier || '', activity: v.activity || 'Procure', weekly_volume: +v.weekly_volume || 0,
+							wants_qty: +v.wants_qty || 0, wants_per: v.wants_per || 'Month', uom: v.uom || 'g', price_per_gram: +v.price_per_gram || 0 }];
+					}
+					dlg.disable_primary_action();
+					frappe.xcall(M + 'create_account', { values }).then(name => {
+						dlg.hide();
+						frappe.show_alert({ message: __('{0} added to the Leads board', [values.account_name || values.customer]), indicator: 'green' });
+						this.load().then(() => this.open(name, values.volume ? 'overview' : 'volume'));
+					}).catch(() => dlg.enable_primary_action());
+				},
+			});
+			dlg.show();
 		}
 
 		email_to(d) { return (d && (d.email || d.customer_email)) || ''; }
@@ -2012,24 +2782,25 @@
 			const d = this.find(name);
 			const to = this.email_to(d);
 			if (!d || !to) return;
+			const dt = dt_of(name);
 			if (!frappe.views.CommunicationComposer) { frappe.msgprint(__('The email composer could not be loaded. Please refresh the page.')); return; }
 			const files = frappe.db.get_list('File', {
-				filters: { attached_to_doctype: DT, attached_to_name: name }, fields: ['name', 'file_name', 'file_url', 'is_private'], limit: 50,
+				filters: { attached_to_doctype: dt, attached_to_name: name }, fields: ['name', 'file_name', 'file_url', 'is_private'], limit: 50,
 			}).catch(() => []);
-			Promise.all([frappe.model.with_doc(DT, name), files]).then(([doc, attachments]) => {
+			Promise.all([frappe.model.with_doc(dt, name), files]).then(([doc, attachments]) => {
 				const Base = frappe.views.CommunicationComposer;
 				class DealComposer extends Base {
 					// new attachments go onto the deal, like they do from the form
 					setup_attach() {
 						super.setup_attach();
 						$(this.dialog.fields_dict.select_attachments.wrapper).find('.add-more-attachments button').off('click').on('click', () => new frappe.ui.FileUploader({
-							doctype: DT, docname: name, folder: 'Home/Attachments',
+							doctype: dt, docname: name, folder: 'Home/Attachments',
 							on_success: a => { this.attachments.push(a); this.render_attachment_rows(a); },
 						}));
 					}
 				}
 				new DealComposer({
-					doc: doc || frappe.get_doc(DT, name),
+					doc: doc || frappe.get_doc(dt, name),
 					recipients: to,
 					subject: `Motley Terpz – ${d.account}`,
 					attachments: (attachments || []).slice(),
@@ -2064,16 +2835,17 @@
 
 		export_xlsx() {
 			if (!this.data) return;
-			const names = (this.state.view === 'list' ? this.list_order() : this.filtered()).map(d => d.name);
-			if (!names.length) { frappe.msgprint(__('No deals match the current filters.')); return; }
-			open_url_post('/api/method/' + M + 'export_xlsx', { names: JSON.stringify(names) });
+			const lead = this.state.board === 'lead';
+			const names = (this.state.view === 'list' ? this.list_order() : (lead ? this.filtered_acc() : this.filtered())).map(d => d.name);
+			if (!names.length) { frappe.msgprint(lead ? __('No accounts match the current filters.') : __('No deals match the current filters.')); return; }
+			open_url_post('/api/method/' + M + (lead ? 'export_accounts_xlsx' : 'export_xlsx'), { names: JSON.stringify(names) });
 		}
 
 		list_order() {
 			// export in the order shown in List view
 			const order = [];
 			this.$root.find('.sob-table tbody tr[data-open]').each((_, el) => order.push($(el).attr('data-open')));
-			const all = this.filtered();
+			const all = this.state.board === 'lead' ? this.filtered_acc() : this.filtered();
 			return order.length ? order.map(n => all.find(d => d.name === n)).filter(Boolean) : all;
 		}
 
@@ -2094,6 +2866,8 @@
 			$r.on('click', '[data-card-call]', e => e.stopPropagation());
 			$r.on('click', '[data-card-email]', e => { e.preventDefault(); e.stopPropagation(); this.email_deal($(e.currentTarget).attr('data-card-email')); });
 			$r.on('click', '[data-card-hist]', e => { e.preventDefault(); e.stopPropagation(); this.open($(e.currentTarget).attr('data-card-hist'), 'purchases'); });
+			$r.on('click', '[data-reopen]', e => { e.preventDefault(); e.stopPropagation(); this.reopen($(e.currentTarget).attr('data-reopen')); });
+			$r.on('click', '[data-new-deal]', e => { e.preventDefault(); e.stopPropagation(); this.new_deal({ account: $(e.currentTarget).attr('data-new-deal') }); });
 			$r.on('click', '[data-owner]', e => {
 				const v = $(e.currentTarget).attr('data-owner');
 				let owners = (this.state.owners || []).slice();
@@ -2179,17 +2953,20 @@
 				$(e.currentTarget).attr('aria-expanded', open);
 			});
 			$r.on('change', '[data-col]', () => {
+				const acc = this.state.board === 'lead';
 				const cols = [];
 				$r.find('[data-col]:checked').each((_, el) => cols.push($(el).attr('data-col')));
-				this.cols = LIST_COLS.map(c => c[0]).filter(k => cols.includes(k));
-				if (!this.cols.length) this.cols = ['account'];
-				try { localStorage.setItem(LS_COLS, JSON.stringify(this.cols)); } catch (x) { /* storage off */ }
+				let next = (acc ? ACC_COLS : LIST_COLS).map(c => c[0]).filter(k => cols.includes(k));
+				if (!next.length) next = ['account'];
+				if (acc) this.acc_cols = next; else this.cols = next;
+				try { localStorage.setItem(acc ? LS_ACC_COLS : LS_COLS, JSON.stringify(next)); } catch (x) { /* storage off */ }
 				this.render();
 				$r.find('.sob-colpick-menu').prop('hidden', false);
 			});
 			$r.on('click', '[data-act="cols-reset"]', () => {
-				this.cols = DEFAULT_COLS.slice();
-				try { localStorage.removeItem(LS_COLS); } catch (x) { /* storage off */ }
+				const acc = this.state.board === 'lead';
+				if (acc) this.acc_cols = ACC_DEFAULT_COLS.slice(); else this.cols = DEFAULT_COLS.slice();
+				try { localStorage.removeItem(acc ? LS_ACC_COLS : LS_COLS); } catch (x) { /* storage off */ }
 				this.render();
 			});
 
@@ -2229,11 +3006,15 @@
 				const drag = this.drag;
 				this.drag = null;
 				if (!drag || !ok) return;
-				if (drag.kind === 'card' && el.hasAttribute('data-drop-stage')) this.apply(drag.name, { stage: el.getAttribute('data-drop-stage') });
-				else if (drag.kind === 'card' && el.hasAttribute('data-drop-owner')) {
+				const card = drag.kind === 'card' ? this.find(drag.name) : null;
+				if (card && el.hasAttribute('data-drop-stage')) {
+					// cards only drop on their own board's columns
+					if (!!card._acc !== (this.state.board === 'lead')) return;
+					this.apply(drag.name, this.stage_patch(card, el.getAttribute('data-drop-stage')));
+				} else if (card && el.hasAttribute('data-drop-owner')) {
 					const owner = el.getAttribute('data-drop-owner');
 					if (drag.from && drag.from === owner) return;  // dropped back in its own column
-					this.apply(drag.name, { deal_owner: owner }, __('Reassigned to {0}', [this.owner_name(owner)]));
+					this.apply(drag.name, { [this.own_field(card)]: owner }, __('Reassigned to {0}', [this.owner_name(owner)]));
 				} else if (drag.kind === 'event' && el.hasAttribute('data-drop-date')) this.apply(drag.name, { [drag.field]: el.getAttribute('data-drop-date') });
 			});
 
@@ -2246,9 +3027,17 @@
 				this.set({ tab });
 				if ((tab === 'activity' || tab === 'notes') && this.state.sel) this.load_feed(this.state.sel);
 			});
-			$d.on('click', '[data-move]', e => this.apply(this.state.sel, { stage: $(e.currentTarget).attr('data-move') }));
+			$d.on('click', '[data-move]', e => this.apply(this.state.sel, this.stage_patch(this.find(this.state.sel), $(e.currentTarget).attr('data-move'))));
 			$d.on('change', '[data-panel-field]', e => this.apply(this.state.sel, { [$(e.currentTarget).attr('data-panel-field')]: e.currentTarget.value || null }));
-			$d.on('click', '[data-act="form"]', () => frappe.set_route('Form', DT, this.state.sel));
+			$d.on('click', '[data-act="form"]', () => frappe.set_route('Form', dt_of(this.state.sel), this.state.sel));
+			$d.on('click', '[data-open-acc]', e => this.open($(e.currentTarget).attr('data-open-acc')));
+			$d.on('click', '[data-open-deal]', e => this.open($(e.currentTarget).attr('data-open-deal')));
+			$d.on('click', '[data-new-deal]', e => this.new_deal({ account: $(e.currentTarget).attr('data-new-deal') }));
+			$d.on('click', '[data-reopen]', e => this.reopen($(e.currentTarget).attr('data-reopen')));
+			// volume rows of an account
+			$d.on('click', '[data-act="vol-add"]', () => this.vol_add(this.state.sel, this.$drawer));
+			$d.on('click', '[data-vol-remove]', e => this.vol_remove(this.state.sel, $(e.currentTarget).attr('data-vol-remove')));
+			$d.on('change', '[data-vol-field]', e => this.vol_change(this.state.sel, e.currentTarget));
 			$d.on('click', '[data-act="email"]', () => this.email_deal(this.state.sel));
 			// quick notes
 			$d.on('click', '[data-qnote]', e => this.add_quick_note(this.state.sel, $(e.currentTarget).attr('data-qnote'), e.currentTarget));
@@ -2357,7 +3146,7 @@
 				const note = ($t.val() || '').trim();
 				if (!note) { $t.trigger('focus'); return; }
 				const $b = $(e.currentTarget).prop('disabled', true);
-				frappe.xcall(M + 'add_note', { name, note }).then(notes => {
+				frappe.xcall(M + 'add_note', { name, note, doctype: dt_of(name) }).then(notes => {
 					$d.find('[data-keep="note-new"]').val('');
 					this.set_notes(name, notes);
 					frappe.show_alert({ message: __('Note saved'), indicator: 'green' });
