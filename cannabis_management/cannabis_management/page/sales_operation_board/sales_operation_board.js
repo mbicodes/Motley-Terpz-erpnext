@@ -12,13 +12,21 @@
 		flask: '<path d="M9 3h6M10 3v6L4.5 18.5A2 2 0 0 0 6.2 21h11.6a2 2 0 0 0 1.7-2.5L14 9V3"/>',
 		flag: '<path d="M4 22V4M4 4h12l-2 4 2 4H4"/>',
 		truck: '<path d="M3 6h11v10H3zM14 10h4l3 3v3h-7"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/>',
+		down: '<path d="m6 9 6 6 6-6"/>',
+		up: '<path d="m18 15-6-6-6 6"/>',
+		left: '<path d="m15 18-6-6 6-6"/>',
+		right: '<path d="m9 18 6-6-6-6"/>',
+		x: '<path d="M18 6 6 18M6 6l12 12"/>',
+		plus: '<path d="M12 5v14M5 12h14"/>',
 	};
-	const svg = (p, size) => `<svg width="${size || 13}" height="${size || 13}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+	// One line-icon style everywhere: stroke 2, colour from the text it sits in.
+	const svg = (p, size) => `<svg width="${size || 14}" height="${size || 14}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+	// Event colours live in the stylesheet (.ev-<key>) so they follow light and dark themes.
 	const EVENTS = [
-		{ key: 'followup', field: 'next_step_due', label: 'Follow-up', color: '#1D4ED8', bg: '#DBEAFE', icon: ICON.phone },
-		{ key: 'sample', field: 'sample_date', label: 'Sample', color: '#92400E', bg: '#FEF3C7', icon: ICON.flask },
-		{ key: 'close', field: 'expected_close', label: 'Close', color: '#166534', bg: '#DCFCE7', icon: ICON.flag },
-		{ key: 'delivery', field: 'delivery_pickup', label: 'Delivery', color: '#6D28D9', bg: '#EDE9FE', icon: ICON.truck },
+		{ key: 'followup', field: 'next_step_due', label: 'Follow-up', icon: ICON.phone },
+		{ key: 'sample', field: 'sample_date', label: 'Sample', icon: ICON.flask },
+		{ key: 'close', field: 'expected_close', label: 'Close', icon: ICON.flag },
+		{ key: 'delivery', field: 'delivery_pickup', label: 'Delivery', icon: ICON.truck },
 	];
 	const LIST_COLS = [
 		['stage', 'Stage', 'stage'], ['account', 'Account'], ['deal_owner', 'Owner', 'owner'], ['priority', 'Priority', 'priority'],
@@ -98,7 +106,7 @@
 						<div class="sob-fgroup">
 							<span class="sob-flabel" id="sob-prod-label">${__('Product Line')}</span>
 							<div class="sob-ms">
-								<button type="button" class="sob-pill sob-ms-btn" data-act="prod-menu" aria-haspopup="true" aria-expanded="false" aria-labelledby="sob-prod-label sob-prod-value"><span id="sob-prod-value"></span><span class="sob-caret" aria-hidden="true">▾</span></button>
+								<button type="button" class="sob-pill sob-ms-btn" data-act="prod-menu" aria-haspopup="true" aria-expanded="false" aria-labelledby="sob-prod-label sob-prod-value"><span id="sob-prod-value"></span><span class="sob-caret" aria-hidden="true">${svg(ICON.down, 14)}</span></button>
 								<div class="sob-ms-menu" role="group" aria-labelledby="sob-prod-label" hidden></div>
 							</div>
 							<label class="sob-flabel" for="sob-prio">${__('Priority')}</label><select id="sob-prio" class="sob-select sob-prio"></select>
@@ -280,16 +288,18 @@
 			const attn = open.filter(d => d.attention);
 			const count = k => open.filter(d => (d.flags || []).some(f => f.key === k)).length;
 			const today = pd(this.data.today);
+			const won_value = sum(won, d => d.deal_value);
+			// [label, figure, caption, state]: state colours the one cell that carries meaning
 			const kpis = [
-				[this.state.board === 'lead' ? __('Open leads') : __('Open deals'), String(open.length), __('Excluding closed deals')],
+				[this.state.board === 'lead' ? __('Open leads') : __('Open deals'), n0(open.length), __('Excluding closed deals')],
 				[__('Open value'), usd(sum(open, d => d.deal_value)), __('Grams × price per gram, or override')],
 				[__('Weighted value'), usd(sum(open, d => d.weighted_value)), __('Value × stage probability')],
 				[__('Grams in pipeline'), n0(grams) + ' g', (grams / 1000).toFixed(1) + ' kg ' + __('in open deals')],
-				[__('Won value'), usd(sum(won, d => d.deal_value)), won.length + ' ' + __('won in') + ' ' + MONTHS[today.getMonth()]],
-				[__('Needs attention'), String(attn.length), `${count('overdue')} ${__('overdue')} · ${count('stalled')} ${__('stalled')} · ${count('no_owner')} ${__('no owner')} · ${count('short')} ${__('short')}`],
+				[__('Won value'), usd(won_value), won.length + ' ' + __('won in') + ' ' + MONTHS[today.getMonth()], won_value ? 'good' : ''],
+				[__('Needs attention'), n0(attn.length), `${count('overdue')} ${__('overdue')} · ${count('stalled')} ${__('stalled')} · ${count('no_owner')} ${__('no owner')} · ${count('short')} ${__('short')}`, attn.length ? 'attn' : ''],
 			];
-			this.$root.find('.sob-kpis').html(kpis.map((k, i) => `
-				<div class="sob-kpi${i === 5 && attn.length ? ' warn' : ''}">
+			this.$root.find('.sob-kpis').html(kpis.map(k => `
+				<div class="sob-kpi${k[3] ? ' ' + k[3] : ''}">
 					<div class="sob-kpi-label">${esc(k[0])}</div>
 					<div class="sob-kpi-value">${esc(k[1])}</div>
 					<div class="sob-kpi-sub">${esc(k[2])}</div>
@@ -331,23 +341,26 @@
 				.attr('title', __('Closed deals hide {0} days after closing', [this.s.hide_closed_after_days || 0]));
 		}
 
-		badges(d) {
-			const b = [];
-			const neutral = (t, bg, fg) => `<span class="sob-badge" style="background:${bg};color:${fg}">${esc(t)}</span>`;
-			if (d.status_detail) b.push(neutral(d.status_detail, '#F4F4F5', '#3F3F46'));
-			if (d.samples) b.push(neutral(__('Samples') + ': ' + d.samples, '#FEF3C7', '#78350F'));
-			if (d.copack === 'YES') b.push(neutral(__('Copack'), '#E0E7FF', '#312E81'));
-			if (d.hardware) b.push(neutral(__('Hardware') + ': ' + d.hardware, '#E0E7FF', '#312E81'));
-			(d.flags || []).forEach(f => b.push(`<span class="sob-badge ${f.kind === 'action' ? 'act' : 'info'}">${esc(f.label)}</span>`));
-			return b.join('');
+		// Deal attributes read as one quiet line; only alerts (flags) get coloured tags.
+		card_meta(d) {
+			const m = [];
+			if (d.status_detail) m.push(d.status_detail);
+			if (d.samples) m.push(__('Samples') + ': ' + d.samples);
+			if (d.copack === 'YES') m.push(__('Copack'));
+			if (d.hardware) m.push(__('Hardware') + ': ' + d.hardware);
+			return m.join(' · ');
 		}
 
+		badges(d) {
+			return (d.flags || []).map(f => `<span class="sob-badge ${f.kind === 'action' ? 'act' : 'info'}">${esc(f.label)}</span>`).join('');
+		}
+
+		// The next dated step on a card, drawn in its calendar colour and icon.
 		next_date_line(d) {
 			const today = this.data.today;
-			if (d.next_step_due) return `${__('Follow-up')} ${nice(d.next_step_due)}`;
-			const up = EVENTS.filter(e => e.key !== 'followup' && d[e.field] && d[e.field] >= today)
+			const up = d.next_step_due ? EVENTS[0] : EVENTS.filter(e => e.key !== 'followup' && d[e.field] && d[e.field] >= today)
 				.sort((a, b) => (d[a.field] < d[b.field] ? -1 : 1))[0];
-			return up ? `${__(up.label)} ${nice(d[up.field])}` : '';
+			return up ? `<div class="sob-card-next ev-${up.key}">${svg(up.icon, 12)}<span>${esc(__(up.label))} ${esc(nice(d[up.field]))}</span></div>` : '';
 		}
 
 		co_list(d) { return (d.co_owners || []).filter(u => u && u !== d.deal_owner); }
@@ -381,13 +394,15 @@
 			const prods = lines.length ? lines.map(l => [l.product_line, l.tier].filter(Boolean).join(' · ') + (lines.length > 1 && +l.total_grams ? ' · ' + n0(l.total_grams) + ' g' : ''))
 				: [[d.product_line, d.tier].filter(Boolean).join(' · ')].filter(Boolean);
 			const line = this.next_date_line(d);
+			const meta = this.card_meta(d);
+			const flags = this.badges(d);
 			const st = this.stage(d.stage) || {};
 			return `
 				<div class="sob-card${this.state.sel === d.name ? ' sel' : ''}${this.busy[d.name] ? ' busy' : ''}${opts.co ? ' co' : ''}" role="button" tabindex="0"
 					draggable="${this.data.can_write ? 'true' : 'false'}" data-card="${esc(d.name)}"${opts.col ? ` data-from-owner="${esc(opts.col)}"` : ''}
 					aria-label="${esc(d.account + (opts.co ? ' (' + __('Co-owner') + ')' : ''))}"
 					style="--sob-stage:${esc(st.colour || '#A1A1AA')}">
-					${opts.co ? `<span class="sob-badge sob-co">${__('Co-owner')}</span>` : ''}
+					${opts.co ? `<span class="sob-card-tag">${__('Co-owner')}</span>` : ''}
 					<div class="sob-card-top">
 						<span class="sob-card-acc">${this.is_top_priority(d.priority) ? `<span class="sob-prio-dot" title="${esc(__('Priority') + ': ' + d.priority)}"></span>` : ''}${esc(d.account)}</span>
 						<span class="sob-card-side">
@@ -396,11 +411,12 @@
 						</span>
 					</div>
 					${opts.stage_chip ? this.stage_chip(d.stage) : ''}
-					${prods.length ? `<div class="sob-prods">${prods.map(p => `<span class="sob-badge sob-prod">${esc(p)}</span>`).join('')}</div>` : ''}
+					${prods.length ? `<div class="sob-prods">${prods.map(p => `<span class="sob-prod">${esc(p)}</span>`).join('')}</div>` : ''}
 					<div class="sob-card-nums"><b>${d.deal_value ? usd(d.deal_value) : '—'}</b><span>${esc(grams)}</span></div>
 					${d.timeline ? `<div class="sob-card-when">${esc(d.timeline)}</div>` : ''}
-					${line ? `<div class="sob-card-next">${esc(line)}</div>` : ''}
-					<div class="sob-badges">${this.badges(d)}</div>
+					${meta ? `<div class="sob-card-meta">${esc(meta)}</div>` : ''}
+					${line}
+					${flags ? `<div class="sob-badges">${flags}</div>` : ''}
 				</div>`;
 		}
 
@@ -408,7 +424,7 @@
 			const v = items.reduce((a, d) => a + (+d.deal_value || 0), 0);
 			const w = items.reduce((a, d) => a + (+d.weighted_value || 0), 0);
 			const lead = this.state.board === 'lead';
-			return `${items.length} ${items.length === 1 ? (lead ? __('lead') : __('deal')) : (lead ? __('leads') : __('deals'))} · ${usd(v)} · ${usd(w)}`;
+			return `${items.length} ${items.length === 1 ? (lead ? __('lead') : __('deal')) : (lead ? __('leads') : __('deals'))} · ${usd(v)} · ${usd(w)} ${__('weighted')}`;
 		}
 
 		keep_scroll($v, html, sel) {
@@ -430,7 +446,7 @@
 						${items.length ? '' : `<div class="sob-col-empty">${this.data.can_write ? __('Drop a deal here') : __('No deals')}</div>`}
 					</section>`;
 			}).join('');
-			this.keep_scroll($v, `<div class="sob-hint">${(this.state.board === 'lead' ? __('Drag a lead to another status, or open it. Moving it to a deal stage puts it on the Deals board.') : __('Drag a card to another stage, or click it to open the deal.'))}</div><div class="sob-scroll"><div class="sob-columns">${html}</div></div>`, '.sob-scroll');
+			this.keep_scroll($v, `<div class="sob-hint">${(this.state.board === 'lead' ? __('Drag a lead to another status, or open it. Moving it to a deal stage puts it on the Deals board.') : __('Drag a card to another stage, or click it to open the deal'))}</div><div class="sob-scroll"><div class="sob-columns">${html}</div></div>`, '.sob-scroll');
 		}
 
 		render_owner($v, list) {
@@ -457,7 +473,7 @@
 							<div class="sob-col-title"><span>${c.colour ? `<span class="sob-dot" style="background:${esc(c.colour)}"></span>` : ''}${esc(c.name)}</span>
 								${overdue ? `<span class="sob-badge act">${overdue} ${__('overdue')}</span>` : ''}</div>
 							<div class="sob-col-sub">${esc(this.col_sub(items))}</div>
-							${unassigned && items.length ? `<div class="sob-col-note">${__('Drag these deals to an owner.')}</div>` : ''}
+							${unassigned && items.length ? `<div class="sob-col-note">${__('Drag these deals to an owner')}</div>` : ''}
 						</header>
 						${items.map(d => this.card(d, { stage_chip: true, co: shared(d), col: c.id })).join('')}
 						${items.length ? '' : `<div class="sob-col-empty">${unassigned ? __('Every deal has an owner') : __('Drop a deal here to reassign')}</div>`}
@@ -484,8 +500,8 @@
 
 		event_chip(ev) {
 			const o = ev.d.deal_owner ? this.owner_name(ev.d.deal_owner) : '?';
-			return `<div class="sob-ev${ev.overdue ? ' overdue' : ''}" draggable="${this.data.can_write ? 'true' : 'false'}" role="button" tabindex="0"
-				data-event="${esc(ev.d.name)}" data-field="${ev.e.field}" style="background:${ev.overdue ? '#FFEDD5' : ev.e.bg};color:${ev.overdue ? '#9A3412' : ev.e.color}"
+			return `<div class="sob-ev ev-${ev.e.key}${ev.overdue ? ' overdue' : ''}" draggable="${this.data.can_write ? 'true' : 'false'}" role="button" tabindex="0"
+				data-event="${esc(ev.d.name)}" data-field="${ev.e.field}"
 				title="${esc(ev.d.account + ' · ' + __(ev.e.label) + ' · ' + fdate(ev.real))}">
 				${svg(ev.e.icon, 12)}<span>${esc(ev.d.account)} · ${esc(__(ev.e.label))} · ${esc((o[0] || '?').toUpperCase())}</span></div>`;
 		}
@@ -532,9 +548,9 @@
 			$v.html(`
 				<div class="sob-cal-bar">
 					<div class="sob-cal-nav">
-						<button type="button" class="sob-btn sm" data-cal="prev" aria-label="${__('Previous')}">‹</button>
+						<button type="button" class="sob-btn sm icon" data-cal="prev" aria-label="${__('Previous')}">${svg(ICON.left, 16)}</button>
 						<button type="button" class="sob-btn sm" data-cal="today">${__('Today')}</button>
-						<button type="button" class="sob-btn sm" data-cal="next" aria-label="${__('Next')}">›</button>
+						<button type="button" class="sob-btn sm icon" data-cal="next" aria-label="${__('Next')}">${svg(ICON.right, 16)}</button>
 						<h3 class="sob-cal-title">${esc(title)}</h3>
 					</div>
 					<div class="sob-cal-nav">
@@ -546,7 +562,7 @@
 						<select id="sob-cal-show" class="sob-select sob-cal-show">${show_opts.map(o => `<option value="${o[0]}"${s.cal_type === o[0] ? ' selected' : ''}>${esc(o[1])}</option>`).join('')}</select>
 					</div>
 				</div>
-				<div class="sob-legend">${EVENTS.map(e => `<span style="color:${e.color}">${svg(e.icon, 12)} ${esc(__(e.label))}</span>`).join('')}<span class="sob-legend-over">${__('Overdue follow-ups are listed on today')}</span></div>
+				<div class="sob-legend">${EVENTS.map(e => `<span class="ev-${e.key}"><i class="sob-sw"></i>${esc(__(e.label))}</span>`).join('')}<span class="sob-legend-over">${__('Overdue follow-ups are listed on today')}</span></div>
 				<div class="sob-scroll"><div class="sob-cal ${s.cal_mode}">
 					${WD.map(w => `<div class="sob-cal-head">${w}</div>`).join('')}
 					${cells.join('')}
@@ -556,10 +572,10 @@
 					${agenda.length ? agenda.map(ev => `
 						<div class="sob-agenda-row" role="button" tabindex="0" data-open="${esc(ev.d.name)}">
 							<span class="sob-agenda-date${ev.overdue ? ' over' : ''}">${ev.overdue ? __('Overdue') + ' · ' : ''}${esc(nice(ev.real))}</span>
-							<span class="sob-agenda-type" style="color:${ev.e.color}">${svg(ev.e.icon, 12)} ${esc(__(ev.e.label))}</span>
+							<span class="sob-agenda-type ev-${ev.e.key}">${svg(ev.e.icon, 12)} ${esc(__(ev.e.label))}</span>
 							<span class="sob-agenda-acc">${esc(ev.d.account)}</span>
 							<span class="sob-agenda-meta">${esc(ev.d.deal_owner ? this.owner_name(ev.d.deal_owner) : __('Unassigned'))} · ${esc(__(ev.d.stage))}</span>
-						</div>`).join('') : `<div class="sob-empty">${__('Nothing scheduled in the next 7 days.')}</div>`}
+						</div>`).join('') : `<div class="sob-empty">${__('Nothing scheduled in the next 7 days')}</div>`}
 				</section>`);
 		}
 
@@ -617,6 +633,14 @@
 				if (c[0] === 'weighted_value') return usd(total('weighted_value'));
 				return i === 0 ? __('Total') + ` (${rows.length})` : '';
 			});
+			// sheet colours: money columns carry a blue tint, an overdue follow-up date gets the red aging fill
+			const today = this.data.today;
+			const kls = (c, d) => [
+				['num', 'money', 'money2', 'pct'].includes(c[2]) ? 'r' : '',
+				['money', 'money2'].includes(c[2]) ? 'money' : '',
+				d && c[0] === 'next_step_due' && !d.is_closed && d.next_step_due && d.next_step_due < today ? 'late' : '',
+			].filter(Boolean).join(' ');
+			const arrow = c => sk === c[0] ? svg(s.sort.dir > 0 ? ICON.up : ICON.down, 12) : '';
 			const left = $v.find('.sob-table-wrap').scrollLeft() || 0;
 			$v.html(`
 				<div class="sob-list-bar">
@@ -630,10 +654,10 @@
 					</div>
 				</div>
 				<div class="sob-table-wrap"><table class="sob-table">
-					<thead><tr>${cols.map(c => `<th><button type="button" data-sort="${c[0]}" class="${sk === c[0] ? 'on' : ''}">${esc(__(c[1]))}${sk === c[0] ? (s.sort.dir > 0 ? ' ▲' : ' ▼') : ''}</button></th>`).join('')}</tr></thead>
-					<tbody>${rows.map(d => `<tr data-open="${esc(d.name)}" class="${s.sel === d.name ? 'sel' : ''}">${cols.map(c => `<td class="${['num', 'money', 'money2', 'pct'].includes(c[2]) ? 'r' : ''}">${cell(d, c)}</td>`).join('')}</tr>`).join('') ||
-						`<tr><td colspan="${cols.length}" class="sob-empty">${__('No deals match the current filters.')}</td></tr>`}</tbody>
-					<tfoot><tr>${totals.map((t, i) => `<td class="${['num', 'money', 'money2', 'pct'].includes(cols[i][2]) ? 'r' : ''}">${esc(t)}</td>`).join('')}</tr></tfoot>
+					<thead><tr>${cols.map(c => `<th class="${kls(c)}"><button type="button" data-sort="${c[0]}" class="${sk === c[0] ? 'on' : ''}">${esc(__(c[1]))}${arrow(c)}</button></th>`).join('')}</tr></thead>
+					<tbody>${rows.map(d => `<tr data-open="${esc(d.name)}" class="${s.sel === d.name ? 'sel' : ''}">${cols.map(c => `<td class="${kls(c, d)}">${cell(d, c)}</td>`).join('')}</tr>`).join('') ||
+						`<tr><td colspan="${cols.length}" class="sob-empty">${__('No deals match these filters')}</td></tr>`}</tbody>
+					<tfoot><tr>${totals.map((t, i) => `<td class="${kls(cols[i])}">${esc(t)}</td>`).join('')}</tr></tfoot>
 				</table></div>`);
 			$v.find('.sob-table-wrap').scrollLeft(left);
 		}
@@ -729,7 +753,7 @@
 					<div class="sob-req-head"><span class="sob-req-n">${i + 1}</span>
 						<select data-req-field="product_line" aria-label="${esc(__('Product line, requirement {0}', [i + 1]))}"${dis}>${line_opts}</select>
 						<select data-req-field="tier" aria-label="${esc(__('Tier, requirement {0}', [i + 1]))}"${editable && tiers.length ? '' : ' disabled'}>${tier_opts}</select>
-						${editable ? `<button type="button" class="sob-x sm" data-req-remove="${k}" aria-label="${esc(__('Remove requirement {0}', [i + 1]))}" title="${esc(__('Remove'))}">×</button>` : ''}
+						${editable ? `<button type="button" class="sob-x sm" data-req-remove="${k}" aria-label="${esc(__('Remove requirement {0}', [i + 1]))}" title="${esc(__('Remove'))}">${svg(ICON.x, 14)}</button>` : ''}
 					</div>
 					<div class="sob-req-nums">
 						<label>${__('Grams')}<input type="number" min="0" step="any" inputmode="decimal" data-req-field="total_grams" data-keep="req:${k}:g" value="${+l.total_grams ? esc(l.total_grams) : ''}"${dis}></label>
@@ -742,7 +766,7 @@
 			return `<div class="sob-block sob-reqs${busy}">
 				<div class="sob-cap">${__('Requirements')}</div>
 				${lines.length ? lines.map(row).join('') : `<div class="sob-muted">${__('No product requirements yet.')}</div>`}
-				${editable ? `<button type="button" class="sob-btn sm sob-req-add" data-act="req-add">${__('+ Add requirement')}</button>` : ''}
+				${editable ? `<button type="button" class="sob-btn sm sob-req-add" data-act="req-add">${svg(ICON.plus, 14)}${__('Add requirement')}</button>` : ''}
 			</div>`;
 		}
 
@@ -929,14 +953,14 @@
 			if (tab === 'overview') {
 				const stock = d.stock ? `${n0(d.stock.grams)} g ${__('available')} (${esc(d.stock.groups.join(', '))})${d.stock.on_orders ? ` · ${n0(d.stock.on_orders)} g ${__('on open Sales Orders')}` : ''}` : '';
 				const dates = EVENTS.map(e => `
-					<label class="sob-date"><span style="color:${e.color}">${svg(e.icon, 12)} ${esc(__(e.label))}</span>
+					<label class="sob-date"><span class="ev-${e.key}">${svg(e.icon, 12)} ${esc(__(e.label))}</span>
 						<input type="date" data-panel-field="${e.field}" value="${esc(d[e.field] || '')}"${can ? '' : ' disabled'}></label>`).join('');
 				body = `
 					${(d.flags || []).length ? `<div class="sob-badges">${(d.flags || []).map(f => `<span class="sob-badge ${f.kind === 'action' ? 'act' : 'info'}">${esc(f.label)}</span>`).join('')}</div>` : ''}
 					${can ? `<div class="sob-block"><div class="sob-cap">${__('Stage')}</div>${BOARDS.map(b => {
 					const sts = this.stages_of(b[0]);
 					if (!sts.length) return '';
-					return `<div class="sob-stage-group"><span class="sob-stage-board">${esc(b[0] === 'lead' ? __('Lead board') : __('Deal board'))}</span><div class="sob-moves">${sts.map(x => `<button type="button" class="sob-move${x.name === d.stage ? ' on' : ''}" data-move="${esc(x.name)}" aria-pressed="${x.name === d.stage}" style="--sob-stage:${esc(x.colour || '#2563EB')}">${esc(__(x.name))}</button>`).join('')}</div></div>`;
+					return `<div class="sob-stage-group"><span class="sob-stage-board">${esc(b[0] === 'lead' ? __('Lead board') : __('Deal board'))}</span><div class="sob-moves">${sts.map(x => `<button type="button" class="sob-move${x.name === d.stage ? ' on' : ''}" data-move="${esc(x.name)}" aria-pressed="${x.name === d.stage}"${x.colour ? ` style="--sob-stage:${esc(x.colour)}"` : ''}>${esc(__(x.name))}</button>`).join('')}</div></div>`;
 				}).join('')}</div>` : ''}
 					${this.value_tiles(d)}
 					${this.req_editor(d)}
@@ -992,7 +1016,7 @@
 				this.$drawer.find('.sob-drawer').html(`
 					<header class="sob-d-head">
 						<div class="sob-d-row">${this.stage_chip(d.stage)}<span class="sob-muted">${+st.probability || 0}% · ${esc(d.name)}</span>
-							<button type="button" class="sob-x" data-act="close" aria-label="${__('Close')}">×</button></div>
+							<button type="button" class="sob-x" data-act="close" aria-label="${__('Close')}">${svg(ICON.x, 16)}</button></div>
 						<h2>${esc(d.account)}</h2>
 						<div class="sob-muted">${esc((d.lines || []).length ? d.lines.map(l => [l.product_line, l.tier].filter(Boolean).join(' · ')).join(', ') : ([d.product_line, d.tier].filter(Boolean).join(' · ') || __('Product not set yet')))} · ${esc(d.deal_owner ? this.owner_name(d.deal_owner) : __('Unassigned'))}${this.co_list(d).length ? esc(' + ' + this.co_list(d).map(u => this.owner_name(u)).join(', ')) : ''}</div>
 						<nav class="sob-d-tabs" role="tablist">${tabs.map(t => `<button type="button" role="tab" class="${t[0] === tab ? 'on' : ''}" aria-selected="${t[0] === tab}" data-tab="${t[0]}">${esc(t[1])}</button>`).join('')}</nav>
@@ -1130,7 +1154,7 @@
 					<span class="sob-bs-title">${esc(r.title)}</span>${r.title !== r.name ? `<span class="sob-muted">${esc(r.name)}</span>` : ''}</button>`).join('');
 			const none = this.bresults.length ? '' : `<div class="sob-muted sob-bs-none">${__('No matching customers or leads.')}</div>`;
 			const create = this.data.can_create_customer || this.data.can_create_lead
-				? `<button type="button" role="option" class="sob-bs-item create${this.bidx === this.bresults.length ? ' on' : ''}" data-act="buyer-new">${__('+ Create new buyer')}</button>` : '';
+				? `<button type="button" role="option" class="sob-bs-item create${this.bidx === this.bresults.length ? ' on' : ''}" data-act="buyer-new">${svg(ICON.plus, 14)}${__('Create new buyer')}</button>` : '';
 			$l.html(rows + none + create).prop('hidden', false);
 		}
 
