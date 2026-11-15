@@ -9,6 +9,7 @@
   "tier",
   "item_groups",
   "warehouses",
+  "product_group",
   "unit",
   "default_price",
   "quotation_item"
@@ -48,6 +49,14 @@
   },
   {
    "columns": 1,
+   "description": "The board totals one group at a time: Extracts, Fresh Frozen, Tolling. Lines with the same group are added up together.",
+   "fieldname": "product_group",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Group"
+  },
+  {
+   "columns": 1,
    "default": "g",
    "description": "How the team counts this line: lb (fresh frozen) or g / kg (extracts). Filled from the stock unit of its items (LBS = lb, Gram = g). Volume rows and deals use it.",
    "fieldname": "unit",
@@ -75,7 +84,7 @@
  "index_web_pages_for_search": 0,
  "istable": 1,
  "links": [],
- "modified": "2026-11-16 09:00:00.000000",
+ "modified": "2026-11-16 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Cannabis Management",
  "name": "Sales Pipeline Product Line",

@@ -30,3 +30,4 @@ cannabis_management.patches.set_home_landing_workspace
 cannabis_management.patches.sales_ops_board_v2
 cannabis_management.patches.sales_ops_accounts_v3
 cannabis_management.patches.sales_ops_units_v4
+cannabis_management.patches.sales_ops_groups_v5

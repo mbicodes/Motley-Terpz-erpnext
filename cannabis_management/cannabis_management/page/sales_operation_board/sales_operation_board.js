@@ -198,6 +198,8 @@
 	const r2 = n => Math.round((+n || 0) * 100) / 100;
 	const r3 = n => Math.round((+n || 0) * 1000) / 1000;
 	const MEASURES = [['money', 'Dollars'], ['volume', 'Volume']];
+	// "1 deal", "3 deals"
+	const pl = (n, one, many) => `${n0(n)} ${n === 1 ? one : many}`;
 	const fdate = s => (s ? frappe.datetime.str_to_user(String(s).slice(0, 10)) : '');
 	const fdt = s => {
 		if (!s) return '';
@@ -224,7 +226,7 @@
 			this.busy = {};
 			this.drag = null;
 			this.state = {
-				view: 'board', board: 'deal', measure: 'money', owners: null, prods: [], priority: '', q: '', attn: false, closed: false,
+				view: 'board', board: 'deal', measure: 'money', kgroup: '', owners: null, prods: [], priority: '', q: '', attn: false, closed: false,
 				cal_mode: 'month', cal_date: null, cal_type: 'all', sort: { key: '', dir: 1 }, sel: null, tab: 'overview',
 			};
 			this.cols = this.read_cols(LS_COLS, LIST_COLS, DEFAULT_COLS);
@@ -365,6 +367,7 @@
 			if (p.has('attn')) s.attn = p.get('attn') === '1';
 			if (p.has('closed')) s.closed = p.get('closed') === '1';
 			if (p.get('measure') === 'volume' || p.get('measure') === 'money') s.measure = p.get('measure');
+			if (p.has('totals')) s.kgroup = p.get('totals') || '';
 			if (p.get('cal') === 'week' || p.get('cal') === 'month') s.cal_mode = p.get('cal');
 			if (p.get('date') && pd(p.get('date'))) s.cal_date = p.get('date');
 			if (p.get('show')) s.cal_type = p.get('show');
@@ -384,6 +387,7 @@
 			if (s.attn) p.set('attn', '1');
 			if (s.closed) p.set('closed', '1');
 			if (s.measure === 'volume') p.set('measure', 'volume');
+			if (this.data && this.kgroup()) p.set('totals', this.kgroup());
 			if (s.view === 'calendar') {
 				p.set('cal', s.cal_mode);
 				if (s.cal_date) p.set('date', s.cal_date);
@@ -451,18 +455,58 @@
 				return names.length ? names.join(' & ') : (f === 'lb' ? __('By the lb') : __('By the gram'));
 			}
 			// grams a deal asks for, per family
-			deal_qty(d) {
+			// grams a deal asks for, per family; g = a product group ('' = every group)
+			deal_qty(d, g) {
 				const by = { lb: 0, g: 0 };
-				const lines = this.lines_of(d).filter(l => l.product_line);
-				if (lines.length) lines.forEach(l => { by[this.fam_of(l.product_line)] += +l.total_grams || 0; });
-				else if (+d.total_grams) by[this.fam_of(d.product_line)] += +d.total_grams;
+				this.deal_lines_in(d, g || '').forEach(l => { by[this.fam_of(l.product_line)] += +l.total_grams || 0; });
 				return by;
 			}
 			// grams an account moves a week and wants a month, per family
-			acc_qty(a) {
+			// grams an account moves a week and wants a month, per family; g = a product group ('' = every group)
+			acc_qty(a, g) {
 				const week = { lb: 0, g: 0 }, month = { lb: 0, g: 0 };
-				(a.volume || []).forEach(v => { const c = this.vol_calc(v); const f = this.fam_of(v.product_line); week[f] += c.weekly_grams; month[f] += c.monthly_grams; });
+				(a.volume || []).filter(v => !g || this.group_of(v.product_line) === g).forEach(v => {
+					const c = this.vol_calc(v);
+					const f = this.fam_of(v.product_line);
+					week[f] += c.weekly_grams;
+					month[f] += c.monthly_grams;
+				});
 				return { week, month };
+			}
+			// ---- product groups (Settings > Product Lines > Group): Extracts, Fresh Frozen, Tolling ----
+			group_of(line) { return ((this.s && this.s.line_groups) || {})[line] || line || __('Other'); }
+			groups() {
+				const out = [];
+				(this.s.product_lines || []).forEach(l => { const g = this.group_of(l); if (!out.includes(g)) out.push(g); });
+				return out;
+			}
+			// the group the totals show ('' = all), kept valid when Settings change
+			kgroup() { return this.groups().includes(this.state.kgroup) ? this.state.kgroup : ''; }
+			// a deal's requirement lines (or its own product line) in group g
+			deal_lines_in(d, g) {
+				const lines = this.lines_of(d).filter(l => l.product_line);
+				const src = lines.length ? lines : (d.product_line || +d.total_grams ? [{ product_line: d.product_line, tier: d.tier, total_grams: d.total_grams, price_per_gram: d.price_per_gram, short: d.short }] : []);
+				return g ? src.filter(l => this.group_of(l.product_line) === g) : src;
+			}
+			in_group(d, g) { return !g || this.deal_lines_in(d, g).length > 0; }
+			// the part of a deal's value that belongs to group g: its lines' amounts, scaled to a manual value when there is one
+			deal_val(d, g) {
+				const value = +d.deal_value || 0;
+				if (!g) return value;
+				const all = this.deal_lines_in(d, '');
+				const mine = this.deal_lines_in(d, g);
+				if (!mine.length) return 0;
+				const amt = l => (+l.total_grams || 0) * (+l.price_per_gram || 0);
+				const tot = all.reduce((s, l) => s + amt(l), 0);
+				if (!tot) return mine.length === all.length ? value : 0;
+				return value * mine.reduce((s, l) => s + amt(l), 0) / tot;
+			}
+			deal_short(d, g) { return this.deal_lines_in(d, g).reduce((s, l) => s + (+l.short || 0), 0); }
+			acc_in(a, g) { return !g || (a.volume || []).some(v => this.group_of(v.product_line) === g) || this.deals_of(a).some(d => this.in_group(d, g)); }
+			acc_open(a, g) { return g ? this.deals_of(a).filter(d => !d.is_closed).reduce((s, d) => s + this.deal_val(d, g), 0) : (+a.open_value || 0); }
+			acc_pot(a, g) {
+				if (!g) return +a.monthly_potential || 0;
+				return (a.volume || []).filter(v => this.group_of(v.product_line) === g).reduce((s, v) => s + this.vol_calc(v).monthly_value, 0);
 			}
 			lines_of(d) {
 				const w = this.work && this.work[d.name];
@@ -583,17 +627,22 @@
 		}
 
 		// Deals: the open pipeline as one figure and one grape funnel bar (stage by stage), then four compact stats
+		// Deals: the open pipeline as one figure and one grape funnel bar (stage by stage), then four compact stats.
+		// The arrows above step the totals through All, Extracts, Fresh Frozen and Tolling.
 		render_kpis(list) {
-			const open = list.filter(d => !d.is_closed);
+			const g = this.kgroup();
+			const scoped = list.filter(d => this.in_group(d, g));
+			const open = scoped.filter(d => !d.is_closed);
+			const val = d => this.deal_val(d, g);
 			const sum = (arr, f) => arr.reduce((a, d) => a + (+f(d) || 0), 0);
-			const won = list.filter(d => d.won_this_month);
+			const won = scoped.filter(d => d.won_this_month);
 			const attn = open.filter(d => d.attention);
 			const count = k => open.filter(d => (d.flags || []).some(f => f.key === k)).length;
 			const month = MONTHS[pd(this.data.today).getMonth()];
-			const lost = list.filter(d => d.is_lost).length;
+			const lost = scoped.filter(d => d.is_lost).length;
 			const stages = this.stages_of('deal').filter(st => !st.is_closed);
-			const by = d => this.deal_qty(d);
-			const fam_sum = (arr, f) => arr.reduce((a, d) => a + by(d)[f], 0);
+			const fam_sum = (arr, f) => arr.reduce((a, d) => a + this.deal_qty(d, g)[f], 0);
+			const weighted = sum(open, d => val(d) * (+d.probability || 0) / 100);
 			const attention = [__('Needs attention'), n0(attn.length), `${count('overdue')} ${__('overdue')} · ${count('stalled')} ${__('stalled')} · ${count('no_owner')} ${__('no owner')} · ${count('short')} ${__('short')}`,
 				attn.length ? 'attn' : '', __('Open deals with an overdue follow-up, too long in one stage, no owner or not enough stock')];
 			let hero, stats;
@@ -601,32 +650,33 @@
 				const tot = { lb: fam_sum(open, 'lb'), g: fam_sum(open, 'g') };
 				const won_q = { lb: fam_sum(won, 'lb'), g: fam_sum(won, 'g') };
 				hero = {
-					label: __('In open deals'), tip: __('Everything the open deals ask for, in lb for fresh frozen and g or kg for extracts'),
-					figures: FAMS.filter(f => tot[f]).map(f => [qty(tot[f], f), this.fam_name(f)]),
-					sub: __('{0} open deals · {1} with a quantity', [open.length, open.filter(d => qty_pair(by(d))).length]),
-					bars: FAMS.filter(f => tot[f]).map(f => ({ caption: this.fam_name(f), parts: stages.map(st => ({ name: st.name, colour: st.colour,
+					label: __('In open deals'), tip: __('Everything the open deals ask for, in lb for fresh frozen and tolling, g or kg for extracts'),
+					figures: FAMS.filter(f => tot[f]).map(f => [qty(tot[f], f), g ? '' : this.fam_name(f)]),
+					sub: __('{0} open deals · {1} with a quantity', [open.length, open.filter(d => qty_pair(this.deal_qty(d, g))).length]),
+					bars: FAMS.filter(f => tot[f]).map(f => ({ caption: g || FAMS.filter(x => tot[x]).length < 2 ? '' : this.fam_name(f), parts: stages.map(st => ({ name: st.name, colour: st.colour,
 						value: fam_sum(open.filter(d => d.stage === st.name), f), text: v => qty(v, f) })) })),
 					empty: __('No quantities on open deals yet'),
 				};
 				stats = [
 					[__('Open deals'), n0(open.length), __('{0} lost deals kept in {1}', [lost, this.first_stage_of('deal')]), '', __('Deals not won or lost yet')],
-					[__('Won in {0}', [month]), qty_pair(won_q) || '—', __('{0} deals won', [won.length]), won.length ? 'good' : '', __('Quantity of the deals won this month')],
-					[__('Short in stock'), wt(sum(open, d => d.short)), __('Extracts needed beyond what is available'), '', __('Grams the open deals need beyond the stock on hand (sellable warehouses)')],
+					[__('Won in {0}', [month]), qty_pair(won_q) || '—', pl(won.length, __('deal won'), __('deals won')), won.length ? 'good' : '', __('Quantity of the deals won this month')],
+					[__('Short in stock'), wt(sum(open, d => this.deal_short(d, g))), __('Needed beyond what is available'), '', __('Grams the open deals need beyond the stock on hand (sellable warehouses)')],
 					attention,
 				];
 			} else {
-				const value = sum(open, d => d.deal_value);
-				const won_value = sum(won, d => d.deal_value);
+				const value = sum(open, val);
+				const won_value = sum(won, val);
+				const loose = g ? 0 : sum(open.filter(d => !this.deal_lines_in(d, '').length), val);
 				hero = {
-					label: __('Open pipeline'), tip: __('Value of every open deal: grams or lb × price, or the manual value'),
+					label: __('Open pipeline'), tip: __('Value of every open deal: quantity × price, or the manual value'),
 					figures: [[usd(value), '']],
-					sub: __('{0} open deals · {1} weighted by stage', [open.length, usd(sum(open, d => d.weighted_value))]),
-					bars: [{ caption: '', parts: stages.map(st => ({ name: st.name, colour: st.colour, value: sum(open.filter(d => d.stage === st.name), d => d.deal_value), text: usd })) }],
+					sub: `${pl(open.length, __('open deal'), __('open deals'))} · ${__('{0} weighted by stage', [usd(weighted)])}${loose ? ' · ' + __('{0} on deals with no product line, counted only here', [usd(loose)]) : ''}`,
+					bars: [{ caption: '', parts: stages.map(st => ({ name: st.name, colour: st.colour, value: sum(open.filter(d => d.stage === st.name), val), text: usd })) }],
 					empty: __('No open deal has a value yet'),
 				};
 				stats = [
-					[__('Weighted value'), usd(sum(open, d => d.weighted_value)), __('Value × stage probability'), '', __('What the pipeline is likely worth: each deal\'s value times its stage\'s win probability')],
-					[__('Won in {0}', [month]), usd(won_value), __('{0} deals won', [won.length]), won_value ? 'good' : '', __('Deals moved to Closed Won this month')],
+					[__('Weighted value'), usd(weighted), __('Value × stage probability'), '', __('What the pipeline is likely worth: each deal\'s value times its stage\'s win probability')],
+					[__('Won in {0}', [month]), usd(won_value), pl(won.length, __('deal won'), __('deals won')), won_value ? 'good' : '', __('Deals moved to Closed Won this month')],
 					[__('Lost deals'), n0(lost), __('Kept in {0} to win back', [this.first_stage_of('deal')]), '', __('Lost deals stay at the bottom of Active Opportunity with their reason')],
 					attention,
 				];
@@ -636,52 +686,87 @@
 
 		// Leads board widgets: what the accounts move, what they want from us and what that is worth
 		// Leads: dollars in open deals (or the volume they want) by lead status, then four compact stats
+		// Leads: dollars in open deals (or the volume they want) by lead status, then four compact stats,
+		// for All products or one group at a time
 		render_kpis_acc(list) {
-			const sum = f => list.reduce((a, x) => a + (+f(x) || 0), 0);
-			const customers = list.filter(a => a.is_customer).length;
-			const attn = list.filter(a => a.attention);
-			const count = k => list.filter(a => (a.flags || []).some(f => f.key === k)).length;
+			const g = this.kgroup();
+			const accs = list.filter(a => this.acc_in(a, g));
+			const sum = (arr, f) => arr.reduce((a, x) => a + (+f(x) || 0), 0);
+			const customers = accs.filter(a => a.is_customer).length;
+			const attn = accs.filter(a => a.attention);
+			const count = k => accs.filter(a => (a.flags || []).some(f => f.key === k)).length;
 			const statuses = this.stages_of('lead');
-			const with_vol = list.filter(a => (a.volume || []).length);
+			const with_vol = accs.filter(a => (a.volume || []).some(v => !g || this.group_of(v.product_line) === g));
+			const deals = accs.flatMap(a => this.deals_of(a)).filter(d => this.in_group(d, g));
+			const open_deals = deals.filter(d => !d.is_closed);
+			const won_deals = deals.filter(d => d.is_won);
 			const attention = [__('Needs attention'), n0(attn.length), `${count('overdue')} ${__('overdue')} · ${count('stalled')} ${__('stalled')} · ${count('no_owner')} ${__('no owner')}`,
 				attn.length ? 'attn' : '', __('Accounts with an overdue follow-up, too long in one status, or no relationship manager')];
 			let hero, stats;
 			if (this.state.measure === 'volume') {
-				const q = list.map(a => [a, this.acc_qty(a)]);
+				const q = accs.map(a => [a, this.acc_qty(a, g)]);
 				const tot = k => ({ lb: q.reduce((s, x) => s + x[1][k].lb, 0), g: q.reduce((s, x) => s + x[1][k].g, 0) });
 				const month = tot('month'), week = tot('week');
+				const fams = FAMS.filter(f => month[f]);
 				hero = {
 					label: __('Wanted each month'), tip: __('What accounts told us they want from us, per month. Per-week amounts count 52 / 12 weeks a month'),
-					figures: FAMS.filter(f => month[f]).map(f => [qty(month[f], f), this.fam_name(f)]),
-					sub: __('From {0} of {1} accounts with volume recorded', [with_vol.length, list.length]),
-					bars: FAMS.filter(f => month[f]).map(f => ({ caption: this.fam_name(f), parts: statuses.map(st => ({ name: st.name, colour: st.colour,
+					figures: fams.map(f => [qty(month[f], f), g ? '' : this.fam_name(f)]),
+					sub: __('From {0} of {1} accounts with volume recorded', [with_vol.length, accs.length]),
+					bars: fams.map(f => ({ caption: g || fams.length < 2 ? '' : this.fam_name(f), parts: statuses.map(st => ({ name: st.name, colour: st.colour,
 						value: q.filter(x => x[0].lead_status === st.name).reduce((s, x) => s + x[1].month[f], 0), text: v => qty(v, f) })) })),
-					empty: __('No volume recorded yet. Open an account and add what it buys each week'),
+					empty: g ? __('No volume recorded for {0} yet', [g]) : __('No volume recorded yet. Open an account and add what it buys each week'),
 				};
 				stats = [
 					[__('Moves each week'), qty_pair(week) || '—', __('What they procure or produce'), '', __('How much these accounts buy from anyone or make themselves in a week: the size of each account')],
 					[__('Wants each week'), qty_pair({ lb: month.lb / WPM, g: month.g / WPM }) || '—', __('Monthly demand ÷ 4.33'), '', __('The monthly demand spread over a week')],
-					[__('Accounts with volume'), `${with_vol.length} / ${list.length}`, __('Record the rest to complete the projection'), '', __('Accounts that have at least one volume row')],
+					[__('Accounts with volume'), `${with_vol.length} / ${accs.length}`, __('Record the rest to complete the projection'), '', __('Accounts that have at least one volume row')],
 					attention,
 				];
 			} else {
-				const open = sum(a => a.open_value);
-				const pot = sum(a => a.monthly_potential);
+				const open = sum(accs, a => this.acc_open(a, g));
+				const pot = sum(accs, a => this.acc_pot(a, g));
+				const loose = g ? 0 : sum(open_deals.filter(d => !this.deal_lines_in(d, '').length), d => +d.deal_value || 0);
+				const with_open = accs.filter(a => this.acc_open(a, g) > 0).length;
 				hero = {
 					label: __('In open deals'), tip: __('The value of the open deals with these accounts, by the account\'s lead status'),
 					figures: [[usd(open), '']],
-					sub: __('{0} open deals with {1} accounts · {2} weighted by stage', [sum(a => a.open_deals), list.filter(a => a.open_deals).length, usd(sum(a => a.open_weighted))]),
-					bars: [{ caption: '', parts: statuses.map(st => ({ name: st.name, colour: st.colour, value: list.filter(a => a.lead_status === st.name).reduce((s, a) => s + (+a.open_value || 0), 0), text: usd })) }],
-					empty: __('No open deal with these accounts has a value yet'),
+					sub: `${pl(open_deals.length, __('open deal'), __('open deals'))} ${__('with')} ${pl(with_open, __('account'), __('accounts'))} · ${__('{0} weighted by stage', [usd(sum(open_deals, d => this.deal_val(d, g) * (+d.probability || 0) / 100))])}${loose ? ' · ' + __('{0} on deals with no product line, counted only here', [usd(loose)]) : ''}`,
+					bars: [{ caption: '', parts: statuses.map(st => ({ name: st.name, colour: st.colour, value: sum(accs.filter(a => a.lead_status === st.name), a => this.acc_open(a, g)), text: usd })) }],
+					empty: g ? __('No open {0} deal has a value yet', [g]) : __('No open deal with these accounts has a value yet'),
 				};
 				stats = [
 					[__('Potential / month'), usd(pot), usd(pot * 12) + ' ' + __('a year'), '', __('What the accounts want each month × their price: the business they could bring every month')],
-					[__('Won'), usd(sum(a => a.won_value)), __('{0} deals won with these accounts', [sum(a => a.won_deals)]), '', __('Value of every Closed Won deal with these accounts')],
-					[__('Accounts'), n0(list.length), __('{0} customers · {1} leads', [customers, list.length - customers]), '', __('Customers are accounts in Active or Recurring Customer')],
+					[__('Won'), usd(sum(won_deals, d => this.deal_val(d, g))), pl(won_deals.length, __('deal won'), __('deals won')), '', __('Value of every Closed Won deal with these accounts')],
+					[__('Accounts'), n0(accs.length), __('{0} customers · {1} leads', [customers, accs.length - customers]), '', g ? __('Accounts with volume or deals in {0}', [g]) : __('Customers are accounts in Active or Recurring Customer')],
 					attention,
 				];
 			}
 			this.kpi_html(hero, stats);
+		}
+
+		// Arrows above the KPI strip: All products, then each product group, one at a time
+		kpage_html() {
+			const pages = [''].concat(this.groups());
+			const cur = this.kgroup();
+			const i = Math.max(0, pages.indexOf(cur));
+			const name = p => p || __('All products');
+			const lines = p => { const l = (p ? (this.s.product_lines || []).filter(x => this.group_of(x) === p) : this.groups()).join(', '); return l === p ? '' : l; };
+			const prev = pages[(i - 1 + pages.length) % pages.length], next = pages[(i + 1) % pages.length];
+			return `<div class="sob-kpage" role="group" aria-label="${esc(__('Totals for'))}">
+				<button type="button" class="sob-kpage-btn" data-kpage="-1" aria-label="${esc(__('Show {0}', [name(prev)]))}" data-tip="${esc(__('Show {0}', [name(prev)]))}">${svg(ICON.left, 16)}</button>
+				<div class="sob-kpage-name" aria-live="polite"><b>${esc(name(cur))}</b><span>${esc(lines(cur))}</span></div>
+				<button type="button" class="sob-kpage-btn" data-kpage="1" aria-label="${esc(__('Show {0}', [name(next)]))}" data-tip="${esc(__('Show {0}', [name(next)]))}">${svg(ICON.right, 16)}</button>
+				<div class="sob-kpage-dots">${pages.map((p, j) => `<button type="button" class="${j === i ? 'on' : ''}" data-kgroup="${esc(p)}" aria-label="${esc(name(p))}" aria-pressed="${j === i}" data-tip="${esc(name(p))}"></button>`).join('')}</div>
+			</div>`;
+		}
+
+		set_kgroup(step, to) {
+			const pages = [''].concat(this.groups());
+			const i = Math.max(0, pages.indexOf(this.kgroup()));
+			const j = to !== undefined ? Math.max(0, pages.indexOf(to)) : (i + step + pages.length) % pages.length;
+			if (j === i) return;
+			this._kanim = (to !== undefined ? j > i : step > 0) ? 'next' : 'prev';
+			this.set({ kgroup: pages[j] });
 		}
 
 		// The KPI strip: one hero panel (figure, sub line, thin segmented bars with a legend) and compact stat tiles.
@@ -710,7 +795,10 @@
 				return `<span style="--sob-stage:${esc(colours[n] || '#A1A1AA')}"><i class="sob-stage-dot"></i>${esc(__(n))}${p ? `<b>${esc(p.text(p.value))}</b>` : ''}</span>`;
 			}).join('');
 			const figures = (hero.figures || []).length ? hero.figures : [['—', '']];
-			this.$root.find('.sob-kpis').html(`
+			// a group change slides the numbers in from the side the arrow points to
+			const $k = this.$root.find('.sob-kpis').attr('data-anim', this._kanim || null);
+			this._kanim = null;
+			$k.html(`${this.kpage_html()}
 				<section class="sob-hero" data-tip="${esc(hero.tip || '')}">
 					<div class="sob-kpi-label">${esc(hero.label)}</div>
 					<div class="sob-hero-figs">${figures.map(f => `<div class="sob-hero-fig"><b>${esc(f[0])}</b>${f[1] && figures.length > 1 ? `<span>${esc(f[1])}</span>` : ''}</div>`).join('')}</div>
@@ -3263,6 +3351,24 @@
 			$r.on('click', '[data-view]', e => this.set({ view: $(e.currentTarget).attr('data-view') }));
 			$r.on('click', '[data-board]', e => this.set({ board: $(e.currentTarget).attr('data-board') }));
 			$r.on('click', '[data-measure]', e => this.set({ measure: $(e.currentTarget).attr('data-measure') }));
+			// totals for All products, Extracts, Fresh Frozen, Tolling: arrows, dots, arrow keys and a swipe on touch
+			$r.on('click', '[data-kpage]', e => this.set_kgroup(+$(e.currentTarget).attr('data-kpage')));
+			$r.on('click', '[data-kgroup]', e => this.set_kgroup(0, $(e.currentTarget).attr('data-kgroup')));
+			$r.on('keydown', '.sob-kpage', e => {
+				if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+				e.preventDefault();
+				this.set_kgroup(e.key === 'ArrowRight' ? 1 : -1);
+				this.$root.find(`.sob-kpage [data-kpage="${e.key === 'ArrowRight' ? 1 : -1}"]`).trigger('focus');
+			});
+			let swipe = null;
+			$r.on('pointerdown', '.sob-kpis', e => { const o = e.originalEvent; swipe = o.pointerType === 'touch' ? { x: o.clientX, y: o.clientY } : null; });
+			$r.on('pointerup', '.sob-kpis', e => {
+				const o = e.originalEvent;
+				if (!swipe) return;
+				const dx = o.clientX - swipe.x, dy = o.clientY - swipe.y;
+				swipe = null;
+				if (Math.abs(dx) > 48 && Math.abs(dy) < 32) this.set_kgroup(dx < 0 ? 1 : -1);
+			});
 			$r.on('click', '[data-tips-toggle]', () => {
 				this.tips_off = !this.tips_off;
 				try { localStorage.setItem('sob_tips_off', this.tips_off ? '1' : '0'); } catch (x) { /* storage off */ }

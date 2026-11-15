@@ -105,6 +105,7 @@ def _settings_payload(s):
 		"product_lines": s.product_line_names,
 		"line_tiers": _line_tiers(s),
 		"line_units": s.line_units,
+		"line_groups": s.line_groups,
 		"lists": s.lists,
 		"hide_closed_after_days": s.hide_closed_after_days,
 	}

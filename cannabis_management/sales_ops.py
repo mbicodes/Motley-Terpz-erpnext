@@ -94,15 +94,19 @@ def get_settings():
 				default_price=flt(r.default_price),
 				quotation_item=r.quotation_item or "",
 				unit=r.get("unit") if r.get("unit") in UNIT_GRAMS else "",
+				group=(r.get("product_group") or "").strip(),
 			)
 		)
 	line_names = []
 	line_units = {}
+	line_groups = {}
 	for r in product_lines:
 		if r.product_line not in line_names:
 			line_names.append(r.product_line)
 		if r.unit and r.product_line not in line_units:
 			line_units[r.product_line] = r.unit
+		if r.group and r.product_line not in line_groups:
+			line_groups[r.product_line] = r.group
 	s = frappe._dict(
 		stages=stage_list,
 		first_stage=open_stages[0].name if open_stages else (stage_list[0].name if stage_list else None),
@@ -123,6 +127,8 @@ def get_settings():
 		product_line_names=line_names,
 		# {"Fresh Frozen": "lb", "VRR": "g"}: how the team counts each line
 		line_units={n: line_units.get(n) or "g" for n in line_names},
+		# {"VRR": "Extracts", "Fresh Frozen": "Fresh Frozen", "Tolling": "Tolling"}: the board totals one group at a time
+		line_groups={n: line_groups.get(n) or n for n in line_names},
 		stock_company=doc.stock_company,
 		lists=frappe._dict(
 			priority=_plain_lines(doc.priority_options) or ["High", "Medium", "Low"],
