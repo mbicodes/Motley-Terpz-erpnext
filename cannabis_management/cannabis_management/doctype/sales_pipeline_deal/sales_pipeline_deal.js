@@ -2,6 +2,7 @@
 frappe.ui.form.on('Sales Pipeline Deal', {
 	setup(frm) {
 		frm.set_query('deal_owner', () => ({ query: 'cannabis_management.sales_ops.active_owner_query' }));
+		frm.set_query('co_owners', () => ({ query: 'cannabis_management.sales_ops.active_owner_query' }));
 	},
 	onload(frm) {
 		frappe.xcall('cannabis_management.cannabis_management.page.sales_operation_board.sales_operation_board.get_form_settings')

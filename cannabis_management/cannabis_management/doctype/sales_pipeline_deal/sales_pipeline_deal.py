@@ -19,23 +19,94 @@ class SalesPipelineDeal(Document):
 		st = sales_ops.stage_info(s, self.stage)
 		if not st:
 			frappe.throw(_("Stage {0} is not set up in Sales Pipeline Settings.").format(self.stage))
+		self._clean_co_owners()
 		self._check_owner(s)
+		self._prefill_from_customer()
 		self._check_required(s, st)
 		self.probability = st.probability
-		self.deal_value = flt(self.value_override) or flt(self.total_grams) * flt(self.price_per_gram)
+		self._apply_requirements(s)
+		self.deal_value = flt(self.value_override) or self._calculated_value()
 		self.weighted_value = flt(self.deal_value) * flt(self.probability) / 100.0
 		self._log_stage()
 		self._link_party()
 
+	def _apply_requirements(self, s):
+		"""Requirement lines drive the deal: first line = Product Line / Tier, totals = sum of all lines."""
+		rows = [r for r in (self.get("requirements") or []) if r.product_line or flt(r.total_grams) or flt(r.price_per_gram)]
+		if len(rows) != len(self.get("requirements") or []):
+			self.set("requirements", rows)
+		if not rows:
+			return
+		tiers = {}
+		for r in s.product_lines:
+			tiers.setdefault(r.product_line, [])
+			if r.tier:
+				tiers[r.product_line].append(r.tier)
+		for i, r in enumerate(rows, start=1):
+			r.product_line = (r.product_line or "").strip()
+			r.tier = (r.tier or "").strip()
+			if not r.product_line:
+				frappe.throw(_("Requirement {0}: please choose a Product Line.").format(i))
+			if r.product_line not in tiers and r.product_line != (self._before() and self._row_line(r.name)):
+				frappe.throw(_("Requirement {0}: {1} is not a Product Line in Sales Pipeline Settings.").format(i, r.product_line))
+			if r.tier and r.tier not in tiers.get(r.product_line, []) and r.tier != (self._before() and self._row_tier(r.name)):
+				frappe.throw(_("Requirement {0}: Tier {1} is not mapped to {2} in Sales Pipeline Settings.").format(i, r.tier, r.product_line))
+			if flt(r.total_grams) < 0 or flt(r.price_per_gram) < 0:
+				frappe.throw(_("Requirement {0}: grams and price cannot be negative.").format(i))
+			r.amount = flt(r.total_grams) * flt(r.price_per_gram)
+		grams = sum(flt(r.total_grams) for r in rows)
+		amount = sum(flt(r.amount) for r in rows)
+		self.product_line = rows[0].product_line
+		self.tier = rows[0].tier
+		self.total_grams = grams
+		self.price_per_gram = amount / grams if grams else 0
+
+	def _row_line(self, name):
+		before = self._before()
+		row = next((r for r in (before.get("requirements") or []) if r.name == name), None) if before else None
+		return row.product_line if row else None
+
+	def _row_tier(self, name):
+		before = self._before()
+		row = next((r for r in (before.get("requirements") or []) if r.name == name), None) if before else None
+		return row.tier if row else None
+
+	def _calculated_value(self):
+		rows = self.get("requirements") or []
+		if rows:
+			return sum(flt(r.amount) for r in rows)
+		return flt(self.total_grams) * flt(self.price_per_gram)
+
 	def _before(self):
 		return None if self.is_new() else self.get_doc_before_save()
+
+	def co_owner_list(self):
+		return [r.user for r in (self.get("co_owners") or []) if r.user]
+
+	def _clean_co_owners(self):
+		"""One row per person; the primary owner is never also a co-owner."""
+		seen = set()
+		keep = []
+		for r in self.get("co_owners") or []:
+			if not r.user or r.user == self.deal_owner or r.user in seen:
+				continue
+			seen.add(r.user)
+			keep.append(r)
+		if len(keep) != len(self.get("co_owners") or []):
+			self.set("co_owners", keep)
 
 	def _check_owner(self, s):
 		before = self._before()
 		prev_owner = before.deal_owner if before else None
+		prev_co = [r.user for r in (before.get("co_owners") or [])] if before else []
+		co = self.co_owner_list()
+		active = [o.user for o in s.owners if o.active]
 		if self.deal_owner and self.deal_owner != prev_owner:
-			if self.deal_owner not in [o.user for o in s.owners if o.active]:
+			if self.deal_owner not in active:
 				frappe.throw(_("{0} is not an active owner in Sales Pipeline Settings.").format(self.deal_owner))
+		for u in co:
+			if u not in prev_co and u not in active:
+				frappe.throw(_("{0} is not an active owner in Sales Pipeline Settings, so they cannot be a co-owner.").format(u))
 		if self.flags.ignore_permissions or frappe.flags.in_patch or frappe.flags.in_migrate:
 			return
 		user = frappe.session.user
@@ -45,10 +116,28 @@ class SalesPipelineDeal(Document):
 			if self.deal_owner and self.deal_owner != user:
 				frappe.throw(_("You can only create deals for yourself. A pipeline manager can assign deals to others."))
 			return
-		if prev_owner and prev_owner != user:
+		is_co = user in prev_co
+		if prev_owner and prev_owner != user and not is_co:
 			frappe.throw(_("This deal belongs to {0}. Only a pipeline manager can change it.").format(sales_ops.owner_label(s, prev_owner)))
-		if self.deal_owner != prev_owner and self.deal_owner != user:
-			frappe.throw(_("Only a pipeline manager can assign a deal to someone else."))
+		if self.deal_owner != prev_owner:
+			# a non-manager may only take an unassigned deal for themselves
+			if prev_owner or self.deal_owner != user:
+				frappe.throw(_("Only a pipeline manager can assign a deal to someone else."))
+		if set(co) != set(prev_co) - {self.deal_owner}:
+			if not (self.deal_owner == user and prev_owner in (None, "", user)):
+				frappe.throw(_("Only the deal owner or a pipeline manager can change the co-owners."))
+
+	def _prefill_from_customer(self):
+		"""Buyer picked (new deal or a new Customer): fill the empty account and contact fields from the Customer."""
+		if not self.customer:
+			return
+		before = self._before()
+		if before and before.customer == self.customer:
+			return
+		info = sales_ops.customer_buyer_info(self.customer)
+		for field in ("account", "contact_name", "phone", "email", "location_address"):
+			if info.get(field) and not (self.get(field) or "").strip():
+				self.set(field, info[field])
 
 	def _check_required(self, s, st):
 		if not self.deal_owner:
@@ -112,6 +201,11 @@ class SalesPipelineDeal(Document):
 			if self.deal_owner and s.notify_on_reassign:
 				sales_ops.notify([self.deal_owner], _("{0} assigned the deal {1} to you").format(
 					frappe.utils.get_fullname(frappe.session.user), self.account), deal=self.name)
+		prev_co = [r.user for r in (before.get("co_owners") or [])] if before else []
+		added = [u for u in self.co_owner_list() if u not in prev_co]
+		if added:
+			sales_ops.notify(added, _("{0} added you as a co-owner on the deal {1}").format(
+				frappe.utils.get_fullname(frappe.session.user), self.account), deal=self.name)
 		if before and before.stage != self.stage and s.notify_managers_on_stage:
 			st = sales_ops.stage_info(s, self.stage)
 			if st and st.notify_managers:

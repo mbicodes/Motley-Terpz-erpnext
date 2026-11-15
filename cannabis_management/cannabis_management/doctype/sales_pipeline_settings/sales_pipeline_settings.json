@@ -20,6 +20,7 @@
   "hardware_options",
   "payment_terms_options",
   "lead_source_options",
+  "quick_note_options",
   "alerts_section",
   "alert_followup_overdue",
   "alert_followup_today",
@@ -140,6 +141,13 @@
    "label": "Lead Sources"
   },
   {
+   "default": "Called, no answer\nLeft a voicemail\nSpoke with the buyer\nSent pricing\nSent samples\nWaiting on the buyer\nFollow-up scheduled",
+   "description": "One per line. Shown as one-click quick notes on the board.",
+   "fieldname": "quick_note_options",
+   "fieldtype": "Small Text",
+   "label": "Quick Notes"
+  },
+  {
    "fieldname": "alerts_section",
    "fieldtype": "Section Break",
    "label": "Alerts"
@@ -240,7 +248,7 @@
  "index_web_pages_for_search": 0,
  "issingle": 1,
  "links": [],
- "modified": "2026-11-13 09:00:00.000000",
+ "modified": "2026-11-15 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Cannabis Management",
  "name": "Sales Pipeline Settings",

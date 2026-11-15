@@ -11,6 +11,9 @@ from frappe.utils import add_days, cint, date_diff, flt, formatdate, get_datetim
 
 DEAL = "Sales Pipeline Deal"
 SETTINGS = "Sales Pipeline Settings"
+CO_OWNER = "Sales Pipeline Co Owner"
+REQUIREMENT = "Sales Pipeline Requirement"
+BOARDS = ("Lead", "Deal")
 BOARD_ROUTE = "sales-operation-board"
 
 # Deal fields whose Select options are driven by Settings: fieldname -> settings list key.
@@ -56,6 +59,7 @@ def get_settings():
 			probability=flt(r.probability),
 			max_days=cint(r.max_days),
 			colour=r.colour or "",
+			board=r.get("board") if r.get("board") in BOARDS else "Deal",
 			is_closed=cint(r.is_closed),
 			is_won=cint(r.is_won),
 			notify_managers=cint(r.notify_managers),
@@ -107,6 +111,7 @@ def get_settings():
 			hardware=_plain_lines(doc.hardware_options),
 			payment_terms=_plain_lines(doc.payment_terms_options),
 			lead_source=_plain_lines(doc.lead_source_options),
+			quick_notes=_plain_lines(doc.get("quick_note_options")),
 		),
 		alerts=frappe._dict(
 			followup_overdue=cint(doc.alert_followup_overdue),
@@ -183,7 +188,26 @@ def deal_query_conditions(user=None):
 	user = user or frappe.session.user
 	if is_manager(user):
 		return ""
-	return "ifnull(`tab{dt}`.`deal_owner`, '') in ('', {u})".format(dt=DEAL, u=frappe.db.escape(user))
+	# sales people see only the deals they are assigned to: owner or co-owner (not unassigned deals)
+	u = frappe.db.escape(user)
+	return (
+		"(`tab{dt}`.`deal_owner` = {u} or exists (select 1 from `tab{co}` spco"
+		" where spco.parent = `tab{dt}`.`name` and spco.parenttype = '{dt}' and spco.user = {u}))"
+	).format(dt=DEAL, co=CO_OWNER, u=u)
+
+
+def co_owner_users(name):
+	"""Saved co-owners of a deal (in row order)."""
+	if not name:
+		return []
+	return frappe.get_all(
+		CO_OWNER, filters={"parent": name, "parenttype": DEAL}, pluck="user", order_by="idx asc"
+	)
+
+
+def is_co_owner(name, user=None):
+	user = user or frappe.session.user
+	return bool(name) and bool(frappe.db.exists(CO_OWNER, {"parent": name, "parenttype": DEAL, "user": user}))
 
 
 def deal_has_permission(doc, ptype=None, user=None, debug=False):
@@ -192,16 +216,19 @@ def deal_has_permission(doc, ptype=None, user=None, debug=False):
 		return None
 	owner = doc.get("deal_owner") or ""
 	saved_owner = owner
-	if doc.get("name") and not doc.get("__islocal"):
+	saved = doc.get("name") and not doc.get("__islocal")
+	if saved:
 		saved_owner = frappe.db.get_value(DEAL, doc.get("name"), "deal_owner") or ""
 	if ptype == "create":
 		return None
 	if ptype == "delete":
 		return None if saved_owner == user else False
-	if ptype in ("write", "submit", "cancel", "amend"):
-		# own deals, or an unassigned deal (taking it is checked in validate)
-		return None if saved_owner in ("", user) else False
-	return None if saved_owner in ("", user) or owner == user else False
+	# only deals the user is assigned to: owner or co-owner (changing the owner list is checked in validate)
+	if saved and (saved_owner == user or is_co_owner(doc.get("name"), user)):
+		return None
+	if not saved and owner == user:
+		return None
+	return False
 
 
 def settings_has_permission(doc, ptype=None, user=None, debug=False):
@@ -222,6 +249,62 @@ def active_owner_query(doctype, txt, searchfield, start, page_len, filters):
 	]
 	start, page_len = cint(start), cint(page_len) or 20
 	return rows[start : start + page_len]
+
+
+# ---------- buyer details from a Customer ----------
+
+
+def customer_buyer_info(customer):
+	"""Name, primary contact (name, phone, email) and primary address of a Customer, for prefilling a deal."""
+	if not customer:
+		return {}
+	c = frappe.db.get_value(
+		"Customer", customer,
+		["customer_name", "customer_primary_contact", "customer_primary_address", "email_id", "mobile_no"],
+		as_dict=True,
+	)
+	if not c:
+		return {}
+
+	def linked(doctype, primary_flag):
+		rows = frappe.db.sql(
+			"""select d.name from `tab{dt}` d
+			join `tabDynamic Link` dl on dl.parent = d.name and dl.parenttype = %(dt)s
+				and dl.link_doctype = 'Customer' and dl.link_name = %(c)s
+			order by d.{flag} desc, d.modified desc limit 1""".format(dt=doctype, flag=primary_flag),
+			{"dt": doctype, "c": customer},
+		)
+		return rows[0][0] if rows else None
+
+	out = {"account": c.customer_name or customer}
+	contact = c.customer_primary_contact or linked("Contact", "is_primary_contact")
+	if contact:
+		ct = frappe.db.get_value(
+			"Contact", contact, ["first_name", "last_name", "full_name", "email_id", "mobile_no", "phone"], as_dict=True
+		)
+		if ct:
+			name = (ct.full_name or " ".join(x for x in (ct.first_name, ct.last_name) if x) or "").strip()
+			# ERPNext names a company contact after the customer; that is not a person's name
+			if name and name.lower() != (c.customer_name or "").strip().lower():
+				out["contact_name"] = name
+			out["email"] = ct.email_id or None
+			out["phone"] = ct.mobile_no or ct.phone or None
+	out["email"] = out.get("email") or c.email_id or None
+	out["phone"] = out.get("phone") or c.mobile_no or None
+	address = c.customer_primary_address or linked("Address", "is_primary_address")
+	if address:
+		a = frappe.db.get_value(
+			"Address", address, ["address_line1", "address_line2", "city", "state", "pincode"], as_dict=True
+		)
+		if a:
+			line2 = ", ".join(x for x in (a.city, " ".join(y for y in (a.state, a.pincode) if y)) if x)
+			out["location_address"] = "\n".join(x for x in (a.address_line1, a.address_line2, line2) if x) or None
+	return out
+
+
+def customer_email(customer):
+	"""Customer email for the Email button: the Customer's email, else its primary contact's."""
+	return customer_buyer_info(customer).get("email") if customer else None
 
 
 # ---------- stock and attention flags ----------
@@ -284,6 +367,31 @@ def stock_for(stock, product_line, tier):
 	return stock.get(product_line + "|" + (tier or "")) or stock.get(product_line + "|")
 
 
+def deal_lines(d):
+	"""Requirement lines of a deal row (d.requirements = list of dicts); a deal without lines uses its own fields."""
+	rows = [r for r in (d.get("requirements") or []) if r.get("product_line")]
+	if rows:
+		return [frappe._dict(r) for r in rows]
+	if d.get("product_line") or flt(d.get("total_grams")) or flt(d.get("price_per_gram")):
+		return [frappe._dict(
+			name=None, product_line=d.get("product_line") or "", tier=d.get("tier") or "",
+			total_grams=flt(d.get("total_grams")), price_per_gram=flt(d.get("price_per_gram")),
+			amount=flt(d.get("total_grams")) * flt(d.get("price_per_gram")), details="",
+		)]
+	return []
+
+
+def lines_short(lines, stock):
+	"""Grams short across all lines: lines asking for the same stock are added up first."""
+	need = {}
+	for r in lines:
+		stk = stock_for(stock, r.product_line, r.tier)
+		if stk and flt(r.total_grams):
+			key = id(stk)
+			need.setdefault(key, [stk, 0.0])[1] += flt(r.total_grams)
+	return sum(max(0.0, g - stk.grams) for stk, g in need.values())
+
+
 def enrich(d, s, today, stock):
 	"""Adds probability, weighted value, stage age, stock and attention flags to a deal row (in place)."""
 	st = stage_info(s, d.stage) or frappe._dict(probability=0, max_days=0, is_closed=0, is_won=0)
@@ -296,9 +404,17 @@ def enrich(d, s, today, stock):
 	d.days_in_stage = max(0, date_diff(today, since))
 	d.hidden_closed = bool(st.is_closed and s.hide_closed_after_days and d.days_in_stage > s.hide_closed_after_days)
 	d.won_this_month = bool(d.is_won and since.year == today.year and since.month == today.month)
-	stk = stock_for(stock, d.product_line, d.tier)
-	d.stock = stk
-	d.short = max(0.0, flt(d.total_grams) - stk.grams) if (stk and flt(d.total_grams)) else 0.0
+	lines = deal_lines(d)
+	for r in lines:
+		stk = stock_for(stock, r.product_line, r.tier)
+		r.amount = flt(r.total_grams) * flt(r.price_per_gram)
+		r.stock_grams = stk.grams if stk else None
+		r.on_orders = stk.on_orders if stk else None
+		r.stock_groups = stk.groups if stk else []
+		r.short = max(0.0, flt(r.total_grams) - stk.grams) if (stk and flt(r.total_grams)) else 0.0
+	d.lines = lines
+	d.stock = stock_for(stock, lines[0].product_line, lines[0].tier) if lines else None
+	d.short = lines_short(lines, stock)
 	for f in ("next_step_due", "sample_date", "expected_close", "delivery_pickup"):
 		d[f] = str(d[f]) if d.get(f) else None
 	d.flags = deal_flags(d, s, st, today)
@@ -384,13 +500,24 @@ def send_daily_digest():
 			"expected_close", "delivery_pickup",
 		],
 	)
+	co_map = {}
+	for r in frappe.get_all(CO_OWNER, filters={"parenttype": DEAL}, fields=["parent", "user"], order_by="idx asc"):
+		co_map.setdefault(r.parent, []).append(r.user)
 	by_owner = {}
+	shared = {}
+	new_bucket = lambda: {"overdue": [], "followup_today": [], "stalled": [], "sample_due": []}  # noqa: E731
 	for d in rows:
 		enrich(d, s, today, {})
-		if d.is_closed or not d.deal_owner:
+		if d.is_closed:
+			continue
+		# co-owners get every open shared deal under "Shared with you"
+		for u in co_map.get(d.name, []):
+			if u and u != d.deal_owner:
+				shared.setdefault(u, []).append(d)
+		if not d.deal_owner:
 			continue
 		keys = {f["key"] for f in d.flags}
-		bucket = by_owner.setdefault(d.deal_owner, {"overdue": [], "followup_today": [], "stalled": [], "sample_due": []})
+		bucket = by_owner.setdefault(d.deal_owner, new_bucket())
 		for k in bucket:
 			if k in keys:
 				bucket[k].append(d)
@@ -402,8 +529,10 @@ def send_daily_digest():
 		("sample_due", _("Samples due"), "sample_date"),
 	]
 	if s.send_daily_digest:
-		for user, bucket in by_owner.items():
-			total = sum(len(v) for v in bucket.values())
+		for user in list(dict.fromkeys(list(by_owner) + list(shared))):
+			bucket = by_owner.get(user) or new_bucket()
+			mine = shared.get(user) or []
+			total = sum(len(v) for v in bucket.values()) + len(mine)
 			if not total:
 				continue
 			html = [
@@ -421,8 +550,26 @@ def send_daily_digest():
 						)
 					)
 				html.append("</ul>")
+			if mine:
+				html.append("<h4 style='margin:14px 0 6px'>{0} ({1})</h4><ul>".format(_("Shared with you"), len(mine)))
+				for d in mine:
+					status = ", ".join(f["label"] for f in d.flags) or (
+						_("Next follow-up {0}").format(formatdate(d.next_step_due)) if d.get("next_step_due") else _("No follow-up date")
+					)
+					html.append(
+						"<li><a href='{0}'>{1}</a> · {2} · {3} {4} · {5}</li>".format(
+							deal_link(d.name), frappe.utils.escape_html(d.account), frappe.utils.escape_html(d.stage),
+							_("Owner:"), frappe.utils.escape_html(owner_label(s, d.deal_owner) if d.deal_owner else _("Unassigned")),
+							frappe.utils.escape_html(status),
+						)
+					)
+				html.append("</ul>")
 			html.append("<p><a href='{0}'>{1}</a></p>".format(get_url("/app/" + BOARD_ROUTE), _("Open the Sales Operation Board")))
-			subject = _("Sales pipeline: {0} item(s) need your attention today").format(total)
+			attention = total - len(mine)
+			if attention:
+				subject = _("Sales pipeline: {0} item(s) need your attention today").format(attention)
+			else:
+				subject = _("Sales pipeline: your {0} shared deal(s) today").format(len(mine))
 			body = "".join(html)
 			notify([user], subject, html=body)
 			try:
@@ -479,6 +626,16 @@ def sync_deal_options(s):
 				validate_fields_for_doctype=False,
 			)
 			changed = True
+	if frappe.db.exists("DocType", REQUIREMENT):
+		rmeta = frappe.get_meta(REQUIREMENT)
+		for field, options in (("product_line", "\n".join(s.product_line_names)), ("tier", "\n" + "\n".join(s.lists.tier))):
+			df = rmeta.get_field(field)
+			if df and df.fieldtype == "Select" and (df.options or "") != options:
+				frappe.make_property_setter(
+					{"doctype": REQUIREMENT, "fieldname": field, "property": "options", "value": options, "property_type": "Text"},
+					validate_fields_for_doctype=False,
+				)
+				frappe.clear_cache(doctype=REQUIREMENT)
 	if changed:
 		frappe.clear_cache(doctype=DEAL)
 

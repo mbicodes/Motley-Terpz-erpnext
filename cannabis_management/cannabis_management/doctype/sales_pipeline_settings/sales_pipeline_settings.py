@@ -34,8 +34,22 @@ class SalesPipelineSettings(Document):
 				row.display_name = (frappe.db.get_value("User", row.user, "first_name") or row.user).strip()
 
 	def on_update(self):
+		self._carry_renamed_stages()
 		sales_ops.clear_settings_memo()
 		s = sales_ops.get_settings()
 		sales_ops.sync_deal_options(s)
 		sales_ops.recompute_probabilities(s)
 		sales_ops.publish_board_update()
+
+	def _carry_renamed_stages(self):
+		"""A stage renamed in this table keeps its deals: move them to the new name."""
+		before = self.get_doc_before_save()
+		if not before:
+			return
+		old = {r.name: (r.stage or "").strip() for r in before.get("stages") or []}
+		for row in self.stages or []:
+			prev = old.get(row.name)
+			if prev and prev != row.stage:
+				frappe.db.sql(
+					"update `tab{0}` set stage = %s where stage = %s".format(sales_ops.DEAL), (row.stage, prev)
+				)

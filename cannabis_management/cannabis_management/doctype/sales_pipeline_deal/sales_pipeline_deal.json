@@ -10,6 +10,7 @@
   "account",
   "stage",
   "deal_owner",
+  "co_owners",
   "priority",
   "column_break_deal",
   "contact_name",
@@ -25,6 +26,7 @@
   "delivery_pickup",
   "stage_changed_on",
   "product_section",
+  "requirements",
   "product_line",
   "tier",
   "form",
@@ -96,6 +98,13 @@
    "label": "Owner",
    "options": "User",
    "reqd": 1
+  },
+  {
+   "description": "Other owners who share this deal. They see and edit it like the owner.",
+   "fieldname": "co_owners",
+   "fieldtype": "Table MultiSelect",
+   "label": "Co-owners",
+   "options": "Sales Pipeline Co Owner"
   },
   {
    "allow_in_quick_entry": 1,
@@ -187,20 +196,29 @@
    "label": "Product & Value"
   },
   {
+   "description": "One row per product the buyer wants. Totals, value and stock check use all rows.",
+   "fieldname": "requirements",
+   "fieldtype": "Table",
+   "label": "Requirements",
+   "options": "Sales Pipeline Requirement"
+  },
+  {
    "allow_in_quick_entry": 1,
    "fieldname": "product_line",
    "fieldtype": "Select",
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Product Line",
-   "options": "\nCold Cure\nVRR\nLLR\nDistillate\nEdibles\nBubble Hash\nFresh Frozen"
+   "options": "\nCold Cure\nVRR\nLLR\nDistillate\nEdibles\nBubble Hash\nFresh Frozen",
+   "read_only_depends_on": "eval:(doc.requirements || []).length"
   },
   {
    "allow_in_quick_entry": 1,
    "fieldname": "tier",
    "fieldtype": "Select",
    "label": "Tier",
-   "options": "\nFood grade\nT1\nT1 or T2\nT2\nT3"
+   "options": "\nFood grade\nT1\nT1 or T2\nT2\nT3",
+   "read_only_depends_on": "eval:(doc.requirements || []).length"
   },
   {
    "fieldname": "form",
@@ -216,19 +234,21 @@
    "fieldname": "total_grams",
    "fieldtype": "Float",
    "label": "Total Grams",
-   "precision": "0"
+   "precision": "0",
+   "read_only_depends_on": "eval:(doc.requirements || []).length"
   },
   {
    "allow_in_quick_entry": 1,
    "fieldname": "price_per_gram",
    "fieldtype": "Currency",
-   "label": "Price per Gram"
+   "label": "Price per Gram",
+   "read_only_depends_on": "eval:(doc.requirements || []).length"
   },
   {
-   "description": "Used instead of Total Grams \u00d7 Price per Gram when set",
+   "description": "Manual deal value. Used instead of the calculated value when set.",
    "fieldname": "value_override",
    "fieldtype": "Currency",
-   "label": "Value Override"
+   "label": "Deal Value (manual)"
   },
   {
    "fieldname": "column_break_calc",
@@ -372,7 +392,7 @@
  ],
  "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-11-13 09:30:00.000000",
+ "modified": "2026-11-15 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Cannabis Management",
  "name": "Sales Pipeline Deal",

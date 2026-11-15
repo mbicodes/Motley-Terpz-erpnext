@@ -25,6 +25,16 @@
   {
    "hidden": 0,
    "is_query_report": 0,
+   "label": "Sales Board",
+   "link_count": 0,
+   "link_to": "sales-operation-board",
+   "link_type": "Page",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
    "label": "Aging AR Dashboard",
    "link_count": 0,
    "link_to": "ar-dashboard",
@@ -95,7 +105,7 @@
    "type": "Link"
   }
  ],
- "modified": "2026-10-05 10:44:31.434893",
+ "modified": "2026-11-14 12:47:35.873541",
  "modified_by": "Administrator",
  "module": "Cannabis Management",
  "name": "Matt Dashboard",
