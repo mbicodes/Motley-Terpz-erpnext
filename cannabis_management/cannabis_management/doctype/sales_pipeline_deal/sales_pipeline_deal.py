@@ -22,6 +22,7 @@ class SalesPipelineDeal(Document):
 		self._clean_co_owners()
 		self._check_owner(s)
 		self._prefill_from_customer()
+		self._link_account()
 		self._check_required(s, st)
 		self.probability = st.probability
 		self._apply_requirements(s)
@@ -139,6 +140,35 @@ class SalesPipelineDeal(Document):
 			if info.get(field) and not (self.get(field) or "").strip():
 				self.set(field, info[field])
 
+	def _link_account(self):
+		"""Every deal belongs to an account on the Leads board: the chosen one, else the buyer's, else a new one.
+		A deal without a buyer takes the account's Customer / Lead and contact details."""
+		before = self._before()
+		if not self.pipeline_account:
+			self.pipeline_account = sales_ops.find_account(self.customer, self.lead, self.account)
+			if not self.pipeline_account and (self.account or self.customer):
+				acc = sales_ops.make_account({
+					"account_name": self.account, "account_owner": self.deal_owner, "customer": self.customer, "lead": self.lead,
+					"contact_name": self.contact_name, "phone": self.phone, "email": self.email,
+					"location_address": self.location_address, "license_number": self.license_number, "lead_source": self.lead_source,
+				})
+				self.pipeline_account = acc.name
+		if not self.pipeline_account or (before and before.pipeline_account == self.pipeline_account and self.account):
+			return
+		acc = frappe.db.get_value(sales_ops.ACCOUNT, self.pipeline_account,
+			["account_name", "customer", "lead", "contact_name", "phone", "email", "location_address", "license_number"], as_dict=True)
+		if not acc:
+			return
+		if not (self.account or "").strip():
+			self.account = acc.account_name
+		if not self.customer and not self.lead:
+			self.customer, self.lead = acc.customer, acc.lead
+		elif not self.customer and acc.customer:
+			self.customer = acc.customer
+		for f in ("contact_name", "phone", "email", "location_address", "license_number"):
+			if acc.get(f) and not (self.get(f) or "").strip():
+				self.set(f, acc[f])
+
 	def _check_required(self, s, st):
 		if not self.deal_owner:
 			frappe.throw(_("Please choose an Owner for this deal."))
@@ -211,7 +241,25 @@ class SalesPipelineDeal(Document):
 			if st and st.notify_managers:
 				sales_ops.notify(sales_ops.manager_users(s), _("{0} moved to {1} ({2})").format(
 					self.account, self.stage, frappe.utils.fmt_money(self.deal_value, currency="USD")), deal=self.name)
+		self._promote_account(s, before)
 		sales_ops.publish_board_update(self.name)
+
+	def _promote_account(self, s, before):
+		"""A won deal makes its account a customer (Lead, Qualified Lead, Dormant or Lost -> Active Customer)."""
+		won = sales_ops.won_stage(s)
+		target = sales_ops.customer_status(s)
+		if not (won and target and self.pipeline_account and self.stage == won.name and (not before or before.stage != won.name)):
+			return
+		current = frappe.db.get_value(sales_ops.ACCOUNT, self.pipeline_account, "lead_status")
+		st = sales_ops.status_info(s, current)
+		if st and st.is_active_customer:
+			return
+		acc = frappe.get_doc(sales_ops.ACCOUNT, self.pipeline_account)
+		acc.lead_status = target.name
+		if self.customer and not acc.customer:
+			acc.customer = self.customer
+		acc.flags.ignore_permissions = True
+		acc.save()
 
 	def on_trash(self):
 		sales_ops.publish_board_update(self.name)

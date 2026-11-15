@@ -13,7 +13,8 @@
   "colour",
   "is_closed",
   "is_won",
-  "notify_managers"
+  "notify_managers",
+  "is_active_customer"
  ],
  "fields": [
   {
@@ -27,7 +28,7 @@
   {
    "columns": 1,
    "default": "Deal",
-   "description": "Which board shows this stage: the Lead board or the Deal board",
+   "description": "Deal = a stage on the Deals board. Lead = a lead status (the relationship with the account) on the Leads board.",
    "fieldname": "board",
    "fieldtype": "Select",
    "in_list_view": 1,
@@ -46,7 +47,8 @@
    "fieldname": "probability",
    "fieldtype": "Percent",
    "in_list_view": 1,
-   "label": "Win Probability %"
+   "label": "Win Probability %",
+   "description": "Leads board: weighs the account's monthly potential"
   },
   {
    "columns": 1,
@@ -68,7 +70,8 @@
    "fieldname": "is_closed",
    "fieldtype": "Check",
    "in_list_view": 1,
-   "label": "Is Closed"
+   "label": "Is Closed",
+   "description": "Leads board: the relationship has ended (Lost Customer)"
   },
   {
    "columns": 1,
@@ -84,12 +87,20 @@
    "fieldtype": "Check",
    "in_list_view": 1,
    "label": "Notify Managers"
+  },
+  {
+   "columns": 1,
+   "description": "Leads board only: the account buys from us. Winning a deal moves an account that is in none of these statuses to the first of them.",
+   "fieldname": "is_active_customer",
+   "fieldtype": "Check",
+   "in_list_view": 0,
+   "label": "Active Customer Status"
   }
  ],
  "index_web_pages_for_search": 0,
  "istable": 1,
  "links": [],
- "modified": "2026-11-15 12:00:00.000000",
+ "modified": "2026-11-15 18:00:00.000000",
  "modified_by": "Administrator",
  "module": "Cannabis Management",
  "name": "Sales Pipeline Stage",

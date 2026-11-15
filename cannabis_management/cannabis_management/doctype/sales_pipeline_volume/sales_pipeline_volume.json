@@ -1,0 +1,125 @@
+{
+ "actions": [],
+ "creation": "2026-11-15 18:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "product_line",
+  "tier",
+  "activity",
+  "weekly_volume",
+  "wants_qty",
+  "wants_per",
+  "uom",
+  "price_per_gram",
+  "weekly_grams",
+  "monthly_grams",
+  "monthly_value",
+  "notes"
+ ],
+ "fields": [
+  {
+   "columns": 2,
+   "fieldname": "product_line",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Product Line",
+   "reqd": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "tier",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Tier"
+  },
+  {
+   "columns": 1,
+   "default": "Procure",
+   "description": "Whether the weekly volume is what they buy (procure) or what they make (produce)",
+   "fieldname": "activity",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "They",
+   "options": "Procure\nProduce"
+  },
+  {
+   "columns": 1,
+   "fieldname": "weekly_volume",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Volume / Week"
+  },
+  {
+   "columns": 1,
+   "fieldname": "wants_qty",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Wants From Us"
+  },
+  {
+   "columns": 1,
+   "default": "Month",
+   "fieldname": "wants_per",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Per",
+   "options": "Month\nWeek"
+  },
+  {
+   "columns": 1,
+   "default": "g",
+   "description": "Unit of Volume / Week and Wants From Us",
+   "fieldname": "uom",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Unit",
+   "options": "g\nkg\nlb"
+  },
+  {
+   "columns": 1,
+   "fieldname": "price_per_gram",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Price per Gram"
+  },
+  {
+   "fieldname": "weekly_grams",
+   "fieldtype": "Float",
+   "label": "Volume / Week (g)",
+   "read_only": 1
+  },
+  {
+   "fieldname": "monthly_grams",
+   "fieldtype": "Float",
+   "label": "Wants / Month (g)",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "monthly_value",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Potential / Month",
+   "read_only": 1
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Data",
+   "label": "Notes"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "modified": "2026-11-15 18:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Sales Pipeline Volume",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "istable": 1,
+ "editable_grid": 1
+}

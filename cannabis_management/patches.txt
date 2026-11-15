@@ -28,3 +28,4 @@ cannabis_management.patches.convert_kiosk_photos_to_files
 cannabis_management.patches.install_mt_dispatch
 cannabis_management.patches.set_home_landing_workspace
 cannabis_management.patches.sales_ops_board_v2
+cannabis_management.patches.sales_ops_accounts_v3

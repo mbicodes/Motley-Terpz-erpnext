@@ -21,6 +21,7 @@
   "payment_terms_options",
   "lead_source_options",
   "quick_note_options",
+  "lost_reason_options",
   "alerts_section",
   "alert_followup_overdue",
   "alert_followup_today",
@@ -148,6 +149,12 @@
    "label": "Quick Notes"
   },
   {
+   "description": "One per line. Offered when a deal is marked lost.",
+   "fieldname": "lost_reason_options",
+   "fieldtype": "Small Text",
+   "label": "Lost Reasons"
+  },
+  {
    "fieldname": "alerts_section",
    "fieldtype": "Section Break",
    "label": "Alerts"
@@ -248,7 +255,7 @@
  "index_web_pages_for_search": 0,
  "issingle": 1,
  "links": [],
- "modified": "2026-11-15 12:00:00.000000",
+ "modified": "2026-11-15 18:00:00.000000",
  "modified_by": "Administrator",
  "module": "Cannabis Management",
  "name": "Sales Pipeline Settings",

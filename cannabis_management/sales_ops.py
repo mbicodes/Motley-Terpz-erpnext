@@ -10,11 +10,20 @@ from frappe import _
 from frappe.utils import add_days, cint, date_diff, flt, formatdate, get_datetime, get_url, getdate, nowdate
 
 DEAL = "Sales Pipeline Deal"
+ACCOUNT = "Sales Pipeline Account"
+VOLUME = "Sales Pipeline Volume"
 SETTINGS = "Sales Pipeline Settings"
 CO_OWNER = "Sales Pipeline Co Owner"
 REQUIREMENT = "Sales Pipeline Requirement"
+# Stage rows with Board = Deal are deal stages; Board = Lead rows are the lead statuses of an account.
 BOARDS = ("Lead", "Deal")
 BOARD_ROUTE = "sales-operation-board"
+UNIT_GRAMS = {"g": 1.0, "kg": 1000.0, "lb": 453.59237}
+WEEKS_PER_MONTH = 52.0 / 12.0
+DEFAULT_LOST_REASONS = [
+	"Price too high", "Failed testing / QC", "Went with another supplier", "No response from the buyer",
+	"Not the right product", "Timing / no budget", "Other",
+]
 
 # Deal fields whose Select options are driven by Settings: fieldname -> settings list key.
 SELECT_SOURCES = {
@@ -52,7 +61,7 @@ def get_settings():
 		return frappe.local.sales_ops_settings
 	doc = frappe.get_cached_doc(SETTINGS)
 	stages = sorted(doc.get("stages") or [], key=lambda r: (cint(r.sort_order), r.idx))
-	stage_list = [
+	all_rows = [
 		frappe._dict(
 			name=(r.stage or "").strip(),
 			sort_order=cint(r.sort_order),
@@ -63,11 +72,15 @@ def get_settings():
 			is_closed=cint(r.is_closed),
 			is_won=cint(r.is_won),
 			notify_managers=cint(r.notify_managers),
+			is_active_customer=cint(r.get("is_active_customer")),
 		)
 		for r in stages
 		if (r.stage or "").strip()
 	]
+	stage_list = [x for x in all_rows if x.board == "Deal"]
+	lead_statuses = [x for x in all_rows if x.board == "Lead"]
 	open_stages = [x for x in stage_list if not x.is_closed]
+	open_statuses = [x for x in lead_statuses if not x.is_closed]
 	product_lines = []
 	for r in doc.get("product_lines") or []:
 		if not (r.product_line or "").strip():
@@ -89,6 +102,8 @@ def get_settings():
 	s = frappe._dict(
 		stages=stage_list,
 		first_stage=open_stages[0].name if open_stages else (stage_list[0].name if stage_list else None),
+		lead_statuses=lead_statuses,
+		first_status=open_statuses[0].name if open_statuses else (lead_statuses[0].name if lead_statuses else None),
 		owners=[
 			frappe._dict(
 				user=r.user,
@@ -112,6 +127,7 @@ def get_settings():
 			payment_terms=_plain_lines(doc.payment_terms_options),
 			lead_source=_plain_lines(doc.lead_source_options),
 			quick_notes=_plain_lines(doc.get("quick_note_options")),
+			lost_reasons=_plain_lines(doc.get("lost_reason_options")) or list(DEFAULT_LOST_REASONS),
 		),
 		alerts=frappe._dict(
 			followup_overdue=cint(doc.alert_followup_overdue),
@@ -147,6 +163,20 @@ def won_stage(s):
 
 def lost_stage(s):
 	return next((x for x in s.stages if x.is_closed and not x.is_won), None)
+
+
+def status_info(s, status):
+	return next((x for x in s.lead_statuses if x.name == status), None)
+
+
+def customer_status(s):
+	"""First lead status that means 'buys from us' (Active Customer)."""
+	return next((x for x in s.lead_statuses if x.is_active_customer), None)
+
+
+def lost_status(s):
+	"""Lead status for a relationship that has ended (Lost Customer)."""
+	return next((x for x in s.lead_statuses if x.is_closed), None)
 
 
 def needs_followup(s, st):
@@ -227,6 +257,50 @@ def deal_has_permission(doc, ptype=None, user=None, debug=False):
 	if saved and (saved_owner == user or is_co_owner(doc.get("name"), user)):
 		return None
 	if not saved and owner == user:
+		return None
+	return False
+
+
+def _deal_access_sql(user):
+	"""Deals a sales person may see (owner or co-owner), as an SQL condition on alias spd."""
+	u = frappe.db.escape(user)
+	return (
+		"(spd.deal_owner = {u} or exists (select 1 from `tab{co}` spco"
+		" where spco.parent = spd.name and spco.parenttype = '{dt}' and spco.user = {u}))"
+	).format(co=CO_OWNER, dt=DEAL, u=u)
+
+
+def account_query_conditions(user=None):
+	user = user or frappe.session.user
+	if is_manager(user):
+		return ""
+	# the relationship manager, plus anyone working a deal on the account
+	return (
+		"(`tab{acc}`.`account_owner` = {u} or exists (select 1 from `tab{dt}` spd"
+		" where spd.pipeline_account = `tab{acc}`.`name` and {deals}))"
+	).format(acc=ACCOUNT, dt=DEAL, u=frappe.db.escape(user), deals=_deal_access_sql(user))
+
+
+def works_account(name, user=None):
+	"""The user owns a deal (or co-owns one) on this account."""
+	user = user or frappe.session.user
+	if not name:
+		return False
+	return bool(frappe.db.sql(
+		"select 1 from `tab{dt}` spd where spd.pipeline_account = %s and {deals} limit 1".format(dt=DEAL, deals=_deal_access_sql(user)),
+		name,
+	))
+
+
+def account_has_permission(doc, ptype=None, user=None, debug=False):
+	user = user or frappe.session.user
+	if is_manager(user) or ptype == "create":
+		return None
+	saved = doc.get("name") and not doc.get("__islocal")
+	owner = (frappe.db.get_value(ACCOUNT, doc.get("name"), "account_owner") if saved else doc.get("account_owner")) or ""
+	if ptype == "delete":
+		return None if owner == user else False
+	if owner == user or (saved and works_account(doc.get("name"), user)):
 		return None
 	return False
 
@@ -402,7 +476,9 @@ def enrich(d, s, today, stock):
 	d.is_won = st.is_closed and st.is_won
 	since = getdate(d.stage_changed_on or d.creation)
 	d.days_in_stage = max(0, date_diff(today, since))
-	d.hidden_closed = bool(st.is_closed and s.hide_closed_after_days and d.days_in_stage > s.hide_closed_after_days)
+	d.is_lost = bool(st.is_closed and not st.is_won)
+	# won deals drop off after the hide window; lost deals stay in Active Opportunity so they can be won back
+	d.hidden_closed = bool(st.is_closed and st.is_won and s.hide_closed_after_days and d.days_in_stage > s.hide_closed_after_days)
 	d.won_this_month = bool(d.is_won and since.year == today.year and since.month == today.month)
 	lines = deal_lines(d)
 	for r in lines:
@@ -453,6 +529,118 @@ def deal_flags(d, s, st, today):
 	):
 		add("sample_due", _("Sample due · {0}").format(formatdate(sample)), "action")
 	return flags
+
+
+# ---------- accounts (Leads board): lead status, volume and demand ----------
+
+
+def volume_row(r):
+	"""Grams per week they move, grams per month they want from us, and that month's value (in place)."""
+	per = UNIT_GRAMS.get(r.get("uom") or "g", 1.0)
+	r.weekly_grams = flt(r.get("weekly_volume")) * per
+	wants = flt(r.get("wants_qty")) * per
+	r.monthly_grams = wants * WEEKS_PER_MONTH if (r.get("wants_per") or "Month") == "Week" else wants
+	r.monthly_value = flt(r.monthly_grams) * flt(r.get("price_per_gram"))
+	return r
+
+
+def default_price(s, product_line, tier):
+	row = product_row(s, product_line, tier)
+	return flt(row.default_price) if row else 0.0
+
+
+def deal_stats(deals):
+	"""{account: {open_deals, open_value, open_weighted, won_value, lost_deals}} from enriched deal rows."""
+	out = {}
+	for d in deals:
+		acc = d.get("pipeline_account")
+		if not acc:
+			continue
+		x = out.setdefault(acc, frappe._dict(open_deals=0, open_value=0.0, open_weighted=0.0, won_value=0.0, won_deals=0, lost_deals=0, deals=[]))
+		x.deals.append(d.name)
+		if not d.get("is_closed"):
+			x.open_deals += 1
+			x.open_value += flt(d.get("deal_value"))
+			x.open_weighted += flt(d.get("weighted_value"))
+		elif d.get("is_won"):
+			x.won_deals += 1
+			x.won_value += flt(d.get("deal_value"))
+		else:
+			x.lost_deals += 1
+	return out
+
+
+def enrich_account(a, s, today, stats):
+	"""Adds status probability, weighted potential, days in status, deal totals and attention flags (in place)."""
+	st = status_info(s, a.lead_status) or frappe._dict(probability=0, max_days=0, is_closed=0, is_active_customer=0)
+	a.account = a.account_name
+	a.probability = st.probability
+	a.is_closed = st.is_closed
+	a.is_customer = st.is_active_customer
+	a.weekly_volume = flt(a.weekly_volume)
+	a.monthly_demand = flt(a.monthly_demand)
+	a.monthly_potential = flt(a.monthly_potential)
+	a.weighted_potential = a.monthly_potential * flt(st.probability) / 100.0
+	since = getdate(a.status_changed_on or a.creation)
+	a.days_in_stage = max(0, date_diff(today, since))
+	a.next_step_due = str(a.next_step_due) if a.get("next_step_due") else None
+	a.update(stats.get(a.name) or frappe._dict(open_deals=0, open_value=0.0, open_weighted=0.0, won_value=0.0, won_deals=0, lost_deals=0, deals=[]))
+	flags = []
+	if not st.is_closed:
+		follow = getdate(a.next_step_due) if a.next_step_due else None
+		if follow and follow < today and s.alerts.followup_overdue:
+			flags.append({"key": "overdue", "label": _("Overdue follow-up · {0}").format(formatdate(follow)), "kind": "action"})
+		elif follow and follow == today and s.alerts.followup_today:
+			flags.append({"key": "followup_today", "label": _("Follow-up today"), "kind": "info"})
+		if s.alerts.stalled and st.max_days and a.days_in_stage > st.max_days:
+			flags.append({"key": "stalled", "label": _("{0} for {1} days").format(a.lead_status, a.days_in_stage), "kind": "action"})
+		if s.alerts.missing_owner and not a.get("account_owner"):
+			flags.append({"key": "no_owner", "label": _("No owner"), "kind": "action"})
+	a.flags = flags
+	a.attention = any(f["kind"] == "action" for f in flags)
+	return a
+
+
+def find_account(customer=None, lead=None, name=None):
+	"""An existing account for this buyer: by Customer, then Lead, then the same account name."""
+	if customer:
+		hit = frappe.db.get_value(ACCOUNT, {"customer": customer}, "name", order_by="creation asc")
+		if hit:
+			return hit
+	if lead:
+		hit = frappe.db.get_value(ACCOUNT, {"lead": lead}, "name", order_by="creation asc")
+		if hit:
+			return hit
+	if customer and not lead:
+		# the Customer was made from a Lead that already has an account
+		from_lead = frappe.db.get_value("Customer", customer, "lead_name")
+		if from_lead:
+			hit = frappe.db.get_value(ACCOUNT, {"lead": from_lead}, "name", order_by="creation asc")
+			if hit:
+				return hit
+	name = (name or "").strip()
+	if name:
+		rows = frappe.db.sql(
+			"select name from `tab{0}` where lower(trim(account_name)) = lower(%s) order by creation limit 1".format(ACCOUNT), name
+		)
+		if rows:
+			return rows[0][0]
+	return None
+
+
+def make_account(values, status=None):
+	"""New account from a deal (or the migration). values: account_name, owner, customer, lead, contact fields."""
+	s = get_settings()
+	doc = frappe.new_doc(ACCOUNT)
+	doc.account_name = (values.get("account_name") or "").strip() or values.get("customer") or _("New account")
+	doc.lead_status = status or s.first_status
+	doc.account_owner = values.get("account_owner")
+	for f in ("customer", "lead", "contact_name", "phone", "email", "location_address", "license_number", "lead_source", "next_step_due"):
+		if values.get(f):
+			doc.set(f, values[f])
+	doc.flags.ignore_permissions = True
+	doc.insert()
+	return doc
 
 
 # ---------- notifications ----------
@@ -597,8 +785,40 @@ def send_daily_digest():
 # ---------- settings side effects ----------
 
 
+def _set_options(doctype, field, options):
+	"""Property setter for a Select field's options; True when it changed."""
+	if not frappe.db.exists("DocType", doctype):
+		return False
+	df = frappe.get_meta(doctype).get_field(field)
+	if not df or df.fieldtype != "Select" or (df.options or "") == options:
+		return False
+	frappe.make_property_setter(
+		{"doctype": doctype, "fieldname": field, "property": "options", "value": options, "property_type": "Text"},
+		validate_fields_for_doctype=False,
+	)
+	frappe.clear_cache(doctype=doctype)
+	return True
+
+
+def sync_account_options(s):
+	"""Lead statuses, lead sources and product lines into the account and volume Select fields."""
+	_set_options(ACCOUNT, "lead_status", "\n".join(x.name for x in s.lead_statuses))
+	_set_options(ACCOUNT, "lead_source", "\n" + "\n".join(s.lists.lead_source))
+	_set_options(VOLUME, "product_line", "\n".join(s.product_line_names))
+	_set_options(VOLUME, "tier", "\n" + "\n".join(s.lists.tier))
+	if s.first_status and frappe.db.exists("DocType", ACCOUNT):
+		df = frappe.get_meta(ACCOUNT).get_field("lead_status")
+		if df and df.default != s.first_status:
+			frappe.make_property_setter(
+				{"doctype": ACCOUNT, "fieldname": "lead_status", "property": "default", "value": s.first_status, "property_type": "Text"},
+				validate_fields_for_doctype=False,
+			)
+			frappe.clear_cache(doctype=ACCOUNT)
+
+
 def sync_deal_options(s):
 	"""Push Settings lists into the deal's Select options (stage, product line and the fixed lists)."""
+	sync_account_options(s)
 	meta = frappe.get_meta(DEAL)
 	wanted = {
 		"stage": "\n".join(x.name for x in s.stages),
