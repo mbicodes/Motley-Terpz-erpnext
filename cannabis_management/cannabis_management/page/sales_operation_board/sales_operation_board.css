@@ -693,8 +693,21 @@ textarea.sob-ed-input { height: auto; padding: 6px 10px; resize: vertical; }
 /* ---------- Leads board: one card per account ---------- */
 .sob-card-nums b small { font-size: 12px; font-weight: 600; color: var(--sob-muted); letter-spacing: 0; margin-left: 1px; }
 .sob-novol { color: var(--sob-muted); font-style: normal; padding-top: 2px; }
-.sob-card-deals { display: inline-flex; align-items: center; gap: 4px; color: var(--sob-ink2); }
-.sob-card-deals svg { color: var(--sob-muted); }
+.sob-card-deals { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding-top: 2px; }
+.sob-dc { display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 10px; border-radius: 12px; font-size: 12px; font-weight: 500; line-height: 1; white-space: nowrap; background: var(--sob-fill); color: var(--sob-ink2); }
+.sob-dc b { font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.sob-dc.open { padding-left: 8px; background: var(--sob-accent-soft); color: var(--sob-accent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sob-accent) 24%, transparent); }
+.sob-dc.open svg { flex: none; color: currentColor; }
+.sob-dc.won { background: var(--sob-good-bg); color: var(--sob-good-fg); }
+.sob-dc.lost { background: var(--sob-bad-bg); color: var(--sob-bad-fg); }
+
+/* Deal drawer: Timeline section above the requirements */
+.sob-tl-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.sob-tl-stage { --sob-stage: var(--sob-accent); display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px; border-radius: 12px; font-size: 12px; font-weight: 500; white-space: nowrap; color: var(--sob-ink2); background: var(--sob-surface); box-shadow: inset 0 0 0 1px var(--sob-line); }
+.sob-tl-age { font-weight: 600; color: var(--sob-ink); font-variant-numeric: tabular-nums; }
+.sob-tl-age small { margin-left: 3px; font-size: 11px; font-weight: 500; color: var(--sob-muted); }
+.sob-tl-age.late, .sob-tl-age.late small { color: var(--sob-bad-fg); }
+.sob-timeline .sob-fields { padding-top: 0; padding-bottom: 0; }
 
 /* Lost deals: quiet cards at the foot of Active Opportunity, under a red rule */
 .sob-lost-sep { display: flex; flex-direction: column; gap: 0; margin: 8px 4px 0; padding-top: 8px; border-top: 1.5px solid color-mix(in srgb, #ff3b30 45%, transparent); }

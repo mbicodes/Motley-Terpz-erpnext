@@ -9,6 +9,7 @@ frappe.ui.form.on('Sales Pipeline Deal', {
 			.then(s => { frm.spb_settings = s; frm.trigger('apply_stage_rules'); });
 	},
 	refresh(frm) {
+		frm.spb_saved_stage = frm.is_new() ? null : frm.doc.stage;
 		frm.trigger('apply_stage_rules');
 		frm.add_custom_button(__('Open in Board'), () => frappe.set_route('sales-operation-board', { deal: frm.is_new() ? undefined : frm.doc.name }));
 		if (!frm.is_new() && frappe.model.can_create('Quotation')) {
@@ -30,7 +31,8 @@ frappe.ui.form.on('Sales Pipeline Deal', {
 		if (!s) return;
 		const st = (s.stages || []).find(x => x.name === frm.doc.stage) || {};
 		const lost = !!(st.is_closed && !st.is_won);
-		frm.toggle_reqd('next_step_due', !!st.name && !st.is_closed && st.name !== s.first_stage);
+		const moved = frm.is_new() || frm.doc.stage !== frm.spb_saved_stage;
+		frm.toggle_reqd('next_step_due', moved && !!st.name && !st.is_closed && st.name !== s.first_stage);
 		frm.toggle_reqd('customer', !!(st.is_closed && st.is_won));
 		frm.toggle_display('lost_reason', lost || !!frm.doc.lost_reason);
 		frm.toggle_reqd('lost_reason', lost);

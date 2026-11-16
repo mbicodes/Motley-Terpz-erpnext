@@ -1048,9 +1048,9 @@
 			const st = this.status(a.lead_status) || {};
 			const flags = this.badges(a);
 			const deals = [];
-			if (a.open_deals) deals.push(__('{0} open {1}', [a.open_deals, a.open_deals === 1 ? __('deal') : __('deals')]));
-			if (a.won_deals) deals.push(__('{0} won', [a.won_deals]));
-			if (a.lost_deals) deals.push(__('{0} lost', [a.lost_deals]));
+			if (a.open_deals) deals.push(`<span class="sob-dc open" data-tip="${esc(__('Deals still in progress with {0}', [a.account]))}">${svg(ICON.deal, 14)}<b>${a.open_deals}</b>${esc(a.open_deals === 1 ? __('open deal') : __('open deals'))}</span>`);
+			if (a.won_deals) deals.push(`<span class="sob-dc won"><b>${a.won_deals}</b>${esc(__('won'))}</span>`);
+			if (a.lost_deals) deals.push(`<span class="sob-dc lost"><b>${a.lost_deals}</b>${esc(__('lost'))}</span>`);
 			let body;
 			if (money) {
 				// what they buy (volume rows), else what the open deals are for
@@ -1081,7 +1081,7 @@
 					</div>
 					${opts.stage_chip ? this.stage_chip(a.lead_status, true) : ''}
 					${body}
-					${deals.length ? `<div class="sob-card-meta sob-card-deals">${svg(ICON.deal, 14)}<span>${esc(deals.join(' · '))}</span></div>` : ''}
+					${deals.length ? `<div class="sob-card-deals">${deals.join('')}</div>` : ''}
 					${this.next_date_line(a)}
 					${flags ? `<div class="sob-badges">${flags}</div>` : ''}
 					${this.acc_acts(a)}
@@ -2034,6 +2034,22 @@
 			this.seg_sync(this.$drawer.find('.sob-d-tabs').get(0));
 		}
 
+		// When the deal should happen: the buyer's target, the four dates and how long it has sat in its stage
+		timeline_block(d, dates, st) {
+			const days = +d.days_in_stage || 0;
+			const limit = +st.max_days || 0;
+			const late = !d.is_closed && limit && days > limit;
+			const age = `<span class="sob-tl-age${late ? ' late' : ''}">${esc(days === 1 ? __('1 day') : __('{0} days', [days]))}${limit ? `<small>${esc(__('of {0}', [limit]))}</small>` : ''}</span>`;
+			return `<section class="sob-block sob-timeline" aria-label="${esc(__('Timeline'))}">
+				<div class="sob-tl-head">
+					<div class="sob-cap">${__('Timeline')}</div>
+					<span class="sob-tl-stage" style="--sob-stage:${esc(st.colour || 'var(--sob-accent)')}" data-tip="${esc(late ? __('Over the {0}-day limit for {1}', [limit, d.stage]) : __('Days in {0}', [d.stage]))}"><span class="sob-stage-dot"></span>${esc(__('In {0}', [__(d.stage)]))} ${age}</span>
+				</div>
+				<div class="sob-fields">${this.ed(d, 'timeline', __('Buyer target'))}</div>
+				<div class="sob-dates">${dates}</div>
+			</section>`;
+		}
+
 		deal_tabs(d) {
 			const feed = this.feed && this.feed.name === d.name ? this.feed : null;
 			const n_notes = feed && feed.notes ? feed.notes.length : 0;
@@ -2075,6 +2091,7 @@
 					${this.history_block(d)}
 					${can ? `<div class="sob-block"><div class="sob-cap">${__('Stage')}</div><div class="sob-moves">${this.stages_of('deal').map(x => `<button type="button" class="sob-move${x.name === d.stage ? ' on' : ''}" data-move="${esc(x.name)}" aria-pressed="${x.name === d.stage}"${x.colour ? ` style="--sob-stage:${esc(x.colour)}"` : ''}>${esc(__(x.name))}</button>`).join('')}</div></div>` : ''}
 					${this.value_tiles(d)}
+					${this.timeline_block(d, dates, st)}
 					${this.req_editor(d)}
 					<div class="sob-two">
 						<label class="sob-cap">${__('Owner')}
@@ -2083,11 +2100,8 @@
 							<select data-panel-field="priority"${can ? '' : ' disabled'}>${(this.s.lists.priority || []).map(p => `<option${p === d.priority ? ' selected' : ''}>${esc(p)}</option>`).join('')}</select></label>
 					</div>
 					${this.co_owner_block(d)}
-					<div class="sob-dates">${dates}</div>
 					<div class="sob-fields">
 						${field(__('Stock available'), stock)}
-						${field(__('In stage'), d.days_in_stage + ' ' + __('days') + (st.max_days ? ' ' + __('(limit {0})', [st.max_days]) : ''))}
-						${field(__('Timeline'), d.timeline)}
 						${field(__('Status detail'), d.status_detail)}
 						${d.is_lost ? '' : field(__('Lost reason'), d.lost_reason)}
 					</div>`;
@@ -2451,7 +2465,7 @@
 						options: choices.map(o => ({ value: o.user, label: o.name })),
 						default: choices.some(o => o.user === this.data.user) ? this.data.user : (choices[0] || {}).user });
 				}
-				if (need.includes('next_step_due')) fields.push({ fieldname: 'next_step_due', fieldtype: 'Date', label: __('Next Follow-up'), reqd: 1, default: frappe.datetime.add_days(this.data.today, 2) });
+				if (need.includes('next_step_due')) fields.push({ fieldname: 'next_step_due', fieldtype: 'Date', label: __('Next Follow-up'), reqd: 1, description: __('Pick the date you will follow up. It shows on the calendar.') });
 				if (need.includes('lost_reason')) fields.push({ fieldname: 'lost_reason', fieldtype: 'Small Text', label: __('Lost Reason'), reqd: 1 });
 			}
 			const dlg = new frappe.ui.Dialog({
@@ -2529,7 +2543,7 @@
 					options: choices.map(o => ({ value: o.user, label: o.name })),
 					default: choices.some(o => o.user === this.data.user) ? this.data.user : (choices[0] || {}).user });
 			}
-			if (need.includes('next_step_due')) fields.push({ fieldname: 'next_step_due', fieldtype: 'Date', label: __('Next Follow-up'), reqd: 1, default: frappe.datetime.add_days(this.data.today, 2) });
+			if (need.includes('next_step_due')) fields.push({ fieldname: 'next_step_due', fieldtype: 'Date', label: __('Next Follow-up'), reqd: 1, description: __('Pick the date you will follow up. It shows on the calendar.') });
 			if (need.includes('lost_reason')) fields.push({ fieldname: 'lost_reason', fieldtype: 'Small Text', label: __('Lost Reason'), reqd: 1 });
 			if (need.includes('customer')) fields.push({ fieldname: 'customer', fieldtype: 'Link', options: 'Customer', label: __('Customer'), reqd: 1 });
 			const dlg = new frappe.ui.Dialog({

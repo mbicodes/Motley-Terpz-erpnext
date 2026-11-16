@@ -42,6 +42,7 @@ class SalesPipelineSettings(Document):
 
 	def on_update(self):
 		self._carry_renamed_stages()
+		frappe.clear_document_cache(self.doctype, self.name)
 		sales_ops.clear_settings_memo()
 		s = sales_ops.get_settings()
 		sales_ops.sync_deal_options(s)

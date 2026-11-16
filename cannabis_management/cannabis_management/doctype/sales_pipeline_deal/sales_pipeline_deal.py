@@ -172,7 +172,9 @@ class SalesPipelineDeal(Document):
 	def _check_required(self, s, st):
 		if not self.deal_owner:
 			frappe.throw(_("Please choose an Owner for this deal."))
-		if sales_ops.needs_followup(s, st) and not self.next_step_due:
+		before = self._before()
+		moved = not before or before.stage != self.stage
+		if moved and sales_ops.needs_followup(s, st) and not self.next_step_due:
 			frappe.throw(_("Please set a Next Follow-up date. It is required for deals in {0}.").format(st.name))
 		if st.is_closed and not st.is_won and not (self.lost_reason or "").strip():
 			frappe.throw(_("Please enter a Lost Reason before moving this deal to {0}.").format(st.name))
