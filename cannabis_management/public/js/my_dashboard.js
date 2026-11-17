@@ -37,22 +37,6 @@
 
 	const WIDGETS_METHOD = 'cannabis_management.api.my_dashboard.get_widgets';
 
-	const TONES = {
-		violet: '#7c3aed',
-		amber: '#f59e0b',
-		sky: '#0ea5e9',
-		emerald: '#10b981',
-		rose: '#f43f5e',
-	};
-
-	const KPI_ICONS = {
-		sales_mtd: '<path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/>',
-		receivables: '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="M6 15h4"/>',
-		open_orders: '<path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/>',
-		quotations: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 15l2 2 4-4"/>',
-		tasks: '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
-	};
-
 	const CSS = `
 		.md { --md-brand: #6d28d9; font-family: inherit; color: var(--th-text, #1f272e); padding: 2px 2px 28px; }
 		.md *, .md *::before, .md *::after { box-sizing: border-box; }
@@ -82,45 +66,32 @@
 		.md-hbtn.is-busy svg { animation: md-spin .8s linear infinite; }
 		@keyframes md-spin { to { transform: rotate(360deg); } }
 
-		/* KPI cards */
-		.md-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; margin-top: 18px; }
-		.md-kpi { position: relative; overflow: hidden; display: block; padding: 18px 18px 16px; border-radius: 16px;
-			background: var(--th-card, #fff); border: 1px solid var(--th-border, #e5e7eb);
-			transition: transform .18s, box-shadow .18s, border-color .18s; }
-		.md-kpi::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 3px; background: var(--tone); }
-		.md-kpi::after { content: ""; position: absolute; right: -40px; top: -40px; width: 120px; height: 120px; border-radius: 50%;
-			background: radial-gradient(circle, color-mix(in srgb, var(--tone) 18%, transparent), transparent 70%); pointer-events: none; }
-		.md-kpi:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--tone) 45%, var(--th-border, #e5e7eb));
-			box-shadow: 0 10px 24px -14px color-mix(in srgb, var(--tone) 70%, transparent); }
-		.md-kpi-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-		.md-kpi-label { font-size: 13px; font-weight: 600; color: var(--th-muted, #6b7280); }
-		.md-kpi-icon { flex: none; width: 36px; height: 36px; border-radius: 11px; display: grid; place-items: center; color: var(--tone);
-			background: color-mix(in srgb, var(--tone) 14%, var(--th-card, #fff)); }
-		.md-kpi-icon svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-		.md-kpi-value { margin-top: 10px; font-size: 28px; font-weight: 750; line-height: 1.1; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
-		.md-kpi-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; font-size: 12px; color: var(--th-muted, #6b7280); }
-		.md-delta { display: inline-flex; align-items: center; gap: 2px; padding: 1px 7px; border-radius: 999px; font-weight: 700; font-size: 11.5px; }
-		.md-delta.up { color: #047857; background: color-mix(in srgb, #10b981 16%, var(--th-card, #fff)); }
-		.md-delta.down { color: #b91c1c; background: color-mix(in srgb, #ef4444 14%, var(--th-card, #fff)); }
-		.md-kpi.is-alert .md-kpi-foot { color: #b45309; }
+		/* clock */
+		.md-clock { position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: center;
+			min-height: 260px; padding: 28px; }
+		.md-clock::after { content: ""; position: absolute; right: -90px; top: -90px; width: 260px; height: 260px; border-radius: 50%;
+			background: radial-gradient(circle, color-mix(in srgb, var(--md-brand) 16%, transparent), transparent 70%); pointer-events: none; }
+		.md-clock-label { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--th-muted, #6b7280); }
+		.md-clock-time { display: flex; align-items: baseline; gap: 10px; margin-top: 10px; font-variant-numeric: tabular-nums; }
+		.md-clock-hm { font-size: clamp(48px, 7vw, 84px); font-weight: 750; line-height: 1; letter-spacing: -.03em;
+			background: linear-gradient(120deg, #4c1d95, #7c3aed 55%, #c026d3); -webkit-background-clip: text; background-clip: text; color: transparent; }
+		.md-clock-s { font-size: clamp(20px, 2.4vw, 28px); font-weight: 700; color: var(--th-muted, #6b7280); min-width: 2ch; }
+		.md-clock-ap { font-size: clamp(16px, 1.8vw, 20px); font-weight: 700; color: var(--md-brand); }
+		.md-clock-date { margin-top: 12px; font-size: 16px; font-weight: 600; }
+		.md-clock-zone { margin-top: 4px; font-size: 12.5px; color: var(--th-muted, #6b7280); }
+		.md-clock-bar { position: relative; height: 6px; margin-top: 22px; border-radius: 999px; background: var(--th-subtle, #f3f3f3); overflow: hidden; }
+		.md-clock-bar i { position: absolute; inset: 0 auto 0 0; border-radius: inherit;
+			background: linear-gradient(90deg, #7c3aed, #c026d3); transition: width .6s; }
+		.md-clock-foot { display: flex; justify-content: space-between; margin-top: 6px; font-size: 11.5px; color: var(--th-muted, #6b7280); }
 
 		/* panels */
-		.md-panels { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 14px; margin-top: 14px; }
-		.md-panels.no-chart { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+		.md-panels { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 14px; margin-top: 18px; }
 		.md-side { display: grid; gap: 14px; align-content: start; }
 		.md-panel { padding: 18px; }
 		.md-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
 		.md-panel-title { font-size: 15px; font-weight: 700; margin: 0; }
 		.md-link { font-size: 12px; font-weight: 600; color: var(--md-brand); }
 		.md-link:hover { text-decoration: underline; }
-		.md-chart svg { display: block; width: 100%; height: auto; overflow: visible; }
-		.md-chart .grid { stroke: var(--th-border, #e5e7eb); stroke-dasharray: 3 4; }
-		.md-chart .axis { fill: var(--th-muted, #6b7280); font-size: 12px; }
-		.md-chart .val { fill: var(--th-text, #1f272e); font-size: 12px; font-weight: 700; }
-		.md-chart .bar { transition: opacity .15s; }
-		.md-chart .bar:hover { opacity: .82; }
-		.md-chart-total { font-size: 13px; color: var(--th-muted, #6b7280); }
-		.md-chart-total b { color: var(--th-text, #1f272e); font-size: 15px; }
 
 		.md-list { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
 		.md-li { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 10px; min-width: 0; }
@@ -207,23 +178,6 @@
 		return __('Good evening');
 	}
 
-	function money(value, currency, compact) {
-		try {
-			return new Intl.NumberFormat(undefined, {
-				style: 'currency',
-				currency: currency || 'USD',
-				notation: compact ? 'compact' : 'standard',
-				maximumFractionDigits: compact ? 1 : 0,
-			}).format(value || 0);
-		} catch (e) {
-			return format_currency(value || 0, currency);
-		}
-	}
-
-	function number(value) {
-		return new Intl.NumberFormat().format(value || 0);
-	}
-
 	// ── shortcuts ─────────────────────────────────────────────────────────────
 
 	function tile(item) {
@@ -285,87 +239,51 @@
 
 	// ── widgets ───────────────────────────────────────────────────────────────
 
-	function kpi(card, currency) {
-		const tone = TONES[card.tone] || TONES.violet;
-		const value = card.format === 'currency' ? money(card.value, currency, true) : number(card.value);
-		const title = card.format === 'currency' ? money(card.value, currency, false) : '';
-		let delta = '';
-		if (card.delta != null) {
-			const up = card.delta >= 0;
-			delta = `<span class="md-delta ${up ? 'up' : 'down'}">${up ? '▲' : '▼'} ${Math.abs(card.delta)}%</span>`;
-		}
+	function clock_card() {
 		return `
-			<a class="md-kpi${card.alert ? ' is-alert' : ''}" style="--tone:${tone}" href="${esc(card.route)}" data-desk="1">
-				<div class="md-kpi-top">
-					<span class="md-kpi-label">${esc(card.label)}</span>
-					<span class="md-kpi-icon"><svg viewBox="0 0 24 24">${KPI_ICONS[card.key] || KPI_ICONS.tasks}</svg></span>
+			<div class="md-card md-clock" data-clock>
+				<div class="md-clock-label">${__('Local time')}</div>
+				<div class="md-clock-time">
+					<span class="md-clock-hm" data-hm>--:--</span>
+					<span class="md-clock-s" data-s></span>
+					<span class="md-clock-ap" data-ap></span>
 				</div>
-				<div class="md-kpi-value" title="${esc(title)}">${esc(value)}</div>
-				<div class="md-kpi-foot">${delta}<span>${esc(card.sub || '')}</span></div>
-			</a>`;
-	}
-
-	function nice_max(value) {
-		if (value <= 0) return 1;
-		const power = Math.pow(10, Math.floor(Math.log10(value)));
-		const step = [1, 2, 2.5, 5, 10].find((s) => s * power >= value / 1) || 10;
-		return step * power;
-	}
-
-	function chart(data, currency) {
-		const months = data.months || [];
-		const W = 640, H = 250, left = 52, right = 8, top = 22, bottom = 30;
-		const plotW = W - left - right, plotH = H - top - bottom;
-		const max = nice_max(Math.max.apply(null, months.map((m) => m.value).concat([0])));
-		const slot = plotW / Math.max(months.length, 1);
-		const barW = Math.min(56, slot * 0.56);
-		const total = months.reduce((sum, m) => sum + m.value, 0);
-
-		const grid = [0, 0.25, 0.5, 0.75, 1]
-			.map((f) => {
-				const y = top + plotH - f * plotH;
-				return `<line class="grid" x1="${left}" x2="${W - right}" y1="${y}" y2="${y}"/>
-					<text class="axis" x="${left - 10}" y="${y + 4}" text-anchor="end">${esc(money(max * f, currency, true))}</text>`;
-			})
-			.join('');
-
-		const bars = months
-			.map((m, i) => {
-				const h = max ? (m.value / max) * plotH : 0;
-				const x = left + slot * i + (slot - barW) / 2;
-				const y = top + plotH - h;
-				const last = i === months.length - 1;
-				return `<g>
-					<title>${esc(m.label + ' ' + m.year + ': ' + money(m.value, currency, false))}</title>
-					<rect class="bar" x="${x}" y="${y}" width="${barW}" height="${Math.max(h, 0)}" rx="8"
-						fill="url(#${last ? 'mdBarHot' : 'mdBar'})"/>
-					${m.value ? `<text class="val" x="${x + barW / 2}" y="${y - 7}" text-anchor="middle">${esc(money(m.value, currency, true))}</text>` : ''}
-					<text class="axis" x="${x + barW / 2}" y="${H - 8}" text-anchor="middle">${esc(m.label)}</text>
-				</g>`;
-			})
-			.join('');
-
-		return `
-			<div class="md-card md-panel md-chart">
-				<div class="md-panel-head">
-					<div>
-						<h4 class="md-panel-title">${esc(data.title)}</h4>
-						<div class="md-chart-total">${__('Total')} <b>${esc(money(total, currency, false))}</b></div>
-					</div>
-					<a class="md-link" data-desk="1" href="${esc(data.route)}">${__('Sales Analytics')} →</a>
-				</div>
-				<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(data.title)}">
-					<defs>
-						<linearGradient id="mdBar" x1="0" y1="0" x2="0" y2="1">
-							<stop offset="0%" stop-color="#a78bfa"/><stop offset="100%" stop-color="#c4b5fd" stop-opacity=".55"/>
-						</linearGradient>
-						<linearGradient id="mdBarHot" x1="0" y1="0" x2="0" y2="1">
-							<stop offset="0%" stop-color="#7c3aed"/><stop offset="100%" stop-color="#c026d3"/>
-						</linearGradient>
-					</defs>
-					${grid}${bars}
-				</svg>
+				<div class="md-clock-date" data-date></div>
+				<div class="md-clock-zone" data-zone></div>
+				<div class="md-clock-bar" title="${__('How much of the day has passed')}"><i data-bar></i></div>
+				<div class="md-clock-foot"><span>${__('Day progress')}</span><span data-pct></span></div>
 			</div>`;
+	}
+
+	// One ticker per holder; it stops itself once the dashboard leaves the page.
+	function start_clock(holder) {
+		clearInterval(holder.__md_clock);
+		const zone = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+		const parts_fmt = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', second: '2-digit' });
+		const date_fmt = new Intl.DateTimeFormat(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+		function tick() {
+			const card = holder.querySelector('[data-clock]');
+			if (!card || !card.isConnected) {
+				clearInterval(holder.__md_clock);
+				return;
+			}
+			const now = new Date();
+			const parts = {};
+			parts_fmt.formatToParts(now).forEach((p) => (parts[p.type] = p.value));
+			card.querySelector('[data-hm]').textContent = `${parts.hour}:${parts.minute}`;
+			card.querySelector('[data-s]').textContent = parts.second || '';
+			card.querySelector('[data-ap]').textContent = parts.dayPeriod || '';
+			card.querySelector('[data-date]').textContent = date_fmt.format(now);
+			card.querySelector('[data-zone]').textContent = zone.replace(/_/g, ' ');
+			const secs = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+			const pct = Math.round((secs / 86400) * 100);
+			card.querySelector('[data-bar]').style.width = pct + '%';
+			card.querySelector('[data-pct]').textContent = pct + '%';
+		}
+
+		tick();
+		holder.__md_clock = setInterval(tick, 1000);
 	}
 
 	function todo_panel(todos, user) {
@@ -409,18 +327,11 @@
 	}
 
 	function widgets(w, user) {
-		const kpis = (w.kpis || []).map((card) => kpi(card, w.currency)).join('');
-		const side = todo_panel(w.todos, user) + recent_panel(w.recent);
-		const panels = w.chart
-			? `<div class="md-panels">${chart(w.chart, w.currency)}<div class="md-side">${side}</div></div>`
-			: `<div class="md-panels no-chart">${side}</div>`;
-		return `${kpis ? `<div class="md-kpis">${kpis}</div>` : ''}${panels}`;
+		return `<div class="md-panels">${clock_card()}<div class="md-side">${todo_panel(w.todos, user)}${recent_panel(w.recent)}</div></div>`;
 	}
 
 	function widget_skeleton() {
-		const card = '<div class="md-skel" style="height:118px"></div>';
-		return `<div class="md-kpis">${card.repeat(4)}</div>
-			<div class="md-panels"><div class="md-skel" style="height:300px"></div><div class="md-skel" style="height:300px"></div></div>`;
+		return `<div class="md-panels"><div class="md-skel" style="height:280px"></div><div class="md-skel" style="height:280px"></div></div>`;
 	}
 
 	// ── page ──────────────────────────────────────────────────────────────────
@@ -455,10 +366,14 @@
 		return frappe
 			.xcall(WIDGETS_METHOD, { refresh: refresh ? 1 : 0 })
 			.then((w) => {
-				if (slot.isConnected) slot.innerHTML = widgets(w, user);
+				if (!slot.isConnected) return;
+				slot.innerHTML = widgets(w, user);
+				start_clock(holder);
 			})
 			.catch(() => {
-				if (slot.isConnected) slot.innerHTML = '';
+				if (!slot.isConnected) return;
+				slot.innerHTML = widgets({ todos: [], recent: [] }, user);
+				start_clock(holder);
 			});
 	}
 
