@@ -1,0 +1,60 @@
+{
+ "actions": [],
+ "creation": "2026-11-14 10:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "item_type",
+  "link_name",
+  "label",
+  "pinned_by_user"
+ ],
+ "fields": [
+  {
+   "fieldname": "item_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Type",
+   "options": "Workspace\nDashboard\nPage\nReport\nDocType\nURL",
+   "reqd": 1
+  },
+  {
+   "description": "Name of the workspace, dashboard, page, report or DocType. For a URL item, the link itself.",
+   "fieldname": "link_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Link To",
+   "length": 500,
+   "reqd": 1
+  },
+  {
+   "description": "Shown on the tile. Leave empty to use the target's own title.",
+   "fieldname": "label",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Label"
+  },
+  {
+   "default": "0",
+   "description": "Added by the user with the pin button, not by an administrator.",
+   "fieldname": "pinned_by_user",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Pinned by User",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-11-17 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "My Dashboard Item",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
