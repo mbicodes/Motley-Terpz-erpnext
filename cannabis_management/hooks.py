@@ -442,6 +442,9 @@ scheduler_events = {
         "cannabis_management.farm_reports.api.send_reminders",
     ],
     "cron": {
+        "5 8,16 * * *": [
+            "cannabis_management.drive_backup.upload_every_8_hours",
+        ],
         "* * * * *": [
             "cannabis_management.manufacturing_timesheet_kiosk.api.auto_end_overtime_sessions",
             "cannabis_management.manufacturing_timesheet_kiosk.api.send_upcoming_cutoff_warnings",
