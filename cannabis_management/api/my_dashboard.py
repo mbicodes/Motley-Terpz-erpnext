@@ -547,6 +547,268 @@ def copy_setup(source: str, targets):
 	return done
 
 
+# ── widgets ──────────────────────────────────────────────────────────────────
+#
+# The top of My Dashboard: KPI cards, a six-month sales chart, the user's open
+# tasks and recently visited pages. Nothing to configure: each widget appears
+# only when the user can read the DocType behind it, and every figure is read
+# through `frappe.get_list`, so the user's own permission rules apply (a sales
+# rep's totals cover only the customers they can see, for example).
+#
+# Cached per user for a few minutes: the KPIs scan invoice tables.
+
+WIDGET_TTL = 300
+OPEN_ORDER_STATUSES = ["To Deliver and Bill", "To Bill", "To Deliver"]
+
+
+def _agg(doctype: str, filters, total_field: str | None = None) -> tuple[int, float]:
+	fields = ["count(name) as n"]
+	if total_field:
+		fields.append(f"sum({total_field}) as total")
+	row = frappe.get_list(doctype, filters=filters, fields=fields, order_by="", limit_page_length=1)
+	row = row[0] if row else {}
+	return cint(row.get("n")), float(row.get("total") or 0)
+
+
+def _readable(doctype: str) -> bool:
+	try:
+		return bool(frappe.has_permission(doctype, "read"))
+	except Exception:
+		return False
+
+
+def _kpi_sales_mtd(today):
+	from frappe.utils import add_months, get_first_day
+
+	if not _readable("Sales Invoice"):
+		return None
+	start = get_first_day(today)
+	prev_start = add_months(start, -1)
+	prev_end = add_months(today, -1)  # clamps 31 Mar to 28/29 Feb, so it stays in last month
+
+	now_count, now = _agg(
+		"Sales Invoice", [["docstatus", "=", 1], ["posting_date", "between", [start, today]]], "base_grand_total"
+	)
+	before_count, before = _agg(
+		"Sales Invoice", [["docstatus", "=", 1], ["posting_date", "between", [prev_start, prev_end]]], "base_grand_total"
+	)
+	delta = None if not before else round((now - before) / abs(before) * 100, 1)
+	return {
+		"key": "sales_mtd",
+		"label": _("Sales this month"),
+		"value": now,
+		"format": "currency",
+		"sub": _("vs same days last month"),
+		"delta": delta,
+		"route": "/app/sales-invoice?docstatus=1",
+		"tone": "violet",
+	}
+
+
+def _kpi_receivables(today):
+	if not _readable("Sales Invoice"):
+		return None
+	count, total = _agg(
+		"Sales Invoice", [["docstatus", "=", 1], ["outstanding_amount", ">", 0]], "outstanding_amount"
+	)
+	overdue, _unused = _agg(
+		"Sales Invoice", [["docstatus", "=", 1], ["outstanding_amount", ">", 0], ["due_date", "<", today]]
+	)
+	return {
+		"key": "receivables",
+		"label": _("Open receivables"),
+		"value": total,
+		"format": "currency",
+		"sub": _("{0} invoices · {1} overdue").format(count, overdue),
+		"alert": overdue > 0,
+		"route": "/app/sales-invoice?docstatus=1&outstanding_amount=%5B%22%3E%22%2C0%5D",
+		"tone": "amber",
+	}
+
+
+def _kpi_open_orders(today):
+	if not _readable("Sales Order"):
+		return None
+	count, total = _agg(
+		"Sales Order", [["docstatus", "=", 1], ["status", "in", OPEN_ORDER_STATUSES]], "base_grand_total"
+	)
+	return {
+		"key": "open_orders",
+		"label": _("Open sales orders"),
+		"value": count,
+		"format": "number",
+		"sub": _("worth {0}").format(frappe.utils.fmt_money(total, 0, _currency())),
+		"route": "/app/sales-order?docstatus=1&status=%5B%22in%22%2C%5B%22To%20Deliver%20and%20Bill%22%2C%22To%20Bill%22%2C%22To%20Deliver%22%5D%5D",
+		"tone": "sky",
+	}
+
+
+def _kpi_quotations(today):
+	if not _readable("Quotation"):
+		return None
+	count, total = _agg("Quotation", [["docstatus", "=", 1], ["status", "in", ["Open", "Replied"]]], "base_grand_total")
+	return {
+		"key": "quotations",
+		"label": _("Open quotations"),
+		"value": count,
+		"format": "number",
+		"sub": _("worth {0}").format(frappe.utils.fmt_money(total, 0, _currency())),
+		"route": "/app/quotation?docstatus=1&status=Open",
+		"tone": "emerald",
+	}
+
+
+def _kpi_tasks(user, todos_total):
+	return {
+		"key": "tasks",
+		"label": _("My open tasks"),
+		"value": todos_total,
+		"format": "number",
+		"sub": _("assigned to you"),
+		"route": "/app/todo?status=Open&allocated_to=" + quoted(user),
+		"tone": "rose",
+	}
+
+
+def _sales_chart(today):
+	"""Monthly invoiced sales for the last six calendar months."""
+	from frappe.utils import add_months, get_first_day
+
+	if not _readable("Sales Invoice"):
+		return None
+	start = add_months(get_first_day(today), -5)
+	rows = frappe.get_list(
+		"Sales Invoice",
+		filters=[["docstatus", "=", 1], ["posting_date", "between", [start, today]]],
+		fields=["date_format(posting_date, '%Y-%m') as month", "sum(base_grand_total) as total"],
+		group_by="month",
+		order_by="month asc",
+		limit_page_length=0,
+	)
+	totals = {row.month: float(row.total or 0) for row in rows}
+	months = []
+	for i in range(6):
+		first = add_months(start, i)
+		key = first.strftime("%Y-%m")
+		months.append({"key": key, "label": first.strftime("%b"), "year": first.year, "value": totals.get(key, 0)})
+	return {"title": _("Sales, last 6 months"), "months": months, "route": "/app/query-report/Sales%20Analytics"}
+
+
+def _todos(user) -> tuple[list[dict], int]:
+	from frappe.utils import strip_html
+
+	filters = {"allocated_to": user, "status": "Open"}
+	total = frappe.db.count("ToDo", filters)
+	rows = frappe.get_all(
+		"ToDo",
+		filters=filters,
+		fields=["name", "description", "reference_type", "reference_name", "date", "priority"],
+		order_by="date is null, date asc, creation desc",
+		limit_page_length=6,
+	)
+	items = []
+	for row in rows:
+		if row.reference_type and row.reference_name:
+			route = "/app/{0}/{1}".format(_slug(row.reference_type), quoted(row.reference_name))
+		else:
+			route = "/app/todo/" + row.name
+		items.append(
+			{
+				"text": (strip_html(row.description or "") or row.reference_name or row.name).strip()[:120],
+				"ref": " · ".join(filter(None, [row.reference_type, row.reference_name])),
+				"date": str(row.date) if row.date else None,
+				"priority": row.priority,
+				"route": route,
+			}
+		)
+	return items, total
+
+
+def _recent(user) -> list[dict]:
+	"""Distinct pages the user opened lately, newest first, from Route History."""
+	rows = frappe.get_all(
+		"Route History",
+		filters={"user": user},
+		fields=["route", "creation"],
+		order_by="creation desc",
+		limit_page_length=80,
+	)
+	seen, items = set(), []
+	for row in rows:
+		parts = (row.route or "").split("/")
+		head = parts[0] if parts else ""
+		item = None
+		if head == "Form" and len(parts) >= 3:
+			item = (parts[2], parts[1], "/app/{0}/{1}".format(_slug(parts[1]), quoted("/".join(parts[2:]))))
+		elif head == "List" and len(parts) >= 2:
+			view = parts[2] if len(parts) > 2 else "List"
+			if view == "Report" and len(parts) > 3:
+				item = (parts[3], _("Report"), "/app/{0}/view/report/{1}".format(_slug(parts[1]), quoted(parts[3])))
+			else:
+				item = (parts[1], _("List"), "/app/" + _slug(parts[1]))
+		elif head == "query-report" and len(parts) > 1:
+			item = (parts[1], _("Report"), "/app/query-report/" + quoted(parts[1]))
+		elif head == "dashboard-view" and len(parts) > 1:
+			item = (parts[1], _("Dashboard"), "/app/dashboard-view/" + quoted(parts[1]))
+		elif head == "Workspaces" and len(parts) == 2 and parts[1] != WORKSPACE:
+			item = (parts[1], _("Workspace"), "/app/" + _slug(parts[1]))
+		elif len(parts) == 1 and head and head not in (SETUP_PAGE,):
+			entry = _catalog().get(("Page", head))
+			if entry:
+				item = (entry["label"], _("Page"), entry["route"])
+		if not item or item[2] in seen:
+			continue
+		seen.add(item[2])
+		items.append({"label": item[0], "sub": item[1], "route": item[2]})
+		if len(items) == 6:
+			break
+	return items
+
+
+def _currency() -> str:
+	return frappe.defaults.get_global_default("currency") or "USD"
+
+
+@frappe.whitelist()
+def get_widgets(refresh: int = 0):
+	"""Everything above the shortcuts on My Dashboard, for the session user."""
+	from frappe.utils import getdate
+
+	user = frappe.session.user
+	key = f"my_dashboard_widgets::{user}"
+	if not cint(refresh):
+		cached = frappe.cache.get_value(key)
+		if cached:
+			return cached
+
+	today = getdate()
+	out = {"currency": _currency(), "kpis": [], "chart": None, "todos": [], "recent": []}
+
+	def safe(fn, *args):
+		try:
+			return fn(*args)
+		except Exception:
+			frappe.log_error(frappe.get_traceback(), f"My Dashboard widget {fn.__name__}")
+			return None
+
+	for fn in (_kpi_sales_mtd, _kpi_receivables, _kpi_open_orders, _kpi_quotations):
+		kpi = safe(fn, today)
+		if kpi:
+			out["kpis"].append(kpi)
+
+	todos = safe(_todos, user)
+	if todos:
+		out["todos"], total = todos
+		out["kpis"].append(_kpi_tasks(user, total))
+
+	out["chart"] = safe(_sales_chart, today)
+	out["recent"] = safe(_recent, user) or []
+	out["generated"] = frappe.utils.now()
+
+	frappe.cache.set_value(key, out, expires_in_sec=WIDGET_TTL)
+	return out
+
+
 # ── pin button (any user, own dashboard only) ────────────────────────────────
 #
 # Every desk page carries a pin button (public/js/my_dashboard.js). Pinning adds

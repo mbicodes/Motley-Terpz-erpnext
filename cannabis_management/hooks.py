@@ -22,7 +22,7 @@ app_include_js = [
     "/assets/cannabis_management/js/data_export_presets.js?v=2",
     "/assets/cannabis_management/js/connection_tool_menu.js?v=1",
     # Renders My Dashboard and adds the pin button to every desk page.
-    "/assets/cannabis_management/js/my_dashboard.js?v=2",
+    "/assets/cannabis_management/js/my_dashboard.js?v=3",
     "/assets/cannabis_management/js/login_location.js?v=5",
     "/assets/cannabis_management/js/idle_logout.js?v=1",
     "/assets/cannabis_management/js/about_branding.js?v=2",
