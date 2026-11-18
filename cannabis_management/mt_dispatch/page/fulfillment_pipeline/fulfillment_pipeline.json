@@ -4,8 +4,8 @@
  "docstatus": 0,
  "doctype": "Page",
  "icon": "fa fa-truck",
- "idx": 0,
- "modified": "2026-11-13 09:51:03.806753",
+ "idx": 1,
+ "modified": "2026-11-17 10:21:15.285262",
  "modified_by": "Administrator",
  "module": "MT Dispatch",
  "name": "fulfillment-pipeline",
@@ -32,6 +32,9 @@
   },
   {
    "role": "Douglas - Consolidated"
+  },
+  {
+   "role": "Douglas"
   }
  ],
  "script": null,
