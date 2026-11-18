@@ -101,12 +101,20 @@
 }
 
 /* ---------- Desk title bar on this page: frosted, large title, capsule buttons ---------- */
+/* The frost sits on ::before, not on .page-head: a backdrop-filter on .page-head makes it the backdrop
+   root, and the ⋯ menu (its child) could then blur only the title bar and showed the board through. */
 #page-sales-operation-board .page-head {
-	background: rgba(255, 255, 255, .7);
-	-webkit-backdrop-filter: blur(40px) saturate(1.8); backdrop-filter: blur(40px) saturate(1.8);
+	-webkit-backdrop-filter: none !important; backdrop-filter: none !important;
 	border-bottom: 1px solid rgba(255, 255, 255, .45);
 }
-#page-sales-operation-board:has(.sob[data-tone="dark"]) .page-head { background: rgba(34, 10, 72, .66); border-bottom-color: rgba(255, 255, 255, .12); }
+#page-sales-operation-board .page-head::before {
+	content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+	background: rgba(255, 255, 255, .7);
+	-webkit-backdrop-filter: blur(40px) saturate(1.8); backdrop-filter: blur(40px) saturate(1.8);
+	-webkit-mask: none; mask: none;
+}
+#page-sales-operation-board:has(.sob[data-tone="dark"]) .page-head { border-bottom-color: rgba(255, 255, 255, .12); }
+#page-sales-operation-board:has(.sob[data-tone="dark"]) .page-head::before { background: rgba(34, 10, 72, .66); }
 #page-sales-operation-board:has(.sob[data-tone="dark"]) .page-head .title-text { color: #fff !important; }
 #page-sales-operation-board .page-head .title-text { font-family: var(--sob-font) !important; font-size: 26px; font-weight: 600 !important; letter-spacing: -.02em !important; color: var(--sob-ink) !important; }
 #page-sales-operation-board .page-head .btn {
@@ -205,7 +213,8 @@
 .lg-item[aria-current], .lg-item[aria-selected="true"] { background: color-mix(in srgb, currentColor 14%, transparent); font-weight: 600; }
 .lg :focus-visible, .lg:focus-visible { outline: 2px solid var(--lg-accent); outline-offset: 2px; }
 .lg-edge { position: fixed; inset: 0 0 auto; height: 96px; z-index: 9; pointer-events: none; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); -webkit-mask: linear-gradient(#000 35%, transparent); mask: linear-gradient(#000 35%, transparent); }
-@keyframes lg-materialize { from { transform: scale(.9); opacity: 0; filter: blur(4px); } }
+/* `scale`, not `transform`: Popper places the page menu with an inline transform */
+@keyframes lg-materialize { from { scale: .9; opacity: 0; filter: blur(4px); } }
 .lg-in { transform-origin: var(--lg-origin, top right); animation: lg-materialize .4s var(--lg-spring) both; }
 @media (prefers-reduced-transparency: reduce) {
 	.lg { --lg-fill: rgba(246, 246, 248, .94); --lg-blur: 32px; }
@@ -249,8 +258,13 @@
 .sob-tabs { overflow-x: auto; scrollbar-width: none; }
 .sob-tools { flex: 1 1 480px; min-width: 0; }
 .sob-search { flex: 1 1 160px; min-width: 120px; margin: 0; cursor: text; color: var(--lg-ink-2); }
-.sob-search:hover { background: transparent; }
-.sob-search:focus-within { background: color-mix(in srgb, currentColor 8%, transparent); }
+.sob-search { transition: background-color .16s var(--lg-ease), box-shadow .16s var(--lg-ease); }
+.sob-search:hover { background: color-mix(in srgb, currentColor 6%, transparent); }
+/* focus shows on the whole capsule as a rounded ring, like the navbar search; never a square box on the input */
+.sob-search:focus-within { background: color-mix(in srgb, currentColor 9%, transparent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--sob-accent) 55%, transparent); }
+.sob .sob-search .sob-q, .sob .sob-search .sob-q:hover, .sob .sob-search .sob-q:focus, .sob .sob-search .sob-q:focus-visible {
+	outline: none !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; background: transparent !important;
+}
 .sob-q { flex: 1; min-width: 0; height: 36px; border: 0; padding: 0; background: transparent; color: var(--lg-ink); font: inherit; font-size: 14px; outline: none; }
 .sob-q::placeholder { color: var(--lg-ink-2); }
 .sob-q::-webkit-search-cancel-button { filter: grayscale(1); }
