@@ -493,13 +493,15 @@
 	}
 
 	const PIN_CSS = `
-		.md-pin-btn { flex: none; display: inline-grid; place-items: center; width: 30px; height: 30px; margin: 0 6px 0 8px;
-			padding: 0; color: var(--th-muted, #6b7280); background: transparent; border: 1px solid transparent;
-			border-radius: 8px; cursor: pointer; transition: color .15s, background .15s, border-color .15s; }
-		.md-pin-btn svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2;
+		/* small grey pin right beside the title; brand colour once pinned (theme review #5).
+		   Uses the Liquid Glass tokens when infix_theme is active, plain fallbacks otherwise. */
+		.md-pin-btn { flex: none; display: inline-grid; place-items: center; width: 26px; height: 26px; margin: 0 0 0 4px;
+			padding: 0; color: var(--lg-fg-3, #6b7280); background: transparent; border: 0;
+			border-radius: 50%; cursor: pointer; transition: color .15s, background .15s; }
+		.md-pin-btn svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2;
 			stroke-linecap: round; stroke-linejoin: round; transform: rotate(35deg); transition: transform .15s; }
-		.md-pin-btn:hover { color: #6366f1; background: var(--th-subtle, #f3f3f3); border-color: var(--th-border, #e5e7eb); }
-		.md-pin-btn.is-pinned { color: #6366f1; }
+		.md-pin-btn:hover { color: var(--lg-fg, #1a1622); background: var(--lg-press, #f3f3f3); }
+		.md-pin-btn.is-pinned { color: var(--lg-accent, #5a1ab0); }
 		.md-pin-btn.is-pinned svg { fill: currentColor; transform: rotate(0deg); }
 		.md-pin-btn[disabled] { opacity: .5; cursor: progress; }
 	`;

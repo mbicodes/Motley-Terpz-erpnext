@@ -260,7 +260,7 @@
 			// Two layers. Content (KPIs, columns, cards, list, calendar) stays plain; the controls float above it
 			// on Liquid Glass: three capsules in a sticky bar, their menus, and the deal sheet. Menus sit beside
 			// the capsules, not inside them, because a backdrop filter inside another one cannot see the page.
-			const menu_btn = (key, label, tip) => `<button type="button" class="lg-item sob-mbtn" data-menu="${key}" aria-haspopup="true" aria-expanded="false" data-tip="${esc(tip)}">
+			const menu_btn = (key, label) => `<button type="button" class="lg-item sob-mbtn" data-menu="${key}" aria-haspopup="true" aria-expanded="false">
 				<span class="sob-mbtn-k">${label}</span><span class="sob-mbtn-v" data-menu-value="${key}"></span>${svg(ICON.down, 14)}</button>`;
 			this.$root = $(`
 				<div class="sob" data-tone="light" data-board="deal">
@@ -279,10 +279,10 @@
 								: __('Cards and totals in volume: lb for fresh frozen, g and kg for extracts'))}">${__(m[1])}</button>`).join('')}
 						</div>
 						<div class="lg lg-group sob-tools" data-lg-adapt data-lg-refract>
-							<label class="lg-item sob-search" data-tip="${esc(__('Finds names, contacts, buyers and notes'))}">${svg(ICON.search, 16)}<input type="search" class="sob-q" autocomplete="off" aria-label="${__('Search deals')}" placeholder="${__('Search deals')}"></label>
-							<span class="sob-owner-group">${menu_btn('owner', __('Owner'), __('Only the cards of the people you pick'))}</span>
-							${menu_btn('prod', __('Product line'), __('Only cards that buy or want these product lines'))}
-							${menu_btn('more', __('Filters'), __('Priority, cards that need attention, closed deals and tips'))}
+							<label class="lg-item sob-search">${svg(ICON.search, 16)}<input type="search" class="sob-q" autocomplete="off" aria-label="${__('Search deals')}" placeholder="${__('Search deals')}"></label>
+							<span class="sob-owner-group">${menu_btn('owner', __('Owner'))}</span>
+							${menu_btn('prod', __('Product line'))}
+							${menu_btn('more', __('Filters'))}
 						</div>
 						<div class="lg lg--thick sob-menu lg-in" data-menu-panel="owner" role="group" aria-label="${__('Owner')}" hidden><div class="sob-owner-pills"></div></div>
 						<div class="lg lg--thick sob-menu lg-in" data-menu-panel="prod" role="group" aria-label="${__('Product line')}" hidden><div class="sob-ms-menu"></div></div>
@@ -1124,7 +1124,7 @@
 			const html = this.stages_of('lead').map(st => {
 				const items = this.sorted_accs(list.filter(a => a.lead_status === st.name));
 				return `
-					<section class="sob-col" data-drop-stage="${esc(st.name)}" aria-label="${esc(st.name)}" style="--sob-stage:${esc(st.colour || '#A1A1AA')}">
+					<section class="sob-col" data-lg-col data-drop-stage="${esc(st.name)}" aria-label="${esc(st.name)}" style="--sob-stage:${esc(st.colour || '#A1A1AA')}">
 						<header class="sob-col-head">
 							<div class="sob-col-title"><span>${esc(__(st.name))}</span><span class="sob-col-prob" data-tip="${esc(__('Weighted figures count {0}% of the potential of accounts in {1}', [+st.probability, __(st.name)]))}">${+st.probability}%</span></div>
 							<div class="sob-col-sub">${esc(this.acc_col_sub(items))}</div>
@@ -1133,7 +1133,7 @@
 						${items.length ? '' : `<div class="sob-col-empty">${this.data.can_write_account ? __('Drop an account here') : __('No accounts')}</div>`}
 					</section>`;
 			}).join('');
-			this.keep_scroll($v, `<div class="sob-hint">${__('One card per account. Drag it to change its lead status, or open it to record volume, see its deals and start a new one.')}</div><div class="sob-scroll"><div class="sob-columns">${html}</div></div>`, '.sob-scroll');
+			this.keep_scroll($v, `<div class="sob-hint">${__('One card per account. Drag it to change its lead status, or open it to record volume, see its deals and start a new one.')}</div><div class="sob-scroll" data-lg-hscroll><div class="sob-columns">${html}</div></div>`, '.sob-scroll');
 		}
 
 		col_sub(items) {
@@ -1164,7 +1164,7 @@
 				const items = this.sorted_cards(list.filter(d => d.stage === st.name));
 				const extra = st.name === first ? gone : [];
 				return `
-					<section class="sob-col" data-drop-stage="${esc(st.name)}" aria-label="${esc(st.name)}" style="--sob-stage:${esc(st.colour || '#A1A1AA')}">
+					<section class="sob-col" data-lg-col data-drop-stage="${esc(st.name)}" aria-label="${esc(st.name)}" style="--sob-stage:${esc(st.colour || '#A1A1AA')}">
 						<header class="sob-col-head">
 							<div class="sob-col-title"><span>${esc(__(st.name))}</span><span class="sob-col-prob" data-tip="${esc(__('Chance to win from {0}. Weighted value = value × {1}%', [__(st.name), +st.probability]))}">${+st.probability}%</span></div>
 							<div class="sob-col-sub">${esc(this.col_sub(items))}</div>
@@ -1174,7 +1174,7 @@
 						${extra.length ? `<div class="sob-lost-sep" role="separator" data-tip="${esc(__('Lost deals stay here with their reason. Drag one into a stage or press Reopen to work on it again'))}"><span>${esc(__('Lost'))} · ${extra.length}</span><small>${esc(__('Drag back or reopen to work on it again'))}</small></div>${extra.map(d => this.card(d)).join('')}` : ''}
 					</section>`;
 			}).join('');
-			this.keep_scroll($v, `<div class="sob-hint">${__('Drag a card to another stage, or click it to open the deal. Lost deals stay at the bottom of {0}.', [esc(first)])}</div><div class="sob-scroll"><div class="sob-columns">${html}</div></div>`, '.sob-scroll');
+			this.keep_scroll($v, `<div class="sob-hint">${__('Drag a card to another stage, or click it to open the deal. Lost deals stay at the bottom of {0}.', [esc(first)])}</div><div class="sob-scroll" data-lg-hscroll><div class="sob-columns">${html}</div></div>`, '.sob-scroll');
 		}
 
 		// Deals by owner, or accounts by relationship manager on the Leads board
@@ -1213,7 +1213,7 @@
 			}).join('');
 			const hint = acc ? __('Drag an account to another relationship manager. They are notified.')
 				: __('Drag a card to another owner to change its owner. The new owner is notified. Shared deals also appear in each co-owner\'s column.');
-			this.keep_scroll($v, `<div class="sob-hint">${hint}</div><div class="sob-scroll"><div class="sob-columns">${html}</div></div>`, '.sob-scroll');
+			this.keep_scroll($v, `<div class="sob-hint">${hint}</div><div class="sob-scroll" data-lg-hscroll><div class="sob-columns">${html}</div></div>`, '.sob-scroll');
 		}
 
 		// ---------- projection (Leads board): the volume recorded on accounts, rolled up ----------
@@ -1377,7 +1377,7 @@
 					</div>
 				</div>
 				<div class="sob-legend">${EVENTS.map(e => `<span class="ev-${e.key}"><i class="sob-sw"></i>${esc(__(e.label))}</span>`).join('')}<span class="sob-legend-over">${__('Overdue follow-ups are listed on today')}</span></div>
-				<div class="sob-scroll"><div class="sob-cal ${s.cal_mode}">
+				<div class="sob-scroll" data-lg-hscroll><div class="sob-cal ${s.cal_mode}">
 					${WD.map(w => `<div class="sob-cal-head">${w}</div>`).join('')}
 					${cells.join('')}
 				</div></div>

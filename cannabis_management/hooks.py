@@ -625,3 +625,10 @@ fixtures = [
 
 _mt_dispatch_hooks.extend_scheduler_events(scheduler_events)
 _mt_dispatch_hooks.extend_doctype_js(doctype_js)
+
+# infix_theme: the desk breadcrumb names the sidebar group a page belongs to.
+# These pages are not linked from a workspace, so declare their home here.
+infix_route_groups = {
+    "sales-operation-board": ["Sales & CRM", "Selling"],
+    "wash-plan-board": ["Manufacturing & Lab", "Manufacturing"],
+}
