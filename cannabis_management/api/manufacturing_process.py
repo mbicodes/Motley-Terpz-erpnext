@@ -1,4 +1,5 @@
 import json
+import re
 
 import frappe
 from frappe import _
@@ -95,6 +96,10 @@ def get_dashboard(company=None):
         m["primary_qty"] = f"{first_item['qty']} {first_item['uom']}" if first_item else ""
         m["output_label"] = ", ".join(mr_output_map.get(m.name, []))
 
+    stage_statuses = _stage_statuses(mrs)
+    for m in mrs:
+        m["stage_status"] = stage_statuses.get(m.name) or _plain_status(m)
+
     active_statuses = ["Open", "Work In Progress", "Material Transferred"]
     job_cards = frappe.get_all(
         "Job Card",
@@ -153,6 +158,65 @@ def get_dashboard(company=None):
             "completed_today": completed_today,
         },
     }
+
+STAGE_NAMES = {"Hash Processing": "Bubble Hash", "Rosin Pressing": "Rosin"}
+
+
+def _plain_status(mr):
+    return "Draft" if mr.docstatus == 0 else (mr.status or "Submitted")
+
+
+def _stage_statuses(mrs):
+    """Status label per run, same rules as the card badge (_run_stage_badge in the page JS)."""
+    live = [m.name for m in mrs if m.docstatus == 1 and m.status not in ("Stopped", "Cancelled")]
+    if not live:
+        return {}
+
+    wos_by_mr = {}
+    for wo in frappe.get_all(
+        "Work Order",
+        filters={"material_request": ["in", live], "docstatus": ["!=", 2]},
+        fields=["name", "material_request", "production_item", "item_name", "status",
+                "qty", "produced_qty", "process_loss_qty"],
+        order_by="creation asc",
+    ):
+        wos_by_mr.setdefault(wo.material_request, []).append(wo)
+
+    wo_names = [wo.name for wos in wos_by_mr.values() for wo in wos]
+    if not wo_names:
+        return {}
+
+    first_op, has_rosin = {}, set()
+    for jc in frappe.get_all(
+        "Job Card",
+        filters={"work_order": ["in", wo_names], "docstatus": ["!=", 2]},
+        fields=["work_order", "operation"],
+        order_by="creation asc",
+    ):
+        first_op.setdefault(jc.work_order, jc.operation)
+        if jc.operation == "Rosin Pressing":
+            has_rosin.add(jc.work_order)
+
+    tiered = set(frappe.get_all(
+        "Conversion Entry",
+        filters={"custom_work_order": ["in", wo_names], "docstatus": 1},
+        pluck="custom_work_order",
+    ))
+
+    out = {}
+    for mr_name, wos in wos_by_mr.items():
+        active = next((wo for wo in wos if not work_order_done(wo)), None)
+        if active:
+            op = first_op.get(active.name)
+            item = active.item_name or active.production_item or ""
+            stage = STAGE_NAMES.get(op) or re.split(r"\s*-\s*", item)[-1] or op or item
+            out[mr_name] = f"Waiting for {stage}"
+        elif any(wo.name in has_rosin and wo.name not in tiered for wo in wos):
+            out[mr_name] = "Waiting for Tiering"
+        else:
+            out[mr_name] = "Completed"
+    return out
+
 
 LBS_TO_GRAM = 453.592
 

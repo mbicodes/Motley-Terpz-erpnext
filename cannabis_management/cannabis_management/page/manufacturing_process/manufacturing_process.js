@@ -17,7 +17,7 @@ class ManufacturingRun {
 		this.timer_interval = null;
 		this.item_filter = null;
 		this.project_filter = null;
-		this.operation_filter = null;
+		this.status_filter = null;
 		this.collapsed = new Set();
 		this.toggled_by_hand = new Set();
 		this.default_employee = null;
@@ -54,13 +54,13 @@ class ManufacturingRun {
 			<div class="mc-header-actions">
 				<div class="mc-filter-wrap" id="mc-item-filter-wrap"></div>
 				<div class="mc-filter-wrap" id="mc-project-filter-wrap"></div>
-				<div class="mc-filter-wrap" id="mc-operation-filter-wrap"></div>
+				<select class="mc-wo-search" id="mc-status-filter" title="Filter by Status">${this._status_filter_options()}</select>
 				<select class="mc-wo-search" id="mc-view-select" title="View">
 					<option value="list"${this.view === "list" ? " selected" : ""}>List View</option>
 					<option value="calendar"${this.view === "calendar" ? " selected" : ""}>Calendar View</option>
 				</select>
 				<input type="date" class="mc-wo-search" id="mc-date-filter" title="Filter by Date" value="${this.date_filter ? esc(this.date_filter) : ""}">
-				<button class="mc-btn mc-btn-secondary" data-action="clear_filters" title="Clear the Item, Project, Operation and Date filters"><i class="ti ti-filter-off" aria-hidden="true"></i> Clear Filters</button>
+				<button class="mc-btn mc-btn-secondary" data-action="clear_filters" title="Clear the Item, Project, Status and Date filters"><i class="ti ti-filter-off" aria-hidden="true"></i> Clear Filters</button>
 				<button class="mc-btn mc-btn-secondary" data-action="collapse_all">Collapse All</button>
 				<button class="mc-btn mc-btn-secondary" data-action="expand_all">Expand All</button>
 				<button class="mc-btn mc-btn-dashboard" data-action="open_dashboard" title="Open the Manufacturing Dashboard"><i class="ti ti-layout-dashboard" aria-hidden="true"></i> Switch to Dashboard</button>
@@ -146,7 +146,7 @@ class ManufacturingRun {
 		setTimeout(() => $card.removeClass("mc-card-flash"), 2000);
 	}
 
-	_get_filtered_mrs() {
+	_get_filtered_mrs({ skip_status = false } = {}) {
 		const mrs = (this.picker_data && this.picker_data.material_requests) || [];
 		return mrs.filter(m => {
 			if (this.item_filter) {
@@ -155,18 +155,36 @@ class ManufacturingRun {
 				if (!matches_item) return false;
 			}
 			if (this.project_filter && m.custom_project !== this.project_filter) return false;
-			if (this.operation_filter) {
-				const matches_op = (m.finished_goods || []).some(fg => fg.operation === this.operation_filter);
-				if (!matches_op) return false;
-			}
+			if (!skip_status && this.status_filter && m.stage_status !== this.status_filter) return false;
 			if (this.date_filter && m.transaction_date !== this.date_filter) return false;
 			return true;
 		});
 	}
 
+	_status_filter_options() {
+		const counts = new Map();
+		this._get_filtered_mrs({ skip_status: true }).forEach(m => {
+			const s = m.stage_status || "";
+			if (s) counts.set(s, (counts.get(s) || 0) + 1);
+		});
+		if (this.status_filter && !counts.has(this.status_filter)) counts.set(this.status_filter, 0);
+		const rank = (s) => {
+			const ORDER = ["Draft", "Pending", "Waiting for Bubble Hash", "Waiting for Rosin"];
+			if (ORDER.includes(s)) return ORDER.indexOf(s);
+			if (s === "Waiting for Tiering") return 5;
+			if (s.startsWith("Waiting for ")) return 4;
+			if (s === "Completed") return 7;
+			return 6;
+		};
+		const opts = [...counts.keys()].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
+		return `<option value="">All Statuses</option>` + opts.map(s =>
+			`<option value="${esc(s)}"${s === this.status_filter ? " selected" : ""}>${esc(s)} (${counts.get(s)})</option>`).join("");
+	}
+
 	_apply_filters() {
 		const filtered = this._get_filtered_mrs();
 		this.$app.find("#mc-active-runs-heading").text(`Active Runs - ${filtered.length}`);
+		this.$app.find("#mc-status-filter").html(this._status_filter_options());
 		this.$app.find(".mc-run-groups").html(this._render_run_card_shells(filtered));
 		this._observe_card_heights();
 		this._load_all_run_details(filtered);
@@ -210,7 +228,9 @@ class ManufacturingRun {
 	}
 
 	_render_run_card_shell(m) {
-		const { status_class, status_label } = this._run_status_badge(m.docstatus, m.status);
+		const { status_class, status_label } = m.stage_status
+			? { status_class: this._stage_status_class(m.stage_status), status_label: m.stage_status }
+			: this._run_status_badge(m.docstatus, m.status);
 		const collapsed = this.collapsed.has(m.name);
 		return `
 		<div class="mc-run-card${collapsed ? " is-collapsed" : ""}" data-mr="${esc(m.name)}">
@@ -245,6 +265,12 @@ class ManufacturingRun {
 		if (active_wo) return { status_class: "in-progress", status_label: `Waiting for ${this._stage_name(active_wo)}` };
 		if (tiering_pending) return { status_class: "tiering-required", status_label: "Waiting for Tiering" };
 		return { status_class: "completed", status_label: "Completed" };
+	}
+
+	_stage_status_class(label) {
+		if (label === "Waiting for Tiering") return "tiering-required";
+		if (label.startsWith("Waiting for ")) return "in-progress";
+		return label.toLowerCase().replace(/\s+/g, "-");
 	}
 
 	_stage_name(wo) {
@@ -475,6 +501,11 @@ class ManufacturingRun {
 		const tiering_pending = run.work_orders.some(wo =>
 			(wo.job_cards || []).some(jc => jc.operation === "Rosin Pressing") && !wo.tiering_entry);
 		const badge = this._run_stage_badge(run, tiering_pending);
+		const picker_mr = ((this.picker_data && this.picker_data.material_requests) || []).find(m => m.name === mr_name);
+		if (picker_mr && picker_mr.stage_status !== badge.status_label) {
+			picker_mr.stage_status = badge.status_label;
+			this.$app.find("#mc-status-filter").html(this._status_filter_options());
+		}
 		$card.find('[data-role="run-status"]')
 			.attr("class", `mc-status mc-status-${badge.status_class}`)
 			.text(badge.status_label);
@@ -503,8 +534,8 @@ class ManufacturingRun {
 	}
 
 	_clear_filters() {
-		this.item_filter = this.project_filter = this.operation_filter = this.date_filter = null;
-		[this.item_filter_control, this.project_filter_control, this.operation_filter_control]
+		this.item_filter = this.project_filter = this.status_filter = this.date_filter = null;
+		[this.item_filter_control, this.project_filter_control]
 			.forEach(c => c && c.set_value(""));
 		this.$app.find("#mc-date-filter").val("");
 		this._apply_filters();
@@ -541,7 +572,10 @@ class ManufacturingRun {
 			self._set_card_collapsed($card, collapse);
 		});
 
-		this.operation_filter_control = this._make_filter_control("#mc-operation-filter-wrap", "Operation", "operation_filter", "Filter by Operation");
+		$app.find("#mc-status-filter").on("change", function () {
+			self.status_filter = $(this).val() || null;
+			self._apply_filters();
+		});
 
 		$app.find("#mc-view-select").on("change", function () {
 			self.view = $(this).val() === "calendar" ? "calendar" : "list";
