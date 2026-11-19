@@ -60,7 +60,7 @@ class ManufacturingRun {
 					<option value="calendar"${this.view === "calendar" ? " selected" : ""}>Calendar View</option>
 				</select>
 				<input type="date" class="mc-wo-search" id="mc-date-filter" title="Filter by Date" value="${this.date_filter ? esc(this.date_filter) : ""}">
-				<button class="mc-btn mc-btn-secondary" data-action="clear_filters" title="Clear the Item, Project, Status and Date filters"><i class="ti ti-filter-off" aria-hidden="true"></i> Clear Filters</button>
+				<button class="mc-btn mc-btn-secondary" data-action="clear_filters" title="Clear the Item, Batch, Status and Date filters"><i class="ti ti-filter-off" aria-hidden="true"></i> Clear Filters</button>
 				<button class="mc-btn mc-btn-secondary" data-action="collapse_all">Collapse All</button>
 				<button class="mc-btn mc-btn-secondary" data-action="expand_all">Expand All</button>
 				<button class="mc-btn mc-btn-dashboard" data-action="open_dashboard" title="Open the Manufacturing Dashboard"><i class="ti ti-layout-dashboard" aria-hidden="true"></i> Switch to Dashboard</button>
@@ -551,8 +551,8 @@ class ManufacturingRun {
 		$app.find('[data-action="open_dashboard"]').click(() => frappe.set_route("manufacturing-runs"));
 		$app.find('[data-action="refresh"]').click(() => self.load_picker());
 
-		this.item_filter_control = this._make_filter_control("#mc-item-filter-wrap", "Item", "item_filter", "Filter by Item");
-		this.project_filter_control = this._make_filter_control("#mc-project-filter-wrap", "Project", "project_filter", "Filter by Project");
+		this.item_filter_control = this._make_filter_control("#mc-item-filter-wrap", "item_filter", "Filter by Item");
+		this.project_filter_control = this._make_filter_control("#mc-project-filter-wrap", "project_filter", "Filter by Batch");
 
 		$app.find('[data-action="collapse_all"]').click(() => {
 			self._get_filtered_mrs().forEach(m => { self.collapsed.add(m.name); self.toggled_by_hand.add(m.name); });
@@ -718,7 +718,7 @@ class ManufacturingRun {
 			const d = new frappe.ui.Dialog({
 				title: `End — ${operation}`,
 				fields: [
-					{ fieldtype: "Datetime", fieldname: "to_time", label: "End Time", default: frappe.datetime.now_datetime(), reqd: 1 },
+					{ fieldtype: "Datetime", fieldname: "to_time", label: "End Time", default: frappe.datetime.system_datetime(), reqd: 1 },
 				],
 				primary_action_label: "Confirm",
 				primary_action: (v) => {
@@ -848,7 +848,7 @@ class ManufacturingRun {
 						fieldname: "posting_datetime",
 						label: "Completed Date & Time",
 						reqd: 1,
-						default: frappe.datetime.now_datetime(),
+						default: frappe.datetime.system_datetime(),
 						description: "When the run actually finished. The stock entry posts at this time.",
 					},
 					{ fieldtype: "HTML", options: '<p style="color:var(--mc-gray);font-size:13px;">This finishes the operation and records the output as a Manufacture stock entry.</p>' },
@@ -1438,22 +1438,43 @@ class ManufacturingRun {
 		</div>`;
 	}
 
-	_make_filter_control(selector, doctype, key, placeholder) {
+	// Choices come from the runs already loaded, not a Link search: the Lab Washer
+	// account has no read on Project, and this way only items/batches with runs show.
+	_filter_options(key) {
+		const opts = new Map();
+		const add = (value, name) => {
+			if (!value || opts.has(value)) return;
+			const label = name || value;
+			opts.set(value, { value, label, description: label !== value ? value : "" });
+		};
+		((this.picker_data && this.picker_data.material_requests) || []).forEach(m => {
+			if (key === "project_filter") {
+				add(m.custom_project, m.project_name);
+			} else {
+				(m.items || []).forEach(i => add(i.item_code, i.item_name));
+				(m.finished_goods || []).forEach(fg => add(fg.item, fg.item_name));
+			}
+		});
+		return [...opts.values()].sort((a, b) => a.label.localeCompare(b.label));
+	}
+
+	_make_filter_control(selector, key, placeholder) {
 		const control = frappe.ui.form.make_control({
 			parent: this.$app.find(selector)[0],
-			df: { fieldtype: "Link", options: doctype, fieldname: key, placeholder },
+			df: {
+				fieldtype: "Autocomplete", fieldname: key, placeholder,
+				options: this._filter_options(key), max_items: 500,
+				change: () => {
+					const value = control.get_value() || null;
+					if (value === this[key]) return;
+					this[key] = value;
+					this._apply_filters();
+				},
+			},
 			render_input: true,
 		});
 		control.refresh();
 		if (this[key]) control.set_value(this[key]);
-		control.$input.on("change awesomplete-selectcomplete", () => {
-			setTimeout(() => {
-				const value = control.get_value() || null;
-				if (value === this[key]) return;
-				this[key] = value;
-				this._apply_filters();
-			}, 0);
-		});
 		return control;
 	}
 
@@ -1475,7 +1496,7 @@ class ManufacturingRun {
 		const d = new frappe.ui.Dialog({
 			title,
 			fields: [
-				{ fieldtype: "Datetime", fieldname: "from_time", label: "From", default: frappe.datetime.now_datetime(), reqd: 1 },
+				{ fieldtype: "Datetime", fieldname: "from_time", label: "From", default: frappe.datetime.system_datetime(), reqd: 1 },
 				{ fieldtype: "Link", fieldname: "employee", label: "Employee", options: "Employee", default: employee, reqd: 1,
 					get_query: () => ({ filters: { status: "Active" } }) },
 				{ fieldtype: "Link", fieldname: "workstation", label: "Workstation", options: "Workstation", default: workstation },
@@ -1492,7 +1513,7 @@ class ManufacturingRun {
 	_ask_time(title, label, on_confirm) {
 		const d = new frappe.ui.Dialog({
 			title,
-			fields: [{ fieldtype: "Datetime", fieldname: "when", label, default: frappe.datetime.now_datetime(), reqd: 1 }],
+			fields: [{ fieldtype: "Datetime", fieldname: "when", label, default: frappe.datetime.system_datetime(), reqd: 1 }],
 			primary_action_label: "Confirm",
 			primary_action: (v) => {
 				d.hide();
@@ -1717,7 +1738,7 @@ class ManufacturingRun {
 						fieldname: "posting_datetime",
 						label: "Completed Date & Time",
 						reqd: 1,
-						default: frappe.datetime.now_datetime(),
+						default: frappe.datetime.system_datetime(),
 						description: "When the run actually finished. The stock entry posts at this time.",
 					},
 				],
@@ -1781,7 +1802,7 @@ class ManufacturingRun {
 						fieldname: "posting_datetime",
 						label: "Transfer Date & Time",
 						reqd: 1,
-						default: frappe.datetime.now_datetime(),
+						default: frappe.datetime.system_datetime(),
 						description: "When the material actually moved. The Stock Entry posts at this time, not when this is confirmed.",
 					},
 				],

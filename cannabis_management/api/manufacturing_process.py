@@ -74,6 +74,9 @@ def get_dashboard(company=None):
         fg_item_names = dict(frappe.get_all(
             "Item", filters={"name": ["in", fg_items]}, fields=["name", "item_name"], as_list=True,
         )) if fg_items else {}
+        for rows in mr_fg_map.values():
+            for r in rows:
+                r["item_name"] = fg_item_names.get(r.item, r.item)
         for mr_name, rows in mr_fg_map.items():
             if mr_name not in mr_output_map:
                 names = list(dict.fromkeys(fg_item_names.get(r.item, r.item) for r in rows if r.item))
