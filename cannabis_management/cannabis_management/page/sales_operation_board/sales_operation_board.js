@@ -256,6 +256,7 @@
 			page.add_menu_item(__('Deal List'), () => frappe.set_route('List', DT));
 			page.add_menu_item(__('Account List'), () => frappe.set_route('List', ACC_DT));
 			page.add_menu_item(__('Sales Pipeline Settings'), () => frappe.set_route('Form', 'Sales Pipeline Settings'));
+			page.add_menu_item(__('Google Calendar'), () => this.google_calendar());
 
 			// Two layers. Content (KPIs, columns, cards, list, calendar) stays plain; the controls float above it
 			// on Liquid Glass: three capsules in a sticky bar, their menus, and the deal sheet. Menus sit beside
@@ -3417,6 +3418,39 @@
 				},
 			});
 			dlg.show();
+		}
+
+		// Deal dates on calendars (cannabis_management.sales_ops_calendar): status, connect Google, sync now.
+		google_calendar() {
+			const C = 'cannabis_management.sales_ops_calendar.';
+			frappe.xcall(C + 'google_status').then(st => {
+				if (!st.settings_ready) { frappe.msgprint(__('Google is not set up for this site yet (Google Settings).')); return; }
+				const connect = () => frappe.xcall(C + 'connect_google').then(r => { if (r && r.url) window.location.href = r.url; });
+				const erp_cal = `<a href="/app/event/view/calendar/default">${__('ERP calendar')}</a>`;
+				const lines = [];
+				if (!st.sync_on) lines.push(__('Deal dates are switched off in Sales Pipeline Settings (Calendar).'));
+				if (st.connected) {
+					lines.push(__('Connected. Your {0} deal date(s) are in the calendar "Motley Sales Pipeline" in your Google account, and in the {1}.', [st.events, erp_cal]));
+					lines.push(__('A changed date reaches Google within a minute; everything is re-checked every 10 minutes.'));
+				} else {
+					lines.push(__('Your {0} deal date(s) are in the {1}.', [st.events, erp_cal]));
+					lines.push(__('Connect Google to get them in Google Calendar too: sign in with Google and allow calendar access. A calendar named "Motley Sales Pipeline" is added to your account; your other calendars are not touched or copied.'));
+				}
+				const d = new frappe.ui.Dialog({
+					title: __('Google Calendar'),
+					fields: [{ fieldtype: 'HTML', fieldname: 'info' }],
+					primary_action_label: st.connected ? __('Sync now') : __('Connect Google Calendar'),
+					primary_action: () => {
+						d.hide();
+						if (!st.connected) return connect();
+						frappe.xcall(C + 'sync_mine').then(() => frappe.show_alert({ message: __('Syncing deal dates…'), indicator: 'green' }));
+					},
+					secondary_action_label: st.connected ? __('Reconnect') : undefined,
+					secondary_action: st.connected ? () => { d.hide(); connect(); } : undefined,
+				});
+				d.fields_dict.info.$wrapper.html(lines.map(x => `<p>${x}</p>`).join(''));
+				d.show();
+			});
 		}
 
 		email_to(d) { return (d && (d.email || d.customer_email)) || ''; }

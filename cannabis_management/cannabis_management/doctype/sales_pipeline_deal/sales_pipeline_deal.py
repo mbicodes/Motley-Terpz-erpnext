@@ -7,7 +7,7 @@ from frappe import _
 from frappe.model.document import Document
 from frappe.utils import flt, get_datetime, now_datetime
 
-from cannabis_management import sales_ops
+from cannabis_management import sales_ops, sales_ops_calendar
 
 
 class SalesPipelineDeal(Document):
@@ -245,6 +245,7 @@ class SalesPipelineDeal(Document):
 					self.account, self.stage, frappe.utils.fmt_money(self.deal_value, currency="USD")), deal=self.name)
 		self._promote_account(s, before)
 		sales_ops.publish_board_update(self.name)
+		sales_ops_calendar.queue_deal(self.name)
 
 	def _promote_account(self, s, before):
 		"""A won deal makes its account a customer (Lead, Qualified Lead, Dormant or Lost -> Active Customer)."""
@@ -265,3 +266,4 @@ class SalesPipelineDeal(Document):
 
 	def on_trash(self):
 		sales_ops.publish_board_update(self.name)
+		sales_ops_calendar.queue_deal(self.name)

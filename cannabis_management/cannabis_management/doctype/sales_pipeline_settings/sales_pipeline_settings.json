@@ -39,7 +39,15 @@
   "notify_on_reassign",
   "column_break_notify",
   "notify_managers_on_stage",
-  "unassigned_alert_days"
+  "unassigned_alert_days",
+  "calendar_section",
+  "calendar_sync",
+  "cal_followup",
+  "cal_sample",
+  "column_break_calendar",
+  "cal_expected_close",
+  "cal_delivery",
+  "calendar_watchers"
  ],
  "fields": [
   {
@@ -257,12 +265,64 @@
    "fieldname": "unassigned_alert_days",
    "fieldtype": "Int",
    "label": "Alert Managers When Unassigned Longer Than (days)"
+  },
+  {
+   "description": "Deal dates become all-day calendar entries for the deal owner and co-owners (and the people below). Anyone who connects Google (Sales Operation Board → ⋯ → Google Calendar) gets them in Google Calendar too; the ERP calendar (Event) always has them.",
+   "fieldname": "calendar_section",
+   "fieldtype": "Section Break",
+   "label": "Calendar"
+  },
+  {
+   "default": "1",
+   "fieldname": "calendar_sync",
+   "fieldtype": "Check",
+   "label": "Put Deal Dates on Calendars"
+  },
+  {
+   "default": "1",
+   "depends_on": "calendar_sync",
+   "fieldname": "cal_followup",
+   "fieldtype": "Check",
+   "label": "Next Follow-up"
+  },
+  {
+   "default": "1",
+   "depends_on": "calendar_sync",
+   "fieldname": "cal_sample",
+   "fieldtype": "Check",
+   "label": "Sample Date"
+  },
+  {
+   "fieldname": "column_break_calendar",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1",
+   "depends_on": "calendar_sync",
+   "fieldname": "cal_expected_close",
+   "fieldtype": "Check",
+   "label": "Expected Close"
+  },
+  {
+   "default": "1",
+   "depends_on": "calendar_sync",
+   "fieldname": "cal_delivery",
+   "fieldtype": "Check",
+   "label": "Delivery / Pickup"
+  },
+  {
+   "depends_on": "calendar_sync",
+   "description": "These users also get every deal's dates (all owners), e.g. to follow the whole team's meetings.",
+   "fieldname": "calendar_watchers",
+   "fieldtype": "Table MultiSelect",
+   "label": "Also Show Every Deal Date To",
+   "options": "Sales Pipeline Co Owner"
   }
  ],
  "index_web_pages_for_search": 0,
  "issingle": 1,
  "links": [],
- "modified": "2026-11-20 04:30:00.000000",
+ "modified": "2026-11-20 05:30:00.000000",
  "modified_by": "Administrator",
  "module": "Cannabis Management",
  "name": "Sales Pipeline Settings",

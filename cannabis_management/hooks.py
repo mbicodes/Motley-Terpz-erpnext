@@ -481,6 +481,9 @@ scheduler_events = {
         "0 8 * * *": [
             "cannabis_management.sales_ops.send_daily_digest",
         ],
+        "*/10 * * * *": [
+            "cannabis_management.sales_ops_calendar.sync_all",
+        ],
         "0 14 * * 5": [
         ],
         "0 * * * 5,6": [

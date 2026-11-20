@@ -7,7 +7,7 @@ from frappe import _
 from frappe.model.document import Document
 from frappe.utils import cint
 
-from cannabis_management import sales_ops
+from cannabis_management import sales_ops, sales_ops_calendar
 
 
 class SalesPipelineSettings(Document):
@@ -48,6 +48,7 @@ class SalesPipelineSettings(Document):
 		sales_ops.sync_deal_options(s)
 		sales_ops.recompute_probabilities(s)
 		sales_ops.publish_board_update()
+		sales_ops_calendar.queue_all()  # watchers / date types may have changed
 
 	def _carry_renamed_stages(self):
 		"""A stage or lead status renamed in this table keeps its deals / accounts: move them to the new name."""
