@@ -1,0 +1,24 @@
+{% extends "templates/web.html" %}
+{% block page_content %}
+{% include "motley_referral/templates/partner_nav.html" %}
+
+<h1>{{ ref.business_name }}</h1><p class="muted">{{ ref.name }} &middot; <span class="badge {{ badge.get(ref.window_status, 'grey') }}">{{ ref.window_status or ref.status }}</span></p>
+<div class="pp-cards">
+<div class="pp-card"><b>{{ ref.current_month_no or 0 }} {{ _("of") }} {{ total_months }}</b><span>{{ _("Current month") }}</span></div>
+<div class="pp-card"><b>{{ rp_usd(ref.total_received) }}</b><span>{{ _("Collected to date") }}</span></div>
+<div class="pp-card"><b>{{ rp_usd(ref.total_commission) }}</b><span>{{ _("Earned to date") }}</span></div>
+<div class="pp-card"><b>{{ open_invoices }}</b><span>{{ _("Open invoices") }}</span></div></div>
+<div class="pp-card"><h5>{{ _("24-month window") }}</h5><div class="strip">{% for c in strip %}<i class="{{ c.cls }}" title="{{ _('Month') }} {{ c.n }}"></i>{% endfor %}</div>
+<p class="muted" style="margin-top:6px">{{ _("Started") }} {{ frappe.utils.formatdate(ref.commission_start_date) if ref.commission_start_date else _("when the first payment arrives") }}{% if ref.year2_end %} &middot; {{ _("Window ends") }} {{ frappe.utils.formatdate(ref.year2_end) }}{% endif %}</p></div>
+<div class="pp-card"><h5>{{ _("Payments") }}</h5><div class="scroll"><table><thead><tr><th>{{ _("Date") }}</th><th>{{ _("Invoice") }}</th><th class="r">{{ _("Amount received") }}</th><th class="r">{{ _("Rate") }}</th><th class="r">{{ _("Commission") }}</th></tr></thead><tbody>
+{% for l in lines %}<tr class="{{ 'rev' if l.is_reversal else '' }}"><td>{{ frappe.utils.formatdate(l.posting_date) }}{% if l.is_reversal %} ({{ _("reversal") }}){% endif %}</td><td>{{ l.sales_invoice or '' }}</td>
+<td class="r">{{ rp_usd(l.amount_received) }}</td><td class="r">{{ '%g' % l.rate }}%</td><td class="r">{{ rp_usd(l.commission_amount) }}</td></tr>
+{% else %}<tr><td colspan="5" class="muted">{{ _("No payments yet.") }}</td></tr>{% endfor %}</tbody></table></div></div>
+{% if not readonly %}<div class="pp-card"><h5>{{ _("Ask a question about this account") }}</h5>
+<textarea id="q" class="form-control" rows="3"></textarea><button class="btn btn-primary btn-sm" style="margin-top:8px" id="ask">{{ _("Send question") }}</button><span id="qmsg" class="muted" style="margin-left:10px"></span></div>
+<script>document.getElementById("ask").onclick=function(){var m=document.getElementById("q").value.trim();if(!m)return;
+fetch("/api/method/motley_referral.api.portal.ask_question",{method:"POST",headers:{"Content-Type":"application/json","X-Frappe-CSRF-Token":frappe.csrf_token},body:JSON.stringify({referral:"{{ ref.name }}",message:m})})
+.then(function(r){document.getElementById("qmsg").textContent=r.ok?"{{ _('Thank you. We will reply by email.') }}":"{{ _('Something went wrong. Please try again.') }}";if(r.ok)document.getElementById("q").value="";});};</script>{% endif %}
+
+</div>
+{% endblock %}

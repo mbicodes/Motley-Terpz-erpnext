@@ -1,0 +1,17 @@
+{% extends "templates/web.html" %}
+{% block page_content %}
+{% include "motley_referral/templates/partner_nav.html" %}
+
+<h1>{{ _("Accounts") }}</h1><p class="muted">{{ _("Each referral you submitted, with its commission window.") }}</p>
+<div class="pp-card"><div class="scroll"><table><thead><tr><th>{{ _("Referral") }}</th><th>{{ _("Status") }}</th><th>{{ _("First payment") }}</th><th>{{ _("Month") }}</th><th class="r">{{ _("Rate") }}</th><th class="r">{{ _("Collected this month") }}</th><th class="r">{{ _("Earned this month") }}</th><th></th></tr></thead><tbody>
+{% for r in rows %}<tr><td>{{ r.business_name }}<br><small class="muted">{{ r.name }}</small></td>
+<td><span class="badge {{ badge.get(r.status, 'grey') }}">{{ r.status }}</span></td>
+<td>{{ frappe.utils.formatdate(r.commission_start_date) if r.commission_start_date else "-" }}</td>
+<td>{% if r.commission_start_date %}{{ r.current_month_no }} {{ _("of") }} {{ total_months }}{% else %}-{% endif %}</td>
+<td class="r">{{ ('%g' % r.rate) ~ '%' if r.rate is not none else '-' }}</td>
+<td class="r">{{ rp_usd(r.collected) }}</td><td class="r">{{ rp_usd(r.earned) }}</td>
+<td class="r">{% if r.status == 'Acknowledged' %}<a href="/partner/accounts/{{ r.name }}">{{ _("Open") }}</a>{% endif %}</td></tr>
+{% else %}<tr><td colspan="8" class="muted">{{ _("No referrals yet.") }}</td></tr>{% endfor %}</tbody></table></div></div>
+
+</div>
+{% endblock %}

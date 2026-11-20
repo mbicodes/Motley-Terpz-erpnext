@@ -1,0 +1,74 @@
+{
+ "doctype": "DocType",
+ "name": "Referral Commission Statement Line",
+ "module": "Referral Program",
+ "creation": "2026-11-20 00:00:00",
+ "modified": "2026-11-20 00:00:00",
+ "owner": "Administrator",
+ "modified_by": "Administrator",
+ "docstatus": 0,
+ "engine": "InnoDB",
+ "field_order": [
+  "customer",
+  "partner_referral",
+  "month_no_range",
+  "rate",
+  "payments_count",
+  "amount_received",
+  "commission_amount"
+ ],
+ "fields": [
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "label": "Customer",
+   "options": "Customer",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "partner_referral",
+   "fieldtype": "Link",
+   "label": "Partner Referral",
+   "options": "Partner Referral",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "month_no_range",
+   "fieldtype": "Data",
+   "label": "Month of 24",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "rate",
+   "fieldtype": "Percent",
+   "label": "Rate",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "payments_count",
+   "fieldtype": "Int",
+   "label": "Payments",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "amount_received",
+   "fieldtype": "Currency",
+   "label": "Amount Received",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "commission_amount",
+   "fieldtype": "Currency",
+   "label": "Commission Amount",
+   "in_list_view": 1
+  }
+ ],
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "istable": 1,
+ "editable_grid": 1
+}

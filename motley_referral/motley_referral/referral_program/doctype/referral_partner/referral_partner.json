@@ -1,0 +1,263 @@
+{
+ "doctype": "DocType",
+ "name": "Referral Partner",
+ "module": "Referral Program",
+ "creation": "2026-11-20 00:00:00",
+ "modified": "2026-11-20 00:00:00",
+ "owner": "Administrator",
+ "modified_by": "Administrator",
+ "docstatus": 0,
+ "engine": "InnoDB",
+ "field_order": [
+  "partner_name",
+  "partner_type",
+  "status",
+  "cb1",
+  "email",
+  "phone",
+  "address",
+  "sb_user",
+  "portal_user",
+  "supplier",
+  "cb2",
+  "tax_id",
+  "tax_form",
+  "sb_agr",
+  "agreement_date",
+  "termination_date",
+  "cb3",
+  "signed_agreement",
+  "compliance_confirmed",
+  "sb_rates",
+  "year1_rate",
+  "year2_rate",
+  "cb4",
+  "year1_months",
+  "year2_months",
+  "sb_pay",
+  "payout_method",
+  "payout_details",
+  "sb_notes",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "partner_name",
+   "fieldtype": "Data",
+   "label": "Partner Name",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "partner_type",
+   "fieldtype": "Select",
+   "label": "Partner Type",
+   "options": "Individual\nCompany",
+   "default": "Individual",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Draft\nActive\nTerminated",
+   "default": "Draft",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "cb1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "email",
+   "fieldtype": "Data",
+   "label": "Email",
+   "options": "Email",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "phone",
+   "fieldtype": "Data",
+   "label": "Phone"
+  },
+  {
+   "fieldname": "address",
+   "fieldtype": "Small Text",
+   "label": "Address"
+  },
+  {
+   "fieldname": "sb_user",
+   "fieldtype": "Section Break",
+   "label": "Accounting & Portal"
+  },
+  {
+   "fieldname": "portal_user",
+   "fieldtype": "Link",
+   "label": "Portal User",
+   "options": "User",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "supplier",
+   "fieldtype": "Link",
+   "label": "Supplier",
+   "options": "Supplier",
+   "no_copy": 1,
+   "description": "Created on activation if empty."
+  },
+  {
+   "fieldname": "cb2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "tax_id",
+   "fieldtype": "Data",
+   "label": "Tax ID (SSN / EIN)",
+   "description": "Required to activate. Copied to the Supplier for 1099 reporting."
+  },
+  {
+   "fieldname": "tax_form",
+   "fieldtype": "Attach",
+   "label": "Tax Form (W-9)"
+  },
+  {
+   "fieldname": "sb_agr",
+   "fieldtype": "Section Break",
+   "label": "Agreement"
+  },
+  {
+   "fieldname": "agreement_date",
+   "fieldtype": "Date",
+   "label": "Agreement Date"
+  },
+  {
+   "fieldname": "termination_date",
+   "fieldtype": "Date",
+   "label": "Termination Date",
+   "mandatory_depends_on": "eval:doc.status=='Terminated'",
+   "read_only_depends_on": "eval:doc.status!='Terminated'"
+  },
+  {
+   "fieldname": "cb3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "signed_agreement",
+   "fieldtype": "Attach",
+   "label": "Signed Agreement"
+  },
+  {
+   "fieldname": "compliance_confirmed",
+   "fieldtype": "Check",
+   "label": "Compliance Confirmed"
+  },
+  {
+   "fieldname": "sb_rates",
+   "fieldtype": "Section Break",
+   "label": "Commission Terms"
+  },
+  {
+   "fieldname": "year1_rate",
+   "fieldtype": "Percent",
+   "label": "Year 1 Rate (%)"
+  },
+  {
+   "fieldname": "year2_rate",
+   "fieldtype": "Percent",
+   "label": "Year 2 Rate (%)"
+  },
+  {
+   "fieldname": "cb4",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "year1_months",
+   "fieldtype": "Int",
+   "label": "Year 1 Months",
+   "default": "12"
+  },
+  {
+   "fieldname": "year2_months",
+   "fieldtype": "Int",
+   "label": "Year 2 Months",
+   "default": "12"
+  },
+  {
+   "fieldname": "sb_pay",
+   "fieldtype": "Section Break",
+   "label": "Payout"
+  },
+  {
+   "fieldname": "payout_method",
+   "fieldtype": "Select",
+   "label": "Payout Method",
+   "options": "\nACH\nCheck\nZelle"
+  },
+  {
+   "fieldname": "payout_details",
+   "fieldtype": "Small Text",
+   "label": "Payout Details",
+   "description": "Masked on the partner portal."
+  },
+  {
+   "fieldname": "sb_notes",
+   "fieldtype": "Section Break",
+   "label": "Internal Notes"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Text",
+   "label": "Notes",
+   "description": "Internal only. Never shown on the portal or in print."
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "create": 1,
+   "write": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "Referral Manager",
+   "read": 1,
+   "create": 1,
+   "write": 1,
+   "report": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "Accounts Manager",
+   "read": 1,
+   "write": 1,
+   "report": 1,
+   "print": 1
+  },
+  {
+   "role": "Referral Partner",
+   "read": 1,
+   "if_owner": 0
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "autoname": "RP-.####",
+ "title_field": "partner_name",
+ "search_fields": "partner_name,email,status",
+ "quick_entry": 0
+}

@@ -1,0 +1,21 @@
+{% extends "templates/web.html" %}
+{% block page_content %}
+{% include "motley_referral/templates/partner_nav.html" %}
+
+<h1>{{ _("Welcome, {0}").format(partner.partner_name) }}</h1>
+{% if readonly %}<div class="banner">{{ _("Your partner agreement has ended. This portal is read only until your last commission window ends.") }}</div>{% endif %}
+<div class="pp-cards">
+<div class="pp-card"><b>{{ rp_usd(earned_last) }}</b><span>{{ _("Earned in") }} {{ last_label }}</span></div>
+<div class="pp-card"><b>{{ frappe.utils.formatdate(next_payout) }}</b><span>{{ _("Next payout date") }}</span></div>
+<div class="pp-card"><b>{{ rp_usd(paid) }}</b><span>{{ _("Paid to date") }}</span></div>
+<div class="pp-card"><b>{{ earning }}</b><span>{{ _("Earning accounts") }}</span></div>
+</div>
+<div class="pp-card"><h5>{{ _("Commission, last 6 months") }}</h5>
+<div class="bars">{% for c in chart %}<div title="{{ '${:,.2f}'.format(c.value) }}"><i style="height:{{ c.pct }}%"></i>{{ c.label }}</div>{% endfor %}</div></div>
+<div class="pp-card"><h5>{{ _("Statements") }}</h5><div class="scroll"><table><thead><tr><th>{{ _("Period") }}</th><th class="r">{{ _("Net payable") }}</th><th>{{ _("Status") }}</th><th></th></tr></thead><tbody>
+{% for s in statements %}<tr><td>{{ s.period }}</td><td class="r">{{ rp_usd(s.net_payable) }}</td><td><span class="badge {{ badge.get('Pending' if s.status == 'Approved' else s.status, 'grey') }}">{{ 'Pending' if s.status == 'Approved' else s.status }}</span></td>
+<td class="r"><a href="/api/method/motley_referral.api.portal.download_statement?name={{ s.name }}">{{ _("Download PDF") }}</a></td></tr>
+{% else %}<tr><td colspan="4" class="muted">{{ _("No statements yet.") }}</td></tr>{% endfor %}</tbody></table></div></div>
+
+</div>
+{% endblock %}

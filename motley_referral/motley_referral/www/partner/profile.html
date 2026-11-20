@@ -1,0 +1,22 @@
+{% extends "templates/web.html" %}
+{% block page_content %}
+{% include "motley_referral/templates/partner_nav.html" %}
+
+<h1>{{ _("Profile") }}</h1>
+<div class="pp-card"><div class="row">
+<div class="col-md-6 form-group"><label>{{ _("Name") }}</label><input class="form-control" id="pname" value="{{ partner.partner_name }}"></div>
+<div class="col-md-6 form-group"><label>{{ _("Email") }}</label><input class="form-control" value="{{ partner.email }}" disabled></div>
+<div class="col-md-6 form-group"><label>{{ _("Phone") }}</label><input class="form-control" id="pphone" value="{{ partner.phone or '' }}"></div>
+<div class="col-md-6 form-group"><label>{{ _("Address") }}</label><textarea class="form-control" id="paddr" rows="2">{{ partner.address or '' }}</textarea></div></div>
+{% if partner.status == 'Active' %}<button class="btn btn-primary btn-sm" id="psave">{{ _("Update contact details") }}</button> <span id="pmsg" class="muted"></span>{% endif %}</div>
+<div class="pp-card"><h5>{{ _("Payout") }}</h5><p>{{ _("Method") }}: <b>{{ partner.payout_method or '-' }}</b> &nbsp; {{ _("Account") }}: <b>{{ masked_payout or '-' }}</b></p>
+{% if partner.status == 'Active' %}<p class="muted">{{ _("To change your payout details, send a request. Finance will verify it with you before updating.") }}</p>
+<div class="row"><div class="col-md-4 form-group"><select class="form-control" id="pm"><option>ACH</option><option>Check</option><option>Zelle</option></select></div>
+<div class="col-md-8 form-group"><input class="form-control" id="pd" placeholder="{{ _('New payout details') }}"></div></div><button class="btn btn-default btn-sm" id="prq">{{ _("Send change request") }}</button> <span id="rqmsg" class="muted"></span>{% endif %}</div>
+<div class="pp-card"><h5>{{ _("Agreement") }}</h5><p>{{ _("Agreement date") }}: <b>{{ frappe.utils.formatdate(partner.agreement_date) if partner.agreement_date else '-' }}</b> {% if agreement %}&middot; <a href="{{ agreement }}" target="_blank">{{ _("Download signed agreement") }}</a>{% endif %}</p></div>
+<script>function rpPost(m,d){return fetch("/api/method/motley_referral.api.portal."+m,{method:"POST",headers:{"Content-Type":"application/json","X-Frappe-CSRF-Token":frappe.csrf_token},body:JSON.stringify(d)})}
+var s=document.getElementById("psave");if(s)s.onclick=function(){rpPost("update_profile",{partner_name:document.getElementById("pname").value,phone:document.getElementById("pphone").value,address:document.getElementById("paddr").value}).then(function(r){document.getElementById("pmsg").textContent=r.ok?"{{ _('Saved.') }}":"{{ _('Could not save.') }}"})};
+var q=document.getElementById("prq");if(q)q.onclick=function(){var d=document.getElementById("pd").value.trim();if(!d)return;rpPost("request_payout_change",{payout_method:document.getElementById("pm").value,payout_details:d}).then(function(r){document.getElementById("rqmsg").textContent=r.ok?"{{ _('Request sent to Finance.') }}":"{{ _('Could not send the request.') }}";if(r.ok)document.getElementById("pd").value=""})};</script>
+
+</div>
+{% endblock %}

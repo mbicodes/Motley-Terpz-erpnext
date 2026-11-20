@@ -1,0 +1,256 @@
+{
+ "doctype": "DocType",
+ "name": "Referral Settings",
+ "module": "Referral Program",
+ "creation": "2026-11-20 00:00:00",
+ "modified": "2026-11-20 00:00:00",
+ "owner": "Administrator",
+ "modified_by": "Administrator",
+ "docstatus": 0,
+ "engine": "InnoDB",
+ "field_order": [
+  "sb1",
+  "eligible_companies",
+  "sb2",
+  "year1_rate",
+  "year2_rate",
+  "cb1",
+  "year1_months",
+  "year2_months",
+  "sb3",
+  "supplier_group",
+  "minimum_payout",
+  "cb2",
+  "run_day",
+  "run_time",
+  "sb4",
+  "referral_expiry_days",
+  "acknowledger_roles",
+  "sb5",
+  "slack_webhook_url",
+  "tpl_submitted_partner",
+  "tpl_submitted_team",
+  "tpl_acknowledged",
+  "tpl_rejected",
+  "cb3",
+  "tpl_first_payment",
+  "tpl_statement_approved",
+  "tpl_run_ready",
+  "tpl_statement_paid",
+  "tpl_month13",
+  "tpl_month24",
+  "tpl_overdue",
+  "tpl_expired"
+ ],
+ "fields": [
+  {
+   "fieldname": "sb1",
+   "fieldtype": "Section Break",
+   "label": "Companies"
+  },
+  {
+   "fieldname": "eligible_companies",
+   "fieldtype": "Table",
+   "label": "Eligible Companies",
+   "options": "Referral Eligible Company"
+  },
+  {
+   "fieldname": "sb2",
+   "fieldtype": "Section Break",
+   "label": "Commission Terms"
+  },
+  {
+   "fieldname": "year1_rate",
+   "fieldtype": "Percent",
+   "label": "Default Year 1 Rate (%)",
+   "default": "2"
+  },
+  {
+   "fieldname": "year2_rate",
+   "fieldtype": "Percent",
+   "label": "Default Year 2 Rate (%)",
+   "default": "1"
+  },
+  {
+   "fieldname": "cb1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "year1_months",
+   "fieldtype": "Int",
+   "label": "Default Year 1 Months",
+   "default": "12"
+  },
+  {
+   "fieldname": "year2_months",
+   "fieldtype": "Int",
+   "label": "Default Year 2 Months",
+   "default": "12"
+  },
+  {
+   "fieldname": "sb3",
+   "fieldtype": "Section Break",
+   "label": "Payouts"
+  },
+  {
+   "fieldname": "supplier_group",
+   "fieldtype": "Link",
+   "label": "Supplier Group",
+   "options": "Supplier Group",
+   "default": "Referral Partners"
+  },
+  {
+   "fieldname": "minimum_payout",
+   "fieldtype": "Currency",
+   "label": "Minimum Payout",
+   "default": "50"
+  },
+  {
+   "fieldname": "cb2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "run_day",
+   "fieldtype": "Int",
+   "label": "Statement Run Day (1-28)",
+   "default": "1"
+  },
+  {
+   "fieldname": "run_time",
+   "fieldtype": "Time",
+   "label": "Statement Run Time",
+   "default": "06:00:00"
+  },
+  {
+   "fieldname": "sb4",
+   "fieldtype": "Section Break",
+   "label": "Referrals"
+  },
+  {
+   "fieldname": "referral_expiry_days",
+   "fieldtype": "Int",
+   "label": "Referral Expiry Days",
+   "default": "90"
+  },
+  {
+   "fieldname": "acknowledger_roles",
+   "fieldtype": "Table",
+   "label": "Acknowledger Roles",
+   "options": "Referral Acknowledger Role"
+  },
+  {
+   "fieldname": "sb5",
+   "fieldtype": "Section Break",
+   "label": "Notifications"
+  },
+  {
+   "fieldname": "slack_webhook_url",
+   "fieldtype": "Data",
+   "label": "Slack Webhook URL"
+  },
+  {
+   "fieldname": "tpl_submitted_partner",
+   "fieldtype": "Link",
+   "label": "Referral Submitted (Partner)",
+   "options": "Email Template"
+  },
+  {
+   "fieldname": "tpl_submitted_team",
+   "fieldtype": "Link",
+   "label": "Referral Submitted (Team)",
+   "options": "Email Template"
+  },
+  {
+   "fieldname": "tpl_acknowledged",
+   "fieldtype": "Link",
+   "label": "Referral Acknowledged",
+   "options": "Email Template"
+  },
+  {
+   "fieldname": "tpl_rejected",
+   "fieldtype": "Link",
+   "label": "Referral Rejected",
+   "options": "Email Template"
+  },
+  {
+   "fieldname": "cb3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "tpl_first_payment",
+   "fieldtype": "Link",
+   "label": "First Qualifying Payment",
+   "options": "Email Template"
+  },
+  {
+   "fieldname": "tpl_statement_approved",
+   "fieldtype": "Link",
+   "label": "Statement Approved",
+   "options": "Email Template"
+  },
+  {
+   "fieldname": "tpl_run_ready",
+   "fieldtype": "Link",
+   "label": "Statement Run Ready (Team)",
+   "options": "Email Template"
+  },
+  {
+   "fieldname": "tpl_statement_paid",
+   "fieldtype": "Link",
+   "label": "Statement Paid",
+   "options": "Email Template"
+  },
+  {
+   "fieldname": "tpl_month13",
+   "fieldtype": "Link",
+   "label": "Month 13 Starts",
+   "options": "Email Template"
+  },
+  {
+   "fieldname": "tpl_month24",
+   "fieldtype": "Link",
+   "label": "Month 24 Ended",
+   "options": "Email Template"
+  },
+  {
+   "fieldname": "tpl_overdue",
+   "fieldtype": "Link",
+   "label": "Statement Overdue (Team)",
+   "options": "Email Template"
+  },
+  {
+   "fieldname": "tpl_expired",
+   "fieldtype": "Link",
+   "label": "Referral Expired",
+   "options": "Email Template"
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "create": 1,
+   "write": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "Referral Manager",
+   "read": 1
+  },
+  {
+   "role": "Accounts Manager",
+   "read": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "issingle": 1
+}

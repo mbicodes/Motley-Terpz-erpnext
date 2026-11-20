@@ -1,0 +1,13 @@
+{% extends "templates/web.html" %}
+{% block page_content %}
+{% include "motley_referral/templates/partner_nav.html" %}
+
+<h1>{{ _("Statements") }}</h1>
+<div class="pp-card"><div class="scroll"><table><thead><tr><th>{{ _("Period") }}</th><th>{{ _("Statement") }}</th><th class="r">{{ _("Commission") }}</th><th class="r">{{ _("Net payable") }}</th><th>{{ _("Status") }}</th><th>{{ _("Paid on") }}</th><th></th></tr></thead><tbody>
+{% for s in rows %}<tr><td>{{ s.period }}</td><td>{{ s.name }}</td><td class="r">{{ rp_usd(s.total_commission) }}</td><td class="r">{{ rp_usd(s.net_payable) }}</td>
+<td><span class="badge {{ badge.get(s.display_status, 'grey') }}">{{ s.display_status }}</span></td><td>{{ frappe.utils.formatdate(s.paid_on) if s.paid_on else '-' }}</td>
+<td class="r"><a href="/api/method/motley_referral.api.portal.download_statement?name={{ s.name }}">{{ _("Download PDF") }}</a></td></tr>
+{% else %}<tr><td colspan="7" class="muted">{{ _("No statements yet.") }}</td></tr>{% endfor %}</tbody></table></div></div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,232 @@
+{
+ "doctype": "DocType",
+ "name": "Referral Commission Ledger",
+ "module": "Referral Program",
+ "creation": "2026-11-20 00:00:00",
+ "modified": "2026-11-20 00:00:00",
+ "owner": "Administrator",
+ "modified_by": "Administrator",
+ "docstatus": 0,
+ "engine": "InnoDB",
+ "field_order": [
+  "referral_partner",
+  "partner_referral",
+  "customer",
+  "company",
+  "cb1",
+  "payment_ledger_entry",
+  "voucher_type",
+  "voucher_no",
+  "sales_invoice",
+  "sb2",
+  "posting_date",
+  "period",
+  "month_no",
+  "rate",
+  "cb2",
+  "amount_received",
+  "commission_amount",
+  "is_reversal",
+  "reverses",
+  "statement"
+ ],
+ "fields": [
+  {
+   "fieldname": "referral_partner",
+   "fieldtype": "Link",
+   "label": "Referral Partner",
+   "options": "Referral Partner",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "read_only": 1,
+   "no_copy": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "partner_referral",
+   "fieldtype": "Link",
+   "label": "Partner Referral",
+   "options": "Partner Referral",
+   "in_list_view": 1,
+   "read_only": 1,
+   "no_copy": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "label": "Customer",
+   "options": "Customer",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "read_only": 1,
+   "no_copy": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "in_standard_filter": 1,
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "cb1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "payment_ledger_entry",
+   "fieldtype": "Link",
+   "label": "Payment Ledger Entry",
+   "options": "Payment Ledger Entry",
+   "read_only": 1,
+   "no_copy": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "voucher_type",
+   "fieldtype": "Data",
+   "label": "Voucher Type",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "voucher_no",
+   "fieldtype": "Dynamic Link",
+   "label": "Voucher No",
+   "options": "voucher_type",
+   "read_only": 1,
+   "no_copy": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "sales_invoice",
+   "fieldtype": "Link",
+   "label": "Sales Invoice",
+   "options": "Sales Invoice",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "sb2",
+   "fieldtype": "Section Break",
+   "label": "Commission"
+  },
+  {
+   "fieldname": "posting_date",
+   "fieldtype": "Date",
+   "label": "Posting Date",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "read_only": 1,
+   "no_copy": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "period",
+   "fieldtype": "Data",
+   "label": "Period (YYYY-MM)",
+   "in_standard_filter": 1,
+   "read_only": 1,
+   "no_copy": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "month_no",
+   "fieldtype": "Int",
+   "label": "Month No",
+   "in_list_view": 1,
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "rate",
+   "fieldtype": "Percent",
+   "label": "Rate",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "cb2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "amount_received",
+   "fieldtype": "Currency",
+   "label": "Amount Received",
+   "in_list_view": 1,
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "commission_amount",
+   "fieldtype": "Currency",
+   "label": "Commission Amount",
+   "in_list_view": 1,
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "is_reversal",
+   "fieldtype": "Check",
+   "label": "Is Reversal",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "reverses",
+   "fieldtype": "Link",
+   "label": "Reverses",
+   "options": "Referral Commission Ledger",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "statement",
+   "fieldtype": "Link",
+   "label": "Statement",
+   "options": "Referral Commission Statement",
+   "in_standard_filter": 1,
+   "read_only": 1,
+   "no_copy": 1,
+   "search_index": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  },
+  {
+   "role": "Referral Manager",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  },
+  {
+   "role": "Accounts Manager",
+   "read": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1
+  },
+  {
+   "role": "Referral Partner",
+   "read": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "autoname": "RCL-.YYYY.-.######",
+ "search_fields": "referral_partner,customer,voucher_no",
+ "in_create": 1,
+ "editable_grid": 0
+}

@@ -1,0 +1,23 @@
+<style>
+.pp{max-width:1080px;margin:0 auto;padding:8px 4px 48px;font-size:14px}
+.pp-nav{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 18px;border-bottom:1px solid var(--border-color,#e5e8eb);padding-bottom:10px}
+.pp-nav a{padding:6px 14px;border-radius:8px;color:var(--text-color,#1f2328);border:1px solid var(--border-color,#e5e8eb)}
+.pp-nav a.on{background:#1B7F4B;border-color:#1B7F4B;color:#fff}
+.pp h1{font-size:22px;font-weight:700;margin:0 0 4px}
+.pp-card{background:var(--card-bg,#fff);border:1px solid var(--border-color,#e5e8eb);border-radius:12px;padding:16px 18px;margin-bottom:14px}
+.pp-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:14px}
+.pp-cards .pp-card{margin:0}.pp-cards b{display:block;font-size:24px}.pp-cards span{color:var(--text-muted,#6a737d);font-size:12px}
+.pp table{width:100%;border-collapse:collapse}.pp th{font-size:11px;text-transform:uppercase;color:var(--text-muted,#6a737d);text-align:left;padding:8px;background:var(--control-bg,#f4f5f6)}
+.pp td{padding:8px;border-top:1px solid var(--border-color,#e5e8eb);vertical-align:middle}.pp .r{text-align:right}.pp .scroll{overflow-x:auto}
+.pp .badge{display:inline-block;padding:2px 10px;border-radius:99px;font-size:11px;font-weight:600;color:#fff;background:#9aa1a9}
+.pp .badge.green{background:#1B7F4B}.pp .badge.blue{background:#2563eb}.pp .badge.red{background:#c0392b}.pp .badge.amber{background:#d69e2e}.pp .badge.purple{background:#7c3aed}.pp .badge.dark{background:#4b5563}
+.pp .strip{display:flex;gap:2px}.pp .strip i{flex:1;height:14px;border-radius:2px;background:#cfe8da}.pp .strip i.y2{background:#c7d7f7}.pp .strip i.past.y1{background:#1B7F4B}.pp .strip i.past.y2{background:#2563eb}.pp .strip i.cur{background:#d69e2e!important}.pp .strip i.end{background:#9aa1a9}
+.pp .bars{display:flex;align-items:flex-end;gap:10px;height:150px}.pp .bars div{flex:1;text-align:center;font-size:11px;color:var(--text-muted,#6a737d)}.pp .bars i{display:block;background:#1B7F4B;border-radius:4px 4px 0 0;margin-bottom:4px}
+.pp .rev{color:#c0392b}.pp .muted{color:var(--text-muted,#6a737d)}.pp .banner{background:#fff7e6;border:1px solid #f0d28a;border-radius:10px;padding:10px 14px;margin-bottom:14px;color:#6b4e00}
+.pp label{font-weight:600;font-size:12px}
+@media(max-width:640px){.pp{font-size:13px}.pp-cards b{font-size:20px}}
+</style>
+<div class="pp"><nav class="pp-nav">
+{% for href, label in [("/partner","Dashboard"),("/partner/accounts","Accounts"),("/partner/statements","Statements"),("/partner/refer","Refer a Customer"),("/partner/profile","Profile")] %}
+<a href="{{ href }}" class="{{ 'on' if active == href else '' }}">{{ _(label) }}</a>{% endfor %}
+<a href="/?cmd=web_logout" style="margin-left:auto">{{ _("Log out") }}</a></nav>

@@ -1,0 +1,284 @@
+{
+ "doctype": "DocType",
+ "name": "Partner Referral",
+ "module": "Referral Program",
+ "creation": "2026-11-20 00:00:00",
+ "modified": "2026-11-20 00:00:00",
+ "owner": "Administrator",
+ "modified_by": "Administrator",
+ "docstatus": 0,
+ "engine": "InnoDB",
+ "field_order": [
+  "referral_partner",
+  "business_name",
+  "contact_name",
+  "cb1",
+  "email",
+  "phone",
+  "license_no",
+  "sb_notes",
+  "notes",
+  "sb_review",
+  "status",
+  "submitted_on",
+  "duplicate_check_result",
+  "cb2",
+  "customer",
+  "acknowledged_by",
+  "acknowledged_on",
+  "acknowledgement_letter",
+  "sb_rej",
+  "rejection_reason",
+  "rejection_note",
+  "sb_win",
+  "commission_start_date",
+  "year1_end",
+  "year2_end",
+  "cb3",
+  "current_month_no",
+  "window_status",
+  "total_received",
+  "total_commission"
+ ],
+ "fields": [
+  {
+   "fieldname": "referral_partner",
+   "fieldtype": "Link",
+   "label": "Referral Partner",
+   "options": "Referral Partner",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "business_name",
+   "fieldtype": "Data",
+   "label": "Business Name",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "contact_name",
+   "fieldtype": "Data",
+   "label": "Contact Name"
+  },
+  {
+   "fieldname": "cb1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "email",
+   "fieldtype": "Data",
+   "label": "Email",
+   "options": "Email",
+   "reqd": 1
+  },
+  {
+   "fieldname": "phone",
+   "fieldtype": "Data",
+   "label": "Phone"
+  },
+  {
+   "fieldname": "license_no",
+   "fieldtype": "Data",
+   "label": "License No"
+  },
+  {
+   "fieldname": "sb_notes",
+   "fieldtype": "Section Break",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes From Partner"
+  },
+  {
+   "fieldname": "sb_review",
+   "fieldtype": "Section Break",
+   "label": "Review"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Submitted\nUnder Review\nAcknowledged\nRejected\nExpired",
+   "default": "Submitted",
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "submitted_on",
+   "fieldtype": "Date",
+   "label": "Submitted On",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "duplicate_check_result",
+   "fieldtype": "Small Text",
+   "label": "Duplicate Check Result",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "cb2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "label": "Customer",
+   "options": "Customer",
+   "in_standard_filter": 1,
+   "no_copy": 1,
+   "description": "Mandatory before Acknowledge. Each customer can belong to one referral only."
+  },
+  {
+   "fieldname": "acknowledged_by",
+   "fieldtype": "Link",
+   "label": "Acknowledged By",
+   "options": "User",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "acknowledged_on",
+   "fieldtype": "Date",
+   "label": "Acknowledged On",
+   "read_only": 1,
+   "no_copy": 1,
+   "description": "Gate date: payments before this date never earn commission."
+  },
+  {
+   "fieldname": "acknowledgement_letter",
+   "fieldtype": "Attach",
+   "label": "Acknowledgement Letter",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "sb_rej",
+   "fieldtype": "Section Break",
+   "label": "Rejection",
+   "depends_on": "eval:doc.status=='Rejected'"
+  },
+  {
+   "fieldname": "rejection_reason",
+   "fieldtype": "Select",
+   "label": "Rejection Reason",
+   "options": "\nExisting customer\nAlready in pipeline\nNot a fit\nOther",
+   "mandatory_depends_on": "eval:doc.status=='Rejected'"
+  },
+  {
+   "fieldname": "rejection_note",
+   "fieldtype": "Small Text",
+   "label": "Rejection Note",
+   "mandatory_depends_on": "eval:doc.rejection_reason=='Other'"
+  },
+  {
+   "fieldname": "sb_win",
+   "fieldtype": "Section Break",
+   "label": "Commission Window",
+   "depends_on": "eval:doc.status=='Acknowledged'"
+  },
+  {
+   "fieldname": "commission_start_date",
+   "fieldtype": "Date",
+   "label": "Commission Start Date",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "year1_end",
+   "fieldtype": "Date",
+   "label": "Year1 End",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "year2_end",
+   "fieldtype": "Date",
+   "label": "Year2 End",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "cb3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "current_month_no",
+   "fieldtype": "Int",
+   "label": "Current Month No",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "window_status",
+   "fieldtype": "Select",
+   "label": "Window Status",
+   "options": "\nAwaiting first payment\nYear 1\nYear 2\nEnded",
+   "read_only": 1,
+   "no_copy": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "total_received",
+   "fieldtype": "Currency",
+   "label": "Total Received",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "total_commission",
+   "fieldtype": "Currency",
+   "label": "Total Commission",
+   "read_only": 1,
+   "no_copy": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "create": 1,
+   "write": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "Referral Manager",
+   "read": 1,
+   "create": 1,
+   "write": 1,
+   "report": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "Accounts Manager",
+   "read": 1,
+   "report": 1,
+   "print": 1
+  },
+  {
+   "role": "Referral Partner",
+   "read": 1,
+   "create": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1,
+ "autoname": "PREF-.YY.-.#####",
+ "title_field": "business_name",
+ "search_fields": "business_name,referral_partner,customer,status",
+ "quick_entry": 0
+}

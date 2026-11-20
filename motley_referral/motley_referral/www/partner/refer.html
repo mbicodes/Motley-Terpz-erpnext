@@ -1,0 +1,23 @@
+{% extends "templates/web.html" %}
+{% block page_content %}
+{% include "motley_referral/templates/partner_nav.html" %}
+
+<h1>{{ _("Refer a customer") }}</h1>
+{% if blocked %}<div class="banner">{{ _("Your partner agreement has ended, so new referrals can no longer be submitted.") }}</div>
+{% else %}<div class="pp-card"><form id="rf">
+<div class="row"><div class="col-md-6 form-group"><label>{{ _("Business name") }} *</label><input class="form-control" name="business_name" required></div>
+<div class="col-md-6 form-group"><label>{{ _("Email") }} *</label><input type="email" class="form-control" name="email" required></div>
+<div class="col-md-6 form-group"><label>{{ _("Contact name") }}</label><input class="form-control" name="contact_name"></div>
+<div class="col-md-6 form-group"><label>{{ _("Phone") }}</label><input class="form-control" name="phone"></div>
+<div class="col-md-6 form-group"><label>{{ _("License number") }}</label><input class="form-control" name="license_no"></div>
+<div class="col-12 form-group"><label>{{ _("Notes") }}</label><textarea class="form-control" name="notes" rows="3"></textarea></div></div>
+<button class="btn btn-primary btn-sm" type="submit">{{ _("Submit referral") }}</button> <span id="rmsg" class="muted"></span></form></div>
+<script>document.getElementById("rf").onsubmit=function(e){e.preventDefault();var f=e.target,d={};new FormData(f).forEach(function(v,k){d[k]=v});
+fetch("/api/method/motley_referral.api.portal.submit_referral",{method:"POST",headers:{"Content-Type":"application/json","X-Frappe-CSRF-Token":frappe.csrf_token},body:JSON.stringify(d)})
+.then(function(r){if(r.ok){location.reload()}else{r.json().then(function(j){var m="{{ _('Could not submit the referral.') }}";try{m=JSON.parse(JSON.parse(j._server_messages)[0]).message.replace(/<[^>]+>/g,"")}catch(x){}document.getElementById("rmsg").textContent=m})}});};</script>{% endif %}
+<div class="pp-card"><h5>{{ _("Your submissions") }}</h5><div class="scroll"><table><thead><tr><th>{{ _("Referral") }}</th><th>{{ _("Business") }}</th><th>{{ _("Submitted") }}</th><th>{{ _("Status") }}</th></tr></thead><tbody>
+{% for r in rows %}<tr><td>{{ r.name }}</td><td>{{ r.business_name }}</td><td>{{ frappe.utils.formatdate(r.submitted_on) if r.submitted_on else '' }}</td><td><span class="badge {{ badge.get(r.status, 'grey') }}">{{ r.status }}</span></td></tr>
+{% else %}<tr><td colspan="4" class="muted">{{ _("No submissions yet.") }}</td></tr>{% endfor %}</tbody></table></div></div>
+
+</div>
+{% endblock %}
