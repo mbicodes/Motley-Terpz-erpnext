@@ -146,6 +146,28 @@ def expense_tracker_entry_has_permission(doc, ptype="read", user=None):
     return doc.get("cash_tracker_person") == person
 
 
+REIMBURSEMENT_APPROVER_ROLE = "Reimbursement Approver"
+SAFE_TRACKER_ROLE = "Safe Cash Tracker"
+
+
+def is_reimbursement_approver(user=None):
+    return REIMBURSEMENT_APPROVER_ROLE in frappe.get_roles(user or frappe.session.user)
+
+
+def can_see_reimbursement_queue(user=None):
+    user = user or frappe.session.user
+    if is_cash_full_view(user) or is_reimbursement_approver(user):
+        return True
+    return bool(frappe.db.get_value(
+        "Cash Tracker Person", {"user": user, "is_active": 1, "allow_for_safe": 1}, "name"
+    ))
+
+
+def _sees_all_reimbursements(user):
+    roles = frappe.get_roles(user)
+    return REIMBURSEMENT_APPROVER_ROLE in roles or SAFE_TRACKER_ROLE in roles
+
+
 def personal_cash_tracking_query(user):
     user = user or frappe.session.user
     if is_cash_full_view(user):
@@ -155,6 +177,8 @@ def personal_cash_tracking_query(user):
     if persons:
         plist = ", ".join(frappe.db.escape(p) for p in persons)
         conds.append(f"`tabPersonal Cash Tracking`.cash_tracker_person IN ({plist})")
+    if _sees_all_reimbursements(user):
+        conds.append("`tabPersonal Cash Tracking`.transaction_type = 'Reimbursement'")
     return "(" + " OR ".join(conds) + ")"
 
 
@@ -166,6 +190,12 @@ def personal_cash_tracking_has_permission(doc, ptype="read", user=None):
         return True
     if ptype == "cancel":
         return False
+    if doc is not None and not isinstance(doc, str) and doc.get("transaction_type") == "Reimbursement":
+        roles = frappe.get_roles(user)
+        if REIMBURSEMENT_APPROVER_ROLE in roles and ptype in ("read", "write", "submit", "print", "email", "report", "export"):
+            return True
+        if SAFE_TRACKER_ROLE in roles and ptype in ("read", "print", "email", "report", "export"):
+            return True
     if doc is None or isinstance(doc, str):
         return True
     if (doc.get("owner") or user) == user:

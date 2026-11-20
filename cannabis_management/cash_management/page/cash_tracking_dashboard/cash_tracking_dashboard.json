@@ -4,7 +4,7 @@
  "docstatus": 0,
  "doctype": "Page",
  "idx": 0,
- "modified": "2026-08-20 10:23:34.392792",
+ "modified": "2026-11-19 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Cash Management",
  "name": "cash-tracking-dashboard",
@@ -31,6 +31,12 @@
   },
   {
    "role": "Cash Tracker User"
+  },
+  {
+   "role": "Reimbursement Approver"
+  },
+  {
+   "role": "Safe Cash Tracker"
   }
  ],
  "script": null,

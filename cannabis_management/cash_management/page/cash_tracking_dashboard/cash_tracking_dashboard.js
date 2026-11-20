@@ -123,6 +123,21 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 				</div>
 			</div>
 
+			<div class="ctd-pending" id="ctd-pending" style="display:none;">
+				<div class="ctd-pending-head">
+					<span class="ctd-pending-title">${__('Pending Reimbursements')}</span>
+					<span class="ctd-pending-sub" id="ctd-pending-sub"></span>
+				</div>
+				<table class="ctd-table ctd-pending-table">
+					<thead><tr>
+						<th>${__('Entry')}</th><th>${__('Person')}</th><th>${__('Business')}</th>
+						<th>${__('Date')}</th><th class="ctd-num">${__('Amount')}</th><th class="ctd-num">${__('Days Pending')}</th>
+					</tr></thead>
+					<tbody id="ctd-pending-body"></tbody>
+				</table>
+				<div class="ctd-pending-empty" id="ctd-pending-empty" style="display:none;">${__('No reimbursement requests are waiting for approval.')}</div>
+			</div>
+
 			<div class="ctd-table-wrap">
 				<table class="ctd-table">
 					<thead>
@@ -402,7 +417,39 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 			'Cash Tracking - ' + tracker + ' - ' + frappe.datetime.get_today());
 	}
 
+	function load_pending() {
+		var show = state.tracker === 'safe' && state.reimbursement_queue;
+		$('#ctd-pending').toggle(!!show);
+		if (!show) return;
+		frappe.call({
+			method: 'cannabis_management.cash_management.page.cash_tracking_dashboard.cash_tracking_dashboard.get_pending_reimbursements',
+			callback: function (r) {
+				var rows = r.message || [];
+				var $b = $('#ctd-pending-body').empty();
+				var total = 0;
+				rows.forEach(function (p) {
+					total += flt(p.amount);
+					var link = '/app/personal-cash-tracking/' + encodeURIComponent(p.name);
+					$b.append(`<tr>
+						<td><a href="${link}" class="ctd-link">${esc(p.name)}</a></td>
+						<td>${esc(p.person || '')}</td>
+						<td>${esc(p.business || '')}</td>
+						<td>${esc(frappe.datetime.str_to_user(p.date) || '')}</td>
+						<td class="ctd-num">${fmt_money(p.amount)}</td>
+						<td class="ctd-num">${esc(p.days_pending)}</td>
+					</tr>`);
+				});
+				$('#ctd-pending-empty').toggle(!rows.length);
+				$('.ctd-pending-table').toggle(!!rows.length);
+				$('#ctd-pending-sub').text(rows.length
+					? __('{0} request(s), {1} — not yet deducted from the Safe balance', [rows.length, fmt_money(total)])
+					: '');
+			}
+		});
+	}
+
 	function load() {
+		load_pending();
 		frappe.call({
 			method: 'cannabis_management.cash_management.page.cash_tracking_dashboard.cash_tracking_dashboard.get_entries',
 			args: {
@@ -429,6 +476,7 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 				state.allow_tsbc = !!data.allow_tsbc;
 				show_tsbc(state.allow_tsbc);
 				state.allow_safe = !!data.allow_safe;
+				state.reimbursement_queue = !!data.reimbursement_queue;
 				show_safe(state.allow_safe);
 
 				var persons = data.persons || [];

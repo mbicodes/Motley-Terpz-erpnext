@@ -65,6 +65,21 @@ def _can_view_safe(persons):
 
 
 @frappe.whitelist()
+def get_pending_reimbursements():
+    from cannabis_management.cash_management.doctype.personal_cash_tracking.personal_cash_tracking import (
+        get_pending_reimbursements as _pending,
+    )
+
+    return _pending()
+
+
+def _reimb_queue():
+    from cannabis_management.cash_management.permissions import can_see_reimbursement_queue
+
+    return can_see_reimbursement_queue()
+
+
+@frappe.whitelist()
 def get_persons():
     if _is_full_view():
         persons = frappe.get_all(
@@ -80,6 +95,7 @@ def get_persons():
             "allow_motley": True,
             "allow_tsbc": True,
             "allow_safe": True,
+            "reimbursement_queue": True,
         }
 
     own = _own_person()
@@ -99,8 +115,9 @@ def get_persons():
         "can_create_motley": can_use_motley(),
         "allow_tsbc": _can_view_tsbc(visible),
         "can_create_tsbc": can_use_tsbc(),
-        "allow_safe": _can_view_safe(visible),
+        "allow_safe": _can_view_safe(visible) or _reimb_queue(),
         "can_create_safe": can_use_safe(),
+        "reimbursement_queue": _reimb_queue(),
     }
 
 
@@ -110,6 +127,12 @@ def get_entries(tracker="personal", person=None, from_date=None, to_date=None):
 
     if not is_admin:
         visible = _visible_persons()
+        if tracker == "safe" and not _can_view_safe(visible) and _reimb_queue():
+            return {
+                "rows": [], "totals": _empty_totals(),
+                "is_admin": False, "tracker": "safe",
+                "can_mark_processed": False,
+            }
         if not visible:
             return {
                 "rows": [], "totals": _empty_totals(),

@@ -29,6 +29,36 @@ function render_receipt_preview(frm) {
 		'color:var(--text-muted,#94a3b8);margin-bottom:6px;">' + __('Receipt') + '</div>' + inner + '</div>');
 }
 
+function is_reimbursement(frm) {
+	return frm.doc.transaction_type === 'Reimbursement';
+}
+
+function set_default_safe(frm) {
+	frappe.call({
+		method: 'cannabis_management.cash_management.doctype.personal_cash_tracking.personal_cash_tracking.get_safe_defaults',
+		callback: function (r) {
+			if (r.message && r.message.safe_person && !frm.doc.safe_person) {
+				frm.set_value('safe_person', r.message.safe_person);
+			}
+		}
+	});
+}
+
+function reimbursement_ui(frm) {
+	var reimb = is_reimbursement(frm);
+	frm.set_df_property('money_in', 'description', reimb
+		? __('Amount you are asking to be reimbursed.')
+		: __('ONLY fill this out if you collected money.'));
+	if (!reimb) return;
+	if (frm.doc.docstatus === 0 && (!frm.doc.workflow_state || frm.doc.workflow_state === 'Draft')) {
+		frm.set_intro(__('This request will be sent to the Safe for approval.'), 'blue');
+	} else if (frm.doc.workflow_state === 'Pending Approval') {
+		frm.set_intro(__('This request is awaiting approval. Nothing has been posted yet.'), 'orange');
+	} else if (frm.doc.workflow_state === 'Rejected') {
+		frm.set_intro(__('This request was rejected: {0}', [frappe.utils.escape_html(frm.doc.rejection_reason || '')]), 'red');
+	}
+}
+
 function toggle_money_fields(frm) {
 	var money_in = flt(frm.doc.money_in);
 	var money_out = flt(frm.doc.money_out);
@@ -40,6 +70,9 @@ frappe.ui.form.on('Personal Cash Tracking', {
 	setup: function (frm) {
 		frm.set_query('cash_tracker_person', function () {
 			return { filters: { is_active: 1 } };
+		});
+		frm.set_query('safe_person', function () {
+			return { filters: { is_active: 1, allow_for_safe: 1 } };
 		});
 		cannabis.cash_tracking.setup(frm);
 	},
@@ -66,9 +99,48 @@ frappe.ui.form.on('Personal Cash Tracking', {
 				'blue'
 			);
 		}
+		reimbursement_ui(frm);
 		toggle_money_fields(frm);
 		render_receipt_preview(frm);
 		cannabis.cash_tracking.refresh(frm);
+	},
+
+	transaction_type: function (frm) {
+		if (is_reimbursement(frm) && frm.doc.paid_from_safe && !frm.doc.safe_person) {
+			set_default_safe(frm);
+		}
+		reimbursement_ui(frm);
+	},
+
+	paid_from_safe: function (frm) {
+		if (frm.doc.paid_from_safe && !frm.doc.safe_person) set_default_safe(frm);
+	},
+
+	before_workflow_action: function (frm) {
+		if (frm.selected_workflow_action !== 'Reject') return;
+		return new Promise(function (resolve, reject) {
+			var d = new frappe.ui.Dialog({
+				title: __('Reject Reimbursement Request'),
+				fields: [{
+					fieldname: 'reason', fieldtype: 'Small Text', reqd: 1,
+					label: __('Rejection Reason'),
+					description: __('The requester will see this reason.')
+				}],
+				primary_action_label: __('Reject'),
+				primary_action: function (values) {
+					frappe.call({
+						method: 'cannabis_management.cash_management.doctype.personal_cash_tracking.personal_cash_tracking.set_rejection_reason',
+						args: { name: frm.doc.name, reason: values.reason },
+						freeze: true,
+						callback: function () { d.hide(); resolve(); },
+						error: function () { reject(); }
+					});
+				},
+				secondary_action_label: __('Cancel')
+			});
+			d.onhide = function () { reject(); };
+			d.show();
+		});
 	},
 
 	receipt: function (frm) {

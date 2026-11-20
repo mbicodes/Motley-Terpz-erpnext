@@ -460,3 +460,18 @@ body.ctd-safe-body .ctd-safe-mode { box-shadow: 0 0 0 1px rgba(212,167,44,.15), 
 	.ctd-vault-wheel { width: 116px; height: 116px; margin: -58px 0 0 -58px; }
 	.ctd-vault-glow { top: 155px; }
 }
+
+.ctd-pending {
+	margin: 0 0 16px;
+	border: 1px solid #f59e0b;
+	border-radius: 12px;
+	background: rgba(245, 158, 11, 0.06);
+	padding: 12px 14px;
+	overflow-x: auto;
+}
+.ctd-pending-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; margin-bottom: 8px; }
+.ctd-pending-title { font-weight: 700; color: #b45309; }
+.ctd-pending-sub { font-size: 12px; color: var(--text-muted, #6b7280); }
+.ctd-pending-empty { font-size: 13px; color: var(--text-muted, #6b7280); padding: 4px 0; }
+.ctd-safe-mode .ctd-pending { border-color: #d4a72c; background: rgba(212, 167, 44, 0.08); }
+.ctd-safe-mode .ctd-pending-title { color: #e9c766; }

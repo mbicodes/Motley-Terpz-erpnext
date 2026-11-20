@@ -18,6 +18,14 @@ class SafeCashTracking(Document):
                 f"Invoice # (Sales Order) is required for '{self.transaction_type}' transactions."
             )
 
+    def before_cancel(self):
+        if self.personal_entry and not frappe.flags.get("from_personal_reimbursement"):
+            frappe.throw(
+                frappe._("This entry was created by reimbursement {0}. Cancel that entry instead.").format(
+                    self.personal_entry
+                )
+            )
+
     def validate_safe_allowed(self):
         from cannabis_management.cash_management.permissions import (
             can_use_safe,

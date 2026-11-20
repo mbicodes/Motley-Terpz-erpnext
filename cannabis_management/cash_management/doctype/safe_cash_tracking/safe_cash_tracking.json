@@ -20,6 +20,7 @@
   "column_break_receipt",
   "receipt_preview",
   "transaction_notes",
+  "personal_entry",
   "processed_section",
   "processed",
   "processed_by",
@@ -139,6 +140,16 @@
    "reqd": 1
   },
   {
+   "depends_on": "eval:doc.personal_entry",
+   "fieldname": "personal_entry",
+   "fieldtype": "Link",
+   "label": "Personal Cash Tracking Entry",
+   "options": "Personal Cash Tracking",
+   "read_only": 1,
+   "allow_on_submit": 1,
+   "no_copy": 1
+  },
+  {
    "fieldname": "processed_section",
    "fieldtype": "Section Break",
    "label": "Finance",
@@ -182,7 +193,7 @@
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2026-10-24 12:00:00",
+ "modified": "2026-11-19 12:00:00",
  "modified_by": "Administrator",
  "module": "Cash Management",
  "name": "Safe Cash Tracking",

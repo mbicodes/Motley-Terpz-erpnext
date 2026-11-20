@@ -20,6 +20,16 @@
   "column_break_receipt",
   "receipt_preview",
   "reason",
+  "reimbursement_section",
+  "paid_from_safe",
+  "safe_person",
+  "safe_user",
+  "rejection_reason",
+  "column_break_reimb",
+  "approved_by",
+  "approved_on",
+  "safe_entry",
+  "workflow_state",
   "processed_section",
   "processed",
   "processed_by",
@@ -94,7 +104,8 @@
    "in_standard_filter": 1,
    "label": "Transaction Type",
    "options": "\nMotley - Hardware\nClient - Hardware\nClient Payment Towards Invoice\nFresh Frozen Procurement\nTolling Partner Payment\nMotley - Packaging\nLab Testing\nPayroll\nLab Consumables\nMarketing\nSeeds/Clones for Farm\nRent\nLab Setup\nLab Supplies\nCollecting OLD AR\nReimbursement\nOther",
-   "reqd": 1
+   "reqd": 1,
+   "description": "Choose Reimbursement to request money back from the Safe. Reimbursement entries need approval before they post."
   },
   {
    "description": "Optional — link the Sales Order this cash relates to.",
@@ -150,6 +161,89 @@
    "read_only": 1
   },
   {
+   "collapsible": 0,
+   "depends_on": "eval:doc.transaction_type=='Reimbursement'",
+   "fieldname": "reimbursement_section",
+   "fieldtype": "Section Break",
+   "label": "Reimbursement"
+  },
+  {
+   "default": "1",
+   "depends_on": "eval:doc.transaction_type=='Reimbursement'",
+   "description": "When ticked, approval posts the matching cash-out from the Safe.",
+   "fieldname": "paid_from_safe",
+   "fieldtype": "Check",
+   "label": "Paid From Safe"
+  },
+  {
+   "depends_on": "eval:doc.transaction_type=='Reimbursement' && doc.paid_from_safe",
+   "mandatory_depends_on": "eval:doc.transaction_type=='Reimbursement' && doc.paid_from_safe",
+   "fieldname": "safe_person",
+   "fieldtype": "Link",
+   "label": "Safe",
+   "options": "Cash Tracker Person",
+   "ignore_user_permissions": 1
+  },
+  {
+   "fetch_from": "safe_person.user",
+   "fieldname": "safe_user",
+   "fieldtype": "Link",
+   "label": "Safe User",
+   "options": "User",
+   "hidden": 1,
+   "read_only": 1
+  },
+  {
+   "depends_on": "eval:doc.transaction_type=='Reimbursement' && (doc.rejection_reason || doc.workflow_state=='Rejected')",
+   "fieldname": "rejection_reason",
+   "fieldtype": "Small Text",
+   "label": "Rejection Reason",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "column_break_reimb",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.approved_by",
+   "fieldname": "approved_by",
+   "fieldtype": "Link",
+   "label": "Approved By",
+   "options": "User",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "depends_on": "eval:doc.approved_on",
+   "fieldname": "approved_on",
+   "fieldtype": "Datetime",
+   "label": "Approved On",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "depends_on": "eval:doc.safe_entry",
+   "fieldname": "safe_entry",
+   "fieldtype": "Link",
+   "label": "Safe Cash Tracking Entry",
+   "options": "Safe Cash Tracking",
+   "read_only": 1,
+   "allow_on_submit": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "workflow_state",
+   "fieldtype": "Link",
+   "label": "Workflow State",
+   "options": "Workflow State",
+   "hidden": 1,
+   "read_only": 1,
+   "allow_on_submit": 1,
+   "no_copy": 1,
+   "in_standard_filter": 1
+  },
+  {
    "fieldname": "processed_section",
    "fieldtype": "Section Break",
    "label": "Finance",
@@ -184,7 +278,7 @@
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2026-09-24 12:00:00.000000",
+ "modified": "2026-11-19 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Cash Management",
  "name": "Personal Cash Tracking",
@@ -244,6 +338,23 @@
    "permlevel": 1,
    "read": 1,
    "write": 1
+  },
+  {
+   "role": "Reimbursement Approver",
+   "read": 1,
+   "write": 1,
+   "submit": 1,
+   "email": 1,
+   "print": 1,
+   "report": 1,
+   "export": 1
+  },
+  {
+   "role": "Safe Cash Tracker",
+   "read": 1,
+   "email": 1,
+   "print": 1,
+   "report": 1
   }
  ],
  "row_format": "Dynamic",
