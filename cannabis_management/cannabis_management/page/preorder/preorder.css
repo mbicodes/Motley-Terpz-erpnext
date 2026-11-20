@@ -193,7 +193,7 @@
     color: var(--po-text);
     background: var(--po-bg-2);
     border: 1px solid var(--po-border-2);
-    border-radius: 8px;
+    border-radius: 10px;
     padding: 10px 14px;
     outline: none;
     transition: border-color 0.2s, box-shadow 0.2s;
@@ -253,7 +253,7 @@
     color: var(--po-text);
     background: var(--po-bg-2);
     border: 1px solid var(--po-border-2);
-    border-radius: 8px;
+    border-radius: 10px;
     padding: 8px 14px;
     width: 260px;
     max-width: 100%;
@@ -271,7 +271,7 @@
     background: var(--po-teal-faint);
     color: var(--po-teal);
     border: 1px solid rgba(0,229,190,0.2);
-    border-radius: 8px;
+    border-radius: 10px;
     padding: 8px 16px;
     cursor: pointer;
     display: inline-flex;
@@ -615,7 +615,7 @@
 .po-side-count {
     margin-left: 6px;
     padding: 1px 7px;
-    border-radius: 9px;
+    border-radius: 10px;
     background: var(--po-teal-faint);
     color: var(--po-brand);
     font-size: 10.5px;

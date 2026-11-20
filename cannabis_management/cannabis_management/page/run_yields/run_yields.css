@@ -42,7 +42,7 @@
 .ry-btn {
 	display: inline-flex; align-items: center; justify-content: center; gap: 6px;
 	height: 36px; padding: 0 12px;
-	border: 1px solid transparent; border-radius: 8px;
+	border: 1px solid transparent; border-radius: 10px;
 	background: transparent; color: var(--ry-fg);
 	font-size: 13px; font-weight: 500; white-space: nowrap; cursor: pointer;
 	transition: background-color 0.15s, border-color 0.15s;
@@ -56,7 +56,7 @@
 .ry-btn[hidden] { display: none; }
 
 .ry-cards { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
-.ry-card { background: var(--ry-bg); border: 1px solid var(--ry-border); border-radius: 12px; padding: 14px 16px; }
+.ry-card { background: var(--ry-bg); border: 1px solid var(--ry-border); border-radius: 14px; padding: 14px 16px; }
 .ry-card-label { font-size: 13px; font-weight: 500; color: var(--ry-muted-fg); }
 .ry-card-value { margin-top: 6px; font-size: 24px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 .ry-card-note { margin-top: 2px; font-size: 12px; }
@@ -64,7 +64,7 @@
 .ry-card.t-rosin .ry-card-value { color: var(--ry-rosin); }
 .ry-card.t-yield .ry-card-value { color: var(--ry-yield); }
 
-.ry-panel { background: var(--ry-bg); border: 1px solid var(--ry-border); border-radius: 12px; overflow: hidden; }
+.ry-panel { background: var(--ry-bg); border: 1px solid var(--ry-border); border-radius: 14px; overflow: hidden; }
 .ry-toolbar {
 	display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 14px;
 	padding: 14px 16px 16px;
@@ -78,7 +78,7 @@
 
 .ry-input, .ry-range {
 	height: 36px; width: 100%;
-	border: 1px solid var(--ry-border); border-radius: 8px;
+	border: 1px solid var(--ry-border); border-radius: 10px;
 	background-color: var(--ry-bg); color: var(--ry-fg);
 	font-size: 13px; outline: none;
 	transition: border-color 0.15s, box-shadow 0.15s, background-color 0.15s;

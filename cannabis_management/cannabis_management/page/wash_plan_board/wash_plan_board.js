@@ -545,7 +545,7 @@ class WashPlanBoard {
 		if (r.editable) {
 			const fo = (r.freezer_options || []).map(o => ({ key: o.warehouse, label: o.warehouse + ' · ' + wpb_qf(o.qty, o.free) }));
 			if (!fo.some(o => o.key === r.freezer)) fo.unshift({ key: r.freezer, label: r.freezer + ' · ' + wpb_qf(0, 0) });
-			h += '<label style="display:flex"><span class="sr">' + __('Source freezer') + '</span><select class="field" data-change="rowFreezer" data-id="' + r.name + '" data-focus="fz:' + r.name + '" style="height:34px;max-width:260px;font-size:12px;border-radius:8px">' + wpb_opts(fo, r.freezer) + '</select></label>';
+			h += '<label style="display:flex"><span class="sr">' + __('Source freezer') + '</span><select class="field" data-change="rowFreezer" data-id="' + r.name + '" data-focus="fz:' + r.name + '" style="height:34px;max-width:260px;font-size:12px;border-radius:10px">' + wpb_opts(fo, r.freezer) + '</select></label>';
 		} else {
 			h += '<span class="muted" style="font-size:12px">' + wpb_esc(r.freezer) + '</span>';
 		}
@@ -565,7 +565,7 @@ class WashPlanBoard {
 				else po.push({ key: o.project, label: o.project + (o.project_name ? ' · ' + o.project_name : '') + ' · ' + wpb_qf(o.qty, o.free) });
 			});
 			if (r.project && !po.some(o => o.key === r.project)) po.push({ key: r.project, label: r.project + (r.project_name ? ' · ' + r.project_name : '') + ' · ' + wpb_qf(0, 0) });
-			h += '<label style="display:flex"><span class="sr">' + __('Project') + '</span><select class="field" data-change="rowProject" data-id="' + r.name + '" data-focus="pj:' + r.name + '" style="height:36px;width:100%;font-size:12px;border-radius:8px">' + wpb_opts(po, r.project) + '</select></label>';
+			h += '<label style="display:flex"><span class="sr">' + __('Project') + '</span><select class="field" data-change="rowProject" data-id="' + r.name + '" data-focus="pj:' + r.name + '" style="height:36px;width:100%;font-size:12px;border-radius:10px">' + wpb_opts(po, r.project) + '</select></label>';
 		} else {
 			h += '<div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:13px;font-weight:700;color:' + (r.project ? 'var(--ink)' : 'var(--muted)') + '">' + wpb_esc(r.project ? (r.project_name || r.project) : __('No Project')) + '</span><span class="mono muted" style="font-size:11px">' + wpb_esc(r.project || __('MR project left empty')) + '</span></div>';
 		}

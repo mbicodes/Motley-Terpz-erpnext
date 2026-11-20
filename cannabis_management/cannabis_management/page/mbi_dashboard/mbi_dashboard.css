@@ -37,7 +37,7 @@
 
 .mbi-co-toggle {
   display: flex; gap: 4px; background: #fff;
-  border: 1px solid var(--sd-border); border-radius: 8px; padding: 3px;
+  border: 1px solid var(--sd-border); border-radius: 10px; padding: 3px;
 }
 .mbi-co-btn {
   padding: 5px 14px; border: none; border-radius: 6px; background: transparent;
@@ -71,7 +71,7 @@
 }
 .mbi-section-badge {
   font-size: 11px; font-weight: 700; padding: 2px 9px;
-  border-radius: 20px; background: #f1f5f9; color: var(--sd-text-secondary);
+  border-radius: 22px; background: #f1f5f9; color: var(--sd-text-secondary);
 }
 .mbi-section-badge.red   { background: var(--sd-rose-dim); color: var(--sd-rose); }
 .mbi-section-badge.green { background: var(--sd-emerald-dim); color: var(--sd-emerald); }
@@ -268,7 +268,7 @@
 
 .mbi-export-btn {
   display: flex; align-items: center; gap: 5px;
-  padding: 5px 12px; border: 1px solid var(--sd-border); border-radius: 8px;
+  padding: 5px 12px; border: 1px solid var(--sd-border); border-radius: 10px;
   background: #fff; color: var(--sd-text-secondary);
   font-size: 11px; font-weight: 600; font-family: 'DM Sans', sans-serif;
   cursor: pointer; transition: all 0.15s;

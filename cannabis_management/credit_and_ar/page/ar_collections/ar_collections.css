@@ -275,7 +275,7 @@
 .arc-card {
 	background: var(--arc-panel);
 	border: 1px solid transparent;
-	border-radius: 8px;
+	border-radius: 10px;
 	box-shadow: var(--arc-shadow);
 	margin-bottom: 8px;
 	padding: 10px 12px;
@@ -554,7 +554,7 @@
 .arc-box {
 	background: var(--arc-soft);
 	border: 1px solid var(--arc-line);
-	border-radius: 8px;
+	border-radius: 10px;
 	padding: 10px 12px;
 	white-space: pre-wrap;
 	word-break: break-word;
@@ -569,7 +569,7 @@
 }
 .arc-log li {
 	border: 1px solid var(--arc-line);
-	border-radius: 8px;
+	border-radius: 10px;
 	padding: 8px 10px;
 	word-break: break-word;
 }
@@ -620,7 +620,7 @@
 	gap: 6px;
 	background: var(--arc-soft);
 	border: 1px solid var(--arc-line);
-	border-radius: 12px;
+	border-radius: 14px;
 	padding: 2px 10px;
 	font-size: 12px;
 	color: var(--arc-text);
@@ -650,7 +650,7 @@
 .arc-dlg .arc-box {
 	background: var(--arc-soft);
 	border: 1px solid var(--arc-line);
-	border-radius: 8px;
+	border-radius: 10px;
 	padding: 10px 12px;
 }
 

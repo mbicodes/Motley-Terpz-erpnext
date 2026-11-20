@@ -676,7 +676,7 @@
 	max-height: 62vh;
 	overflow: auto;
 	border: 1px solid var(--osc-border);
-	border-radius: 8px;
+	border-radius: 10px;
 }
 
 .osc-drill-table {

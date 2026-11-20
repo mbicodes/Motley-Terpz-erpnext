@@ -73,7 +73,7 @@
 }
 .fp-stat {
 	border: 1px solid var(--fp-line);
-	border-radius: 8px;
+	border-radius: 10px;
 	padding: 6px 10px;
 	min-width: 92px;
 }
@@ -201,7 +201,7 @@
 
 .fp-card {
 	background: var(--fp-panel);
-	border-radius: 8px;
+	border-radius: 10px;
 	box-shadow: var(--fp-shadow);
 	margin-bottom: 8px;
 	border: 1px solid transparent;
@@ -462,7 +462,7 @@ a.fp-so:hover {
 	background: var(--fp-panel);
 	color: var(--fp-text);
 	border: 1px solid var(--fp-line);
-	border-radius: 8px;
+	border-radius: 10px;
 	box-shadow: 0 10px 30px rgba(16, 24, 40, 0.18);
 	width: 420px;
 	max-width: calc(100vw - 16px);

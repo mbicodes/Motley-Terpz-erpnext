@@ -58,7 +58,7 @@
 	justify-content: center;
 	width: 30px;
 	height: 30px;
-	border-radius: 8px;
+	border-radius: 10px;
 	background: var(--gray-100, #f1f5f9);
 	color: var(--text-muted);
 	flex-shrink: 0;
@@ -91,7 +91,7 @@
 .mrd-week-menu {
 	min-width: 240px;
 	padding: 6px;
-	border-radius: 8px;
+	border-radius: 10px;
 }
 
 .mrd-week-option {
@@ -239,7 +239,7 @@
 
 .mrd-yield-panel {
 	border: 1px solid var(--border-color);
-	border-radius: 8px;
+	border-radius: 10px;
 	padding: 10px 12px;
 }
 
@@ -372,7 +372,7 @@
 .mrd-badge {
 	display: inline-block;
 	padding: 1px 6px;
-	border-radius: 8px;
+	border-radius: 10px;
 	font-size: 10px;
 	margin: 1px;
 	color: #fff;
@@ -485,7 +485,7 @@
 .mrd-card-wide .mrd-op-block {
 	padding: 12px 14px;
 	border: 1px solid var(--border-color);
-	border-radius: 8px;
+	border-radius: 10px;
 }
 .mrd-card-wide .mrd-legend-row { font-size: 13px; padding-bottom: 6px; }
 .mrd-card-wide .mrd-op-employee { font-size: 12px; padding-top: 4px; padding-bottom: 4px; }
@@ -497,7 +497,7 @@
 	gap: 6px;
 	height: 32px;
 	padding: 0 12px;
-	border-radius: 8px;
+	border-radius: 10px;
 	border: 1.5px solid #7c3aed;
 	background: var(--card-bg, #fff);
 	color: #7c3aed;

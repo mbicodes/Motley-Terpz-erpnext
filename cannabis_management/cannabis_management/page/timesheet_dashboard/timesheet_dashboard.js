@@ -111,7 +111,7 @@ frappe.pages["timesheet-dashboard"].on_page_load = function (wrapper) {
 		.tsd-tc-header h3 { font-size: 13px; font-weight: 700; color: #2d3748; margin: 0; }
 		.tsd-tc-badge {
 			font-size: 11px; background: #eef0fd; color: #5c6ac4;
-			border-radius: 20px; padding: 3px 10px; font-weight: 600;
+			border-radius: 22px; padding: 3px 10px; font-weight: 600;
 		}
 
 		/* Table */
@@ -142,7 +142,7 @@ frappe.pages["timesheet-dashboard"].on_page_load = function (wrapper) {
 		.td-ts a:hover { text-decoration: underline; }
 		.status-pill {
 			display: inline-block; padding: 2px 9px;
-			border-radius: 20px; font-size: 11px; font-weight: 600;
+			border-radius: 22px; font-size: 11px; font-weight: 600;
 		}
 		.status-pill.submitted { background: #e6f4ea; color: #276749; }
 		.status-pill.draft     { background: #fff3cd; color: #856404; }

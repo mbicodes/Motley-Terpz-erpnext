@@ -822,15 +822,15 @@ function load_tolling(root) {
 		var html = '';
 
 		html += '<div style="display:flex;gap:12px;padding:12px 18px;background:#f8fafc;border-bottom:1.5px solid #e2e8f0;">' +
-			'<div style="display:flex;align-items:center;gap:8px;padding:8px 16px;border-radius:8px;background:#fee2e2;border:1px solid #fca5a5;">' +
+			'<div style="display:flex;align-items:center;gap:8px;padding:8px 16px;border-radius:10px;background:#fee2e2;border:1px solid #fca5a5;">' +
 				'<span style="font-size:20px;font-weight:800;color:#e11d48;">' + shortage_sos.length + '</span>' +
 				'<span style="font-size:11px;font-weight:600;color:#991b1b;text-transform:uppercase;letter-spacing:0.05em;">Stock Shortages</span>' +
 			'</div>' +
-			'<div style="display:flex;align-items:center;gap:8px;padding:8px 16px;border-radius:8px;background:#dcfce7;border:1px solid #86efac;">' +
+			'<div style="display:flex;align-items:center;gap:8px;padding:8px 16px;border-radius:10px;background:#dcfce7;border:1px solid #86efac;">' +
 				'<span style="font-size:20px;font-weight:800;color:#059669;">' + ready_sos.length + '</span>' +
 				'<span style="font-size:11px;font-weight:600;color:#166534;text-transform:uppercase;letter-spacing:0.05em;">Ready to Ship</span>' +
 			'</div>' +
-			'<div style="display:flex;align-items:center;gap:8px;padding:8px 16px;border-radius:8px;background:#f1f5f9;border:1px solid #e2e8f0;">' +
+			'<div style="display:flex;align-items:center;gap:8px;padding:8px 16px;border-radius:10px;background:#f1f5f9;border:1px solid #e2e8f0;">' +
 				'<span style="font-size:20px;font-weight:800;color:#475569;">' + d.length + '</span>' +
 				'<span style="font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;">Total Open SOs</span>' +
 			'</div>' +

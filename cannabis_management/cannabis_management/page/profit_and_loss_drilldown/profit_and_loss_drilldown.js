@@ -127,7 +127,7 @@ frappe.pages["profit-and-loss-drilldown"].on_page_load = function (wrapper) {
             .pld-logo-icon {
                 width: 50px; height: 50px;
                 background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-                border-radius: 15px;
+                border-radius: 22px;
                 display: flex; align-items: center; justify-content: center;
                 font-size: 24px;
                 box-shadow: 0 0 0 1px rgba(255,255,255,0.12), 0 8px 24px rgba(99,102,241,0.5);
@@ -137,7 +137,7 @@ frappe.pages["profit-and-loss-drilldown"].on_page_load = function (wrapper) {
             .pld-run-btn {
                 background: linear-gradient(135deg, #6366f1 0%, #7c3aed 100%);
                 border: none; color: #fff;
-                padding: 11px 26px; border-radius: 12px;
+                padding: 11px 26px; border-radius: 14px;
                 font-size: 13.5px; font-weight: 700; cursor: pointer;
                 box-shadow: 0 1px 0 rgba(255,255,255,0.15) inset, 0 6px 20px rgba(99,102,241,0.55);
                 transition: all 0.2s; display: flex; align-items: center; gap: 8px;
@@ -155,7 +155,7 @@ frappe.pages["profit-and-loss-drilldown"].on_page_load = function (wrapper) {
             .pld-field { display: flex; flex-direction: column; gap: 5px; }
             .pld-field label { font-size: 10.5px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.7px; }
             .pld-field select, .pld-field input[type="text"], .pld-field input[type="date"] {
-                border: 1.5px solid #e2e8f0; border-radius: 9px; padding: 7px 10px;
+                border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 7px 10px;
                 font-size: 13px; font-weight: 500; color: #1e293b; background: #f8fafc;
                 outline: none; transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
                 width: 100%; box-sizing: border-box; font-family: inherit;
@@ -174,11 +174,11 @@ frappe.pages["profit-and-loss-drilldown"].on_page_load = function (wrapper) {
             .pld-body { padding: 24px 40px 32px; }
             .pld-warning-banner {
                 background: #fffbeb; border: 1px solid #fde68a; color: #92400e;
-                border-radius: 12px; padding: 10px 16px; font-size: 12.5px; font-weight: 600;
+                border-radius: 14px; padding: 10px 16px; font-size: 12.5px; font-weight: 600;
                 margin-bottom: 16px; display: flex; align-items: center; gap: 8px;
             }
             .pld-placeholder, .pld-loader {
-                background: #fff; border-radius: 20px; padding: 72px 24px; text-align: center;
+                background: #fff; border-radius: 22px; padding: 72px 24px; text-align: center;
                 box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 4px 16px rgba(0,0,0,0.04);
                 border: 1px solid #f1f5f9; color: #94a3b8;
             }
@@ -190,7 +190,7 @@ frappe.pages["profit-and-loss-drilldown"].on_page_load = function (wrapper) {
 
             .pld-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; margin-bottom: 22px; }
             .pld-kpi-card {
-                background: #fff; border-radius: 18px; padding: 22px 24px 18px;
+                background: #fff; border-radius: 22px; padding: 22px 24px 18px;
                 box-shadow: 0 1px 0 rgba(255,255,255,0.8) inset, 0 2px 6px rgba(0,0,0,0.05), 0 8px 24px rgba(0,0,0,0.05);
                 border: 1px solid rgba(226,232,240,0.8);
                 position: relative; overflow: hidden;
@@ -209,7 +209,7 @@ frappe.pages["profit-and-loss-drilldown"].on_page_load = function (wrapper) {
             .pld-kpi-gross::before    { background: linear-gradient(180deg, #0ea5e9, #0284c7); }
             .pld-kpi-expense::before  { background: linear-gradient(180deg, #ef4444, #dc2626); }
             .pld-kpi-profit::before   { background: linear-gradient(180deg, #6366f1, #8b5cf6); }
-            .kpi-icon { width: 42px; height: 42px; border-radius: 13px; display: flex; align-items: center; justify-content: center; font-size: 20px; margin-bottom: 14px; }
+            .kpi-icon { width: 42px; height: 42px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 20px; margin-bottom: 14px; }
             .pld-kpi-income .kpi-icon  { background: linear-gradient(135deg, #d1fae5, #a7f3d0); }
             .pld-kpi-cogs .kpi-icon    { background: linear-gradient(135deg, #fef3c7, #fde68a); }
             .pld-kpi-gross .kpi-icon   { background: linear-gradient(135deg, #e0f2fe, #bae6fd); }
@@ -219,33 +219,33 @@ frappe.pages["profit-and-loss-drilldown"].on_page_load = function (wrapper) {
             .kpi-value { font-size: 26px; font-weight: 800; color: #0f172a; margin: 5px 0 8px; letter-spacing: -1px; line-height: 1; }
             .kpi-value.positive { color: #059669; }
             .kpi-value.negative { color: #dc2626; }
-            .kpi-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; font-weight: 700; padding: 3px 9px; border-radius: 20px; }
+            .kpi-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; font-weight: 700; padding: 3px 9px; border-radius: 22px; }
             .kpi-badge.up { background: #dcfce7; color: #15803d; }
             .kpi-badge.down { background: #fee2e2; color: #b91c1c; }
             .kpi-badge.neutral { background: #f1f5f9; color: #64748b; }
 
             .pld-content-grid { display: grid; grid-template-columns: 1fr; gap: 20px; }
 
-            .pld-chart-card { background: #fff; border-radius: 18px; padding: 24px 26px; box-shadow: 0 2px 6px rgba(0,0,0,0.05), 0 8px 24px rgba(0,0,0,0.05); border: 1px solid rgba(226,232,240,0.8); animation: pld-fade-up 0.4s 0.1s ease both; }
+            .pld-chart-card { background: #fff; border-radius: 22px; padding: 24px 26px; box-shadow: 0 2px 6px rgba(0,0,0,0.05), 0 8px 24px rgba(0,0,0,0.05); border: 1px solid rgba(226,232,240,0.8); animation: pld-fade-up 0.4s 0.1s ease both; }
             .pld-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
             .pld-card-title { font-size: 15px; font-weight: 700; color: #0f172a; letter-spacing: -0.2px; }
             .pld-card-subtitle { font-size: 12px; color: #94a3b8; margin-top: 2px; }
-            .pld-chart-tabs { display: flex; gap: 4px; background: #f1f5f9; border-radius: 9px; padding: 3px; }
+            .pld-chart-tabs { display: flex; gap: 4px; background: #f1f5f9; border-radius: 10px; padding: 3px; }
             .pld-chart-tab { padding: 5px 13px; border-radius: 7px; font-size: 12px; font-weight: 600; border: none; background: transparent; color: #64748b; cursor: pointer; transition: all 0.15s; }
             .pld-chart-tab:hover { color: #475569; }
             .pld-chart-tab.active { background: #fff; color: #4338ca; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
             .pld-chart-wrap { position: relative; height: 290px; }
             .pld-chart-wrap canvas { max-height: 290px; }
 
-            .pld-table-card { background: #fff; border-radius: 18px; box-shadow: 0 2px 6px rgba(0,0,0,0.05), 0 8px 24px rgba(0,0,0,0.05); border: 1px solid rgba(226,232,240,0.8); overflow: hidden; animation: pld-fade-up 0.4s 0.15s ease both; }
+            .pld-table-card { background: #fff; border-radius: 22px; box-shadow: 0 2px 6px rgba(0,0,0,0.05), 0 8px 24px rgba(0,0,0,0.05); border: 1px solid rgba(226,232,240,0.8); overflow: hidden; animation: pld-fade-up 0.4s 0.15s ease both; }
             .pld-table-card-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 24px 16px; flex-wrap: wrap; gap: 12px; border-bottom: 1px solid #f1f5f9; background: linear-gradient(180deg, #fafbff, #fff); }
-            .pld-search-box { display: flex; align-items: center; gap: 8px; background: #f8fafc; border-radius: 9px; padding: 7px 13px; border: 1.5px solid #e2e8f0; transition: all 0.15s; }
+            .pld-search-box { display: flex; align-items: center; gap: 8px; background: #f8fafc; border-radius: 10px; padding: 7px 13px; border: 1.5px solid #e2e8f0; transition: all 0.15s; }
             .pld-search-box:focus-within { background: #fff; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.12); }
             .pld-search-box svg { color: #94a3b8; flex-shrink: 0; }
             .pld-search-input { border: none; background: transparent; outline: none; font-size: 13px; color: #1e293b; width: 190px; font-family: inherit; }
             .pld-search-input::placeholder { color: #94a3b8; }
             .pld-table-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-            .pld-action-btn { padding: 7px 14px; border-radius: 9px; font-size: 12px; font-weight: 600; border: 1.5px solid #e2e8f0; background: #f8fafc; color: #475569; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 5px; font-family: inherit; }
+            .pld-action-btn { padding: 7px 14px; border-radius: 10px; font-size: 12px; font-weight: 600; border: 1.5px solid #e2e8f0; background: #f8fafc; color: #475569; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 5px; font-family: inherit; }
             .pld-action-btn:hover { background: #f1f5f9; border-color: #c7d2fe; color: #4338ca; }
             .pld-action-btn.primary { background: linear-gradient(135deg, #6366f1, #7c3aed); border-color: transparent; color: #fff; box-shadow: 0 2px 8px rgba(99,102,241,0.35); }
             .pld-action-btn.primary:hover { background: linear-gradient(135deg, #4f46e5, #6d28d9); box-shadow: 0 4px 12px rgba(99,102,241,0.45); transform: translateY(-1px); }
@@ -307,7 +307,7 @@ frappe.pages["profit-and-loss-drilldown"].on_page_load = function (wrapper) {
             .num-zero { color: #cbd5e1; }
 
             .pld-view-pills { display: flex; gap: 3px; background: #f1f5f9; border-radius: 10px; padding: 3px; }
-            .pld-view-pill { padding: 5px 14px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.15s; color: #64748b; border: none; background: transparent; font-family: inherit; }
+            .pld-view-pill { padding: 5px 14px; border-radius: 10px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.15s; color: #64748b; border: none; background: transparent; font-family: inherit; }
             .pld-view-pill:hover { color: #475569; }
             .pld-view-pill.active { background: #fff; color: #4338ca; box-shadow: 0 1px 4px rgba(0,0,0,0.1), 0 0 0 1px rgba(99,102,241,0.1); }
 

@@ -20,7 +20,7 @@
   color: var(--sd-violet);
   background: var(--sd-violet-dim);
   padding: 1px 6px;
-  border-radius: 8px;
+  border-radius: 10px;
   font-weight: 600;
   letter-spacing: 0.05em;
   margin-left: 4px;
@@ -38,7 +38,7 @@
 .sd-dash .sd-view-toggle,
 .sd-dash .sd-mtx-toggle {
   display:flex; gap:4px; background:#fff;
-  border:1px solid var(--sd-border); border-radius:8px; padding:3px;
+  border:1px solid var(--sd-border); border-radius:10px; padding:3px;
 }
 .sd-dash .sd-view-btn,
 .sd-dash .sd-mtx-btn {
@@ -52,7 +52,7 @@
 .sd-dash .sd-mtx-btn.active { background:#1e293b; color:#fff; box-shadow:0 1px 4px rgba(0,0,0,0.15); }
 .sd-dash .sd-export-btn {
   display:flex; align-items:center; gap:5px;
-  padding:5px 12px; border:1px solid var(--sd-border); border-radius:8px;
+  padding:5px 12px; border:1px solid var(--sd-border); border-radius:10px;
   background:#fff; color:var(--sd-text-secondary);
   font-size:11px; font-weight:600; font-family:'DM Sans',sans-serif;
   cursor:pointer; transition:all 0.18s; white-space:nowrap;
@@ -136,7 +136,7 @@
   color: var(--sd-amber);
   background: var(--sd-amber-dim);
   padding: 1px 6px;
-  border-radius: 8px;
+  border-radius: 10px;
   font-weight: 600;
   letter-spacing: 0.05em;
   margin-left: 4px;
@@ -222,7 +222,7 @@
 .sd-dash .sd-matrix .sd-ar-badge-legacy,
 .sd-dash .sd-matrix .sd-ar-badge-bad,
 .sd-dash .sd-matrix .sd-ar-badge-good {
-  font-size: 9px; font-weight: 700; padding: 1px 6px; border-radius: 8px;
+  font-size: 9px; font-weight: 700; padding: 1px 6px; border-radius: 10px;
   margin-left: 4px; font-family: 'DM Mono', monospace; vertical-align: middle;
 }
 .sd-dash .sd-matrix .sd-ar-badge-legacy { background: #fee2e2; color: #991b1b; }
@@ -295,7 +295,7 @@
 }
 .sd-dash .sd-period-toggle {
   display:flex; gap:4px; background:#fff;
-  border:1px solid var(--sd-border); border-radius:8px; padding:3px;
+  border:1px solid var(--sd-border); border-radius:10px; padding:3px;
 }
 .sd-dash .sd-period-btn {
   padding:6px 20px; border:none; border-radius:6px; background:transparent;
@@ -332,7 +332,7 @@
 .sd-dash .sd-product-card:hover { border-color:var(--sd-border-hover); transform:translateY(-2px); box-shadow:0 4px 16px rgba(0,0,0,0.06); }
 .sd-dash .sd-product-top { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; margin-bottom:16px; }
 .sd-dash .sd-product-name { font-size:15px; font-weight:700; color:var(--sd-text-primary); line-height:1.3; }
-.sd-dash .sd-status-badge { flex-shrink:0; font-size:10px; font-weight:700; padding:3px 8px; border-radius:20px; letter-spacing:0.05em; white-space:nowrap; }
+.sd-dash .sd-status-badge { flex-shrink:0; font-size:10px; font-weight:700; padding:3px 8px; border-radius:22px; letter-spacing:0.05em; white-space:nowrap; }
 .sd-dash .sd-product-numbers { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px; }
 .sd-dash .sd-product-stat-label { font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:0.07em; color:var(--sd-text-muted); margin-bottom:3px; }
 .sd-dash .sd-product-stat-val { font-size:16px; font-weight:700; color:var(--sd-text-primary); font-family:'DM Mono',monospace; }
@@ -359,7 +359,7 @@
 .sd-dash .sd-table-card { background:#fff; border:1px solid var(--sd-border); border-radius:var(--sd-radius); overflow:hidden; margin-bottom:8px; }
 .sd-dash .sd-table-toolbar { display:flex; align-items:center; gap:12px; padding:14px 20px; border-bottom:1px solid #f1f5f9; flex-wrap:wrap; }
 .sd-dash .sd-table-title { font-size:13px; font-weight:700; color:var(--sd-text-primary); flex:1; }
-.sd-dash .sd-badge { font-size:11px; background:#f1f5f9; color:#64748b; border-radius:20px; padding:3px 10px; font-weight:600; white-space:nowrap; }
+.sd-dash .sd-badge { font-size:11px; background:#f1f5f9; color:#64748b; border-radius:22px; padding:3px 10px; font-weight:600; white-space:nowrap; }
 
 .sd-dash .sd-data-table { width:100%; border-collapse:collapse; }
 .sd-dash .sd-data-table thead th { font-size:10.5px; font-weight:700; color:var(--sd-text-muted); text-transform:uppercase; letter-spacing:0.07em; padding:10px 16px; text-align:left; background:#fafbfc; border-bottom:1px solid #f1f5f9; white-space:nowrap; }

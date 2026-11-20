@@ -584,7 +584,7 @@ class UnitEconomics {
 		const css = `
 		.ue-root{font-family:var(--mt-f-sans,'Archivo',sans-serif);max-width:1360px;margin:0 auto;padding-bottom:60px}
 		.ue-tabs{display:flex;gap:6px;align-items:center;margin:6px 0 16px;flex-wrap:wrap}
-		.ue-tab{padding:7px 16px;border:1px solid var(--mt-line-strong,#d8cceb);border-radius:9px;cursor:pointer;
+		.ue-tab{padding:7px 16px;border:1px solid var(--mt-line-strong,#d8cceb);border-radius:10px;cursor:pointer;
 			font-size:12px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--mt-ink-soft,#7a6f8a);background:var(--fg-color,#fff)}
 		.ue-tab.on{background:#4d129e;border-color:#4d129e;color:#fff}
 		.ue-period{margin-left:auto;font-size:12px;color:var(--mt-ink-soft,#7a6f8a)}

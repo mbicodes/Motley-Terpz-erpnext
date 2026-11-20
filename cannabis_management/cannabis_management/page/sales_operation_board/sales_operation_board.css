@@ -105,15 +105,18 @@
    root, and the ⋯ menu (its child) could then blur only the title bar and showed the board through. */
 #page-sales-operation-board .page-head {
 	-webkit-backdrop-filter: none !important; backdrop-filter: none !important;
-	border-bottom: 1px solid rgba(255, 255, 255, .45);
+	border-bottom: 0 !important;
 }
+/* a rounded glass panel (theme corner scale, continuous curve), not a square full-width band */
 #page-sales-operation-board .page-head::before {
 	content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+	border-radius: var(--lg-r-lg, 22px); corner-shape: var(--lg-corner, round);
 	background: rgba(255, 255, 255, .7);
+	box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .45);
 	-webkit-backdrop-filter: blur(40px) saturate(1.8); backdrop-filter: blur(40px) saturate(1.8);
 	-webkit-mask: none; mask: none;
 }
-#page-sales-operation-board:has(.sob[data-tone="dark"]) .page-head { border-bottom-color: rgba(255, 255, 255, .12); }
+#page-sales-operation-board:has(.sob[data-tone="dark"]) .page-head::before { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12); }
 #page-sales-operation-board:has(.sob[data-tone="dark"]) .page-head::before { background: rgba(34, 10, 72, .66); }
 #page-sales-operation-board:has(.sob[data-tone="dark"]) .page-head .title-text { color: #fff !important; }
 #page-sales-operation-board .page-head .title-text { font-family: var(--sob-font) !important; font-size: 26px; font-weight: 600 !important; letter-spacing: -.02em !important; color: var(--sob-ink) !important; }

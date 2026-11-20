@@ -93,7 +93,7 @@ frappe.pages["detailed-balance-sheet-drilldown"].on_page_load = function (wrappe
             .dbsd-logo-icon {
                 width: 50px; height: 50px;
                 background: linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%);
-                border-radius: 15px;
+                border-radius: 22px;
                 display: flex; align-items: center; justify-content: center;
                 font-size: 24px;
                 box-shadow: 0 0 0 1px rgba(255,255,255,0.12), 0 8px 24px rgba(14,165,233,0.5);
@@ -103,7 +103,7 @@ frappe.pages["detailed-balance-sheet-drilldown"].on_page_load = function (wrappe
             .dbsd-run-btn {
                 background: linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%);
                 border: none; color: #fff;
-                padding: 11px 26px; border-radius: 12px;
+                padding: 11px 26px; border-radius: 14px;
                 font-size: 13.5px; font-weight: 700; cursor: pointer;
                 box-shadow: 0 1px 0 rgba(255,255,255,0.15) inset, 0 6px 20px rgba(14,165,233,0.55);
                 transition: all 0.2s; display: flex; align-items: center; gap: 8px;
@@ -121,7 +121,7 @@ frappe.pages["detailed-balance-sheet-drilldown"].on_page_load = function (wrappe
             .dbsd-field { display: flex; flex-direction: column; gap: 5px; }
             .dbsd-field label { font-size: 10.5px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.7px; }
             .dbsd-field select, .dbsd-field input[type="text"], .dbsd-field input[type="date"] {
-                border: 1.5px solid #e2e8f0; border-radius: 9px; padding: 7px 10px;
+                border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 7px 10px;
                 font-size: 13px; font-weight: 500; color: #1e293b; background: #f8fafc;
                 outline: none; transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
                 width: 100%; box-sizing: border-box; font-family: inherit;
@@ -140,11 +140,11 @@ frappe.pages["detailed-balance-sheet-drilldown"].on_page_load = function (wrappe
             .dbsd-body { padding: 24px 40px 32px; }
             .dbsd-warning-banner {
                 background: #fffbeb; border: 1px solid #fde68a; color: #92400e;
-                border-radius: 12px; padding: 10px 16px; font-size: 12.5px; font-weight: 600;
+                border-radius: 14px; padding: 10px 16px; font-size: 12.5px; font-weight: 600;
                 margin-bottom: 16px; display: flex; align-items: center; gap: 8px;
             }
             .dbsd-placeholder, .dbsd-loader {
-                background: #fff; border-radius: 20px; padding: 72px 24px; text-align: center;
+                background: #fff; border-radius: 22px; padding: 72px 24px; text-align: center;
                 box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 4px 16px rgba(0,0,0,0.04);
                 border: 1px solid #f1f5f9; color: #94a3b8;
             }
@@ -156,7 +156,7 @@ frappe.pages["detailed-balance-sheet-drilldown"].on_page_load = function (wrappe
 
             .dbsd-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; margin-bottom: 22px; }
             .dbsd-kpi-card {
-                background: #fff; border-radius: 18px; padding: 22px 24px 18px;
+                background: #fff; border-radius: 22px; padding: 22px 24px 18px;
                 box-shadow: 0 1px 0 rgba(255,255,255,0.8) inset, 0 2px 6px rgba(0,0,0,0.05), 0 8px 24px rgba(0,0,0,0.05);
                 border: 1px solid rgba(226,232,240,0.8);
                 position: relative; overflow: hidden;
@@ -173,7 +173,7 @@ frappe.pages["detailed-balance-sheet-drilldown"].on_page_load = function (wrappe
             .dbsd-kpi-liability::before { background: linear-gradient(180deg, #f59e0b, #d97706); }
             .dbsd-kpi-equity::before    { background: linear-gradient(180deg, #8b5cf6, #7c3aed); }
             .dbsd-kpi-pl::before        { background: linear-gradient(180deg, #6366f1, #4338ca); }
-            .kpi-icon { width: 42px; height: 42px; border-radius: 13px; display: flex; align-items: center; justify-content: center; font-size: 20px; margin-bottom: 14px; }
+            .kpi-icon { width: 42px; height: 42px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 20px; margin-bottom: 14px; }
             .dbsd-kpi-asset .kpi-icon     { background: linear-gradient(135deg, #e0f2fe, #bae6fd); }
             .dbsd-kpi-liability .kpi-icon { background: linear-gradient(135deg, #fef3c7, #fde68a); }
             .dbsd-kpi-equity .kpi-icon    { background: linear-gradient(135deg, #ede9fe, #ddd6fe); }
@@ -182,33 +182,33 @@ frappe.pages["detailed-balance-sheet-drilldown"].on_page_load = function (wrappe
             .kpi-value { font-size: 26px; font-weight: 800; color: #0f172a; margin: 5px 0 8px; letter-spacing: -1px; line-height: 1; }
             .kpi-value.positive { color: #059669; }
             .kpi-value.negative { color: #dc2626; }
-            .kpi-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; font-weight: 700; padding: 3px 9px; border-radius: 20px; }
+            .kpi-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; font-weight: 700; padding: 3px 9px; border-radius: 22px; }
             .kpi-badge.up { background: #dcfce7; color: #15803d; }
             .kpi-badge.down { background: #fee2e2; color: #b91c1c; }
             .kpi-badge.neutral { background: #f1f5f9; color: #64748b; }
 
             .dbsd-content-grid { display: grid; grid-template-columns: 1fr; gap: 20px; }
 
-            .dbsd-chart-card { background: #fff; border-radius: 18px; padding: 24px 26px; box-shadow: 0 2px 6px rgba(0,0,0,0.05), 0 8px 24px rgba(0,0,0,0.05); border: 1px solid rgba(226,232,240,0.8); animation: dbsd-fade-up 0.4s 0.1s ease both; }
+            .dbsd-chart-card { background: #fff; border-radius: 22px; padding: 24px 26px; box-shadow: 0 2px 6px rgba(0,0,0,0.05), 0 8px 24px rgba(0,0,0,0.05); border: 1px solid rgba(226,232,240,0.8); animation: dbsd-fade-up 0.4s 0.1s ease both; }
             .dbsd-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
             .dbsd-card-title { font-size: 15px; font-weight: 700; color: #0f172a; letter-spacing: -0.2px; }
             .dbsd-card-subtitle { font-size: 12px; color: #94a3b8; margin-top: 2px; }
-            .dbsd-chart-tabs { display: flex; gap: 4px; background: #f1f5f9; border-radius: 9px; padding: 3px; }
+            .dbsd-chart-tabs { display: flex; gap: 4px; background: #f1f5f9; border-radius: 10px; padding: 3px; }
             .dbsd-chart-tab { padding: 5px 13px; border-radius: 7px; font-size: 12px; font-weight: 600; border: none; background: transparent; color: #64748b; cursor: pointer; transition: all 0.15s; }
             .dbsd-chart-tab:hover { color: #475569; }
             .dbsd-chart-tab.active { background: #fff; color: #0369a1; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
             .dbsd-chart-wrap { position: relative; height: 290px; }
             .dbsd-chart-wrap canvas { max-height: 290px; }
 
-            .dbsd-table-card { background: #fff; border-radius: 18px; box-shadow: 0 2px 6px rgba(0,0,0,0.05), 0 8px 24px rgba(0,0,0,0.05); border: 1px solid rgba(226,232,240,0.8); overflow: hidden; animation: dbsd-fade-up 0.4s 0.15s ease both; }
+            .dbsd-table-card { background: #fff; border-radius: 22px; box-shadow: 0 2px 6px rgba(0,0,0,0.05), 0 8px 24px rgba(0,0,0,0.05); border: 1px solid rgba(226,232,240,0.8); overflow: hidden; animation: dbsd-fade-up 0.4s 0.15s ease both; }
             .dbsd-table-card-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 24px 16px; flex-wrap: wrap; gap: 12px; border-bottom: 1px solid #f1f5f9; background: linear-gradient(180deg, #fafbff, #fff); }
-            .dbsd-search-box { display: flex; align-items: center; gap: 8px; background: #f8fafc; border-radius: 9px; padding: 7px 13px; border: 1.5px solid #e2e8f0; transition: all 0.15s; }
+            .dbsd-search-box { display: flex; align-items: center; gap: 8px; background: #f8fafc; border-radius: 10px; padding: 7px 13px; border: 1.5px solid #e2e8f0; transition: all 0.15s; }
             .dbsd-search-box:focus-within { background: #fff; border-color: #0ea5e9; box-shadow: 0 0 0 3px rgba(14,165,233,0.12); }
             .dbsd-search-box svg { color: #94a3b8; flex-shrink: 0; }
             .dbsd-search-input { border: none; background: transparent; outline: none; font-size: 13px; color: #1e293b; width: 190px; font-family: inherit; }
             .dbsd-search-input::placeholder { color: #94a3b8; }
             .dbsd-table-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-            .dbsd-action-btn { padding: 7px 14px; border-radius: 9px; font-size: 12px; font-weight: 600; border: 1.5px solid #e2e8f0; background: #f8fafc; color: #475569; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 5px; font-family: inherit; }
+            .dbsd-action-btn { padding: 7px 14px; border-radius: 10px; font-size: 12px; font-weight: 600; border: 1.5px solid #e2e8f0; background: #f8fafc; color: #475569; cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 5px; font-family: inherit; }
             .dbsd-action-btn:hover { background: #f1f5f9; border-color: #bae6fd; color: #0369a1; }
             .dbsd-action-btn.primary { background: linear-gradient(135deg, #0ea5e9, #6366f1); border-color: transparent; color: #fff; box-shadow: 0 2px 8px rgba(14,165,233,0.35); }
             .dbsd-action-btn.primary:hover { background: linear-gradient(135deg, #0284c7, #4f46e5); box-shadow: 0 4px 12px rgba(14,165,233,0.45); transform: translateY(-1px); }
@@ -259,7 +259,7 @@ frappe.pages["detailed-balance-sheet-drilldown"].on_page_load = function (wrappe
             .num-zero { color: #cbd5e1; }
 
             .dbsd-view-pills { display: flex; gap: 3px; background: #f1f5f9; border-radius: 10px; padding: 3px; }
-            .dbsd-view-pill { padding: 5px 14px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.15s; color: #64748b; border: none; background: transparent; font-family: inherit; }
+            .dbsd-view-pill { padding: 5px 14px; border-radius: 10px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.15s; color: #64748b; border: none; background: transparent; font-family: inherit; }
             .dbsd-view-pill:hover { color: #475569; }
             .dbsd-view-pill.active { background: #fff; color: #0369a1; box-shadow: 0 1px 4px rgba(0,0,0,0.1), 0 0 0 1px rgba(14,165,233,0.1); }
 

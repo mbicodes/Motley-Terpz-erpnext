@@ -58,7 +58,7 @@
 .pm-kc {
   background: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 16px 18px 14px;
   position: relative;
   overflow: hidden;
@@ -87,7 +87,7 @@
 .pm-panel {
   background: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 18px 20px;
 }
 .pm-ptitle { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: #64748b; margin-bottom: 2px; }
@@ -99,12 +99,12 @@
 .pm-wsc {
   display: grid; grid-template-columns: 1fr auto auto auto;
   align-items: center; gap: 10px;
-  padding: 8px 10px; border-radius: 8px; background: #f8fafc;
+  padding: 8px 10px; border-radius: 10px; background: #f8fafc;
   border: 1px solid #e2e8f0;
 }
 .pm-wsname  { font-size: 12px; font-weight: 600; color: #1e293b; }
 .pm-wsbadge {
-  font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 20px;
+  font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 22px;
   letter-spacing: .04em;
 }
 .pm-wsbadge.active { background: #d1fae5; color: #065f46; }
@@ -140,7 +140,7 @@
   margin: 14px 28px 0;
   background: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 12px;
+  border-radius: 14px;
   overflow: hidden;
 }
 .pm-sec-hdr {
@@ -166,7 +166,7 @@
 
 .pm-pill {
   display: inline-block; font-size: 10px; font-weight: 700;
-  padding: 2px 8px; border-radius: 20px; letter-spacing: .04em; white-space: nowrap;
+  padding: 2px 8px; border-radius: 22px; letter-spacing: .04em; white-space: nowrap;
 }
 .pm-pill.cp  { background: #d1fae5; color: #065f46; }
 .pm-pill.ip  { background: #fef3c7; color: #92400e; }
@@ -193,7 +193,7 @@
   margin: 14px 28px 0;
   background: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 18px 20px;
 }
 .pm-lbs-kpis {
@@ -210,7 +210,7 @@
   gap: 10px; padding: 14px 18px 10px;
 }
 .pm-log-kcard {
-  background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;
+  background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px;
   padding: 12px 14px; border-left: 3px solid var(--lkc, #2563eb);
 }
 .pm-log-klbl  { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: #94a3b8; margin-bottom: 4px; }

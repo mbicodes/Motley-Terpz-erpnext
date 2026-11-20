@@ -21,7 +21,7 @@
 	display: inline-flex; background: var(--control-bg); border-radius: 10px; padding: 4px; gap: 4px;
 }
 .cvd-seg button {
-	border: 0; background: transparent; padding: 8px 18px; border-radius: 8px;
+	border: 0; background: transparent; padding: 8px 18px; border-radius: 10px;
 	font-weight: 600; font-size: 13px; color: var(--text-muted); cursor: pointer;
 }
 .cvd-seg button.active { background: var(--cvd-brand); color: #fff; box-shadow: 0 2px 6px rgba(123,47,191,.35); }
@@ -29,7 +29,7 @@
 
 .cvd-filters {
 	display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px;
-	background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px;
+	background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 14px;
 	padding: 12px 14px; margin-bottom: 18px;
 }
 .cvd-filters .cvd-f { display: flex; flex-direction: column; gap: 4px; min-width: 140px; }
@@ -46,7 +46,7 @@
 
 .cvd-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 18px; }
 .cvd-kpi {
-	background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px;
+	background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 14px;
 	padding: 14px 16px; position: relative; overflow: hidden;
 }
 .cvd-kpi::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--cvd-kpi, var(--cvd-brand)); }
@@ -58,7 +58,7 @@
 .cvd-grid.cvd-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 @media (max-width: 991px) { .cvd-grid, .cvd-grid.cvd-3 { grid-template-columns: 1fr; } }
 .cvd-card {
-	background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px;
+	background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 14px;
 	padding: 16px; min-width: 0;
 }
 .cvd-card.cvd-wide { grid-column: 1 / -1; }
@@ -84,7 +84,7 @@
 .cvd-bar-fill { height: 100%; border-radius: 5px; }
 .cvd-bar-val { font-variant-numeric: tabular-nums; color: var(--text-muted); white-space: nowrap; text-align: right; min-width: 70px; }
 
-.cvd-table-wrap { max-height: 420px; overflow: auto; border-radius: 8px; }
+.cvd-table-wrap { max-height: 420px; overflow: auto; border-radius: 10px; }
 .cvd-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .cvd-table th {
 	position: sticky; top: 0; background: var(--card-bg); z-index: 1;

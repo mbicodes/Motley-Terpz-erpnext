@@ -103,7 +103,7 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
             .pnl-logo-icon {
                 width: 50px; height: 50px;
                 background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-                border-radius: 15px;
+                border-radius: 22px;
                 display: flex; align-items: center; justify-content: center;
                 font-size: 24px;
                 box-shadow: 0 0 0 1px rgba(255,255,255,0.12), 0 8px 24px rgba(99,102,241,0.5);
@@ -118,7 +118,7 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
                 display: inline-flex; align-items: center; gap: 5px;
                 background: rgba(255,255,255,0.08);
                 border: 1px solid rgba(255,255,255,0.12);
-                border-radius: 20px; padding: 3px 10px;
+                border-radius: 22px; padding: 3px 10px;
                 font-size: 11.5px; font-weight: 500; color: rgba(255,255,255,0.75);
                 backdrop-filter: blur(4px);
             }
@@ -126,7 +126,7 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
             .pnl-run-btn {
                 background: linear-gradient(135deg, #6366f1 0%, #7c3aed 100%);
                 border: none; color: #fff;
-                padding: 11px 26px; border-radius: 12px;
+                padding: 11px 26px; border-radius: 14px;
                 font-size: 13.5px; font-weight: 700; cursor: pointer;
                 box-shadow: 0 1px 0 rgba(255,255,255,0.15) inset,
                             0 6px 20px rgba(99,102,241,0.55);
@@ -167,7 +167,7 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
             .pnl-field input[type="text"],
             .pnl-field input[type="date"] {
                 border: 1.5px solid #e2e8f0;
-                border-radius: 9px;
+                border-radius: 10px;
                 padding: 7px 10px;
                 font-size: 13px; font-weight: 500;
                 color: #1e293b;
@@ -225,7 +225,7 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
 
             /* ── Empty state ── */
             .pnl-placeholder {
-                background: #fff; border-radius: 20px;
+                background: #fff; border-radius: 22px;
                 padding: 72px 24px; text-align: center;
                 box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 4px 16px rgba(0,0,0,0.04);
                 border: 1px solid #f1f5f9;
@@ -240,7 +240,7 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
 
             /* ── Loading state ── */
             .pnl-loader {
-                background: #fff; border-radius: 20px;
+                background: #fff; border-radius: 22px;
                 padding: 72px 24px; text-align: center;
                 box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 4px 16px rgba(0,0,0,0.04);
                 border: 1px solid #f1f5f9;
@@ -275,7 +275,7 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
             }
             .pnl-kpi-card {
                 background: #fff;
-                border-radius: 18px;
+                border-radius: 22px;
                 padding: 22px 24px 18px;
                 box-shadow:
                     0 1px 0 rgba(255,255,255,0.8) inset,
@@ -316,7 +316,7 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
             .pnl-kpi-ratio::before   { background: linear-gradient(180deg, #0ea5e9, #0284c7); }
             .pnl-kpi-ratio::after    { background: #0ea5e9; }
             .kpi-icon {
-                width: 42px; height: 42px; border-radius: 13px;
+                width: 42px; height: 42px; border-radius: 14px;
                 display: flex; align-items: center; justify-content: center;
                 font-size: 20px; margin-bottom: 14px; position: relative; z-index: 1;
             }
@@ -339,7 +339,7 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
             .kpi-badge {
                 display: inline-flex; align-items: center; gap: 4px;
                 font-size: 11.5px; font-weight: 700;
-                padding: 3px 9px; border-radius: 20px;
+                padding: 3px 9px; border-radius: 22px;
                 position: relative; z-index: 1;
             }
             .kpi-badge.up     { background: #dcfce7; color: #15803d; }
@@ -359,7 +359,7 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
                CHART CARD
             ═══════════════════════════════════════ */
             .pnl-chart-card {
-                background: #fff; border-radius: 18px;
+                background: #fff; border-radius: 22px;
                 padding: 24px 26px;
                 box-shadow: 0 2px 6px rgba(0,0,0,0.05), 0 8px 24px rgba(0,0,0,0.05);
                 border: 1px solid rgba(226,232,240,0.8);
@@ -373,7 +373,7 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
                 font-size: 15px; font-weight: 700; color: #0f172a; letter-spacing: -0.2px;
             }
             .pnl-card-subtitle { font-size: 12px; color: #94a3b8; margin-top: 2px; }
-            .pnl-chart-tabs { display: flex; gap: 4px; background: #f1f5f9; border-radius: 9px; padding: 3px; }
+            .pnl-chart-tabs { display: flex; gap: 4px; background: #f1f5f9; border-radius: 10px; padding: 3px; }
             .pnl-chart-tab {
                 padding: 5px 13px; border-radius: 7px; font-size: 12px; font-weight: 600;
                 border: none; background: transparent; color: #64748b;
@@ -391,7 +391,7 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
                TABLE CARD
             ═══════════════════════════════════════ */
             .pnl-table-card {
-                background: #fff; border-radius: 18px;
+                background: #fff; border-radius: 22px;
                 box-shadow: 0 2px 6px rgba(0,0,0,0.05), 0 8px 24px rgba(0,0,0,0.05);
                 border: 1px solid rgba(226,232,240,0.8);
                 overflow: hidden;
@@ -405,7 +405,7 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
             }
             .pnl-search-box {
                 display: flex; align-items: center; gap: 8px;
-                background: #f8fafc; border-radius: 9px; padding: 7px 13px;
+                background: #f8fafc; border-radius: 10px; padding: 7px 13px;
                 border: 1.5px solid #e2e8f0; transition: all 0.15s;
             }
             .pnl-search-box:focus-within {
@@ -420,7 +420,7 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
             .pnl-search-input::placeholder { color: #94a3b8; }
             .pnl-table-actions { display: flex; gap: 8px; flex-wrap: wrap; }
             .pnl-action-btn {
-                padding: 7px 14px; border-radius: 9px; font-size: 12px; font-weight: 600;
+                padding: 7px 14px; border-radius: 10px; font-size: 12px; font-weight: 600;
                 border: 1.5px solid #e2e8f0; background: #f8fafc; color: #475569;
                 cursor: pointer; transition: all 0.15s;
                 display: flex; align-items: center; gap: 5px;
@@ -566,7 +566,7 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
                 background: #f1f5f9; border-radius: 10px; padding: 3px;
             }
             .pnl-view-pill {
-                padding: 5px 14px; border-radius: 8px; font-size: 12px; font-weight: 600;
+                padding: 5px 14px; border-radius: 10px; font-size: 12px; font-weight: 600;
                 cursor: pointer; transition: all 0.15s; color: #64748b;
                 border: none; background: transparent; font-family: inherit;
             }

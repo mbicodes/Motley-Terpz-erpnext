@@ -209,7 +209,7 @@ function _start_job_dialog(frm) {
                 selected.map(emp => `
                     <span class="cm-emp-pill" style="display:inline-flex;align-items:center;gap:6px;
                         padding:3px 10px;border:1px solid var(--border-color,#d1d8dd);
-                        border-radius:12px;background:var(--control-bg,#f4f5f6);font-size:12px">
+                        border-radius:14px;background:var(--control-bg,#f4f5f6);font-size:12px">
                         <span>${frappe.utils.escape_html(emp.label)}</span>
                         <a href="#" class="cm-emp-remove" data-id="${frappe.utils.escape_html(emp.id)}"
                            style="text-decoration:none;color:var(--text-muted,#8d99a6);font-weight:700"

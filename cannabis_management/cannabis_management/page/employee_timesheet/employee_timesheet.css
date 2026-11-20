@@ -51,7 +51,7 @@
 
 .ets-f input[type="date"],
 .ets-f select{
-  border:1px solid var(--line);border-radius:9px;padding:7px 10px;
+  border:1px solid var(--line);border-radius:10px;padding:7px 10px;
   font-size:12.5px;background:#fff;color:var(--ink);height:34px;min-width:150px;
   transition:border-color .12s, box-shadow .12s;
 }
@@ -60,7 +60,7 @@
 
 .ets-chips{display:flex;gap:6px;flex-wrap:wrap;}
 .ets-chip{
-  border:1px solid var(--line);background:#fff;border-radius:9px;padding:0 13px;height:34px;
+  border:1px solid var(--line);background:#fff;border-radius:10px;padding:0 13px;height:34px;
   font-size:12.5px;cursor:pointer;color:var(--ink-2);font-weight:500;transition:all .12s;
 }
 .ets-chip:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft);}
@@ -69,7 +69,7 @@
 .ets-toggles{display:flex;gap:8px;align-items:center;}
 .ets-check{
   display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 13px;
-  border:1px solid var(--line);border-radius:9px;background:#fff;cursor:pointer;
+  border:1px solid var(--line);border-radius:10px;background:#fff;cursor:pointer;
   font-size:12.5px;color:var(--ink-2);user-select:none;transition:all .12s;white-space:nowrap;
 }
 .ets-check:hover{border-color:var(--accent);color:var(--accent);}
@@ -77,7 +77,7 @@
 .ets-check.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:600;}
 
 .ets-apply{
-  height:34px;padding:0 18px;border-radius:9px;border:none;background:var(--accent);
+  height:34px;padding:0 18px;border-radius:10px;border:none;background:var(--accent);
   color:#fff;font-size:12.5px;font-weight:600;cursor:pointer;transition:filter .12s;
 }
 .ets-apply:hover{filter:brightness(1.08);}
@@ -141,7 +141,7 @@ tr.ets-day-row:hover td{background:#fafaff;}
 }
 
 .ets-pdf{
-  height:34px;padding:0 16px;border-radius:9px;border:1px solid var(--line);
+  height:34px;padding:0 16px;border-radius:10px;border:1px solid var(--line);
   background:#fff;color:var(--ink-2);font-size:12.5px;font-weight:600;cursor:pointer;
   transition:all .12s;
 }

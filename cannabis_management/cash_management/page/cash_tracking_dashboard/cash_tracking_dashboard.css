@@ -27,7 +27,7 @@
 	border: 1px solid var(--border-color, #e2e8f0);
 	background: var(--card-bg, #fff);
 	color: var(--text-color);
-	border-radius: 8px;
+	border-radius: 10px;
 	padding: 8px 14px;
 	font-size: 13px;
 	font-weight: 500;
@@ -58,7 +58,7 @@
 	padding: 16px 18px;
 	background: var(--card-bg, #fff);
 	border: 1px solid var(--border-color, #e9edf2);
-	border-radius: 12px;
+	border-radius: 14px;
 	margin-bottom: 20px;
 	box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
 }
@@ -74,7 +74,7 @@
 	height: 34px;
 	min-width: 150px;
 	border: 1px solid var(--border-color, #dfe3e8);
-	border-radius: 8px;
+	border-radius: 10px;
 	padding: 0 10px;
 	font-size: 13px;
 	background: var(--control-bg, #fff);
@@ -91,7 +91,7 @@
 .ctd-toggle {
 	display: inline-flex;
 	background: var(--fg-hover-color, #f1f5f9);
-	border-radius: 8px;
+	border-radius: 10px;
 	padding: 3px;
 	gap: 2px;
 }
@@ -122,7 +122,7 @@
 .ctd-card {
 	background: var(--card-bg, #fff);
 	border: 1px solid var(--border-color, #e9edf2);
-	border-radius: 12px;
+	border-radius: 14px;
 	padding: 16px 18px;
 	box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
 	position: relative;
@@ -155,7 +155,7 @@
 .ctd-table-wrap {
 	background: var(--card-bg, #fff);
 	border: 1px solid var(--border-color, #e9edf2);
-	border-radius: 12px;
+	border-radius: 14px;
 	overflow-x: auto;
 	box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
 }
@@ -214,7 +214,7 @@
 .ctd-badge, .ctd-tag {
 	display: inline-block;
 	padding: 2px 9px;
-	border-radius: 20px;
+	border-radius: 22px;
 	font-size: 11px;
 	font-weight: 600;
 	line-height: 1.6;
@@ -315,7 +315,7 @@
 
 .ctd-safe-mode {
 	padding: 22px 24px 36px;
-	border-radius: 20px;
+	border-radius: 22px;
 	color: #ece6d4;
 	background:
 		radial-gradient(900px 320px at 50% -60px, rgba(212,167,44,.22), transparent 70%),
@@ -401,7 +401,7 @@ body.ctd-safe-body .ctd-safe-mode { box-shadow: 0 0 0 1px rgba(212,167,44,.15), 
 
 .ctd-vault-overlay {
 	position: absolute; inset: 0; z-index: 20;
-	border-radius: 20px; overflow: hidden;
+	border-radius: 22px; overflow: hidden;
 	display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
 	padding-top: 60px; min-height: 420px;
 	background: radial-gradient(circle at 50% 185px, #232833 0%, #0b0d11 70%);

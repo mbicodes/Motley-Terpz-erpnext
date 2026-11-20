@@ -48,7 +48,7 @@
 .ard-recon-badge {
 	display: inline-block;
 	padding: 2px 9px;
-	border-radius: 12px;
+	border-radius: 14px;
 	font-size: 10px;
 	font-weight: 700;
 	letter-spacing: .3px;
@@ -109,7 +109,7 @@
 .ard-recon-readonly {
 	display: inline-block;
 	padding: 4px 12px;
-	border-radius: 12px;
+	border-radius: 14px;
 	font-size: 11px;
 	font-weight: 700;
 	letter-spacing: .3px;
@@ -173,7 +173,7 @@
 	font-weight: 600;
 	background: var(--ard-primary);
 	color: #fff;
-	border-radius: 20px;
+	border-radius: 22px;
 	padding: 3px 12px;
 }
 
@@ -819,7 +819,7 @@
 .ard-badge {
 	display: inline-block;
 	padding: 3px 10px;
-	border-radius: 20px;
+	border-radius: 22px;
 	font-size: 11px;
 	font-weight: 700;
 	letter-spacing: .3px;
@@ -1030,7 +1030,7 @@
 }
 .ard-new-ar-btn {
 	padding: 3px 9px;
-	border-radius: 12px;
+	border-radius: 14px;
 	font-size: 10px;
 	font-weight: 700;
 	letter-spacing: .3px;

@@ -33,7 +33,7 @@ frappe.pages['inventory-sales-dashboard'].on_page_load = function (wrapper) {
 .isd-header-icon {
     width:44px; height:44px;
     background:rgba(255,255,255,.18);
-    border-radius:12px;
+    border-radius:14px;
     display:flex; align-items:center; justify-content:center;
     flex-shrink:0;
 }
@@ -43,7 +43,7 @@ frappe.pages['inventory-sales-dashboard'].on_page_load = function (wrapper) {
     background:rgba(255,255,255,.15);
     color:#fff;
     border:1.5px solid rgba(255,255,255,.3);
-    border-radius:8px;
+    border-radius:10px;
     padding:8px 18px;
     font-size:13px;
     font-weight:500;
@@ -146,7 +146,7 @@ frappe.pages['inventory-sales-dashboard'].on_page_load = function (wrapper) {
 @media(max-width:740px){ .isd-summary-row{ grid-template-columns:repeat(2,1fr); } }
 .isd-summary-card {
     background:#fff;
-    border-radius:12px;
+    border-radius:14px;
     padding:16px;
     box-shadow:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);
     border-top:3px solid #E2E8F0;
@@ -175,7 +175,7 @@ frappe.pages['inventory-sales-dashboard'].on_page_load = function (wrapper) {
 /* ── filter card ── */
 .isd-card {
     background:#fff;
-    border-radius:12px;
+    border-radius:14px;
     box-shadow:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);
     overflow:hidden;
 }
@@ -191,7 +191,7 @@ frappe.pages['inventory-sales-dashboard'].on_page_load = function (wrapper) {
 }
 .isd-filter-input {
     border:1.5px solid #E2E8F0;
-    border-radius:8px;
+    border-radius:10px;
     padding:7px 11px;
     font-size:13px;
     outline:none;
@@ -203,7 +203,7 @@ frappe.pages['inventory-sales-dashboard'].on_page_load = function (wrapper) {
 .isd-filter-input:focus { border-color:#2563EB; box-shadow:0 0 0 3px rgba(37,99,235,.1); }
 .isd-filter-select {
     border:1.5px solid #E2E8F0;
-    border-radius:8px;
+    border-radius:10px;
     padding:7px 11px;
     font-size:13px;
     outline:none;
@@ -241,7 +241,7 @@ frappe.pages['inventory-sales-dashboard'].on_page_load = function (wrapper) {
 .isd-btn-reset {
     background:#F8FAFC;
     border:1.5px solid #E2E8F0;
-    border-radius:8px;
+    border-radius:10px;
     padding:7px 16px;
     font-size:13px;
     font-weight:500;
@@ -305,11 +305,11 @@ frappe.pages['inventory-sales-dashboard'].on_page_load = function (wrapper) {
 .isd-num-avail { font-variant-numeric:tabular-nums; font-weight:700; color:#0F172A; }
 
 /* ── status badges ── */
-.badge-available { background:#DCFCE7; color:#15803D; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; white-space:nowrap; }
-.badge-low       { background:#FEF9C3; color:#A16207; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; white-space:nowrap; }
-.badge-out       { background:#FEE2E2; color:#DC2626; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; white-space:nowrap; }
-.badge-type-bho  { background:#DBEAFE; color:#1D4ED8; padding:2px 9px; border-radius:20px; font-size:11px; font-weight:600; }
-.badge-type-sho  { background:#FCE7F3; color:#9D174D; padding:2px 9px; border-radius:20px; font-size:11px; font-weight:600; }
+.badge-available { background:#DCFCE7; color:#15803D; padding:3px 10px; border-radius:22px; font-size:11px; font-weight:700; white-space:nowrap; }
+.badge-low       { background:#FEF9C3; color:#A16207; padding:3px 10px; border-radius:22px; font-size:11px; font-weight:700; white-space:nowrap; }
+.badge-out       { background:#FEE2E2; color:#DC2626; padding:3px 10px; border-radius:22px; font-size:11px; font-weight:700; white-space:nowrap; }
+.badge-type-bho  { background:#DBEAFE; color:#1D4ED8; padding:2px 9px; border-radius:22px; font-size:11px; font-weight:600; }
+.badge-type-sho  { background:#FCE7F3; color:#9D174D; padding:2px 9px; border-radius:22px; font-size:11px; font-weight:600; }
 
 /* ── expand arrow ── */
 .isd-expand-td {
@@ -354,7 +354,7 @@ frappe.pages['inventory-sales-dashboard'].on_page_load = function (wrapper) {
 .isd-customer-block {
     background:#fff;
     border:1px solid #E2E8F0;
-    border-radius:12px;
+    border-radius:14px;
     margin-bottom:12px;
     overflow:hidden;
     box-shadow:0 1px 4px rgba(0,0,0,.05);
@@ -382,7 +382,7 @@ frappe.pages['inventory-sales-dashboard'].on_page_load = function (wrapper) {
 
 .isd-sale-status-badge {
     padding:4px 12px;
-    border-radius:20px;
+    border-radius:22px;
     font-size:11px;
     font-weight:700;
     white-space:nowrap;
@@ -398,7 +398,7 @@ frappe.pages['inventory-sales-dashboard'].on_page_load = function (wrapper) {
 
 .isd-alert-msg {
     padding:10px 14px;
-    border-radius:8px;
+    border-radius:10px;
     font-size:12px;
     font-weight:500;
     margin-bottom:14px;
@@ -431,7 +431,7 @@ frappe.pages['inventory-sales-dashboard'].on_page_load = function (wrapper) {
     background:#F8FAFF;
     border:1px solid #DBEAFE;
     border-left:3px solid #2563EB;
-    border-radius:8px;
+    border-radius:10px;
     padding:11px 14px;
     margin-bottom:8px;
 }
@@ -535,7 +535,7 @@ frappe.pages['inventory-sales-dashboard'].on_page_load = function (wrapper) {
     font-size:12px;
     font-style:italic;
     background:#F8FAFC;
-    border-radius:8px;
+    border-radius:10px;
 }
 </style>
 

@@ -176,7 +176,7 @@
 .mc-run-card {
   background: var(--mc-card);
   border: 1px solid var(--mc-border);
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 16px 18px;
   max-width: 480px;
   box-shadow: 0 1px 4px rgba(20, 10, 40, 0.05);

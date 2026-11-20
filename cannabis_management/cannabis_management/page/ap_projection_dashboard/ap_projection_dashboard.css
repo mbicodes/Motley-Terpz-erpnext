@@ -56,7 +56,7 @@
 	display: flex;
 	background: rgba(255, 255, 255, .1);
 	border: 1px solid rgba(255, 255, 255, .18);
-	border-radius: 8px;
+	border-radius: 10px;
 	overflow: hidden;
 }
 .apj-seg-btn {
@@ -83,7 +83,7 @@
 	font-size: 12px;
 	font-weight: 600;
 	padding: 7px 14px;
-	border-radius: 8px;
+	border-radius: 10px;
 	cursor: pointer;
 	transition: background .12s;
 }
@@ -111,7 +111,7 @@
 
 .apj-kpi-label { font-size: 11px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: var(--apj-text-secondary); }
 .apj-kpi-value { font-size: 26px; font-weight: 700; margin: 8px 0 8px; color: var(--apj-text); }
-.apj-kpi-tag { display: inline-block; font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 12px; }
+.apj-kpi-tag { display: inline-block; font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 14px; }
 .apj-tag-confirmed { background: var(--apj-purple-pale); color: var(--apj-purple-dark); }
 .apj-tag-estimate { background: #f3e8ff; color: #6d28d9; border: 1px dashed #c4b5fd; }
 .apj-tag-grand { background: #f1f5f9; color: #334155; }
@@ -160,7 +160,7 @@
 .apj-search-icon { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); color: var(--apj-text-muted); pointer-events: none; }
 .apj-search {
 	border: 1px solid var(--apj-border);
-	border-radius: 8px;
+	border-radius: 10px;
 	padding: 6px 10px 6px 28px;
 	font-size: 12px;
 	width: 180px;
@@ -189,7 +189,7 @@
 .apj-table .apj-num { text-align: right; font-variant-numeric: tabular-nums; }
 .apj-table .apj-ref { color: var(--apj-text-muted); font-size: 12px; }
 
-.apj-pill { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 12px; white-space: nowrap; }
+.apj-pill { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 14px; white-space: nowrap; }
 .apj-pill-outstanding { background: var(--apj-purple-pale); color: var(--apj-purple-dark); }
 .apj-pill-recurring { background: #f3e8ff; color: #6d28d9; border: 1px dashed #c4b5fd; }
 

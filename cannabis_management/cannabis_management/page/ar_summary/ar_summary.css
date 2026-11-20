@@ -26,7 +26,7 @@
 .ars-header-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
 .ars-icon-btn, .ars-primary-btn, .ars-ghost-btn {
-	height: 36px; border-radius: 9px; font-size: 13px; font-weight: 600;
+	height: 36px; border-radius: 10px; font-size: 13px; font-weight: 600;
 	cursor: pointer; display: inline-flex; align-items: center; gap: 7px;
 	transition: background .15s, border-color .15s, transform .05s;
 	border: 1px solid var(--ars-line); background: var(--ars-card); color: var(--text-color);
@@ -45,7 +45,7 @@
 .ars-ghost-btn { padding: 0 12px; color: var(--ars-muted); font-weight: 500; }
 
 .ars-seg {
-	display: inline-flex; padding: 3px; border-radius: 9px;
+	display: inline-flex; padding: 3px; border-radius: 10px;
 	background: var(--subtle-fg, #eef1f5); border: 1px solid var(--ars-line);
 }
 .ars-seg-btn {
@@ -81,7 +81,7 @@
 .ars-field { position: relative; display: inline-flex; align-items: center; }
 .ars-search-field .ars-search-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); font-size: 13px; opacity: .5; pointer-events: none; }
 .ars-input, .ars-select {
-	height: 36px; border: 1px solid var(--ars-line); border-radius: 9px;
+	height: 36px; border: 1px solid var(--ars-line); border-radius: 10px;
 	font-size: 13px; background: var(--control-bg, #fff); color: var(--text-color); outline: none;
 	transition: border-color .15s, box-shadow .15s;
 }
@@ -91,7 +91,7 @@
 .ars-input:focus, .ars-select:focus { border-color: var(--ars-accent); box-shadow: 0 0 0 3px var(--ars-accent-soft); }
 .ars-daterange {
 	display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 10px;
-	border: 1px solid var(--ars-line); border-radius: 9px; background: var(--control-bg, #fff);
+	border: 1px solid var(--ars-line); border-radius: 10px; background: var(--control-bg, #fff);
 }
 .ars-daterange input { border: none; background: transparent; color: var(--text-color); font-size: 12.5px; outline: none; width: 118px; }
 .ars-daterange .ars-arrow { color: var(--ars-muted); font-size: 12px; }

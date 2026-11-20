@@ -41,10 +41,10 @@
 		.md { --md-brand: #6d28d9; font-family: inherit; color: var(--th-text, #1f272e); padding: 2px 2px 28px; }
 		.md *, .md *::before, .md *::after { box-sizing: border-box; }
 		.md a { color: inherit; text-decoration: none; }
-		.md-card { background: var(--th-card, #fff); border: 1px solid var(--th-border, #e5e7eb); border-radius: 16px; }
+		.md-card { background: var(--th-card, #fff); border: 1px solid var(--th-border, #e5e7eb); border-radius: 22px; }
 
 		/* hero */
-		.md-hero { position: relative; overflow: hidden; border-radius: 20px; padding: 26px 28px; color: #fff;
+		.md-hero { position: relative; overflow: hidden; border-radius: 22px; padding: 26px 28px; color: #fff;
 			background: linear-gradient(120deg, #4c1d95 0%, #6d28d9 45%, #a21caf 100%);
 			box-shadow: 0 12px 32px -12px rgba(76, 29, 149, .55); }
 		.md-hero::before, .md-hero::after { content: ""; position: absolute; border-radius: 50%; pointer-events: none;
@@ -107,7 +107,7 @@
 		.md-none { padding: 14px 8px; font-size: 13px; color: var(--th-muted, #6b7280); }
 
 		/* skeleton */
-		.md-skel { position: relative; overflow: hidden; background: var(--th-subtle, #f3f3f3); border-radius: 16px; }
+		.md-skel { position: relative; overflow: hidden; background: var(--th-subtle, #f3f3f3); border-radius: 22px; }
 		.md-skel::after { content: ""; position: absolute; inset: 0; transform: translateX(-100%);
 			background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .45), transparent); animation: md-shine 1.3s infinite; }
 		@keyframes md-shine { to { transform: translateX(100%); } }
@@ -137,7 +137,7 @@
 		.md-tile:hover { border-color: var(--md-accent); transform: translateY(-2px);
 			box-shadow: 0 10px 22px -14px color-mix(in srgb, var(--md-accent) 80%, transparent); }
 		.md-tile:focus-visible { outline: 2px solid var(--md-accent); outline-offset: 2px; }
-		.md-icon { flex: 0 0 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; color: #fff;
+		.md-icon { flex: 0 0 40px; height: 40px; border-radius: 14px; display: grid; place-items: center; color: #fff;
 			background: linear-gradient(135deg, var(--md-accent), color-mix(in srgb, var(--md-accent) 65%, #000)); }
 		.md-icon svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
 		.md-text { min-width: 0; }
@@ -146,13 +146,13 @@
 		.md-pinned { position: absolute; top: 10px; right: 12px; width: 7px; height: 7px; border-radius: 50%; background: var(--md-brand); }
 		.md-unpin { position: absolute; top: 8px; right: 8px; width: 28px; height: 28px; display: grid; place-items: center;
 			padding: 0; color: var(--th-muted, #6b7280); background: var(--th-card, #fff); border: 1px solid var(--th-border, #e5e7eb);
-			border-radius: 8px; cursor: pointer; opacity: 0; transition: opacity .15s; z-index: 1; }
+			border-radius: 10px; cursor: pointer; opacity: 0; transition: opacity .15s; z-index: 1; }
 		.md-unpin svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 		.md-cell:hover .md-unpin, .md-unpin:focus-visible { opacity: 1; }
 		.md-unpin:hover { color: #b91c1c; border-color: #fca5a5; }
 		@media (hover: none) { .md-unpin { opacity: 1; } }
 		.md-empty { padding: 44px 20px; text-align: center; background: var(--th-card, #fff);
-			border: 1px dashed var(--th-border, #e5e7eb); border-radius: 16px; margin-top: 14px; }
+			border: 1px dashed var(--th-border, #e5e7eb); border-radius: 22px; margin-top: 14px; }
 		.md-empty h3 { font-size: 16px; font-weight: 700; margin: 0 0 6px; }
 		.md-empty p { font-size: 13px; color: var(--th-muted, #6b7280); margin: 0 0 14px; }
 		.md-hidden { display: none !important; }
@@ -431,7 +431,7 @@
 
 	cannabis_management.my_dashboard.render = function (root) {
 		const holder = root.querySelector('.my-dashboard-root') || root;
-		holder.innerHTML = `<style>${CSS}</style><div class="md"><div class="md-skel" style="height:150px;border-radius:20px"></div>${widget_skeleton()}</div>`;
+		holder.innerHTML = `<style>${CSS}</style><div class="md"><div class="md-skel" style="height:150px;border-radius:22px"></div>${widget_skeleton()}</div>`;
 
 		frappe
 			.xcall(METHOD)

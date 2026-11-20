@@ -27,7 +27,7 @@
 .iov-cols{display:flex;flex-wrap:wrap;gap:18px;padding:18px;}
 .iov-col{--col:var(--green);flex:1 1 0;min-width:320px;
   border:1px solid color-mix(in srgb, var(--col) 35%, var(--line));
-  border-radius:8px;overflow:hidden;}
+  border-radius:10px;overflow:hidden;}
 .iov-scroll{overflow-x:auto;}
 
 .iov-collabel{background:var(--col);color:#fff;text-align:center;

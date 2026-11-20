@@ -54,7 +54,7 @@
 	height: 36px;
 	padding: 0 12px;
 	border: 1px solid transparent;
-	border-radius: 8px;
+	border-radius: 10px;
 	background: transparent;
 	color: var(--arh-fg);
 	font-size: 13px;
@@ -77,7 +77,7 @@
 	height: 36px;
 	padding: 0 12px;
 	border: 1px solid var(--arh-input);
-	border-radius: 8px;
+	border-radius: 10px;
 	background-color: var(--arh-bg);
 	color: var(--arh-fg);
 	font-size: 13px;
@@ -116,7 +116,7 @@ textarea.arh-input { display: block; height: auto; min-height: 64px; padding: 8p
 	height: 36px;
 	padding: 0 12px 0 34px;
 	border: 1px solid var(--arh-input);
-	border-radius: 8px;
+	border-radius: 10px;
 	background: var(--arh-bg);
 	color: var(--arh-fg);
 	font-size: 13px;
@@ -131,7 +131,7 @@ textarea.arh-input { display: block; height: auto; min-height: 64px; padding: 8p
 	margin: 0;
 	padding: 0 12px;
 	border: 1px dashed var(--arh-input);
-	border-radius: 8px;
+	border-radius: 10px;
 	font-size: 13px;
 	font-weight: 500;
 	cursor: pointer;
@@ -213,7 +213,7 @@ textarea.arh-input { display: block; height: auto; min-height: 64px; padding: 8p
 	min-width: 0;
 	padding: 14px 16px;
 	border: 1px solid var(--arh-border);
-	border-radius: 12px;
+	border-radius: 14px;
 	background: var(--arh-bg);
 	box-shadow: var(--arh-shadow-xs);
 	color: var(--arh-fg);
@@ -237,7 +237,7 @@ textarea.arh-input { display: block; height: auto; min-height: 64px; padding: 8p
 	margin: 0 0 16px;
 	padding: 14px 16px 16px;
 	border: 1px solid var(--arh-border);
-	border-radius: 12px;
+	border-radius: 14px;
 	background: var(--arh-bg);
 	box-shadow: var(--arh-shadow-xs);
 }
@@ -260,7 +260,7 @@ textarea.arh-input { display: block; height: auto; min-height: 64px; padding: 8p
 	padding: 9px 10px 9px 12px;
 	border: 1px solid var(--arh-border);
 	border-left: 4px solid var(--arh-age);
-	border-radius: 8px;
+	border-radius: 10px;
 	background: var(--arh-bg);
 	color: var(--arh-fg);
 	font: inherit; text-align: left; cursor: pointer;
@@ -275,7 +275,7 @@ textarea.arh-input { display: block; height: auto; min-height: 64px; padding: 8p
 .arh-agetile-value { font-size: 15px; font-weight: 600; color: var(--arh-age-fg); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .arh-agetile-sub { font-size: 11.5px; color: var(--arh-muted-fg); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-.arh-panel { overflow: hidden; border: 1px solid var(--arh-border); border-radius: 12px; background: var(--arh-bg); box-shadow: var(--arh-shadow-xs); }
+.arh-panel { overflow: hidden; border: 1px solid var(--arh-border); border-radius: 14px; background: var(--arh-bg); box-shadow: var(--arh-shadow-xs); }
 .arh-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px; }
 .arh-reset { display: none; }
 .arh-status {
@@ -424,7 +424,7 @@ select.arh-pick { padding-right: 26px; background-position: right 7px center; ba
 .arh-detail-in { position: sticky; left: 0; max-width: 100vw; padding: 4px 16px 16px; white-space: normal; }
 .arh-detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
 .arh-dcard.is-wide { grid-column: 1 / -1; }
-.arh-dcard { min-width: 0; overflow: hidden; border: 1px solid var(--arh-border); border-radius: 12px; background: var(--arh-bg); box-shadow: var(--arh-shadow-xs); }
+.arh-dcard { min-width: 0; overflow: hidden; border: 1px solid var(--arh-border); border-radius: 14px; background: var(--arh-bg); box-shadow: var(--arh-shadow-xs); }
 .arh-dcard > header { padding: 14px 16px 12px; }
 .arh-dcard h4 { margin: 0; color: var(--arh-fg); font-size: 14px; font-weight: 600; }
 .arh-dcard header p { margin: 2px 0 0; color: var(--arh-muted-fg); font-size: 12px; }
@@ -446,7 +446,7 @@ table.arh-dtable { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .arh-field > label { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; color: var(--arh-fg); font-size: 12.5px; font-weight: 500; }
 .arh-field .arh-input { width: 100%; }
 .arh-form .arh-field > .arh-pick,
-.arh-form .arh-field > .arh-badge { width: 100%; max-width: none; height: 36px; padding-left: 12px; border-radius: 8px; font-size: 13px; }
+.arh-form .arh-field > .arh-badge { width: 100%; max-width: none; height: 36px; padding-left: 12px; border-radius: 10px; font-size: 13px; }
 .arh-form .arh-field > .arh-pick { padding-right: 32px; background-position: right 10px center; background-size: 14px; }
 .arh-ro-text { color: var(--arh-fg); white-space: pre-wrap; }
 .arh-dfoot { display: flex; justify-content: flex-end; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--arh-border); }
