@@ -16,14 +16,14 @@
 
 import frappe
 from frappe import _
-from frappe.utils import add_days, cint, escape_html, fmt_money, formatdate, getdate
+from frappe.utils import add_days, cint, escape_html, fmt_money, formatdate, get_url, getdate
 
 from cannabis_management import sales_ops
 
 EVENT = "Event"
 KEY_FIELD = "sales_pipeline_key"
 CALENDAR_NAME = "Motley Sales Pipeline"
-SKIP_USERS = {"Administrator", "Guest", None, ""}
+SKIP_USERS = {"Guest", None, ""}  # Administrator is a real person here (Muhammad)
 
 # key, deal field, label, Settings switch, ERP colour, Google colorId
 KINDS = (
@@ -42,7 +42,8 @@ def config():
 	return frappe._dict(
 		enabled=cint(doc.get("calendar_sync")),
 		kinds={k[0] for k in KINDS if cint(doc.get(k[3]))},
-		watchers=[r.user for r in doc.get("calendar_watchers") or [] if r.user],
+		# Administrator = Muhammad: always sees every deal and lead date
+		watchers=list(dict.fromkeys([r.user for r in doc.get("calendar_watchers") or [] if r.user] + ["Administrator"])),
 	)
 
 
@@ -62,6 +63,18 @@ def queue_deal(name):
 	)
 
 
+def queue_account(name):
+	"""Called from the lead (Sales Pipeline Account) on_update / on_trash."""
+	if frappe.flags.in_install or frappe.flags.in_migrate or frappe.flags.in_test:
+		return
+	frappe.enqueue(
+		"cannabis_management.sales_ops_calendar.sync_deals",
+		queue="short",
+		accounts=[name],
+		enqueue_after_commit=True,
+	)
+
+
 def queue_all():
 	if frappe.flags.in_install or frappe.flags.in_migrate or frappe.flags.in_test:
 		return
@@ -77,6 +90,42 @@ def queue_all():
 def sync_all():
 	"""Cron: reconcile every deal's events (and remove events of deleted deals)."""
 	sync_deals(None)
+
+
+def _account_rows(accounts=None):
+	filters = {"next_step_due": ("is", "set")}
+	if accounts:
+		filters["name"] = ("in", accounts)
+	return frappe.get_all(sales_ops.ACCOUNT, filters=filters,
+		fields=["name", "account_name", "lead_status", "account_owner", "next_step_due", "contact_name", "phone", "email"])
+
+
+def _desired_account(a, s, cfg, enabled_users):
+	"""{key: payload} of the lead's follow-up event (owner + watchers)."""
+	if not cfg.enabled or "followup" not in cfg.kinds or not a.next_step_due:
+		return {}
+	st = sales_ops.status_info(s, a.lead_status)
+	if st and st.is_closed:
+		return {}  # lost customer: nothing to follow up
+	users = [u for u in dict.fromkeys([a.account_owner] + list(cfg.watchers)) if u not in SKIP_USERS and u in enabled_users]
+	owner_name = sales_ops.owner_label(s, a.account_owner) if a.account_owner else _("Unassigned")
+	date = getdate(a.next_step_due)
+	link = get_url(f"/app/{sales_ops.BOARD_ROUTE}?account={a.name}")
+	lines = [(_("Lead"), f"{a.account_name} ({a.name})"), (_("Date"), f"{_('Lead follow-up')} · {formatdate(date)}"),
+		(_("Status"), a.lead_status), (_("Owner"), owner_name),
+		(_("Contact"), " · ".join(x for x in [a.contact_name, a.phone, a.email] if x))]
+	lines = [(k, v) for k, v in lines if v]
+	text = "\n".join(f"{k}: {v}" for k, v in lines) + f"\n\n{_('Open on the Sales Operation Board')}: {link}"
+	html = "".join(f"<p><b>{escape_html(k)}:</b> {escape_html(str(v))}</p>" for k, v in lines)
+	html += f"<p><a href='{link}'>{escape_html(_('Open on the Sales Operation Board'))}</a></p>"
+	out = {}
+	for user in users:
+		subject = f"{_('Lead follow-up')}: {a.account_name}" + (f" · {owner_name}" if user != a.account_owner else "")
+		out[f"{a.name}|lead_followup|{user}"] = frappe._dict(
+			user=user, deal=a.name, doctype=sales_ops.ACCOUNT, link=link, kind="lead_followup", date=date,
+			subject=subject, text=text, html=html, colour="#7c3aed", gcolour="3",
+		)
+	return out
 
 
 # ---------- what should exist ----------
@@ -126,7 +175,7 @@ def _desired(d, s, cfg, enabled_users):
 				subject += f" · {owner_name}"
 			text, html = _describe(d, s, label, date, owner_name)
 			out[f"{d.name}|{kind}|{user}"] = frappe._dict(
-				user=user, deal=d.name, kind=kind, date=date, subject=subject, text=text, html=html,
+				user=user, deal=d.name, doctype=sales_ops.DEAL, link=sales_ops.deal_link(d.name), kind=kind, date=date, subject=subject, text=text, html=html,
 				colour=colour, gcolour=gcolour,
 			)
 	return out
@@ -165,7 +214,7 @@ def _describe(d, s, label, date, owner_name):
 # ---------- sync ----------
 
 
-def sync_deals(deals=None):
+def sync_deals(deals=None, accounts=None):
 	"""Make the Events (and Google entries) of these deals match their dates. deals=None: all deals.
 	Runs one at a time (file lock), so a deal job and the cron never both insert the same event."""
 	if not frappe.db.exists("DocType", sales_ops.SETTINGS) or not frappe.db.has_column(EVENT, KEY_FIELD):
@@ -176,23 +225,25 @@ def sync_deals(deals=None):
 		# start a fresh transaction: a snapshot taken before the lock would not see the events the
 		# previous run just committed, and we would insert them again (REPEATABLE READ)
 		frappe.db.rollback()
-		_sync(deals)
+		_sync(deals, accounts)
 
 
-def _sync(deals):
+def _sync(deals, accounts=None):
 	sales_ops.clear_settings_memo()
 	s = sales_ops.get_settings()
 	cfg = config()
 	enabled_users = set(frappe.get_all("User", filters={"enabled": 1}, pluck="name"))
 
-	rows = _deal_rows(deals)
+	everything = not deals and not accounts
 	want = {}
-	for d in rows:
+	for d in _deal_rows(deals) if everything or deals else []:
 		want.update(_desired(d, s, cfg, enabled_users))
+	for a in _account_rows(accounts) if everything or accounts else []:
+		want.update(_desired_account(a, s, cfg, enabled_users))
 
 	ev_filters = {KEY_FIELD: ("is", "set")}
-	if deals:
-		ev_filters["reference_docname"] = ("in", deals)
+	if not everything:
+		ev_filters["reference_docname"] = ("in", (deals or []) + (accounts or []))
 	have, extra = {}, []
 	for e in frappe.get_all(EVENT, filters=ev_filters, order_by="creation asc",
 		fields=["name", KEY_FIELD, "owner", "subject", "starts_on", "description", "color",
@@ -240,7 +291,7 @@ def _event_values(p):
 		"send_reminder": 0,  # Frappe's own daily event email would reach No Email owners
 		"color": p.colour,
 		"description": p.html,
-		"reference_doctype": sales_ops.DEAL,
+		"reference_doctype": p.doctype,
 		"reference_docname": p.deal,
 		"status": "Open",
 	}
@@ -310,7 +361,7 @@ class _GoogleAccounts:
 			"end": {"date": str(add_days(p.date, 1))},  # Google's end date is exclusive
 			"transparency": "transparent",
 			"colorId": p.gcolour,
-			"source": {"title": "Sales Operation Board", "url": sales_ops.deal_link(p.deal)},
+			"source": {"title": "Sales Operation Board", "url": p.link},
 			"extendedProperties": {"private": {"salesPipelineKey": f"{p.deal}|{p.kind}|{p.user}"}},
 		}
 		same_cal = ev.google_calendar_id == cal_id and ev.google_calendar_event_id

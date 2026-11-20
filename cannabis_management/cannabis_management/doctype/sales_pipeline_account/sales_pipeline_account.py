@@ -7,7 +7,7 @@ from frappe import _
 from frappe.model.document import Document
 from frappe.utils import flt, now_datetime
 
-from cannabis_management import sales_ops
+from cannabis_management import sales_ops, sales_ops_calendar
 
 
 class SalesPipelineAccount(Document):
@@ -147,6 +147,8 @@ class SalesPipelineAccount(Document):
 				sales_ops.notify([self.account_owner], _("{0} made you the relationship manager for {1}").format(
 					frappe.utils.get_fullname(frappe.session.user), self.account_name))
 		sales_ops.publish_board_update(self.name)
+		sales_ops_calendar.queue_account(self.name)
 
 	def on_trash(self):
 		sales_ops.publish_board_update(self.name)
+		sales_ops_calendar.queue_account(self.name)
