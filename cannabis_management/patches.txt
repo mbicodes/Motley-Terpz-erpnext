@@ -32,3 +32,4 @@ cannabis_management.patches.sales_ops_accounts_v3
 cannabis_management.patches.sales_ops_units_v4
 cannabis_management.patches.sales_ops_groups_v5
 cannabis_management.patches.install_reimbursement_approval
+cannabis_management.patches.reimbursement_cr1_perms

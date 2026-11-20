@@ -132,6 +132,7 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 					<thead><tr>
 						<th>${__('Entry')}</th><th>${__('Person')}</th><th>${__('Business')}</th>
 						<th>${__('Date')}</th><th class="ctd-num">${__('Amount')}</th><th class="ctd-num">${__('Days Pending')}</th>
+						<th class="ctd-pending-actions-col">${__('Actions')}</th>
 					</tr></thead>
 					<tbody id="ctd-pending-body"></tbody>
 				</table>
@@ -427,16 +428,23 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 				var rows = r.message || [];
 				var $b = $('#ctd-pending-body').empty();
 				var total = 0;
+				state.pending = {};
 				rows.forEach(function (p) {
 					total += flt(p.amount);
+					state.pending[p.name] = p;
 					var link = '/app/personal-cash-tracking/' + encodeURIComponent(p.name);
-					$b.append(`<tr>
+					var actions = p.can_act
+						? `<button class="btn btn-xs btn-success ctd-reimb-btn" data-action="Approve" data-name="${esc(p.name)}">${__('Approve')}</button>
+						   <button class="btn btn-xs btn-danger ctd-reimb-btn" data-action="Reject" data-name="${esc(p.name)}">${__('Reject')}</button>`
+						: '';
+					$b.append(`<tr data-name="${esc(p.name)}">
 						<td><a href="${link}" class="ctd-link">${esc(p.name)}</a></td>
 						<td>${esc(p.person || '')}</td>
 						<td>${esc(p.business || '')}</td>
 						<td>${esc(frappe.datetime.str_to_user(p.date) || '')}</td>
 						<td class="ctd-num">${fmt_money(p.amount)}</td>
 						<td class="ctd-num">${esc(p.days_pending)}</td>
+						<td class="ctd-pending-actions">${actions}</td>
 					</tr>`);
 				});
 				$('#ctd-pending-empty').toggle(!rows.length);
@@ -447,6 +455,53 @@ frappe.pages['cash-tracking-dashboard'].on_page_load = function (wrapper) {
 			}
 		});
 	}
+
+	function reimbursement_action(name, action, reason) {
+		var $btns = $('#ctd-pending-body tr').filter(function () { return $(this).attr('data-name') === name; })
+			.find('.ctd-reimb-btn');
+		if ($btns.prop('disabled')) return;
+		$btns.prop('disabled', true);
+		frappe.call({
+			method: 'cannabis_management.cash_management.doctype.personal_cash_tracking.personal_cash_tracking.reimbursement_action',
+			type: 'POST',
+			args: { name: name, action: action, reason: reason || null },
+			callback: function (r) {
+				var res = r.message || {};
+				frappe.msgprint({
+					title: action === 'Approve' ? __('Approved') : __('Rejected'),
+					message: esc(res.message || ''),
+					indicator: action === 'Approve' ? 'green' : 'orange'
+				});
+				load();
+			},
+			error: function () { $btns.prop('disabled', false); }
+		});
+	}
+
+	page.main.on('click', '.ctd-reimb-btn', function () {
+		var name = $(this).attr('data-name');
+		var action = $(this).attr('data-action');
+		var p = (state.pending || {})[name];
+		if (!p || $(this).prop('disabled')) return;
+		if (action === 'Approve') {
+			frappe.confirm(
+				__('Approve reimbursement {0} of {1} for {2}? This will post a cash-out from the Safe.',
+					[esc(p.name), fmt_money(p.amount), esc(p.person || '')]),
+				function () { reimbursement_action(name, 'Approve'); }
+			);
+			return;
+		}
+		var d = new frappe.ui.Dialog({
+			title: __('Reject Reimbursement'),
+			fields: [{ fieldname: 'reason', fieldtype: 'Small Text', label: __('Rejection Reason'), reqd: 1 }],
+			primary_action_label: __('Reject'),
+			primary_action: function (values) {
+				d.hide();
+				reimbursement_action(name, 'Reject', values.reason);
+			}
+		});
+		d.show();
+	});
 
 	function load() {
 		load_pending();

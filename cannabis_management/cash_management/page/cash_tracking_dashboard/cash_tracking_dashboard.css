@@ -475,3 +475,7 @@ body.ctd-safe-body .ctd-safe-mode { box-shadow: 0 0 0 1px rgba(212,167,44,.15), 
 .ctd-pending-empty { font-size: 13px; color: var(--text-muted, #6b7280); padding: 4px 0; }
 .ctd-safe-mode .ctd-pending { border-color: #d4a72c; background: rgba(212, 167, 44, 0.08); }
 .ctd-safe-mode .ctd-pending-title { color: #e9c766; }
+
+.ctd-pending-actions { white-space: nowrap; }
+.ctd-pending-actions .ctd-reimb-btn + .ctd-reimb-btn { margin-left: 6px; }
+.ctd-pending-actions .ctd-reimb-btn[disabled] { opacity: .55; cursor: progress; }

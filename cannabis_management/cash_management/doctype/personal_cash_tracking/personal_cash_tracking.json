@@ -173,20 +173,23 @@
    "description": "When ticked, approval posts the matching cash-out from the Safe.",
    "fieldname": "paid_from_safe",
    "fieldtype": "Check",
-   "label": "Paid From Safe"
+   "label": "Paid From Safe",
+   "permlevel": 1
   },
   {
    "depends_on": "eval:doc.transaction_type=='Reimbursement' && doc.paid_from_safe",
-   "mandatory_depends_on": "eval:doc.transaction_type=='Reimbursement' && doc.paid_from_safe",
+   "description": "Filled by the system with the active Safe when left empty.",
    "fieldname": "safe_person",
    "fieldtype": "Link",
    "label": "Safe",
    "options": "Cash Tracker Person",
-   "ignore_user_permissions": 1
+   "ignore_user_permissions": 1,
+   "permlevel": 1
   },
   {
    "fetch_from": "safe_person.user",
    "fieldname": "safe_user",
+   "ignore_user_permissions": 1,
    "fieldtype": "Link",
    "label": "Safe User",
    "options": "User",
@@ -208,6 +211,7 @@
   {
    "depends_on": "eval:doc.approved_by",
    "fieldname": "approved_by",
+   "ignore_user_permissions": 1,
    "fieldtype": "Link",
    "label": "Approved By",
    "options": "User",
@@ -260,6 +264,7 @@
   },
   {
    "fieldname": "processed_by",
+   "ignore_user_permissions": 1,
    "fieldtype": "Link",
    "options": "User",
    "label": "Processed By",
@@ -278,7 +283,7 @@
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2026-11-19 12:00:00.000000",
+ "modified": "2026-11-20 23:30:00.000000",
  "modified_by": "Administrator",
  "module": "Cash Management",
  "name": "Personal Cash Tracking",
@@ -335,6 +340,12 @@
   },
   {
    "role": "Accounts Manager",
+   "permlevel": 1,
+   "read": 1,
+   "write": 1
+  },
+  {
+   "role": "System Manager",
    "permlevel": 1,
    "read": 1,
    "write": 1

@@ -22,14 +22,5 @@ frappe.listview_settings['Personal Cash Tracking'] = {
 			};
 			frappe.set_route('cash-tracking-dashboard');
 		});
-		listview.page.add_inner_button(__('Request Reimbursement'), function () {
-			frappe.db.get_value('Cash Tracker Person',
-				{ user: frappe.session.user, is_active: 1 }, 'name')
-				.then(function (r) {
-					var values = { transaction_type: 'Reimbursement', paid_from_safe: 1 };
-					if (r.message && r.message.name) values.cash_tracker_person = r.message.name;
-					frappe.new_doc('Personal Cash Tracking', values);
-				});
-		});
 	}
 };

@@ -66,8 +66,14 @@ class PersonalCashTracking(Document):
         return self.transaction_type == REIMBURSEMENT
 
     def set_default_safe(self):
-        if self.paid_from_safe and not self.safe_person:
+        # Requesters cannot see these fields (permlevel 1): every reimbursement goes to
+        # the Safe unless Finance unticks Paid From Safe on the entry.
+        if self.paid_from_safe is None or self.paid_from_safe == "":
+            self.paid_from_safe = 1
+        if not self.safe_person:
             self.safe_person = get_default_safe_person()
+            if not self.safe_person:
+                frappe.throw(_("No active Safe is set up. Please contact Finance."))
         if self.safe_person:
             self.safe_user = frappe.db.get_value("Cash Tracker Person", self.safe_person, "user")
 
@@ -187,11 +193,61 @@ def get_pending_reimbursements():
         "Personal Cash Tracking",
         filters={"transaction_type": REIMBURSEMENT, "workflow_state": "Pending Approval", "docstatus": 0},
         fields=["name", "cash_tracker_person as person", "business", "transaction_date as date",
-                "money_in as amount", "reason", "modified"],
+                "money_in as amount", "reason", "modified", "user", "owner"],
         order_by="transaction_date asc",
         ignore_permissions=True,
     )
     now = now_datetime().date()
+    me = frappe.session.user
+    approver = APPROVER_ROLE in frappe.get_roles()
     for r in rows:
         r["days_pending"] = (now - r.pop("modified").date()).days
+        r["can_act"] = approver and not _is_requester(r, me)
+        r.pop("owner")
+        r.pop("user")
     return rows
+
+
+def _is_requester(doc, user):
+    return user in {doc.get("user"), doc.get("owner")}
+
+
+@frappe.whitelist(methods=["POST"])
+def reimbursement_action(name, action, reason=None):
+    """Approve or Reject a pending reimbursement straight from the Safe panel."""
+    if action not in ("Approve", "Reject"):
+        frappe.throw(_("You are not allowed to perform this action on this reimbursement."), frappe.PermissionError)
+
+    # Lock the row so a double click cannot approve (and post to the Safe) twice.
+    state = frappe.db.get_value("Personal Cash Tracking", name, "workflow_state", for_update=True)
+    doc = frappe.get_doc("Personal Cash Tracking", name)
+    user = frappe.session.user
+    if (
+        doc.transaction_type != REIMBURSEMENT
+        or state != "Pending Approval"
+        or doc.docstatus != 0
+        or APPROVER_ROLE not in frappe.get_roles(user)
+        or _is_requester(doc, user)
+    ):
+        frappe.throw(_("You are not allowed to perform this action on this reimbursement."), frappe.PermissionError)
+
+    if action == "Reject":
+        reason = (reason or "").strip()
+        if not reason:
+            frappe.throw(_("Please enter a reason for rejecting this request."))
+        doc.db_set("rejection_reason", reason, update_modified=False)
+
+    from frappe.model.workflow import apply_workflow
+
+    doc = apply_workflow(doc, action)
+    # apply_workflow's own pop-ups are replaced by the one message the panel shows
+    frappe.local.message_log = []
+
+    safe_entry = frappe.db.get_value("Personal Cash Tracking", name, "safe_entry") if action == "Approve" else None
+    if action == "Reject":
+        message = _("Request rejected. The requester has been notified.")
+    elif safe_entry:
+        message = _("Approved. Safe entry {0} has been created.").format(safe_entry)
+    else:
+        message = _("Approved. No Safe entry was created because Paid From Safe is not ticked.")
+    return {"workflow_state": doc.workflow_state, "safe_entry": safe_entry, "message": message}

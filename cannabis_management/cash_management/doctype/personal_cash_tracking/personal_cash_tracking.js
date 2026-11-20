@@ -34,6 +34,8 @@ function is_reimbursement(frm) {
 }
 
 function set_default_safe(frm) {
+	// Paid From Safe / Safe are permlevel 1 (Finance only); for requesters the server fills the Safe.
+	if (!frm.perm || !frm.perm[1] || !frm.perm[1].write) return;
 	frappe.call({
 		method: 'cannabis_management.cash_management.doctype.personal_cash_tracking.personal_cash_tracking.get_safe_defaults',
 		callback: function (r) {
