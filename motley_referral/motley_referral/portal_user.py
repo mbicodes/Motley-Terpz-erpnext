@@ -121,24 +121,43 @@ def repair_partner_users(verbose=True):
     return {"fixed": fixed, "skipped": skipped}
 
 
+# Generic data / print endpoints a partner session must never reach. The portal itself only calls
+# motley_referral.api.portal.*; these would hand out whole records (internal notes, unmasked payout
+# details, tax id, duplicate-check results) or the desk.
+PARTNER_BLOCKED_METHODS = (
+    "frappe.desk.",
+    "frappe.client.",
+    "frappe.model.",
+    "frappe.utils.print_format.",
+    "frappe.www.printview.",
+)
+PARTNER_BLOCKED_PATHS = ("/api/resource/", "/api/v2/document/", "/api/v2/doctype/", "/printview", "/app")
+
+
 def block_desk_api():
-    """before_request: a partner's session never reaches desk APIs.
+    """before_request: a partner's session reaches only the portal.
 
     /app is already refused for Website Users, but desk endpoints such as
-    frappe.desk.desktop.get_workspace_sidebar_items still answer any logged-in user
-    with the workspace list (US Payroll, People, ...).
+    frappe.desk.desktop.get_workspace_sidebar_items answer any logged-in user with the
+    workspace list (US Payroll, People, ...), and /api/resource or /printview would return a
+    partner's own records with internal fields.
     """
     user = frappe.session.user
     if user in ("Guest", "Administrator") or not frappe.request:
         return
-    target = frappe.request.path or ""
-    if target.startswith("/api/method/"):
-        target = target[len("/api/method/"):]
-    elif target in ("/", "") and frappe.form_dict.get("cmd"):
-        target = frappe.form_dict.get("cmd")
-    else:
+    path = frappe.request.path or ""
+    method = None
+    for prefix in ("/api/method/", "/api/v2/method/"):
+        if path.startswith(prefix):
+            method = path[len(prefix):]
+    if method is None and path in ("/", "") and frappe.form_dict.get("cmd"):
+        method = frappe.form_dict.get("cmd")
+    if method is not None:
+        if not method.startswith(PARTNER_BLOCKED_METHODS):
+            return
+    elif not path.startswith(PARTNER_BLOCKED_PATHS):
         return
-    if not target.startswith("frappe.desk.") or PARTNER_ROLE not in frappe.get_roles(user):
+    if PARTNER_ROLE not in frappe.get_roles(user):
         return
     if frappe.db.get_value("User", user, "user_type") == "Website User":
         raise frappe.PermissionError(_("Not permitted"))

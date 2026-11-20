@@ -30,6 +30,13 @@ class ReferralCommissionStatement(Document):
             frappe.throw(_("Please enter a reason for the manual adjustment."))
         self.calculate()
 
+    def after_insert(self):
+        # Amend copies the cancelled statement's table, but cancel released its ledger lines:
+        # relink them now, or the copy would be paid and the next run would pay the lines again.
+        if self.amended_from:
+            self.flags.ignore_permissions = True
+            self.rebuild()
+
     def set_period_dates(self):
         try:
             y, m = [int(x) for x in self.period.split("-")]
@@ -176,6 +183,11 @@ class ReferralCommissionStatement(Document):
     def before_cancel(self):
         if self.status == "Paid":
             frappe.throw(_("A paid statement cannot be cancelled. Cancel the payment first."))
+        carried_to = self.get("carried_to")
+        if carried_to and frappe.db.get_value(STATEMENT, carried_to, "docstatus") == 1:
+            frappe.throw(
+                _("This balance was carried into statement {0}, which is already approved. Cancel {0} first.").format(carried_to)
+            )
 
     def on_cancel(self):
         if self.purchase_invoice and frappe.db.get_value("Purchase Invoice", self.purchase_invoice, "docstatus") == 1:
@@ -183,7 +195,10 @@ class ReferralCommissionStatement(Document):
             pi.flags.ignore_permissions = True
             pi.cancel()
         release_lines(self.name)
-        self.db_set("status", "Cancelled")
+        carried_to = self.get("carried_to")
+        self.db_set({"status": "Cancelled", "carried_to": None})
+        if carried_to:
+            rebuild_draft(carried_to)  # drop this balance from the later draft's carry-forward
 
     def on_trash(self):
         if self.docstatus == 0:
@@ -198,8 +213,10 @@ def release_lines(name):
 
 
 def rebuild_draft(name):
+    """System rebuild (e.g. after a reversal): runs whatever the current user's statement rights."""
     if frappe.db.get_value(STATEMENT, name, "docstatus") == 0:
         doc = frappe.get_doc(STATEMENT, name)
+        doc.flags.ignore_permissions = True
         doc.rebuild()
 
 
@@ -216,8 +233,12 @@ def create_monthly_statements(period=None):
     period = period or previous_period()
     pairs = frappe.db.sql(
         """select distinct referral_partner, company from `tabReferral Commission Ledger`
-        where (statement is null or statement = '') and period <= %s""",
-        period,
+        where (statement is null or statement = '') and period <= %s
+        union
+        select distinct referral_partner, company from `tabReferral Commission Statement`
+        where docstatus = 1 and status = 'Carried Forward' and (carried_to is null or carried_to = '')
+        and period < %s""",
+        (period, period),
         as_dict=True,
     )
     created = []

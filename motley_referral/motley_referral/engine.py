@@ -111,6 +111,8 @@ def process_ple(ple):
             return  # write-offs, credit/debit notes: no money moved
     if frappe.db.exists(LEDGER, {"payment_ledger_entry": ple.name, "is_reversal": 0}):
         return
+    if _relink_line(ple):
+        return  # same money, re-created PLE (Payment Reconciliation): no second line
 
     ref_name = frappe.db.get_value("Customer", ple.party, "partner_referral")
     if not ref_name:
@@ -255,17 +257,83 @@ def reverse_voucher(voucher_type, voucher_no):
     return created
 
 
+def _ple_holds_line(ple_name, line):
+    """True while this PLE still applies the line's money to the line's Sales Invoice."""
+    row = frappe.db.get_value(
+        "Payment Ledger Entry",
+        ple_name,
+        ["delinked", "voucher_no", "against_voucher_type", "against_voucher_no"],
+        as_dict=True,
+    )
+    return bool(
+        row
+        and not row.delinked
+        and row.voucher_no == line.voucher_no
+        and row.against_voucher_type == "Sales Invoice"
+        and row.against_voucher_no == line.sales_invoice
+    )
+
+
+def _relink_line(ple):
+    """Payment Reconciliation deletes every PLE of the voucher and re-creates them under new names.
+
+    When an open line of the same voucher, invoice and amount has lost its PLE, point it at the
+    new PLE instead of commissioning the same money a second time. Returns the line name.
+    """
+    amount = -flt(ple.amount)
+    for line in _open_lines(voucher_type=ple.voucher_type, voucher_no=ple.voucher_no, sales_invoice=ple.against_voucher_no):
+        if abs(flt(line.amount_received) - amount) > 0.005:
+            continue
+        if _ple_holds_line(line.payment_ledger_entry, line):
+            continue  # that line's own PLE is still live
+        frappe.db.set_value(LEDGER, line.name, "payment_ledger_entry", ple.name, update_modified=False)
+        return line.name
+    return None
+
+
+def _relink_to_live_ple(line):
+    """Find a live PLE of the line's voucher, applied to its invoice for the same amount, that no line holds."""
+    held = set(
+        frappe.get_all(
+            LEDGER, filters={"voucher_type": line.voucher_type, "voucher_no": line.voucher_no, "is_reversal": 0}, pluck="payment_ledger_entry"
+        )
+    )
+    candidates = frappe.get_all(
+        "Payment Ledger Entry",
+        filters={
+            "voucher_type": line.voucher_type,
+            "voucher_no": line.voucher_no,
+            "delinked": 0,
+            "against_voucher_type": "Sales Invoice",
+            "against_voucher_no": line.sales_invoice,
+        },
+        fields=["name", "amount"],
+    )
+    for p in candidates:
+        if p.name not in held and abs(-flt(p.amount) - flt(line.amount_received)) <= 0.005:
+            frappe.db.set_value(LEDGER, line.name, "payment_ledger_entry", p.name, update_modified=False)
+            return True
+    return False
+
+
 def reverse_delinked(voucher_type=None, voucher_no=None):
-    """Reverse lines whose Payment Ledger Entry has been delinked (cancel, unreconcile)."""
+    """Reverse lines whose money is no longer applied to their Sales Invoice.
+
+    That covers a delinked PLE (cancel), a PLE re-pointed at the payment itself (Unreconcile
+    Payment in v15 rewrites against_voucher and leaves delinked = 0) and a PLE that was deleted
+    and not re-created against the same invoice. A line whose PLE was only re-created under a
+    new name (Payment Reconciliation) is re-linked, not reversed.
+    """
     filters = {}
     if voucher_type:
         filters.update(voucher_type=voucher_type, voucher_no=voucher_no)
     created = []
     for orig in _open_lines(**filters):
-        if frappe.db.get_value("Payment Ledger Entry", orig.payment_ledger_entry, "delinked"):
-            name = reverse_line(orig)
-            if name:
-                created.append(name)
+        if _ple_holds_line(orig.payment_ledger_entry, orig) or _relink_to_live_ple(orig):
+            continue
+        name = reverse_line(orig)
+        if name:
+            created.append(name)
     return created
 
 

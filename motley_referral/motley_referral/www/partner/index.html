@@ -4,6 +4,14 @@
 
 <h1>{{ _("Welcome, {0}").format(partner.partner_name) }}</h1>
 {% if readonly %}<div class="banner">{{ _("Your partner agreement has ended. This portal is read only until your last commission window ends.") }}</div>{% endif %}
+<form method="get" class="pp-period" style="margin:0 0 12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+<label for="pp-period" class="muted">{{ _("Period") }}</label>
+<select id="pp-period" name="period" onchange="this.form.submit()" style="padding:6px 10px;border-radius:8px;border:1px solid #d0d7de">
+{% for k, label in periods %}<option value="{{ k }}"{% if k == period %} selected{% endif %}>{{ label }}</option>{% endfor %}
+</select>
+{% if period_statement %}<a href="/api/method/motley_referral.api.portal.download_statement?name={{ period_statement.name }}">{{ _("Download statement for {0}").format(last_label) }}</a>
+{% else %}<span class="muted">{{ _("No statement for {0}.").format(last_label) }}</span>{% endif %}
+</form>
 <div class="pp-cards">
 <div class="pp-card"><b>{{ rp_usd(earned_last) }}</b><span>{{ _("Earned in") }} {{ last_label }}</span></div>
 <div class="pp-card"><b>{{ frappe.utils.formatdate(next_payout) }}</b><span>{{ _("Next payout date") }}</span></div>

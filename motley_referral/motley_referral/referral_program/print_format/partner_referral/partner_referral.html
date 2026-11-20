@@ -38,10 +38,11 @@
 .rp .strip td.past.y1{background:#1B7F4B;color:#fff}.rp .strip td.past.y2{background:#2563eb;color:#fff}
 .rp .strip td.cur{background:#b7791f;color:#fff;font-weight:700}.rp .strip td.ended{background:#d1d5da;color:#6a737d}
 .rp .foot{margin-top:24px;font-size:8pt;color:#6a737d;text-align:center;border-top:1px solid #d0d7de;padding-top:4px;font-family:Helvetica,Arial,sans-serif}
+.print-format{page-size:Letter;margin-top:15mm;margin-bottom:20mm;margin-left:15mm;margin-right:15mm}
 </style>
 <div class="rp">
 <div class="bar"><table><tr>
-<td>{% set logo = rp_company_logo(doc.get('company') or rp_default_company()) %}{% if logo and no_letterhead %}<img class="logo" src="{{ logo }}">{% elif not letter_head %}<span class="brand">Motley</span>{% endif %}</td>
+<td>{% set logo = rp_company_logo(doc.get('company') or rp_default_company()) %}{% if logo and (no_letterhead or not letter_head) %}<img class="logo" src="{{ logo }}">{% elif not letter_head %}<span class="brand">Motley</span>{% endif %}</td>
 <td><div class="t">Partner Referral</div><div class="n">{{ doc.name }}</div></td>
 </tr></table></div>
 
@@ -76,4 +77,5 @@
 <table class="band"><tr><td><div class="l">Total received to date</div><div class="v">{{ rp_usd(doc.total_received) }}</div></td><td><div class="l">Commission to date</div><div class="v">{{ rp_usd(doc.total_commission) }}</div></td><td></td><td></td></tr></table>
 {% endif %}
 </div>
-<div class="rp"><div class="foot">{{ rp_company_footer(rp_default_company()) }} &middot; Generated from Motley ERP on {{ frappe.utils.formatdate(frappe.utils.nowdate()) }}</div></div>
+<div class="rp hidden-pdf"><div class="foot">{% set _cf = rp_company_footer(rp_default_company()) %}{% if _cf %}{{ _cf }} &middot; {% endif %}Generated from Motley ERP on {{ frappe.utils.formatdate(frappe.utils.nowdate()) }}</div></div>
+<div id="footer-html" class="visible-pdf"><div class="letter-head-footer" style="font-family:Helvetica,Arial,sans-serif;font-size:8pt;color:#6a737d;text-align:center;border-top:1px solid #d0d7de;padding-top:4px;margin:0 15mm">{% set _cf = rp_company_footer(rp_default_company()) %}{% if _cf %}{{ _cf }} &middot; {% endif %}Generated from Motley ERP on {{ frappe.utils.formatdate(frappe.utils.nowdate()) }} &middot; Page <span class="page"></span> of <span class="topage"></span></div></div>

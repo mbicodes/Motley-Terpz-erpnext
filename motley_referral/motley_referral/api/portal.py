@@ -29,10 +29,12 @@ def _month_label(period):
 
 
 # ----------------------------------------------------------------------------- pages
-def dashboard():
+def dashboard(period=None):
     p = get_current_partner()
     today = getdate(nowdate())
-    last = add_months(get_first_day(today), -1).strftime("%Y-%m")
+    # the partner can pick any of the last 24 months; default is last month
+    periods = [add_months(get_first_day(today), -i).strftime("%Y-%m") for i in range(1, 25)]
+    last = period if period in periods else periods[0]
     earned_last = flt(frappe.db.sql("select coalesce(sum(commission_amount),0) from `tabReferral Commission Ledger` where referral_partner=%s and period=%s", (p.name, last))[0][0])
     paid = flt(frappe.db.sql("select coalesce(sum(net_payable),0) from `tabReferral Commission Statement` where referral_partner=%s and docstatus=1 and status='Paid'", p.name)[0][0])
     nxt = frappe.db.sql("select min(due_date) from `tabReferral Commission Statement` where referral_partner=%s and docstatus=1 and status='Approved'", p.name)[0][0]
@@ -56,7 +58,9 @@ def dashboard():
         c["pct"] = max(round(abs(c["value"]) / mx * 100), 2) if c["value"] else 2
     statements = frappe.get_all("Referral Commission Statement", filters={"referral_partner": p.name, "docstatus": 1, "status": ["in", ["Approved", "Paid", "Carried Forward"]]},
                                 fields=["name", "period", "net_payable", "status"], order_by="period desc", limit=24)
-    return {"partner": p, "earned_last": earned_last, "last_label": _month_label(last), "paid": paid, "next_payout": nxt, "earning": earning, "chart": chart, "statements": statements,
+    period_statement = next((s for s in statements if s.period == last), None)
+    return {"partner": p, "earned_last": earned_last, "last_label": _month_label(last), "paid": paid,
+            "period": last, "periods": [(k, _month_label(k)) for k in periods], "period_statement": period_statement, "next_payout": nxt, "earning": earning, "chart": chart, "statements": statements,
             "readonly": p.status == "Terminated"}
 
 
@@ -132,8 +136,6 @@ def update_profile(phone=None, address=None, partner_name=None):
         p.phone = phone
     if address is not None:
         p.address = address
-    if partner_name:
-        p.partner_name = partner_name
     p.save()
     return True
 

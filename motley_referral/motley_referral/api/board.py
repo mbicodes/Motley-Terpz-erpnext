@@ -246,7 +246,7 @@ def _spec(tab, f):
                 (_col("open_ar", "Open AR", "currency"),
                  "coalesce((select sum(si.outstanding_amount) from `tabSales Invoice` si where si.customer = r.customer and si.docstatus = 1 and si.outstanding_amount > 0), 0)"),
             ],
-            extra={"window_status": "r.window_status", "y1": "coalesce(p.year1_months,12)", "y2": "coalesce(p.year2_months,12)"},
+            extra={"window_status": "r.window_status", "current_month_no": "r.current_month_no", "y1": "coalesce(p.year1_months,12)", "y2": "coalesce(p.year2_months,12)"},
             order="r.commission_start_date desc",
             totals=["collected_period", "commission_period", "collected_total", "commission_total", "open_ar"], p=p,
         )
@@ -431,7 +431,7 @@ def reject_referral(name, reason, note=None):
 
 @frappe.whitelist()
 def run_statements(period=None):
-    _check(APPROVERS)
+    _check(ROLES)  # same roles as Run Now in Referral Settings; the guide gives Referral Manager the full Board
     from motley_referral.referral_program.doctype.referral_commission_statement.referral_commission_statement import (
         create_monthly_statements,
     )

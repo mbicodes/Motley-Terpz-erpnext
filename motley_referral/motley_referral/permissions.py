@@ -50,7 +50,7 @@ def statement_query(user=None):
     p = partner_of(user)
     if not p:
         return "1=0"
-    return f"`tabReferral Commission Statement`.`referral_partner` = {frappe.db.escape(p)} and `tabReferral Commission Statement`.`docstatus` = 1 and `tabReferral Commission Statement`.`status` in ('Approved','Paid')"
+    return f"`tabReferral Commission Statement`.`referral_partner` = {frappe.db.escape(p)} and `tabReferral Commission Statement`.`docstatus` = 1 and `tabReferral Commission Statement`.`status` in ('Approved','Paid','Carried Forward')"
 
 
 referral_partner_has = _has("name")
@@ -61,5 +61,5 @@ ledger_has = _has("referral_partner")
 def statement_has(doc, user=None, permission_type=None):
     r = _has("referral_partner")(doc, user, permission_type)
     if r:
-        return doc.docstatus == 1 and doc.status in ("Approved", "Paid")
+        return doc.docstatus == 1 and doc.status in ("Approved", "Paid", "Carried Forward")
     return r

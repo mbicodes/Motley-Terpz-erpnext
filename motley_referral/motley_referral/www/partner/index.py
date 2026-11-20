@@ -8,6 +8,6 @@ def get_context(context):
     context.no_cache = 1
     context.show_sidebar = False
     context.badge = BADGE
-    context.update(portal.dashboard())
+    context.update(portal.dashboard(frappe.form_dict.get("period")))
     context.title = "Partner Dashboard"
     context.active = "/partner"
