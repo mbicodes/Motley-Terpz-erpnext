@@ -12,6 +12,8 @@ after_migrate = "motley_referral.install.after_migrate"
 
 # Partners land on the portal, never the desk
 role_home_page = {"Referral Partner": "partner"}
+# ...and their session cannot call desk APIs (workspace list etc.)
+before_request = ["motley_referral.portal_user.block_desk_api"]
 
 website_route_rules = [
     {"from_route": "/partner/accounts/<name>", "to_route": "partner/account"},

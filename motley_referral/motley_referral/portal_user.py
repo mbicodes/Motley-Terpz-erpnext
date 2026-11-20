@@ -119,3 +119,26 @@ def repair_partner_users(verbose=True):
         for user in skipped:
             print(f"motley_referral: SKIPPED staff account {user} (has Referral Partner role or is a portal_user)")
     return {"fixed": fixed, "skipped": skipped}
+
+
+def block_desk_api():
+    """before_request: a partner's session never reaches desk APIs.
+
+    /app is already refused for Website Users, but desk endpoints such as
+    frappe.desk.desktop.get_workspace_sidebar_items still answer any logged-in user
+    with the workspace list (US Payroll, People, ...).
+    """
+    user = frappe.session.user
+    if user in ("Guest", "Administrator") or not frappe.request:
+        return
+    target = frappe.request.path or ""
+    if target.startswith("/api/method/"):
+        target = target[len("/api/method/"):]
+    elif target in ("/", "") and frappe.form_dict.get("cmd"):
+        target = frappe.form_dict.get("cmd")
+    else:
+        return
+    if not target.startswith("frappe.desk.") or PARTNER_ROLE not in frappe.get_roles(user):
+        return
+    if frappe.db.get_value("User", user, "user_type") == "Website User":
+        raise frappe.PermissionError(_("Not permitted"))
