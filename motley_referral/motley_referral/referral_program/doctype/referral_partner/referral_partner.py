@@ -58,14 +58,30 @@ class ReferralPartner(Document):
         return sup.name
 
     def make_portal_user(self):
-        if self.portal_user and frappe.db.exists("User", self.portal_user):
-            return self.portal_user
-        if frappe.db.exists("User", self.email):
-            user = frappe.get_doc("User", self.email)
-            if not any(r.role == "Referral Partner" for r in user.roles):
-                user.append("roles", {"role": "Referral Partner"})
-                user.save(ignore_permissions=True)
-            return user.name
+        from motley_referral.portal_user import (
+            PARTNER_ROLE,
+            desk_roles_besides_partner,
+            ensure_partner_role,
+            is_staff,
+            make_partner_only,
+        )
+
+        # The partner login is always a Website User whose only role is Referral Partner.
+        ensure_partner_role()
+        linked = self.portal_user if self.portal_user and frappe.db.exists("User", self.portal_user) else None
+        existing = linked or (self.email if frappe.db.exists("User", self.email) else None)
+        if existing:
+            # A login this partner already owns may carry desk roles from the old bug; those get
+            # stripped. Any other existing account with desk roles belongs to staff: refuse it.
+            if is_staff(existing) or (not linked and desk_roles_besides_partner(existing)):
+                frappe.throw(
+                    _(
+                        "{0} is an internal ERP login. A partner needs their own email so the portal login "
+                        "has no desk access. Change the partner's Email and activate again."
+                    ).format(existing)
+                )
+            make_partner_only(existing)
+            return existing
         user = frappe.new_doc("User")
         user.update(
             {
@@ -76,8 +92,10 @@ class ReferralPartner(Document):
                 "enabled": 1,
             }
         )
-        user.append("roles", {"role": "Referral Partner"})
+        user.append("roles", {"role": PARTNER_ROLE})
         user.insert(ignore_permissions=True)
+        # drop anything a hook added on insert, and fail loudly if it is not a Website User
+        make_partner_only(user.name)
         try:
             user.send_welcome_mail_to_user()
         except Exception:

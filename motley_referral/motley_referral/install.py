@@ -13,9 +13,16 @@ def after_migrate():
 
 
 def setup():
+    from motley_referral.portal_user import ensure_partner_role, repair_partner_users
+
     for r in ROLES:
         if not frappe.db.exists("Role", r):
             frappe.get_doc({"doctype": "Role", "role_name": r, "desk_access": 0 if r == "Referral Partner" else 1}).insert(ignore_permissions=True)
+    # Frappe creates roles named in DocType permissions with Desk Access ON, so the
+    # check above is not enough: force Referral Partner off the desk on every migrate
+    # and turn any partner login that became a System User back into a Website User.
+    ensure_partner_role()
+    repair_partner_users()
     create_custom_fields(
         {
             "Customer": [
