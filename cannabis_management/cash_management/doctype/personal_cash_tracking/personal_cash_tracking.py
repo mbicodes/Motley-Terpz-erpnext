@@ -50,6 +50,10 @@ class PersonalCashTracking(Document):
             frappe.utils.get_link_to_form("Safe Cash Tracking", safe.name)))
 
     def on_cancel(self):
+        # A cancel that does not go through the workflow (e.g. the standard Cancel button)
+        # would leave workflow_state at "Approved" and offer workflow actions that fail.
+        if self.workflow_state and self.workflow_state != "Cancelled":
+            self.db_set("workflow_state", "Cancelled", update_modified=False)
         if not self.is_reimbursement() or not self.safe_entry:
             return
         safe = frappe.get_doc("Safe Cash Tracking", self.safe_entry)
@@ -209,7 +213,14 @@ def get_pending_reimbursements():
 
 
 def _is_requester(doc, user):
-    return user in {doc.get("user"), doc.get("owner")}
+    """The requester is the person being reimbursed (doc.user), not whoever keyed the entry.
+
+    Frappe's own workflow rule also refuses self approval by the entry's owner (Approve has
+    allow_self_approval = 0), except for Administrator, so such a row gets no buttons either.
+    """
+    if user == doc.get("user"):
+        return True
+    return user != "Administrator" and user == doc.get("owner")
 
 
 @frappe.whitelist(methods=["POST"])
