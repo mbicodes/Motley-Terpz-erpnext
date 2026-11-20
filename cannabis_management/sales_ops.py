@@ -119,6 +119,7 @@ def get_settings():
 				colour=r.colour or "",
 				active=cint(r.active),
 				is_manager=cint(r.is_manager),
+				no_email=cint(r.get("no_email")),
 			)
 			for r in (doc.get("owners") or [])
 			if r.user
@@ -156,6 +157,7 @@ def get_settings():
 		notify_on_reassign=cint(doc.notify_on_reassign),
 		notify_managers_on_stage=cint(doc.notify_managers_on_stage),
 		unassigned_alert_days=cint(doc.unassigned_alert_days),
+		email_cc=_email_list(doc.get("email_cc")),
 	)
 	frappe.local.sales_ops_settings = s
 	return s
@@ -701,6 +703,31 @@ def notify(users, subject, deal=None, html=None):
 	)
 
 
+def _email_list(text):
+	"""Valid addresses from a comma / semicolon / newline separated field, in order, no repeats."""
+	from frappe.utils import validate_email_address
+
+	out = []
+	for part in (text or "").replace(";", ",").replace("\n", ",").split(","):
+		addr = validate_email_address(part.strip()) if part.strip() else ""
+		if addr and addr.lower() not in [x.lower() for x in out]:
+			out.append(addr)
+	return out
+
+
+def no_email_users(s=None):
+	"""Owners ticked "No Email" in Settings: no pipeline email to them, not even as CC."""
+	s = s or get_settings()
+	return {o.user.lower() for o in s.owners if o.get("no_email") and o.user}
+
+
+def email_cc_for(recipient, s=None):
+	"""Settings CC list for a pipeline email to `recipient` (never the recipient or a No Email owner)."""
+	s = s or get_settings()
+	skip = no_email_users(s) | {(recipient or "").lower()}
+	return [c for c in s.get("email_cc") or [] if c.lower() not in skip]
+
+
 def send_daily_digest():
 	"""Scheduler, daily 8:00 AM site time: each owner gets their follow-ups, stalled deals and samples due;
 	pipeline managers also get deals that have been unassigned too long."""
@@ -791,8 +818,10 @@ def send_daily_digest():
 				subject = _("Sales pipeline: your {0} shared deal(s) today").format(len(mine))
 			body = "".join(html)
 			notify([user], subject, html=body)
+			if user.lower() in no_email_users(s) or not _email_list(user):
+				continue  # bell alert only (No Email owners; "Administrator" has no address — it errored daily)
 			try:
-				frappe.sendmail(recipients=[user], subject=subject, message=body, delayed=True)
+				frappe.sendmail(recipients=[user], cc=email_cc_for(user, s), subject=subject, message=body, delayed=True)
 			except Exception:
 				frappe.log_error(title="Sales Operation Board digest email failed")
 

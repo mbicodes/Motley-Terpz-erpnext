@@ -3450,7 +3450,7 @@
 						}));
 					}
 				}
-				new DealComposer({
+				const composer = new DealComposer({
 					doc: doc || frappe.get_doc(dt, name),
 					recipients: to,
 					subject: `Motley Terpz – ${d.account}`,
@@ -3460,6 +3460,9 @@
 						this.load_feed(name);
 					},
 				});
+				// Settings "CC on Pipeline Emails" (the sender can still remove it)
+				const cc = ((this.s && this.s.email_cc) || []).filter(c => c.toLowerCase() !== String(to).toLowerCase());
+				if (cc.length) composer.dialog.set_value('cc', cc.join(', '));
 			});
 		}
 

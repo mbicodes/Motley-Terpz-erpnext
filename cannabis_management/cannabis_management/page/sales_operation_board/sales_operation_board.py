@@ -110,6 +110,8 @@ def _settings_payload(s):
 		"line_groups": s.line_groups,
 		"lists": s.lists,
 		"hide_closed_after_days": s.hide_closed_after_days,
+		# CC pre-filled in the deal Email button (Settings "CC on Pipeline Emails", minus No Email owners)
+		"email_cc": sales_ops.email_cc_for(None, s),
 	}
 
 
