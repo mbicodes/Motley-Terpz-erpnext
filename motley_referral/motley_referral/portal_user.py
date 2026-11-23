@@ -16,17 +16,25 @@ PORTAL_HOME = "partner"
 STAFF_ROLES = {"System Manager", "Administrator"}
 
 
+def get_home_page(user):
+    """/partner only for a user linked to a partner record; everyone else gets the normal home."""
+    from motley_referral.permissions import partner_of
+
+    return PORTAL_HOME if user not in ("Administrator", "Guest") and partner_of(user) else None
+
+
 def ensure_partner_role():
-    """Referral Partner: no Desk Access, lands on /partner."""
+    """Referral Partner: no Desk Access. No Role home page: Frappe applies it to Administrator
+    (who holds every role) before any hook; get_home_page above routes partners instead."""
     if not frappe.db.exists("Role", PARTNER_ROLE):
-        frappe.get_doc(
-            {"doctype": "Role", "role_name": PARTNER_ROLE, "desk_access": 0, "home_page": PORTAL_HOME}
-        ).insert(ignore_permissions=True)
+        frappe.get_doc({"doctype": "Role", "role_name": PARTNER_ROLE, "desk_access": 0}).insert(
+            ignore_permissions=True
+        )
         return
     role = frappe.get_doc("Role", PARTNER_ROLE)
-    if role.desk_access or (role.home_page or "") != PORTAL_HOME:
+    if role.desk_access or role.home_page:
         role.desk_access = 0
-        role.home_page = PORTAL_HOME
+        role.home_page = ""
         role.save(ignore_permissions=True)
         frappe.clear_cache()
 

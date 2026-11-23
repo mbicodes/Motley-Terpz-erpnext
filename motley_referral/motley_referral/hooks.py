@@ -10,8 +10,9 @@ required_apps = ["erpnext"]
 after_install = "motley_referral.install.after_install"
 after_migrate = "motley_referral.install.after_migrate"
 
-# Partners land on the portal, never the desk
-role_home_page = {"Referral Partner": "partner"}
+# Partners land on the portal, never the desk. Not role_home_page: Administrator holds every
+# role, so a role-based home page sent admins to a portal they have no partner record for.
+get_website_user_home_page = "motley_referral.portal_user.get_home_page"
 # ...and their session cannot call desk APIs (workspace list etc.)
 before_request = ["motley_referral.portal_user.block_desk_api"]
 
