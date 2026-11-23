@@ -98,6 +98,7 @@ after_migrate = [
     "cannabis_management.api.undelivered_cogs.install_custom_fields",
     "cannabis_management.overrides.mr_run_status.install",
     "cannabis_management.farm_reports.install.install",
+    "cannabis_management.time_clock.time_off_install.install",
     # My Dashboard workspace + its block (created on the site, not a fixture).
     "cannabis_management.api.my_dashboard.install",
     "cannabis_management.branding.ensure_branding",
@@ -454,6 +455,7 @@ scheduler_events = {
             "cannabis_management.manufacturing_timesheet_kiosk.api.send_upcoming_cutoff_warnings",
         ],
         "0 7 * * *": [
+            "cannabis_management.time_clock.time_off.send_confirmations",
             "cannabis_management.api.ar_reminders.send_ar_reminders",
             "cannabis_management.api.overdue_owner_reminder.send_overdue_owner_reminders",
             "cannabis_management.api.sales_daily_sync.snapshot_unreconciled",

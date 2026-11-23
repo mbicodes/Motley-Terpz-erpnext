@@ -1,0 +1,135 @@
+{
+ "actions": [],
+ "creation": "2026-11-23 12:00:00.000000",
+ "modified": "2026-11-23 12:00:00.000000",
+ "modified_by": "Administrator",
+ "owner": "Administrator",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "module": "Time Clock",
+ "name": "Time Off Policy",
+ "field_order": [
+  "category",
+  "section_pto",
+  "pto_method",
+  "pto_hours",
+  "pto_rate",
+  "section_sick",
+  "sick_method",
+  "sick_hours",
+  "sick_rate"
+ ],
+ "fields": [
+  {
+   "fieldname": "category",
+   "fieldtype": "Select",
+   "options": "Full Time\nPart Time",
+   "label": "Category",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1,
+   "description": "Matches the Time Off Category on the Employee"
+  },
+  {
+   "fieldname": "section_pto",
+   "fieldtype": "Section Break",
+   "label": "PTO"
+  },
+  {
+   "fieldname": "pto_method",
+   "fieldtype": "Select",
+   "options": "Yearly grant\nPer hour worked",
+   "default": "Yearly grant",
+   "label": "How it is earned",
+   "reqd": 1
+  },
+  {
+   "fieldname": "pto_hours",
+   "fieldtype": "Float",
+   "label": "Hours per Year",
+   "in_list_view": 1,
+   "description": "Yearly grant: hours given each year. Per hour worked: the most that can be earned in a year (0 = no cap)"
+  },
+  {
+   "fieldname": "pto_rate",
+   "fieldtype": "Float",
+   "label": "Hours Earned per Hour Worked",
+   "precision": "4",
+   "depends_on": "eval:doc.pto_method=='Per hour worked'",
+   "description": "Example: 1 hour per 30 worked = 0.0333"
+  },
+  {
+   "fieldname": "section_sick",
+   "fieldtype": "Section Break",
+   "label": "Sick Time"
+  },
+  {
+   "fieldname": "sick_method",
+   "fieldtype": "Select",
+   "options": "Yearly grant\nPer hour worked",
+   "default": "Yearly grant",
+   "label": "How it is earned",
+   "reqd": 1
+  },
+  {
+   "fieldname": "sick_hours",
+   "fieldtype": "Float",
+   "label": "Hours per Year",
+   "in_list_view": 1,
+   "description": "Yearly grant: hours given each year. Per hour worked: the most that can be earned in a year (0 = no cap)"
+  },
+  {
+   "fieldname": "sick_rate",
+   "fieldtype": "Float",
+   "label": "Hours Earned per Hour Worked",
+   "precision": "4",
+   "depends_on": "eval:doc.sick_method=='Per hour worked'",
+   "description": "Example: 1 hour per 30 worked = 0.0333"
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "HR Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "HR User",
+   "read": 1,
+   "write": 0,
+   "create": 0,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "autoname": "field:category",
+ "naming_rule": "By fieldname"
+}

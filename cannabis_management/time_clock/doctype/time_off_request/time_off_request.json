@@ -1,0 +1,247 @@
+{
+ "actions": [],
+ "creation": "2026-11-23 12:00:00.000000",
+ "modified": "2026-11-23 12:00:00.000000",
+ "modified_by": "Administrator",
+ "owner": "Administrator",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "module": "Time Clock",
+ "name": "Time Off Request",
+ "field_order": [
+  "employee",
+  "employee_name",
+  "employee_user",
+  "leave_type",
+  "column_break_1",
+  "status",
+  "approver",
+  "section_dates",
+  "from_date",
+  "to_date",
+  "column_break_2",
+  "hours_per_day",
+  "total_hours",
+  "section_notes",
+  "reason",
+  "approver_comment",
+  "decided_by",
+  "google_event_id",
+  "confirmation_sent",
+  "confirm_key"
+ ],
+ "fields": [
+  {
+   "fieldname": "employee",
+   "fieldtype": "Link",
+   "options": "Employee",
+   "label": "Employee",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "search_index": 1,
+   "description": "Leave empty to use your own"
+  },
+  {
+   "fieldname": "employee_name",
+   "fieldtype": "Data",
+   "label": "Employee Name",
+   "fetch_from": "employee.employee_name",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "employee_user",
+   "fieldtype": "Link",
+   "options": "User",
+   "label": "Employee User",
+   "fetch_from": "employee.user_id",
+   "read_only": 1,
+   "hidden": 1
+  },
+  {
+   "fieldname": "leave_type",
+   "fieldtype": "Select",
+   "options": "PTO\nSick Time",
+   "default": "PTO",
+   "label": "Type",
+   "reqd": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "options": "Pending\nApproved\nDenied\nCancelled\nTaken\nNot Taken",
+   "default": "Pending",
+   "label": "Status",
+   "read_only": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "no_copy": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "approver",
+   "fieldtype": "Link",
+   "options": "User",
+   "label": "Approver",
+   "read_only": 1,
+   "no_copy": 1,
+   "description": "The employee's Reports To manager, or the fallback approver in Time Off Settings"
+  },
+  {
+   "fieldname": "section_dates",
+   "fieldtype": "Section Break",
+   "label": "Dates"
+  },
+  {
+   "fieldname": "from_date",
+   "fieldtype": "Date",
+   "label": "From",
+   "reqd": 1,
+   "in_list_view": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "to_date",
+   "fieldtype": "Date",
+   "label": "To",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "hours_per_day",
+   "fieldtype": "Float",
+   "label": "Hours per Day",
+   "default": "8",
+   "reqd": 1,
+   "description": "Use 4 for half days"
+  },
+  {
+   "fieldname": "total_hours",
+   "fieldtype": "Float",
+   "label": "Total Hours",
+   "read_only": 1,
+   "in_list_view": 1,
+   "description": "Weekdays (Mon to Fri) between the dates \u00d7 hours per day"
+  },
+  {
+   "fieldname": "section_notes",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "reason",
+   "fieldtype": "Small Text",
+   "label": "Note for your Manager"
+  },
+  {
+   "fieldname": "approver_comment",
+   "fieldtype": "Small Text",
+   "label": "Approver Comment",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "decided_by",
+   "fieldtype": "Link",
+   "options": "User",
+   "label": "Decided By",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "google_event_id",
+   "fieldtype": "Data",
+   "label": "Google Event ID",
+   "read_only": 1,
+   "hidden": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "confirmation_sent",
+   "fieldtype": "Check",
+   "label": "Confirmation Sent",
+   "read_only": 1,
+   "hidden": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "confirm_key",
+   "fieldtype": "Data",
+   "label": "Confirm Key",
+   "read_only": 1,
+   "hidden": 1,
+   "no_copy": 1
+  }
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "HR Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "HR User",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1
+  },
+  {
+   "role": "Employee",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 0,
+   "report": 1,
+   "export": 1,
+   "print": 1,
+   "email": 1,
+   "share": 1,
+   "if_owner": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "links": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "autoname": "format:TIMEOFF-{#####}",
+ "naming_rule": "Expression",
+ "title_field": "employee_name",
+ "show_title_field_in_link": 1,
+ "track_changes": 1,
+ "is_calendar_and_gantt": 1
+}
