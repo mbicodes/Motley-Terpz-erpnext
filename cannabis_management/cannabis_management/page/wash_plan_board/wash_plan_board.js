@@ -366,7 +366,7 @@ class WashPlanBoard {
 	html() {
 		const v = this.compute();
 		return this.html_band() + '<main class="wpb-main">' +
-			this.html_header(v) + this.html_toast() + this.html_tabs(v) + this.html_kpis(v) + this.html_table(v) +
+			this.html_header(v) + this.html_toast() + this.html_tabs(v) + this.html_kpis(v) + this.html_table(v) + wpb_toll_strip(this.board.toll, 'wash') +
 			'<div class="wpb-bottom">' + this.html_add(v) + this.html_freezers() + this.html_next() + '</div></main>';
 	}
 
@@ -927,4 +927,25 @@ class WashPlanBoard {
 		this.day = 'all';
 		this.mutate('update_plan', { plan: p.name, plan_type: next.plan_type, from_date: next.from_date, to_date: next.to_date });
 	}
+}
+
+// Customer-owned toll jobs (Toll Processing Board): read-only rows so the washer load is complete. They are not
+// plan rows, never create Material Requests here and are left out of every project summary; a click opens the
+// Toll Processing Board.
+function wpb_toll_strip(rows, kind) {
+	if (!rows || !rows.length) return '';
+	const f = (n, d) => Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: d || 0, maximumFractionDigits: d || 0 });
+	const e = wpb_esc;
+	const qty = r => kind === 'wash'
+		? f(r.ff_balance_lbs, 1) + ' lbs ' + __('to wash')
+		: f(r.bh_wip_grams) + ' g ' + __('BH to press');
+	const total = rows.reduce((a, r) => a + (kind === 'wash' ? (r.ff_balance_lbs || 0) : (r.bh_wip_grams || 0)), 0);
+	return '<section class="tpb-toll-strip" aria-label="' + __('Toll jobs') + '"><div class="h">' + __('Toll jobs (customer-owned)') +
+		'<span class="m" style="font-weight:500">' + rows.length + ' · ' + (kind === 'wash' ? f(total, 1) + ' lbs' : f(total) + ' g') + '</span>' +
+		'<a href="/app/toll-processing-board">' + __('Open Toll Processing Board') + '</a></div>' +
+		rows.map(r => '<a class="r" href="/app/toll-processing-board" title="' + __('Opens the Toll Processing Board') + '">' +
+			'<span class="tag">TOLL</span><span class="mono">' + e(r.name) + '</span>' +
+			'<span>' + e(r.customer_name || r.customer) + '</span><span class="m">' + e(r.strain) + '</span>' +
+			'<span class="n">' + qty(r) + '</span><span class="m hide-sm">' + e(__(r.status)) + (r.priority === 'Rush' ? ' · ' + __('Rush') : '') + '</span>' +
+			'<span class="m hide-sm">' + e(r.physical_location || '') + '</span></a>').join('') + '</section>';
 }

@@ -1,0 +1,461 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "TJ-.YYYY.-.####",
+ "creation": "2026-11-25 12:00:00.000000",
+ "description": "One intake of one strain from one toll client. Quantities and status come from the linked stock documents; work from the Toll Processing Board.",
+ "doctype": "DocType",
+ "editable_grid": 0,
+ "engine": "InnoDB",
+ "field_order": [
+  "job_section",
+  "status",
+  "customer",
+  "customer_name",
+  "strain",
+  "return_type",
+  "column_break_job",
+  "priority",
+  "received_date",
+  "promised_return_date",
+  "physical_location",
+  "queued_for_wash",
+  "company",
+  "metrc_section",
+  "inbound_manifest",
+  "inbound_tags",
+  "column_break_metrc",
+  "batch",
+  "bh_batch",
+  "rosin_batch",
+  "qty_section",
+  "ff_received_lbs",
+  "ff_washed_lbs",
+  "ff_balance_lbs",
+  "column_break_qty1",
+  "bh_grams",
+  "wash_yield",
+  "bh_pressed_grams",
+  "rosin_grams",
+  "press_yield",
+  "column_break_qty2",
+  "bh_wip_grams",
+  "bh_output_grams",
+  "rosin_output_grams",
+  "returned_bh_grams",
+  "returned_rosin_grams",
+  "billing_section",
+  "rate_basis",
+  "rate",
+  "column_break_bill",
+  "billable_qty",
+  "amount",
+  "sales_invoice",
+  "activity_section",
+  "toll_job_activity",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "job_section",
+   "fieldtype": "Section Break",
+   "label": "Job"
+  },
+  {
+   "default": "Received",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "no_copy": 1,
+   "options": "Received\nQueued for Wash\nWashed\nPressed\nReady to Return\nReturned\nInvoiced\nCancelled",
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Customer",
+   "options": "Customer",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fetch_from": "customer.customer_name",
+   "fieldname": "customer_name",
+   "fieldtype": "Data",
+   "label": "Customer Name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "strain",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Strain",
+   "reqd": 1
+  },
+  {
+   "description": "Locked after the first wash.",
+   "fieldname": "return_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Return Type",
+   "options": "Bubble Hash\nRosin\nBoth",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_job",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Normal",
+   "fieldname": "priority",
+   "fieldtype": "Select",
+   "label": "Priority",
+   "options": "Normal\nRush"
+  },
+  {
+   "default": "Today",
+   "fieldname": "received_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Received Date",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "promised_return_date",
+   "fieldtype": "Date",
+   "label": "Promised Return Date"
+  },
+  {
+   "fieldname": "physical_location",
+   "fieldtype": "Select",
+   "label": "Physical Location",
+   "options": "\nFreezer\nFreezer 2\nFreezer 3\nFreezer 4\nOther"
+  },
+  {
+   "default": "0",
+   "description": "Set on the board by dragging the card to Queued for Wash.",
+   "fieldname": "queued_for_wash",
+   "fieldtype": "Check",
+   "label": "Queued for Wash"
+  },
+  {
+   "default": "Master Touch Manufacturing",
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "read_only": 1
+  },
+  {
+   "fieldname": "metrc_section",
+   "fieldtype": "Section Break",
+   "label": "METRC and Batches"
+  },
+  {
+   "fieldname": "inbound_manifest",
+   "fieldtype": "Data",
+   "label": "Inbound METRC Manifest"
+  },
+  {
+   "description": "One tag per line.",
+   "fieldname": "inbound_tags",
+   "fieldtype": "Small Text",
+   "label": "Inbound METRC Tags"
+  },
+  {
+   "fieldname": "column_break_metrc",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "Fresh Frozen batch, created on receive. Bubble Hash and Rosin get their own batch with -BH / -RO.",
+   "fieldname": "batch",
+   "fieldtype": "Link",
+   "label": "Batch",
+   "no_copy": 1,
+   "options": "Batch",
+   "read_only": 1
+  },
+  {
+   "fieldname": "bh_batch",
+   "fieldtype": "Link",
+   "label": "Bubble Hash Batch",
+   "no_copy": 1,
+   "options": "Batch",
+   "read_only": 1
+  },
+  {
+   "fieldname": "rosin_batch",
+   "fieldtype": "Link",
+   "label": "Rosin Batch",
+   "no_copy": 1,
+   "options": "Batch",
+   "read_only": 1
+  },
+  {
+   "fieldname": "qty_section",
+   "fieldtype": "Section Break",
+   "label": "Quantities and Yields"
+  },
+  {
+   "fieldname": "ff_received_lbs",
+   "fieldtype": "Float",
+   "label": "FF Received (lbs)",
+   "no_copy": 1,
+   "precision": "3",
+   "read_only": 1
+  },
+  {
+   "fieldname": "ff_washed_lbs",
+   "fieldtype": "Float",
+   "label": "FF Washed (lbs)",
+   "no_copy": 1,
+   "precision": "3",
+   "read_only": 1
+  },
+  {
+   "fieldname": "ff_balance_lbs",
+   "fieldtype": "Float",
+   "label": "FF Balance (lbs)",
+   "no_copy": 1,
+   "precision": "3",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_qty1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "bh_grams",
+   "fieldtype": "Float",
+   "label": "Bubble Hash (g)",
+   "no_copy": 1,
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "wash_yield",
+   "fieldtype": "Percent",
+   "label": "Wash Yield %",
+   "no_copy": 1,
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "bh_pressed_grams",
+   "fieldtype": "Float",
+   "label": "BH Pressed (g)",
+   "no_copy": 1,
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "rosin_grams",
+   "fieldtype": "Float",
+   "label": "Rosin (g)",
+   "no_copy": 1,
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "press_yield",
+   "fieldtype": "Percent",
+   "label": "Press Yield %",
+   "no_copy": 1,
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_qty2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "bh_wip_grams",
+   "fieldtype": "Float",
+   "label": "BH in Toll WIP (g)",
+   "no_copy": 1,
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "bh_output_grams",
+   "fieldtype": "Float",
+   "label": "BH in Toll Output (g)",
+   "no_copy": 1,
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "rosin_output_grams",
+   "fieldtype": "Float",
+   "label": "Rosin in Toll Output (g)",
+   "no_copy": 1,
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "returned_bh_grams",
+   "fieldtype": "Float",
+   "label": "Returned BH (g)",
+   "no_copy": 1,
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "returned_rosin_grams",
+   "fieldtype": "Float",
+   "label": "Returned Rosin (g)",
+   "no_copy": 1,
+   "precision": "2",
+   "read_only": 1
+  },
+  {
+   "fieldname": "billing_section",
+   "fieldtype": "Section Break",
+   "label": "Billing"
+  },
+  {
+   "default": "Per lb FF Input",
+   "fieldname": "rate_basis",
+   "fieldtype": "Select",
+   "label": "Rate Basis",
+   "options": "Per lb FF Input\nPer Gram Output\nFlat per Job"
+  },
+  {
+   "fieldname": "rate",
+   "fieldtype": "Currency",
+   "label": "Rate"
+  },
+  {
+   "fieldname": "column_break_bill",
+   "fieldtype": "Column Break"
+  },
+  {
+   "description": "lbs washed, grams returned, or 1",
+   "fieldname": "billable_qty",
+   "fieldtype": "Float",
+   "label": "Billable Qty",
+   "no_copy": 1,
+   "precision": "3",
+   "read_only": 1
+  },
+  {
+   "fieldname": "amount",
+   "fieldtype": "Currency",
+   "label": "Amount",
+   "no_copy": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "sales_invoice",
+   "fieldtype": "Link",
+   "label": "Sales Invoice",
+   "no_copy": 1,
+   "options": "Sales Invoice",
+   "read_only": 1
+  },
+  {
+   "fieldname": "activity_section",
+   "fieldtype": "Section Break",
+   "label": "Activity"
+  },
+  {
+   "fieldname": "toll_job_activity",
+   "fieldtype": "Table",
+   "label": "Toll Job Activity",
+   "no_copy": 1,
+   "options": "Toll Job Activity",
+   "read_only": 1
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  }
+ ],
+ "modified": "2026-11-25 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Toll Job",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Production Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Manufacturing Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Manufacturing User",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounts Manager",
+   "share": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounts User",
+   "share": 1
+  }
+ ],
+ "search_fields": "customer_name,strain,status",
+ "show_title_field_in_link": 0,
+ "sort_field": "received_date",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "strain",
+ "track_changes": 1
+}

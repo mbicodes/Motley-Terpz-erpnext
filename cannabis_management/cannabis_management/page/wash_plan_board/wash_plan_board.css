@@ -136,3 +136,19 @@
 	.wash-plan-board .wpb-form { grid-template-columns: 1fr; }
 	.wash-plan-board .wpb-form .lbl { grid-column: auto !important; }
 }
+
+/* toll jobs (customer-owned, from the Toll Processing Board): read-only rows */
+.tpb-toll-strip { margin: 14px 0 0; border: 1px solid #e2e6e9; border-radius: 12px; background: #fff; overflow: hidden; }
+.tpb-toll-strip .h { display: flex; align-items: center; gap: 10px; padding: 10px 16px; background: #f9fafa; border-bottom: 1px solid #e2e6e9; font-size: 13px; font-weight: 700; }
+.tpb-toll-strip .h a { margin-left: auto; font-weight: 600; font-size: 12.5px; }
+.tpb-toll-strip .r { display: grid; grid-template-columns: 56px 130px minmax(140px, 1.4fr) minmax(120px, 1fr) 150px 140px 100px; gap: 10px; padding: 9px 16px; align-items: center; font-size: 13px; border-top: 1px solid #f0f2f4; color: inherit; text-decoration: none; }
+.tpb-toll-strip .r:first-of-type { border-top: 0; }
+.tpb-toll-strip .r:hover { background: #f9fafa; text-decoration: none; }
+.tpb-toll-strip .tag { font-size: 11px; font-weight: 800; letter-spacing: .5px; padding: 2px 7px; border-radius: 999px; background: #e7f4ec; color: #2f7a4b; text-align: center; }
+.tpb-toll-strip .n { font-variant-numeric: tabular-nums; text-align: right; }
+.tpb-toll-strip .m { color: #6b7783; }
+[data-theme="dark"] .tpb-toll-strip { background: #1d2227; border-color: #2f373e; }
+[data-theme="dark"] .tpb-toll-strip .h { background: #232a30; border-color: #2f373e; }
+[data-theme="dark"] .tpb-toll-strip .r { border-color: #2f373e; }
+[data-theme="dark"] .tpb-toll-strip .r:hover { background: #232a30; }
+@media (max-width: 900px) { .tpb-toll-strip .r { grid-template-columns: 56px 1fr 1fr; } .tpb-toll-strip .r .hide-sm { display: none; } }

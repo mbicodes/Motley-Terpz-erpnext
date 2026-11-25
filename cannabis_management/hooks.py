@@ -88,6 +88,7 @@ after_migrate = [
     "cannabis_management.overrides.material_request_dashboard.install",
     "cannabis_management.wash_plan_install.install",
     "cannabis_management.press_plan_install.install",
+    "cannabis_management.toll.install.install",
     "cannabis_management.project_tracker_hooks.install",
     "cannabis_management.doc_hooks.job_card.install_custom_fields",
     "cannabis_management.api.manufacturing_process.install_custom_fields",
@@ -438,6 +439,11 @@ from cannabis_management import project_tracker_hooks as _project_tracker_hooks
 
 _project_tracker_hooks.extend_doc_events(doc_events)
 
+# Toll processing (customer-owned material): validations 1-9 and the Toll Job refresh (appends, never replaces)
+from cannabis_management.toll import events as _toll_events
+
+_toll_events.extend_doc_events(doc_events)
+
 scheduler_events = {
     "hourly": [
         "cannabis_management.credit_and_ar.customer_layout.enforce",
@@ -636,4 +642,5 @@ _mt_dispatch_hooks.extend_doctype_js(doctype_js)
 infix_route_groups = {
     "sales-operation-board": ["Sales & CRM", "Selling"],
     "wash-plan-board": ["Manufacturing & Lab", "Manufacturing"],
+    "toll-processing-board": ["Manufacturing & Lab", "Manufacturing"],
 }

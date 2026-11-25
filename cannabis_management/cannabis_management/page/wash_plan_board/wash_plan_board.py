@@ -3,6 +3,7 @@ from frappe import _
 from frappe.utils import add_days, flt, getdate, nowdate, strip_html
 
 from cannabis_management.cannabis_management.doctype.wash_production_plan import wash_production_plan as wpp
+from cannabis_management.toll.api import plan_board_rows as toll_plan_board_rows
 
 PLAN = "Wash Production Plan"
 ROW = "Wash Production Plan Item"
@@ -129,6 +130,8 @@ def board(scope):
 			{"name": p.name, "status": p.status, "from_date": str(p.from_date), "to_date": str(p.to_date)} for p in plans],
 		"rows": rows,
 		"freezers": freezer_stock(booked),
+		# customer-owned toll jobs waiting for a wash: shown read-only, never part of the plan or project totals
+		"toll": toll_plan_board_rows(("Received", "Queued for Wash")),
 	}
 
 

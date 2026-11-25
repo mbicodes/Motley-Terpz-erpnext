@@ -1,0 +1,111 @@
+{
+ "actions": [],
+ "creation": "2026-11-25 12:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 0,
+ "engine": "InnoDB",
+ "field_order": [
+  "step",
+  "posting_date",
+  "reference_doctype",
+  "reference_name",
+  "input_qty",
+  "input_uom",
+  "output_qty",
+  "output_uom",
+  "metrc_tags",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "columns": 1,
+   "fieldname": "step",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Step",
+   "options": "Receive\nWash\nPress\nMove to Output\nReturn",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "posting_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Date",
+   "read_only": 1
+  },
+  {
+   "fieldname": "reference_doctype",
+   "fieldtype": "Link",
+   "label": "Reference Type",
+   "options": "DocType",
+   "read_only": 1
+  },
+  {
+   "columns": 2,
+   "fieldname": "reference_name",
+   "fieldtype": "Dynamic Link",
+   "in_list_view": 1,
+   "label": "Reference",
+   "options": "reference_doctype",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "input_qty",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Input Qty",
+   "precision": "3",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "input_uom",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Input UOM",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "output_qty",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Output Qty",
+   "precision": "3",
+   "read_only": 1
+  },
+  {
+   "columns": 1,
+   "fieldname": "output_uom",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Output UOM",
+   "read_only": 1
+  },
+  {
+   "fieldname": "metrc_tags",
+   "fieldtype": "Small Text",
+   "label": "METRC Tags",
+   "read_only": 1
+  },
+  {
+   "columns": 2,
+   "fieldname": "remarks",
+   "fieldtype": "Small Text",
+   "in_list_view": 1,
+   "label": "Remarks",
+   "read_only": 1
+  }
+ ],
+ "istable": 1,
+ "modified": "2026-11-25 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Toll Job Activity",
+ "owner": "Administrator",
+ "permissions": [],
+ "states": [],
+ "track_changes": 0
+}
