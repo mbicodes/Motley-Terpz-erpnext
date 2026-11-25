@@ -19,6 +19,8 @@ UOM_G = "Gram"
 CUSTOMER_GROUP = "Toll Clients"
 GENERIC_CUSTOMER = "Toll Client - Generic"
 INCOME_ACCOUNT = "Toll Processing Income - MTM"
+# expense account on toll Delivery Note rows: required by ERPNext, never posted (toll returns are zero value)
+RETURN_EXPENSE_ACCOUNT = "Toll Material Returns - MTM"
 
 LB_TO_G = 453.592
 

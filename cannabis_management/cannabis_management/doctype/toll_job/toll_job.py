@@ -6,7 +6,7 @@ cannabis_management.toll.utils.update_toll_job_status from the linked stock docu
 import frappe
 from frappe import _
 from frappe.model.document import Document
-from frappe.utils import flt
+from frappe.utils import flt, getdate
 
 from cannabis_management.toll.constants import CUSTOMER_GROUP
 from cannabis_management.toll.utils import billable_qty, derive_status, invoice_state
@@ -23,7 +23,7 @@ class TollJob(Document):
 				for f in ("customer", "return_type"):
 					if before.get(f) != self.get(f) and not self.flags.from_status_update:
 						frappe.throw(_("{0} cannot be changed after the first wash.").format(self.meta.get_label(f)))
-		if self.promised_return_date and self.received_date and self.promised_return_date < self.received_date:
+		if self.promised_return_date and self.received_date and getdate(self.promised_return_date) < getdate(self.received_date):
 			frappe.throw(_("Promised Return Date cannot be before the Received Date."))
 		self.billable_qty = flt(billable_qty(self), 3)
 		self.amount = flt(self.billable_qty * flt(self.rate), 2)

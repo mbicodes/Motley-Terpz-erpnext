@@ -24,6 +24,7 @@ from cannabis_management.toll.constants import (
 	LOCATIONS,
 	PRODUCE_ROLES,
 	RATE_BASES,
+	RETURN_EXPENSE_ACCOUNT,
 	RETURN_TYPES,
 	UOM_FF,
 	UOM_G,
@@ -473,9 +474,12 @@ def return_to_client(toll_job, return_date, manifest=None, driver=None, items=No
 			"rate": 0, "price_list_rate": 0,
 		})
 	dn.set_missing_values()
+	# MTM has no default COGS account; the zero-value return posts nothing, but ERPNext still wants a P&L account per row
+	zero_account = RETURN_EXPENSE_ACCOUNT if frappe.db.exists("Account", RETURN_EXPENSE_ACCOUNT) else None
 	for row in dn.items:  # nothing from price lists or pricing rules: the return is at zero
 		row.update({"rate": 0, "price_list_rate": 0, "discount_percentage": 0, "discount_amount": 0, "margin_rate_or_amount": 0,
-			"allow_zero_valuation_rate": 1, "warehouse": WH_OUTPUT, "uom": UOM_G, "conversion_factor": 1})
+			"allow_zero_valuation_rate": 1, "warehouse": WH_OUTPUT, "uom": UOM_G, "conversion_factor": 1,
+			"expense_account": zero_account or row.expense_account})
 	dn.remarks = _("Return of customer-owned material, Toll Job {0} ({1})").format(job.name, job.strain)
 	dn.flags.ignore_permissions = True
 	dn.insert()

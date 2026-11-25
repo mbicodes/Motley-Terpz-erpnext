@@ -19,6 +19,7 @@ from cannabis_management.toll.constants import (
 	ITEM_GROUP,
 	ITEM_ROSIN,
 	ITEM_SVC,
+	RETURN_EXPENSE_ACCOUNT,
 	UOM_FF,
 	UOM_G,
 	WH_GROUP,
@@ -91,10 +92,10 @@ def install():
 	frappe.db.commit()
 
 
-def _insert(doc):
+def _insert(doc, set_name=None):
 	doc = frappe.get_doc(doc)
 	doc.flags.ignore_permissions = True
-	doc.insert()
+	doc.insert(set_name=set_name)  # set_name: Items are named by naming series on this site; toll items need their codes
 	return doc
 
 
@@ -124,6 +125,11 @@ def _warehouses():
 
 
 def _income_account():
+	if not frappe.db.exists("Account", RETURN_EXPENSE_ACCOUNT):
+		cogs = frappe.db.get_value("Account", {"company": COMPANY, "is_group": 1, "account_name": "Cost of Goods Sold"}, "name") \
+			or frappe.db.get_value("Account", {"company": COMPANY, "is_group": 1, "root_type": "Expense", "parent_account": ["in", ["", None]]}, "name")
+		_insert({"doctype": "Account", "account_name": RETURN_EXPENSE_ACCOUNT.rsplit(" - ", 1)[0], "company": COMPANY, "parent_account": cogs,
+			"is_group": 0, "root_type": "Expense", "report_type": "Profit and Loss"})
 	if frappe.db.exists("Account", INCOME_ACCOUNT):
 		return
 	parent = frappe.db.get_value("Account", {"company": COMPANY, "is_group": 1, "account_name": "Direct Income"}, "name") \
@@ -146,19 +152,31 @@ def _items():
 		if not frappe.db.exists("Item", code):
 			_insert({"doctype": "Item", "item_code": code, "item_name": name, "description": name + " (customer-owned, zero value)",
 				"stock_uom": uom, "is_sales_item": sales, "include_item_in_manufacturing": 0, **TOLL_FLAGS,
-				"item_defaults": [{"company": COMPANY, "default_warehouse": wh}]})
+				"item_defaults": [{"company": COMPANY, "default_warehouse": wh}]}, set_name=code)
 		else:
 			cur = frappe.db.get_value("Item", code, list(TOLL_FLAGS), as_dict=True)
 			diff = {k: v for k, v in TOLL_FLAGS.items() if str(cur.get(k) or "") != str(v or "") and not (k == "valuation_rate" and not cur.get(k))}
 			if diff:
 				frappe.db.set_value("Item", code, diff)
+	# expense account on the toll stock items: MTM has no default COGS account, and a zero-value Delivery Note still
+	# needs a P&L account per row. Toll Material Returns - MTM never receives an amount.
+	if frappe.db.exists("Account", RETURN_EXPENSE_ACCOUNT):
+		stock_adj = frappe.db.get_value("Company", COMPANY, "stock_adjustment_account")
+		for code, *_rest in STOCK_ITEMS:
+			for d in frappe.get_all("Item Default", filters={"parent": code, "parenttype": "Item", "company": COMPANY},
+					fields=["name", "expense_account"]):
+				if not d.expense_account or d.expense_account == stock_adj:
+					frappe.db.set_value("Item Default", d.name, "expense_account", RETURN_EXPENSE_ACCOUNT)
 	if not frappe.db.exists("Item", ITEM_SVC):
 		_insert({"doctype": "Item", "item_code": ITEM_SVC, "item_name": "Toll Processing Service",
 			"description": "Toll processing service (washing / pressing of customer-owned material)",
 			"item_group": "Services" if frappe.db.exists("Item Group", "Services") else "All Item Groups",
 			"stock_uom": "Nos", "is_stock_item": 0, "is_sales_item": 1, "is_purchase_item": 0, "include_item_in_manufacturing": 0,
 			"uoms": [{"uom": "Nos", "conversion_factor": 1}, {"uom": UOM_FF, "conversion_factor": 1}, {"uom": UOM_G, "conversion_factor": 1}],
-			"item_defaults": [{"company": COMPANY, "income_account": INCOME_ACCOUNT}]})
+			# a valid MTM warehouse, or ERPNext fills the row from the session default (another company)
+			"item_defaults": [{"company": COMPANY, "income_account": INCOME_ACCOUNT,
+				"default_warehouse": frappe.db.get_value("Warehouse", {"company": COMPANY, "warehouse_name": "Stores", "is_group": 0}) or WH_OUTPUT}]},
+			set_name=ITEM_SVC)
 
 
 def _cogs_report_exclusion():
