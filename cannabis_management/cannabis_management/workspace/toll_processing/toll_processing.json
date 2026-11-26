@@ -1,0 +1,321 @@
+{
+ "charts": [],
+ "content": "[{\"id\": \"tollHeader\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Toll Processing</b></span>\", \"col\": 12}}, {\"id\": \"tollSc0\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Toll Processing Board\", \"col\": 3}}, {\"id\": \"tollSc1\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Open Toll Jobs\", \"col\": 3}}, {\"id\": \"tollSc2\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Toll Stock On Hand\", \"col\": 3}}, {\"id\": \"tollSc3\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Toll Job Yield Summary\", \"col\": 3}}, {\"id\": \"tollSc4\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Toll Clients\", \"col\": 3}}, {\"id\": \"tollSc5\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Toll Stock Entries\", \"col\": 3}}, {\"id\": \"tollSc6\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Toll Returns\", \"col\": 3}}, {\"id\": \"tollSc7\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Toll Invoices\", \"col\": 3}}, {\"id\": \"tollSpacer\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"tollLinksHdr\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Documents, Reports and Setup</b></span>\", \"col\": 12}}, {\"id\": \"tollCard0\", \"type\": \"card\", \"data\": {\"card_name\": \"Toll Jobs\", \"col\": 4}}, {\"id\": \"tollCard1\", \"type\": \"card\", \"data\": {\"card_name\": \"Toll Documents\", \"col\": 4}}, {\"id\": \"tollCard2\", \"type\": \"card\", \"data\": {\"card_name\": \"Reports\", \"col\": 4}}, {\"id\": \"tollCard3\", \"type\": \"card\", \"data\": {\"card_name\": \"Setup\", \"col\": 4}}]",
+ "creation": "2026-11-26 10:00:00.000000",
+ "custom_blocks": [],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "stock",
+ "idx": 0,
+ "indicator_color": "green",
+ "is_hidden": 0,
+ "label": "Toll Processing",
+ "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Toll Jobs",
+   "link_count": 3,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Toll Processing Board",
+   "link_count": 0,
+   "link_to": "toll-processing-board",
+   "link_type": "Page",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Toll Job",
+   "link_count": 0,
+   "link_to": "Toll Job",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Batch",
+   "link_count": 0,
+   "link_to": "Batch",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Toll Documents",
+   "link_count": 4,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Stock Entry (Receive / Wash / Press)",
+   "link_count": 0,
+   "link_to": "Stock Entry",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Delivery Note (Return)",
+   "link_count": 0,
+   "link_to": "Delivery Note",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Sales Invoice (Service)",
+   "link_count": 0,
+   "link_to": "Sales Invoice",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Material Request",
+   "link_count": 0,
+   "link_to": "Material Request",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Reports",
+   "link_count": 4,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Toll Stock On Hand",
+   "link_count": 0,
+   "link_to": "Toll Stock On Hand",
+   "link_type": "Report",
+   "onboard": 0,
+   "report_ref_doctype": "Toll Job",
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Toll Job Yield Summary",
+   "link_count": 0,
+   "link_to": "Toll Job Yield Summary",
+   "link_type": "Report",
+   "onboard": 0,
+   "report_ref_doctype": "Toll Job",
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Stock Ledger",
+   "link_count": 0,
+   "link_to": "Stock Ledger",
+   "link_type": "Report",
+   "onboard": 0,
+   "report_ref_doctype": "Stock Ledger Entry",
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 1,
+   "label": "Stock Balance",
+   "link_count": 0,
+   "link_to": "Stock Balance",
+   "link_type": "Report",
+   "onboard": 0,
+   "report_ref_doctype": "Stock Ledger Entry",
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Setup",
+   "link_count": 6,
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Card Break"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Toll Clients (Customer)",
+   "link_count": 0,
+   "link_to": "Customer",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Customer Group",
+   "link_count": 0,
+   "link_to": "Customer Group",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Toll Items (Item)",
+   "link_count": 0,
+   "link_to": "Item",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Item Group",
+   "link_count": 0,
+   "link_to": "Item Group",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Toll Warehouses (Warehouse)",
+   "link_count": 0,
+   "link_to": "Warehouse",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Chart of Accounts",
+   "link_count": 0,
+   "link_to": "Account",
+   "link_type": "DocType",
+   "onboard": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2026-11-26 10:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Cannabis Management",
+ "name": "Toll Processing",
+ "number_cards": [],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [
+  {
+   "role": "System Manager"
+  },
+  {
+   "role": "Production Manager"
+  },
+  {
+   "role": "Manufacturing Manager"
+  },
+  {
+   "role": "Manufacturing User"
+  },
+  {
+   "role": "Accounts Manager"
+  },
+  {
+   "role": "Accounts User"
+  }
+ ],
+ "sequence_id": 53.0,
+ "shortcuts": [
+  {
+   "color": "Green",
+   "doc_view": "",
+   "label": "Toll Processing Board",
+   "link_to": "toll-processing-board",
+   "type": "Page"
+  },
+  {
+   "color": "Blue",
+   "doc_view": "List",
+   "label": "Open Toll Jobs",
+   "link_to": "Toll Job",
+   "stats_filter": "[[\"Toll Job\", \"status\", \"not in\", [\"Invoiced\", \"Cancelled\"]]]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "",
+   "label": "Toll Stock On Hand",
+   "link_to": "Toll Stock On Hand",
+   "type": "Report"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "",
+   "label": "Toll Job Yield Summary",
+   "link_to": "Toll Job Yield Summary",
+   "type": "Report"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Toll Clients",
+   "link_to": "Customer",
+   "stats_filter": "[[\"Customer\", \"customer_group\", \"=\", \"Toll Clients\"]]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Toll Stock Entries",
+   "link_to": "Stock Entry",
+   "stats_filter": "[[\"Stock Entry\", \"toll_job\", \"is\", \"set\"]]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Toll Returns",
+   "link_to": "Delivery Note",
+   "stats_filter": "[[\"Delivery Note\", \"toll_job\", \"is\", \"set\"]]",
+   "type": "DocType"
+  },
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Toll Invoices",
+   "link_to": "Sales Invoice",
+   "stats_filter": "[[\"Sales Invoice\", \"toll_job\", \"is\", \"set\"]]",
+   "type": "DocType"
+  }
+ ],
+ "title": "Toll Processing"
+}
