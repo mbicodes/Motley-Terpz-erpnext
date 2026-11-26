@@ -9,7 +9,7 @@ from frappe.model.document import Document
 from frappe.utils import flt, getdate
 
 from cannabis_management.toll.constants import CUSTOMER_GROUP
-from cannabis_management.toll.utils import billable_qty, derive_status, invoice_state
+from cannabis_management.toll.utils import batch_state, billable_qty, derive_status, invoice_state, job_batches
 
 
 class TollJob(Document):
@@ -31,8 +31,27 @@ class TollJob(Document):
 			self.status = derive_status(self, invoice_state(self.sales_invoice))
 
 	def on_trash(self):
-		docs = frappe.get_all("Stock Entry", filters={"toll_job": self.name, "docstatus": 1}, pluck="name")
-		docs += frappe.get_all("Delivery Note", filters={"toll_job": self.name, "docstatus": 1}, pluck="name")
-		if docs:
-			frappe.throw(_("Toll Job {0} has submitted documents ({1}). Cancel the job from the Toll Processing Board instead.").format(
-				self.name, ", ".join(docs)))
+		"""Delete a job with no submitted documents: its cancelled stock documents and its empty batches go with it.
+		A batch that still holds stock is never deleted, and then the job is not deleted either."""
+		live = frappe.get_all("Stock Entry", filters={"toll_job": self.name, "docstatus": 1}, pluck="name")
+		live += frappe.get_all("Delivery Note", filters={"toll_job": self.name, "docstatus": 1}, pluck="name")
+		live += frappe.get_all("Sales Invoice", filters={"toll_job": self.name, "docstatus": 1}, pluck="name")
+		if live:
+			frappe.throw(_("Toll Job {0} has submitted documents ({1}). Use Cancel Job first, then delete it.").format(
+				self.name, ", ".join(live)))
+		cancelled_si = frappe.get_all("Sales Invoice", filters={"toll_job": self.name, "docstatus": 2}, pluck="name")
+		if cancelled_si:
+			frappe.throw(_("Cancelled Sales Invoice {0} is linked to {1}. Delete the invoice first.").format(
+				", ".join(cancelled_si), self.name))
+		for b in job_batches(self.name):
+			n, qty = batch_state(b)
+			if n:
+				frappe.throw(_("Batch {0} is not empty ({1} in stock entries that are not cancelled), so it is not deleted and {2} cannot be deleted.").format(
+					b, frappe.format_value(qty, {"fieldtype": "Float", "precision": 3}), self.name))
+		for si in frappe.get_all("Sales Invoice", filters={"toll_job": self.name, "docstatus": 0}, pluck="name"):
+			frappe.delete_doc("Sales Invoice", si, ignore_permissions=True)
+		for dt in ("Delivery Note", "Stock Entry"):  # cancelled ones: their ledger entries are already reversed
+			for n in frappe.get_all(dt, filters={"toll_job": self.name, "docstatus": 2}, pluck="name"):
+				frappe.delete_doc(dt, n, ignore_permissions=True)
+		for b in job_batches(self.name):
+			frappe.delete_doc("Batch", b, ignore_permissions=True, force=True)

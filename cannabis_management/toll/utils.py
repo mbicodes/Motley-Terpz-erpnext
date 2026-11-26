@@ -226,3 +226,48 @@ def later_step(doc):
 		if si:
 			return si
 	return None
+
+
+# ---------------------------------------------------------------- cancel / delete
+
+def batch_state(batch):
+	"""(live ledger entries, qty) of a batch: entries of submitted, not cancelled stock documents."""
+	a = frappe.db.sql("""select count(*), coalesce(sum(sbe.qty), 0) from `tabSerial and Batch Entry` sbe
+		join `tabSerial and Batch Bundle` sabb on sabb.name = sbe.parent
+		where sbe.batch_no = %s and sabb.docstatus = 1 and ifnull(sabb.is_cancelled, 0) = 0""", batch)[0]
+	b = frappe.db.sql("""select count(*), coalesce(sum(actual_qty), 0) from `tabStock Ledger Entry`
+		where batch_no = %s and is_cancelled = 0 and ifnull(serial_and_batch_bundle, '') = ''""", batch)[0]
+	return int(a[0] or 0) + int(b[0] or 0), flt(a[1]) + flt(b[1])
+
+
+def job_batches(toll_job):
+	return frappe.get_all("Batch", filters={"toll_job": toll_job}, pluck="name", order_by="name")
+
+
+def cancel_stock_docs(toll_job):
+	"""Cancel every submitted Delivery Note / Stock Entry of a job, last step first (so rule 9 holds)."""
+	docs = sorted(stock_docs(toll_job), reverse=True,
+		key=lambda d: (STEP_RANK.get(d.step, 0), getdate(d.posting_date), str(d.posting_time), get_datetime(d.creation)))
+	for d in docs:
+		doc = frappe.get_doc(d.doctype, d.name)
+		doc.flags.ignore_permissions = True
+		doc.cancel()
+	return [d.name for d in docs]
+
+
+def cleanup_batches(toll_job):
+	"""Batches of a cancelled job: an empty batch (no live ledger entry) is deleted, any other one is disabled."""
+	deleted, disabled = [], []
+	for b in job_batches(toll_job):
+		live, qty = batch_state(b)
+		if live:
+			frappe.db.set_value("Batch", b, "disabled", 1)
+			disabled.append((b, qty))
+			continue
+		for f in ("batch", "bh_batch", "rosin_batch"):
+			if frappe.db.get_value("Toll Job", toll_job, f) == b:
+				frappe.db.set_value("Toll Job", toll_job, f, None, update_modified=False)
+		# force: only cancelled (reversed) stock rows still name the batch
+		frappe.delete_doc("Batch", b, ignore_permissions=True, force=True)
+		deleted.append(b)
+	return deleted, disabled

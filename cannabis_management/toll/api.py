@@ -33,7 +33,7 @@ from cannabis_management.toll.constants import (
 	WH_OUTPUT,
 	WH_WIP,
 )
-from cannabis_management.toll.utils import EPS, billable_qty, update_toll_job_status
+from cannabis_management.toll.utils import EPS, billable_qty, cancel_stock_docs, cleanup_batches, update_toll_job_status
 
 JOB_FIELDS = [
 	"name", "status", "customer", "customer_name", "strain", "return_type", "priority", "received_date",
@@ -350,21 +350,30 @@ def update_job(toll_job, values):
 
 @frappe.whitelist()
 def cancel_toll_job(toll_job):
-	"""Cancel a job that has not been washed: its receipt entry is cancelled with it."""
+	"""Cancel a job at any stage before invoicing: its Delivery Notes and Stock Entries are cancelled last step first,
+	a draft invoice is deleted, and its batches are deleted when empty or disabled when not."""
 	_require(CANCEL_ROLES, _("cancel toll jobs"))
 	job = _job(toll_job)
-	others = frappe.get_all("Stock Entry", filters={"toll_job": job.name, "docstatus": 1, "purpose": ["!=", "Material Receipt"]}, pluck="name")
-	others += frappe.get_all("Delivery Note", filters={"toll_job": job.name, "docstatus": 1}, pluck="name")
-	others += frappe.get_all("Sales Invoice", filters={"toll_job": job.name, "docstatus": ["<", 2]}, pluck="name")
-	if others:
-		frappe.throw(_("Toll Job {0} cannot be cancelled: {1} exist. Cancel them first.").format(job.name, ", ".join(others)))
-	for se in frappe.get_all("Stock Entry", filters={"toll_job": job.name, "docstatus": 1}, pluck="name"):
-		doc = frappe.get_doc("Stock Entry", se)
-		doc.flags.ignore_permissions = True
-		doc.cancel()
-	frappe.db.set_value("Toll Job", job.name, "status", "Cancelled")
+	invoiced = frappe.get_all("Sales Invoice", filters={"toll_job": job.name, "docstatus": 1}, pluck="name")
+	if invoiced:
+		frappe.throw(_("{0} is invoiced on {1}. Cancel the invoice first, then cancel the job.").format(job.name, ", ".join(invoiced)))
+	cancelled = cancel_stock_docs(job.name)
+	drafts = frappe.get_all("Sales Invoice", filters={"toll_job": job.name, "docstatus": 0}, pluck="name")
+	for si in drafts:
+		frappe.delete_doc("Sales Invoice", si, ignore_permissions=True)
+	frappe.db.set_value("Toll Job", job.name, {"status": "Cancelled", "sales_invoice": None})
 	update_toll_job_status(job.name)
-	return {"message": _("{0} cancelled.").format(job.name)}
+	deleted, disabled = cleanup_batches(job.name)
+	parts = [_("{0} cancelled.").format(job.name)]
+	if cancelled:
+		parts.append(_("Cancelled: {0}.").format(", ".join(cancelled)))
+	if drafts:
+		parts.append(_("Draft invoice deleted: {0}.").format(", ".join(drafts)))
+	if deleted:
+		parts.append(_("Empty batches deleted: {0}.").format(", ".join(deleted)))
+	if disabled:
+		parts.append(_("Batches kept (not empty) and disabled: {0}.").format(", ".join("{0} ({1})".format(b, _fmt(q, 3)) for b, q in disabled)))
+	return {"message": " ".join(parts), "cancelled": cancelled, "deleted_batches": deleted, "disabled_batches": [b for b, _q in disabled]}
 
 
 # ---------------------------------------------------------------- wash / press / move

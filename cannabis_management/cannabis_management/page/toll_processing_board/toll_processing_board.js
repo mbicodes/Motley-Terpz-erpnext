@@ -203,7 +203,7 @@ class TollProcessingBoard {
 		if (j.delivery_note && (s === 'Returned' || s === 'Invoiced')) it.push(['viewdn', __('View Delivery Note')]);
 		if (s === 'Returned' && j.sales_invoice && j.invoice_status === 'Draft' && can.invoice) it.push(['viewinv', __('Open Draft Invoice')]);
 		if (can.edit && s !== 'Invoiced') it.push(['edit', __('Edit Job')]);
-		if (can.cancel && !(j.ff_washed_lbs > 0) && (s === 'Received' || s === 'Queued for Wash')) it.push(['cancel', __('Cancel Job'), 'danger']);
+		if (can.cancel && !(s === 'Invoiced' || (j.sales_invoice && j.invoice_status === 'Submitted'))) it.push(['cancel', __('Cancel Job'), 'danger']);
 		return it.map(([a, l, cls]) => `<button class="${cls || ''}" data-act="${a}" data-id="${tpb_esc(j.name)}">${l}</button>`).join('');
 	}
 
@@ -254,7 +254,8 @@ class TollProcessingBoard {
 		if (a === 'viewinv') return window.open('/app/sales-invoice/' + encodeURIComponent(j.sales_invoice), '_blank');
 		if (a === 'viewdn') return window.open('/app/delivery-note/' + encodeURIComponent(j.delivery_note), '_blank');
 		if (a === 'cancel') {
-			frappe.confirm(__('Cancel {0}? Its receipt entry will also be cancelled.', [j.name]),
+			frappe.confirm(__('Cancel {0}? All its stock entries and delivery notes are cancelled (last step first){1}. Empty batches are deleted; a batch that is not empty is only disabled.',
+				[j.name, j.sales_invoice && j.invoice_status === 'Draft' ? __(' and its draft invoice is deleted') : '']),
 				() => this.run(id, 'cancel_toll_job', { toll_job: id }));
 		}
 	}
