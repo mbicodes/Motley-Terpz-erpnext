@@ -69,10 +69,20 @@
 		".mlt-tap { margin: 36px 0 0; font-size: 15px; color: #8d7aa9; animation: mlt-rise .6s .9s both; }",
 		"@keyframes mlt-rise { from { opacity: 0; transform: translateY(16px); } }",
 
+		".mlt-loading { position: fixed; inset: 0; z-index: 2147483000; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none;",
+		"  font-family: 'MLT Body', 'Outfit', 'Segoe UI', system-ui, sans-serif; animation: mlt-fade-in .35s ease both; }",
+		".mlt-loading img.mlt-loading-mark { position: relative; z-index: 1; width: 190px; height: auto; max-width: none; border: 0;",
+		"  filter: drop-shadow(1px 2px 0 #5a1fae) drop-shadow(1px 2px 0 #4a1794) drop-shadow(1px 2px 0 #3d0f78) drop-shadow(1px 2px 0 #2e0a5e) drop-shadow(0 18px 30px rgba(0,0,0,.55));",
+		"  animation: mlt-loading-swing 6s ease-in-out infinite; }",
+		".mlt-loading-msg { position: relative; z-index: 1; margin: 26px 0 0; font-size: 22px; font-weight: 500; line-height: normal; color: #cdbbe4; animation: mlt-loading-pulse 1.6s ease-in-out infinite; }",
+		"@keyframes mlt-loading-swing { 0%, 100% { transform: perspective(520px) rotateY(-24deg) rotateX(6deg); } 50% { transform: perspective(520px) rotateY(24deg) rotateX(-3deg); } }",
+		"@keyframes mlt-loading-pulse { 50% { opacity: .55; } }",
+
 		"@media (prefers-reduced-motion: reduce) {",
 		"  .mlt-scene img.mlt-fly, .mlt-floor-grid, .mlt-glow, .mlt-mark-inner, .mlt-celebrate .mlt-mark-inner, .mlt-title, .mlt-ring { animation: none !important; }",
 		"  .mlt-scene img.mlt-fly { opacity: .3; transform: translate3d(var(--x), var(--y), -700px) rotateZ(var(--r)); }",
 		"  .mlt-ring { display: none; }",
+		"  .mlt-loading img.mlt-loading-mark, .mlt-loading-msg { animation: none !important; }",
 		"}",
 	].join("\n");
 
@@ -257,11 +267,25 @@
 		return handle;
 	}
 
+	function loading(opts) {
+		opts = opts || {};
+		ensureStyles();
+		var root = el("div", "mlt-loading");
+		root.setAttribute("role", "status");
+		root.setAttribute("aria-live", "polite");
+		if (opts.backdrop) root.appendChild(buildScene({ contained: true }));
+		root.appendChild(img(LOGO.light, "mlt-loading-mark"));
+		root.appendChild(el("p", "mlt-loading-msg", opts.message || "Signing you in\u2026"));
+		(document.body || document.documentElement).appendChild(root);
+		return root;
+	}
+
 	window.MLTScene = {
 		LOGO: LOGO,
 		ensureStyles: ensureStyles,
 		mountBackground: mountBackground,
 		celebrate: celebrate,
+		loading: loading,
 		dismiss: dismiss,
 	};
 })();

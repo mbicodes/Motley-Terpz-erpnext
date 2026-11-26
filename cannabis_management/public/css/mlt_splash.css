@@ -1,0 +1,107 @@
+@font-face {
+	font-family: "MLT Body";
+	src: url("/assets/infix_theme/fonts/outfit-latin.woff2") format("woff2");
+	font-weight: 100 900;
+	font-display: swap;
+}
+
+.splash {
+	position: fixed !important;
+	inset: 0 !important;
+	top: 0 !important;
+	left: 0 !important;
+	transform: none !important;
+	-webkit-transform: none !important;
+	z-index: 2147482000;
+	display: flex !important;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	overflow: hidden;
+	background-color: #0a0414;
+	background-image:
+		linear-gradient(rgba(10, 4, 20, 0.5), rgba(10, 4, 20, 0.5)),
+		url("/assets/cannabis_management/images/kiosk/mlt-light.png"),
+		url("/assets/cannabis_management/images/kiosk/mlt-light.png"),
+		url("/assets/cannabis_management/images/kiosk/mlt-light.png"),
+		url("/assets/cannabis_management/images/kiosk/mlt-light.png"),
+		url("/assets/cannabis_management/images/kiosk/mlt-dark.png"),
+		url("/assets/cannabis_management/images/kiosk/mlt-dark.png"),
+		url("/assets/cannabis_management/images/kiosk/mlt-dark.png"),
+		url("/assets/cannabis_management/images/kiosk/mlt-dark.png"),
+		url("/assets/cannabis_management/images/kiosk/mlt-dark.png"),
+		url("/assets/cannabis_management/images/kiosk/mlt-dark.png"),
+		url("/assets/cannabis_management/images/kiosk/mlt-dark.png"),
+		radial-gradient(110% 70% at 50% -10%, #5a1d9c 0%, rgba(90, 29, 156, 0) 60%),
+		radial-gradient(70vmax 70vmax at 8% 0%, rgba(160, 80, 240, 0.4), rgba(160, 80, 240, 0) 65%),
+		radial-gradient(90% 60% at 50% 115%, #3d1066 0%, rgba(61, 16, 102, 0) 70%),
+		linear-gradient(180deg, #1c0a30 0%, #12061f 55%, #0b0514 100%);
+	background-repeat: no-repeat;
+	background-position:
+		0 0,
+		9% 16%, 88% 21%, 17% 80%, 84% 72%,
+		31% 7%, 70% 9%, 4% 46%, 96% 47%, 27% 94%, 61% 90%, 76% 38%,
+		0 0, 0 0, 0 0, 0 0;
+	background-size:
+		100% 100%,
+		110px auto, 80px auto, 70px auto, 130px auto,
+		60px auto, 92px auto, 104px auto, 72px auto, 90px auto, 62px auto, 52px auto,
+		100% 100%, 100% 100%, 100% 100%, 100% 100%;
+}
+
+.splash::before {
+	content: "";
+	position: absolute;
+	left: -60%;
+	right: -60%;
+	bottom: -2%;
+	height: 56%;
+	transform-origin: 50% 100%;
+	transform: perspective(420px) rotateX(68deg);
+	background-image:
+		linear-gradient(rgba(203, 108, 228, 0.42) 2px, transparent 2px),
+		linear-gradient(90deg, rgba(203, 108, 228, 0.32) 2px, transparent 2px);
+	background-size: 96px 96px;
+	background-position: center top;
+	-webkit-mask-image: linear-gradient(to top, #000 0%, rgba(0, 0, 0, 0.5) 45%, transparent 92%);
+	mask-image: linear-gradient(to top, #000 0%, rgba(0, 0, 0, 0.5) 45%, transparent 92%);
+	animation: mlt-splash-floor 2.8s linear infinite;
+	pointer-events: none;
+}
+
+.splash img {
+	position: relative;
+	z-index: 1;
+	content: url("/assets/cannabis_management/images/kiosk/mlt-light.png");
+	width: 190px !important;
+	height: auto !important;
+	max-width: none !important;
+	max-height: none !important;
+	filter: drop-shadow(1px 2px 0 #5a1fae) drop-shadow(1px 2px 0 #4a1794) drop-shadow(1px 2px 0 #3d0f78) drop-shadow(1px 2px 0 #2e0a5e) drop-shadow(0 18px 30px rgba(0, 0, 0, 0.55));
+	animation: mlt-splash-swing 6s ease-in-out infinite;
+}
+
+.splash::after {
+	content: "Signing you in\2026";
+	position: relative;
+	z-index: 1;
+	margin-top: 26px;
+	font-family: "MLT Body", "Outfit", "Segoe UI", system-ui, sans-serif;
+	font-size: 22px;
+	font-weight: 500;
+	color: #cdbbe4;
+	animation: mlt-splash-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes mlt-splash-floor { to { background-position: center 96px; } }
+
+@keyframes mlt-splash-swing {
+	0%, 100% { transform: perspective(520px) rotateY(-24deg) rotateX(6deg); }
+	50% { transform: perspective(520px) rotateY(24deg) rotateX(-3deg); }
+}
+
+@keyframes mlt-splash-pulse { 50% { opacity: 0.55; } }
+
+@media (prefers-reduced-motion: reduce) {
+	.splash::before, .splash img, .splash::after { animation: none; }
+}

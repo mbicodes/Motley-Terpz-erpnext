@@ -1,7 +1,7 @@
 (function () {
 	"use strict";
 
-	var WELCOME_KEY = "mlt-welcome";
+	var WELCOME_COOKIE = "mlt_welcome";
 	var WELCOME_WINDOW_MS = 120000;
 	var WELCOME_MS = 3200;
 	var GOODBYE_MIN_MS = 2600;
@@ -36,14 +36,10 @@
 	}
 
 	function takeWelcomeFlag() {
-		try {
-			var raw = sessionStorage.getItem(WELCOME_KEY);
-			if (!raw) return false;
-			sessionStorage.removeItem(WELCOME_KEY);
-			return Date.now() - Number(raw) < WELCOME_WINDOW_MS;
-		} catch (e) {
-			return false;
-		}
+		var match = new RegExp("(?:^|;\\s*)" + WELCOME_COOKIE + "=(\\d+)").exec(document.cookie || "");
+		if (!match) return false;
+		document.cookie = WELCOME_COOKIE + "=; Max-Age=0; Path=/; SameSite=Lax" + (location.protocol === "https:" ? "; Secure" : "");
+		return Date.now() - Number(match[1]) < WELCOME_WINDOW_MS;
 	}
 
 	function showWelcome() {
