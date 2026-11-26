@@ -26,6 +26,8 @@ app_include_js = [
     "/assets/cannabis_management/js/login_location.js?v=5",
     "/assets/cannabis_management/js/idle_logout.js?v=1",
     "/assets/cannabis_management/js/about_branding.js?v=2",
+    "/assets/cannabis_management/js/mlt_scene.js?v=1",
+    "/assets/cannabis_management/js/mlt_greeting.js?v=1",
 ]
 
 app_include_css = [
