@@ -1,9 +1,10 @@
-@import url('/assets/cannabis_management/css/motley_glass.css?v=1');
+@import url('/assets/cannabis_management/css/motley_glass.css?v=2');
 
 /* Press Plan Board: Motley Glass, the Sales Operation Board look. The logo-gradient backdrop sits behind
    everything; the header is a frosted rounded glass bar, content sits on frosted panels with white cards,
    controls are capsules and iOS fills, type is the system font. The Desk title bar stays hidden. */
-.press-plan-board-page .page-head { display: none; }
+/* the Desk title bar is the frosted SOB title bar (motley_glass.css); the board's own brand band is not used */
+.press-plan-board .ppb-band { display: none !important; }
 .press-plan-board-page .page-body.container,
 .press-plan-board-page .container.page-body { max-width: 100%; padding-left: 0; padding-right: 0; }
 .press-plan-board-page .layout-main-section-wrapper { padding: 0; }

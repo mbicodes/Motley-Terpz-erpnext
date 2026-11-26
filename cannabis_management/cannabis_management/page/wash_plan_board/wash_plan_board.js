@@ -87,6 +87,9 @@ function wpb_opts(list, sel) {
 
 frappe.pages['wash-plan-board'].on_page_load = function (wrapper) {
 	const page = frappe.ui.make_app_page({ parent: wrapper, title: __('Wash Plan Board'), single_column: true });
+	page.set_indicator(__('Live'), 'green');
+	page.add_inner_button(__('Press Plan Board'), () => frappe.set_route('press-plan-board'));
+	page.add_inner_button(__('Toll Processing Board'), () => frappe.set_route('toll-processing-board'));
 	$(wrapper).addClass('wash-plan-board-page mg-glass-page');
 	const shell = $('<div class="wpb-shell"><div class="mg-bg" aria-hidden="true"><i></i></div></div>').appendTo(page.main);
 	const root = $('<div class="wash-plan-board"><div class="wpb-loading">' + __('Loading…') + '</div></div>').appendTo(shell);

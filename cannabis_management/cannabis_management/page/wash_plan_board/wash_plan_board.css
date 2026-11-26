@@ -1,9 +1,10 @@
-@import url('/assets/cannabis_management/css/motley_glass.css?v=1');
+@import url('/assets/cannabis_management/css/motley_glass.css?v=2');
 
 /* Wash Plan Board: the Sales Operation Board look (shared kit: public/css/motley_glass.css).
    A logo-colour gradient behind everything, a frosted rounded title band, frosted panels and white inner
    cards, capsule buttons, iOS fills, the system font. The band replaces the standard title bar. */
-.wash-plan-board-page .page-head { display: none; }
+/* the Desk title bar is the frosted SOB title bar (motley_glass.css); the board's own brand band is not used */
+.wash-plan-board .wpb-band { display: none !important; }
 .wash-plan-board-page .page-body.container,
 .wash-plan-board-page .container.page-body { max-width: 100%; padding-left: 0; padding-right: 0; }
 .wash-plan-board-page .layout-main-section-wrapper { padding: 0; }

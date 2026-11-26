@@ -81,6 +81,9 @@ function ppb_stock_warn(st, item, project) {
 
 frappe.pages['press-plan-board'].on_page_load = function (wrapper) {
 	const page = frappe.ui.make_app_page({ parent: wrapper, title: __('Press Plan Board'), single_column: true });
+	page.set_indicator(__('Live'), 'green');
+	page.add_inner_button(__('Wash Plan Board'), () => frappe.set_route('wash-plan-board'));
+	page.add_inner_button(__('Toll Processing Board'), () => frappe.set_route('toll-processing-board'));
 	$(wrapper).addClass('press-plan-board-page mg-glass-page');
 	// the logo-gradient backdrop (Motley Glass, like the Sales Operation Board) sits outside the re-rendered board
 	const shell = $('<div class="press-plan-board"><div class="mg-bg" aria-hidden="true"><i></i></div><div class="ppb-root"><div class="ppb-loading">' + __('Loading…') + '</div></div></div>').appendTo(page.main);

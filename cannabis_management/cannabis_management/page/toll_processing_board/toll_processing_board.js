@@ -28,13 +28,13 @@ const tpb_money = n => format_currency(n || 0, frappe.boot.sysdefaults.currency 
 frappe.pages['toll-processing-board'].on_page_load = function (wrapper) {
 	const page = frappe.ui.make_app_page({ parent: wrapper, title: __('Toll Processing Board'), single_column: true });
 	$(wrapper).addClass('mg-glass-page toll-processing-board-page');
-	$('<div class="mg-bg" aria-hidden="true"><i></i></div>').prependTo(wrapper);
-	const root = $('<div class="mg tpb"><div class="mg-loading">' + __('Loading…') + '</div></div>').appendTo(page.main);
+	// the backdrop lives inside the .mg root (z-index 1), like .sob-bg in the Sales Operation Board
+	const root = $('<div class="mg tpb"><div class="mg-bg" aria-hidden="true"><i></i></div><div class="mg-loading">' + __('Loading…') + '</div></div>').appendTo(page.main);
 	wrapper.tpb = new TollProcessingBoard(root[0], page);
 };
 
 frappe.pages['toll-processing-board'].on_page_show = function (wrapper) {
-	wrapper.tpb && wrapper.tpb.ready && wrapper.tpb.refresh();
+	if (wrapper.tpb && wrapper.tpb.ready) { wrapper.tpb.place_bar(); wrapper.tpb.refresh(); }
 };
 
 class TollProcessingBoard {
@@ -65,13 +65,15 @@ class TollProcessingBoard {
 		try {
 			this.ctx = await this.call('get_context');
 		} catch (e) {
-			$(this.el).html('<div class="mg-empty">' + __('The board could not be loaded.') + '</div>');
+			$(this.el).html('<div class="mg-bg" aria-hidden="true"><i></i></div><div class="mg-empty">' + __('The board could not be loaded.') + '</div>');
 			return;
 		}
 		if (this.ctx.can.produce) this.page.set_primary_action(__('Receive Material'), () => this.receive_dialog(), 'add');
 		this.page.set_secondary_action(__('Refresh'), () => this.refresh(true), 'refresh');
 		this.shell();
 		this.ready = true;
+		this.place_bar();
+		$(window).on('resize', () => this.place_bar());
 		await this.refresh();
 		// deep link from the Toll Processing workspace: ?receive=1 opens Receive Material
 		const q = new URLSearchParams(window.location.search);
@@ -86,7 +88,7 @@ class TollProcessingBoard {
 		const c = this.ctx;
 		const opts = (list, all) => '<option value="">' + tpb_esc(all) + '</option>' + list.map(o =>
 			'<option value="' + tpb_esc(o.value) + '">' + tpb_esc(o.label) + '</option>').join('');
-		this.el.innerHTML = `
+		this.el.innerHTML = `<div class="mg-bg" aria-hidden="true"><i></i></div>
 			<div class="mg-hint">${__('Customer-owned material received for washing and pressing. Each action creates its stock document at zero value in the Toll warehouses.')}</div>
 			<div class="mg-bar"><div class="mg-glass" role="toolbar" aria-label="${__('Filters')}">
 				<select class="mg-in" data-f="customer" aria-label="${__('Customer')}">${opts(c.customers.map(x => ({ value: x.name, label: x.customer_name || x.name })), __('All customers'))}</select>
@@ -124,8 +126,22 @@ class TollProcessingBoard {
 			const m = this.el.querySelector('#tpb-m-' + CSS.escape(e.currentTarget.dataset.menu));
 			const open = !m.hidden;
 			this.close_menus();
-			if (!open) { m.hidden = false; e.currentTarget.setAttribute('aria-expanded', 'true'); }
+			if (!open) {
+				m.hidden = false;
+				e.currentTarget.setAttribute('aria-expanded', 'true');
+				// open upwards when the scroll area would clip it below
+				const box = this.el.querySelector('.mg-scroll').getBoundingClientRect();
+				m.classList.toggle('up', m.getBoundingClientRect().bottom > Math.min(box.bottom, window.innerHeight) - 4);
+			}
 		});
+	}
+
+	// the filter bar sticks right under the frosted title bar (SOB place_bar)
+	place_bar() {
+		if (frappe.get_route()[0] !== 'toll-processing-board') return;
+		const head = $(this.el).closest('.page-container').find('.page-head').get(0) || document.querySelector('.navbar');
+		const stick = head ? Math.max(0, Math.round(head.getBoundingClientRect().bottom)) + 8 : 108;
+		this.el.style.setProperty('--mg-stick', stick + 'px');
 	}
 
 	close_menus() {

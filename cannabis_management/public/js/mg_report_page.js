@@ -5,6 +5,7 @@
 	const fmtn = (n, d) => Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: d || 0, maximumFractionDigits: d || 0 });
 	const money = n => format_currency(n || 0, frappe.boot.sysdefaults.currency || 'USD');
 	const M = 'cannabis_management.toll.report_pages.';
+	const BG = '<div class="mg-bg" aria-hidden="true"><i></i></div>';
 
 	class MGReportPage {
 		// cfg: { wrapper, title, report, hint, filters: [{fieldname, label, type: 'date'|'select'|'text'|'check'|'seg', options|options_from, default}] }
@@ -13,15 +14,15 @@
 			this.values = {};
 			this.sort = null;
 			this.data = null;
-			const page = frappe.ui.make_app_page({ parent: cfg.wrapper, title: cfg.title, single_column: true });
+			const page = cfg.page || frappe.ui.make_app_page({ parent: cfg.wrapper, title: cfg.title, single_column: true });
 			this.page = page;
 			$(cfg.wrapper).addClass('mg-glass-page mg-report-page');
-			$('<div class="mg-bg" aria-hidden="true"><i></i></div>').prependTo(cfg.wrapper);
 			page.set_primary_action(__('Refresh'), () => this.load(true), 'refresh');
 			page.add_inner_button(__('Export CSV'), () => this.export_csv());
 			page.add_inner_button(__('Open as Standard Report'), () => frappe.set_route('query-report', cfg.report));
 			if (cfg.back) page.add_inner_button(cfg.back.label, () => frappe.set_route(cfg.back.route));
-			this.el = $('<div class="mg mgr"><div class="mg-loading">' + __('Loading…') + '</div></div>').appendTo(page.main)[0];
+			$(page.main).find('.mgr-boot').remove();
+			this.el = $('<div class="mg mgr">' + BG + '<div class="mg-loading">' + __('Loading…') + '</div></div>').appendTo(page.main)[0];
 			cfg.filters.forEach(f => { this.values[f.fieldname] = typeof f.default === 'function' ? f.default() : (f.default == null ? '' : f.default); });
 			frappe.call({ method: M + 'get_options', args: { report: cfg.report } }).then(r => {
 				this.options = r.message || {};
@@ -32,7 +33,7 @@
 
 		shell() {
 			const bar = this.cfg.filters.map(f => this.filter_html(f)).join('<span class="mg-sep"></span>');
-			this.el.innerHTML = (this.cfg.hint ? `<div class="mg-hint">${this.cfg.hint}</div>` : '') +
+			this.el.innerHTML = BG + (this.cfg.hint ? `<div class="mg-hint">${this.cfg.hint}</div>` : '') +
 				`<div class="mg-bar"><div class="mg-glass" role="toolbar" aria-label="${__('Filters')}">${bar}</div></div>
 				<div class="mg-kpis mgr-kpis"></div>
 				<div class="mg-table-wrap"><table class="mg-table"><thead></thead><tbody></tbody></table></div>
@@ -58,11 +59,19 @@
 				this.sort = null;
 				this.load();
 			});
+			this.place_bar();
+			$(window).on('resize', () => this.place_bar());
 			$el.on('click', 'th[data-col]', e => {
 				const k = e.currentTarget.dataset.col;
 				this.sort = this.sort && this.sort.k === k ? { k, dir: -this.sort.dir } : { k, dir: 1 };
 				this.render_table();
 			});
+		}
+
+		place_bar() {
+			const head = $(this.el).closest('.page-container').find('.page-head').get(0) || document.querySelector('.navbar');
+			const stick = head ? Math.max(0, Math.round(head.getBoundingClientRect().bottom)) + 8 : 108;
+			this.el.style.setProperty('--mg-stick', stick + 'px');
 		}
 
 		filter_html(f) {
@@ -160,4 +169,8 @@
 	}
 
 	window.MGReportPage = MGReportPage;
+
+	// Page files call this. The page is made at once (Frappe expects it during on_page_load); the shared script is
+	// loaded with a plain <script> tag, not frappe.require: frappe.require reads the path from disk, so a ?v= cache
+	// buster made it throw and the page froze.
 })();

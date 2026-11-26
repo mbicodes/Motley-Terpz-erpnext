@@ -43,31 +43,36 @@
 	--mg-lift: 30%;
 }
 
-/* ---------- Desk chrome on a glass page: transparent body, frosted rounded title bar, capsule buttons ---------- */
-.mg-glass-page .page-body.container, .mg-glass-page .container.page-body { max-width: 100%; }
-.mg-glass-page .layout-main-section-wrapper { padding: 0; }
-.mg-glass-page .layout-main-section { background: transparent !important; border: 0 !important; box-shadow: none !important; padding: 0 !important; }
-.mg-glass-page .page-head { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; border-bottom: 0 !important; background: transparent !important; }
-.mg-glass-page .page-head::before {
-	content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+/* ---------- Desk chrome on a glass page: transparent body, frosted rounded title bar, capsule buttons ----------
+   The infix theme styles every page head with `html body .page-container:not(#page-sales-operation-board) .page-head::before`
+   (ID weight). `:not(#mg-none)` gives these rules the same ID weight plus one class, so they win on glass pages. */
+html body .page-container.mg-glass-page:not(#mg-none) .page-body.container, html body .page-container.mg-glass-page:not(#mg-none) .container.page-body { max-width: 100%; }
+html body .page-container.mg-glass-page:not(#mg-none) .layout-main-section-wrapper { padding: 0; }
+html body .page-container.mg-glass-page:not(#mg-none) .layout-main-section-wrapper .layout-main-section, html body .page-container.mg-glass-page:not(#mg-none) .layout-main-section { background: transparent !important; border: 0 !important; box-shadow: none !important; padding: 0 !important; }
+html body .page-container.mg-glass-page:not(#mg-none) .page-head { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; border-bottom: 0 !important; background: transparent !important; }
+html body .page-container.mg-glass-page:not(#mg-none) .page-head::before {
+	content: ""; position: absolute; z-index: -1; pointer-events: none; opacity: 1 !important; transition: none;
+	top: 0; right: 0; bottom: 0; left: 0;
 	border-radius: var(--lg-r-lg, 22px); corner-shape: var(--lg-corner, round);
 	background: rgba(255, 255, 255, .7); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .45);
 	-webkit-backdrop-filter: blur(40px) saturate(1.8); backdrop-filter: blur(40px) saturate(1.8);
 }
-[data-theme="dark"] .mg-glass-page .page-head::before { background: rgba(34, 10, 72, .66); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12); }
-.mg-glass-page .page-head .title-text { font-family: var(--mg-font) !important; font-size: 26px; font-weight: 600 !important; letter-spacing: -.02em !important; color: var(--mg-ink) !important; }
-.mg-glass-page .page-head .btn {
+html[data-theme="dark"] body .page-container.mg-glass-page:not(#mg-none) .page-head::before { background: rgba(34, 10, 72, .66); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12); }
+html body .page-container.mg-glass-page:not(#mg-none) .page-head .title-text { font-family: var(--mg-font) !important; font-size: 26px; font-weight: 600 !important; letter-spacing: -.02em !important; color: var(--mg-ink) !important; }
+html body .page-container.mg-glass-page:not(#mg-none) .page-head .btn {
 	font-family: var(--mg-font) !important; font-size: 14px !important; font-weight: 600 !important; text-transform: none !important; letter-spacing: 0 !important;
 	height: 34px !important; padding: 0 16px !important; border-radius: 17px !important; border: 0 !important; box-shadow: none !important;
 	transition: transform .2s var(--mg-ease), filter .15s var(--mg-ease);
 }
-.mg-glass-page .page-head .btn:active { transform: scale(.97); }
-.mg-glass-page .page-head .btn-primary { background: var(--mg-accent) !important; color: var(--mg-accent-ink) !important; }
-.mg-glass-page .page-head .btn-primary:hover { filter: brightness(1.12); }
-.mg-glass-page .page-head .btn-default, .mg-glass-page .page-head .btn-secondary { background: rgba(255, 255, 255, .7) !important; color: var(--mg-ink) !important; }
-[data-theme="dark"] .mg-glass-page .page-head .btn-default, [data-theme="dark"] .mg-glass-page .page-head .btn-secondary { background: rgba(255, 255, 255, .18) !important; color: #fff !important; }
+html body .page-container.mg-glass-page:not(#mg-none) .page-head .btn:active { transform: scale(.97); }
+html body .page-container.mg-glass-page:not(#mg-none) .page-head .btn-primary, html body .page-container.mg-glass-page:not(#mg-none) .page-head .primary-action { background: var(--mg-accent) !important; color: var(--mg-accent-ink) !important; }
+html body .page-container.mg-glass-page:not(#mg-none) .page-head .btn-primary:hover { filter: brightness(1.12); transform: none; }
+html body .page-container.mg-glass-page:not(#mg-none) .page-head .btn-default, html body .page-container.mg-glass-page:not(#mg-none) .page-head .btn-secondary { background: rgba(255, 255, 255, .7) !important; color: var(--mg-ink) !important; }
+html[data-theme="dark"] body .page-container.mg-glass-page:not(#mg-none) .page-head .btn-default, html[data-theme="dark"] body .page-container.mg-glass-page:not(#mg-none) .page-head .btn-secondary { background: rgba(255, 255, 255, .18) !important; color: #fff !important; }
 
 /* ---------- The backdrop: the SOB Leads gradient (orchid, lavender, logo gold) ---------- */
+/* put .mg-bg INSIDE the .mg root (position: relative; z-index: 1), as SOB does with .sob-bg inside .sob: outside it,
+   the desk's own surfaces paint over it. */
 .mg-bg { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
 .mg-bg > i { position: absolute; inset: 0;
 	background:
@@ -87,7 +92,7 @@
 
 /* ---------- Base ---------- */
 .mg { position: relative; z-index: 1; font-family: var(--mg-font); color: var(--mg-ink); font-size: 14px; line-height: 20px; -webkit-font-smoothing: antialiased;
-	display: flex; flex-direction: column; gap: 16px; padding: 4px 0 48px; }
+	display: flex; flex-direction: column; gap: 16px; padding: 14px 0 48px; }
 .mg *, .mg *::before, .mg *::after { box-sizing: border-box; }
 .mg button, .mg input, .mg select, .mg textarea { font-family: inherit; }
 .mg button { cursor: pointer; }
@@ -183,6 +188,10 @@
 	border-radius: 20px; display: flex; flex-direction: column; gap: 8px; padding: 0 8px 8px; min-height: 380px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .3);
 	transition: box-shadow .2s var(--mg-ease), background-color .2s var(--mg-ease); }
 [data-theme="dark"] .mg-col { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .06); }
+/* the infix theme clips some column-like boxes; card menus must spill out of the column */
+.mg .mg-col { overflow: visible !important; }
+.mg .mg-card:has(.mg-menu:not([hidden])) { z-index: 5; }
+.mg-menu.up { top: auto !important; bottom: calc(100% + 6px); }
 .mg-col.over { box-shadow: inset 0 0 0 2px var(--mg-accent); background: color-mix(in srgb, var(--mg-accent-soft) 70%, var(--mg-col)); }
 .mg-col-head { display: flex; flex-direction: column; gap: 2px; padding: 12px 8px 4px; }
 .mg-col-title { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; letter-spacing: -.01em; min-height: 24px; }
