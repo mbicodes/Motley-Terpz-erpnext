@@ -1,98 +1,44 @@
-/* Toll Processing Board. Layout and colours follow toll-processing-board-prototype.html. */
-.toll-processing-board-page .page-head { display: none; }
-.toll-processing-board-page .page-body.container,
-.toll-processing-board-page .container.page-body { max-width: 100%; padding-left: 0; padding-right: 0; }
-.toll-processing-board-page .layout-main-section-wrapper { padding: 0; }
-.toll-processing-board-page .layout-main-section { background: transparent; border: 0; box-shadow: none; padding: 0; }
+@import url('/assets/cannabis_management/css/motley_glass.css?v=1');
 
-.toll-processing-board {
-	--tpb-bg: #f4f5f6; --tpb-surface: #ffffff; --tpb-surface-2: #f9fafa; --tpb-ink: #1f272e; --tpb-ink-2: #525f6b; --tpb-ink-3: #8d99a6;
-	--tpb-line: #e2e6e9; --tpb-primary: #2490ef; --tpb-primary-ink: #ffffff; --tpb-danger: #e03636; --tpb-ok: #2f9d58;
-	--tpb-ff: #3f8f5b; --tpb-bh: #b7791f; --tpb-rosin: #b4531f;
-	--c-received: #7c8a96; --c-queued: #5b6ee1; --c-washed: #b7791f; --c-pressed: #b4531f; --c-ready: #2f9d58; --c-returned: #3c8cb8; --c-invoiced: #6b4fbb;
-	--tpb-shadow: 0 1px 2px rgba(25, 39, 52, .06);
-	background: var(--tpb-bg); color: var(--tpb-ink); min-height: calc(100vh - 60px);
-	font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", Roboto, Helvetica, Arial, sans-serif;
-}
-[data-theme="dark"] .toll-processing-board {
-	--tpb-bg: #15191d; --tpb-surface: #1d2227; --tpb-surface-2: #232a30; --tpb-ink: #e8ecef; --tpb-ink-2: #aab4bd; --tpb-ink-3: #77838e;
-	--tpb-line: #2f373e; --tpb-primary: #4aa3f5; --tpb-primary-ink: #0d1b28; --tpb-danger: #ff6b6b; --tpb-ok: #5cc485;
-	--tpb-ff: #6cc28a; --tpb-bh: #e0a64a; --tpb-rosin: #e98a55; --tpb-shadow: none;
-}
-.toll-processing-board *, .toll-processing-board *::before, .toll-processing-board *::after { box-sizing: border-box; }
-.toll-processing-board button, .toll-processing-board input, .toll-processing-board select { font: inherit; color: inherit; }
-.toll-processing-board .tpb-wrap { max-width: 1600px; margin: 0 auto; padding: 16px 20px 40px; }
-.toll-processing-board .tpb-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
-.toll-processing-board .tpb-head h1 { font-size: 20px; font-weight: 600; margin: 0; flex: 1; letter-spacing: -.01em; color: var(--tpb-ink); }
-.toll-processing-board .tpb-head .sub { display: block; font-size: 12.5px; color: var(--tpb-ink-3); font-weight: 400; margin-top: 2px; }
-.toll-processing-board .tpb-btn { border: 1px solid var(--tpb-line); background: var(--tpb-surface); border-radius: 6px; padding: 6px 12px; cursor: pointer; white-space: nowrap; color: var(--tpb-ink); }
-.toll-processing-board .tpb-btn:hover { background: var(--tpb-surface-2); }
-.toll-processing-board .tpb-btn.primary { background: var(--tpb-primary); border-color: var(--tpb-primary); color: var(--tpb-primary-ink); font-weight: 500; }
-.toll-processing-board .tpb-btn.primary:hover { filter: brightness(1.05); }
-.toll-processing-board .tpb-btn.sm { padding: 4px 9px; font-size: 12.5px; }
-.toll-processing-board .tpb-btn:focus-visible, .toll-processing-board input:focus-visible, .toll-processing-board select:focus-visible { outline: 2px solid var(--tpb-primary); outline-offset: 1px; }
-.toll-processing-board .tpb-filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; background: var(--tpb-surface); border: 1px solid var(--tpb-line); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; }
-.toll-processing-board .tpb-filters input, .toll-processing-board .tpb-filters select { border: 1px solid var(--tpb-line); background: var(--tpb-surface-2); border-radius: 6px; padding: 5px 8px; min-width: 140px; height: 32px; }
-.toll-processing-board .tpb-filters .dates { display: flex; align-items: center; gap: 6px; color: var(--tpb-ink-3); font-size: 12.5px; }
-.toll-processing-board .tpb-filters label.tog { display: flex; align-items: center; gap: 6px; color: var(--tpb-ink-2); font-size: 13px; margin: 0 0 0 auto; font-weight: 400; }
-.toll-processing-board .tpb-filters label.tog input { min-width: 0; height: auto; }
-.toll-processing-board .tpb-kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
-.toll-processing-board .tpb-kpi { background: var(--tpb-surface); border: 1px solid var(--tpb-line); border-radius: 8px; padding: 10px 12px; }
-.toll-processing-board .tpb-kpi b { display: block; font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.toll-processing-board .tpb-kpi span { font-size: 12.5px; color: var(--tpb-ink-2); }
-.toll-processing-board .tpb-kpi.alert b { color: var(--tpb-danger); }
-.toll-processing-board .tpb-board-scroll { overflow-x: auto; padding-bottom: 6px; }
-.toll-processing-board .tpb-board { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(260px, 1fr); gap: 10px; min-width: min-content; }
-.toll-processing-board .tpb-col { background: var(--tpb-surface-2); border: 1px solid var(--tpb-line); border-radius: 8px; display: flex; flex-direction: column; min-height: 420px; }
-.toll-processing-board .tpb-col-h { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--tpb-line); font-weight: 600; font-size: 13.5px; }
-.toll-processing-board .tpb-col-h i { width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
-.toll-processing-board .tpb-col-h em { font-style: normal; margin-left: auto; font-weight: 500; color: var(--tpb-ink-3); font-size: 12.5px; }
-.toll-processing-board .tpb-col-b { padding: 8px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
-.toll-processing-board .tpb-col-b.drop { outline: 2px dashed var(--tpb-primary); outline-offset: -4px; }
-.toll-processing-board .tpb-empty { color: var(--tpb-ink-3); font-size: 12.5px; text-align: center; padding: 18px 6px; }
-.toll-processing-board .tpb-card { background: var(--tpb-surface); border: 1px solid var(--tpb-line); border-left: 3px solid var(--c); border-radius: 6px; padding: 10px 11px; box-shadow: var(--tpb-shadow); }
-.toll-processing-board .tpb-card[draggable="true"] { cursor: grab; }
-.toll-processing-board .tpb-card.busy { opacity: .55; pointer-events: none; }
-.toll-processing-board .tpb-card .top { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
-.toll-processing-board .tpb-card .id { font-weight: 600; color: var(--tpb-primary); text-decoration: none; font-size: 13px; font-variant-numeric: tabular-nums; }
-.toll-processing-board .tpb-card .id:hover { text-decoration: underline; }
-.toll-processing-board .badge { font-size: 11px; padding: 1px 6px; border-radius: 9px; border: 1px solid var(--tpb-line); color: var(--tpb-ink-2); background: transparent; font-weight: 400; }
-.toll-processing-board .badge.rush { border-color: var(--tpb-danger); color: var(--tpb-danger); }
-.toll-processing-board .badge.rt { margin-left: auto; }
-.toll-processing-board .cust { font-weight: 500; }
-.toll-processing-board .strain { color: var(--tpb-ink-2); font-size: 13px; }
-.toll-processing-board .path { display: flex; align-items: center; gap: 4px; margin: 8px 0 6px; font-size: 11.5px; color: var(--tpb-ink-3); }
-.toll-processing-board .path span { padding: 1px 6px; border-radius: 4px; border: 1px solid var(--tpb-line); }
-.toll-processing-board .path span.on { color: #fff; border-color: transparent; }
-.toll-processing-board .path span.ff.on { background: var(--tpb-ff); }
-.toll-processing-board .path span.bh.on { background: var(--tpb-bh); }
-.toll-processing-board .path span.ro.on { background: var(--tpb-rosin); }
-.toll-processing-board .path span.na { opacity: .35; text-decoration: line-through; }
-.toll-processing-board .bar { height: 5px; background: var(--tpb-line); border-radius: 3px; overflow: hidden; margin: 4px 0 2px; }
-.toll-processing-board .bar i { display: block; height: 100%; background: var(--tpb-ff); }
-.toll-processing-board .nums { display: grid; grid-template-columns: auto 1fr; gap: 1px 10px; font-size: 12.5px; color: var(--tpb-ink-2); font-variant-numeric: tabular-nums; margin-top: 4px; }
-.toll-processing-board .nums b { color: var(--tpb-ink); font-weight: 500; text-align: right; }
-.toll-processing-board .meta { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 12px; color: var(--tpb-ink-3); margin-top: 6px; }
-.toll-processing-board .meta .late { color: var(--tpb-danger); font-weight: 500; }
-.toll-processing-board .acts { display: flex; gap: 6px; margin-top: 9px; align-items: center; }
-.toll-processing-board .acts .more { margin-left: auto; position: relative; }
-.toll-processing-board .tpb-menu { position: absolute; right: 0; top: 100%; margin-top: 4px; background: var(--tpb-surface); border: 1px solid var(--tpb-line); border-radius: 6px; box-shadow: 0 6px 20px rgba(0, 0, 0, .14); z-index: 20; min-width: 190px; padding: 4px; display: none; }
-.toll-processing-board .tpb-menu.open { display: block; }
-.toll-processing-board .tpb-menu button { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 6px 9px; border-radius: 4px; cursor: pointer; font-size: 13px; color: var(--tpb-ink); }
-.toll-processing-board .tpb-menu button:hover { background: var(--tpb-surface-2); }
-.toll-processing-board .tpb-menu button.danger { color: var(--tpb-danger); }
-.toll-processing-board .tpb-loading, .toll-processing-board .tpb-error { padding: 40px; text-align: center; color: var(--tpb-ink-3); }
-.toll-processing-board .tpb-foot { font-size: 12px; color: var(--tpb-ink-3); margin-top: 14px; }
+/* Toll Processing Board: the Sales Operation Board look (Motley Glass kit). Board-specific parts only. */
+.tpb .mg-bar .tpb-date { min-width: 0; width: 150px; }
+.tpb .mg-col { width: 284px; }
 
-/* dialogs */
+/* card */
+.tpb .tpb-card .top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.tpb .tpb-card .id { font-size: 12px; font-weight: 600; color: var(--mg-accent); text-decoration: none; font-variant-numeric: tabular-nums; letter-spacing: .01em; }
+.tpb .tpb-card .id:hover { text-decoration: underline; }
+.tpb .tpb-card .cust { font-size: 15px; font-weight: 600; line-height: 20px; letter-spacing: -.01em; overflow-wrap: anywhere; display: flex; align-items: center; gap: 8px; }
+.tpb .tpb-card .rush-dot { width: 8px; height: 8px; border-radius: 50%; background: #ff3b30; flex: none; }
+.tpb .tpb-card .strain { font-size: 13px; line-height: 18px; color: var(--mg-muted); }
+.tpb .tpb-card .path { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 6px 0 2px; }
+.tpb .tpb-card .path > span:not(.mg-badge) { font-size: 11px; font-weight: 600; line-height: 20px; padding: 0 7px; border-radius: 6px; background: var(--mg-fill); color: var(--mg-muted); }
+.tpb .tpb-card .path > span.on { color: #fff; }
+.tpb .tpb-card .path > span.ff.on { background: #34a35a; }
+.tpb .tpb-card .path > span.bh.on { background: #e0a020; }
+.tpb .tpb-card .path > span.ro.on { background: #d2691e; }
+.tpb .tpb-card .path > span.na { opacity: .4; text-decoration: line-through; }
+.tpb .tpb-card .bar { height: 6px; background: var(--mg-fill); border-radius: 3px; overflow: hidden; margin: 4px 0 2px; }
+.tpb .tpb-card .bar i { display: block; height: 100%; border-radius: 3px; background: linear-gradient(90deg, #34c759, #30b0c7); }
+.tpb .tpb-card .nums { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; font-size: 12px; line-height: 18px; color: var(--mg-muted); font-variant-numeric: tabular-nums; padding-top: 4px; }
+.tpb .tpb-card .nums b { color: var(--mg-ink); font-weight: 600; text-align: right; }
+.tpb .tpb-card .meta { display: flex; flex-wrap: wrap; gap: 2px 10px; font-size: 12px; line-height: 16px; color: var(--mg-muted); margin-top: 4px; }
+.tpb .tpb-card .meta .late { color: var(--mg-act-fg); font-weight: 600; }
+.tpb .tpb-card .acts { display: flex; gap: 6px; align-items: center; margin-top: 8px; padding-top: 8px; box-shadow: 0 -1px 0 var(--mg-line); }
+.tpb .tpb-card .acts .more { margin-left: auto; position: relative; }
+.tpb .tpb-card .acts .more .mg-btn.icon { background: transparent; color: var(--mg-muted); }
+.tpb .tpb-card .acts .more .mg-btn.icon:hover, .tpb .tpb-card .acts .more .mg-btn.icon[aria-expanded="true"] { background: var(--mg-accent-soft); color: var(--mg-accent); }
+.tpb .tpb-card .mg-menu { right: 0; top: calc(100% + 6px); }
+
+/* dialogs (frappe.ui.Dialog, outside the page) */
 .tpb-dlg-ctx { font-size: 13px; color: var(--text-muted); margin-bottom: 4px; }
 .tpb-dlg-ctx strong { color: var(--text-color); }
-.tpb-live { background: var(--subtle-fg, #f4f5f6); border: 1px solid var(--border-color); border-radius: 6px; padding: 9px 12px; font-size: 13px; display: flex; gap: 18px; flex-wrap: wrap; margin-top: 4px; }
+.tpb-live { background: rgba(77, 18, 158, .06); border-radius: 12px; padding: 10px 14px; font-size: 13px; display: flex; gap: 18px; flex-wrap: wrap; margin-top: 4px; }
+[data-theme="dark"] .tpb-live { background: rgba(191, 140, 255, .12); }
 .tpb-live b { font-variant-numeric: tabular-nums; }
 .tpb-note { font-size: 12.5px; color: var(--text-muted); }
 
-@media (max-width: 900px) {
-	.toll-processing-board .tpb-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-	.toll-processing-board .tpb-filters label.tog { margin-left: 0; }
-	.toll-processing-board .tpb-wrap { padding: 12px 16px 32px; }
+@media (max-width: 720px) {
+	.tpb .mg-col { width: 260px; }
+	.tpb .mg-bar .tpb-date { width: auto; }
 }

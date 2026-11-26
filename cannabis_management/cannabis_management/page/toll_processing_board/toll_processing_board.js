@@ -1,12 +1,12 @@
-// Toll Processing Board: customer-owned Fresh Frozen received, washed, pressed and returned. Layout follows
-// toll-processing-board-prototype.html. Every action calls cannabis_management.toll.api, which creates the stock
-// documents on the server; this file only renders and calls.
+// Toll Processing Board: customer-owned Fresh Frozen received, washed, pressed and returned. Look: the Sales
+// Operation Board (Motley Glass kit, /assets/cannabis_management/css/motley_glass.css). Every action calls
+// cannabis_management.toll.api, which creates the stock documents on the server; this file only renders and calls.
 const TPB_M = 'cannabis_management.toll.api.';
 const TPB_LB_TO_G = 453.592;
 const TPB_COLS = [
-	{ k: 'Received', c: '--c-received' }, { k: 'Queued for Wash', c: '--c-queued' }, { k: 'Washed', c: '--c-washed' },
-	{ k: 'Pressed', c: '--c-pressed' }, { k: 'Ready to Return', c: '--c-ready' }, { k: 'Returned', c: '--c-returned' },
-	{ k: 'Invoiced', c: '--c-invoiced' },
+	{ k: 'Received', c: '#8e8e93' }, { k: 'Queued for Wash', c: '#5856d6' }, { k: 'Washed', c: '#ff9f0a' },
+	{ k: 'Pressed', c: '#d2691e' }, { k: 'Ready to Return', c: '#34c759' }, { k: 'Returned', c: '#0a84ff' },
+	{ k: 'Invoiced', c: '#af52de' },
 ];
 const TPB_CLOSED = ['Returned', 'Invoiced'];
 const TPB_EMPTY = {
@@ -18,6 +18,7 @@ const TPB_EMPTY = {
 	'Returned': __('All returned jobs are invoiced.'),
 	'Invoiced': __('No invoiced jobs yet.'),
 };
+const TPB_DOTS = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>';
 
 const tpb_esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const tpb_fmt = (n, d = 0) => Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -26,9 +27,10 @@ const tpb_money = n => format_currency(n || 0, frappe.boot.sysdefaults.currency 
 
 frappe.pages['toll-processing-board'].on_page_load = function (wrapper) {
 	const page = frappe.ui.make_app_page({ parent: wrapper, title: __('Toll Processing Board'), single_column: true });
-	$(wrapper).addClass('toll-processing-board-page');
-	const root = $('<div class="toll-processing-board"><div class="tpb-loading">' + __('Loading…') + '</div></div>').appendTo(page.main);
-	wrapper.tpb = new TollProcessingBoard(root[0]);
+	$(wrapper).addClass('mg-glass-page toll-processing-board-page');
+	$('<div class="mg-bg" aria-hidden="true"><i></i></div>').prependTo(wrapper);
+	const root = $('<div class="mg tpb"><div class="mg-loading">' + __('Loading…') + '</div></div>').appendTo(page.main);
+	wrapper.tpb = new TollProcessingBoard(root[0], page);
 };
 
 frappe.pages['toll-processing-board'].on_page_show = function (wrapper) {
@@ -36,8 +38,9 @@ frappe.pages['toll-processing-board'].on_page_show = function (wrapper) {
 };
 
 class TollProcessingBoard {
-	constructor(el) {
+	constructor(el, page) {
 		this.el = el;
+		this.page = page;
 		this.ctx = null;
 		this.data = null;
 		this.ready = false;
@@ -62,9 +65,11 @@ class TollProcessingBoard {
 		try {
 			this.ctx = await this.call('get_context');
 		} catch (e) {
-			$(this.el).html('<div class="tpb-error">' + __('The board could not be loaded.') + '</div>');
+			$(this.el).html('<div class="mg-empty">' + __('The board could not be loaded.') + '</div>');
 			return;
 		}
+		if (this.ctx.can.produce) this.page.set_primary_action(__('Receive Material'), () => this.receive_dialog(), 'add');
+		this.page.set_secondary_action(__('Refresh'), () => this.refresh(true), 'refresh');
 		this.shell();
 		this.ready = true;
 		await this.refresh();
@@ -75,30 +80,32 @@ class TollProcessingBoard {
 		const opts = (list, all) => '<option value="">' + tpb_esc(all) + '</option>' + list.map(o =>
 			'<option value="' + tpb_esc(o.value) + '">' + tpb_esc(o.label) + '</option>').join('');
 		this.el.innerHTML = `
-		<div class="tpb-wrap">
-			<div class="tpb-head">
-				<h1>${__('Toll Processing Board')}<span class="sub">${__('Customer-owned material received for washing and pressing')}</span></h1>
-				<button class="tpb-btn" data-top="refresh">${__('Refresh')}</button>
-				${c.can.produce ? `<button class="tpb-btn primary" data-top="receive">+ ${__('Receive Material')}</button>` : ''}
-			</div>
-			<div class="tpb-filters">
-				<select data-f="customer" aria-label="${__('Customer')}">${opts(c.customers.map(x => ({ value: x.name, label: x.customer_name || x.name })), __('All customers'))}</select>
-				<input data-f="strain" placeholder="${__('Strain')}" aria-label="${__('Strain')}">
-				<select data-f="return_type" aria-label="${__('Return Type')}">${opts(c.return_types.map(x => ({ value: x, label: __(x) })), __('All return types'))}</select>
-				<span class="dates"><input type="date" data-f="from_date" title="${__('Received from')}" aria-label="${__('Received from')}">–<input type="date" data-f="to_date" title="${__('Received to')}" aria-label="${__('Received to')}"></span>
-				<label class="tog"><input type="checkbox" data-f="show_closed"> ${__('Show returned & invoiced')}</label>
-			</div>
-			<div class="tpb-kpis"></div>
-			<div class="tpb-board-scroll"><div class="tpb-board"></div></div>
-			<p class="tpb-foot">${__('Each action creates the stock document on the server (zero value, in the Toll warehouses). Drag cards only between Received and Queued for Wash.')}</p>
-		</div>`;
+			<div class="mg-hint">${__('Customer-owned material received for washing and pressing. Each action creates its stock document at zero value in the Toll warehouses.')}</div>
+			<div class="mg-bar"><div class="mg-glass" role="toolbar" aria-label="${__('Filters')}">
+				<select class="mg-in" data-f="customer" aria-label="${__('Customer')}">${opts(c.customers.map(x => ({ value: x.name, label: x.customer_name || x.name })), __('All customers'))}</select>
+				<span class="mg-sep"></span>
+				<input class="mg-in" data-f="strain" placeholder="${__('Strain')}" aria-label="${__('Strain')}">
+				<span class="mg-sep"></span>
+				<select class="mg-in" data-f="return_type" aria-label="${__('Return Type')}">${opts(c.return_types.map(x => ({ value: x, label: __(x) })), __('All return types'))}</select>
+				<span class="mg-sep"></span>
+				<input class="mg-in tpb-date" type="date" data-f="from_date" title="${__('Received from')}" aria-label="${__('Received from')}">
+				<input class="mg-in tpb-date" type="date" data-f="to_date" title="${__('Received to')}" aria-label="${__('Received to')}">
+				<span class="mg-sep"></span>
+				<button class="mg-chip" data-closed aria-pressed="false">${__('Show returned & invoiced')}</button>
+			</div></div>
+			<div class="mg-kpis tpb-kpis"></div>
+			<div class="mg-scroll"><div class="mg-cols tpb-board"></div></div>`;
 		const $el = $(this.el);
-		$el.on('click', '[data-top="refresh"]', () => this.refresh(true));
-		$el.on('click', '[data-top="receive"]', () => this.receive_dialog());
 		$el.on('input change', '[data-f]', e => {
 			const t = e.currentTarget;
-			this.filters[t.dataset.f] = t.type === 'checkbox' ? (t.checked ? 1 : 0) : t.value;
+			this.filters[t.dataset.f] = t.value;
 			this.debounce(() => this.refresh(), t.dataset.f === 'strain' ? 350 : 0);
+		});
+		$el.on('click', '[data-closed]', e => {
+			const on = !this.filters.show_closed;
+			this.filters.show_closed = on ? 1 : 0;
+			e.currentTarget.setAttribute('aria-pressed', on ? 'true' : 'false');
+			this.refresh();
 		});
 		$el.on('click', '[data-act]', e => {
 			e.preventDefault(); e.stopPropagation();
@@ -108,13 +115,16 @@ class TollProcessingBoard {
 		$el.on('click', '[data-menu]', e => {
 			e.stopPropagation();
 			const m = this.el.querySelector('#tpb-m-' + CSS.escape(e.currentTarget.dataset.menu));
-			const open = m.classList.contains('open');
+			const open = !m.hidden;
 			this.close_menus();
-			if (!open) m.classList.add('open');
+			if (!open) { m.hidden = false; e.currentTarget.setAttribute('aria-expanded', 'true'); }
 		});
 	}
 
-	close_menus() { this.el.querySelectorAll('.tpb-menu.open').forEach(m => m.classList.remove('open')); }
+	close_menus() {
+		this.el.querySelectorAll('.mg-menu').forEach(m => { m.hidden = true; });
+		this.el.querySelectorAll('[data-menu][aria-expanded="true"]').forEach(b => b.setAttribute('aria-expanded', 'false'));
+	}
 
 	async refresh(alert) {
 		if (!this.ready) return;
@@ -132,24 +142,36 @@ class TollProcessingBoard {
 
 	render() {
 		const d = this.data, k = d.kpis;
-		this.el.querySelector('.tpb-kpis').innerHTML = `
-			<div class="tpb-kpi"><b>${tpb_fmt(k.ff_on_hand_lbs, 1)} lbs</b><span>${__('FF on hand (Toll Inbound)')}</span></div>
-			<div class="tpb-kpi"><b>${tpb_fmt(k.bh_wip_grams)} g</b><span>${__('Bubble Hash in WIP')}</span></div>
-			<div class="tpb-kpi"><b>${tpb_fmt(k.output_ready_grams)} g</b><span>${__('Output ready to ship')}</span></div>
-			<div class="tpb-kpi ${k.overdue ? 'alert' : ''}"><b>${k.overdue}</b><span>${__('Jobs past promised date')}</span></div>
-			<div class="tpb-kpi ${k.uninvoiced_returned ? 'alert' : ''}"><b>${k.uninvoiced_returned}</b><span>${__('Returned, not invoiced')}</span></div>`;
+		const kpi = (label, value, sub, cls) => `<div class="mg-kpi ${cls || ''}"><div class="mg-kpi-label">${label}</div><div class="mg-kpi-value">${value}</div><div class="mg-kpi-sub">${sub}</div></div>`;
+		this.el.querySelector('.tpb-kpis').innerHTML =
+			kpi(__('FF on hand'), tpb_fmt(k.ff_on_hand_lbs, 1) + ' lbs', __('in Toll Inbound')) +
+			kpi(__('Bubble Hash in WIP'), tpb_fmt(k.bh_wip_grams) + ' g', __('waiting to press')) +
+			kpi(__('Ready to ship'), tpb_fmt(k.output_ready_grams) + ' g', __('BH and rosin in Toll Output')) +
+			kpi(__('Past promised date'), k.overdue, k.overdue === 1 ? __('job') : __('jobs'), k.overdue ? 'attn' : '') +
+			kpi(__('Returned, not invoiced'), k.uninvoiced_returned, k.uninvoiced_returned === 1 ? __('job') : __('jobs'), k.uninvoiced_returned ? 'attn' : '');
 		const show_closed = !!this.filters.show_closed;
 		const cols = TPB_COLS.filter(c => show_closed || !TPB_CLOSED.includes(c.k));
-		const board = this.el.querySelector('.tpb-board');
-		board.innerHTML = cols.map(c => {
+		this.el.querySelector('.tpb-board').innerHTML = cols.map(c => {
 			const cards = d.jobs.filter(j => j.status === c.k);
-			return `<section class="tpb-col" style="--c:var(${c.c})"><div class="tpb-col-h"><i></i>${__(c.k)}<em>${cards.length}</em></div>
-				<div class="tpb-col-b" data-col="${tpb_esc(c.k)}">${cards.length ? cards.map(j => this.card(j, c)).join('') : `<div class="tpb-empty">${TPB_EMPTY[c.k]}</div>`}</div></section>`;
+			return `<section class="mg-col" style="--mg-stage:${c.c}" data-col="${tpb_esc(c.k)}">
+				<div class="mg-col-head"><div class="mg-col-title"><span>${__(c.k)}</span><span class="mg-col-count">${cards.length}</span></div>
+				<div class="mg-col-sub">${this.col_sub(c.k, cards)}</div></div>
+				${cards.length ? cards.map(j => this.card(j)).join('') : `<div class="mg-col-empty">${TPB_EMPTY[c.k]}</div>`}</section>`;
 		}).join('');
 		this.wire_drag();
 	}
 
-	card(j, col) {
+	col_sub(k, cards) {
+		const sum = f => cards.reduce((a, j) => a + (j[f] || 0), 0);
+		if (!cards.length) return '&nbsp;';
+		if (k === 'Received' || k === 'Queued for Wash') return tpb_fmt(sum('ff_balance_lbs'), 1) + ' lbs ' + __('to wash');
+		if (k === 'Washed' || k === 'Pressed') return tpb_fmt(sum('bh_wip_grams')) + ' g ' + __('BH to press');
+		if (k === 'Ready to Return') return tpb_fmt(sum('bh_output_grams') + sum('rosin_output_grams')) + ' g ' + __('to ship');
+		if (k === 'Returned') return cards.some(j => j.rate > 0) ? tpb_money(sum('amount')) + ' ' + __('billable') : __('set a rate to bill');
+		return tpb_money(sum('amount')) + ' ' + __('invoiced');
+	}
+
+	card(j) {
 		const s = j.status, can = this.ctx.can;
 		const pct = j.ff_received_lbs ? Math.min(100, j.ff_washed_lbs / j.ff_received_lbs * 100) : 0;
 		let rows = `<span>${__('FF washed')}</span><b>${tpb_fmt(j.ff_washed_lbs, 1)} / ${tpb_fmt(j.ff_received_lbs, 1)} lbs</b>`;
@@ -168,14 +190,18 @@ class TollProcessingBoard {
 		const show_bar = (j.ff_balance_lbs > 0 && j.ff_washed_lbs > 0) || s === 'Received' || s === 'Queued for Wash';
 		const drag = can.produce && (s === 'Received' || s === 'Queued for Wash');
 		const menu = this.menu_items(j, s);
-		return `<article class="tpb-card" style="--c:var(${col.c})" data-id="${tpb_esc(j.name)}" ${drag ? 'draggable="true"' : ''}>
-			<div class="top"><a class="id" href="/app/toll-job/${encodeURIComponent(j.name)}">${tpb_esc(j.name)}</a>${j.priority === 'Rush' ? `<span class="badge rush">${__('Rush')}</span>` : ''}<span class="badge rt">${tpb_esc(__(j.return_type))}</span></div>
-			<div class="cust">${tpb_esc(j.customer_name || j.customer)}</div><div class="strain">${tpb_esc(j.strain)}</div>
-			<div class="path" aria-label="${__('Material stage')}"><span class="ff on">FF</span>›<span class="bh ${j.bh_grams > 0 ? 'on' : ''}">BH</span>›<span class="ro ${j.rosin_grams > 0 ? 'on' : ''} ${j.return_type === 'Bubble Hash' ? 'na' : ''}">${__('Rosin')}</span></div>
+		const rt_cls = { 'Bubble Hash': 'warn', 'Rosin': 'act', 'Both': 'accent' }[j.return_type] || '';
+		return `<article class="mg-card tpb-card" data-id="${tpb_esc(j.name)}" ${drag ? 'draggable="true"' : ''}>
+			<div class="top"><a class="id" href="/app/toll-job/${encodeURIComponent(j.name)}">${tpb_esc(j.name)}</a>
+				<span class="mg-badge ${rt_cls}">${tpb_esc(__(j.return_type))}</span></div>
+			<div class="cust">${tpb_esc(j.customer_name || j.customer)}</div>
+			<div class="strain">${tpb_esc(j.strain)}</div>
+			<div class="path" aria-label="${__('Material stage')}"><span class="ff on">FF</span><span class="bh ${j.bh_grams > 0 ? 'on' : ''}">BH</span><span class="ro ${j.rosin_grams > 0 ? 'on' : ''} ${j.return_type === 'Bubble Hash' ? 'na' : ''}">${__('Rosin')}</span>
+				${j.priority === 'Rush' ? `<span class="mg-badge bad">${__('Rush')}</span>` : ''}${j.overdue ? `<span class="mg-badge act">${__('Overdue')}</span>` : ''}</div>
 			${show_bar ? `<div class="bar" title="${tpb_fmt(pct)}% ${__('washed')}"><i style="width:${pct}%"></i></div>` : ''}
 			<div class="nums">${rows}</div>
 			<div class="meta"><span>${__('Received')} ${tpb_date(j.received_date)}</span><span class="${j.overdue ? 'late' : ''}">${__('Due')} ${tpb_date(j.promised_return_date)}</span>${j.physical_location ? `<span>${tpb_esc(j.physical_location)}</span>` : ''}</div>
-			<div class="acts">${this.primary_btn(j, s)}${menu ? `<div class="more"><button class="tpb-btn sm" data-menu="${tpb_esc(j.name)}" aria-haspopup="true" aria-label="${__('More actions')}">⋯</button><div class="tpb-menu" id="tpb-m-${tpb_esc(j.name)}">${menu}</div></div>` : ''}</div>
+			<div class="acts">${this.primary_btn(j, s)}${menu ? `<div class="more"><button class="mg-btn sm icon" data-menu="${tpb_esc(j.name)}" aria-haspopup="true" aria-expanded="false" aria-label="${__('More actions')}">${TPB_DOTS}</button><div class="mg-menu" id="tpb-m-${tpb_esc(j.name)}" hidden>${menu}</div></div>` : ''}</div>
 		</article>`;
 	}
 
@@ -188,7 +214,7 @@ class TollProcessingBoard {
 		else if (s === 'Ready to Return' && can.produce) m = ['ret', __('Return to Client')];
 		else if (s === 'Returned' && can.invoice) m = j.sales_invoice && j.invoice_status === 'Draft' ? ['viewinv', __('Open Draft Invoice')] : ['inv', __('Create Invoice')];
 		else if (s === 'Invoiced') m = ['viewinv', __('View Invoice')];
-		return m ? `<button class="tpb-btn sm primary" data-act="${m[0]}" data-id="${tpb_esc(j.name)}">${m[1]}</button>` : '';
+		return m ? `<button class="mg-btn sm primary" data-act="${m[0]}" data-id="${tpb_esc(j.name)}">${m[1]}</button>` : '';
 	}
 
 	menu_items(j, s) {
@@ -209,13 +235,16 @@ class TollProcessingBoard {
 
 	wire_drag() {
 		const el = this.el;
-		el.querySelectorAll('.tpb-card[draggable="true"]').forEach(c => c.addEventListener('dragstart', e => e.dataTransfer.setData('text/plain', c.dataset.id)));
-		el.querySelectorAll('.tpb-col-b').forEach(z => {
+		el.querySelectorAll('.tpb-card[draggable="true"]').forEach(c => {
+			c.addEventListener('dragstart', e => { e.dataTransfer.setData('text/plain', c.dataset.id); c.classList.add('dragging'); });
+			c.addEventListener('dragend', () => c.classList.remove('dragging'));
+		});
+		el.querySelectorAll('.mg-col[data-col]').forEach(z => {
 			const ok = ['Received', 'Queued for Wash'].includes(z.dataset.col) && this.ctx.can.produce;
-			z.addEventListener('dragover', e => { if (ok) { e.preventDefault(); z.classList.add('drop'); } });
-			z.addEventListener('dragleave', () => z.classList.remove('drop'));
+			z.addEventListener('dragover', e => { if (ok) { e.preventDefault(); z.classList.add('over'); } });
+			z.addEventListener('dragleave', e => { if (!z.contains(e.relatedTarget)) z.classList.remove('over'); });
 			z.addEventListener('drop', e => {
-				z.classList.remove('drop');
+				z.classList.remove('over');
 				if (!ok) return;
 				e.preventDefault();
 				const j = this.job(e.dataTransfer.getData('text/plain'));

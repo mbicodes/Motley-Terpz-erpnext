@@ -81,9 +81,10 @@ function ppb_stock_warn(st, item, project) {
 
 frappe.pages['press-plan-board'].on_page_load = function (wrapper) {
 	const page = frappe.ui.make_app_page({ parent: wrapper, title: __('Press Plan Board'), single_column: true });
-	$(wrapper).addClass('press-plan-board-page');
-	const root = $('<div class="press-plan-board"><div class="ppb-loading">' + __('Loading…') + '</div></div>').appendTo(page.main);
-	wrapper.ppb = new PressPlanBoard(root[0]);
+	$(wrapper).addClass('press-plan-board-page mg-glass-page');
+	// the logo-gradient backdrop (Motley Glass, like the Sales Operation Board) sits outside the re-rendered board
+	const shell = $('<div class="press-plan-board"><div class="mg-bg" aria-hidden="true"><i></i></div><div class="ppb-root"><div class="ppb-loading">' + __('Loading…') + '</div></div></div>').appendTo(page.main);
+	wrapper.ppb = new PressPlanBoard(shell.find('.ppb-root')[0]);
 };
 
 frappe.pages['press-plan-board'].on_page_show = function (wrapper) {
@@ -319,10 +320,10 @@ class PressPlanBoard {
 	status_html() {
 		const s = this.saving ? 'saving' : this.saveState;
 		const map = {
-			pending: ['#f7f3fc', 'var(--muted)', __('Unsaved change…')],
-			saving: ['#f7f3fc', 'var(--muted)', __('Saving…')],
-			saved: ['#f3e6fb', 'var(--brand2)', __('Saved')],
-			error: ['#FFF6F1', 'var(--warn)', __('Not saved')],
+			pending: ['var(--mg-fill)', 'var(--muted)', __('Unsaved change…')],
+			saving: ['var(--mg-fill)', 'var(--muted)', __('Saving…')],
+			saved: ['var(--mg-accent-soft)', 'var(--brand2)', __('Saved')],
+			error: ['var(--mg-act-bg)', 'var(--warn)', __('Not saved')],
 		};
 		const m = map[s];
 		if (!m) return '<span data-role="save-status"></span>';
@@ -360,10 +361,10 @@ class PressPlanBoard {
 		const at = this.updatedAt ? new Date(this.updatedAt) : null;
 		const live = at ? '<span class="ppb-live" title="' + __('Refreshes automatically when plans, Work Orders, job cards or stock entries change') + '"><span class="ppb-live-dot"></span>' + __('Live') + ' · ' + __('updated {0}', [String(at.getHours()).padStart(2, '0') + ':' + String(at.getMinutes()).padStart(2, '0')]) + '</span>' : '';
 		return '<header class="ppb-band"><div class="ppb-brand"><div class="ppb-logo">' + ppb_esc(app.charAt(0).toUpperCase()) + '</div>' +
-			'<div style="display:flex;flex-direction:column"><span style="font-weight:800;font-size:16px">' + ppb_esc(app) + '</span><span style="font-size:12px;color:#e4d6f7">' + ppb_esc(this.ctx.company) + '</span></div></div>' +
+			'<div style="display:flex;flex-direction:column"><span class="ppb-band-app">' + ppb_esc(app) + '</span><span class="ppb-band-sub">' + ppb_esc(this.ctx.company) + '</span></div></div>' +
 			'<nav aria-label="Breadcrumb" class="ppb-crumbs"><a href="/app/manufacturing">' + __('Manufacturing') + '</a><span aria-hidden="true">/</span>' +
-			'<a data-action="home" href="#">' + __('Press Production Plan') + '</a><span aria-hidden="true">/</span><span style="color:#fff;font-weight:700">' + ppb_esc(crumb) + '</span></nav>' +
-			'<div style="display:flex;align-items:center;gap:14px">' + live + '<div style="display:flex;align-items:center;gap:10px"><div class="ppb-avatar">' + ppb_esc(user.charAt(0).toUpperCase()) + '</div><span style="font-size:13px">' + ppb_esc(user) + '</span></div></div></header>';
+			'<a data-action="home" href="#">' + __('Press Production Plan') + '</a><span aria-hidden="true">/</span><span class="ppb-crumb-on">' + ppb_esc(crumb) + '</span></nav>' +
+			'<div style="display:flex;align-items:center;gap:14px">' + live + '<div style="display:flex;align-items:center;gap:10px"><div class="ppb-avatar">' + ppb_esc(user.charAt(0).toUpperCase()) + '</div><span class="ppb-band-user">' + ppb_esc(user) + '</span></div></div></header>';
 	}
 
 	html_header(v) {
@@ -433,7 +434,9 @@ class PressPlanBoard {
 	}
 
 	seg(on) {
-		return 'background:' + (on ? 'var(--brand)' : 'transparent') + ';color:' + (on ? '#fff' : 'var(--ink)');
+		// iOS segmented control: the selected segment is a raised thumb
+		return on ? 'background:var(--ppb-thumb);color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.1),0 3px 8px rgba(0,0,0,.08)'
+			: 'background:transparent;color:var(--ink)';
 	}
 
 	html_toast() {
@@ -597,7 +600,7 @@ class PressPlanBoard {
 
 	html_how() {
 		const step = (n, t) => '<div style="display:flex;gap:10px"><span class="ppb-step">' + n + '</span><span>' + t + '</span></div>';
-		return '<section class="ppb-how"><h2 class="h2">' + __('How the press plan works') + '</h2><div style="display:flex;flex-direction:column;gap:10px;font-size:13px;color:#ece3f9">' +
+		return '<section class="ppb-how"><h2 class="h2">' + __('How the press plan works') + '</h2><div class="ppb-how-steps">' +
 			step(1, __('When a wash is completed, its Bubble Hash and micron split come into Ready to Press automatically.')) +
 			step(2, __('Scheduling a wash dates its existing Rosin Pressing Work Order and job card and sets the Work Order to the actual Bubble Hash grams. No new Material Request is needed.')) +
 			step(3, __('Completing the job card writes rosin grams per micron back to the plan; {0} closes the wash.', [ppb_esc(this.ctx.whip_step)])) + '</div></section>';

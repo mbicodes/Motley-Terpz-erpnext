@@ -112,24 +112,24 @@
   },
   {
    "hidden": 0,
-   "is_query_report": 1,
+   "is_query_report": 0,
    "label": "Toll Stock On Hand",
    "link_count": 0,
-   "link_to": "Toll Stock On Hand",
-   "link_type": "Report",
+   "link_to": "toll-stock-on-hand",
+   "link_type": "Page",
    "onboard": 0,
-   "report_ref_doctype": "Toll Job",
+   "report_ref_doctype": null,
    "type": "Link"
   },
   {
    "hidden": 0,
-   "is_query_report": 1,
+   "is_query_report": 0,
    "label": "Toll Job Yield Summary",
    "link_count": 0,
-   "link_to": "Toll Job Yield Summary",
-   "link_type": "Report",
+   "link_to": "toll-job-yield-summary",
+   "link_type": "Page",
    "onboard": 0,
-   "report_ref_doctype": "Toll Job",
+   "report_ref_doctype": null,
    "type": "Link"
   },
   {
@@ -224,7 +224,7 @@
    "type": "Link"
   }
  ],
- "modified": "2026-11-26 10:00:00.000000",
+ "modified": "2026-11-26 13:00:00.000000",
  "modified_by": "Administrator",
  "module": "Cannabis Management",
  "name": "Toll Processing",
@@ -274,15 +274,15 @@
    "color": "Grey",
    "doc_view": "",
    "label": "Toll Stock On Hand",
-   "link_to": "Toll Stock On Hand",
-   "type": "Report"
+   "link_to": "toll-stock-on-hand",
+   "type": "Page"
   },
   {
    "color": "Grey",
    "doc_view": "",
    "label": "Toll Job Yield Summary",
-   "link_to": "Toll Job Yield Summary",
-   "type": "Report"
+   "link_to": "toll-job-yield-summary",
+   "type": "Page"
   },
   {
    "color": "Grey",
