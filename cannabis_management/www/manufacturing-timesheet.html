@@ -2,457 +2,1313 @@
 <html lang="en">
 <head>
 	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>Manufacturing Timesheet Kiosk</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+	<meta name="theme-color" content="#12061f">
+	<title>Timesheet Kiosk · Master Touch Manufacturing</title>
+	<link rel="icon" type="image/png" href="/assets/cannabis_management/images/kiosk/mlt-light.png">
+	<link rel="preload" href="/assets/cannabis_management/images/kiosk/mlt-light.png" as="image">
 	<style>
-		* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Arial, sans-serif; }
+		@font-face {
+			font-family: "Kiosk Display";
+			src: url("/assets/infix_theme/fonts/bricolage-grotesque-latin.woff2") format("woff2");
+			font-weight: 200 800;
+			font-display: swap;
+		}
+		@font-face {
+			font-family: "Kiosk Body";
+			src: url("/assets/infix_theme/fonts/outfit-latin.woff2") format("woff2");
+			font-weight: 100 900;
+			font-display: swap;
+		}
+		@font-face {
+			font-family: "Kiosk Mono";
+			src: url("/assets/infix_theme/fonts/jetbrains-mono-latin.woff2") format("woff2");
+			font-weight: 100 800;
+			font-display: swap;
+		}
+
+		:root {
+			--bg-0: #07030d;
+			--bg-1: #12061f;
+			--brand: #cb6ce4;
+			--brand-deep: #4f149f;
+			--brand-edge: #3d0f78;
+			--ink: #f6efff;
+			--ink-2: #cdbbe4;
+			--ink-3: #9a86b8;
+			--ink-4: #6d5b89;
+			--line: rgba(203, 108, 228, 0.22);
+			--line-strong: rgba(203, 108, 228, 0.45);
+			--well: rgba(8, 3, 16, 0.45);
+			--green: #3ee08f;
+			--green-ink: #84f2bd;
+			--amber: #ffbf5a;
+			--red: #ff4d6d;
+			--font-display: "Kiosk Display", "Segoe UI", system-ui, sans-serif;
+			--font-body: "Kiosk Body", "Segoe UI", system-ui, sans-serif;
+			--font-mono: "Kiosk Mono", ui-monospace, Menlo, Consolas, monospace;
+			--card-base: inset 0 1px 0 rgba(255, 255, 255, 0.09), 0 7px 0 #160a27, 0 7px 0 1px rgba(203, 108, 228, 0.14), 0 26px 40px -16px rgba(0, 0, 0, 0.85);
+		}
+
+		*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
 		html, body {
 			min-height: 100%;
-			background: radial-gradient(circle at top, #2b3a55 0%, #10141f 70%);
-			color: #eef1f7;
+			background: var(--bg-0);
+			color: var(--ink);
 		}
 
 		body {
 			min-height: 100vh;
-			display: flex;
-			padding: 20px;
-			overflow-y: auto;
+			font-family: var(--font-body);
+			overflow-x: hidden;
+			-webkit-font-smoothing: antialiased;
+			-webkit-tap-highlight-color: transparent;
+			-webkit-user-select: none;
+			user-select: none;
 		}
+
+		input { -webkit-user-select: text; user-select: text; }
 
 		[hidden] { display: none !important; }
 
-		#screen-board {
+		button {
+			font: inherit;
+			color: inherit;
+			background: none;
+			border: 0;
+			cursor: pointer;
+			touch-action: manipulation;
+		}
+
+		svg.icon {
+			width: 22px;
+			height: 22px;
+			fill: none;
+			stroke: currentColor;
+			stroke-width: 2.2;
+			stroke-linecap: round;
+			stroke-linejoin: round;
+			flex-shrink: 0;
+		}
+
+		.scene {
+			position: fixed;
+			inset: 0;
+			z-index: 0;
+			overflow: hidden;
+			pointer-events: none;
+			background:
+				radial-gradient(110% 70% at 50% -10%, #3a1268 0%, rgba(58, 18, 104, 0) 60%),
+				radial-gradient(90% 60% at 50% 115%, #2a0a48 0%, rgba(42, 10, 72, 0) 70%),
+				linear-gradient(180deg, #12061f 0%, #0a0414 55%, #07030d 100%);
+		}
+
+		.scene-glow {
+			position: absolute;
+			width: 70vmax;
+			height: 70vmax;
+			border-radius: 50%;
+			will-change: transform;
+		}
+
+		.scene-glow-a {
+			left: -22vmax;
+			top: -28vmax;
+			background: radial-gradient(circle, rgba(141, 63, 214, 0.34), rgba(141, 63, 214, 0) 65%);
+			animation: glow-a 26s ease-in-out infinite alternate;
+		}
+
+		.scene-glow-b {
+			right: -26vmax;
+			bottom: -32vmax;
+			background: radial-gradient(circle, rgba(203, 108, 228, 0.22), rgba(203, 108, 228, 0) 65%);
+			animation: glow-b 32s ease-in-out infinite alternate;
+		}
+
+		@keyframes glow-a { to { transform: translate3d(18vmax, 10vmax, 0); } }
+		@keyframes glow-b { to { transform: translate3d(-16vmax, -12vmax, 0); } }
+
+		.scene-floor {
+			position: absolute;
+			left: -60%;
+			right: -60%;
+			bottom: -2%;
+			height: 56%;
+			transform-origin: 50% 100%;
+			transform: perspective(420px) rotateX(68deg);
+			overflow: hidden;
+			-webkit-mask-image: linear-gradient(to top, #000 0%, rgba(0, 0, 0, 0.5) 45%, transparent 92%);
+			mask-image: linear-gradient(to top, #000 0%, rgba(0, 0, 0, 0.5) 45%, transparent 92%);
+		}
+
+		.scene-floor-grid {
+			position: absolute;
+			left: 0;
+			right: 0;
+			top: -96px;
+			bottom: 0;
+			background-image:
+				linear-gradient(rgba(203, 108, 228, 0.42) 2px, transparent 2px),
+				linear-gradient(90deg, rgba(203, 108, 228, 0.32) 2px, transparent 2px);
+			background-size: 96px 96px;
+			background-position: center top;
+			animation: floor-run 2.8s linear infinite;
+			will-change: transform;
+		}
+
+		@keyframes floor-run { to { transform: translate3d(0, 96px, 0); } }
+
+		.scene-horizon {
+			position: absolute;
+			left: 0;
+			right: 0;
+			bottom: 22%;
+			height: 34%;
+			background: radial-gradient(55% 50% at 50% 100%, rgba(203, 108, 228, 0.16), rgba(203, 108, 228, 0) 70%);
+		}
+
+		.scene-field {
+			position: absolute;
+			inset: 0;
+			perspective: 1000px;
+			perspective-origin: 50% 42%;
+			transform-style: preserve-3d;
+		}
+
+		.fly {
+			position: absolute;
+			left: 50%;
+			top: 42%;
+			width: var(--s);
+			height: auto;
+			margin-left: calc(var(--s) * -0.5);
+			margin-top: calc(var(--s) * -0.44);
+			opacity: 0;
+			will-change: transform, opacity;
+			animation: fly var(--d) linear var(--delay) infinite;
+		}
+
+		@keyframes fly {
+			0% {
+				transform: translate3d(var(--x), var(--y), -2400px) rotateZ(var(--r)) rotateY(0deg);
+				opacity: 0;
+			}
+			10% { opacity: var(--o); }
+			78% { opacity: var(--o); }
+			100% {
+				transform: translate3d(var(--x), var(--y), 650px) rotateZ(calc(var(--r) + var(--spin))) rotateY(var(--ry));
+				opacity: 0;
+			}
+		}
+
+		.scene-vignette {
+			position: absolute;
+			inset: 0;
+			background: radial-gradient(ellipse at 50% 45%, rgba(4, 2, 8, 0) 50%, rgba(4, 2, 8, 0.78) 100%);
+		}
+
+		.mark {
+			position: relative;
+			flex-shrink: 0;
+			perspective: 520px;
+		}
+
+		.mark-sm { width: 64px; height: 57px; }
+		.mark-xl { width: 190px; height: 168px; margin: 0 auto 26px; }
+
+		.mark-inner {
+			position: absolute;
+			inset: 0;
+			transform-style: preserve-3d;
+			animation: mark-swing 7s ease-in-out infinite;
+		}
+
+		.mark-layer {
+			position: absolute;
+			inset: 0;
 			width: 100%;
-			max-width: 1100px;
-			margin: auto;
+			height: 100%;
 		}
 
-		.board-header {
-			text-align: center;
-			margin-bottom: 26px;
+		@keyframes mark-swing {
+			0%, 100% { transform: rotateY(-28deg) rotateX(8deg); }
+			50% { transform: rotateY(28deg) rotateX(-4deg); }
 		}
 
-		.board-header h1 {
-			font-size: 22px;
-			font-weight: 600;
-			margin-bottom: 6px;
+		.mark-xl .mark-inner {
+			animation: mark-pop 1s cubic-bezier(0.2, 0.9, 0.25, 1.2) both, mark-swing 6s ease-in-out 1s infinite;
 		}
 
-		.board-header p {
-			font-size: 13px;
-			color: #aab3c8;
+		@keyframes mark-pop {
+			from { transform: rotateY(-200deg) rotateX(8deg) scale(0.3); }
+			to { transform: rotateY(-28deg) rotateX(8deg) scale(1); }
 		}
 
-		.board-group + .board-group {
-			margin-top: 30px;
+		.board {
+			position: relative;
+			z-index: 1;
+			max-width: 1320px;
+			margin: 0 auto;
+			padding: 28px 32px 44px;
+			transform-origin: 50% 30%;
+			transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.4s ease;
 		}
+
+		.board.is-behind {
+			transform: perspective(1200px) translateZ(-120px) rotateX(4deg);
+			opacity: 0.25;
+		}
+
+		.topbar {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 24px;
+		}
+
+		.brand {
+			display: flex;
+			align-items: center;
+			gap: 18px;
+		}
+
+		.brand-text h1 {
+			font-family: var(--font-display);
+			font-weight: 800;
+			font-size: 26px;
+			line-height: 1.05;
+			letter-spacing: -0.01em;
+		}
+
+		.brand-text p {
+			margin-top: 5px;
+			font-size: 15px;
+			color: var(--ink-3);
+		}
+
+		.clock { text-align: right; }
+
+		.clock-time {
+			font-family: var(--font-display);
+			font-weight: 700;
+			font-size: 42px;
+			line-height: 1;
+			letter-spacing: -0.02em;
+			font-variant-numeric: tabular-nums;
+		}
+
+		.clock-time .sec { font-size: 0.55em; color: var(--ink-4); }
+		.clock-time .ampm { font-size: 0.45em; color: var(--ink-3); margin-left: 6px; }
+
+		.clock-date {
+			margin-top: 7px;
+			font-size: 15px;
+			color: var(--ink-3);
+		}
+
+		.hello {
+			display: flex;
+			align-items: flex-end;
+			justify-content: space-between;
+			flex-wrap: wrap;
+			gap: 20px;
+			margin: 38px 0 26px;
+		}
+
+		.hello-title {
+			font-family: var(--font-display);
+			font-weight: 800;
+			font-size: clamp(38px, 5.4vw, 62px);
+			line-height: 1;
+			letter-spacing: -0.03em;
+			text-shadow: 0 1px 0 #b85dd6, 0 2px 0 #9c49bd, 0 3px 0 #7f37a0, 0 4px 0 #632783, 0 5px 0 #4a1a66, 0 16px 30px rgba(0, 0, 0, 0.55);
+		}
+
+		.hello-sub {
+			margin-top: 14px;
+			font-size: 19px;
+			color: var(--ink-2);
+		}
+
+		.hello-actions {
+			display: flex;
+			align-items: center;
+			flex-wrap: wrap;
+			gap: 18px;
+		}
+
+		.tally {
+			display: flex;
+			align-items: center;
+			gap: 16px;
+			font-size: 15px;
+			color: var(--ink-2);
+		}
+
+		.tally span { display: inline-flex; align-items: center; gap: 8px; }
+		.tally b { font-family: var(--font-mono); font-weight: 700; color: var(--ink); }
+
+		.tally .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--ink-4); }
+		.tally .dot.on { background: var(--green); box-shadow: 0 0 10px rgba(62, 224, 143, 0.7); }
+
+		.board-group + .board-group { margin-top: 36px; }
 
 		.board-group-title {
-			font-size: 14px;
-			font-weight: 600;
-			letter-spacing: 0.06em;
-			text-transform: uppercase;
-			color: #aab3c8;
-			margin-bottom: 14px;
-			padding-bottom: 8px;
-			border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+			display: flex;
+			align-items: center;
+			gap: 14px;
+			margin-bottom: 18px;
+			font-family: var(--font-display);
+			font-weight: 700;
+			font-size: 22px;
+		}
+
+		.board-group-title::after {
+			content: "";
+			flex: 1;
+			height: 1px;
+			background: linear-gradient(90deg, var(--line-strong), transparent);
 		}
 
 		.board-grid {
 			display: grid;
-			grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-			gap: 16px;
+			grid-template-columns: repeat(auto-fill, minmax(236px, 1fr));
+			gap: 24px 18px;
 		}
 
 		.board-empty {
+			padding: 60px 0;
 			text-align: center;
-			color: #7f8aa3;
-			font-size: 14px;
-			padding: 40px 0;
+			font-size: 18px;
+			color: var(--ink-3);
 		}
 
-		.job-card {
-			background: rgba(255, 255, 255, 0.06);
-			border: 1px solid rgba(255, 255, 255, 0.12);
-			backdrop-filter: blur(10px);
-			border-radius: 16px;
-			padding: 18px;
-			box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
-			display: flex;
-			flex-direction: column;
-			gap: 10px;
-		}
-
-		.job-card .jc-name {
-			font-size: 15px;
-			font-weight: 600;
-			color: #fff;
-			overflow: hidden;
-			text-overflow: ellipsis;
-			white-space: nowrap;
-		}
-
-		.job-card .jc-status {
-			display: flex;
-			align-items: center;
-			gap: 6px;
-			font-size: 12px;
-			color: #9aa4bd;
-		}
-
-		.job-card .jc-dot {
-			width: 8px;
-			height: 8px;
-			border-radius: 50%;
-			background: #5a6478;
-			flex-shrink: 0;
-		}
-
-		.job-card.running .jc-dot {
-			background: #4ade80;
-			box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.18);
-		}
-
-		.job-card .jc-timer {
-			font-size: 22px;
-			font-weight: 700;
-			font-variant-numeric: tabular-nums;
-			letter-spacing: .5px;
-			color: #8fe3a3;
-		}
-
-		.job-card:not(.running) .jc-timer {
-			color: #5a6478;
-			font-size: 14px;
-			font-weight: 500;
-		}
-
-		.job-card .jc-activity {
-			font-size: 11.5px;
-			color: #7f8aa3;
-			overflow: hidden;
-			text-overflow: ellipsis;
-			white-space: nowrap;
-		}
-
-		.job-card .jc-note {
-			font-size: 11px;
-			color: #ffcf8f;
-		}
-
-		.job-card .jc-btn {
-			margin-top: 4px;
-			width: 100%;
-			padding: 11px;
-			border: none;
-			border-radius: 10px;
-			font-size: 14px;
-			font-weight: 600;
-			cursor: pointer;
-			color: #fff;
-		}
-
-		.job-card .jc-btn.jc-start { background: linear-gradient(145deg, #4a63ff, #2c3ea8); }
-		.job-card .jc-btn.jc-end { background: linear-gradient(145deg, #ff7a4a, #b8452c); }
-		.job-card .jc-btn.jc-overtime { background: linear-gradient(145deg, #ef4444, #991b1b); }
-
-		.job-card .jc-btn.jc-early-overtime {
-			background: linear-gradient(145deg, #f59e0b, #b45309);
-			font-size: 13px;
-			padding: 9px;
-		}
-
-		.job-card .jc-btn.jc-silence {
-			background: linear-gradient(145deg, #4b5566, #2b323f);
-			font-size: 13px;
-			padding: 9px;
-		}
-
-		.job-card .jc-btn.jc-silence[disabled] {
-			background: #2b323f;
-			color: #7b8496;
-			cursor: default;
-		}
-
-		.job-card.needs-overtime {
-			border-color: rgba(239, 68, 68, 0.7);
-			animation: needs-overtime-pulse 1.6s ease-in-out infinite;
-		}
-
-		.job-card.needs-overtime.silenced {
-			animation: none;
-			border-color: rgba(239, 68, 68, 0.35);
-		}
-
-		@keyframes needs-overtime-pulse {
-			0%, 100% { box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35), 0 0 0 0 rgba(239, 68, 68, 0.55); }
-			50% { box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35), 0 0 0 8px rgba(239, 68, 68, 0); }
-		}
-
-		.board-footer-note {
-			margin-top: 26px;
+		.board-foot {
+			margin-top: 34px;
 			text-align: center;
-			font-size: 11.5px;
-			color: #6f7891;
-		}
-
-		.layout {
-			margin: auto;
-			display: flex;
-			align-items: flex-start;
-			gap: 20px;
-			max-width: 100%;
-		}
-
-		@media (max-width: 700px) {
-			.layout {
-				flex-direction: column;
-				align-items: center;
-			}
-
-			.history-panel {
-				width: 100%;
-				max-width: 380px;
-				order: 2;
-			}
-
-			.card { order: 1; }
-		}
-
-		.history-panel {
-			width: 240px;
-			max-width: 100%;
-			background: rgba(255, 255, 255, 0.06);
-			border: 1px solid rgba(255, 255, 255, 0.12);
-			backdrop-filter: blur(10px);
-			border-radius: 18px;
-			padding: 20px 18px;
-			box-shadow: 0 20px 45px rgba(0, 0, 0, 0.45);
-		}
-
-		.history-panel h2 {
 			font-size: 13px;
-			text-transform: uppercase;
-			letter-spacing: .06em;
-			color: #9aa4bd;
-			margin-bottom: 14px;
-		}
-
-		.history-group + .history-group { margin-top: 16px; }
-
-		.history-group-label {
-			font-size: 11px;
-			font-weight: 600;
-			color: #7fa6ff;
-			text-transform: uppercase;
-			letter-spacing: .05em;
-			margin-bottom: 6px;
+			color: var(--ink-4);
 		}
 
 		.card {
-			width: 380px;
-			max-width: 100%;
-			background: rgba(255, 255, 255, 0.06);
-			border: 1px solid rgba(255, 255, 255, 0.12);
-			backdrop-filter: blur(10px);
-			border-radius: 18px;
-			padding: 40px 32px 28px;
-			text-align: center;
-			box-shadow: 0 20px 45px rgba(0, 0, 0, 0.45);
+			--rx: 0deg;
+			--ry: 0deg;
+			--lift: 0px;
+			position: relative;
+			display: flex;
+			flex-direction: column;
+			gap: 12px;
+			padding: 18px;
+			border-radius: 20px;
+			background: linear-gradient(165deg, rgba(64, 28, 106, 0.95) 0%, rgba(33, 14, 58, 0.96) 55%, rgba(22, 9, 40, 0.97) 100%);
+			border: 1px solid var(--line);
+			box-shadow: var(--card-base);
+			transform: perspective(900px) rotateX(var(--rx)) rotateY(var(--ry)) translateY(var(--lift));
+			transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.25s;
 		}
 
-		.icon-badge {
-			width: 62px;
-			height: 62px;
-			margin: 0 auto 18px;
-			border-radius: 50%;
-			background: linear-gradient(145deg, #4a63ff, #2c3ea8);
+		.card.is-tilting { transition: transform 0.06s linear, border-color 0.25s; }
+
+		.board-grid.intro .card {
+			animation: card-in 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+			animation-delay: calc(var(--i) * 55ms);
+		}
+
+		@keyframes card-in {
+			from {
+				opacity: 0;
+				transform: perspective(900px) translate3d(0, 44px, -140px) rotateX(-24deg);
+			}
+		}
+
+		.card.running { border-color: rgba(62, 224, 143, 0.38); }
+
+		.card.running::before {
+			content: "";
+			position: absolute;
+			left: 22px;
+			right: 22px;
+			top: -1px;
+			height: 3px;
+			border-radius: 0 0 3px 3px;
+			background: linear-gradient(90deg, rgba(62, 224, 143, 0), var(--green), rgba(62, 224, 143, 0));
+		}
+
+		.card-top {
 			display: flex;
 			align-items: center;
+			gap: 12px;
+		}
+
+		.avatar {
+			flex-shrink: 0;
+			display: grid;
+			place-items: center;
+			width: 48px;
+			height: 48px;
+			border-radius: 50%;
+			font-family: var(--font-display);
+			font-weight: 800;
+			font-size: 18px;
+			color: #fff;
+			text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+			background: radial-gradient(circle at 32% 28%, #e6a8f5 0%, #b357d6 32%, #6a22b5 70%, #43128a 100%);
+			box-shadow: inset 0 -3px 6px rgba(0, 0, 0, 0.35), inset 0 2px 3px rgba(255, 255, 255, 0.35), 0 4px 0 #2a0b52, 0 8px 14px rgba(0, 0, 0, 0.45);
+		}
+
+		.card.running .avatar {
+			box-shadow: inset 0 -3px 6px rgba(0, 0, 0, 0.35), inset 0 2px 3px rgba(255, 255, 255, 0.35), 0 0 0 3px rgba(62, 224, 143, 0.85), 0 4px 0 3px #0e4a31, 0 10px 16px rgba(0, 0, 0, 0.45);
+		}
+
+		.card-id { flex: 1; min-width: 0; }
+
+		.card-name {
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+			font-family: var(--font-display);
+			font-weight: 700;
+			font-size: 20px;
+			letter-spacing: -0.01em;
+		}
+
+		.card-status {
+			display: flex;
+			align-items: center;
+			gap: 7px;
+			margin-top: 3px;
+			font-size: 14px;
+			color: var(--ink-3);
+		}
+
+		.card-status .dot {
+			width: 9px;
+			height: 9px;
+			border-radius: 50%;
+			background: var(--ink-4);
+			flex-shrink: 0;
+		}
+
+		.card.running .card-status { color: var(--green-ink); }
+		.card.running .card-status .dot { background: var(--green); animation: ping 2s ease-out infinite; }
+		.card.needs-overtime .card-status { color: #ff9db0; }
+		.card.needs-overtime .card-status .dot { background: var(--red); }
+
+		@keyframes ping {
+			0% { box-shadow: 0 0 0 0 rgba(62, 224, 143, 0.65); }
+			70%, 100% { box-shadow: 0 0 0 9px rgba(62, 224, 143, 0); }
+		}
+
+		.card-dl {
+			display: grid;
+			place-items: center;
+			width: 40px;
+			height: 40px;
+			border-radius: 12px;
+			color: var(--ink-3);
+			background: rgba(255, 255, 255, 0.05);
+			border: 1px solid rgba(255, 255, 255, 0.08);
+			transition: color 0.15s, background 0.15s;
+		}
+
+		.card-dl svg.icon { width: 19px; height: 19px; }
+		.card-dl:active { color: var(--ink); background: rgba(203, 108, 228, 0.25); }
+
+		.card-timer {
+			font-family: var(--font-mono);
+			font-weight: 700;
+			font-size: 32px;
+			line-height: 1;
+			letter-spacing: -0.02em;
+			font-variant-numeric: tabular-nums;
+			color: var(--ink-4);
+			opacity: 0.55;
+			margin-top: 4px;
+		}
+
+		.card.running .card-timer {
+			color: var(--green-ink);
+			opacity: 1;
+			text-shadow: 0 2px 0 #11603d, 0 10px 22px rgba(62, 224, 143, 0.22);
+		}
+
+		.card-activity {
+			min-height: 20px;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+			font-size: 15px;
+			color: var(--ink-2);
+		}
+
+		.card-note {
+			padding: 8px 10px;
+			border-radius: 10px;
+			font-size: 13.5px;
+			line-height: 1.35;
+			color: #ffd89a;
+			background: rgba(255, 191, 90, 0.1);
+			border: 1px solid rgba(255, 191, 90, 0.25);
+		}
+
+		.card-actions {
+			display: flex;
+			flex-direction: column;
+			gap: 12px;
+			margin-top: auto;
+			padding-top: 6px;
+		}
+
+		.card.needs-overtime {
+			border-color: rgba(255, 77, 109, 0.75);
+			animation: needs-ot 1.6s ease-in-out infinite;
+		}
+
+		.board-grid.intro .card.needs-overtime {
+			animation: card-in 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) backwards, needs-ot 1.6s ease-in-out infinite;
+			animation-delay: calc(var(--i) * 55ms), 0s;
+		}
+
+		.card.needs-overtime.silenced,
+		.board-grid.intro .card.needs-overtime.silenced {
+			animation: none;
+			border-color: rgba(255, 77, 109, 0.4);
+		}
+
+		@keyframes needs-ot {
+			0%, 100% { box-shadow: var(--card-base), 0 0 0 0 rgba(255, 77, 109, 0.55); }
+			50% { box-shadow: var(--card-base), 0 0 0 10px rgba(255, 77, 109, 0); }
+		}
+
+		.btn3d {
+			--face: linear-gradient(180deg, #b45ae0 0%, #7a2bc9 100%);
+			--edge: var(--brand-edge);
+			--btn-ink: #fff;
+			position: relative;
+			display: inline-flex;
+			align-items: center;
 			justify-content: center;
-			box-shadow: 0 8px 20px rgba(74, 99, 255, 0.45);
+			gap: 10px;
+			min-height: 54px;
+			padding: 0 22px;
+			border-radius: 14px;
+			font-family: var(--font-display);
+			font-weight: 700;
+			font-size: 18px;
+			color: var(--btn-ink);
+			text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
+			background: var(--face);
+			box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 5px 0 var(--edge), 0 12px 20px -6px rgba(0, 0, 0, 0.6);
+			transform: translateY(0);
+			transition: transform 0.08s ease, box-shadow 0.08s ease, filter 0.15s ease;
 		}
 
-		.icon-badge.alert {
-			background: linear-gradient(145deg, #ef4444, #991b1b);
-			box-shadow: 0 8px 20px rgba(239, 68, 68, 0.45);
+		.btn3d:active:not(:disabled) {
+			transform: translateY(4px);
+			box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 1px 0 var(--edge), 0 4px 8px -4px rgba(0, 0, 0, 0.6);
 		}
 
-		.icon-badge svg { width: 28px; height: 28px; fill: #fff; }
-
-		.card h1 {
-			font-size: 19px;
-			font-weight: 600;
-			margin-bottom: 4px;
-			letter-spacing: .2px;
+		.btn3d:disabled {
+			cursor: not-allowed;
+			filter: grayscale(0.7) brightness(0.65);
 		}
 
-		.card .subtitle {
-			font-size: 12.5px;
-			color: #aab3c8;
-			margin-bottom: 26px;
+		.btn-block { width: 100%; }
+		.btn-sm { min-height: 44px; font-size: 16px; padding: 0 16px; }
+		.btn-out { --face: linear-gradient(180deg, #ff8a65 0%, #e8475f 100%); --edge: #7d1733; }
+		.btn-ot { --face: linear-gradient(180deg, #ff6b81 0%, #d61f45 100%); --edge: #6e0b22; }
+		.btn-amber { --face: linear-gradient(180deg, #ffca6b 0%, #f08a1c 100%); --edge: #84420a; --btn-ink: #2a1300; text-shadow: none; }
+		.btn-slate { --face: linear-gradient(180deg, #4d3e66 0%, #2f2445 100%); --edge: #160f22; }
+		.btn-slate:disabled { filter: none; opacity: 0.55; }
+
+		.btn-ghost {
+			--face: rgba(255, 255, 255, 0.07);
+			--edge: rgba(8, 3, 16, 0.9);
+			border: 1px solid var(--line-strong);
+			text-shadow: none;
 		}
 
-		.field { text-align: left; margin-bottom: 16px; }
-
-		.field label {
-			display: block;
-			font-size: 11.5px;
-			text-transform: uppercase;
-			letter-spacing: .06em;
-			color: #9aa4bd;
-			margin-bottom: 6px;
+		.flow {
+			position: fixed;
+			inset: 0;
+			z-index: 10;
+			display: flex;
+			padding: 24px;
+			overflow-y: auto;
+			perspective: 1400px;
 		}
 
-		.field .required-mark { color: #ff8b8b; }
-
-		.field input, .field select {
-			width: 100%;
-			padding: 12px 14px;
-			border-radius: 10px;
-			border: 1px solid rgba(255, 255, 255, 0.15);
-			background: rgba(255, 255, 255, 0.07);
-			color: #fff;
-			font-size: 15px;
-			outline: none;
-			transition: border-color .15s ease, background .15s ease;
+		.flow-backdrop {
+			position: fixed;
+			inset: 0;
+			background: radial-gradient(circle at 50% 40%, rgba(30, 10, 52, 0.55), rgba(5, 2, 10, 0.86));
 		}
 
-		.field input::placeholder { color: #6f7891; letter-spacing: 3px; }
-
-		.field input:focus, .field select:focus {
-			border-color: #4a63ff;
-			background: rgba(255, 255, 255, 0.1);
+		.panel {
+			position: relative;
+			display: flex;
+			align-items: stretch;
+			width: min(100%, 460px);
+			margin: auto;
+			border-radius: 26px;
+			background: linear-gradient(170deg, rgba(62, 27, 104, 0.98) 0%, rgba(24, 10, 42, 0.99) 60%);
+			border: 1px solid var(--line-strong);
+			box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 10px 0 #12081f, 0 10px 0 1px rgba(203, 108, 228, 0.18), 0 50px 90px -20px rgba(0, 0, 0, 0.9);
+			animation: panel-in 0.55s cubic-bezier(0.2, 0.9, 0.25, 1.05) both;
 		}
 
-		.field input[readonly] { color: #c7cde0; background: rgba(255,255,255,0.04); }
+		.panel[data-size="solo"] { width: min(100%, 620px); }
+		.panel[data-size="md"] { width: min(100%, 940px); }
+		.panel[data-size="lg"] { width: min(100%, 1000px); }
 
-		select option { color: #111; }
-
-		.btn {
-			width: 100%;
-			padding: 13px;
-			border: none;
-			border-radius: 10px;
-			background: linear-gradient(145deg, #4a63ff, #2c3ea8);
-			color: #fff;
-			font-size: 15px;
-			font-weight: 600;
-			cursor: pointer;
-			letter-spacing: .3px;
-			transition: filter .15s ease, transform .05s ease;
+		@keyframes panel-in {
+			from { opacity: 0; transform: translate3d(0, 50px, -260px) rotateX(24deg); }
 		}
 
-		.btn:hover { filter: brightness(1.08); }
-		.btn:active { transform: scale(.99); }
-		.btn:disabled { opacity: .45; cursor: not-allowed; }
+		.pin.shake { animation: shake 0.4s; }
 
-		.btn.secondary {
-			background: rgba(255,255,255,0.08);
+		@keyframes shake {
+			10%, 90% { transform: translateX(-2px); }
+			20%, 80% { transform: translateX(4px); }
+			30%, 50%, 70% { transform: translateX(-8px); }
+			40%, 60% { transform: translateX(8px); }
+		}
+
+		.panel-main {
+			flex: 1;
+			min-width: 0;
+			padding: 34px 34px 30px;
+		}
+
+		.screen { animation: screen-in 0.35s ease both; }
+
+		@keyframes screen-in {
+			from { opacity: 0; transform: translateY(12px); }
+		}
+
+		.panel-side {
+			flex-shrink: 0;
+			width: 290px;
+			padding: 32px 24px 26px;
+			border-left: 1px solid var(--line);
+			border-radius: 0 26px 26px 0;
+			background: rgba(10, 4, 20, 0.38);
+		}
+
+		.screen-head { text-align: center; }
+
+		.screen-head .avatar {
+			width: 78px;
+			height: 78px;
+			margin: 0 auto 18px;
+			font-size: 28px;
+		}
+
+		.screen-title {
+			font-family: var(--font-display);
+			font-weight: 800;
+			font-size: clamp(30px, 4vw, 40px);
+			line-height: 1.05;
+			letter-spacing: -0.025em;
+		}
+
+		.screen-title .name { color: var(--brand); }
+
+		.screen-lead {
 			margin-top: 10px;
-			font-weight: 500;
+			font-size: 18px;
+			line-height: 1.4;
+			color: var(--ink-2);
 		}
 
-		.btn-hint {
-			font-size: 11px;
-			color: #ffcf8f;
-			margin-top: -10px;
-			margin-bottom: 14px;
-			min-height: 14px;
+		.pin {
+			display: flex;
+			justify-content: center;
+			gap: 14px;
+			margin: 28px 0 6px;
+		}
+
+		.pin span {
+			width: 18px;
+			height: 18px;
+			border-radius: 50%;
+			border: 2px solid var(--line-strong);
+			transition: background 0.15s, border-color 0.15s, transform 0.15s;
+		}
+
+		.pin span.on {
+			background: var(--brand);
+			border-color: var(--brand);
+			transform: scale(1.12);
+			box-shadow: 0 0 14px rgba(203, 108, 228, 0.6);
+		}
+
+		.pin.checking span.on { animation: pin-wait 0.9s ease-in-out infinite; }
+		.pin.checking span:nth-child(2) { animation-delay: 0.1s; }
+		.pin.checking span:nth-child(3) { animation-delay: 0.2s; }
+		.pin.checking span:nth-child(4) { animation-delay: 0.3s; }
+		.pin.checking span:nth-child(5) { animation-delay: 0.4s; }
+		.pin.checking span:nth-child(6) { animation-delay: 0.5s; }
+
+		@keyframes pin-wait {
+			50% { transform: translateY(-6px) scale(1.12); }
+		}
+
+		.keypad {
+			display: grid;
+			grid-template-columns: repeat(3, 1fr);
+			gap: 12px;
+			margin-top: 20px;
+		}
+
+		.key {
+			display: grid;
+			place-items: center;
+			height: 68px;
+			border-radius: 16px;
+			font-family: var(--font-display);
+			font-weight: 700;
+			font-size: 30px;
+			color: var(--ink);
+			background: linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.04));
+			border: 1px solid rgba(255, 255, 255, 0.1);
+			box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 5px 0 rgba(8, 3, 16, 0.92), 0 10px 18px -8px rgba(0, 0, 0, 0.8);
+			transition: transform 0.07s, box-shadow 0.07s, background 0.15s;
+		}
+
+		.key:active {
+			transform: translateY(4px);
+			background: rgba(203, 108, 228, 0.24);
+			box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 1px 0 rgba(8, 3, 16, 0.92);
+		}
+
+		.key svg.icon { width: 28px; height: 28px; }
+		.key-fn { color: var(--ink-3); }
+
+		.key-go {
+			color: #fff;
+			background: linear-gradient(180deg, #b45ae0, #7a2bc9);
+			border-color: rgba(255, 255, 255, 0.18);
+			box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 5px 0 var(--brand-edge), 0 10px 18px -8px rgba(0, 0, 0, 0.8);
+		}
+
+		.key-go:active {
+			background: linear-gradient(180deg, #a14ccf, #6a22b5);
+			box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 1px 0 var(--brand-edge);
 		}
 
 		.error-msg {
-			min-height: 18px;
-			color: #ff8b8b;
-			font-size: 12.5px;
-			margin: -6px 0 14px;
+			min-height: 22px;
+			margin-top: 12px;
+			font-size: 15.5px;
+			text-align: center;
+			color: #ff9db0;
 		}
 
-		.summary-box {
-			background: rgba(255,255,255,0.05);
-			border: 1px solid rgba(255,255,255,0.1);
-			border-radius: 10px;
-			padding: 14px 16px;
-			text-align: left;
-			margin-bottom: 18px;
-		}
-
-		.summary-box .row {
+		.flow-foot {
+			margin-top: 18px;
 			display: flex;
-			justify-content: space-between;
-			font-size: 13.5px;
-			padding: 4px 0;
+			justify-content: center;
 		}
 
-		.summary-box .row span:first-child { color: #9aa4bd; }
-
-		.employee-banner {
-			font-size: 13.5px;
-			color: #c7cde0;
-			margin-bottom: 20px;
-			padding-bottom: 16px;
-			border-bottom: 1px dashed rgba(255,255,255,0.15);
+		.hint {
+			margin-top: 14px;
+			padding: 10px 14px;
+			border-radius: 12px;
+			font-size: 15px;
+			line-height: 1.4;
+			color: #ffd89a;
+			background: rgba(255, 191, 90, 0.1);
+			border: 1px solid rgba(255, 191, 90, 0.28);
 		}
 
-		.employee-banner b { color: #fff; }
+		.section-label {
+			margin: 24px 0 10px;
+			font-size: 15px;
+			font-weight: 600;
+			color: var(--ink-3);
+		}
+
+		.tiles {
+			display: grid;
+			grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+			gap: 10px;
+		}
+
+		.tiles-loading { grid-column: 1 / -1; font-size: 15px; color: var(--ink-3); padding: 12px 0; }
+
+		.tile {
+			position: relative;
+			display: flex;
+			flex-direction: column;
+			justify-content: center;
+			min-height: 62px;
+			padding: 10px 14px;
+			border-radius: 14px;
+			text-align: left;
+			font-weight: 600;
+			font-size: 16px;
+			line-height: 1.2;
+			color: var(--ink);
+			background: rgba(255, 255, 255, 0.05);
+			border: 1px solid rgba(255, 255, 255, 0.1);
+			box-shadow: 0 4px 0 rgba(8, 3, 16, 0.92);
+			transition: transform 0.08s, box-shadow 0.08s, background 0.15s, border-color 0.15s;
+		}
+
+		.tile:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(8, 3, 16, 0.92); }
+
+		.tile.selected {
+			background: linear-gradient(180deg, rgba(203, 108, 228, 0.38), rgba(122, 43, 201, 0.38));
+			border-color: var(--brand);
+			box-shadow: 0 4px 0 var(--brand-edge), 0 0 0 3px rgba(203, 108, 228, 0.22);
+		}
+
+		.tile-tag {
+			margin-top: 4px;
+			font-size: 12.5px;
+			font-weight: 600;
+			color: var(--brand);
+		}
+
+		.tile.selected .tile-tag { color: #f3d3fb; }
+
+		.field { margin-top: 18px; }
+
+		.field label {
+			display: block;
+			margin-bottom: 8px;
+			font-size: 15px;
+			font-weight: 600;
+			color: var(--ink-3);
+		}
+
+		.field input {
+			width: 100%;
+			height: 54px;
+			padding: 0 16px;
+			border-radius: 12px;
+			border: 1px solid rgba(255, 255, 255, 0.14);
+			background: var(--well);
+			color: var(--ink);
+			font-family: var(--font-body);
+			font-weight: 500;
+			font-size: 17px;
+			color-scheme: dark;
+			outline: none;
+			transition: border-color 0.15s, box-shadow 0.15s;
+		}
+
+		.field input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(203, 108, 228, 0.25); }
+		.field input[readonly] { opacity: 0.65; }
+
+		.actions {
+			display: flex;
+			gap: 12px;
+			margin-top: 24px;
+		}
+
+		.actions .btn3d { flex: 1; }
+		.actions .btn-ghost { flex: 0 0 auto; min-width: 128px; }
+
+		.live {
+			margin: 24px 0 4px;
+			padding: 20px 22px;
+			border-radius: 18px;
+			background: var(--well);
+			border: 1px solid rgba(62, 224, 143, 0.25);
+		}
+
+		.live-label { font-size: 15px; color: var(--ink-3); }
+
+		.big-timer {
+			margin-top: 6px;
+			font-family: var(--font-mono);
+			font-weight: 700;
+			font-size: clamp(46px, 7vw, 66px);
+			line-height: 1;
+			letter-spacing: -0.03em;
+			font-variant-numeric: tabular-nums;
+			color: var(--green-ink);
+			text-shadow: 0 2px 0 #1d7a4f, 0 4px 0 #135a39, 0 12px 26px rgba(62, 224, 143, 0.25);
+		}
+
+		.facts {
+			display: grid;
+			grid-template-columns: auto 1fr;
+			gap: 8px 18px;
+			margin-top: 16px;
+			font-size: 16px;
+		}
+
+		.facts dt { color: var(--ink-3); }
+		.facts dd { text-align: right; font-weight: 600; }
+
+		.chips {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 10px;
+		}
+
+		.chip {
+			min-width: 76px;
+			height: 52px;
+			padding: 0 16px;
+			border-radius: 14px;
+			font-family: var(--font-display);
+			font-weight: 700;
+			font-size: 19px;
+			background: rgba(255, 255, 255, 0.06);
+			border: 1px solid rgba(255, 255, 255, 0.12);
+			box-shadow: 0 4px 0 rgba(8, 3, 16, 0.92);
+			transition: transform 0.08s, box-shadow 0.08s, background 0.15s;
+		}
+
+		.chip:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(8, 3, 16, 0.92); }
+
+		.chip.selected {
+			color: #2a1300;
+			background: linear-gradient(180deg, #ffca6b, #f08a1c);
+			border-color: #ffca6b;
+			box-shadow: 0 4px 0 #84420a;
+		}
+
+		.side-title {
+			font-family: var(--font-display);
+			font-weight: 700;
+			font-size: 19px;
+			margin-bottom: 14px;
+		}
+
+		.history-group + .history-group { margin-top: 14px; }
+
+		.history-group-label {
+			margin-bottom: 4px;
+			font-size: 14px;
+			font-weight: 600;
+			color: var(--brand);
+		}
 
 		.history-row {
 			display: flex;
 			justify-content: space-between;
 			gap: 10px;
-			font-size: 12.5px;
-			padding: 6px 0;
-			border-bottom: 1px solid rgba(255,255,255,0.06);
+			padding: 8px 0;
+			font-size: 15px;
+			border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 		}
 
-		.history-group:last-child .history-row:last-child { border-bottom: none; }
+		.history-row .h-activity {
+			flex: 1;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+			color: var(--ink-2);
+		}
 
-		.history-row .h-activity { color: #c7cde0; flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-		.history-row .h-hours { color: #fff; font-weight: 600; white-space: nowrap; }
+		.history-row .h-hours { font-family: var(--font-mono); font-weight: 700; white-space: nowrap; }
+		.history-empty { font-size: 15px; color: var(--ink-4); }
+		.side-link { margin-top: 22px; }
 
-		.history-empty { font-size: 12.5px; color: #6f7891; }
+		.presets {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 8px;
+			margin-top: 18px;
+		}
 
-		.footer-note {
-			margin-top: 22px;
-			font-size: 11.5px;
-			color: #6f7891;
+		.preset {
+			height: 46px;
+			padding: 0 18px;
+			border-radius: 12px;
+			font-weight: 600;
+			font-size: 16px;
+			background: rgba(255, 255, 255, 0.06);
+			border: 1px solid rgba(255, 255, 255, 0.12);
+			box-shadow: 0 4px 0 rgba(8, 3, 16, 0.92);
+			transition: transform 0.08s, box-shadow 0.08s, background 0.15s;
+		}
+
+		.preset:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(8, 3, 16, 0.92); }
+
+		.preset.active {
+			color: #22052f;
+			background: var(--brand);
+			border-color: var(--brand);
+			box-shadow: 0 4px 0 #6b2290;
+		}
+
+		.range {
+			display: flex;
+			gap: 12px;
+		}
+
+		.range .field { flex: 1; margin-top: 14px; }
+		.range .field input { height: 48px; }
+
+		.stats {
+			display: grid;
+			grid-template-columns: repeat(4, 1fr);
+			gap: 12px;
+			margin-top: 18px;
+			transition: opacity 0.2s;
+		}
+
+		.loading .stats, .loading .hours-table-wrap { opacity: 0.45; }
+
+		.stat {
+			padding: 14px 16px 12px;
+			border-radius: 16px;
+			background: var(--well);
+			border: 1px solid rgba(255, 255, 255, 0.08);
+			box-shadow: 0 5px 0 rgba(8, 3, 16, 0.92);
+		}
+
+		.stat-v {
+			font-family: var(--font-display);
+			font-weight: 800;
+			font-size: 34px;
+			line-height: 1;
+			letter-spacing: -0.02em;
+			font-variant-numeric: tabular-nums;
+		}
+
+		.stat-l { margin-top: 8px; font-size: 14px; color: var(--ink-3); }
+		.stat.total .stat-v { color: var(--brand); }
+		.stat.ot .stat-v { color: var(--amber); }
+
+		.hours-note {
+			margin-top: 14px;
+			padding: 10px 14px;
+			border-radius: 12px;
+			font-size: 15px;
+			color: var(--green-ink);
+			background: rgba(62, 224, 143, 0.08);
+			border: 1px solid rgba(62, 224, 143, 0.25);
+		}
+
+		.hours-table-wrap {
+			max-height: max(170px, calc(100vh - 560px));
+			margin-top: 16px;
+			overflow: auto;
+			border-radius: 14px;
+			background: rgba(8, 3, 16, 0.35);
+			border: 1px solid rgba(255, 255, 255, 0.08);
+			-webkit-user-select: text;
+			user-select: text;
+			transition: opacity 0.2s;
+		}
+
+		.hours-table {
+			width: 100%;
+			border-collapse: collapse;
+			font-size: 15px;
+		}
+
+		.hours-table th {
+			position: sticky;
+			top: 0;
+			z-index: 1;
+			padding: 11px 14px;
+			text-align: left;
+			font-size: 13.5px;
+			font-weight: 600;
+			color: var(--ink-3);
+			background: #1c0b31;
+		}
+
+		.hours-table td {
+			padding: 10px 14px;
+			border-top: 1px solid rgba(255, 255, 255, 0.06);
+			white-space: nowrap;
+		}
+
+		.hours-table .num { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+		.hours-table tr.day td {
+			font-weight: 700;
+			color: var(--ink);
+			background: rgba(203, 108, 228, 0.1);
+			border-top-color: rgba(203, 108, 228, 0.25);
+		}
+
+		.hours-table td.act { white-space: normal; color: var(--ink-2); }
+
+		.hours-empty {
+			padding: 34px 16px;
+			text-align: center;
+			font-size: 16px;
+			color: var(--ink-3);
+		}
+
+		.ot-tag {
+			display: inline-block;
+			margin-left: 8px;
+			padding: 1px 7px;
+			border-radius: 6px;
+			font-size: 12px;
+			font-weight: 700;
+			color: #2a1300;
+			background: var(--amber);
+			vertical-align: 1px;
+		}
+
+		.celebrate {
+			position: fixed;
+			inset: 0;
+			z-index: 20;
 			display: flex;
 			align-items: center;
 			justify-content: center;
-			gap: 6px;
+			padding: 24px;
+			overflow: hidden;
+			text-align: center;
+			cursor: pointer;
+			perspective: 1100px;
+			background: radial-gradient(circle at 50% 42%, rgba(84, 26, 140, 0.94) 0%, rgba(26, 8, 46, 0.97) 55%, rgba(7, 3, 13, 0.99) 100%);
+			animation: fade-in 0.35s ease both;
 		}
 
-		.footer-note svg { width: 12px; height: 12px; fill: #6f7891; }
-
-		.status-msg {
-			font-size: 14px;
-			color: #8fe3a3;
-			margin-bottom: 8px;
+		.celebrate[data-tone="out"] {
+			background: radial-gradient(circle at 50% 42%, rgba(126, 30, 96, 0.93) 0%, rgba(40, 8, 42, 0.97) 55%, rgba(7, 3, 13, 0.99) 100%);
 		}
 
-		.shake { animation: shake .35s; }
-		@keyframes shake {
-			10%, 90% { transform: translateX(-1px); }
-			20%, 80% { transform: translateX(2px); }
-			30%, 50%, 70% { transform: translateX(-4px); }
-			40%, 60% { transform: translateX(4px); }
+		@keyframes fade-in { from { opacity: 0; } }
+
+		.celebrate-burst {
+			position: absolute;
+			left: 50%;
+			top: 42%;
+			transform-style: preserve-3d;
+		}
+
+		.burst-logo {
+			position: absolute;
+			width: var(--s);
+			margin-left: calc(var(--s) * -0.5);
+			margin-top: calc(var(--s) * -0.44);
+			animation: burst 1.9s cubic-bezier(0.15, 0.7, 0.3, 1) var(--delay) both;
+		}
+
+		@keyframes burst {
+			0% { transform: translate3d(0, 0, 0) scale(0.2) rotate(0deg); opacity: 0; }
+			12% { opacity: 1; }
+			100% { transform: translate3d(var(--tx), var(--ty), var(--tz)) scale(1) rotate(var(--rot)); opacity: 0; }
+		}
+
+		.celebrate-ring {
+			position: absolute;
+			left: 50%;
+			top: 42%;
+			width: 260px;
+			height: 260px;
+			margin: -130px 0 0 -130px;
+			border-radius: 50%;
+			border: 3px solid rgba(203, 108, 228, 0.75);
+			animation: ring 1.5s ease-out both;
+		}
+
+		.celebrate-ring.r2 { animation-delay: 0.25s; border-color: rgba(255, 255, 255, 0.35); }
+
+		@keyframes ring {
+			from { transform: scale(0.3); opacity: 1; }
+			to { transform: scale(3.4); opacity: 0; }
+		}
+
+		.celebrate-inner { position: relative; max-width: 980px; }
+
+		.celebrate-kicker {
+			font-size: 20px;
+			font-weight: 600;
+			color: var(--ink-2);
+			animation: rise 0.6s 0.15s both;
+		}
+
+		.celebrate-title {
+			margin: 16px 0 20px;
+			font-family: var(--font-display);
+			font-weight: 800;
+			font-size: clamp(52px, 9vw, 112px);
+			line-height: 0.95;
+			letter-spacing: -0.035em;
+			color: #fff;
+			transform-origin: 50% 100%;
+			text-shadow: 0 1px 0 #d58cf0, 0 2px 0 #c477e4, 0 3px 0 #b062d4, 0 4px 0 #9a4fc0, 0 5px 0 #833eaa, 0 6px 0 #6c2f93, 0 7px 0 #56227c, 0 8px 0 #421866, 0 22px 44px rgba(0, 0, 0, 0.6);
+			animation: title-in 0.8s cubic-bezier(0.2, 0.9, 0.25, 1.15) 0.05s both;
+		}
+
+		.celebrate[data-tone="out"] .celebrate-title {
+			text-shadow: 0 1px 0 #ffb2a0, 0 2px 0 #f59a8c, 0 3px 0 #e47f7c, 0 4px 0 #cc666f, 0 5px 0 #b04f63, 0 6px 0 #923a57, 0 7px 0 #74284a, 0 8px 0 #581b3c, 0 22px 44px rgba(0, 0, 0, 0.6);
+		}
+
+		@keyframes title-in {
+			from { opacity: 0; transform: rotateX(80deg) translateY(40px) scale(0.9); }
+		}
+
+		.celebrate-msg {
+			font-size: clamp(20px, 2.6vw, 27px);
+			font-weight: 500;
+			animation: rise 0.6s 0.3s both;
+		}
+
+		.celebrate-foot {
+			margin-top: 10px;
+			font-size: clamp(18px, 2.2vw, 22px);
+			color: var(--ink-2);
+			animation: rise 0.6s 0.45s both;
+		}
+
+		.celebrate-tap {
+			margin-top: 38px;
+			font-size: 15px;
+			color: var(--ink-4);
+			animation: rise 0.6s 0.9s both;
+		}
+
+		@keyframes rise {
+			from { opacity: 0; transform: translateY(16px); }
+		}
+
+		@media (max-width: 860px) {
+			.panel { flex-direction: column; }
+			.panel-side {
+				width: auto;
+				border-left: 0;
+				border-top: 1px solid var(--line);
+				border-radius: 0 0 26px 26px;
+			}
+			.stats { grid-template-columns: repeat(2, 1fr); }
+		}
+
+		@media (max-width: 640px) {
+			.board { padding: 20px 16px 32px; }
+			.topbar { flex-wrap: wrap; }
+			.brand-text h1 { font-size: 20px; }
+			.mark-sm { width: 50px; height: 44px; }
+			.clock { text-align: left; }
+			.clock-time { font-size: 30px; }
+			.hello { margin: 26px 0 18px; }
+			.flow { padding: 12px; }
+			.panel-main { padding: 26px 18px 22px; }
+			.key { height: 60px; }
+			.actions { flex-direction: column-reverse; }
+			.actions .btn-ghost { min-width: 0; }
+			.range { flex-direction: column; gap: 0; }
+		}
+
+		@media (prefers-reduced-motion: reduce) {
+			.fly, .scene-floor-grid, .scene-glow, .mark-inner, .card.running .card-status .dot {
+				animation: none !important;
+			}
+			.fly {
+				opacity: 0.3;
+				transform: translate3d(var(--x), var(--y), -700px) rotateZ(var(--r));
+			}
+			.board-grid.intro .card, .panel, .screen, .celebrate-title { animation: none !important; }
 		}
 	</style>
 
-	` comment (see
-	          website/page_renderers/base_template_page.py:add_csrf_token) with a
-	          script that ASSIGNS `frappe.csrf_token`. Without the stub object on
-	          the line before, that injected line is a ReferenceError.
-	       2. Without the token, frappe's validate_csrf_token rejects every POST
-	          from a session that has one with CSRFTokenError -> HTTP 400, and the
-	          board shows "Could not load the board. Retrying...". A Guest session
-	          has no token so the check short-circuits, which is why a plain kiosk
-	          tablet works while any browser that has opened /app breaks - the desk
-	          generates and commits a token onto the session (www/app.py).
-
-	     The comment is substituted after the html cache, so the token stays
-	     correct per session even though get_html() is cached. -->
 	<script>window.frappe = window.frappe || {};</script>
 	<!-- csrf_token -->
 	<script>
@@ -461,116 +1317,215 @@
 </head>
 <body>
 
-	<div id="screen-board">
-		<div class="board-header">
-			<h1>Master Touch Manufacturing</h1>
-			<p>Tap your card to clock in or out</p>
-		</div>
-		<div id="board-groups"></div>
-		<div class="board-footer-note">Every attempt is recorded.</div>
+	<div class="scene" aria-hidden="true">
+		<div class="scene-glow scene-glow-a"></div>
+		<div class="scene-glow scene-glow-b"></div>
+		<div class="scene-horizon"></div>
+		<div class="scene-floor"><div class="scene-floor-grid"></div></div>
+		<div class="scene-field" id="logo-field"></div>
+		<div class="scene-vignette"></div>
 	</div>
 
-	<div class="layout" id="flow-layout" hidden>
-
-		<div class="history-panel" id="history-panel" hidden>
-			<h2>Your recent timesheets</h2>
-			<div id="history-list"></div>
-		</div>
-
-		<div class="card" id="kiosk-card">
-
-			<section id="screen-code">
-				<div class="icon-badge">
-					<svg viewBox="0 0 24 24"><path d="M12 1a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V11a2 2 0 0 0-2-2h-1V6a5 5 0 0 0-5-5zm-3 8V6a3 3 0 0 1 6 0v3zm3 5a2 2 0 0 1 1 3.73V19a1 1 0 1 1-2 0v-1.27A2 2 0 0 1 12 14z"/></svg>
+	<main class="board" id="screen-board">
+		<header class="topbar">
+			<div class="brand">
+				<div class="mark mark-sm" id="brand-mark" aria-hidden="true"></div>
+				<div class="brand-text">
+					<h1>Master Touch Manufacturing</h1>
+					<p>Timesheet Kiosk</p>
 				</div>
-				<h1>Enter your access code</h1>
-				<p class="subtitle" id="code-employee-name">-</p>
+			</div>
+			<div class="clock">
+				<div class="clock-time" id="clock-time">&nbsp;</div>
+				<div class="clock-date" id="clock-date">&nbsp;</div>
+			</div>
+		</header>
 
-				<form id="code-form" autocomplete="off">
-					<div class="field">
-						<label for="access-code">Access code</label>
-						<input type="password" id="access-code" placeholder="••••••" inputmode="numeric" autofocus required>
+		<section class="hello">
+			<div>
+				<h2 class="hello-title" id="hello-title">Hello.</h2>
+				<p class="hello-sub">Tap your name to clock in or out.</p>
+			</div>
+			<div class="hello-actions">
+				<div class="tally" id="tally"></div>
+				<button type="button" class="btn3d btn-ghost" id="my-hours-btn">
+					<svg class="icon" viewBox="0 0 24 24"><path d="M12 4v11"/><path d="m7.5 10.5 4.5 4.5 4.5-4.5"/><path d="M5 19h14"/></svg>
+					My Hours
+				</button>
+			</div>
+		</section>
+
+		<div id="board-groups"></div>
+		<footer class="board-foot">Every attempt is recorded.</footer>
+	</main>
+
+	<div class="flow" id="flow-layout" hidden>
+		<div class="flow-backdrop" id="flow-backdrop"></div>
+		<div class="panel" id="kiosk-card" data-size="sm" role="dialog" aria-modal="true">
+			<div class="panel-main">
+
+				<section class="screen" id="screen-code">
+					<div class="screen-head">
+						<div class="avatar" id="code-avatar">?</div>
+						<h2 class="screen-title" id="code-title">Who's there?</h2>
+						<p class="screen-lead" id="code-lead">Enter your code.</p>
 					</div>
-					<div class="error-msg" id="code-error"></div>
-					<button type="submit" class="btn" id="unlock-btn">Unlock</button>
-					<button type="button" class="btn secondary" id="code-cancel-btn">Back</button>
-				</form>
-			</section>
+					<div class="pin" id="pin" aria-live="polite"></div>
+					<div class="error-msg" id="code-error" role="alert"></div>
+					<div class="keypad" id="keypad">
+						<button type="button" class="key" data-key="1">1</button>
+						<button type="button" class="key" data-key="2">2</button>
+						<button type="button" class="key" data-key="3">3</button>
+						<button type="button" class="key" data-key="4">4</button>
+						<button type="button" class="key" data-key="5">5</button>
+						<button type="button" class="key" data-key="6">6</button>
+						<button type="button" class="key" data-key="7">7</button>
+						<button type="button" class="key" data-key="8">8</button>
+						<button type="button" class="key" data-key="9">9</button>
+						<button type="button" class="key key-fn" data-key="back" aria-label="Delete">
+							<svg class="icon" viewBox="0 0 24 24"><path d="M20 5H9l-6 7 6 7h11a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1Z"/><path d="m16 9-5 6"/><path d="m11 9 5 6"/></svg>
+						</button>
+						<button type="button" class="key" data-key="0">0</button>
+						<button type="button" class="key key-go" data-key="go" aria-label="Unlock">
+							<svg class="icon" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+						</button>
+					</div>
+					<div class="flow-foot">
+						<button type="button" class="btn3d btn-ghost btn-sm" id="code-cancel-btn">Back to board</button>
+					</div>
+				</section>
 
-			<section id="screen-start" hidden>
-				<div class="icon-badge">
-					<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-				</div>
-				<h1>Start Timesheet</h1>
-				<p class="employee-banner">Welcome, <b id="start-employee-name">-</b></p>
+				<section class="screen" id="screen-start" hidden>
+					<h2 class="screen-title" id="start-title">Welcome.</h2>
+					<p class="screen-lead">Ready to clock in? Pick what you're working on.</p>
+					<p class="hint" id="start-overtime-hint" hidden></p>
+					<div class="section-label">Activity</div>
+					<div class="tiles" id="start-activity-tiles"></div>
+					<div class="field">
+						<label for="start-time">Start time</label>
+						<input type="datetime-local" id="start-time" required>
+					</div>
+					<div class="error-msg" id="start-error" role="alert"></div>
+					<div class="actions">
+						<button type="button" class="btn3d btn-ghost" id="start-cancel-btn">Cancel</button>
+						<button type="button" class="btn3d" id="start-save-btn" disabled>Clock In</button>
+					</div>
+				</section>
 
-				<p class="btn-hint" id="start-overtime-hint" hidden></p>
+				<section class="screen" id="screen-end" hidden>
+					<h2 class="screen-title" id="end-title">Wrapping up?</h2>
+					<p class="screen-lead">Check your end time, then clock out.</p>
+					<div class="live">
+						<div class="live-label">On the clock for</div>
+						<div class="big-timer" id="end-elapsed">00:00:00</div>
+						<dl class="facts">
+							<dt>Activity</dt><dd id="end-activity-type">-</dd>
+							<dt>Started</dt><dd id="end-start-time">-</dd>
+						</dl>
+					</div>
+					<div class="field">
+						<label for="end-time">End time</label>
+						<input type="datetime-local" id="end-time" required>
+					</div>
+					<div class="error-msg" id="end-error" role="alert"></div>
+					<div class="actions">
+						<button type="button" class="btn3d btn-ghost" id="end-cancel-btn">Cancel</button>
+						<button type="button" class="btn3d btn-out" id="end-save-btn">Clock Out</button>
+					</div>
+				</section>
 
-				<div class="field">
-					<label for="start-activity-type">Activity Type <span class="required-mark">*</span></label>
-					<select id="start-activity-type" required></select>
-				</div>
-				<div class="field">
-					<label for="start-time">Start Time <span class="required-mark">*</span></label>
-					<input type="datetime-local" id="start-time" required>
-				</div>
-				<div class="error-msg" id="start-error"></div>
-				<button type="button" class="btn" id="start-save-btn" disabled>Save &amp; Start</button>
-				<button type="button" class="btn secondary" id="start-cancel-btn">Cancel</button>
-			</section>
+				<section class="screen" id="screen-overtime" hidden>
+					<h2 class="screen-title" id="overtime-title">Need more time?</h2>
+					<p class="screen-lead" id="overtime-status-text">Your 8 hours are complete.</p>
+					<div class="section-label">How many extra hours?</div>
+					<div class="chips" id="overtime-chips">
+						<button type="button" class="chip" data-hours="1">1h</button>
+						<button type="button" class="chip" data-hours="2">2h</button>
+						<button type="button" class="chip" data-hours="3">3h</button>
+						<button type="button" class="chip" data-hours="4">4h</button>
+					</div>
+					<div class="field">
+						<label for="overtime-hours">Or type an amount</label>
+						<input type="number" id="overtime-hours" placeholder="e.g. 2.5" min="0.5" max="16" step="0.5" inputmode="decimal">
+					</div>
+					<div class="error-msg" id="overtime-error" role="alert"></div>
+					<div class="actions">
+						<button type="button" class="btn3d btn-ghost" id="overtime-cancel-btn">Back</button>
+						<button type="button" class="btn3d btn-amber" id="overtime-submit-btn">Send Request</button>
+					</div>
+				</section>
 
-			<section id="screen-end" hidden>
-				<div class="icon-badge">
-					<svg viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg>
-				</div>
-				<h1>End Timesheet</h1>
-				<p class="employee-banner">Welcome back, <b id="end-employee-name">-</b></p>
+				<section class="screen" id="screen-hours" hidden>
+					<h2 class="screen-title" id="hours-title">Your hours</h2>
+					<div class="presets" id="hours-presets">
+						<button type="button" class="preset" data-preset="this_week">This week</button>
+						<button type="button" class="preset" data-preset="last_week">Last week</button>
+						<button type="button" class="preset" data-preset="this_month">This month</button>
+						<button type="button" class="preset" data-preset="last_month">Last month</button>
+						<button type="button" class="preset" data-preset="all">All time</button>
+					</div>
+					<div class="range">
+						<div class="field">
+							<label for="hours-from">From</label>
+							<input type="date" id="hours-from">
+						</div>
+						<div class="field">
+							<label for="hours-to">To</label>
+							<input type="date" id="hours-to">
+						</div>
+					</div>
+					<div id="hours-body">
+						<div class="stats">
+							<div class="stat total"><div class="stat-v" id="stat-total">–</div><div class="stat-l" id="stat-total-hm">Total hours</div></div>
+							<div class="stat"><div class="stat-v" id="stat-regular">–</div><div class="stat-l">Regular hours</div></div>
+							<div class="stat ot"><div class="stat-v" id="stat-overtime">–</div><div class="stat-l">Overtime hours</div></div>
+							<div class="stat"><div class="stat-v" id="stat-days">–</div><div class="stat-l">Days worked</div></div>
+						</div>
+						<p class="hours-note" id="hours-open-note" hidden></p>
+						<div class="hours-table-wrap">
+							<table class="hours-table">
+								<thead><tr><th>Activity</th><th>Clock in</th><th>Clock out</th><th class="num">Hours</th></tr></thead>
+								<tbody id="hours-rows"></tbody>
+							</table>
+							<div class="hours-empty" id="hours-empty" hidden>No completed shifts in this period.</div>
+						</div>
+					</div>
+					<div class="error-msg" id="hours-error" role="alert"></div>
+					<div class="actions">
+						<button type="button" class="btn3d btn-ghost" id="hours-back-btn">Done</button>
+						<button type="button" class="btn3d btn-slate" id="hours-csv-btn" disabled>CSV</button>
+						<button type="button" class="btn3d" id="hours-pdf-btn" disabled>
+							<svg class="icon" viewBox="0 0 24 24"><path d="M12 4v11"/><path d="m7.5 10.5 4.5 4.5 4.5-4.5"/><path d="M5 19h14"/></svg>
+							Download PDF
+						</button>
+					</div>
+				</section>
 
-				<div class="summary-box">
-					<div class="row"><span>Activity Type</span><span id="end-activity-type">-</span></div>
-					<div class="row"><span>Start Time</span><span id="end-start-time">-</span></div>
-				</div>
+			</div>
 
-				<div class="field">
-					<label for="end-time">End Time <span class="required-mark">*</span></label>
-					<input type="datetime-local" id="end-time" required>
-				</div>
-				<div class="error-msg" id="end-error"></div>
-				<button type="button" class="btn" id="end-save-btn">Save &amp; End</button>
-				<button type="button" class="btn secondary" id="end-cancel-btn">Cancel</button>
-			</section>
-
-			<section id="screen-overtime" hidden>
-				<div class="icon-badge alert">
-					<svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-2h2zm0-4h-2V7h2z"/></svg>
-				</div>
-				<h1>Request Overtime</h1>
-				<p class="employee-banner">For <b id="overtime-employee-name">-</b></p>
-
-				<div class="summary-box">
-					<div class="row"><span>Status</span><span id="overtime-status-text">8 hours complete</span></div>
-				</div>
-
-				<div class="field">
-					<label for="overtime-hours">How many extra hours? <span class="required-mark">*</span></label>
-					<input type="number" id="overtime-hours" placeholder="e.g. 2" min="0.5" max="16" step="0.5" inputmode="decimal" required>
-				</div>
-				<div class="error-msg" id="overtime-error"></div>
-				<button type="button" class="btn" id="overtime-submit-btn">Submit Request</button>
-				<button type="button" class="btn secondary" id="overtime-cancel-btn">Back</button>
-			</section>
-
-			<section id="screen-done" hidden>
-				<div class="icon-badge">
-					<svg viewBox="0 0 24 24"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>
-				</div>
-				<h1 id="done-title">All set</h1>
-				<p class="status-msg" id="done-message"></p>
-				<p class="subtitle">Returning to the board…</p>
-			</section>
-
+			<aside class="panel-side" id="history-panel" hidden>
+				<h3 class="side-title">Recent shifts</h3>
+				<div id="history-list"></div>
+				<button type="button" class="btn3d btn-ghost btn-sm btn-block side-link" id="history-hours-btn">
+					<svg class="icon" viewBox="0 0 24 24"><path d="M12 4v11"/><path d="m7.5 10.5 4.5 4.5 4.5-4.5"/><path d="M5 19h14"/></svg>
+					All my hours
+				</button>
+			</aside>
 		</div>
+	</div>
 
+	<div class="celebrate" id="screen-done" data-tone="in" hidden>
+		<div class="celebrate-ring"></div>
+		<div class="celebrate-ring r2"></div>
+		<div class="celebrate-burst" id="done-burst" aria-hidden="true"></div>
+		<div class="celebrate-inner" role="status" aria-live="assertive">
+			<div class="mark mark-xl" id="done-mark" aria-hidden="true"></div>
+			<p class="celebrate-kicker" id="done-kicker"></p>
+			<h1 class="celebrate-title" id="done-title"></h1>
+			<p class="celebrate-msg" id="done-message"></p>
+			<p class="celebrate-foot" id="done-foot"></p>
+			<p class="celebrate-tap">Tap anywhere to continue</p>
+		</div>
 	</div>
 
 	<script>
@@ -580,83 +1535,148 @@
 		fetch("/api/method/logout", { method: "GET", credentials: "same-origin" }).catch(function () {});
 
 		var API = "/kiosk-api/";
-
 		var API_DIRECT = "/api/method/cannabis_management.manufacturing_timesheet_kiosk.api.";
 		var apiBase = API;
+
+		var CODE_LENGTH = 6;
+		var IDLE_RETURN_MS = 90000;
+		var SPEAK_GREETINGS = true;
+		var LOGO = {
+			light: "/assets/cannabis_management/images/kiosk/mlt-light.png",
+			dark: "/assets/cannabis_management/images/kiosk/mlt-dark.png",
+			white: "/assets/cannabis_management/images/kiosk/mlt-white.png",
+		};
+		var ICON_DOWNLOAD = "<svg class='icon' viewBox='0 0 24 24'><path d='M12 4v11'/><path d='m7.5 10.5 4.5 4.5 4.5-4.5'/><path d='M5 19h14'/></svg>";
+
+		var reduceMotion = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
 
 		var state = {
 			token: null,
 			cardEmployee: null,
+			cardEmployeeName: null,
 			cardAction: null,
+			employeeName: null,
+			lastActivity: null,
+			activity: "",
+			code: "",
+			busy: false,
+			screen: null,
+			historyLoaded: false,
+			openSession: null,
+			hours: null,
+			hoursReturn: null,
+			hoursRequest: 0,
 		};
-		var boardTimerHandle = null;
-		var boardRefreshHandle = null;
+		var firstRender = true;
+		var doneTimer = null;
+		var doneShownAt = 0;
+		var idleTimer = null;
+
+		function $(id) { return document.getElementById(id); }
 
 		var els = {
-			boardScreen: document.getElementById("screen-board"),
-			boardGroups: document.getElementById("board-groups"),
-			flowLayout: document.getElementById("flow-layout"),
-			card: document.getElementById("kiosk-card"),
+			board: $("screen-board"),
+			boardGroups: $("board-groups"),
+			tally: $("tally"),
+			helloTitle: $("hello-title"),
+			clockTime: $("clock-time"),
+			clockDate: $("clock-date"),
+			myHoursBtn: $("my-hours-btn"),
+			brandMark: $("brand-mark"),
+
+			flowLayout: $("flow-layout"),
+			flowBackdrop: $("flow-backdrop"),
+			card: $("kiosk-card"),
 			screens: {
-				code: document.getElementById("screen-code"),
-				start: document.getElementById("screen-start"),
-				end: document.getElementById("screen-end"),
-				overtime: document.getElementById("screen-overtime"),
-				done: document.getElementById("screen-done"),
+				code: $("screen-code"),
+				start: $("screen-start"),
+				end: $("screen-end"),
+				overtime: $("screen-overtime"),
+				hours: $("screen-hours"),
 			},
 
-			codeForm: document.getElementById("code-form"),
-			codeEmployeeName: document.getElementById("code-employee-name"),
-			accessCode: document.getElementById("access-code"),
-			codeError: document.getElementById("code-error"),
-			unlockBtn: document.getElementById("unlock-btn"),
-			codeCancelBtn: document.getElementById("code-cancel-btn"),
+			codeAvatar: $("code-avatar"),
+			codeTitle: $("code-title"),
+			codeLead: $("code-lead"),
+			pin: $("pin"),
+			keypad: $("keypad"),
+			codeError: $("code-error"),
+			codeCancelBtn: $("code-cancel-btn"),
 
-			historyPanel: document.getElementById("history-panel"),
-			historyList: document.getElementById("history-list"),
+			historyPanel: $("history-panel"),
+			historyList: $("history-list"),
+			historyHoursBtn: $("history-hours-btn"),
 
-			startEmployeeName: document.getElementById("start-employee-name"),
-			startOvertimeHint: document.getElementById("start-overtime-hint"),
-			startActivityType: document.getElementById("start-activity-type"),
-			startTime: document.getElementById("start-time"),
-			startError: document.getElementById("start-error"),
-			startSaveBtn: document.getElementById("start-save-btn"),
-			startCancelBtn: document.getElementById("start-cancel-btn"),
+			startTitle: $("start-title"),
+			startOvertimeHint: $("start-overtime-hint"),
+			startTiles: $("start-activity-tiles"),
+			startTime: $("start-time"),
+			startError: $("start-error"),
+			startSaveBtn: $("start-save-btn"),
+			startCancelBtn: $("start-cancel-btn"),
 
-			endEmployeeName: document.getElementById("end-employee-name"),
-			endActivityType: document.getElementById("end-activity-type"),
-			endStartTime: document.getElementById("end-start-time"),
-			endTime: document.getElementById("end-time"),
-			endError: document.getElementById("end-error"),
-			endSaveBtn: document.getElementById("end-save-btn"),
-			endCancelBtn: document.getElementById("end-cancel-btn"),
+			endTitle: $("end-title"),
+			endElapsed: $("end-elapsed"),
+			endActivityType: $("end-activity-type"),
+			endStartTime: $("end-start-time"),
+			endTime: $("end-time"),
+			endError: $("end-error"),
+			endSaveBtn: $("end-save-btn"),
+			endCancelBtn: $("end-cancel-btn"),
 
-			overtimeEmployeeName: document.getElementById("overtime-employee-name"),
-			overtimeStatusText: document.getElementById("overtime-status-text"),
-			overtimeHours: document.getElementById("overtime-hours"),
-			overtimeError: document.getElementById("overtime-error"),
-			overtimeSubmitBtn: document.getElementById("overtime-submit-btn"),
-			overtimeCancelBtn: document.getElementById("overtime-cancel-btn"),
+			overtimeTitle: $("overtime-title"),
+			overtimeStatusText: $("overtime-status-text"),
+			overtimeChips: $("overtime-chips"),
+			overtimeHours: $("overtime-hours"),
+			overtimeError: $("overtime-error"),
+			overtimeSubmitBtn: $("overtime-submit-btn"),
+			overtimeCancelBtn: $("overtime-cancel-btn"),
 
-			doneTitle: document.getElementById("done-title"),
-			doneMessage: document.getElementById("done-message"),
+			hoursTitle: $("hours-title"),
+			hoursPresets: $("hours-presets"),
+			hoursFrom: $("hours-from"),
+			hoursTo: $("hours-to"),
+			hoursBody: $("hours-body"),
+			statTotal: $("stat-total"),
+			statTotalHm: $("stat-total-hm"),
+			statRegular: $("stat-regular"),
+			statOvertime: $("stat-overtime"),
+			statDays: $("stat-days"),
+			hoursOpenNote: $("hours-open-note"),
+			hoursRows: $("hours-rows"),
+			hoursEmpty: $("hours-empty"),
+			hoursError: $("hours-error"),
+			hoursBackBtn: $("hours-back-btn"),
+			hoursCsvBtn: $("hours-csv-btn"),
+			hoursPdfBtn: $("hours-pdf-btn"),
+
+			done: $("screen-done"),
+			doneBurst: $("done-burst"),
+			doneMark: $("done-mark"),
+			doneKicker: $("done-kicker"),
+			doneTitle: $("done-title"),
+			doneMessage: $("done-message"),
+			doneFoot: $("done-foot"),
 		};
 
-		function showFlowScreen(name) {
-			Object.keys(els.screens).forEach(function (key) {
-				els.screens[key].hidden = key !== name;
-			});
+		function el(tag, className, text) {
+			var node = document.createElement(tag);
+			if (className) node.className = className;
+			if (text != null) node.textContent = text;
+			return node;
 		}
 
-		function toLocalInputValue(date) {
-			var d = date ? new Date(date) : new Date(siteNowMs());
-			var pad = function (n) { return String(n).padStart(2, "0"); };
-			return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) +
-				"T" + pad(d.getHours()) + ":" + pad(d.getMinutes());
+		function pad(n) { return String(n).padStart(2, "0"); }
+
+		function firstName(name) {
+			return String(name || "").trim().split(/\s+/)[0] || "there";
 		}
 
-		function formatDisplay(date) {
-			return parseLocalDate(date).toLocaleString();
+		function initials(name) {
+			var parts = String(name || "").trim().split(/\s+/).filter(Boolean);
+			if (!parts.length) return "?";
+			if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+			return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
 		}
 
 		function parseLocalDate(date) {
@@ -665,61 +1685,171 @@
 			return new Date(parts[0], parts[1] - 1, parts[2], parts[3] || 0, parts[4] || 0, parts[5] || 0);
 		}
 
+		function toLocalInputValue(date) {
+			var d = date ? new Date(date) : siteNow();
+			return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) +
+				"T" + pad(d.getHours()) + ":" + pad(d.getMinutes());
+		}
+
+		function ymd(d) {
+			return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+		}
+
+		function fmtTime(date) {
+			var d = parseLocalDate(date);
+			var h = d.getHours();
+			return (h % 12 || 12) + ":" + pad(d.getMinutes()) + " " + (h < 12 ? "AM" : "PM");
+		}
+
+		function fmtDay(date, withYear) {
+			var opts = { weekday: "short", month: "short", day: "numeric" };
+			if (withYear) opts.year = "numeric";
+			return parseLocalDate(date).toLocaleDateString("en-US", opts);
+		}
+
+		function formatDisplay(date) {
+			return fmtDay(date) + ", " + fmtTime(date);
+		}
+
+		function fmtHours(value) {
+			return (Number(value) || 0).toFixed(2);
+		}
+
+		function fmtHM(value) {
+			var total = Math.round((Number(value) || 0) * 60);
+			return Math.floor(total / 60) + "h " + pad(total % 60) + "m";
+		}
+
+		function spokenDuration(value) {
+			var total = Math.round((Number(value) || 0) * 60);
+			var h = Math.floor(total / 60);
+			var m = total % 60;
+			var parts = [];
+			if (h) parts.push(h + (h === 1 ? " hour" : " hours"));
+			if (m || !h) parts.push(m + (m === 1 ? " minute" : " minutes"));
+			return parts.join(" and ");
+		}
+
 		function dateKey(date) {
 			var d = parseLocalDate(date);
 			return d.getFullYear() + "-" + d.getMonth() + "-" + d.getDate();
 		}
 
 		function bucketLabel(startDate) {
-			var today = new Date();
-			var yesterday = new Date();
-			yesterday.setDate(today.getDate() - 1);
-
+			var today = siteNow();
+			var yesterday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
 			var key = dateKey(startDate);
 			if (key === dateKey(today)) return "Today";
 			if (key === dateKey(yesterday)) return "Yesterday";
-			return parseLocalDate(startDate).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+			return parseLocalDate(startDate).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 		}
 
-		function renderHistory(timesheets) {
-			var listEl = els.historyList;
-			listEl.innerHTML = "";
-			if (!timesheets || !timesheets.length) {
-				var empty = document.createElement("div");
-				empty.className = "history-empty";
-				empty.textContent = "No past timesheets yet.";
-				listEl.appendChild(empty);
-				return;
-			}
+		function greetingWord(d) {
+			var h = (d || siteNow()).getHours();
+			if (h < 12) return "morning";
+			if (h < 17) return "afternoon";
+			return "evening";
+		}
 
-			var currentLabel = null;
-			var group = null;
+		function farewellLine() {
+			var now = siteNow();
+			var day = now.getDay();
+			var h = now.getHours();
+			if ((day === 5 && h >= 12) || day === 6) return "Have a great weekend!";
+			if (h >= 17) return "Have a good night!";
+			return "See you next time!";
+		}
 
-			timesheets.forEach(function (ts) {
-				var label = bucketLabel(ts.start_date);
-				if (label !== currentLabel) {
-					currentLabel = label;
-					group = document.createElement("div");
-					group.className = "history-group";
-					var heading = document.createElement("div");
-					heading.className = "history-group-label";
-					heading.textContent = label;
-					group.appendChild(heading);
-					listEl.appendChild(group);
-				}
+		function setNamedTitle(node, before, name, after) {
+			node.textContent = "";
+			node.appendChild(document.createTextNode(before));
+			node.appendChild(el("span", "name", firstName(name)));
+			node.appendChild(document.createTextNode(after));
+		}
 
-				var row = document.createElement("div");
-				row.className = "history-row";
-				row.innerHTML =
-					"<span class='h-activity'>" + (ts.activity_types || "-") + "</span>" +
-					"<span class='h-hours'>" + (ts.total_hours || 0).toFixed(2) + "h</span>";
-				group.appendChild(row);
+		var serverSkewMs = 0;
+
+		function noteServerTime(res) {
+			var header = res.headers.get("Date");
+			if (!header) return;
+			var serverMs = new Date(header).getTime();
+			if (!isNaN(serverMs)) serverSkewMs = serverMs - Date.now();
+		}
+
+		var KIOSK_TZ = "America/Los_Angeles";
+		var siteClock = null;
+		try {
+			siteClock = new Intl.DateTimeFormat("en-US", {
+				timeZone: KIOSK_TZ,
+				hour12: false,
+				year: "numeric", month: "2-digit", day: "2-digit",
+				hour: "2-digit", minute: "2-digit", second: "2-digit",
+			});
+		} catch (e) {
+			siteClock = null;
+		}
+
+		function siteNowMs() {
+			var instant = new Date(Date.now() + serverSkewMs);
+			if (!siteClock) return instant.getTime();
+			var p = {};
+			siteClock.formatToParts(instant).forEach(function (part) { p[part.type] = part.value; });
+			return new Date(
+				Number(p.year), Number(p.month) - 1, Number(p.day),
+				Number(p.hour) % 24, Number(p.minute), Number(p.second)
+			).getTime();
+		}
+
+		function siteNow() { return new Date(siteNowMs()); }
+
+		function post(base, method, args) {
+			return fetch(base + method, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					"X-Frappe-CSRF-Token": (window.frappe && frappe.csrf_token) || "",
+				},
+				body: JSON.stringify(args || {}),
+			}).then(function (res) {
+				noteServerTime(res);
+				return res.text().then(function (text) {
+					var data = null;
+					try { data = JSON.parse(text); } catch (e) {  }
+					if (!res.ok) {
+						if (!data) {
+							var missing = new Error("Kiosk API unreachable (" + res.status + ")");
+							missing.routeMissing = true;
+							throw missing;
+						}
+						var msg = data._server_messages || data.exception || "Something went wrong";
+						try {
+							var parsed = JSON.parse(msg);
+							msg = JSON.parse(parsed[0]).message;
+						} catch (e) {  }
+						throw new Error(msg);
+					}
+					return data ? data.message : null;
+				});
+			});
+		}
+
+		function call(method, args) {
+			return post(apiBase, method, args).catch(function (err) {
+				if (!err || !err.routeMissing || apiBase === API_DIRECT) throw err;
+				apiBase = API_DIRECT;
+				return post(apiBase, method, args);
 			});
 		}
 
 		var audioCtx = null;
 		var activeAlarm = null;
 		var alarmSpeechTimer = null;
+
+		function getAudio() {
+			if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+			if (audioCtx.state === "suspended") audioCtx.resume();
+			return audioCtx;
+		}
 
 		function stopOvertimeAlarm() {
 			try {
@@ -755,10 +1885,7 @@
 			stopOvertimeAlarm();
 
 			try {
-				if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-				if (audioCtx.state === "suspended") audioCtx.resume();
-
-				var ctx = audioCtx;
+				var ctx = getAudio();
 				var now = ctx.currentTime;
 				var gain = ctx.createGain();
 				gain.connect(ctx.destination);
@@ -818,52 +1945,115 @@
 			if (names.length) playOvertimeAlarm(names.join(", "));
 		}
 
-		var serverSkewMs = 0;
-
-		function noteServerTime(res) {
-			var header = res.headers.get("Date");
-			if (!header) return;
-			var serverMs = new Date(header).getTime();
-			if (!isNaN(serverMs)) serverSkewMs = serverMs - Date.now();
-		}
-
-		function post(base, method, args) {
-			return fetch(base + method, {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					"X-Frappe-CSRF-Token": (window.frappe && frappe.csrf_token) || "",
-				},
-				body: JSON.stringify(args || {}),
-			}).then(function (res) {
-				noteServerTime(res);
-				return res.text().then(function (text) {
-					var data = null;
-					try { data = JSON.parse(text); } catch (e) {  }
-					if (!res.ok) {
-						if (!data) {
-							var missing = new Error("Kiosk API unreachable (" + res.status + ")");
-							missing.routeMissing = true;
-							throw missing;
-						}
-						var msg = data._server_messages || data.exception || "Something went wrong";
-						try {
-							var parsed = JSON.parse(msg);
-							msg = JSON.parse(parsed[0]).message;
-						} catch (e) {  }
-						throw new Error(msg);
-					}
-					return data ? data.message : null;
+		function playChime(tone) {
+			try {
+				var ctx = getAudio();
+				var notes = tone === "out" ? [784, 659, 523] : [523, 659, 784];
+				var now = ctx.currentTime;
+				notes.forEach(function (freq, i) {
+					var osc = ctx.createOscillator();
+					var gain = ctx.createGain();
+					osc.type = "sine";
+					osc.frequency.value = freq;
+					osc.connect(gain);
+					gain.connect(ctx.destination);
+					var t = now + i * 0.12;
+					gain.gain.setValueAtTime(0, t);
+					gain.gain.linearRampToValueAtTime(0.22, t + 0.02);
+					gain.gain.exponentialRampToValueAtTime(0.001, t + 0.55);
+					osc.start(t);
+					osc.stop(t + 0.6);
 				});
-			});
+			} catch (e) {
+			}
 		}
 
-		function call(method, args) {
-			return post(apiBase, method, args).catch(function (err) {
-				if (!err || !err.routeMissing || apiBase === API_DIRECT) throw err;
-				apiBase = API_DIRECT;
-				return post(apiBase, method, args);
-			});
+		function speak(text) {
+			if (!SPEAK_GREETINGS || !text) return;
+			try {
+				if (!window.speechSynthesis) return;
+				speechSynthesis.cancel();
+				var utter = new SpeechSynthesisUtterance(text);
+				utter.rate = 1;
+				utter.pitch = 1.05;
+				utter.volume = 1;
+				speechSynthesis.speak(utter);
+			} catch (e) {
+			}
+		}
+
+		function buildMark(host, layers, step) {
+			host.innerHTML = "";
+			var inner = el("div", "mark-inner");
+			for (var i = layers; i >= 1; i--) {
+				var back = new Image();
+				back.src = LOGO.dark;
+				back.alt = "";
+				back.className = "mark-layer";
+				back.style.transform = "translateZ(" + (-i * step).toFixed(1) + "px)";
+				back.style.filter = "brightness(" + (1.3 - (i / layers) * 0.8).toFixed(2) + ")";
+				inner.appendChild(back);
+			}
+			var face = new Image();
+			face.src = LOGO.light;
+			face.alt = "";
+			face.className = "mark-layer";
+			inner.appendChild(face);
+			host.appendChild(inner);
+		}
+
+		function rand(min, max) { return min + Math.random() * (max - min); }
+
+		function buildLogoField() {
+			var field = $("logo-field");
+			var count = window.innerWidth < 700 ? 14 : 26;
+			var palette = [
+				{ src: LOGO.light, o: 0.55 },
+				{ src: LOGO.light, o: 0.45 },
+				{ src: LOGO.dark, o: 0.85 },
+				{ src: LOGO.dark, o: 0.7 },
+				{ src: LOGO.white, o: 0.16 },
+			];
+			for (var i = 0; i < count; i++) {
+				var pick = palette[i % palette.length];
+				var img = new Image();
+				img.src = pick.src;
+				img.alt = "";
+				img.className = "fly";
+				var duration = rand(30, 54);
+				img.style.setProperty("--x", rand(-62, 62).toFixed(1) + "vw");
+				img.style.setProperty("--y", rand(-46, 46).toFixed(1) + "vh");
+				img.style.setProperty("--s", Math.round(rand(70, 170)) + "px");
+				img.style.setProperty("--o", pick.o);
+				img.style.setProperty("--r", Math.round(rand(-35, 35)) + "deg");
+				img.style.setProperty("--spin", Math.round(rand(-80, 80)) + "deg");
+				img.style.setProperty("--ry", Math.round(rand(-70, 70)) + "deg");
+				img.style.setProperty("--d", duration.toFixed(1) + "s");
+				img.style.setProperty("--delay", (-rand(0, duration)).toFixed(1) + "s");
+				field.appendChild(img);
+			}
+		}
+
+		function burst() {
+			els.doneBurst.innerHTML = "";
+			if (reduceMotion) return;
+			var srcs = [LOGO.light, LOGO.white, LOGO.light, LOGO.dark];
+			var count = 20;
+			for (var i = 0; i < count; i++) {
+				var img = new Image();
+				img.src = srcs[i % srcs.length];
+				img.alt = "";
+				img.className = "burst-logo";
+				var angle = (i / count) * Math.PI * 2 + rand(-0.2, 0.2);
+				var dist = rand(30, 58);
+				img.style.setProperty("--tx", (Math.cos(angle) * dist).toFixed(1) + "vmax");
+				img.style.setProperty("--ty", (Math.sin(angle) * dist * 0.72).toFixed(1) + "vmax");
+				img.style.setProperty("--tz", Math.round(rand(-150, 450)) + "px");
+				img.style.setProperty("--rot", Math.round(rand(-300, 300)) + "deg");
+				img.style.setProperty("--s", Math.round(rand(44, 120)) + "px");
+				img.style.setProperty("--delay", rand(0, 0.25).toFixed(2) + "s");
+				els.doneBurst.appendChild(img);
+			}
 		}
 
 		function formatElapsed(totalSeconds) {
@@ -871,37 +2061,12 @@
 			var h = Math.floor(totalSeconds / 3600);
 			var m = Math.floor((totalSeconds % 3600) / 60);
 			var s = totalSeconds % 60;
-			var pad = function (n) { return String(n).padStart(2, "0"); };
 			return pad(h) + ":" + pad(m) + ":" + pad(s);
 		}
 
-		function timerSeconds(el) {
-			var drift = (Date.now() - Number(el.dataset.clientBase)) / 1000;
-			return Number(el.dataset.elapsedBase) + drift;
-		}
-
-		var KIOSK_TZ = "America/Los_Angeles";
-		var siteClock = null;
-		try {
-			siteClock = new Intl.DateTimeFormat("en-US", {
-				timeZone: KIOSK_TZ,
-				hour12: false,
-				year: "numeric", month: "2-digit", day: "2-digit",
-				hour: "2-digit", minute: "2-digit", second: "2-digit",
-			});
-		} catch (e) {
-			siteClock = null;
-		}
-
-		function siteNowMs() {
-			var instant = new Date(Date.now() + serverSkewMs);
-			if (!siteClock) return instant.getTime();
-			var p = {};
-			siteClock.formatToParts(instant).forEach(function (part) { p[part.type] = part.value; });
-			return new Date(
-				Number(p.year), Number(p.month) - 1, Number(p.day),
-				Number(p.hour) % 24, Number(p.minute), Number(p.second)
-			).getTime();
+		function timerSeconds(node) {
+			var drift = (Date.now() - Number(node.dataset.clientBase)) / 1000;
+			return Number(node.dataset.elapsedBase) + drift;
 		}
 
 		function runningSeconds(emp) {
@@ -910,158 +2075,218 @@
 			return Math.max(0, (siteNowMs() - parseLocalDate(emp.start_time).getTime()) / 1000);
 		}
 
-		function buildJobCard(emp) {
-			var needsRequest = emp.overtime && emp.overtime.state === "needs_request";
-			var isPending = emp.overtime && emp.overtime.state === "pending";
-			var isApproved = emp.overtime && emp.overtime.state === "approved";
-			var earlyAvailable = emp.running && emp.early_overtime && emp.early_overtime.state === "available";
-			var earlyPending = emp.running && emp.early_overtime && emp.early_overtime.state === "pending";
+		function attachTilt(card) {
+			if (reduceMotion) return;
 
-			var card = document.createElement("div");
-			card.className = "job-card" + (emp.running ? " running" : "") + (needsRequest ? " needs-overtime" : "");
+			function aim(ev, strength) {
+				var r = card.getBoundingClientRect();
+				var px = (ev.clientX - r.left) / r.width - 0.5;
+				var py = (ev.clientY - r.top) / r.height - 0.5;
+				card.style.setProperty("--ry", (px * strength).toFixed(2) + "deg");
+				card.style.setProperty("--rx", (-py * strength).toFixed(2) + "deg");
+			}
 
-			var name = document.createElement("div");
-			name.className = "jc-name";
-			name.textContent = emp.employee_name;
-			card.appendChild(name);
+			function reset() {
+				card.classList.remove("is-tilting");
+				card.style.setProperty("--rx", "0deg");
+				card.style.setProperty("--ry", "0deg");
+				card.style.setProperty("--lift", "0px");
+			}
 
-			var statusText = emp.running ? (emp.is_overtime_session ? "Running (overtime)" : "Running") : "Not started";
+			card.addEventListener("pointermove", function (ev) {
+				if (ev.pointerType !== "mouse") return;
+				card.classList.add("is-tilting");
+				aim(ev, 10);
+			});
+			card.addEventListener("pointerdown", function (ev) {
+				if (ev.pointerType === "mouse") return;
+				aim(ev, 8);
+				card.style.setProperty("--lift", "3px");
+			});
+			card.addEventListener("pointerleave", reset);
+			card.addEventListener("pointerup", function (ev) {
+				if (ev.pointerType !== "mouse") reset();
+			});
+			card.addEventListener("pointercancel", reset);
+		}
+
+		function cardButton(label, className, onClick) {
+			var btn = el("button", "btn3d btn-block " + className, label);
+			btn.type = "button";
+			btn.addEventListener("click", onClick);
+			return btn;
+		}
+
+		function buildJobCard(emp, index) {
+			var ot = emp.overtime || null;
+			var needsRequest = !!(ot && ot.state === "needs_request");
+			var isPending = !!(ot && ot.state === "pending");
+			var isApproved = !!(ot && ot.state === "approved");
+			var early = emp.running ? emp.early_overtime : null;
+			var earlyAvailable = !!(early && early.state === "available");
+			var earlyPending = !!(early && early.state === "pending");
+
+			var card = el("article", "card" + (emp.running ? " running" : "") + (needsRequest ? " needs-overtime" : ""));
+			card.style.setProperty("--i", index);
+
+			var top = el("div", "card-top");
+			top.appendChild(el("div", "avatar", initials(emp.employee_name)));
+
+			var id = el("div", "card-id");
+			id.appendChild(el("div", "card-name", emp.employee_name));
+
+			var statusText = emp.running ? (emp.is_overtime_session ? "On the clock · overtime" : "On the clock") : "Off the clock";
 			if (needsRequest) statusText = "Overtime needed";
 			else if (isPending) statusText = "Overtime pending";
-			else if (earlyPending) statusText = "Running — overtime pending";
+			else if (earlyPending) statusText = "On the clock · OT pending";
 
-			var status = document.createElement("div");
-			status.className = "jc-status";
-			status.innerHTML = "<span class='jc-dot'></span><span>" + statusText + "</span>";
-			card.appendChild(status);
+			var status = el("div", "card-status");
+			status.appendChild(el("span", "dot"));
+			status.appendChild(document.createTextNode(statusText));
+			id.appendChild(status);
+			top.appendChild(id);
 
-			var timer = document.createElement("div");
-			timer.className = "jc-timer";
+			var dl = el("button", "card-dl");
+			dl.type = "button";
+			dl.setAttribute("aria-label", "Download hours for " + emp.employee_name);
+			dl.innerHTML = ICON_DOWNLOAD;
+			dl.addEventListener("click", function () {
+				openCodeScreen(emp.employee, emp.employee_name, "hours");
+			});
+			top.appendChild(dl);
+			card.appendChild(top);
+
+			var timer = el("div", "card-timer");
 			if (emp.running) {
 				timer.dataset.elapsedBase = runningSeconds(emp);
 				timer.dataset.clientBase = Date.now();
 				timer.textContent = formatElapsed(Number(timer.dataset.elapsedBase));
 			} else {
-				timer.textContent = "—";
+				timer.textContent = "00:00:00";
 			}
 			card.appendChild(timer);
 
-			if (emp.running && emp.activity_type) {
-				var activity = document.createElement("div");
-				activity.className = "jc-activity";
-				activity.textContent = emp.activity_type;
-				card.appendChild(activity);
-			}
+			card.appendChild(el("div", "card-activity", emp.running ? (emp.activity_type || "") : ""));
 
 			if (!emp.running && (isPending || isApproved)) {
-				var note = document.createElement("div");
-				note.className = "jc-note";
-				note.textContent = isPending
-					? "Requested " + emp.overtime.requested_hours + "h — awaiting approval"
-					: "Approved: " + emp.overtime.requested_hours + "h overtime available";
-				card.appendChild(note);
+				card.appendChild(el("div", "card-note", isPending
+					? "Requested " + ot.requested_hours + "h overtime, waiting for approval"
+					: "Approved: " + ot.requested_hours + "h overtime available"));
 			} else if (earlyPending) {
-				var earlyNote = document.createElement("div");
-				earlyNote.className = "jc-note";
-				earlyNote.textContent = "Requested " + emp.early_overtime.requested_hours + "h — awaiting approval";
-				card.appendChild(earlyNote);
+				card.appendChild(el("div", "card-note", "Requested " + early.requested_hours + "h overtime, waiting for approval"));
 			}
 
+			var actions = el("div", "card-actions");
 			var action = emp.running ? "end" : (needsRequest ? "overtime" : "start");
-			var btn = document.createElement("button");
-			btn.type = "button";
-			btn.className = "jc-btn " + (emp.running ? "jc-end" : (needsRequest ? "jc-overtime" : "jc-start"));
-			btn.textContent = emp.running ? "End" : (needsRequest ? "Request Overtime" : "Start");
-			btn.addEventListener("click", function () {
-				openCodeScreen(emp.employee, emp.employee_name, action);
-			});
-			card.appendChild(btn);
+			actions.appendChild(cardButton(
+				emp.running ? "Clock Out" : (needsRequest ? "Request Overtime" : "Clock In"),
+				emp.running ? "btn-out" : (needsRequest ? "btn-ot" : ""),
+				function () { openCodeScreen(emp.employee, emp.employee_name, action); }
+			));
 
 			if (earlyAvailable) {
-				var earlyBtn = document.createElement("button");
-				earlyBtn.type = "button";
-				earlyBtn.className = "jc-btn jc-early-overtime";
-				earlyBtn.textContent = "Request Overtime";
-				earlyBtn.addEventListener("click", function () {
+				actions.appendChild(cardButton("Request Overtime", "btn-amber btn-sm", function () {
 					openCodeScreen(emp.employee, emp.employee_name, "early_overtime");
-				});
-				card.appendChild(earlyBtn);
+				}));
 			}
 
 			if (needsRequest) {
-				var endBtn = document.createElement("button");
-				endBtn.type = "button";
-				endBtn.className = "jc-btn jc-end";
-				endBtn.textContent = "End";
-				endBtn.addEventListener("click", function () {
+				actions.appendChild(cardButton("Done for Today", "btn-out btn-sm", function () {
 					openCodeScreen(emp.employee, emp.employee_name, "decline_overtime");
-				});
-				card.appendChild(endBtn);
+				}));
 
-				var silenced = !!emp.overtime.silenced;
+				var silenced = !!ot.silenced;
 				if (silenced) card.classList.add("silenced");
 
-				var stopBtn = document.createElement("button");
-				stopBtn.type = "button";
-				stopBtn.className = "jc-btn jc-silence";
-				stopBtn.textContent = silenced ? "Alarm Stopped" : "Stop Alarm";
-				stopBtn.disabled = silenced;
-				stopBtn.addEventListener("click", function () {
+				var stopBtn = cardButton(silenced ? "Alarm Stopped" : "Stop Alarm", "btn-slate btn-sm", function () {
 					stopBtn.textContent = "Alarm Stopped";
 					stopBtn.disabled = true;
 					card.classList.add("silenced");
 					silenceOvertimeAlarm(emp.employee).catch(function () {
 					});
 				});
-				card.appendChild(stopBtn);
+				stopBtn.disabled = silenced;
+				actions.appendChild(stopBtn);
 			}
 
+			card.appendChild(actions);
+			attachTilt(card);
 			return card;
 		}
 
+		function renderTally(running, total) {
+			els.tally.innerHTML = "";
+			var on = el("span");
+			on.appendChild(el("i", "dot on"));
+			on.appendChild(el("b", null, String(running)));
+			on.appendChild(document.createTextNode(" on the clock"));
+			var off = el("span");
+			off.appendChild(el("i", "dot"));
+			off.appendChild(el("b", null, String(total - running)));
+			off.appendChild(document.createTextNode(" off"));
+			els.tally.appendChild(on);
+			els.tally.appendChild(off);
+		}
+
 		function renderBoard(groups) {
+			var total = 0;
+			var running = 0;
+			(groups || []).forEach(function (group) {
+				(group.employees || []).forEach(function (emp) {
+					total++;
+					if (emp.running) running++;
+				});
+			});
+			renderTally(running, total);
+
 			els.boardGroups.innerHTML = "";
 
-			var total = (groups || []).reduce(function (n, group) {
-				return n + ((group.employees || []).length);
-			}, 0);
-
 			if (!total) {
-				var empty = document.createElement("div");
-				empty.className = "board-empty";
-				empty.textContent = "No employees are set up for kiosk access yet.";
-				els.boardGroups.appendChild(empty);
+				els.boardGroups.appendChild(el("div", "board-empty", "No employees are set up for kiosk access yet."));
 				return;
 			}
 
+			var index = 0;
 			groups.forEach(function (group) {
 				if (!group.employees || !group.employees.length) return;
 
-				var section = document.createElement("div");
-				section.className = "board-group";
+				var section = el("div", "board-group");
+				if (group.title) section.appendChild(el("h2", "board-group-title", group.title));
 
-				if (group.title) {
-					var title = document.createElement("h2");
-					title.className = "board-group-title";
-					title.textContent = group.title;
-					section.appendChild(title);
-				}
-
-				var grid = document.createElement("div");
-				grid.className = "board-grid";
+				var grid = el("div", "board-grid" + (firstRender ? " intro" : ""));
 				group.employees.forEach(function (emp) {
-					grid.appendChild(buildJobCard(emp));
+					grid.appendChild(buildJobCard(emp, index++));
 				});
 				section.appendChild(grid);
-
 				els.boardGroups.appendChild(section);
 			});
+			firstRender = false;
 		}
 
 		function tickBoardTimers() {
-			document.querySelectorAll(".jc-timer[data-elapsed-base]").forEach(function (el) {
-				el.textContent = formatElapsed(timerSeconds(el));
+			document.querySelectorAll(".card-timer[data-elapsed-base]").forEach(function (node) {
+				node.textContent = formatElapsed(timerSeconds(node));
 			});
+		}
+
+		function tickClock() {
+			var now = siteNow();
+			var h = now.getHours();
+			els.clockTime.innerHTML = (h % 12 || 12) + ":" + pad(now.getMinutes()) +
+				"<span class='sec'>:" + pad(now.getSeconds()) + "</span>" +
+				"<span class='ampm'>" + (h < 12 ? "AM" : "PM") + "</span>";
+			els.clockDate.textContent = now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+			var word = greetingWord(now);
+			if (els.helloTitle.dataset.word !== word) {
+				els.helloTitle.dataset.word = word;
+				els.helloTitle.textContent = "Good " + word + ".";
+			}
+		}
+
+		function tickEndTimer() {
+			if (state.screen !== "end" || !state.openSession || els.flowLayout.hidden) return;
+			var seconds = (siteNowMs() - parseLocalDate(state.openSession.start_time).getTime()) / 1000;
+			els.endElapsed.textContent = formatElapsed(seconds);
 		}
 
 		function loadBoard() {
@@ -1073,35 +2298,216 @@
 			});
 		}
 
+		function armIdle() {
+			clearTimeout(idleTimer);
+			idleTimer = null;
+			if (!els.flowLayout.hidden) idleTimer = setTimeout(showBoard, IDLE_RETURN_MS);
+		}
+
+		function sendBoardBack(behind) {
+			els.board.classList.toggle("is-behind", behind);
+			els.board.inert = behind;
+			if (behind) els.board.setAttribute("aria-hidden", "true");
+			else els.board.removeAttribute("aria-hidden");
+		}
+
 		function showBoard() {
+			clearTimeout(doneTimer);
+			clearTimeout(idleTimer);
+			doneTimer = null;
+			idleTimer = null;
 			state.token = null;
 			state.cardEmployee = null;
+			state.cardEmployeeName = null;
 			state.cardAction = null;
+			state.employeeName = null;
+			state.lastActivity = null;
+			state.activity = "";
+			state.code = "";
+			state.busy = false;
+			state.screen = null;
+			state.historyLoaded = false;
+			state.openSession = null;
+			state.hours = null;
+			state.hoursReturn = null;
+			state.hoursRequest++;
 			els.flowLayout.hidden = true;
-			els.boardScreen.hidden = false;
+			els.done.hidden = true;
+			els.doneBurst.innerHTML = "";
+			sendBoardBack(false);
 			loadBoard();
+		}
+
+		function showFlowScreen(name) {
+			state.screen = name;
+			Object.keys(els.screens).forEach(function (key) {
+				els.screens[key].hidden = key !== name;
+			});
+			var withSide = state.historyLoaded && (name === "start" || name === "end" || name === "overtime");
+			els.historyPanel.hidden = !withSide;
+			els.card.setAttribute("data-size", name === "code" ? "sm" : (name === "hours" ? "lg" : (withSide ? "md" : "solo")));
+			els.flowLayout.scrollTop = 0;
+		}
+
+		function openFlow() {
+			sendBoardBack(true);
+			els.flowLayout.hidden = false;
+			armIdle();
+		}
+
+		function shake() {
+			els.pin.classList.remove("shake");
+			void els.pin.offsetWidth;
+			els.pin.classList.add("shake");
+			setTimeout(function () { els.pin.classList.remove("shake"); }, 450);
+		}
+
+		var CODE_COPY = {
+			start: "Enter your code to clock in.",
+			end: "Enter your code to clock out.",
+			overtime: "Enter your code to request overtime.",
+			early_overtime: "Enter your code to request overtime.",
+			decline_overtime: "Enter your code to finish your day.",
+			hours: "Enter your code to see and download your hours.",
+		};
+
+		function renderPin() {
+			var slots = Math.max(CODE_LENGTH, state.code.length);
+			els.pin.innerHTML = "";
+			for (var i = 0; i < slots; i++) {
+				els.pin.appendChild(el("span", i < state.code.length ? "on" : ""));
+			}
 		}
 
 		function openCodeScreen(employee, employeeName, action) {
 			state.cardEmployee = employee;
+			state.cardEmployeeName = employeeName;
 			state.cardAction = action;
-			els.codeEmployeeName.textContent = "For " + employeeName;
-			els.accessCode.value = "";
+			state.code = "";
+			state.busy = false;
+			state.historyLoaded = false;
+			els.codeAvatar.textContent = employeeName ? initials(employeeName) : "?";
+			if (employeeName) setNamedTitle(els.codeTitle, "Hey, ", employeeName, "!");
+			else els.codeTitle.textContent = "Who's there?";
+			els.codeLead.textContent = CODE_COPY[action] || "Enter your access code.";
 			els.codeError.textContent = "";
-			els.boardScreen.hidden = true;
-			els.flowLayout.hidden = false;
+			els.pin.classList.remove("checking");
+			renderPin();
+			openFlow();
 			showFlowScreen("code");
-			els.accessCode.focus();
+		}
+
+		function pressKey(key) {
+			if (state.busy || state.screen !== "code") return;
+			if (key === "back") {
+				state.code = state.code.slice(0, -1);
+				els.codeError.textContent = "";
+			} else if (key === "go") {
+				submitCode();
+				return;
+			} else if (/^\d$/.test(key) && state.code.length < 12) {
+				state.code += key;
+				els.codeError.textContent = "";
+			}
+			renderPin();
+			if (state.code.length === CODE_LENGTH && key !== "back") submitCode();
+		}
+
+		function submitCode() {
+			var code = state.code;
+			if (!code || state.busy) return;
+			state.busy = true;
+			els.codeError.textContent = "";
+			els.pin.classList.add("checking");
+
+			call("verify_access_code", { access_code: code, employee: state.cardEmployee })
+				.then(handleVerified)
+				.catch(function (err) {
+					els.codeError.textContent = (err && err.message) || "Invalid access code";
+					shake();
+					state.code = "";
+					renderPin();
+				})
+				.finally(function () {
+					state.busy = false;
+					els.pin.classList.remove("checking");
+				});
+		}
+
+		function handleVerified(result) {
+			state.token = result.token;
+			state.employeeName = result.employee_name;
+			var recent = result.recent_timesheets || [];
+			state.lastActivity = recent.length && recent[0].activity_types ? String(recent[0].activity_types).split(", ")[0] : null;
+			renderHistory(recent);
+			state.historyLoaded = true;
+
+			if (state.cardAction === "hours") {
+				showHoursScreen(null);
+				return null;
+			}
+
+			var prompt = result.overtime_prompt;
+			if (prompt && prompt.state === "needs_request" && state.cardAction === "decline_overtime") {
+				return call("decline_overtime_request", { token: state.token }).then(function () {
+					var first = firstName(state.employeeName);
+					var farewell = farewellLine();
+					celebrate({
+						tone: "out",
+						kicker: "Day complete",
+						title: "Goodbye, " + first + "!",
+						message: "Your day is marked complete. No overtime requested.",
+						foot: farewell,
+						speech: "Goodbye, " + first + ". " + farewell,
+					});
+				});
+			}
+			if (prompt && prompt.state === "needs_request") {
+				showOvertimeScreen(result, false);
+			} else if (state.cardAction === "early_overtime" && result.open_session) {
+				showOvertimeScreen(result, true);
+			} else if (result.open_session) {
+				showEndScreen(result);
+			} else {
+				showStartScreen(result);
+			}
+			return null;
+		}
+
+		function renderHistory(timesheets) {
+			var listEl = els.historyList;
+			listEl.innerHTML = "";
+			if (!timesheets || !timesheets.length) {
+				listEl.appendChild(el("div", "history-empty", "No past shifts yet."));
+				return;
+			}
+
+			var currentLabel = null;
+			var group = null;
+
+			timesheets.forEach(function (ts) {
+				var label = bucketLabel(ts.start_date);
+				if (label !== currentLabel) {
+					currentLabel = label;
+					group = el("div", "history-group");
+					group.appendChild(el("div", "history-group-label", label));
+					listEl.appendChild(group);
+				}
+
+				var row = el("div", "history-row");
+				row.appendChild(el("span", "h-activity", ts.activity_types || "-"));
+				row.appendChild(el("span", "h-hours", fmtHours(ts.total_hours) + "h"));
+				group.appendChild(row);
+			});
 		}
 
 		function overtimeHintText(prompt) {
 			if (!prompt) return "";
-			if (prompt.state === "pending") return "Overtime request pending (" + prompt.requested_hours + "h) — awaiting approval.";
+			if (prompt.state === "pending") return "Overtime request pending (" + prompt.requested_hours + "h), waiting for approval.";
 			if (prompt.state === "approved") {
 				var text = "Overtime approved: " + prompt.requested_hours + "h available this session.";
 				if (prompt.requested_at) {
-					text += " Your timer runs from " + formatDisplay(prompt.requested_at) +
-						", when you sent the request.";
+					text += " Your timer runs from " + formatDisplay(prompt.requested_at) + ", when you sent the request.";
 				}
 				return text;
 			}
@@ -1110,130 +2516,370 @@
 
 		function showStartScreen(result) {
 			var prompt = result.overtime_prompt;
-
 			var approvedFrom = prompt && prompt.state === "approved" && prompt.requested_at
 				? prompt.requested_at
 				: null;
 
-			els.startEmployeeName.textContent = result.employee_name;
+			setNamedTitle(els.startTitle, "Good " + greetingWord() + ", ", result.employee_name, ".");
 			els.startTime.value = toLocalInputValue(approvedFrom ? parseLocalDate(approvedFrom) : null);
 			els.startTime.readOnly = !!approvedFrom;
 			var hint = overtimeHintText(prompt);
 			els.startOvertimeHint.textContent = hint;
 			els.startOvertimeHint.hidden = !hint;
+			els.startError.textContent = "";
+			els.startSaveBtn.textContent = "Clock In";
+			state.activity = "";
 			loadActivityTypes();
 			showFlowScreen("start");
 			updateStartSaveState();
 		}
 
-		function showEndScreen(result) {
-			els.endEmployeeName.textContent = result.employee_name;
-			els.endActivityType.textContent = result.open_session.activity_type;
-			els.endStartTime.textContent = formatDisplay(result.open_session.start_time);
-			els.endTime.value = toLocalInputValue();
-			showFlowScreen("end");
-		}
-
-		function showOvertimeScreen(result, isEarly) {
-			els.overtimeEmployeeName.textContent = result.employee_name;
-			els.overtimeStatusText.textContent = isEarly ? "Still running" : "8 hours complete";
-			els.overtimeHours.value = "";
-			els.overtimeError.textContent = "";
-			showFlowScreen("overtime");
-			els.overtimeHours.focus();
-		}
-
-		els.codeCancelBtn.addEventListener("click", showBoard);
-
-		els.codeForm.addEventListener("submit", function (event) {
-			event.preventDefault();
-			var code = els.accessCode.value.trim();
-			if (!code) return;
-
-			els.codeError.textContent = "";
-			els.unlockBtn.disabled = true;
-			els.unlockBtn.textContent = "Checking…";
-
-			call("verify_access_code", { access_code: code, employee: state.cardEmployee })
-				.then(function (result) {
-					state.token = result.token;
-					renderHistory(result.recent_timesheets);
-					els.historyPanel.hidden = false;
-
-					if (result.overtime_prompt && result.overtime_prompt.state === "needs_request" && state.cardAction === "decline_overtime") {
-						return call("decline_overtime_request", { token: state.token }).then(function () {
-							els.doneTitle.textContent = "All Set";
-							els.doneMessage.textContent = "Your day is marked complete. No overtime requested.";
-							showFlowScreen("done");
-							setTimeout(showBoard, 2200);
-						});
-					} else if (result.overtime_prompt && result.overtime_prompt.state === "needs_request") {
-						showOvertimeScreen(result, false);
-					} else if (state.cardAction === "early_overtime" && result.open_session) {
-						showOvertimeScreen(result, true);
-					} else if (result.open_session) {
-						showEndScreen(result);
-					} else {
-						showStartScreen(result);
-					}
-				})
-				.catch(function (err) {
-					els.codeError.textContent = err.message || "Invalid access code";
-					els.card.classList.add("shake");
-					setTimeout(function () { els.card.classList.remove("shake"); }, 400);
-					els.accessCode.value = "";
-					els.accessCode.focus();
-				})
-				.finally(function () {
-					els.unlockBtn.disabled = false;
-					els.unlockBtn.textContent = "Unlock";
-				});
-		});
-
 		function loadActivityTypes() {
-			els.startActivityType.innerHTML = "<option value=''>Select…</option>";
+			els.startTiles.innerHTML = "";
+			els.startTiles.appendChild(el("div", "tiles-loading", "Loading activities…"));
 			call("get_activity_types").then(function (types) {
-				(types || []).forEach(function (t) {
-					var opt = document.createElement("option");
-					opt.value = t;
-					opt.textContent = t;
-					els.startActivityType.appendChild(opt);
+				els.startTiles.innerHTML = "";
+				(types || []).forEach(function (name) {
+					var tile = el("button", "tile");
+					tile.type = "button";
+					tile.appendChild(el("span", null, name));
+					if (name === state.lastActivity) tile.appendChild(el("span", "tile-tag", "Last time"));
+					tile.addEventListener("click", function () {
+						state.activity = name;
+						Array.prototype.forEach.call(els.startTiles.children, function (node) {
+							node.classList.toggle("selected", node === tile);
+						});
+						updateStartSaveState();
+					});
+					els.startTiles.appendChild(tile);
 				});
 			}).catch(function () {
-				els.startActivityType.innerHTML = "<option value=''>Failed to load</option>";
+				els.startTiles.innerHTML = "";
+				els.startTiles.appendChild(el("div", "tiles-loading", "Could not load activities. Tap Cancel and try again."));
 			});
 		}
 
 		function updateStartSaveState() {
-			els.startSaveBtn.disabled = !(els.startActivityType.value && els.startTime.value);
+			els.startSaveBtn.disabled = !(state.activity && els.startTime.value);
 		}
 
-		els.startActivityType.addEventListener("change", updateStartSaveState);
-		els.startTime.addEventListener("input", updateStartSaveState);
+		function showEndScreen(result) {
+			state.openSession = result.open_session;
+			setNamedTitle(els.endTitle, "Wrapping up, ", result.employee_name, "?");
+			els.endActivityType.textContent = result.open_session.activity_type || "-";
+			els.endStartTime.textContent = formatDisplay(result.open_session.start_time);
+			els.endTime.value = toLocalInputValue();
+			els.endError.textContent = "";
+			els.endSaveBtn.textContent = "Clock Out";
+			els.endSaveBtn.disabled = false;
+			showFlowScreen("end");
+			tickEndTimer();
+		}
 
+		function selectOvertimeChip(hours) {
+			Array.prototype.forEach.call(els.overtimeChips.children, function (chip) {
+				chip.classList.toggle("selected", chip.dataset.hours === String(hours));
+			});
+		}
+
+		function showOvertimeScreen(result, isEarly) {
+			setNamedTitle(els.overtimeTitle, "Need more time, ", result.employee_name, "?");
+			els.overtimeStatusText.textContent = isEarly
+				? "You're still on the clock. Ask for overtime before your 8 hours run out."
+				: "Your 8 hours are complete. Ask for extra time and a manager will approve it.";
+			els.overtimeHours.value = "";
+			els.overtimeError.textContent = "";
+			els.overtimeSubmitBtn.disabled = false;
+			els.overtimeSubmitBtn.textContent = "Send Request";
+			selectOvertimeChip(null);
+			showFlowScreen("overtime");
+		}
+
+		var PRESET_KEYS = ["this_week", "last_week", "this_month", "last_month", "all"];
+
+		function presetRange(key) {
+			var now = siteNow();
+			var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+			var weekStart = new Date(today.getFullYear(), today.getMonth(), today.getDate() - ((today.getDay() + 1) % 7));
+			function shift(base, days) { return new Date(base.getFullYear(), base.getMonth(), base.getDate() + days); }
+			if (key === "this_week") return { from: ymd(weekStart), to: ymd(shift(weekStart, 6)) };
+			if (key === "last_week") return { from: ymd(shift(weekStart, -7)), to: ymd(shift(weekStart, -1)) };
+			if (key === "this_month") return { from: ymd(new Date(today.getFullYear(), today.getMonth(), 1)), to: ymd(new Date(today.getFullYear(), today.getMonth() + 1, 0)) };
+			if (key === "last_month") return { from: ymd(new Date(today.getFullYear(), today.getMonth() - 1, 1)), to: ymd(new Date(today.getFullYear(), today.getMonth(), 0)) };
+			return { from: "", to: ymd(today) };
+		}
+
+		function markPreset(key) {
+			Array.prototype.forEach.call(els.hoursPresets.children, function (btn) {
+				btn.classList.toggle("active", btn.dataset.preset === key);
+			});
+		}
+
+		function setPreset(key) {
+			if (PRESET_KEYS.indexOf(key) === -1) return;
+			var range = presetRange(key);
+			els.hoursFrom.value = range.from;
+			els.hoursTo.value = range.to;
+			markPreset(key);
+			loadHours();
+		}
+
+		function showHoursScreen(returnTo) {
+			state.hoursReturn = returnTo;
+			state.hours = null;
+			els.hoursTitle.textContent = "";
+			els.hoursTitle.appendChild(el("span", "name", firstName(state.employeeName)));
+			els.hoursTitle.appendChild(document.createTextNode("'s hours"));
+			els.hoursBackBtn.textContent = returnTo ? "Back" : "Done";
+			els.hoursError.textContent = "";
+			showFlowScreen("hours");
+			setPreset("this_week");
+		}
+
+		function setDownloadsEnabled(enabled) {
+			els.hoursPdfBtn.disabled = !enabled;
+			els.hoursCsvBtn.disabled = !enabled;
+		}
+
+		function loadHours() {
+			var req = ++state.hoursRequest;
+			els.hoursError.textContent = "";
+			els.hoursBody.classList.add("loading");
+			setDownloadsEnabled(false);
+
+			call("get_my_hours", {
+				token: state.token,
+				from_date: els.hoursFrom.value || null,
+				to_date: els.hoursTo.value || null,
+			}).then(function (report) {
+				if (req !== state.hoursRequest) return;
+				state.hours = report;
+				renderHours(report);
+			}).catch(function (err) {
+				if (req !== state.hoursRequest) return;
+				state.hours = null;
+				els.hoursError.textContent = (err && err.message) || "Could not load your hours.";
+			}).finally(function () {
+				if (req !== state.hoursRequest) return;
+				els.hoursBody.classList.remove("loading");
+			});
+		}
+
+		function renderHours(report) {
+			if (!els.hoursFrom.value) els.hoursFrom.value = report.from_date;
+			if (!els.hoursTo.value) els.hoursTo.value = report.to_date;
+			els.statTotal.textContent = fmtHours(report.total_hours);
+			els.statTotalHm.textContent = "Total hours · " + fmtHM(report.total_hours);
+			els.statRegular.textContent = fmtHours(report.regular_hours);
+			els.statOvertime.textContent = fmtHours(report.overtime_hours);
+			els.statDays.textContent = String(report.days_worked || 0);
+
+			if (report.open_session) {
+				els.hoursOpenNote.textContent = "You're on the clock right now (" + (report.open_session.activity_type || "shift") +
+					" since " + fmtTime(report.open_session.start_time) + "). That shift shows up here after you clock out.";
+				els.hoursOpenNote.hidden = false;
+			} else {
+				els.hoursOpenNote.hidden = true;
+			}
+
+			els.hoursRows.innerHTML = "";
+			var days = (report.days || []).slice().reverse();
+			days.forEach(function (day) {
+				var head = el("tr", "day");
+				var label = el("td", null, fmtDay(day.date));
+				label.colSpan = 3;
+				if (day.overtime_hours) {
+					var tag = el("span", "ot-tag", fmtHours(day.overtime_hours) + " OT");
+					label.appendChild(tag);
+				}
+				head.appendChild(label);
+				head.appendChild(el("td", "num", fmtHours(day.hours)));
+				els.hoursRows.appendChild(head);
+
+				day.entries.forEach(function (entry) {
+					var row = el("tr");
+					var act = el("td", "act", entry.activity_type || "-");
+					if (entry.overtime) act.appendChild(el("span", "ot-tag", "OT"));
+					row.appendChild(act);
+					row.appendChild(el("td", null, entry.start ? fmtTime(entry.start) : "-"));
+					row.appendChild(el("td", null, entry.end ? fmtTime(entry.end) : "-"));
+					row.appendChild(el("td", "num", fmtHours(entry.hours)));
+					els.hoursRows.appendChild(row);
+				});
+			});
+
+			var hasRows = days.length > 0;
+			els.hoursEmpty.hidden = hasRows;
+			setDownloadsEnabled(hasRows);
+		}
+
+		function hoursFilename(ext) {
+			var r = state.hours;
+			var name = String(r.employee_name || "Employee").replace(/[^A-Za-z0-9 _.-]+/g, "").trim() || "Employee";
+			return "Timesheet - " + name + " - " + r.from_date + " to " + r.to_date + "." + ext;
+		}
+
+		function saveBlob(blob, filename) {
+			var url = URL.createObjectURL(blob);
+			var link = document.createElement("a");
+			link.href = url;
+			link.download = filename;
+			link.style.display = "none";
+			document.body.appendChild(link);
+			link.click();
+			setTimeout(function () {
+				URL.revokeObjectURL(url);
+				link.remove();
+			}, 4000);
+		}
+
+		function saveBase64(filename, b64, type) {
+			var raw = atob(b64);
+			var bytes = new Uint8Array(raw.length);
+			for (var i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+			saveBlob(new Blob([bytes], { type: type }), filename);
+		}
+
+		function csvCell(value) {
+			var text = value == null ? "" : String(value);
+			return /[",\r\n]/.test(text) ? "\"" + text.replace(/"/g, "\"\"") + "\"" : text;
+		}
+
+		function downloadCsv() {
+			var r = state.hours;
+			if (!r) return;
+			var lines = [["Date", "Activity", "Clock In", "Clock Out", "Hours", "Overtime", "Timesheet"]];
+			(r.days || []).forEach(function (day) {
+				day.entries.forEach(function (entry) {
+					lines.push([
+						day.date,
+						entry.activity_type,
+						entry.start || "",
+						entry.end || "",
+						fmtHours(entry.hours),
+						entry.overtime ? "Yes" : "No",
+						entry.timesheet,
+					]);
+				});
+			});
+			lines.push(["Total", "", "", "", fmtHours(r.total_hours), fmtHours(r.overtime_hours), ""]);
+			var csv = lines.map(function (row) { return row.map(csvCell).join(","); }).join("\r\n");
+			saveBlob(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" }), hoursFilename("csv"));
+		}
+
+		function downloadPdf() {
+			var r = state.hours;
+			if (!r) return;
+			var btn = els.hoursPdfBtn;
+			var original = btn.innerHTML;
+			btn.disabled = true;
+			btn.textContent = "Preparing…";
+			els.hoursError.textContent = "";
+
+			call("download_my_hours", { token: state.token, from_date: r.from_date, to_date: r.to_date })
+				.then(function (file) {
+					saveBase64(file.filename || hoursFilename("pdf"), file.content, "application/pdf");
+				})
+				.catch(function (err) {
+					els.hoursError.textContent = (err && err.message) || "Could not create the PDF.";
+				})
+				.finally(function () {
+					btn.innerHTML = original;
+					btn.disabled = !state.hours;
+				});
+		}
+
+		function celebrate(opts) {
+			clearTimeout(doneTimer);
+			clearTimeout(idleTimer);
+			idleTimer = null;
+			els.flowLayout.hidden = true;
+			els.done.setAttribute("data-tone", opts.tone || "in");
+			els.doneKicker.textContent = opts.kicker || "";
+			els.doneTitle.textContent = opts.title || "";
+			els.doneMessage.textContent = opts.message || "";
+			els.doneFoot.textContent = opts.foot || "";
+			els.doneFoot.hidden = !opts.foot;
+			burst();
+			els.done.hidden = false;
+			doneShownAt = Date.now();
+			playChime(opts.tone);
+			if (opts.speech) {
+				setTimeout(function () { speak(opts.speech); }, 500);
+			}
+			doneTimer = setTimeout(showBoard, opts.duration || 5500);
+		}
+
+		els.done.addEventListener("click", function () {
+			if (Date.now() - doneShownAt < 700) return;
+			showBoard();
+		});
+
+		els.myHoursBtn.addEventListener("click", function () {
+			openCodeScreen(null, null, "hours");
+		});
+
+		els.keypad.addEventListener("click", function (ev) {
+			var key = ev.target.closest("[data-key]");
+			if (key) pressKey(key.dataset.key);
+		});
+
+		document.addEventListener("keydown", function (ev) {
+			if (els.flowLayout.hidden) return;
+			if (ev.key === "Escape") {
+				showBoard();
+				return;
+			}
+			if (state.screen !== "code") return;
+			if (/^\d$/.test(ev.key)) pressKey(ev.key);
+			else if (ev.key === "Backspace") pressKey("back");
+			else if (ev.key === "Enter") pressKey("go");
+			else return;
+			ev.preventDefault();
+		});
+
+		["pointerdown", "keydown", "input", "change"].forEach(function (type) {
+			document.addEventListener(type, armIdle, true);
+		});
+
+		els.codeCancelBtn.addEventListener("click", showBoard);
+		els.flowBackdrop.addEventListener("click", function () {
+			if (state.screen === "code") showBoard();
+		});
+
+		els.historyHoursBtn.addEventListener("click", function () {
+			showHoursScreen(state.screen);
+		});
+
+		els.startTime.addEventListener("input", updateStartSaveState);
 		els.startCancelBtn.addEventListener("click", showBoard);
 
 		els.startSaveBtn.addEventListener("click", function () {
 			els.startError.textContent = "";
-
 			els.startSaveBtn.disabled = true;
-			els.startSaveBtn.textContent = "Saving…";
+			els.startSaveBtn.textContent = "Clocking in…";
+			var activity = state.activity;
 
 			call("start_session", {
 				token: state.token,
-				activity_type: els.startActivityType.value,
+				activity_type: activity,
 				start_time: els.startTime.value.replace("T", " "),
 			})
-				.then(function () {
-					els.doneTitle.textContent = "Your Time is Start Now";
-					els.doneMessage.textContent = "Have a productive shift!";
-					showFlowScreen("done");
-					setTimeout(showBoard, 2200);
+				.then(function (res) {
+					var first = firstName(state.employeeName);
+					var at = res && res.start_time ? res.start_time : els.startTime.value;
+					celebrate({
+						tone: "in",
+						kicker: "Clocked in at " + fmtTime(at),
+						title: "Welcome in, " + first + "!",
+						message: activity + ". Have a great shift.",
+						speech: "Welcome in, " + first + ". Have a great shift.",
+					});
 				})
 				.catch(function (err) {
-					els.startError.textContent = err.message || "Could not start session";
+					els.startError.textContent = (err && err.message) || "Could not start session";
 					els.startSaveBtn.disabled = false;
-					els.startSaveBtn.textContent = "Save & Start";
+					els.startSaveBtn.textContent = "Clock In";
 				});
 		});
 
@@ -1241,22 +2887,41 @@
 
 		els.endSaveBtn.addEventListener("click", function () {
 			els.endError.textContent = "";
-
 			els.endSaveBtn.disabled = true;
-			els.endSaveBtn.textContent = "Saving…";
+			els.endSaveBtn.textContent = "Clocking out…";
+			var endValue = els.endTime.value;
 
-			call("end_session", { token: state.token, end_time: els.endTime.value.replace("T", " ") })
+			call("end_session", { token: state.token, end_time: endValue.replace("T", " ") })
 				.then(function (result) {
-					els.doneTitle.textContent = "Timesheet completed";
-					els.doneMessage.textContent = result.hours + " hour(s) logged for " + result.activity_type;
-					showFlowScreen("done");
-					setTimeout(showBoard, 2800);
+					var first = firstName(state.employeeName);
+					var farewell = farewellLine();
+					celebrate({
+						tone: "out",
+						kicker: "Clocked out at " + fmtTime(endValue),
+						title: "Goodbye, " + first + "!",
+						message: fmtHours(result.hours) + " hours (" + fmtHM(result.hours) + ") logged for " + result.activity_type + ".",
+						foot: farewell,
+						speech: "Goodbye, " + first + ". You worked " + spokenDuration(result.hours) + ". " + farewell,
+						duration: 6500,
+					});
 				})
 				.catch(function (err) {
-					els.endError.textContent = err.message || "Could not end session";
+					els.endError.textContent = (err && err.message) || "Could not end session";
 					els.endSaveBtn.disabled = false;
-					els.endSaveBtn.textContent = "Save & End";
+					els.endSaveBtn.textContent = "Clock Out";
 				});
+		});
+
+		els.overtimeChips.addEventListener("click", function (ev) {
+			var chip = ev.target.closest("[data-hours]");
+			if (!chip) return;
+			els.overtimeHours.value = chip.dataset.hours;
+			els.overtimeError.textContent = "";
+			selectOvertimeChip(chip.dataset.hours);
+		});
+
+		els.overtimeHours.addEventListener("input", function () {
+			selectOvertimeChip(els.overtimeHours.value);
 		});
 
 		els.overtimeCancelBtn.addEventListener("click", showBoard);
@@ -1265,7 +2930,7 @@
 			els.overtimeError.textContent = "";
 			var hours = parseFloat(els.overtimeHours.value);
 			if (!hours || hours <= 0) {
-				els.overtimeError.textContent = "Please enter how many hours.";
+				els.overtimeError.textContent = "Pick or type how many extra hours you need.";
 				return;
 			}
 
@@ -1274,23 +2939,62 @@
 
 			call("submit_overtime_request", { token: state.token, requested_hours: hours })
 				.then(function () {
-					els.doneTitle.textContent = "Request Sent";
-					els.doneMessage.textContent = "Your request has been sent! You'll get a message once it's decided.";
-					showFlowScreen("done");
-					setTimeout(showBoard, 2800);
+					var first = firstName(state.employeeName);
+					celebrate({
+						tone: "in",
+						kicker: "Overtime request",
+						title: "Request sent, " + first + "!",
+						message: hours + " extra hour" + (hours === 1 ? "" : "s") + " requested. You'll get an email once it's decided.",
+						speech: "Request sent. You'll get an email once it's decided.",
+					});
 				})
 				.catch(function (err) {
-					els.overtimeError.textContent = err.message || "Could not send the request";
-				})
-				.finally(function () {
+					els.overtimeError.textContent = (err && err.message) || "Could not send the request";
 					els.overtimeSubmitBtn.disabled = false;
-					els.overtimeSubmitBtn.textContent = "Submit Request";
+					els.overtimeSubmitBtn.textContent = "Send Request";
 				});
 		});
 
-		boardTimerHandle = setInterval(tickBoardTimers, 1000);
-		boardRefreshHandle = setInterval(function () {
-			if (!els.boardScreen.hidden) loadBoard();
+		els.hoursPresets.addEventListener("click", function (ev) {
+			var btn = ev.target.closest("[data-preset]");
+			if (btn) setPreset(btn.dataset.preset);
+		});
+
+		[els.hoursFrom, els.hoursTo].forEach(function (input) {
+			input.addEventListener("change", function () {
+				markPreset(null);
+				if (els.hoursFrom.value && els.hoursTo.value && els.hoursFrom.value > els.hoursTo.value) {
+					els.hoursError.textContent = "The From date must be before the To date.";
+					return;
+				}
+				loadHours();
+			});
+		});
+
+		els.hoursBackBtn.addEventListener("click", function () {
+			if (state.hoursReturn && els.screens[state.hoursReturn]) {
+				showFlowScreen(state.hoursReturn);
+			} else {
+				showBoard();
+			}
+		});
+
+		els.hoursCsvBtn.addEventListener("click", downloadCsv);
+		els.hoursPdfBtn.addEventListener("click", downloadPdf);
+
+		buildLogoField();
+		buildMark(els.brandMark, 8, 1.4);
+		buildMark(els.doneMark, 14, 2.6);
+		tickClock();
+
+		setInterval(function () {
+			tickBoardTimers();
+			tickClock();
+			tickEndTimer();
+		}, 1000);
+
+		setInterval(function () {
+			if (els.flowLayout.hidden && els.done.hidden) loadBoard();
 		}, 30000);
 
 		showBoard();

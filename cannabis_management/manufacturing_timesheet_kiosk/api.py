@@ -306,6 +306,20 @@ def verify_access_code(access_code, employee=None):
 	}
 
 
+@frappe.whitelist(allow_guest=True)
+def get_my_hours(token, from_date=None, to_date=None):
+	from cannabis_management.manufacturing_timesheet_kiosk.hours_report import build_report
+
+	return build_report(_resolve_token(token), from_date, to_date)
+
+
+@frappe.whitelist(allow_guest=True)
+def download_my_hours(token, from_date=None, to_date=None):
+	from cannabis_management.manufacturing_timesheet_kiosk.hours_report import build_report, render_pdf
+
+	return render_pdf(build_report(_resolve_token(token), from_date, to_date))
+
+
 def _overtime_start_time(req, now=None):
 	now = now or _kiosk_now()
 	start = get_datetime(req.get("requested_at"))
