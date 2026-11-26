@@ -569,3 +569,46 @@ def plan_board_rows(statuses):
 		r.promised_return_date = str(r.promised_return_date) if r.promised_return_date else None
 	rows.sort(key=lambda r: r.priority != "Rush")
 	return rows
+
+
+# ---------------------------------------------------------------- Toll Processing workspace hub
+
+@frappe.whitelist()
+def get_hub_data():
+	"""Live numbers for the Toll Processing Hub block on the Toll Processing workspace."""
+	_require(VIEW_ROLES, _("open the Toll Processing workspace"))
+	where, vals = _filters_sql({"show_closed": 1})
+	jobs = _cards(where, vals, 2000)
+	counts, kpis = {}, {}
+	for j in jobs:
+		counts[j.status] = counts.get(j.status, 0) + 1
+	open_jobs = [j for j in jobs if j.status not in ("Returned", "Invoiced")]
+	washed = sum(flt(j.ff_washed_lbs) for j in jobs)
+	pressed = sum(flt(j.bh_pressed_grams) for j in jobs)
+	kpis = {
+		"open_jobs": len(open_jobs),
+		"ff_on_hand_lbs": flt(sum(flt(j.ff_balance_lbs) for j in jobs), 3),
+		"bh_wip_grams": flt(sum(flt(j.bh_wip_grams) for j in jobs), 3),
+		"output_ready_grams": flt(sum(flt(j.bh_output_grams) + flt(j.rosin_output_grams) for j in jobs), 3),
+		"overdue": sum(1 for j in jobs if j.overdue),
+		"uninvoiced_returned": counts.get("Returned", 0),
+		"wash_yield": flt(sum(flt(j.bh_grams) for j in jobs) / (washed * LB_TO_G) * 100, 2) if washed else 0,
+		"press_yield": flt(sum(flt(j.rosin_grams) for j in jobs) / pressed * 100, 1) if pressed else 0,
+		"ff_washed_lbs": flt(washed, 1),
+	}
+	si = frappe.db.sql("""select count(*), coalesce(sum(base_net_total), 0) from `tabSales Invoice`
+		where docstatus = 1 and ifnull(toll_job, '') != ''""")[0]
+	totals = {
+		"jobs": len(jobs),
+		"clients": frappe.db.count("Customer", {"customer_group": CUSTOMER_GROUP, "disabled": 0}),
+		"stock_entries": frappe.db.count("Stock Entry", {"toll_job": ["is", "set"], "docstatus": 1}),
+		"returns": frappe.db.count("Delivery Note", {"toll_job": ["is", "set"], "docstatus": 1}),
+		"invoices": cint(si[0]), "invoiced": flt(si[1]),
+		"batches": frappe.db.count("Batch", {"toll_job": ["is", "set"], "disabled": 0}),
+	}
+	recent = sorted(jobs, key=lambda j: j.modified or "", reverse=True)[:6]
+	r = set(frappe.get_roles())
+	return {"kpis": kpis, "counts": counts, "totals": totals, "today": nowdate(),
+		"recent": [{k: j.get(k) for k in ("name", "customer", "customer_name", "strain", "status", "return_type", "priority",
+			"received_date", "ff_received_lbs", "overdue")} for j in recent],
+		"can": {"produce": bool(r & PRODUCE_ROLES), "invoice": bool(r & INVOICE_ROLES)}}

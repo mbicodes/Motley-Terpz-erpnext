@@ -73,6 +73,13 @@ class TollProcessingBoard {
 		this.shell();
 		this.ready = true;
 		await this.refresh();
+		// deep link from the Toll Processing workspace: ?receive=1 opens Receive Material
+		const q = new URLSearchParams(window.location.search);
+		if ((q.get('receive') === '1' || (frappe.route_options && frappe.route_options.receive)) && this.ctx.can.produce) {
+			if (frappe.route_options) delete frappe.route_options.receive;
+			window.history.replaceState(null, '', window.location.pathname);
+			this.receive_dialog();
+		}
 	}
 
 	shell() {

@@ -1,0 +1,33 @@
+<!-- Toll Processing Hub (Custom HTML Block). Source of truth: cannabis_management/toll/hub/; toll.install copies it
+     into the block on every migrate. Data: cannabis_management.toll.api.get_hub_data. -->
+<div class="hub" id="hub">
+  <section class="hero">
+    <div class="hero-top">
+      <div class="hero-text">
+        <h1>Toll Processing</h1>
+        <p>Customer-owned Fresh Frozen, washed and pressed for outside clients. Stock moves at zero value in the Toll warehouses; MTM bills a service invoice.</p>
+      </div>
+      <div class="hero-acts" id="hero-acts">
+        <a class="btn primary" href="/app/toll-processing-board">Open Toll Processing Board</a>
+      </div>
+    </div>
+    <div class="kpis" id="kpis"><div class="kpi skeleton"></div><div class="kpi skeleton"></div><div class="kpi skeleton"></div><div class="kpi skeleton"></div><div class="kpi skeleton"></div></div>
+    <div class="pipe" id="pipe" aria-label="Jobs by status"></div>
+  </section>
+
+  <div class="grid">
+    <section class="panel">
+      <div class="panel-head"><h2>Go to</h2><span class="muted" id="updated"></span></div>
+      <div class="tiles" id="tiles"></div>
+    </section>
+    <section class="panel">
+      <div class="panel-head"><h2>Recent toll jobs</h2><a class="more" href="/app/toll-job">All toll jobs</a></div>
+      <div class="recent" id="recent"><div class="empty">Loading…</div></div>
+    </section>
+  </div>
+
+  <section class="panel">
+    <div class="panel-head"><h2>Setup</h2><span class="muted">Master data the toll flow runs on</span></div>
+    <div class="chips" id="setup"></div>
+  </section>
+</div>

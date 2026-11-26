@@ -1,8 +1,13 @@
 {
  "charts": [],
- "content": "[{\"id\": \"tollHeader\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Toll Processing</b></span>\", \"col\": 12}}, {\"id\": \"tollSc0\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Toll Processing Board\", \"col\": 3}}, {\"id\": \"tollSc1\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Open Toll Jobs\", \"col\": 3}}, {\"id\": \"tollSc2\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Toll Stock On Hand\", \"col\": 3}}, {\"id\": \"tollSc3\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Toll Job Yield Summary\", \"col\": 3}}, {\"id\": \"tollSc4\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Toll Clients\", \"col\": 3}}, {\"id\": \"tollSc5\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Toll Stock Entries\", \"col\": 3}}, {\"id\": \"tollSc6\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Toll Returns\", \"col\": 3}}, {\"id\": \"tollSc7\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Toll Invoices\", \"col\": 3}}, {\"id\": \"tollSpacer\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"tollLinksHdr\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Documents, Reports and Setup</b></span>\", \"col\": 12}}, {\"id\": \"tollCard0\", \"type\": \"card\", \"data\": {\"card_name\": \"Toll Jobs\", \"col\": 4}}, {\"id\": \"tollCard1\", \"type\": \"card\", \"data\": {\"card_name\": \"Toll Documents\", \"col\": 4}}, {\"id\": \"tollCard2\", \"type\": \"card\", \"data\": {\"card_name\": \"Reports\", \"col\": 4}}, {\"id\": \"tollCard3\", \"type\": \"card\", \"data\": {\"card_name\": \"Setup\", \"col\": 4}}]",
+ "content": "[{\"id\": \"tollHub\", \"type\": \"custom_block\", \"data\": {\"custom_block_name\": \"Toll Processing Hub\", \"col\": 12}}]",
  "creation": "2026-11-26 10:00:00.000000",
- "custom_blocks": [],
+ "custom_blocks": [
+  {
+   "custom_block_name": "Toll Processing Hub",
+   "label": "Toll Processing Hub"
+  }
+ ],
  "docstatus": 0,
  "doctype": "Workspace",
  "for_user": "",
@@ -224,7 +229,7 @@
    "type": "Link"
   }
  ],
- "modified": "2026-11-26 13:00:00.000000",
+ "modified": "2026-11-26 15:00:00.000000",
  "modified_by": "Administrator",
  "module": "Cannabis Management",
  "name": "Toll Processing",

@@ -87,6 +87,7 @@ def install():
 	_income_account()
 	_items()
 	_cogs_report_exclusion()
+	_hub_block()
 	_workspace_shortcut()
 	frappe.local._toll_warehouses = None
 	frappe.db.commit()
@@ -207,3 +208,25 @@ def _workspace_shortcut():
 	ws.content = json.dumps(content)
 	ws.flags.ignore_permissions = True
 	ws.save()
+
+
+HUB_BLOCK = "Toll Processing Hub"
+
+
+def _hub_block():
+	"""The Toll Processing workspace hub (Custom HTML Block), kept equal to cannabis_management/toll/hub/."""
+	import os
+	base = os.path.join(os.path.dirname(__file__), "hub")
+	read = lambda f: open(os.path.join(base, f), encoding="utf-8").read()
+	want = {"html": read("hub.html"), "style": read("hub.css"), "script": read("hub.js"), "private": 0}
+	if not frappe.db.exists("Custom HTML Block", HUB_BLOCK):
+		doc = frappe.new_doc("Custom HTML Block")
+		doc.name = HUB_BLOCK
+		doc.update(want)
+		doc.flags.ignore_permissions = True
+		doc.insert(set_name=HUB_BLOCK)
+		return
+	cur = frappe.db.get_value("Custom HTML Block", HUB_BLOCK, list(want), as_dict=True)
+	diff = {k: v for k, v in want.items() if (cur.get(k) or 0 if k == "private" else cur.get(k) or "") != v}
+	if diff:
+		frappe.db.set_value("Custom HTML Block", HUB_BLOCK, diff)
