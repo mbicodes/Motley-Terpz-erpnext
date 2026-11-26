@@ -12,6 +12,7 @@ csrf_exempt = [
 web_include_js = ["/assets/cannabis_management/js/login_location.js?v=5"]
 
 app_include_js = [
+    "/assets/cannabis_management/js/desk_health.js?v=1",
     "/assets/cannabis_management/js/stock_balance_custom.js",
     "/assets/cannabis_management/js/payment_calendar.js",
     "/assets/cannabis_management/js/sidebar_nav.js",
@@ -572,6 +573,7 @@ ignore_links_on_delete = ["Connection Tool", "Connection Tool Link"]
 before_request = [
 	"cannabis_management.manufacturing_portal.cookie_scheme_fix.fix_scheme_for_unproxied_requests",
 	"cannabis_management.manufacturing_timesheet_kiosk.routing.route_kiosk_api",
+	"cannabis_management.desk_health.reject_undefined_route",
 	"cannabis_management.overrides.stock_balance_dimensions.apply",
 ]
 
