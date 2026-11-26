@@ -13,6 +13,7 @@ web_include_js = ["/assets/cannabis_management/js/login_location.js?v=5"]
 
 app_include_js = [
     "/assets/cannabis_management/js/desk_health.js?v=1",
+    "/assets/cannabis_management/js/motley_glass_auto.js?v=1",
     "/assets/cannabis_management/js/stock_balance_custom.js",
     "/assets/cannabis_management/js/payment_calendar.js",
     "/assets/cannabis_management/js/sidebar_nav.js",
@@ -34,7 +35,10 @@ app_include_js = [
 update_website_context = ["cannabis_management.branding.welcome.add_welcome_splash"]
 
 app_include_css = [
-    "/assets/cannabis_management/css/payment_calendar.css"
+    "/assets/cannabis_management/css/payment_calendar.css",
+    # Motley Glass: the Sales Operation Board look on every custom Desk page (bump ?v= after edits: /assets is cached a year)
+    "/assets/cannabis_management/css/motley_glass.css?v=3",
+    "/assets/cannabis_management/css/motley_glass_auto.css?v=1",
 ]
 doctype_js = {
     "Cash Ledger Entry": "cash_management/doctype/cash_ledger_entry/cash_ledger_entry.js",
@@ -74,6 +78,7 @@ jinja = {
 boot_session = [
     "cannabis_management.wash_plan_install.boot_session",
     "cannabis_management.press_plan_install.boot_session",
+    "cannabis_management.glass.boot_session",
 ]
 
 before_migrate = ["cannabis_management.compat.install_frappe_shims"]

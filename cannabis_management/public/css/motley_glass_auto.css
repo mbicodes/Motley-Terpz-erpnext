@@ -1,0 +1,45 @@
+/* Motley Glass on every custom Desk page (.mg-auto, set by motley_glass_auto.js): the Sales Operation Board look.
+   The title bar and capsule page buttons come from motley_glass.css (.mg-glass-page); this file styles the content. */
+.mg-auto .layout-main-section { position: relative; z-index: 1; }
+.mg-auto .mg-clear { background-color: transparent !important; font-family: var(--mg-font) !important; }
+.mg-auto .layout-main-section > :not(.mg-bg) { font-family: var(--mg-font) !important; -webkit-font-smoothing: antialiased; }
+
+/* page filters (page.add_field): a floating glass capsule row, like the SOB tool bar */
+.mg-auto .page-form {
+	position: relative; isolation: isolate; margin: 6px 0 14px !important; padding: 6px 8px !important; border: 0 !important;
+	border-radius: 22px; background: rgba(255, 255, 255, .5) !important;
+	-webkit-backdrop-filter: blur(10px) saturate(1.7); backdrop-filter: blur(10px) saturate(1.7);
+	box-shadow: 0 1px 2px rgba(0, 0, 0, .06), 0 8px 24px rgba(0, 0, 0, .12), inset 0 0 0 1px rgba(255, 255, 255, .6);
+}
+html[data-theme="dark"] .mg-auto .page-form { background: rgba(24, 24, 28, .44) !important; box-shadow: 0 10px 28px rgba(0, 0, 0, .3), inset 0 0 0 1px rgba(255, 255, 255, .12); }
+.mg-auto .page-form .form-group { margin-bottom: 0 !important; }
+
+/* Frappe controls inside pages: iOS fills and capsules */
+.mg-auto .layout-main-section .form-control,
+.mg-auto .layout-main-section select.form-control,
+.mg-auto .layout-main-section .input-with-feedback {
+	border-radius: 10px !important; border-color: transparent !important; background-color: var(--mg-fill) !important; box-shadow: none !important; color: var(--mg-ink);
+}
+.mg-auto .layout-main-section .form-control:focus { box-shadow: 0 0 0 2px color-mix(in srgb, var(--mg-accent) 55%, transparent) !important; }
+.mg-auto .layout-main-section .btn:not(.btn-link):not(.btn-xs):not(.dropdown-item) {
+	border-radius: 16px !important; font-weight: 600; font-family: var(--mg-font); text-transform: none !important; letter-spacing: 0 !important;
+	transition: transform .2s var(--mg-ease), filter .15s var(--mg-ease), background-color .15s var(--mg-ease);
+}
+.mg-auto .layout-main-section .btn:not(.btn-link):active { transform: scale(.97); }
+.mg-auto .layout-main-section .btn-primary { background: var(--mg-accent) !important; border-color: transparent !important; color: var(--mg-accent-ink) !important; }
+.mg-auto .layout-main-section .btn-primary:hover { filter: brightness(1.12); }
+.mg-auto .layout-main-section .btn-default, .mg-auto .layout-main-section .btn-secondary {
+	background: var(--mg-fill) !important; border-color: transparent !important; color: var(--mg-ink) !important; box-shadow: none !important;
+}
+.mg-auto .layout-main-section .btn-default:hover, .mg-auto .layout-main-section .btn-secondary:hover { background: var(--mg-fill2) !important; }
+
+/* Frappe's own cards and widgets inside pages: frosted panels, as in SOB */
+.mg-auto .layout-main-section .frappe-card,
+.mg-auto .layout-main-section .widget,
+.mg-auto .layout-main-section .number-card,
+.mg-auto .layout-main-section .dashboard-widget-box,
+.mg-auto .layout-main-section .report-wrapper {
+	background: var(--mg-material) !important; -webkit-backdrop-filter: var(--mg-blur); backdrop-filter: var(--mg-blur);
+	border-radius: 20px !important; border: 0 !important; box-shadow: var(--mg-shadow-panel), var(--mg-rim) !important;
+}
+@media (prefers-reduced-motion: reduce) { .mg-auto .layout-main-section .btn { transition: none; } }
