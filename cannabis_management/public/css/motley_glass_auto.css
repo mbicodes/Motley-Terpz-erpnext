@@ -25,6 +25,11 @@ html body .page-container:not(#mg-none) .page-head.drop-shadow::before {
 	content: none !important; display: none !important; opacity: 0 !important;
 	background: none !important; box-shadow: none !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
 }
+/* the title column takes the title's own width (Frappe gives it a third of the row, which cut long titles such as
+   "Manufacturing at a Glance" now that they are the only title on the page); the buttons take the rest */
+html body .page-container:not(#mg-none) .page-head .page-head-content > .page-title {
+	flex: 0 1 auto !important; width: auto !important; max-width: 68% !important; min-width: 0;
+}
 /* ... and only the title itself (title + its pin) keeps a small frosted pill once the page scrolls, so the title
       never reads as text on top of text. The pill's padding is always there (offset by the margin), so the title does
       not move when the frost fades in. */
