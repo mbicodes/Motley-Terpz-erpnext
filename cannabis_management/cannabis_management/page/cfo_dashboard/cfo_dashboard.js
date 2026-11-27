@@ -208,8 +208,8 @@ class CFODashboard {
 
 	value(v, kind) {
 		if (v === null || v === undefined) return "—";
-		if (kind === "ratio") return v.toFixed(2) + "x";
-		if (kind === "percent") return v.toFixed(2) + "%";
+		if (kind === "ratio") return (+v).toFixed(2) + "x";
+		if (kind === "percent") return (+v).toFixed(2) + "%";
 		return this.short(v);
 	}
 
@@ -324,7 +324,7 @@ class CFODashboard {
 			<div class="cfo-split">
 				<div class="cfo-panel cfo-rail"><div class="cfo-panel-title">${__("Drivers by {0}", [d.dimension])}</div>
 					${d.rows.length ? d.rows.slice(0, 12).map((r) => `<div class="cfo-brief"><div>${this.badge(r.status)} <b>${frappe.utils.escape_html(r.name)}</b></div>
-						<div class="cfo-muted">${d.metric_label} ${this.short(r.cy)} · ${__("vs PY")} ${this.short(r.delta)} (${r.delta_pct === null ? "—" : r.delta_pct.toFixed(1) + "%"})</div></div>`).join("") : `<div class="cfo-muted">${__("No data")}</div>`}
+						<div class="cfo-muted">${d.metric_label} ${this.short(r.cy)} · ${__("vs PY")} ${this.short(r.delta)} (${r.delta_pct === null || r.delta_pct === undefined ? "—" : (+r.delta_pct).toFixed(1) + "%"})</div></div>`).join("") : `<div class="cfo-muted">${__("No data")}</div>`}
 				</div>
 				${this.panel(__("{0} Contribution Analysis (PY → CY by {1})", [d.metric_label, d.dimension]), this.waterfall(d.bridge))}
 			</div>`);
@@ -372,7 +372,7 @@ class CFODashboard {
 				<div class="cfo-card-foot">${this.badge(b.status)}<span>${__("PY")}: ${this.value(b.py, b.kind)}</span></div></div>`).join("");
 		$b.html(`${this.panel(__("Return on Equity Analysis (DuPont)"), `<div class="cfo-dupont-row">${blocks}</div>`)}
 			<div class="cfo-split">${this.notes(d.notes)}
-			${this.panel(__("ROE Movement Analysis (percentage points)"), this.waterfall(d.bridge, { fmt: (v) => v.toFixed(2) + "%" }))}</div>`);
+			${this.panel(__("ROE Movement Analysis (percentage points)"), this.waterfall(d.bridge, { fmt: (v) => (v === null || v === undefined || isNaN(v) ? "—" : (+v).toFixed(2) + "%") }))}</div>`);
 	}
 
 	render_cash_flow($b, d) {
@@ -396,7 +396,8 @@ class CFODashboard {
 				${this.panel(__("Liquidity Position"), '<div class="cfo-chart" data-c="liq"></div>')}
 			</div></div>`);
 		const zero = (a) => a.map((v) => (v === null ? 0 : v));
-		const ratioTip = { formatTooltipY: (v) => (v === null ? "—" : v.toFixed(2) + "x") };
+		// frappe-charts also calls this for points without a value (undefined): show a dash, never throw
+		const ratioTip = { formatTooltipY: (v) => (v === null || v === undefined || isNaN(v) ? "—" : (+v).toFixed(2) + "x") };
 		this.chart($b.find('[data-c="dscr"]')[0], { type: "line", data: { labels: d.labels, datasets: [{ name: "DSCR", values: zero(d.dscr) }] }, colors: ["#2f5fa8"], lineOptions: { dotSize: 4 }, tooltipOptions: ratioTip });
 		this.chart($b.find('[data-c="opex"]')[0], { type: "line", data: { labels: d.labels, datasets: [{ name: __("OPEX Coverage"), values: zero(d.opex_coverage) }] }, colors: ["#6f42c1"], lineOptions: { dotSize: 4 }, tooltipOptions: ratioTip });
 		const q = d.quarters.map((x) => x.label);

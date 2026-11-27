@@ -1250,47 +1250,66 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
         a.click();
     }
 
+    function refreshFiscalYears() {
+        if (!state.fy_loaded) return;
+        var links = state.fy_companies || {};
+        var list = state.fiscal_years.filter(function (fy) {
+            var cos = links[fy.name];
+            return !state.company || !cos || !cos.length || cos.indexOf(state.company) !== -1;
+        });
+        if (!list.length) list = state.fiscal_years;
+        var $from = $("#pnl-from-fy");
+        var $to = $("#pnl-to-fy");
+        $from.empty(); $to.empty();
+        list.forEach(function (fy) {
+            $from.append('<option value="' + escHtml(fy.name) + '">' + escHtml(fy.name) + "</option>");
+            $to.append('<option value="' + escHtml(fy.name) + '">' + escHtml(fy.name) + "</option>");
+        });
+        var names = list.map(function (fy) { return fy.name; });
+        var today = frappe.datetime.get_today();
+        var currentFy = null;
+        for (var i = 0; i < list.length; i++) {
+            if (today >= list[i].year_start_date && today <= list[i].year_end_date) { currentFy = list[i].name; break; }
+        }
+        if (!currentFy && list[0]) currentFy = list[0].name;
+        if (names.indexOf(state.from_fiscal_year) === -1) state.from_fiscal_year = currentFy || "";
+        if (names.indexOf(state.to_fiscal_year) === -1) state.to_fiscal_year = state.from_fiscal_year;
+        $from.val(state.from_fiscal_year);
+        $to.val(state.to_fiscal_year);
+        if (state.company) scheduleRun();
+    }
+
     function loadMetadata() {
-        frappe.db.get_list("Company", { fields: ["name"], limit: 100 }).then(function(res) {
+        // Fiscal years are per company: a Fiscal Year with company rows is open only to those companies (none = all).
+        // The report rejects a year the company is not linked to ("Date ... is not in any active Fiscal Year for
+        // TMM Group"), so the year lists show the chosen company's years only and are re-picked when it changes.
+        frappe.db.get_list("Company", { fields: ["name", "is_group"], limit: 100 }).then(function (res) {
             var $s = $("#pnl-company");
             $s.empty();
-            (res || []).forEach(function(c) {
+            (res || []).forEach(function (c) {
                 var sel = c.name === state.company ? " selected" : "";
-                $s.append('<option value="' + escHtml(c.name) + '"' + sel + '>' + escHtml(c.name) + '</option>');
+                $s.append('<option value="' + escHtml(c.name) + '"' + sel + ">" + escHtml(c.name) + "</option>");
             });
             if (!state.company && res && res[0]) {
-                state.company = res[0].name;
+                // no default company: open on the first trading company, not the group parent (it has no ledger of its own)
+                state.company = (res.find(function (c) { return !c.is_group; }) || res[0]).name;
                 $s.val(state.company);
             }
+            refreshFiscalYears();
         });
 
-        frappe.db.get_list("Fiscal Year", { fields: ["name", "year_start_date", "year_end_date"], order_by: "year_start_date desc", limit: 50 }).then(function(res) {
-            state.fiscal_years = res || [];
-            var $from = $("#pnl-from-fy");
-            var $to = $("#pnl-to-fy");
-            $from.empty(); $to.empty();
-
-            (res || []).forEach(function(fy) {
-                $from.append('<option value="' + escHtml(fy.name) + '">' + escHtml(fy.name) + '</option>');
-                $to.append('<option value="' + escHtml(fy.name) + '">' + escHtml(fy.name) + '</option>');
+        Promise.all([
+            frappe.db.get_list("Fiscal Year", { fields: ["name", "year_start_date", "year_end_date"], filters: [["disabled", "=", 0]], order_by: "year_start_date desc", limit: 50 }),
+            frappe.xcall("frappe.client.get_list", { doctype: "Fiscal Year Company", parent: "Fiscal Year", fields: ["parent", "company"], limit_page_length: 0 })
+                .catch(function () { return []; }),
+        ]).then(function (r) {
+            state.fiscal_years = r[0] || [];
+            state.fy_companies = {};
+            (r[1] || []).forEach(function (row) {
+                (state.fy_companies[row.parent] = state.fy_companies[row.parent] || []).push(row.company);
             });
-
-            var today = frappe.datetime.get_today();
-            var currentFy = null;
-            for (var i = 0; i < (res || []).length; i++) {
-                if (today >= res[i].year_start_date && today <= res[i].year_end_date) {
-                    currentFy = res[i].name;
-                    break;
-                }
-            }
-            if (!currentFy && res && res[0]) currentFy = res[0].name;
-            if (currentFy) {
-                state.from_fiscal_year = currentFy;
-                state.to_fiscal_year = currentFy;
-                $from.val(currentFy);
-                $to.val(currentFy);
-            }
-            scheduleRun();
+            state.fy_loaded = true;
+            refreshFiscalYears();
         });
 
         frappe.db.get_list("Currency", { fields: ["name"], filters: [["enabled", "=", 1]], limit: 200 }).then(function(res) {
@@ -1310,7 +1329,7 @@ frappe.pages["profit-and-loss-repo"].on_page_load = function (wrapper) {
     }
 
     function bindControls() {
-        $("#pnl-company").on("change", function() { state.company = $(this).val(); scheduleRun(); });
+        $("#pnl-company").on("change", function() { state.company = $(this).val(); refreshFiscalYears(); scheduleRun(); });
         $("#pnl-filter-based-on").on("change", function() {
             state.filter_based_on = $(this).val();
             toggleDateFyFields();
