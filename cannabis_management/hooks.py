@@ -38,7 +38,7 @@ app_include_css = [
     "/assets/cannabis_management/css/payment_calendar.css",
     # Motley Glass: the Sales Operation Board look on every Desk page (bump ?v= after edits: /assets is cached a year)
     "/assets/cannabis_management/css/motley_glass.css?v=6",
-    "/assets/cannabis_management/css/motley_glass_auto.css?v=11",
+    "/assets/cannabis_management/css/motley_glass_auto.css?v=12",
 ]
 doctype_js = {
     "Cash Ledger Entry": "cash_management/doctype/cash_ledger_entry/cash_ledger_entry.js",

@@ -11,24 +11,41 @@ html body .app-wrapper .app-content > footer { display: none !important; }
 
 /* 2. No bar behind the page title. Title and buttons sit straight on the page, on every page (the infix theme drew a
       white frosted band once the page scrolled; SOB and the glass pages drew a rounded white panel at all times).
-      The head stays sticky, so once the page scrolls a soft scroll edge, blur only (no fill, no line, fading out at
-      the bottom), keeps whatever runs under the title unreadable, as iOS does. Same ID weight as the theme's
-      rule (`:not(#mg-none)`), loaded after it, so it wins. */
+      Same ID weight as the theme's rule (`:not(#mg-none)`), loaded after it, so it wins. */
 html body .page-container:not(#mg-none) .page-head {
 	background: transparent !important; border: 0 !important; box-shadow: none !important;
 	-webkit-backdrop-filter: none !important; backdrop-filter: none !important;
 }
-html body .page-container:not(#mg-none) .page-head::before {
-	content: ""; position: absolute; z-index: -1; pointer-events: none;
-	left: 0; right: 0; bottom: 0; top: calc(-1 * (var(--navbar-height, 48px) + var(--lg-gap, 12px) + 4px));
-	border-radius: 0 !important; background: transparent !important; box-shadow: none !important;
-	-webkit-backdrop-filter: blur(16px) saturate(1.4); backdrop-filter: blur(16px) saturate(1.4);
-	-webkit-mask: linear-gradient(#000 0, #000 calc(100% - 22px), transparent); mask: linear-gradient(#000 0, #000 calc(100% - 22px), transparent);
-	opacity: 0 !important; transition: opacity .2s ease;
+/* 2b. No blur across the title row either (2026-11-28 "ERP Blur Fix" PDF): the theme's scroll-edge band
+      (.page-head::before, full width, from the top of the screen) blurred every row scrolling under the title line.
+      It is not drawn at all, so what scrolls under the title row stays readable ... */
+html body .page-container:not(#mg-none) .page-head::before,
+html.lg-scrolled body .page-container:not(#mg-none) .page-head::before,
+html body .page-container:not(#mg-none) .page-head.drop-shadow::before {
+	content: none !important; display: none !important; opacity: 0 !important;
+	background: none !important; box-shadow: none !important; -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
 }
-html.lg-scrolled body .page-container:not(#mg-none) .page-head::before { opacity: 1 !important; }
+/* ... and only the title itself (title + its pin) keeps a small frosted pill once the page scrolls, so the title
+      never reads as text on top of text. The pill's padding is always there (offset by the margin), so the title does
+      not move when the frost fades in. */
+html body .page-container:not(#mg-none) .page-head .title-area {
+	width: fit-content !important; max-width: calc(100% + 14px); flex: 0 1 auto !important;
+	padding: 4px 6px 4px 14px; margin-left: -14px; border-radius: 16px;
+	background: transparent; box-shadow: none;
+	transition: background-color .2s ease, box-shadow .2s ease;
+}
+html.lg-scrolled body .page-container:not(#mg-none) .page-head .title-area,
+html body .page-container:not(#mg-none) .page-head.drop-shadow .title-area {
+	background: rgba(255, 255, 255, .62);
+	-webkit-backdrop-filter: blur(16px) saturate(1.5); backdrop-filter: blur(16px) saturate(1.5);
+	box-shadow: 0 1px 2px rgba(0, 0, 0, .05), 0 6px 18px rgba(0, 0, 0, .08), inset 0 0 0 1px rgba(255, 255, 255, .6);
+}
+html[data-theme="dark"].lg-scrolled body .page-container:not(#mg-none) .page-head .title-area,
+html[data-theme="dark"] body .page-container:not(#mg-none) .page-head.drop-shadow .title-area {
+	background: rgba(28, 28, 32, .6); box-shadow: 0 6px 18px rgba(0, 0, 0, .3), inset 0 0 0 1px rgba(255, 255, 255, .1);
+}
 @media (prefers-reduced-transparency: reduce) {
-	html.lg-scrolled body .page-container:not(#mg-none) .page-head::before { -webkit-mask: none; mask: none; background: var(--lg-bar-fill, rgba(246, 246, 248, .94)) !important; }
+	html.lg-scrolled body .page-container:not(#mg-none) .page-head .title-area { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(246, 246, 248, .96); }
 }
 
 /* ================= Custom pages of cannabis_management (.mg-auto) ================= */
