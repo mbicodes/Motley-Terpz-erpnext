@@ -147,7 +147,7 @@
 	const seg_kid = k => k.matches(SEG_KID) || (/(^|[\s_-])(tab|pill|chip|seg|segment|opt)([\s_-]|$)/i.test(typeof k.className === 'string' ? k.className : '') && getComputedStyle(k).cursor === 'pointer');
 	function seg_group(el) {
 		if (el.children.length < 2 || el.children.length > 16 || el.closest(OUTSIDE)) return false;
-		const kids = [...el.children].filter(k => getComputedStyle(k).display !== 'none');
+		const kids = [...el.children].filter(k => !k.classList.contains('mg-thumb') && getComputedStyle(k).display !== 'none');
 		const segk = kids.filter(k => seg_kid(k) && !k.matches('.mg-selbtn, .mg-pop-i') && k.textContent.trim() && k.textContent.trim().length <= 34);
 		if (segk.length < 2) return false;
 		// after the tabs the row may carry one or two filters of its own ("… | Retail CPG   Period: [ ]")
@@ -225,6 +225,7 @@
 			for (const k of g.children) k.classList.toggle('mg-seg-x', !!k.querySelector('input, select'));
 		}
 		section.querySelectorAll('.mg-fbar, .mg-segbar, .mg-fpanel').forEach(tone);
+		section.querySelectorAll('.mg-segbar, .mg-fbar .mg-fseg').forEach(glide);
 	}
 
 	// the bar sits on a dark surface of the page (a navy hero, a dark page): it takes SOB's dark glass instead
@@ -264,12 +265,13 @@
 		const walk = (el, depth) => {
 			for (const ch of el.children) {
 				if (ch.matches('select, input, button, .btn, .mg-selbtn, .mg-sel-native, svg, i, img, br')) continue;
+				if (ch.classList.contains('mg-fseg') || ch.classList.contains('mg-thumb')) continue;
 				if (label_piece(ch)) { ch.classList.add('mg-flabel'); continue; }
 				if (ch.matches('.frappe-control')) { ch.classList.add('mg-fgroup', 'mg-fctl'); continue; }
 				const q = pieces(ch);
 				const n = q.fields + q.segs + q.loose;
 				if (!n) continue;
-				if (seg_group(ch) || (!q.fields && q.loose >= 2 && [...ch.children].every(x => x.matches('button, .btn, a') || getComputedStyle(x).display === 'none'))) { ch.classList.add('mg-fseg'); continue; }
+				if (seg_group(ch) || (!q.fields && q.loose >= 2 && [...ch.children].every(x => x.matches('button, .btn, a, .mg-thumb') || getComputedStyle(x).display === 'none'))) { ch.classList.add('mg-fseg'); continue; }
 				if (ch.tagName === 'LABEL' && !q.fields && ch.querySelector('input[type="checkbox"], input[type="radio"]')) continue;
 				// two labelled cells side by side are two groups, not one
 				const holders = [...ch.children].filter(x => !x.matches('select, input, button, .btn, .mg-selbtn, .mg-sel-native') && (x.querySelector('select, input, button, .btn, .mg-selbtn')));
@@ -293,6 +295,169 @@
 		b.querySelectorAll('select').forEach(s => s._mgBtn && sync(s));
 	}
 
+
+	// ---------------------------------------------------------------- SOB segment motion (every page)
+	// The Sales Operation Board's Leads <-> Deals movement on every switch and tab row: the selected segment is its own
+	// white thumb that springs across to the new segment; pressing a segment swells the thumb into a drop of glass
+	// that can be dragged across the row and let go on another segment; and the page content below slides in from
+	// the side the thumb travelled to. The pages' own buttons and logic are untouched: the thumb only follows the
+	// page's own "on" state (ON), and a drag ends in a plain click on the chosen segment.
+	const seg_pos = {};
+	let last_input = 0;
+	['pointerdown', 'keydown'].forEach(t => document.addEventListener(t, () => { last_input = performance.now(); }, true));
+	const seg_items = g => [...g.children].filter(k => !k.classList.contains('mg-thumb') && !k.classList.contains('mg-seg-x') && getComputedStyle(k).display !== 'none');
+	function seg_key(g) {
+		const pg = g.closest('.page-container');
+		const labels = seg_items(g).map(x => x.textContent.replace(/[\d,.$%]+/g, '').trim()).join('|').slice(0, 120);
+		return (pg ? pg.id : '') + '|' + labels;
+	}
+	function glide(g) {
+		if (!g.isConnected || !g.offsetWidth) return;
+		let th = g.querySelector(':scope > .mg-thumb');
+		if (!th) {
+			th = document.createElement('span');
+			th.className = 'mg-thumb still';
+			th.setAttribute('aria-hidden', 'true');
+			g.prepend(th);
+			if (!g.classList.contains('mg-glide')) g.classList.add('mg-glide');
+			watch_seg(g);
+		}
+		if (th.classList.contains('lift')) return;  // a finger is on it
+		const items = seg_items(g);
+		const on = items.find(k => k.matches(ON));
+		if (!on || !on.offsetWidth) {
+			th.style.opacity = '0';
+			if (g.classList.contains('mg-has-thumb')) g.classList.remove('mg-has-thumb');
+			return;
+		}
+		const x = on.offsetLeft, y = on.offsetTop, w = on.offsetWidth, h = on.offsetHeight, idx = items.indexOf(on);
+		const key = seg_key(g), prev = seg_pos[key];
+		const place = (p, anim) => {
+			th.classList.toggle('still', !anim);
+			th.style.translate = p.x + 'px ' + p.y + 'px';
+			th.style.width = p.w + 'px';
+			th.style.height = p.h + 'px';
+		};
+		th.style.opacity = '1';
+		th.style.borderRadius = getComputedStyle(on).borderTopLeftRadius;
+		if (!g.classList.contains('mg-has-thumb')) g.classList.add('mg-has-thumb');
+		const now = { x, y, w, h, idx };
+		if (!th._placed && prev && (prev.x !== x || prev.y !== y || prev.w !== w)) {
+			// a re-rendered row starts where its thumb was, then slides
+			place(prev, false);
+			void th.offsetWidth;
+			place(now, true);
+		} else if (!th._placed || !prev || prev.x !== x || prev.y !== y || prev.w !== w || prev.h !== h) {
+			place(now, !!th._placed);
+		}
+		if (prev && prev.idx !== idx && performance.now() - last_input < 2500) swap_content(g, idx > prev.idx ? 'next' : 'prev');
+		th._placed = true;
+		seg_pos[key] = now;
+	}
+	function watch_seg(g) {
+		let raf = 0;
+		new MutationObserver(muts => {
+			if (!muts.some(m => m.target !== g && !(m.target.classList && m.target.classList.contains('mg-thumb')))) return;
+			cancelAnimationFrame(raf);
+			raf = requestAnimationFrame(() => glide(g));
+		}).observe(g, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'aria-pressed', 'aria-selected'] });
+	}
+
+	// the page below the switch slides in from the side the thumb went to (like SOB's KPI strip)
+	function swap_content(g, dir) {
+		const sec = g.closest('.layout-main-section');
+		if (!sec) return;
+		let added = false, slid = false;
+		const obs = new MutationObserver(muts => {
+			const tops = [];
+			for (const m of muts) for (const n of m.addedNodes) {
+				if (n.nodeType !== 1 || n.classList.contains('mg-bg') || n.classList.contains('mg-thumb') || n.closest('.mg-glide, .mg-fbar, .mg-segbar, .page-form, .mg-pop')) continue;
+				tops.push(n);
+			}
+			const roots = tops.filter(n => !tops.some(o => o !== n && o.contains(n)));
+			if (!roots.length) return;
+			added = true;
+			// data that lands after the blocks already slid only fades in (no second slide)
+			(roots.length > 12 ? [...new Set(roots.map(n => n.parentElement))] : roots).forEach(n => swap_anim(n, slid ? 'fade' : dir));
+		});
+		obs.observe(sec, { childList: true, subtree: true });
+		setTimeout(() => obs.disconnect(), 1600);
+		// pages that only show / hide what is already there: slide the blocks under the switch
+		setTimeout(() => { if (!added) { slid = true; content_after(g, sec).forEach(n => swap_anim(n, dir)); } }, 160);
+	}
+	function swap_anim(n, dir) {
+		if (!n.isConnected || n.offsetHeight < 24 || n.closest('.mg-glide, .mg-fbar, .mg-segbar')) return;
+		n.classList.remove('mg-swap-next', 'mg-swap-prev', 'mg-swap-fade');
+		void n.offsetWidth;
+		n.classList.add('mg-swap-' + dir);
+		setTimeout(() => n.classList.remove('mg-swap-' + dir), 520);
+	}
+	// the blocks that follow the switch's bar: its next siblings, or its parent's, going up until some are found
+	function content_after(g, sec) {
+		for (let b = g.closest('.mg-fbar, .mg-segbar') || g; b && b !== sec; b = b.parentElement) {
+			const out = [];
+			for (let s = b.nextElementSibling; s && out.length < 8; s = s.nextElementSibling) {
+				if (s.offsetHeight > 24 && !s.classList.contains('mg-bg') && !s.matches('.modal, script, style')) out.push(s);
+			}
+			if (out.length) return out;
+		}
+		return [];
+	}
+
+	// press: the thumb swells into a drop of glass under the finger; drag it along the row and let go to choose
+	(function () {
+		let drag = null, block_t = 0;
+		const row = it => it && it.parentElement && it.parentElement.classList.contains('mg-glide') && !it.classList.contains('mg-thumb') && !it.classList.contains('mg-seg-x');
+		document.addEventListener('pointerdown', e => {
+			if (e.button !== 0 || drag || !e.target.closest) return;
+			let it = e.target.closest('.mg-glide > *');
+			if (!row(it) || it.disabled) return;
+			const g = it.parentElement, th = g.querySelector(':scope > .mg-thumb');
+			if (!th) return;
+			drag = { g, th, it, start: e.clientX, x0: it.offsetLeft, y: it.offsetTop, w: it.offsetWidth, x: it.offsetLeft, moved: false, pid: e.pointerId };
+			th.style.opacity = '1';
+			th.style.borderRadius = getComputedStyle(it).borderTopLeftRadius;
+			th.classList.remove('still');
+			th.style.width = it.offsetWidth + 'px';
+			th.style.height = it.offsetHeight + 'px';
+			th.style.translate = it.offsetLeft + 'px ' + it.offsetTop + 'px';
+			th.classList.add('lift');
+			if (!g.classList.contains('mg-has-thumb')) g.classList.add('mg-has-thumb');
+		}, true);
+		document.addEventListener('pointermove', e => {
+			if (!drag || e.pointerId !== drag.pid) return;
+			const dx = e.clientX - drag.start;
+			if (!drag.moved && Math.abs(dx) < 6) return;
+			drag.moved = true;
+			const items = seg_items(drag.g).filter(x => x.offsetTop === drag.y);
+			if (!items.length) return;
+			const last = items[items.length - 1];
+			drag.x = Math.max(items[0].offsetLeft, Math.min(last.offsetLeft + last.offsetWidth - drag.w, drag.x0 + dx));
+			drag.th.classList.add('still');
+			drag.th.style.translate = drag.x + 'px ' + drag.y + 'px';
+		}, { passive: true });
+		const settle = pick => {
+			const d = drag;
+			drag = null;
+			if (!d) return;
+			d.th.classList.remove('lift', 'still');
+			let target = null;
+			if (pick && d.moved) {
+				const mid = d.x + d.w / 2;
+				target = seg_items(d.g).filter(x => x.offsetTop === d.y).reduce((best, it) => (Math.abs(it.offsetLeft + it.offsetWidth / 2 - mid) < Math.abs(best.offsetLeft + best.offsetWidth / 2 - mid) ? it : best), d.it);
+			}
+			if (target && !target.matches(ON)) { block_t = performance.now(); target.click(); }
+			// a plain tap lets the browser's own click through; the thumb then follows the page's new state
+			setTimeout(() => glide(d.g), 60);
+		};
+		document.addEventListener('pointerup', e => { if (drag && e.pointerId === drag.pid) settle(true); }, true);
+		document.addEventListener('pointercancel', e => { if (drag && e.pointerId === drag.pid) settle(false); }, true);
+		// the drag chose the segment already: drop the browser's click that follows the pointerup
+		document.addEventListener('click', e => {
+			if (e.isTrusted && performance.now() - block_t < 450 && e.target.closest && e.target.closest('.mg-glide')) { e.stopPropagation(); e.preventDefault(); }
+		}, true);
+		window.addEventListener('resize', () => document.querySelectorAll('.mg-glide').forEach(g => { const th = g.querySelector(':scope > .mg-thumb'); if (th) th._placed = false; glide(g); }), { passive: true });
+	})();
 
 	// ---------------------------------------------------------------- glass menus for native <select>s
 	// SOB's "Owner  All ▾": the native select stays in the page (hidden) so every page keeps its own logic; the button
