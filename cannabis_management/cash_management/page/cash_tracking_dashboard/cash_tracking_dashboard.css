@@ -304,87 +304,56 @@
 .ctd-safe-title { display: none; align-items: center; gap: 14px; }
 .ctd-safe-title-logo { width: 48px; height: 48px; filter: drop-shadow(0 4px 10px rgba(212,167,44,.35)); }
 .ctd-safe-name {
-	margin: 0; font-size: 26px; font-weight: 800; letter-spacing: .02em;
-	background: linear-gradient(100deg, #a37a1c 0%, #f5d77a 30%, #fff6d6 45%, #f5d77a 60%, #a37a1c 100%);
+	margin: 0; font-size: 26px; font-weight: 800; letter-spacing: .01em;
+	background: linear-gradient(100deg, #7a5410 0%, #b8860b 30%, #e0b84a 45%, #b8860b 60%, #7a5410 100%);
 	background-size: 220% 100%;
 	-webkit-background-clip: text; background-clip: text; color: transparent;
-	animation: ctdShine 4s linear infinite;
+	animation: ctdShine 5s linear infinite;
 }
 @keyframes ctdShine { from { background-position: 120% 0; } to { background-position: -120% 0; } }
-.ctd-safe-sub { margin: 2px 0 0; font-size: 12.5px; color: #b8a77a; }
+.ctd-safe-sub { margin: 2px 0 0; font-size: 12.5px; color: #8a6d2f; }
 
-.ctd-safe-mode {
-	padding: 22px 24px 36px;
-	border-radius: 22px;
-	color: #ece6d4;
-	background:
-		radial-gradient(900px 320px at 50% -60px, rgba(212,167,44,.22), transparent 70%),
-		repeating-linear-gradient(90deg, rgba(255,255,255,.012) 0 2px, transparent 2px 6px),
-		linear-gradient(165deg, #171a21 0%, #1d2129 50%, #111318 100%);
-	border: 1px solid rgba(212,167,44,.4);
-	box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 20px 50px rgba(0,0,0,.28);
-}
+/* The Safe, in the Sales Operation Board look (2026-11-28): the page stays on the Motley glass backdrop with
+   frosted panels like the other trackers; gold is only the accent (vault logo, title, Safe Cash, the Net figure,
+   card edges, table head tint), never a dark page. */
+.ctd-safe-mode { color: var(--mg-ink, #1d1d1f); }
 .ctd-safe-mode .ctd-heading { display: none; }
 .ctd-safe-mode .ctd-safe-title { display: flex; }
 .ctd-safe-mode .ctd-filter-bar,
 .ctd-safe-mode .ctd-card,
-.ctd-safe-mode .ctd-table-wrap {
-	background: rgba(255,255,255,.035);
-	border-color: rgba(212,167,44,.28);
-	box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
-}
-.ctd-safe-mode .ctd-label,
-.ctd-safe-mode .ctd-card-label,
-.ctd-safe-mode .ctd-table thead th { color: #c9b47a; }
-.ctd-safe-mode .ctd-select,
-.ctd-safe-mode .ctd-input,
-.ctd-safe-mode .ctd-col-filter {
-	background: #0e1116; border-color: rgba(212,167,44,.32); color: #f3efe2; color-scheme: dark;
-}
+.ctd-safe-mode .ctd-table-wrap { box-shadow: 0 1px 2px rgba(0,0,0,.05), 0 8px 24px rgba(122,84,16,.10), inset 0 0 0 1px rgba(212,167,44,.22); }
+.ctd-safe-mode .ctd-card::before { background: linear-gradient(180deg, #e0b84a, #a37a1c); }
+.ctd-safe-mode .ctd-card-label { color: #8a6d2f; }
+.ctd-safe-mode .ctd-card-in .ctd-card-value { color: #15803d; }
+.ctd-safe-mode .ctd-card-out .ctd-card-value { color: #dc2626; }
+.ctd-safe-mode .ctd-card-net .ctd-card-value { color: #a16207; }
+.ctd-safe-mode .ctd-card-count .ctd-card-value { color: var(--mg-ink, #1d1d1f); }
+.ctd-safe-mode .ctd-table thead th { background: rgba(224,184,74,.14); color: #7a5410; border-bottom-color: rgba(212,167,44,.3); }
+.ctd-safe-mode .ctd-table tbody tr:hover { background: rgba(224,184,74,.08); }
+.ctd-safe-mode .ctd-link { color: #8a6414; }
+.ctd-safe-mode .ctd-in { color: #15803d; }
+.ctd-safe-mode .ctd-out { color: #dc2626; }
+.ctd-safe-mode .ctd-tag-safe { background: linear-gradient(135deg, #f5d77a, #d4a72c); color: #3b2a06; }
 .ctd-safe-mode .ctd-select:focus,
 .ctd-safe-mode .ctd-input:focus,
-.ctd-safe-mode .ctd-col-filter:focus { border-color: #d4a72c; box-shadow: 0 0 0 3px rgba(212,167,44,.18); }
-.ctd-safe-mode .ctd-toggle { background: rgba(255,255,255,.06); }
-.ctd-safe-mode .ctd-toggle-btn { color: #9aa1ad; }
-.ctd-safe-mode .ctd-toggle-btn:hover { color: #f3efe2; }
-.ctd-safe-mode .ctd-refresh:not(.ctd-new) { background: #1c2028; border-color: rgba(212,167,44,.35); color: #ece6d4; }
-.ctd-safe-mode .ctd-refresh:not(.ctd-new):hover { background: #252a34; }
-.ctd-safe-mode .ctd-card::before { background: linear-gradient(180deg, #f5d77a, #a37a1c); }
-.ctd-safe-mode .ctd-card-in .ctd-card-value { color: #4ade80; }
-.ctd-safe-mode .ctd-card-out .ctd-card-value { color: #f87171; }
-.ctd-safe-mode .ctd-card-net .ctd-card-value { color: #f5d77a; }
-.ctd-safe-mode .ctd-card-count .ctd-card-value { color: #ece6d4; }
-.ctd-safe-mode .ctd-table thead th { background: rgba(212,167,44,.08); border-bottom-color: rgba(212,167,44,.25); }
-.ctd-safe-mode .ctd-table tbody td { border-bottom-color: rgba(255,255,255,.06); }
-.ctd-safe-mode .ctd-table tbody tr:hover { background: rgba(212,167,44,.07); }
-.ctd-safe-mode .ctd-link { color: #f5d77a; }
-.ctd-safe-mode .ctd-in { color: #4ade80; }
-.ctd-safe-mode .ctd-out { color: #f87171; }
-.ctd-safe-mode .ctd-tag-safe { background: linear-gradient(135deg, #f5d77a, #d4a72c); color: #1b1606; }
-.ctd-safe-mode .ctd-empty { color: #9aa1ad; }
+.ctd-safe-mode .ctd-col-filter:focus { border-color: #d4a72c; box-shadow: 0 0 0 3px rgba(212,167,44,.22); }
 
-body.ctd-safe-body {
-	background:
-		radial-gradient(1400px 520px at 50% -120px, rgba(212,167,44,.16), transparent 70%),
-		linear-gradient(180deg, #0f1116 0%, #0b0d11 100%) fixed !important;
-	transition: background-color .45s ease;
+/* the Safe switch in the filter bar: a frosted capsule with the gold vault; on, it is the white pill with a gold rim */
+html body .ctd-container .ctd-safe-btn:not(#mg-none) {
+	border: 0 !important; background: transparent !important; color: #7a5410 !important;
+	box-shadow: none !important; letter-spacing: 0; border-radius: 18px !important;
 }
-body.ctd-safe-body .page-container,
-body.ctd-safe-body .page-body,
-body.ctd-safe-body .layout-main,
-body.ctd-safe-body .layout-main-section-wrapper,
-body.ctd-safe-body .layout-main-section,
-body.ctd-safe-body .page-content {
-	background: transparent !important;
+html body .ctd-container .ctd-safe-btn:not(#mg-none):hover { background: rgba(224,184,74,.14) !important; }
+html body .ctd-container .ctd-safe-btn.ctd-safe-on:not(#mg-none) {
+	background: rgba(255,255,255,.92) !important; color: #7a5410 !important; animation: none;
+	box-shadow: 0 0 0 1.5px rgba(212,167,44,.75), 0 3px 10px rgba(212,167,44,.25) !important;
 }
-body.ctd-safe-body .page-head,
-body.ctd-safe-body .page-head .page-head-content {
-	background: rgba(11, 13, 17, .92) !important;
-	border-bottom-color: rgba(212,167,44,.25) !important;
+/* the one real action keeps the gold */
+html body .ctd-container .ctd-new.ctd-new-safe:not(#mg-none) {
+	background: linear-gradient(135deg, #f5d77a, #d4a72c 55%, #b8860b) !important; color: #2b1f05 !important;
+	border: 0 !important; box-shadow: 0 1px 2px rgba(0,0,0,.08), 0 6px 16px rgba(212,167,44,.32) !important;
 }
-body.ctd-safe-body .page-head .title-text,
-body.ctd-safe-body .page-head .page-title { color: #f5d77a !important; }
-body.ctd-safe-body .ctd-safe-mode { box-shadow: 0 0 0 1px rgba(212,167,44,.15), 0 30px 80px rgba(0,0,0,.55); }
+html body .ctd-container .ctd-new.ctd-new-safe:not(#mg-none):hover { filter: brightness(1.06); }
 
 .ctd-safe-entering .ctd-safe-title,
 .ctd-safe-entering .ctd-filter-bar,
@@ -473,9 +442,27 @@ body.ctd-safe-body .ctd-safe-mode { box-shadow: 0 0 0 1px rgba(212,167,44,.15), 
 .ctd-pending-title { font-weight: 700; color: #b45309; }
 .ctd-pending-sub { font-size: 12px; color: var(--text-muted, #6b7280); }
 .ctd-pending-empty { font-size: 13px; color: var(--text-muted, #6b7280); padding: 4px 0; }
-.ctd-safe-mode .ctd-pending { border-color: #d4a72c; background: rgba(212, 167, 44, 0.08); }
-.ctd-safe-mode .ctd-pending-title { color: #e9c766; }
+.ctd-safe-mode .ctd-pending {
+	border: 0; border-radius: 20px; padding: 14px 18px;
+	background: rgba(255, 249, 230, .62); -webkit-backdrop-filter: blur(12px) saturate(1.5); backdrop-filter: blur(12px) saturate(1.5);
+	box-shadow: 0 1px 2px rgba(0,0,0,.05), 0 8px 24px rgba(122,84,16,.10), inset 0 0 0 1px rgba(212,167,44,.35);
+}
+.ctd-safe-mode .ctd-pending-title { color: #7a5410; }
 
 .ctd-pending-actions { white-space: nowrap; }
 .ctd-pending-actions .ctd-reimb-btn + .ctd-reimb-btn { margin-left: 6px; }
 .ctd-pending-actions .ctd-reimb-btn[disabled] { opacity: .55; cursor: progress; }
+
+/* The Safe in the dark Desk theme: the gold accents in their light tones */
+html[data-theme="dark"] .ctd-safe-mode .ctd-safe-sub,
+html[data-theme="dark"] .ctd-safe-mode .ctd-card-label,
+html[data-theme="dark"] .ctd-safe-mode .ctd-pending-title,
+html[data-theme="dark"] .ctd-safe-mode .ctd-link,
+html[data-theme="dark"] .ctd-safe-mode .ctd-table thead th { color: #e9c766; }
+html[data-theme="dark"] .ctd-safe-mode .ctd-card-net .ctd-card-value { color: #f5d77a; }
+html[data-theme="dark"] .ctd-safe-mode .ctd-card-in .ctd-card-value, html[data-theme="dark"] .ctd-safe-mode .ctd-in { color: #4ade80; }
+html[data-theme="dark"] .ctd-safe-mode .ctd-card-out .ctd-card-value, html[data-theme="dark"] .ctd-safe-mode .ctd-out { color: #f87171; }
+html[data-theme="dark"] .ctd-safe-mode .ctd-pending { background: rgba(212, 167, 44, .1); }
+html[data-theme="dark"] body .ctd-container .ctd-safe-btn:not(#mg-none) { color: #f5d77a !important; }
+html[data-theme="dark"] body .ctd-container .ctd-safe-btn.ctd-safe-on:not(#mg-none) { background: rgba(255,255,255,.18) !important; color: #f5d77a !important; }
+html[data-theme="dark"] .ctd-safe-name { background-image: linear-gradient(100deg, #a37a1c 0%, #f5d77a 30%, #fff6d6 45%, #f5d77a 60%, #a37a1c 100%); }
