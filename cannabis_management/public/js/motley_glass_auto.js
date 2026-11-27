@@ -56,13 +56,102 @@
 		wrapper.classList.add('mg-glass-page', 'mg-auto');
 		if (!section.querySelector(':scope > .mg-bg')) section.insertAdjacentHTML('afterbegin', BG);
 		clear(section);
+		bars(section, name);
 		if (!watched.has(section)) {
 			watched.add(section);
 			let t = null;
 			// pages render after their data arrives and re-render on refresh: re-check, debounced
-			new MutationObserver(() => { clearTimeout(t); t = setTimeout(() => clear(section), 120); })
-				.observe(section, { childList: true, subtree: true });
+			new MutationObserver(() => {
+				clearTimeout(t);
+				t = setTimeout(() => {
+					if (!section.querySelector(':scope > .mg-bg')) section.insertAdjacentHTML('afterbegin', BG);
+					clear(section);
+					bars(section, name);
+				}, 120);
+			}).observe(section, { childList: true, subtree: true });
 		}
+	}
+
+	// ---------------------------------------------------------------- glass filter bars
+	// SOB's tool bar (one floating glass capsule: segments, search, "Owner All ▾" menus) for each page's own filter
+	// block. A filter block is the outermost box around two or more filter fields that holds nothing else: no table,
+	// chart, heading or tall content card, near the top of the page. Only classes are added (layout and looks come
+	// from motley_glass_auto.css), so the page's own logic never changes. Per page: MG_BAR_EXTRA adds blocks the
+	// heuristic misses, MG_BAR_SKIP keeps a block as it is; data-mg-native on any ancestor opts out too.
+	const MG_BAR_EXTRA = {};
+	const MG_BAR_SKIP = {};
+	const FIELD_TYPES = ['text', 'search', 'date', 'number', 'month', 'week', 'datetime-local', 'time', ''];
+	const NOT_A_BAR = 'table, canvas, textarea, iframe, h1, h2, h3, h4, .datatable, .frappe-chart, .chart-container, .mg-bg, .mg-card, .sob-card';
+	const OUTSIDE = 'table, .modal, .mg-pop, [data-mg-native], .datatable, .page-form, .mg-glass, .form-grid, .mg-fbar-skip, .dropdown-menu';
+
+	function filter_field(el) {
+		if (el.closest(OUTSIDE)) return false;
+		if (el.classList.contains('mg-selbtn')) return true;
+		if (el.tagName === 'SELECT') return !el.multiple && !(el.size > 1) && !el._mgBtn && el.offsetParent !== null;
+		if (el.tagName === 'INPUT') return FIELD_TYPES.includes((el.getAttribute('type') || '').toLowerCase()) && el.offsetParent !== null;
+		return false;
+	}
+	const fields_in = el => [...el.querySelectorAll('select, input, .mg-selbtn')].filter(filter_field);
+
+	// a box that is only filters: short, near the top, no content of its own
+	function bar_like(a, top0) {
+		if (a.matches(NOT_A_BAR) || a.querySelector(NOT_A_BAR)) return false;
+		const r = a.getBoundingClientRect();
+		if (!r.width || r.height > 240 || r.top - top0 > 760) return false;
+		// every child is a filter piece: holds a field or a button, or is a short label / hint line
+		for (const ch of a.children) {
+			if (ch.matches('select, input, button, label, .btn, .mg-selbtn, .mg-sel-native')) continue;
+			if (ch.querySelector('select, input, button, .btn, .mg-selbtn')) continue;
+			if (getComputedStyle(ch).display === 'none') continue;
+			if (ch.getBoundingClientRect().height > 44 || ch.textContent.trim().length > 60) return false;
+		}
+		return true;
+	}
+
+	function bars(section, name) {
+		const skip = (MG_BAR_SKIP[name] || []).join(', ');
+		const top0 = section.getBoundingClientRect().top;
+		const found = new Set();
+		for (const f of fields_in(section)) {
+			if (f.closest('.mg-fbar, .mg-fpanel') || (skip && f.closest(skip))) continue;
+			let best = null;
+			for (let a = f.parentElement, d = 0; a && a !== section && d < 8; a = a.parentElement, d++) {
+				if (!bar_like(a, top0)) break;
+				if (fields_in(a).length >= 2) best = a;
+			}
+			if (best) found.add(best);
+		}
+		(MG_BAR_EXTRA[name] || []).forEach(s => section.querySelectorAll(s).forEach(el => found.add(el)));
+		for (const b of found) {
+			if (b.classList.contains('mg-fbar') || b.classList.contains('mg-fpanel') || [...found].some(o => o !== b && o.contains(b))) continue;
+			mark_bar(b);
+		}
+	}
+
+	// flatten the block into one wrapping row: wrappers become display:contents, a label + its field become one
+	// group ("Company  Motley Terpz ▾"), a row of buttons becomes a segmented group
+	function mark_bar(b) {
+		// a block that already lays its filters out in more than one row (a grid of labelled fields) keeps its own
+		// layout and only takes the glass look (.mg-fpanel); flattening it into one capsule row scrambles it
+		if (b.getBoundingClientRect().height > 64) {
+			b.classList.add('mg-fpanel');
+			b.querySelectorAll('select').forEach(s => s._mgBtn && sync(s));
+			return;
+		}
+		b.classList.add('mg-fbar');
+		const walk = el => {
+			for (const ch of el.children) {
+				if (ch.matches('select, input, button, label, .btn, .mg-selbtn, .mg-sel-native, svg, i, img')) continue;
+				const nf = fields_in(ch).length;
+				const nb = ch.querySelectorAll('button, .btn').length;
+				if (nf === 1 && nb === 0) { ch.classList.add('mg-fgroup'); continue; }
+				if (nf === 0 && nb >= 2 && [...ch.children].every(x => x.matches('button, .btn, a'))) { ch.classList.add('mg-fseg'); continue; }
+				if (nf || nb || ch.querySelector('input[type="checkbox"]')) { ch.classList.add('mg-fwrap'); walk(ch); }
+			}
+		};
+		walk(b);
+		b.querySelectorAll('input[type="text"], input[type="search"], input:not([type])').forEach(i => i.classList.add('mg-fsearch'));
+		b.querySelectorAll('select').forEach(s => s._mgBtn && sync(s));
 	}
 
 
@@ -76,12 +165,31 @@
 	const on_glass = el => !!(el.closest && el.closest('.mg-glass-page .layout-main-section'));
 	let pop = null;
 
+	// the field's label; sel._mgLabelShown = that label is already printed on the page next to the field
 	function label_of(sel) {
+		sel._mgLabelShown = false;
+		const seen = el => { if (el && el.offsetParent !== null && !el.closest('.mg-selbtn')) sel._mgLabelShown = true; };
 		let l = sel.getAttribute('aria-label') || sel.getAttribute('title') || '';
-		if (!l && sel.id) { const lab = document.querySelector('label[for="' + CSS.escape(sel.id) + '"]'); if (lab) l = lab.textContent; }
-		if (!l) { const fc = sel.closest('.frappe-control'); const cl = fc && fc.querySelector('.control-label'); if (cl) l = cl.textContent; }
+		if (!l && sel.id) { const lab = document.querySelector('label[for="' + CSS.escape(sel.id) + '"]'); if (lab) { l = lab.textContent; seen(lab); } }
+		if (!l) { const fc = sel.closest('.frappe-control'); const cl = fc && fc.querySelector('.control-label'); if (cl) { l = cl.textContent; seen(cl); } }
 		if (!l) { const fc = sel.closest('.frappe-control'); if (fc && fc.dataset.fieldname && sel.closest('.page-form')) l = (frappe.unscrub ? frappe.unscrub(fc.dataset.fieldname) : fc.dataset.fieldname); }
-		return (l || '').trim();
+		// a label next to the field inside a filter group ("<div><label>Company</label><select>")
+		if (!l) { const g = sel.closest('.mg-fgroup'); const lab = g && g.querySelector('label'); if (lab && !lab.contains(sel)) { l = lab.textContent; seen(lab); } }
+		if (!l) { let p = sel.previousElementSibling; if (p && p.tagName === 'LABEL') { l = p.textContent; seen(p); } }
+		// a label printed just above the field ("<div><label>Company</label><div><select>")
+		if (!l) { const w = sel.parentElement; const p = w && w.previousElementSibling; if (p && p.tagName === 'LABEL' && p.textContent.trim().length <= 40) { l = p.textContent; seen(p); } }
+		// the same words printed beside the field (an aria-label that repeats a visible "<span>Company</span>")
+		const want = (l || '').replace(/\s+/g, ' ').trim().toLowerCase();
+		for (let a = sel.parentElement, d = 0; want && a && d < 3 && !sel._mgLabelShown; a = a.parentElement, d++) {
+			for (const ch of a.children) {
+				if (ch.contains(sel) || ch.classList.contains('mg-selbtn')) continue;
+				if (ch.textContent.replace(/\s+/g, ' ').trim().toLowerCase() === want) seen(ch);
+			}
+		}
+		// "<label>Company <select>": the label's own text
+		const wrap = want && !sel._mgLabelShown && sel.closest('label');
+		if (wrap && [...wrap.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join(' ').replace(/\s+/g, ' ').trim().toLowerCase() === want) seen(wrap);
+		return (l || '').replace(/\s+/g, ' ').trim();
 	}
 
 	function sync(sel) {
@@ -90,7 +198,10 @@
 		const o = sel.options[sel.selectedIndex];
 		const text = (o ? o.text : '').trim();
 		const label = label_of(sel);
-		const show = label && label.length <= 24 && !text.toLowerCase().includes(label.toLowerCase());
+		// "Owner  All ▾" carries its label inside, unless the page already prints it beside the field (no "Company Company")
+		// — in a one-row glass bar the outside label is hidden by the CSS, so the button keeps it
+		const shown_outside = sel._mgLabelShown && !sel.closest('.mg-fbar .mg-fgroup');
+		const show = label && !shown_outside && label.length <= 24 && !text.toLowerCase().includes(label.toLowerCase());
 		btn.innerHTML = (show ? '<span class="k">' + esc(label) + '</span>' : '') + '<span class="v">' + esc(text || '—') + '</span>' + CHEV;
 		btn.disabled = sel.disabled;
 		btn.classList.toggle('on', sel.selectedIndex > 0 && !!sel.value);

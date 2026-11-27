@@ -1,5 +1,37 @@
 /* Motley Glass on every custom Desk page (.mg-auto, set by motley_glass_auto.js): the Sales Operation Board look.
-   The title bar and capsule page buttons come from motley_glass.css (.mg-glass-page); this file styles the content. */
+   The title bar and capsule page buttons come from motley_glass.css (.mg-glass-page); this file styles the content.
+   The first block is global: it applies to EVERY Desk page (lists, reports, forms, workspaces too). */
+
+/* ================= Global Desk chrome (every page, 2026-11-27 "ERP System - Global UI Changes") ================= */
+
+/* 1. No strip along the bottom. The infix layout ends .app-content with an empty <footer>, and ki_style.css makes
+      every `div > footer` position:fixed at the bottom with padding, a white fill and a shadow: a white band
+      across the foot of every page. It never holds anything, so it is not drawn at all. */
+html body .app-wrapper .app-content > footer { display: none !important; }
+
+/* 2. No bar behind the page title. Title and buttons sit straight on the page, on every page (the infix theme drew a
+      white frosted band once the page scrolled; SOB and the glass pages drew a rounded white panel at all times).
+      The head stays sticky, so once the page scrolls a soft scroll edge, blur only (no fill, no line, fading out at
+      the bottom), keeps whatever runs under the title unreadable, as iOS does. Same ID weight as the theme's
+      rule (`:not(#mg-none)`), loaded after it, so it wins. */
+html body .page-container:not(#mg-none) .page-head {
+	background: transparent !important; border: 0 !important; box-shadow: none !important;
+	-webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+}
+html body .page-container:not(#mg-none) .page-head::before {
+	content: ""; position: absolute; z-index: -1; pointer-events: none;
+	left: 0; right: 0; bottom: 0; top: calc(-1 * (var(--navbar-height, 48px) + var(--lg-gap, 12px) + 4px));
+	border-radius: 0 !important; background: transparent !important; box-shadow: none !important;
+	-webkit-backdrop-filter: blur(16px) saturate(1.4); backdrop-filter: blur(16px) saturate(1.4);
+	-webkit-mask: linear-gradient(#000 0, #000 calc(100% - 22px), transparent); mask: linear-gradient(#000 0, #000 calc(100% - 22px), transparent);
+	opacity: 0 !important; transition: opacity .2s ease;
+}
+html.lg-scrolled body .page-container:not(#mg-none) .page-head::before { opacity: 1 !important; }
+@media (prefers-reduced-transparency: reduce) {
+	html.lg-scrolled body .page-container:not(#mg-none) .page-head::before { -webkit-mask: none; mask: none; background: var(--lg-bar-fill, rgba(246, 246, 248, .94)) !important; }
+}
+
+/* ================= Custom pages of cannabis_management (.mg-auto) ================= */
 .mg-auto .layout-main-section { position: relative; z-index: 1; }
 .mg-auto .mg-clear { background-color: transparent !important; font-family: var(--mg-font) !important; }
 .mg-auto .layout-main-section > :not(.mg-bg) { font-family: var(--mg-font) !important; -webkit-font-smoothing: antialiased; }
@@ -43,3 +75,109 @@ html[data-theme="dark"] .mg-auto .page-form { background: rgba(24, 24, 28, .44) 
 	border-radius: 20px !important; border: 0 !important; box-shadow: var(--mg-shadow-panel), var(--mg-rim) !important;
 }
 @media (prefers-reduced-motion: reduce) { .mg-auto .layout-main-section .btn { transition: none; } }
+
+/* ---------- each page's own filter block (.mg-fbar, found by motley_glass_auto.js): SOB's floating tool bar ----------
+   One frosted capsule; wrappers are flattened (.mg-fwrap = display:contents) so every label + field (.mg-fgroup),
+   button row (.mg-fseg) and button flows in one wrapping row; fields are borderless capsules, menus read
+   "Label Value ▾", a text field reads as SOB's search capsule. !important because the pages style their own boxes. */
+html body .mg-auto .mg-fbar {
+	display: flex !important; flex-wrap: wrap; align-items: center; gap: 4px 6px;
+	position: relative; isolation: isolate; width: auto !important; min-height: 48px; margin: 6px 0 16px !important; padding: 6px 8px !important;
+	border: 0 !important; border-radius: 22px !important; color: #1d1d1f;
+	background: rgba(255, 255, 255, .5) !important; -webkit-backdrop-filter: blur(10px) saturate(1.7) brightness(1.04); backdrop-filter: blur(10px) saturate(1.7) brightness(1.04);
+	box-shadow: 0 1px 2px rgba(0, 0, 0, .06), 0 8px 24px rgba(0, 0, 0, .12), inset 0 0 0 1px rgba(255, 255, 255, .6) !important;
+	font-family: var(--mg-font) !important;
+}
+html[data-theme="dark"] body .mg-auto .mg-fbar { color: #f5f5f7; background: rgba(24, 24, 28, .44) !important; box-shadow: 0 10px 28px rgba(0, 0, 0, .3), inset 0 0 0 1px rgba(255, 255, 255, .12) !important; }
+.mg-auto .mg-fbar .mg-fwrap { display: contents; }
+.mg-auto .mg-fbar > *, .mg-auto .mg-fbar .mg-fwrap > * { margin-top: 0 !important; margin-bottom: 0 !important; }
+.mg-auto .mg-fbar .mg-fgroup {
+	display: inline-flex !important; align-items: center; gap: 2px; flex: 0 1 auto !important; width: auto !important; max-width: none !important; min-width: 0;
+	margin: 0 !important; padding: 0 0 0 10px !important; border: 0 !important; background: transparent !important; box-shadow: none !important;
+}
+.mg-auto .mg-fbar .mg-fgroup:has(> .mg-selbtn), .mg-auto .mg-fbar .mg-fgroup:has(.mg-selbtn .k) { padding-left: 0 !important; }
+/* labels: small, quiet, inline (no upper-case tracking) */
+.mg-auto .mg-fbar label, .mg-auto .mg-fbar .control-label, .mg-auto .mg-fbar .mg-fwrap > span:not(.mg-selbtn):not([class*="badge"]) {
+	margin: 0 4px 0 0 !important; padding: 0 !important; font-family: var(--mg-font) !important; font-size: 12px !important; font-weight: 500 !important;
+	line-height: 16px; color: inherit !important; opacity: .72; text-transform: none !important; letter-spacing: 0 !important; white-space: nowrap;
+}
+/* a select already shows its label inside its menu button: hide the separate one */
+.mg-auto .mg-fbar .mg-fgroup:has(.mg-selbtn .k) > label, .mg-auto .mg-fbar .mg-fgroup:has(.mg-selbtn .k) .control-label { display: none !important; }
+/* fields: borderless capsules on the glass */
+.mg-auto .mg-fbar input:not([type="checkbox"]):not([type="radio"]) {
+	height: 36px !important; min-height: 36px !important; width: auto; min-width: 120px; max-width: 220px;
+	padding: 0 14px !important; border: 0 !important; border-radius: 18px !important; box-shadow: none !important; outline: none;
+	background-color: transparent !important; color: inherit !important; font-family: var(--mg-font) !important; font-size: 13px !important; font-weight: 500;
+	transition: background-color .16s var(--mg-ease);
+}
+.mg-auto .mg-fbar input[type="date"], .mg-auto .mg-fbar input[type="month"], .mg-auto .mg-fbar input[type="week"] { min-width: 0; width: 150px; }
+.mg-auto .mg-fbar input[type="number"] { min-width: 0; width: 110px; }
+.mg-auto .mg-fbar input:not([type="checkbox"]):not([type="radio"]):hover { background-color: color-mix(in srgb, currentColor 6%, transparent) !important; }
+.mg-auto .mg-fbar input:not([type="checkbox"]):not([type="radio"]):focus {
+	background-color: color-mix(in srgb, currentColor 9%, transparent) !important; box-shadow: 0 0 0 2px color-mix(in srgb, var(--mg-accent) 55%, transparent) !important;
+}
+.mg-auto .mg-fbar input::placeholder { color: inherit !important; opacity: .6; }
+html body .mg-auto .mg-fbar input.mg-fsearch:not(#mg-none) {
+	padding-left: 34px !important; min-width: 180px;
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238e8e93' stroke-width='2.4' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E") !important;
+	background-repeat: no-repeat !important; background-position: 12px 50% !important;
+}
+/* menus are flat segments of the capsule, like SOB's "Owner All ▾" */
+.mg-auto .mg-fbar .mg-selbtn { height: 36px; border-radius: 18px; background: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; color: inherit; }
+.mg-auto .mg-fbar .mg-selbtn:hover { background: color-mix(in srgb, currentColor 8%, transparent); }
+.mg-auto .mg-fbar .mg-selbtn[aria-expanded="true"] { background: rgba(255, 255, 255, .92); }
+html[data-theme="dark"] .mg-auto .mg-fbar .mg-selbtn { background: transparent; box-shadow: none; }
+html[data-theme="dark"] .mg-auto .mg-fbar .mg-selbtn[aria-expanded="true"] { background: rgba(255, 255, 255, .2); }
+/* buttons: SOB chips; a row of buttons is a segmented group whose current one is the white pill */
+.mg-auto .mg-fbar .btn, .mg-auto .mg-fbar button:not(.mg-selbtn):not(.mg-pop-i) {
+	display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 36px !important; min-height: 36px; padding: 0 14px !important;
+	border: 0 !important; border-radius: 18px !important; box-shadow: none !important; background: transparent !important; color: inherit !important;
+	font-family: var(--mg-font) !important; font-size: 13px !important; font-weight: 500 !important; line-height: 1 !important; text-transform: none !important; letter-spacing: 0 !important;
+	white-space: nowrap; transition: background-color .16s var(--mg-ease), transform .2s var(--mg-ease);
+}
+.mg-auto .mg-fbar .btn:hover, .mg-auto .mg-fbar button:not(.mg-selbtn):not(.mg-pop-i):hover { background: color-mix(in srgb, currentColor 9%, transparent) !important; }
+.mg-auto .mg-fbar .btn:active, .mg-auto .mg-fbar button:not(.mg-selbtn):active { transform: scale(.97); }
+.mg-auto .mg-fbar .mg-fseg { display: inline-flex !important; align-items: center; gap: 2px; flex-wrap: wrap; width: auto !important; margin: 0 !important; padding: 0 !important; border: 0 !important; background: transparent !important; box-shadow: none !important; }
+.mg-auto .mg-fbar :is(.mg-fseg, .mg-fwrap, .mg-fbar) > :is(.btn, button, a).active,
+.mg-auto .mg-fbar :is(.mg-fseg, .mg-fwrap, .mg-fbar) > :is(.btn, button, a).on,
+.mg-auto .mg-fbar :is(.mg-fseg, .mg-fwrap, .mg-fbar) > :is(.btn, button, a).selected,
+.mg-auto .mg-fbar :is(.mg-fseg, .mg-fwrap, .mg-fbar) > :is(.btn, button, a)[aria-pressed="true"],
+.mg-auto .mg-fbar :is(.mg-fseg, .mg-fwrap, .mg-fbar) > :is(.btn, button, a)[aria-selected="true"],
+.mg-auto .mg-fbar .mg-fseg > .btn-primary {
+	background: rgba(255, 255, 255, .92) !important; color: #1d1d1f !important; font-weight: 600 !important; box-shadow: 0 1px 2px rgba(0, 0, 0, .1), 0 3px 8px rgba(0, 0, 0, .08) !important;
+}
+html[data-theme="dark"] .mg-auto .mg-fbar :is(.mg-fseg, .mg-fwrap, .mg-fbar) > :is(.btn, button, a):is(.active, .on, .selected, [aria-pressed="true"], [aria-selected="true"]),
+html[data-theme="dark"] .mg-auto .mg-fbar .mg-fseg > .btn-primary { background: rgba(255, 255, 255, .24) !important; color: #fff !important; }
+/* one real action in the bar (Apply, Run) keeps the Motley grape */
+.mg-auto .mg-fbar > .btn-primary, .mg-auto .mg-fbar .mg-fwrap > .btn-primary { background: var(--mg-accent) !important; color: var(--mg-accent-ink) !important; font-weight: 600 !important; }
+.mg-auto .mg-fbar > .btn-primary:hover, .mg-auto .mg-fbar .mg-fwrap > .btn-primary:hover { background: var(--mg-accent) !important; filter: brightness(1.12); }
+/* check boxes: a chip with the box inside */
+.mg-auto .mg-fbar label:has(> input[type="checkbox"]), .mg-auto .mg-fbar .mg-fwrap > label:has(input[type="checkbox"]) {
+	display: inline-flex !important; align-items: center; gap: 8px; height: 36px; padding: 0 14px !important; border: 0 !important; border-radius: 18px;
+	background: transparent !important; box-shadow: none !important; opacity: 1; font-size: 13px !important; cursor: pointer;
+}
+.mg-auto .mg-fbar label:has(> input[type="checkbox"]):hover { background: color-mix(in srgb, currentColor 9%, transparent) !important; }
+.mg-auto .mg-fbar input[type="checkbox"] { margin: 0 !important; accent-color: var(--mg-accent); }
+/* frappe controls dropped into a bar keep no box of their own */
+.mg-auto .mg-fbar .frappe-control, .mg-auto .mg-fbar .form-group, .mg-auto .mg-fbar .control-input-wrapper, .mg-auto .mg-fbar .control-input { margin: 0 !important; padding: 0 !important; border: 0 !important; background: transparent !important; box-shadow: none !important; }
+@media (max-width: 720px) {
+	.mg-auto .mg-fbar input:not([type="checkbox"]):not([type="radio"]) { flex: 1 1 140px; max-width: none; }
+}
+@media (prefers-reduced-transparency: reduce) { html body .mg-auto .mg-fbar { background: rgba(246, 246, 248, .94) !important; } }
+
+/* ---------- a filter block laid out in several rows (.mg-fpanel): same glass, the page keeps its own layout ---------- */
+html body .mg-auto .mg-fpanel:not(#mg-none) {
+	position: relative; isolation: isolate; border: 0 !important; border-radius: 22px !important;
+	background: rgba(255, 255, 255, .5) !important; -webkit-backdrop-filter: blur(10px) saturate(1.7) brightness(1.04); backdrop-filter: blur(10px) saturate(1.7) brightness(1.04);
+	box-shadow: 0 1px 2px rgba(0, 0, 0, .06), 0 8px 24px rgba(0, 0, 0, .12), inset 0 0 0 1px rgba(255, 255, 255, .6) !important;
+	font-family: var(--mg-font) !important;
+}
+html[data-theme="dark"] body .mg-auto .mg-fpanel:not(#mg-none) { background: rgba(24, 24, 28, .44) !important; box-shadow: 0 10px 28px rgba(0, 0, 0, .3), inset 0 0 0 1px rgba(255, 255, 255, .12) !important; }
+.mg-auto .mg-fpanel label, .mg-auto .mg-fpanel .control-label { font-family: var(--mg-font) !important; text-transform: none !important; letter-spacing: 0 !important; }
+/* its fields: borderless iOS fills with capsule corners */
+html body .mg-auto .mg-fpanel:not(#mg-none) input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) {
+	border: 0 !important; border-radius: 14px !important; box-shadow: none !important; background-color: var(--mg-fill) !important; color: var(--mg-ink) !important;
+	font-family: var(--mg-font) !important; transition: background-color .16s var(--mg-ease);
+}
+html body .mg-auto .mg-fpanel:not(#mg-none) input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus { background-color: var(--mg-fill2) !important; box-shadow: 0 0 0 2px color-mix(in srgb, var(--mg-accent) 55%, transparent) !important; }
+@media (prefers-reduced-transparency: reduce) { html body .mg-auto .mg-fpanel:not(#mg-none) { background: rgba(246, 246, 248, .94) !important; } }

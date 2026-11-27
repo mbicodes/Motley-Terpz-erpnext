@@ -43,21 +43,15 @@
 	--mg-lift: 30%;
 }
 
-/* ---------- Desk chrome on a glass page: transparent body, frosted rounded title bar, capsule buttons ----------
+/* ---------- Desk chrome on a glass page: transparent body, large title, capsule buttons ----------
    The infix theme styles every page head with `html body .page-container:not(#page-sales-operation-board) .page-head::before`
-   (ID weight). `:not(#mg-none)` gives these rules the same ID weight plus one class, so they win on glass pages. */
+   (ID weight). `:not(#mg-none)` gives these rules the same ID weight plus one class, so they win on glass pages.
+   No bar behind the title (2026-11-27): the page head has no panel of its own; the soft scroll edge every page gets
+   is in motley_glass_auto.css. */
 html body .page-container.mg-glass-page:not(#mg-none) .page-body.container, html body .page-container.mg-glass-page:not(#mg-none) .container.page-body { max-width: 100%; }
 html body .page-container.mg-glass-page:not(#mg-none) .layout-main-section-wrapper { padding: 0; }
 html body .page-container.mg-glass-page:not(#mg-none) .layout-main-section-wrapper .layout-main-section, html body .page-container.mg-glass-page:not(#mg-none) .layout-main-section { background: transparent !important; border: 0 !important; box-shadow: none !important; padding: 0 !important; }
 html body .page-container.mg-glass-page:not(#mg-none) .page-head { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; border-bottom: 0 !important; background: transparent !important; }
-html body .page-container.mg-glass-page:not(#mg-none) .page-head::before {
-	content: ""; position: absolute; z-index: -1; pointer-events: none; opacity: 1 !important; transition: none;
-	top: 0; right: 0; bottom: 0; left: 0;
-	border-radius: var(--lg-r-lg, 22px); corner-shape: var(--lg-corner, round);
-	background: rgba(255, 255, 255, .7); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .45);
-	-webkit-backdrop-filter: blur(40px) saturate(1.8); backdrop-filter: blur(40px) saturate(1.8);
-}
-html[data-theme="dark"] body .page-container.mg-glass-page:not(#mg-none) .page-head::before { background: rgba(34, 10, 72, .66); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12); }
 html body .page-container.mg-glass-page:not(#mg-none) .page-head .title-text { font-family: var(--mg-font) !important; font-size: 26px; font-weight: 600 !important; letter-spacing: -.02em !important; color: var(--mg-ink) !important; }
 html body .page-container.mg-glass-page:not(#mg-none) .page-head .btn {
 	font-family: var(--mg-font) !important; font-size: 14px !important; font-weight: 600 !important; text-transform: none !important; letter-spacing: 0 !important;
