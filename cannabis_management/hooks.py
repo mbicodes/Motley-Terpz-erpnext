@@ -655,3 +655,9 @@ infix_route_groups = {
     "wash-plan-board": ["Manufacturing & Lab", "Manufacturing"],
     "toll-processing-board": ["Manufacturing & Lab", "Manufacturing"],
 }
+
+assistant_tools = [
+    "cannabis_management.assistant_tools.document_admin.AdminCancelDocument",
+    "cannabis_management.assistant_tools.document_admin.AdminDeleteSubmittedDocument",
+    "cannabis_management.assistant_tools.erp_pages.ReadErpPage",
+]
