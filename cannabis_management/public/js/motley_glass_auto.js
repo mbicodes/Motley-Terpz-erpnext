@@ -57,6 +57,9 @@
 		if (!section.querySelector(':scope > .mg-bg')) section.insertAdjacentHTML('afterbegin', BG);
 		clear(section);
 		bars(section, name);
+		dedupe_title(wrapper, section);
+		// pages fill in after their data arrives: look for a repeated title again while it settles
+		[800, 2500].forEach(ms => setTimeout(() => { if ((frappe.get_route() || [])[0] === name) dedupe_title(wrapper, section); }, ms));
 		if (!watched.has(section)) {
 			watched.add(section);
 			let t = null;
@@ -67,8 +70,43 @@
 					if (!section.querySelector(':scope > .mg-bg')) section.insertAdjacentHTML('afterbegin', BG);
 					clear(section);
 					bars(section, name);
+					dedupe_title(wrapper, section);
 				}, 120);
 			}).observe(section, { childList: true, subtree: true });
+		}
+	}
+
+	// ---------------------------------------------------------------- one title per page
+	// Many pages print their own heading with the same words as the Desk title bar ("Accounts Receivable" twice).
+	// The title bar stays (it carries the pin and the frosted scroll pill); the repeated heading near the top of the
+	// page body is hidden, its subtitle / "As of" badge stay. Pages that hide the title bar keep their own heading.
+	const norm_title = t => (t || '').toLowerCase().replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, ' ')
+		.replace(/\b(report|dashboard|page|board)\b/g, ' ').replace(/\s+/g, ' ').trim();
+	function dedupe_title(wrapper, section) {
+		const tt = wrapper.querySelector('.page-head .title-text');
+		if (!tt || !tt.offsetParent) return;
+		const tcs = getComputedStyle(tt);
+		if (tcs.visibility === 'hidden' || +tcs.opacity < 0.2) return;
+		const want = norm_title(tt.textContent);
+		if (!want) return;
+		// a heading hidden earlier whose words changed since (a company name filled in after the data came) is the
+		// page's own information, not a repeat: show it again
+		const done = section.querySelector('.mg-dup-title');
+		if (done) {
+			if (norm_title(done.textContent) === want) return;
+			done.classList.remove('mg-dup-title');
+			done._mgNotDup = true;
+		}
+		const top0 = section.getBoundingClientRect().top;
+		for (const h of section.querySelectorAll('h1, h2, h3, h4, [class*="title"], [class*="heading"], [class*="name"]')) {
+			if (h.closest('.page-form, .mg-fbar, .mg-segbar, .modal, table, .mg-card, .sob-card, .mg-pop, [data-mg-native]')) continue;
+			const r = h.getBoundingClientRect();
+			if (!r.height || r.top - top0 > 420) continue;
+			if (h._mgNotDup || h.querySelector('input, select, button, table, canvas')) continue;
+			// a heading with an empty slot still to be filled ("Inventory Movements – <span></span>") is not judged yet
+			if ([...h.querySelectorAll('*')].some(x => !x.children.length && !x.textContent.trim() && !x.matches('svg *, svg, i, img, br'))) continue;
+			if (parseFloat(getComputedStyle(h).fontSize) < 16 && !/^H[1-4]$/.test(h.tagName)) continue;
+			if (norm_title(h.textContent) === want) { h.classList.add('mg-dup-title'); return; }
 		}
 	}
 

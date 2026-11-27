@@ -286,3 +286,6 @@ html body .mg-auto .mg-fbar.mg-dk:not(#mg-none) :is(.btn, button, a, [role="tab"
 html body .mg-auto .mg-segbar.mg-dk:not(#mg-none) > :not(.mg-seg-x):is(.active, .on, .selected, .is-active, .is-on, .current, [aria-pressed="true"], [aria-selected="true"], [class*="-active"], [class*="_active"]) {
 	background: rgba(255, 255, 255, .24) !important; color: #fff !important; box-shadow: none !important;
 }
+
+/* a page heading that repeats the Desk title bar word for word (found by motley_glass_auto.js): one title per page */
+html body .mg-auto .mg-dup-title:not(#mg-none) { display: none !important; }

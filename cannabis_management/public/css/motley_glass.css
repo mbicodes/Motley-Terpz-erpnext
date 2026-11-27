@@ -250,7 +250,10 @@ table.mg-table a:hover { text-decoration: underline; }
 .mgr .mgr-foot { padding: 0 4px; }
 
 /* ---------- Glass select menus (motley_glass_auto.js turns native <select>s on glass pages into these) ---------- */
-.mg-sel-native { position: absolute !important; width: 1px !important; height: 1px !important; opacity: 0 !important; pointer-events: none !important; overflow: hidden !important; }
+/* the native select behind a glass menu button stays in the page for its logic, but takes no room and never adds
+   scroll: fixed (not absolute), so inside a scrolling table it cannot escape the table's box and stretch the page
+   (2026-11-28: absolute ones pushed AR Dashboard to 7500px of blank gradient). Focus never scrolls a fixed box. */
+.mg-sel-native { position: fixed !important; top: 0 !important; left: 0 !important; width: 1px !important; height: 1px !important; margin: 0 !important; padding: 0 !important; border: 0 !important; opacity: 0 !important; pointer-events: none !important; overflow: hidden !important; clip-path: inset(50%); }
 .mg-selbtn {
 	display: inline-flex; align-items: center; gap: 6px; height: 34px; max-width: 280px; padding: 0 12px 0 14px; border: 0; border-radius: 17px; cursor: pointer;
 	font-family: var(--mg-font); font-size: 13px; font-weight: 500; line-height: 1; white-space: nowrap; color: var(--mg-ink);
