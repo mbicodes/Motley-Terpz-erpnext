@@ -37,7 +37,7 @@ update_website_context = ["cannabis_management.branding.welcome.add_welcome_spla
 app_include_css = [
     "/assets/cannabis_management/css/payment_calendar.css",
     # Motley Glass: the Sales Operation Board look on every Desk page (bump ?v= after edits: /assets is cached a year)
-    "/assets/cannabis_management/css/motley_glass.css?v=7",
+    "/assets/cannabis_management/css/motley_glass.css?v=8",
     "/assets/cannabis_management/css/motley_glass_auto.css?v=16",
 ]
 doctype_js = {
