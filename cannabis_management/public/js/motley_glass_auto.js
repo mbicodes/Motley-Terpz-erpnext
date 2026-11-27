@@ -74,15 +74,24 @@
 
 	// ---------------------------------------------------------------- glass filter bars
 	// SOB's tool bar (one floating glass capsule: segments, search, "Owner All ▾" menus) for each page's own filter
-	// block. A filter block is the outermost box around two or more filter fields that holds nothing else: no table,
-	// chart, heading or tall content card, near the top of the page. Only classes are added (layout and looks come
-	// from motley_glass_auto.css), so the page's own logic never changes. Per page: MG_BAR_EXTRA adds blocks the
-	// heuristic misses, MG_BAR_SKIP keeps a block as it is; data-mg-native on any ancestor opts out too.
+	// block. A filter block is the outermost box around two or more filter pieces (fields, or a segmented switch /
+	// view tabs) that holds nothing else: no table, chart, heading or tall content card, near the top of the page.
+	// Labelled fields become one "Label  Value ▾" group each and the whole block flows as one wrapping capsule row,
+	// like SOB. A switch or tab row that stands on its own (company pills, view tabs) becomes a glass capsule of
+	// segments (.mg-segbar). Only classes are added (layout and looks come from motley_glass_auto.css), so the page's
+	// own logic never changes. Per page: MG_BAR_EXTRA adds blocks the heuristic misses, MG_BAR_SKIP keeps a block as
+	// it is, MG_PANEL keeps a page's multi-row filter grid in its own layout (glass skin only); data-mg-native on any
+	// ancestor opts out too.
 	const MG_BAR_EXTRA = {};
 	const MG_BAR_SKIP = {};
+	const MG_PANEL = {};
 	const FIELD_TYPES = ['text', 'search', 'date', 'number', 'month', 'week', 'datetime-local', 'time', ''];
 	const NOT_A_BAR = 'table, canvas, textarea, iframe, h1, h2, h3, h4, .datatable, .frappe-chart, .chart-container, .mg-bg, .mg-card, .sob-card';
-	const OUTSIDE = 'table, .modal, .mg-pop, [data-mg-native], .datatable, .page-form, .mg-glass, .form-grid, .mg-fbar-skip, .dropdown-menu';
+	const OUTSIDE = 'table, .modal, .mg-pop, [data-mg-native], .datatable, .page-form, .mg-glass, .form-grid, .mg-fbar-skip, .dropdown-menu, .mg-card, .sob-card';
+	// the segment that is on: the page's own state classes / aria (kept in step with motley_glass_auto.css)
+	const ON = '.active, .on, .selected, .is-active, .is-on, .current, [aria-selected="true"], [aria-pressed="true"], [class*="-active"], [class*="_active"]';
+	const BTN = 'button:not(.mg-selbtn):not(.mg-pop-i), .btn, [role="tab"]';
+	const shown = el => el.offsetParent !== null || getComputedStyle(el).position === 'fixed';
 
 	function filter_field(el) {
 		if (el.closest(OUTSIDE)) return false;
@@ -92,6 +101,37 @@
 		return false;
 	}
 	const fields_in = el => [...el.querySelectorAll('select, input, .mg-selbtn')].filter(filter_field);
+
+	// a segmented switch or a row of view tabs: two or more short buttons side by side in one row, one of them on
+	// (or a tablist). Pager dots, card action rows and vertical menus are not.
+	// a segment: a button / tab, or a clickable tab-like span ("<span class='ue-tab on' data-tab=…>")
+	const SEG_KID = 'button, a, .btn, [role="tab"], [data-tab]';
+	const seg_kid = k => k.matches(SEG_KID) || (/(^|[\s_-])(tab|pill|chip|seg|segment|opt)([\s_-]|$)/i.test(typeof k.className === 'string' ? k.className : '') && getComputedStyle(k).cursor === 'pointer');
+	function seg_group(el) {
+		if (el.children.length < 2 || el.children.length > 16 || el.closest(OUTSIDE)) return false;
+		const kids = [...el.children].filter(k => getComputedStyle(k).display !== 'none');
+		const segk = kids.filter(k => seg_kid(k) && !k.matches('.mg-selbtn, .mg-pop-i') && k.textContent.trim() && k.textContent.trim().length <= 34);
+		if (segk.length < 2) return false;
+		// after the tabs the row may carry one or two filters of its own ("… | Retail CPG   Period: [ ]")
+		const last = kids.indexOf(segk[segk.length - 1]);
+		const extra = kids.filter(k => !segk.includes(k));
+		if (extra.length && !(extra.length <= 2 && extra.every(x => kids.indexOf(x) > last && x.querySelector('input, select')))) return false;
+		if (el.getAttribute('role') !== 'tablist' && !segk.some(k => k.matches(ON))) return false;
+		const r = el.getBoundingClientRect();
+		return r.width > 0 && r.height > 0 && r.height <= 60;
+	}
+	function segs_in(root) {
+		const parents = new Set();
+		root.querySelectorAll('button, [role="tab"], a.btn, [data-tab], [class*="-tab"], [class*="pill"], [class*="chip"]').forEach(b => b.parentElement && parents.add(b.parentElement));
+		return [...parents].filter(seg_group);
+	}
+	// filter pieces inside a box: fields, switches, and loose buttons (Apply, Export)
+	function pieces(el) {
+		const segs = segs_in(el).concat(seg_group(el) ? [el] : []);
+		const loose = [...el.querySelectorAll(BTN)].filter(b => shown(b) && !segs.some(g => g.contains(b)));
+		const multi = [...el.querySelectorAll('select[multiple], select[size]:not([size="1"]):not([size="0"])')].filter(m => shown(m) && !m.closest(OUTSIDE)).length;
+		return { fields: fields_in(el).length + multi, segs: segs.length, loose: loose.length };
+	}
 
 	// a box that is only filters: short, near the top, no content of its own
 	function bar_like(a, top0) {
@@ -108,49 +148,110 @@
 		return true;
 	}
 
+	// a filter block has at least one real filter piece: a menu, a date, a search box or a switch. A box of plain
+	// labelled text fields (name, e-mail, licence number) is a data-entry form, never a filter bar.
+	function filterish(el) {
+		if (segs_in(el).length || seg_group(el) || el.querySelector('.mg-selbtn, select')) return true;
+		return fields_in(el).some(i => i.tagName === 'INPUT' && (/^(search|date|month|week|datetime-local|time|number)$/i.test(i.type)
+			|| /^\s*(search|filter|find)/i.test(i.placeholder || '') || /search|filter|date|picker/i.test(i.className)
+			|| ['Date', 'Datetime', 'Link', 'Select'].includes((i.closest('.frappe-control[data-fieldtype]') || { dataset: {} }).dataset.fieldtype)));
+	}
+
 	function bars(section, name) {
 		const skip = (MG_BAR_SKIP[name] || []).join(', ');
 		const top0 = section.getBoundingClientRect().top;
-		const found = new Set();
-		for (const f of fields_in(section)) {
-			if (f.closest('.mg-fbar, .mg-fpanel') || (skip && f.closest(skip))) continue;
+		const found = new Set(), alone = new Set();
+		const starts = [...fields_in(section).map(f => [f, false]), ...segs_in(section).map(g => [g, true])];
+		for (const [f, is_seg] of starts) {
+			if (f.closest('.mg-fbar, .mg-fpanel, .mg-segbar') || (skip && f.closest(skip))) continue;
 			let best = null;
 			for (let a = f.parentElement, d = 0; a && a !== section && d < 8; a = a.parentElement, d++) {
 				if (!bar_like(a, top0)) break;
-				if (fields_in(a).length >= 2) best = a;
+				const p = pieces(a);
+				if (p.fields + p.segs >= 2) best = a;
 			}
-			if (best) found.add(best);
+			if (best && seg_group(best)) alone.add(best);
+			else if (best && filterish(best)) found.add(best);
+			else if (is_seg) alone.add(f);
 		}
 		(MG_BAR_EXTRA[name] || []).forEach(s => section.querySelectorAll(s).forEach(el => found.add(el)));
 		for (const b of found) {
 			if (b.classList.contains('mg-fbar') || b.classList.contains('mg-fpanel') || [...found].some(o => o !== b && o.contains(b))) continue;
-			mark_bar(b);
+			mark_bar(b, name);
 		}
+		// bars the page re-rendered inside (new filter markup in the same box): walk them again
+		section.querySelectorAll('.mg-fbar').forEach(b => { if (!found.has(b)) mark_bar(b, name); });
+		for (const g of alone) {
+			if (g.closest('.mg-fbar, .mg-fpanel')) continue;
+			g.classList.add('mg-segbar');
+			for (const k of g.children) k.classList.toggle('mg-seg-x', !!k.querySelector('input, select'));
+		}
+		section.querySelectorAll('.mg-fbar, .mg-segbar, .mg-fpanel').forEach(tone);
 	}
 
-	// flatten the block into one wrapping row: wrappers become display:contents, a label + its field become one
-	// group ("Company  Motley Terpz ▾"), a row of buttons becomes a segmented group
-	function mark_bar(b) {
-		// a block that already lays its filters out in more than one row (a grid of labelled fields) keeps its own
-		// layout and only takes the glass look (.mg-fpanel); flattening it into one capsule row scrambles it
-		if (b.getBoundingClientRect().height > 64) {
+	// the bar sits on a dark surface of the page (a navy hero, a dark page): it takes SOB's dark glass instead
+	function on_dark(el) {
+		for (let a = el.parentElement; a && a !== document.body; a = a.parentElement) {
+			const cs = getComputedStyle(a);
+			let c = rgba(cs.backgroundColor);
+			if (c[3] < 0.5 && cs.backgroundImage && cs.backgroundImage.includes('gradient')) {
+				const cols = [...cs.backgroundImage.matchAll(/rgba?\([^)]+\)/g)].map(m => rgba(m[0])).filter(x => x[3] >= 0.5);
+				if (cols.length) c = [0, 1, 2].map(i => cols.reduce((s, x) => s + x[i], 0) / cols.length).concat([1]);
+			}
+			if (c[3] >= 0.5) return (0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]) / 255 < 0.35;
+			if (a.classList.contains('layout-main-section')) return is_dark();
+		}
+		return is_dark();
+	}
+	const tone = el => el.classList.toggle('mg-dk', !is_dark() && on_dark(el));
+
+	// a quiet label beside a field: no control inside, a few words
+	function label_piece(el) {
+		if (el.matches('select, input, button, .btn, .mg-selbtn, .mg-sel-native, svg, i, img, br') || el.querySelector('select, input, button, .btn, .mg-selbtn')) return false;
+		const t = el.textContent.trim();
+		return t.length > 0 && t.length <= 40 && getComputedStyle(el).display !== 'none';
+	}
+
+	// one capsule row: a box of more than two pieces is flattened (display:contents); a box of one or two pieces (a
+	// labelled field, a From / To pair, a switch with its label) stays a box and lays its label + field side by side
+	// (.mg-fgroup), so its own popovers keep their anchor; a row of buttons becomes a segmented group (.mg-fseg)
+	function mark_bar(b, name) {
+		const p = pieces(b);
+		if (!b.classList.contains('mg-fbar') && (MG_PANEL[name] || p.fields + p.segs + p.loose > 18)) {
 			b.classList.add('mg-fpanel');
 			b.querySelectorAll('select').forEach(s => s._mgBtn && sync(s));
 			return;
 		}
 		b.classList.add('mg-fbar');
-		const walk = el => {
+		const walk = (el, depth) => {
 			for (const ch of el.children) {
-				if (ch.matches('select, input, button, label, .btn, .mg-selbtn, .mg-sel-native, svg, i, img')) continue;
-				const nf = fields_in(ch).length;
-				const nb = ch.querySelectorAll('button, .btn').length;
-				if (nf === 1 && nb === 0) { ch.classList.add('mg-fgroup'); continue; }
-				if (nf === 0 && nb >= 2 && [...ch.children].every(x => x.matches('button, .btn, a'))) { ch.classList.add('mg-fseg'); continue; }
-				if (nf || nb || ch.querySelector('input[type="checkbox"]')) { ch.classList.add('mg-fwrap'); walk(ch); }
+				if (ch.matches('select, input, button, .btn, .mg-selbtn, .mg-sel-native, svg, i, img, br')) continue;
+				if (label_piece(ch)) { ch.classList.add('mg-flabel'); continue; }
+				if (ch.matches('.frappe-control')) { ch.classList.add('mg-fgroup', 'mg-fctl'); continue; }
+				const q = pieces(ch);
+				const n = q.fields + q.segs + q.loose;
+				if (!n) continue;
+				if (seg_group(ch) || (!q.fields && q.loose >= 2 && [...ch.children].every(x => x.matches('button, .btn, a') || getComputedStyle(x).display === 'none'))) { ch.classList.add('mg-fseg'); continue; }
+				if (ch.tagName === 'LABEL' && !q.fields && ch.querySelector('input[type="checkbox"], input[type="radio"]')) continue;
+				// two labelled cells side by side are two groups, not one
+				const holders = [...ch.children].filter(x => !x.matches('select, input, button, .btn, .mg-selbtn, .mg-sel-native') && (x.querySelector('select, input, button, .btn, .mg-selbtn')));
+				const grp = n <= 2 && holders.length <= 1;
+				ch.classList.add(grp ? 'mg-fgroup' : 'mg-fwrap');
+				// "<label>Partner <select>": the label's own words become a quiet label span beside the field
+				if (grp && ch.tagName === 'LABEL') {
+					for (const t of [...ch.childNodes]) {
+						if (t.nodeType === 3 && t.textContent.trim()) { const sp = document.createElement('span'); sp.className = 'mg-flabel'; sp.textContent = t.textContent.trim(); t.replaceWith(sp); }
+					}
+				}
+				if (depth < 6) walk(ch, depth + 1);
 			}
 		};
-		walk(b);
-		b.querySelectorAll('input[type="text"], input[type="search"], input:not([type])').forEach(i => i.classList.add('mg-fsearch'));
+		walk(b, 0);
+		// a long hint inside a toggle button (<small>) goes to the tooltip: the capsule stays one line
+		b.querySelectorAll('button small, .btn small').forEach(sm => { const t = sm.textContent.trim(); if (t.length <= 20) return; sm.classList.add('mg-fhint'); const btn = sm.closest('button, .btn'); if (btn && !btn.title) btn.title = t; });
+		// a text field reads as SOB's search capsule; when the page draws its own magnifier beside it, room is left for that
+		const not_search = i => { const fc = i.closest('.frappe-control[data-fieldtype]'); return (fc && !['Data', 'Link', 'Dynamic Link', 'Autocomplete'].includes(fc.dataset.fieldtype)) || /date|time|picker/i.test(i.className); };
+		b.querySelectorAll('input[type="text"], input[type="search"], input:not([type])').forEach(i => !not_search(i) && i.classList.add(i.parentElement.querySelector(':scope > svg, :scope > i, :scope > .icon, :scope > [class*="icon"]') ? 'mg-fsearch-own' : 'mg-fsearch'));
 		b.querySelectorAll('select').forEach(s => s._mgBtn && sync(s));
 	}
 
@@ -174,7 +275,7 @@
 		if (!l) { const fc = sel.closest('.frappe-control'); const cl = fc && fc.querySelector('.control-label'); if (cl) { l = cl.textContent; seen(cl); } }
 		if (!l) { const fc = sel.closest('.frappe-control'); if (fc && fc.dataset.fieldname && sel.closest('.page-form')) l = (frappe.unscrub ? frappe.unscrub(fc.dataset.fieldname) : fc.dataset.fieldname); }
 		// a label next to the field inside a filter group ("<div><label>Company</label><select>")
-		if (!l) { const g = sel.closest('.mg-fgroup'); const lab = g && g.querySelector('label'); if (lab && !lab.contains(sel)) { l = lab.textContent; seen(lab); } }
+		if (!l) { const g = sel.closest('.mg-fgroup'); const lab = g && (g.querySelector(':scope > label, :scope > .mg-flabel') || g.querySelector('label')); if (lab && !lab.contains(sel)) { l = lab.textContent; seen(lab); } }
 		if (!l) { let p = sel.previousElementSibling; if (p && p.tagName === 'LABEL') { l = p.textContent; seen(p); } }
 		// a label printed just above the field ("<div><label>Company</label><div><select>")
 		if (!l) { const w = sel.parentElement; const p = w && w.previousElementSibling; if (p && p.tagName === 'LABEL' && p.textContent.trim().length <= 40) { l = p.textContent; seen(p); } }
@@ -182,7 +283,7 @@
 		const want = (l || '').replace(/\s+/g, ' ').trim().toLowerCase();
 		for (let a = sel.parentElement, d = 0; want && a && d < 3 && !sel._mgLabelShown; a = a.parentElement, d++) {
 			for (const ch of a.children) {
-				if (ch.contains(sel) || ch.classList.contains('mg-selbtn')) continue;
+				if (ch.contains(sel) || ch.matches('.mg-selbtn, .placeholder, .select-icon, .tooltip-content, .visually-hidden, .sr-only')) continue;
 				if (ch.textContent.replace(/\s+/g, ' ').trim().toLowerCase() === want) seen(ch);
 			}
 		}

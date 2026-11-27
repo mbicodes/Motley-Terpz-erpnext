@@ -45,6 +45,22 @@ html.lg-scrolled body .page-container:not(#mg-none) .page-head::before { opacity
 }
 html[data-theme="dark"] .mg-auto .page-form { background: rgba(24, 24, 28, .44) !important; box-shadow: 0 10px 28px rgba(0, 0, 0, .3), inset 0 0 0 1px rgba(255, 255, 255, .12); }
 .mg-auto .page-form .form-group { margin-bottom: 0 !important; }
+/* its fields flow in one wrapping row at their own width (the grid columns were too narrow for "Label Value ▾") */
+html body .mg-auto .page-form:not(#mg-none):not(.hide) { display: flex !important; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+/* a filter row with no field showing draws nothing (no empty glass strip under the title) */
+html body .mg-auto .page-form:not(#mg-none):not(:has(> :not(.hide-control):not(.hide):not([hidden]))) { display: none !important; }
+html body .mg-auto .page-form:not(#mg-none) > .frappe-control { flex: 0 1 auto !important; width: auto !important; max-width: 100% !important; min-width: 150px; margin: 0 !important; padding: 0 !important; }
+html body .mg-auto .page-form:not(#mg-none) > .frappe-control:has(.mg-selbtn) { min-width: 0; }
+html body .mg-auto .page-form:not(#mg-none) > .frappe-control[data-fieldtype="Check"] { min-width: 0; }
+/* a Frappe Select turned menu button: its own chevron and empty-value placeholder go (the button shows both) */
+.mg-auto .layout-main-section :is(.control-input, .frappe-control):has(> .mg-selbtn) > :is(.select-icon, .placeholder) { display: none !important; }
+/* its fields: light capsules on the glass, like SOB's search */
+html body .mg-auto .page-form:not(#mg-none) :is(input.form-control, select.form-control, .input-with-feedback) {
+	height: 34px !important; border: 0 !important; border-radius: 17px !important; padding-left: 14px !important;
+	background-color: rgba(255, 255, 255, .62) !important; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .05) !important; font-family: var(--mg-font) !important;
+}
+html[data-theme="dark"] body .mg-auto .page-form:not(#mg-none) :is(input.form-control, select.form-control, .input-with-feedback) { background-color: rgba(255, 255, 255, .1) !important; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .1) !important; }
+html body .mg-auto .page-form:not(#mg-none) :is(input.form-control, select.form-control):focus { box-shadow: 0 0 0 2px color-mix(in srgb, var(--mg-accent) 55%, transparent) !important; }
 
 /* Frappe controls inside pages: iOS fills and capsules */
 .mg-auto .layout-main-section .form-control,
@@ -92,17 +108,17 @@ html[data-theme="dark"] body .mg-auto .mg-fbar { color: #f5f5f7; background: rgb
 .mg-auto .mg-fbar .mg-fwrap { display: contents; }
 .mg-auto .mg-fbar > *, .mg-auto .mg-fbar .mg-fwrap > * { margin-top: 0 !important; margin-bottom: 0 !important; }
 .mg-auto .mg-fbar .mg-fgroup {
-	display: inline-flex !important; align-items: center; gap: 2px; flex: 0 1 auto !important; width: auto !important; max-width: none !important; min-width: 0;
+	display: inline-flex !important; flex-direction: row !important; flex-wrap: nowrap !important; align-items: center; gap: 2px 4px; flex: 0 1 auto !important; width: auto !important; max-width: none !important; min-width: 0;
 	margin: 0 !important; padding: 0 0 0 10px !important; border: 0 !important; background: transparent !important; box-shadow: none !important;
 }
 .mg-auto .mg-fbar .mg-fgroup:has(> .mg-selbtn), .mg-auto .mg-fbar .mg-fgroup:has(.mg-selbtn .k) { padding-left: 0 !important; }
 /* labels: small, quiet, inline (no upper-case tracking) */
-.mg-auto .mg-fbar label, .mg-auto .mg-fbar .control-label, .mg-auto .mg-fbar .mg-fwrap > span:not(.mg-selbtn):not([class*="badge"]) {
+.mg-auto .mg-fbar label, .mg-auto .mg-fbar .control-label, .mg-auto .mg-fbar .mg-flabel, .mg-auto .mg-fbar .mg-fwrap > span:not(.mg-selbtn):not([class*="badge"]) {
 	margin: 0 4px 0 0 !important; padding: 0 !important; font-family: var(--mg-font) !important; font-size: 12px !important; font-weight: 500 !important;
 	line-height: 16px; color: inherit !important; opacity: .72; text-transform: none !important; letter-spacing: 0 !important; white-space: nowrap;
 }
 /* a select already shows its label inside its menu button: hide the separate one */
-.mg-auto .mg-fbar .mg-fgroup:has(.mg-selbtn .k) > label, .mg-auto .mg-fbar .mg-fgroup:has(.mg-selbtn .k) .control-label { display: none !important; }
+.mg-auto .mg-fbar .mg-fgroup:has(.mg-selbtn .k) > :is(label, .mg-flabel), .mg-auto .mg-fbar .mg-fgroup:has(.mg-selbtn .k) .control-label { display: none !important; }
 /* fields: borderless capsules on the glass */
 .mg-auto .mg-fbar input:not([type="checkbox"]):not([type="radio"]) {
 	height: 36px !important; min-height: 36px !important; width: auto; min-width: 120px; max-width: 220px;
@@ -138,15 +154,11 @@ html[data-theme="dark"] .mg-auto .mg-fbar .mg-selbtn[aria-expanded="true"] { bac
 .mg-auto .mg-fbar .btn:hover, .mg-auto .mg-fbar button:not(.mg-selbtn):not(.mg-pop-i):hover { background: color-mix(in srgb, currentColor 9%, transparent) !important; }
 .mg-auto .mg-fbar .btn:active, .mg-auto .mg-fbar button:not(.mg-selbtn):active { transform: scale(.97); }
 .mg-auto .mg-fbar .mg-fseg { display: inline-flex !important; align-items: center; gap: 2px; flex-wrap: wrap; width: auto !important; margin: 0 !important; padding: 0 !important; border: 0 !important; background: transparent !important; box-shadow: none !important; }
-.mg-auto .mg-fbar :is(.mg-fseg, .mg-fwrap, .mg-fbar) > :is(.btn, button, a).active,
-.mg-auto .mg-fbar :is(.mg-fseg, .mg-fwrap, .mg-fbar) > :is(.btn, button, a).on,
-.mg-auto .mg-fbar :is(.mg-fseg, .mg-fwrap, .mg-fbar) > :is(.btn, button, a).selected,
-.mg-auto .mg-fbar :is(.mg-fseg, .mg-fwrap, .mg-fbar) > :is(.btn, button, a)[aria-pressed="true"],
-.mg-auto .mg-fbar :is(.mg-fseg, .mg-fwrap, .mg-fbar) > :is(.btn, button, a)[aria-selected="true"],
+html body .mg-auto .mg-fbar:not(#mg-none) :is(.btn, button, a, [role="tab"]):not(.mg-selbtn):is(.active, .on, .selected, .is-active, .is-on, .current, [aria-pressed="true"], [aria-selected="true"], [class*="-active"], [class*="_active"]),
 .mg-auto .mg-fbar .mg-fseg > .btn-primary {
 	background: rgba(255, 255, 255, .92) !important; color: #1d1d1f !important; font-weight: 600 !important; box-shadow: 0 1px 2px rgba(0, 0, 0, .1), 0 3px 8px rgba(0, 0, 0, .08) !important;
 }
-html[data-theme="dark"] .mg-auto .mg-fbar :is(.mg-fseg, .mg-fwrap, .mg-fbar) > :is(.btn, button, a):is(.active, .on, .selected, [aria-pressed="true"], [aria-selected="true"]),
+html[data-theme="dark"] body .mg-auto .mg-fbar:not(#mg-none) :is(.btn, button, a, [role="tab"]):not(.mg-selbtn):is(.active, .on, .selected, .is-active, .is-on, .current, [aria-pressed="true"], [aria-selected="true"], [class*="-active"], [class*="_active"]),
 html[data-theme="dark"] .mg-auto .mg-fbar .mg-fseg > .btn-primary { background: rgba(255, 255, 255, .24) !important; color: #fff !important; }
 /* one real action in the bar (Apply, Run) keeps the Motley grape */
 .mg-auto .mg-fbar > .btn-primary, .mg-auto .mg-fbar .mg-fwrap > .btn-primary { background: var(--mg-accent) !important; color: var(--mg-accent-ink) !important; font-weight: 600 !important; }
@@ -165,6 +177,68 @@ html[data-theme="dark"] .mg-auto .mg-fbar .mg-fseg > .btn-primary { background: 
 }
 @media (prefers-reduced-transparency: reduce) { html body .mg-auto .mg-fbar { background: rgba(246, 246, 248, .94) !important; } }
 
+/* tab-like spans in a bar's segmented group look like its buttons */
+html body .mg-auto .mg-fbar .mg-fseg:not(#mg-none) > :not(button):not(.btn) {
+	display: inline-flex; align-items: center; height: 36px; padding: 0 14px !important; border: 0 !important; border-radius: 18px !important;
+	background: transparent !important; box-shadow: none !important; color: inherit !important; font-family: var(--mg-font) !important; font-size: 13px !important; font-weight: 500 !important;
+	text-transform: none !important; letter-spacing: 0 !important; white-space: nowrap; cursor: pointer;
+}
+html body .mg-auto .mg-fbar .mg-fseg:not(#mg-none) > :not(button):not(.btn):is(.active, .on, .selected, .is-active, .is-on, .current, [aria-pressed="true"], [aria-selected="true"], [class*="-active"], [class*="_active"]) {
+	background: rgba(255, 255, 255, .92) !important; color: #1d1d1f !important; font-weight: 600 !important; box-shadow: 0 1px 2px rgba(0, 0, 0, .1), 0 3px 8px rgba(0, 0, 0, .08) !important;
+}
+/* fields keep the capsule size whatever width the page gave them; a select's own chevron goes (the menu button has one) */
+html body .mg-auto .mg-fbar:not(#mg-none) input:not([type="checkbox"]):not([type="radio"]):not([type="range"]) { width: auto !important; flex: 0 1 auto !important; }
+html body .mg-auto .mg-fbar:not(#mg-none) input:is([type="date"], [type="month"], [type="week"]) { width: 150px !important; }
+html body .mg-auto .mg-fbar:not(#mg-none) input[type="number"] { width: 110px !important; }
+.mg-auto .mg-fbar .control-input:has(.mg-selbtn) .select-icon, .mg-auto .mg-fbar .mg-fgroup:has(> .mg-selbtn) > :is(svg, i):not(.mg-selbtn *) { display: none !important; }
+/* a Frappe control in a bar: its label beside the field, no box */
+.mg-auto .mg-fbar .mg-fctl .form-group { display: flex !important; align-items: center; gap: 4px; }
+.mg-auto .mg-fbar .mg-fctl .clearfix { margin: 0 !important; }
+.mg-auto .mg-fbar .mg-fctl .help-box, .mg-auto .mg-fbar .mg-fctl .control-value { display: none !important; }
+html body .mg-auto .mg-fbar input.mg-fsearch-own:not(#mg-none) { padding-left: 34px !important; min-width: 180px; }
+/* a <label> that wraps its field is a group: only its words (.mg-flabel) are quiet, never the field */
+html body .mg-auto .mg-fbar label.mg-fgroup:not(#mg-none) { opacity: 1 !important; font-size: 13px !important; }
+/* a native multi-select in a bar: a capsule like the other fields */
+.mg-auto .mg-fbar select[multiple] { height: 36px !important; min-height: 36px; padding: 0 12px !important; border: 0 !important; border-radius: 18px !important; background-color: color-mix(in srgb, currentColor 6%, transparent) !important; box-shadow: none !important; overflow: hidden; }
+/* a long hint inside a toggle button lives in its tooltip */
+.mg-auto .mg-fbar :is(button, .btn) .mg-fhint { display: none !important; }
+/* nested groups (a From / To pair, a label + switch) sit flush inside the capsule */
+.mg-auto .mg-fbar .mg-fgroup .mg-fgroup { padding-left: 0 !important; }
+.mg-auto .mg-fbar .mg-fgroup > .mg-flabel { padding-left: 4px !important; }
+@media (max-width: 720px) { .mg-auto .mg-fbar .mg-fgroup { flex-wrap: wrap !important; } }
+
+/* ---------- a switch or a row of view tabs on its own (.mg-segbar): SOB's segmented glass capsule ----------
+   (company pills, rep pills, "Summary | Ledgers", view tabs). The current one is the white pill. */
+html body .mg-auto .mg-segbar:not(#mg-none) {
+	display: inline-flex !important; flex-wrap: wrap; align-items: center; gap: 2px; width: fit-content !important; max-width: 100%;
+	position: relative; isolation: isolate; padding: 4px !important; border: 0 !important; border-radius: 22px !important; color: #1d1d1f;
+	background: rgba(255, 255, 255, .5) !important; -webkit-backdrop-filter: blur(10px) saturate(1.7) brightness(1.04); backdrop-filter: blur(10px) saturate(1.7) brightness(1.04);
+	box-shadow: 0 1px 2px rgba(0, 0, 0, .06), 0 8px 24px rgba(0, 0, 0, .12), inset 0 0 0 1px rgba(255, 255, 255, .6) !important;
+	font-family: var(--mg-font) !important;
+}
+html[data-theme="dark"] body .mg-auto .mg-segbar:not(#mg-none) { color: #f5f5f7; background: rgba(24, 24, 28, .44) !important; box-shadow: 0 10px 28px rgba(0, 0, 0, .3), inset 0 0 0 1px rgba(255, 255, 255, .12) !important; }
+html body .mg-auto :is(.mg-segbar, .mg-fseg) > :is([hidden], .hide, .hidden, .d-none) { display: none !important; }
+html body .mg-auto .mg-segbar:not(#mg-none) > :not(.mg-seg-x) {
+	display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex: 0 0 auto !important; width: auto !important;
+	height: 32px !important; min-height: 32px; margin: 0 !important; padding: 0 14px !important; border: 0 !important; border-radius: 16px !important;
+	background: transparent !important; box-shadow: none !important; color: inherit !important; opacity: 1;
+	font-family: var(--mg-font) !important; font-size: 13px !important; font-weight: 500 !important; line-height: 1 !important;
+	text-transform: none !important; letter-spacing: 0 !important; white-space: nowrap; text-decoration: none !important;
+	transition: background-color .16s var(--mg-ease), transform .2s var(--mg-ease);
+}
+html body .mg-auto .mg-segbar:not(#mg-none) > :not(.mg-seg-x):hover { background: color-mix(in srgb, currentColor 9%, transparent) !important; }
+html body .mg-auto .mg-segbar:not(#mg-none) > :not(.mg-seg-x):active { transform: scale(.97); }
+html body .mg-auto .mg-segbar:not(#mg-none) > :not(.mg-seg-x):is(.active, .on, .selected, .is-active, .is-on, .current, [aria-pressed="true"], [aria-selected="true"], [class*="-active"], [class*="_active"]) {
+	background: rgba(255, 255, 255, .92) !important; color: #1d1d1f !important; font-weight: 600 !important; box-shadow: 0 1px 2px rgba(0, 0, 0, .1), 0 3px 8px rgba(0, 0, 0, .08) !important;
+}
+html[data-theme="dark"] body .mg-auto .mg-segbar:not(#mg-none) > :not(.mg-seg-x):is(.active, .on, .selected, .is-active, .is-on, .current, [aria-pressed="true"], [aria-selected="true"], [class*="-active"], [class*="_active"]) { background: rgba(255, 255, 255, .24) !important; color: #fff !important; }
+/* a filter riding at the end of a tab row ("Period: [ ]"): a quiet label + capsule field inside the capsule */
+html body .mg-auto .mg-segbar:not(#mg-none) > .mg-seg-x { display: inline-flex; align-items: center; gap: 6px; margin: 0 !important; padding: 0 4px 0 12px !important; font-size: 12px; font-weight: 500; color: inherit; }
+html body .mg-auto .mg-segbar:not(#mg-none) > .mg-seg-x :is(input, select) { height: 30px !important; border: 0 !important; border-radius: 15px !important; padding: 0 12px !important; background: rgba(255, 255, 255, .7) !important; box-shadow: none !important; font-size: 13px; color: #1d1d1f; }
+/* counts inside a segment ("Leads 96") stay quiet */
+html body .mg-auto :is(.mg-segbar, .mg-fseg) > :is(button, a, .btn) :is(.badge, .count, small, span[class*="count"]) { background: transparent !important; color: inherit !important; opacity: .6; font-weight: 500; padding: 0 !important; }
+@media (prefers-reduced-transparency: reduce) { html body .mg-auto .mg-segbar:not(#mg-none) { background: rgba(246, 246, 248, .94) !important; } }
+
 /* ---------- a filter block laid out in several rows (.mg-fpanel): same glass, the page keeps its own layout ---------- */
 html body .mg-auto .mg-fpanel:not(#mg-none) {
 	position: relative; isolation: isolate; border: 0 !important; border-radius: 22px !important;
@@ -181,3 +255,17 @@ html body .mg-auto .mg-fpanel:not(#mg-none) input:not([type="checkbox"]):not([ty
 }
 html body .mg-auto .mg-fpanel:not(#mg-none) input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus { background-color: var(--mg-fill2) !important; box-shadow: 0 0 0 2px color-mix(in srgb, var(--mg-accent) 55%, transparent) !important; }
 @media (prefers-reduced-transparency: reduce) { html body .mg-auto .mg-fpanel:not(#mg-none) { background: rgba(246, 246, 248, .94) !important; } }
+
+/* ---------- a bar on a dark surface of the page (navy hero, dark page) in the light theme: SOB's dark glass ---------- */
+html body .mg-auto :is(.mg-fbar, .mg-segbar, .mg-fpanel).mg-dk:not(#mg-none) {
+	color: #f5f5f7 !important; background: rgba(255, 255, 255, .1) !important;
+	box-shadow: 0 10px 28px rgba(0, 0, 0, .3), inset 0 0 0 1px rgba(255, 255, 255, .16) !important;
+}
+html body .mg-auto .mg-dk:not(#mg-none) :is(.mg-flabel, label, .control-label) { color: inherit !important; }
+html body .mg-auto .mg-dk:not(#mg-none) input:not([type="checkbox"]):not([type="radio"]) { color: #f5f5f7 !important; color-scheme: dark; }
+html body .mg-auto .mg-dk:not(#mg-none) .mg-selbtn { color: inherit !important; }
+html body .mg-auto .mg-dk:not(#mg-none) .mg-selbtn[aria-expanded="true"] { background: rgba(255, 255, 255, .2) !important; }
+html body .mg-auto .mg-fbar.mg-dk:not(#mg-none) :is(.btn, button, a, [role="tab"]):not(.mg-selbtn):is(.active, .on, .selected, .is-active, .is-on, .current, [aria-pressed="true"], [aria-selected="true"], [class*="-active"], [class*="_active"]),
+html body .mg-auto .mg-segbar.mg-dk:not(#mg-none) > :not(.mg-seg-x):is(.active, .on, .selected, .is-active, .is-on, .current, [aria-pressed="true"], [aria-selected="true"], [class*="-active"], [class*="_active"]) {
+	background: rgba(255, 255, 255, .24) !important; color: #fff !important; box-shadow: none !important;
+}
