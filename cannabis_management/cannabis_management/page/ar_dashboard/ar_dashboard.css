@@ -1306,3 +1306,14 @@
 .ard-monthly-weekly-wrap .ard-table {
 	min-width: 480px;
 }
+
+/* 2026-11-28: the customer table was a short box (100vh - 380px, ~6 rows) with empty page below it. It now takes the
+   screen under the sticky navbar + title row, and reads a size larger. */
+.ard-table-wrap {
+	max-height: calc(100vh - 150px);
+	min-height: 560px;
+}
+.ard-sheet .ard-table { font-size: 13.5px; }
+.ard-sheet .ard-head-row th { font-size: 12.5px; padding: 9px 12px; }
+.ard-sheet .ard-table td { padding-top: 9px; padding-bottom: 9px; }
+@media (max-width: 720px) { .ard-table-wrap { min-height: 420px; max-height: calc(100vh - 120px); } }
