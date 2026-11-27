@@ -23,7 +23,8 @@
   padding: 0;
 }
 
-.page-head {
+/* this page draws its own header; scoped, so the Desk title bar of other pages is not hidden after a visit here */
+#page-manufacturing-process .page-head {
   display: none !important;
   border: none !important;
   box-shadow: none !important;
@@ -886,3 +887,24 @@
   background: none; cursor: zoom-in; line-height: 0;
 }
 .mc-tier-pic img { width: 56px; height: 56px; object-fit: cover; border-radius: 5px; }
+
+
+/* ---- Motley Glass (Sales Operation Board look): frosted header bar, capsule controls ---- */
+#page-manufacturing-process .mc-header {
+  margin: 12px 0 14px; border: 0; border-radius: 22px; padding: 12px 18px; gap: 12px; flex-wrap: wrap;
+  background: rgba(255, 255, 255, .7); color: #1d1d1f;
+  -webkit-backdrop-filter: blur(40px) saturate(1.8); backdrop-filter: blur(40px) saturate(1.8);
+  box-shadow: 0 1px 2px rgba(20, 0, 50, .04), 0 16px 40px rgba(40, 10, 90, .10), inset 0 0 0 1px rgba(255, 255, 255, .45);
+  position: sticky; top: calc(var(--navbar-height, 48px) + 16px); z-index: 5;
+}
+html[data-theme="dark"] #page-manufacturing-process .mc-header { background: rgba(34, 10, 72, .66); color: #fff; box-shadow: 0 16px 40px rgba(0, 0, 0, .4), inset 0 0 0 1px rgba(255, 255, 255, .12); }
+#page-manufacturing-process .mc-header h1 { font-family: var(--mg-font, -apple-system, BlinkMacSystemFont, sans-serif); font-size: 24px; font-weight: 600; letter-spacing: -.02em; }
+#page-manufacturing-process .mc-header-actions { flex-wrap: wrap; gap: 8px; }
+#page-manufacturing-process .mc-btn { border-radius: 17px; height: 34px; padding: 0 14px; font-family: var(--mg-font, inherit); transition: transform .2s cubic-bezier(.22, 1, .36, 1), filter .15s; }
+#page-manufacturing-process .mc-btn:active { transform: scale(.97); }
+#page-manufacturing-process .mc-btn-primary { background: var(--mg-accent, #4d129e); }
+#page-manufacturing-process .mc-btn-secondary { background: rgba(255, 255, 255, .7); color: #1d1d1f; border: 0; box-shadow: 0 1px 2px rgba(0, 0, 0, .06), inset 0 0 0 1px rgba(255, 255, 255, .6); }
+html[data-theme="dark"] #page-manufacturing-process .mc-btn-secondary { background: rgba(255, 255, 255, .14); color: #fff; }
+#page-manufacturing-process .mc-wo-search { height: 34px; border: 0; border-radius: 17px; padding: 0 14px; background: rgba(255, 255, 255, .62);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .06), inset 0 0 0 1px rgba(255, 255, 255, .6); min-width: 150px; }
+html[data-theme="dark"] #page-manufacturing-process .mc-wo-search { background: rgba(255, 255, 255, .12); color: #fff; }

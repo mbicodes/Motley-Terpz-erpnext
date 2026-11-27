@@ -75,19 +75,20 @@ html[data-theme="dark"] body .page-container.mg-glass-page:not(#mg-none) .page-h
    the desk's own surfaces paint over it. */
 .mg-bg { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
 .mg-bg > i { position: absolute; inset: 0;
+	/* the SOB Deals backdrop: logo gold leads, warming a cream base, orchid drip and blush on the right */
 	background:
-		radial-gradient(70% 60% at 0% 0%, rgba(201, 107, 226, .55) 0%, rgba(201, 107, 226, 0) 70%),
-		radial-gradient(60% 55% at 100% 0%, rgba(120, 70, 220, .26) 0%, rgba(120, 70, 220, 0) 70%),
-		radial-gradient(65% 60% at 100% 100%, rgba(248, 216, 90, .55) 0%, rgba(248, 216, 90, 0) 70%),
-		radial-gradient(55% 55% at 12% 100%, rgba(232, 160, 240, .45) 0%, rgba(232, 160, 240, 0) 70%),
-		linear-gradient(135deg, #f6eefc 0%, #efe3fa 45%, #fbf2df 100%);
+		radial-gradient(70% 60% at 0% 0%, rgba(248, 216, 90, .6) 0%, rgba(248, 216, 90, 0) 70%),
+		radial-gradient(60% 55% at 100% 0%, rgba(201, 107, 226, .34) 0%, rgba(201, 107, 226, 0) 70%),
+		radial-gradient(65% 60% at 100% 100%, rgba(240, 150, 200, .36) 0%, rgba(240, 150, 200, 0) 70%),
+		radial-gradient(55% 55% at 10% 100%, rgba(201, 107, 226, .26) 0%, rgba(201, 107, 226, 0) 70%),
+		linear-gradient(135deg, #fdf6e3 0%, #fbeef0 50%, #f3e9fb 100%);
 }
-[data-theme="dark"] .mg-bg > i {
+html[data-theme="dark"] .mg-bg > i {
 	background:
-		radial-gradient(70% 60% at 0% 0%, rgba(201, 107, 226, .42) 0%, rgba(201, 107, 226, 0) 70%),
-		radial-gradient(65% 60% at 100% 100%, rgba(248, 216, 90, .16) 0%, rgba(248, 216, 90, 0) 70%),
-		radial-gradient(55% 55% at 12% 100%, rgba(120, 70, 220, .3) 0%, rgba(120, 70, 220, 0) 70%),
-		linear-gradient(150deg, #22103f 0%, #170a2c 55%, #110820 100%);
+		radial-gradient(65% 60% at 0% 0%, rgba(201, 107, 226, .5) 0%, rgba(201, 107, 226, 0) 70%),
+		radial-gradient(55% 50% at 100% 0%, rgba(248, 216, 90, .26) 0%, rgba(248, 216, 90, 0) 68%),
+		radial-gradient(70% 65% at 85% 100%, rgba(120, 50, 220, .55) 0%, rgba(120, 50, 220, 0) 70%),
+		linear-gradient(150deg, #2c0b62 0%, #1c0742 50%, #10042a 100%);
 }
 
 /* ---------- Base ---------- */
@@ -133,8 +134,8 @@ html[data-theme="dark"] body .page-container.mg-glass-page:not(#mg-none) .page-h
 .mg-chip input[type="checkbox"] { accent-color: var(--mg-accent); width: 16px; height: 16px; margin: 0; }
 /* inputs inside the glass bar: borderless capsules */
 .mg-glass .mg-in { height: 36px; border: 0 !important; border-radius: 18px; background: transparent; color: inherit; padding: 0 14px; font-size: 13px; outline: none; box-shadow: none !important; min-width: 120px; }
-.mg-glass .mg-in:hover { background: color-mix(in srgb, currentColor 6%, transparent); }
-.mg-glass .mg-in:focus { background: color-mix(in srgb, currentColor 9%, transparent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--mg-accent) 55%, transparent) !important; }
+.mg-glass .mg-in:hover { background-color: color-mix(in srgb, currentColor 6%, transparent); }
+.mg-glass .mg-in:focus { background-color: color-mix(in srgb, currentColor 9%, transparent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--mg-accent) 55%, transparent) !important; }
 .mg-glass select.mg-in { padding-right: 28px; }
 .mg-glass .mg-in::placeholder { color: inherit; opacity: .6; }
 .mg-glass .mg-sep { width: 1px; height: 20px; background: color-mix(in srgb, currentColor 14%, transparent); margin: 0 2px; }
@@ -253,3 +254,62 @@ table.mg-table a:hover { text-decoration: underline; }
 .mgr .mgr-date { min-width: 0; width: 150px; }
 .mgr .mg-table-wrap { transition: opacity .15s var(--mg-ease); }
 .mgr .mgr-foot { padding: 0 4px; }
+
+/* ---------- Glass select menus (motley_glass_auto.js turns native <select>s on glass pages into these) ---------- */
+.mg-sel-native { position: absolute !important; width: 1px !important; height: 1px !important; opacity: 0 !important; pointer-events: none !important; overflow: hidden !important; }
+.mg-selbtn {
+	display: inline-flex; align-items: center; gap: 6px; height: 34px; max-width: 280px; padding: 0 12px 0 14px; border: 0; border-radius: 17px; cursor: pointer;
+	font-family: var(--mg-font); font-size: 13px; font-weight: 500; line-height: 1; white-space: nowrap; color: var(--mg-ink);
+	background: rgba(255, 255, 255, .62); -webkit-backdrop-filter: blur(10px) saturate(1.7); backdrop-filter: blur(10px) saturate(1.7);
+	box-shadow: 0 1px 2px rgba(0, 0, 0, .06), 0 4px 14px rgba(40, 10, 90, .08), inset 0 0 0 1px rgba(255, 255, 255, .6);
+	transition: background-color .16s var(--mg-ease), transform .2s var(--mg-ease), box-shadow .2s var(--mg-ease);
+}
+.mg-selbtn:hover { background: rgba(255, 255, 255, .85); }
+.mg-selbtn:active { transform: scale(.97); }
+.mg-selbtn[aria-expanded="true"] { background: #fff; box-shadow: 0 0 0 2px color-mix(in srgb, var(--mg-accent) 45%, transparent), 0 6px 18px rgba(40, 10, 90, .12); }
+.mg-selbtn:disabled { opacity: .5; cursor: not-allowed; }
+.mg-selbtn .k { color: var(--mg-muted); font-weight: 500; }
+.mg-selbtn .v { font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+.mg-selbtn.on .v { color: var(--mg-accent); }
+.mg-selbtn svg { flex: none; color: var(--mg-muted); transition: transform .25s var(--mg-ease); }
+.mg-selbtn[aria-expanded="true"] svg { transform: rotate(180deg); }
+html[data-theme="dark"] .mg-selbtn { background: rgba(255, 255, 255, .12); color: #f5f5f7; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .14); }
+html[data-theme="dark"] .mg-selbtn:hover, html[data-theme="dark"] .mg-selbtn[aria-expanded="true"] { background: rgba(255, 255, 255, .2); }
+html[data-theme="dark"] .mg-selbtn.on .v { color: #d9b8ff; }
+/* inside a glass bar the menu button is a flat segment of the capsule, like SOB's "Owner All" */
+.mg-glass .mg-selbtn, .mg-auto .page-form .mg-selbtn { background: transparent; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.mg-glass .mg-selbtn:hover, .mg-auto .page-form .mg-selbtn:hover { background: color-mix(in srgb, currentColor 8%, transparent); }
+html[data-theme="dark"] .mg-glass .mg-selbtn, html[data-theme="dark"] .mg-auto .page-form .mg-selbtn { background: transparent; box-shadow: none; }
+html[data-theme="dark"] .mg-glass .mg-selbtn:hover, html[data-theme="dark"] .mg-auto .page-form .mg-selbtn:hover { background: rgba(255, 255, 255, .1); }
+/* text fields in a glass bar read as SOB's search capsule */
+.mg-glass input.mg-in:not([type="date"]):not([type="number"]) {
+	padding-left: 34px;
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238e8e93' stroke-width='2.4' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m20 20-3.5-3.5'/%3E%3C/svg%3E");
+	background-repeat: no-repeat; background-position: 12px 50%;
+}
+
+.mg-pop {
+	position: fixed; z-index: 1060; min-width: 200px; max-width: min(340px, calc(100vw - 24px)); max-height: 360px; overflow-y: auto; padding: 6px;
+	display: flex; flex-direction: column; gap: 2px; border-radius: 18px; font-family: var(--mg-font); font-size: 14px; color: #1d1d1f;
+	background: rgba(250, 250, 252, .78); -webkit-backdrop-filter: blur(28px) saturate(1.9); backdrop-filter: blur(28px) saturate(1.9);
+	box-shadow: 0 2px 6px rgba(0, 0, 0, .08), 0 24px 56px rgba(40, 10, 90, .24), inset 0 0 0 1px rgba(255, 255, 255, .6);
+	transform-origin: var(--mg-origin, top left); animation: mg-materialize .42s var(--mg-spring) both;
+}
+.mg-pop.dark { color: #f5f5f7; background: rgba(30, 30, 34, .78); box-shadow: 0 2px 6px rgba(0, 0, 0, .25), 0 24px 56px rgba(0, 0, 0, .5), inset 0 0 0 1px rgba(255, 255, 255, .1); }
+.mg-pop-h { padding: 8px 12px 4px; font-size: 11px; font-weight: 600; color: #6e6e73; text-transform: none; }
+.mg-pop.dark .mg-pop-h { color: #a1a1a6; }
+.mg-pop-i { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 36px; padding: 0 12px 0 8px; border: 0; border-radius: 11px; background: transparent;
+	color: inherit; font: inherit; font-weight: 500; text-align: left; cursor: pointer; flex: none; }
+.mg-pop-i:hover, .mg-pop-i:focus-visible { background: color-mix(in srgb, currentColor 9%, transparent); outline: none; }
+.mg-pop-i[aria-selected="true"] { font-weight: 600; }
+.mg-pop-i .t { width: 16px; display: inline-flex; justify-content: center; color: var(--mg-accent); visibility: hidden; flex: none; }
+.mg-pop.dark .mg-pop-i .t { color: #d9b8ff; }
+.mg-pop-i[aria-selected="true"] .t { visibility: visible; }
+.mg-pop-i[disabled] { opacity: .45; cursor: default; }
+.mg-pop-i span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@keyframes mg-materialize { from { scale: .9; opacity: 0; filter: blur(4px); } }
+/* a segment or menu that just changed springs like SOB's sliding thumb */
+@keyframes mg-spring { 0% { scale: .92; } 55% { scale: 1.04; } 100% { scale: 1; } }
+.mg-just-on { animation: mg-spring .42s var(--mg-spring) both; }
+.mg-menu:not([hidden]) { animation: mg-materialize .4s var(--mg-spring) both; transform-origin: top right; }
+@media (prefers-reduced-motion: reduce) { .mg-pop, .mg-just-on, .mg-menu:not([hidden]) { animation: none; } .mg-selbtn { transition: none; } }

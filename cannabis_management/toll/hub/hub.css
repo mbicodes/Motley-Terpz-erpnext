@@ -33,19 +33,20 @@
 
 /* hero: the SOB Leads gradient with frosted widgets on it */
 .hero { position: relative; overflow: hidden; border-radius: 24px; padding: 24px; display: flex; flex-direction: column; gap: 16px;
+	/* the SOB Deals backdrop */
 	background:
-		radial-gradient(70% 60% at 0% 0%, rgba(201, 107, 226, .55) 0%, rgba(201, 107, 226, 0) 70%),
-		radial-gradient(60% 55% at 100% 0%, rgba(120, 70, 220, .26) 0%, rgba(120, 70, 220, 0) 70%),
-		radial-gradient(65% 60% at 100% 100%, rgba(248, 216, 90, .55) 0%, rgba(248, 216, 90, 0) 70%),
-		radial-gradient(55% 55% at 12% 100%, rgba(232, 160, 240, .45) 0%, rgba(232, 160, 240, 0) 70%),
-		linear-gradient(135deg, #f6eefc 0%, #efe3fa 45%, #fbf2df 100%);
+		radial-gradient(70% 60% at 0% 0%, rgba(248, 216, 90, .6) 0%, rgba(248, 216, 90, 0) 70%),
+		radial-gradient(60% 55% at 100% 0%, rgba(201, 107, 226, .34) 0%, rgba(201, 107, 226, 0) 70%),
+		radial-gradient(65% 60% at 100% 100%, rgba(240, 150, 200, .36) 0%, rgba(240, 150, 200, 0) 70%),
+		radial-gradient(55% 55% at 10% 100%, rgba(201, 107, 226, .26) 0%, rgba(201, 107, 226, 0) 70%),
+		linear-gradient(135deg, #fdf6e3 0%, #fbeef0 50%, #f3e9fb 100%);
 	box-shadow: var(--shadow-panel), inset 0 0 0 1px rgba(255, 255, 255, .5); }
 .hub.dark .hero {
 	background:
-		radial-gradient(70% 60% at 0% 0%, rgba(201, 107, 226, .42) 0%, rgba(201, 107, 226, 0) 70%),
-		radial-gradient(65% 60% at 100% 100%, rgba(248, 216, 90, .16) 0%, rgba(248, 216, 90, 0) 70%),
-		radial-gradient(55% 55% at 12% 100%, rgba(120, 70, 220, .3) 0%, rgba(120, 70, 220, 0) 70%),
-		linear-gradient(150deg, #22103f 0%, #170a2c 55%, #110820 100%);
+		radial-gradient(65% 60% at 0% 0%, rgba(201, 107, 226, .5) 0%, rgba(201, 107, 226, 0) 70%),
+		radial-gradient(55% 50% at 100% 0%, rgba(248, 216, 90, .26) 0%, rgba(248, 216, 90, 0) 68%),
+		radial-gradient(70% 65% at 85% 100%, rgba(120, 50, 220, .55) 0%, rgba(120, 50, 220, 0) 70%),
+		linear-gradient(150deg, #2c0b62 0%, #1c0742 50%, #10042a 100%);
 	box-shadow: var(--shadow-panel), inset 0 0 0 1px rgba(255, 255, 255, .08); }
 .hero-top { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 16px; }
 .hero-text { max-width: 720px; display: flex; flex-direction: column; gap: 6px; }
