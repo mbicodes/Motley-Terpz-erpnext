@@ -5,7 +5,7 @@
 //   - clears the page's own flat background (light in the light theme, dark in the dark theme) so the gradient shows,
 //     leaving its cards and coloured panels as they are.
 (function () {
-	const BG = '<div class="mg-bg" aria-hidden="true"><i></i></div>';
+	const BG = '<div class="mg-bg" aria-hidden="true"><i></i><i class="mg-bg-lead"></i></div>';
 	const watched = new WeakSet();
 	let timer = null;
 
@@ -297,19 +297,30 @@
 
 
 	// ---------------------------------------------------------------- SOB segment motion (every page)
-	// The Sales Operation Board's Leads <-> Deals movement on every switch and tab row: the selected segment is its own
-	// white thumb that springs across to the new segment; pressing a segment swells the thumb into a drop of glass
-	// that can be dragged across the row and let go on another segment; and the page content below slides in from
-	// the side the thumb travelled to. The pages' own buttons and logic are untouched: the thumb only follows the
-	// page's own "on" state (ON), and a drag ends in a plain click on the chosen segment.
+	// The Sales Operation Board's Leads <-> Deals movement, ported from its seg_sync / bind_segs onto every glass switch
+	// and tab row: the selected segment is its own white thumb that slides to the new segment on SOB's spring;
+	// pressing a segment lifts the thumb into a clear lens that swells over the labels and magnifies them, and it can
+	// be dragged along the row and let go on another segment; and the page's first switch crossfades the backdrop
+	// between SOB's Deals (gold) and Leads (lavender) gradients, like the Leads / Deals switch. The thumb only follows
+	// the page's own "on" state (ON); a drag ends in a plain click on the chosen segment, so page logic is untouched.
 	const seg_pos = {};
-	let last_input = 0;
-	['pointerdown', 'keydown'].forEach(t => document.addEventListener(t, () => { last_input = performance.now(); }, true));
 	const seg_items = g => [...g.children].filter(k => !k.classList.contains('mg-thumb') && !k.classList.contains('mg-seg-x') && getComputedStyle(k).display !== 'none');
 	function seg_key(g) {
 		const pg = g.closest('.page-container');
-		const labels = seg_items(g).map(x => x.textContent.replace(/[\d,.$%]+/g, '').trim()).join('|').slice(0, 120);
-		return (pg ? pg.id : '') + '|' + labels;
+		return (pg ? pg.id : '') + '|' + seg_items(g).map(x => x.textContent.replace(/[\d,.$%]+/g, '').trim()).join('|').slice(0, 120);
+	}
+	// the page's first switch (top of the page) plays SOB's board switch: every change the user makes on it crossfades
+	// the backdrop between the Deals (gold) and Leads (lavender) gradients
+	let last_input = 0;
+	['pointerdown', 'keydown'].forEach(t => document.addEventListener(t, () => { last_input = performance.now(); }, true));
+	function board(g, idx, prev) {
+		const sec = g.closest('.layout-main-section');
+		if (!sec || [...sec.querySelectorAll('.mg-glide')].find(x => x.offsetParent) !== g) return;
+		if (!sec.hasAttribute('data-mg-board')) sec.setAttribute('data-mg-board', 'deal');
+		if (!prev || prev.idx === idx || performance.now() - last_input > 2500 || sec._mgFlipFor === last_input) return;
+		// one crossfade per user action, however many times the page re-renders the switch on the way
+		sec._mgFlipFor = last_input;
+		sec.setAttribute('data-mg-board', sec.getAttribute('data-mg-board') === 'lead' ? 'deal' : 'lead');
 	}
 	function glide(g) {
 		if (!g.isConnected || !g.offsetWidth) return;
@@ -318,6 +329,7 @@
 			th = document.createElement('span');
 			th.className = 'mg-thumb still';
 			th.setAttribute('aria-hidden', 'true');
+			th.innerHTML = '<span class="mg-lens"></span>';
 			g.prepend(th);
 			if (!g.classList.contains('mg-glide')) g.classList.add('mg-glide');
 			watch_seg(g);
@@ -330,133 +342,116 @@
 			if (g.classList.contains('mg-has-thumb')) g.classList.remove('mg-has-thumb');
 			return;
 		}
-		const x = on.offsetLeft, y = on.offsetTop, w = on.offsetWidth, h = on.offsetHeight, idx = items.indexOf(on);
+		const x = on.offsetLeft, w = on.offsetWidth, idx = items.indexOf(on);
 		const key = seg_key(g), prev = seg_pos[key];
-		const place = (p, anim) => {
-			th.classList.toggle('still', !anim);
-			th.style.translate = p.x + 'px ' + p.y + 'px';
-			th.style.width = p.w + 'px';
-			th.style.height = p.h + 'px';
-		};
-		th.style.opacity = '1';
+		const place = (px, pw, anim) => { th.classList.toggle('still', !anim); th.style.translate = `${px}px 0`; th.style.width = `${pw}px`; };
+		th.style.top = on.offsetTop + 'px';
+		th.style.height = on.offsetHeight + 'px';
 		th.style.borderRadius = getComputedStyle(on).borderTopLeftRadius;
+		th.style.opacity = '1';
 		if (!g.classList.contains('mg-has-thumb')) g.classList.add('mg-has-thumb');
-		const now = { x, y, w, h, idx };
-		if (!th._placed && prev && (prev.x !== x || prev.y !== y || prev.w !== w)) {
+		if (!th._placed && prev && (prev.x !== x || prev.w !== w)) {
 			// a re-rendered row starts where its thumb was, then slides
-			place(prev, false);
+			place(prev.x, prev.w, false);
 			void th.offsetWidth;
-			place(now, true);
-		} else if (!th._placed || !prev || prev.x !== x || prev.y !== y || prev.w !== w || prev.h !== h) {
-			place(now, !!th._placed);
-		}
-		if (prev && prev.idx !== idx && performance.now() - last_input < 2500) swap_content(g, idx > prev.idx ? 'next' : 'prev');
+			place(x, w, true);
+		} else if (!prev || prev.x !== x || prev.w !== w || !th._placed) place(x, w, !!th._placed);
+		board(g, idx, prev);
 		th._placed = true;
-		seg_pos[key] = now;
+		seg_pos[key] = { x, w, idx };
 	}
 	function watch_seg(g) {
 		let raf = 0;
 		new MutationObserver(muts => {
-			if (!muts.some(m => m.target !== g && !(m.target.classList && m.target.classList.contains('mg-thumb')))) return;
+			if (!muts.some(m => m.target !== g && !(m.target.closest && m.target.closest('.mg-thumb')))) return;
 			cancelAnimationFrame(raf);
 			raf = requestAnimationFrame(() => glide(g));
 		}).observe(g, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'aria-pressed', 'aria-selected'] });
 	}
 
-	// the page below the switch slides in from the side the thumb went to (like SOB's KPI strip)
-	function swap_content(g, dir) {
-		const sec = g.closest('.layout-main-section');
-		if (!sec) return;
-		let added = false, slid = false;
-		const obs = new MutationObserver(muts => {
-			const tops = [];
-			for (const m of muts) for (const n of m.addedNodes) {
-				if (n.nodeType !== 1 || n.classList.contains('mg-bg') || n.classList.contains('mg-thumb') || n.closest('.mg-glide, .mg-fbar, .mg-segbar, .page-form, .mg-pop')) continue;
-				tops.push(n);
-			}
-			const roots = tops.filter(n => !tops.some(o => o !== n && o.contains(n)));
-			if (!roots.length) return;
-			added = true;
-			// data that lands after the blocks already slid only fades in (no second slide)
-			(roots.length > 12 ? [...new Set(roots.map(n => n.parentElement))] : roots).forEach(n => swap_anim(n, slid ? 'fade' : dir));
-		});
-		obs.observe(sec, { childList: true, subtree: true });
-		setTimeout(() => obs.disconnect(), 1600);
-		// pages that only show / hide what is already there: slide the blocks under the switch
-		setTimeout(() => { if (!added) { slid = true; content_after(g, sec).forEach(n => swap_anim(n, dir)); } }, 160);
-	}
-	function swap_anim(n, dir) {
-		if (!n.isConnected || n.offsetHeight < 24 || n.closest('.mg-glide, .mg-fbar, .mg-segbar')) return;
-		n.classList.remove('mg-swap-next', 'mg-swap-prev', 'mg-swap-fade');
-		void n.offsetWidth;
-		n.classList.add('mg-swap-' + dir);
-		setTimeout(() => n.classList.remove('mg-swap-' + dir), 520);
-	}
-	// the blocks that follow the switch's bar: its next siblings, or its parent's, going up until some are found
-	function content_after(g, sec) {
-		for (let b = g.closest('.mg-fbar, .mg-segbar') || g; b && b !== sec; b = b.parentElement) {
-			const out = [];
-			for (let s = b.nextElementSibling; s && out.length < 8; s = s.nextElementSibling) {
-				if (s.offsetHeight > 24 && !s.classList.contains('mg-bg') && !s.matches('.modal, script, style')) out.push(s);
-			}
-			if (out.length) return out;
-		}
-		return [];
-	}
-
-	// press: the thumb swells into a drop of glass under the finger; drag it along the row and let go to choose
+	// press: the thumb lifts into a lens that swells over the labels and magnifies them; drag it across, let go to choose
 	(function () {
-		let drag = null, block_t = 0;
-		const row = it => it && it.parentElement && it.parentElement.classList.contains('mg-glide') && !it.classList.contains('mg-thumb') && !it.classList.contains('mg-seg-x');
-		document.addEventListener('pointerdown', e => {
-			if (e.button !== 0 || drag || !e.target.closest) return;
-			let it = e.target.closest('.mg-glide > *');
-			if (!row(it) || it.disabled) return;
-			const g = it.parentElement, th = g.querySelector(':scope > .mg-thumb');
-			if (!th) return;
-			drag = { g, th, it, start: e.clientX, x0: it.offsetLeft, y: it.offsetTop, w: it.offsetWidth, x: it.offsetLeft, moved: false, pid: e.pointerId };
-			th.style.opacity = '1';
-			th.style.borderRadius = getComputedStyle(it).borderTopLeftRadius;
-			th.classList.remove('still');
-			th.style.width = it.offsetWidth + 'px';
-			th.style.height = it.offsetHeight + 'px';
-			th.style.translate = it.offsetLeft + 'px ' + it.offsetTop + 'px';
-			th.classList.add('lift');
-			if (!g.classList.contains('mg-has-thumb')) g.classList.add('mg-has-thumb');
-		}, true);
-		document.addEventListener('pointermove', e => {
-			if (!drag || e.pointerId !== drag.pid) return;
-			const dx = e.clientX - drag.start;
-			if (!drag.moved && Math.abs(dx) < 6) return;
-			drag.moved = true;
-			const items = seg_items(drag.g).filter(x => x.offsetTop === drag.y);
-			if (!items.length) return;
-			const last = items[items.length - 1];
-			drag.x = Math.max(items[0].offsetLeft, Math.min(last.offsetLeft + last.offsetWidth - drag.w, drag.x0 + dx));
-			drag.th.classList.add('still');
-			drag.th.style.translate = drag.x + 'px ' + drag.y + 'px';
-		}, { passive: true });
+		let drag = null, seg_t = 0;
+		const COPY = ['fontFamily', 'fontSize', 'fontWeight', 'letterSpacing', 'textTransform', 'gap', 'paddingLeft', 'paddingRight', 'justifyContent', 'lineHeight'];
+		const fill = (g, th) => {
+			// the lens shows a copy of the labels, laid out like the real ones; the lens's swell magnifies it
+			const inner = document.createElement('div');
+			inner.className = 'mg-lens-in';
+			seg_items(g).forEach(it => {
+				const c = it.cloneNode(true);
+				c.removeAttribute('id');
+				c.querySelectorAll('[id]').forEach(x => x.removeAttribute('id'));
+				['data-tip', 'aria-describedby', 'onclick', 'name', 'for', 'href'].forEach(a => c.removeAttribute(a));
+				c.setAttribute('tabindex', '-1');
+				c.setAttribute('aria-hidden', 'true');
+				const cs = getComputedStyle(it);
+				COPY.forEach(k => { c.style[k] = cs[k]; });
+				if (c.style.justifyContent === 'normal') c.style.justifyContent = 'center';
+				Object.assign(c.style, { left: it.offsetLeft + 'px', top: it.offsetTop + 'px', width: it.offsetWidth + 'px', height: it.offsetHeight + 'px' });
+				inner.appendChild(c);
+			});
+			th.querySelector('.mg-lens').replaceChildren(inner);
+			return inner;
+		};
+		const move = (x, anim) => {
+			drag.th.classList.toggle('still', !anim);
+			drag.th.style.translate = `${x}px 0`;
+			drag.inner.style.translate = `${-x}px ${-drag.y}px`;
+			drag.x = x;
+		};
+		const row = d => seg_items(d.g).filter(it => it.offsetTop === d.y);
 		const settle = pick => {
 			const d = drag;
 			drag = null;
 			if (!d) return;
-			d.th.classList.remove('lift', 'still');
-			let target = null;
-			if (pick && d.moved) {
-				const mid = d.x + d.w / 2;
-				target = seg_items(d.g).filter(x => x.offsetTop === d.y).reduce((best, it) => (Math.abs(it.offsetLeft + it.offsetWidth / 2 - mid) < Math.abs(best.offsetLeft + best.offsetWidth / 2 - mid) ? it : best), d.it);
-			}
-			if (target && !target.matches(ON)) { block_t = performance.now(); target.click(); }
-			// a plain tap lets the browser's own click through; the thumb then follows the page's new state
-			setTimeout(() => glide(d.g), 60);
+			d.th.classList.remove('lift');
+			setTimeout(() => { if (!d.th.classList.contains('lift')) { const l = d.th.querySelector('.mg-lens'); if (l) l.replaceChildren(); } }, 320);
+			// a plain tap lets the browser's own click through (the page's handlers see a normal click); a drag clicks
+			// the segment it was let go on
+			const target = pick && d.moved ? pick(d) : null;
+			if (target && !target.matches(ON)) { seg_t = performance.now(); target.click(); }
+			glide(d.g);
 		};
-		document.addEventListener('pointerup', e => { if (drag && e.pointerId === drag.pid) settle(true); }, true);
-		document.addEventListener('pointercancel', e => { if (drag && e.pointerId === drag.pid) settle(false); }, true);
-		// the drag chose the segment already: drop the browser's click that follows the pointerup
-		document.addEventListener('click', e => {
-			if (e.isTrusted && performance.now() - block_t < 450 && e.target.closest && e.target.closest('.mg-glide')) { e.stopPropagation(); e.preventDefault(); }
+		const nearest = d => {
+			const mid = d.x + d.w / 2;
+			return row(d).reduce((best, it) => (Math.abs(it.offsetLeft + it.offsetWidth / 2 - mid) < Math.abs(best.offsetLeft + best.offsetWidth / 2 - mid) ? it : best), d.item);
+		};
+		document.addEventListener('pointerdown', e => {
+			const g = e.target.closest && e.target.closest('.mg-glide');
+			if (!g || e.button !== 0 || drag) return;
+			const it = [...g.children].find(c => c.contains(e.target));
+			const th = g.querySelector(':scope > .mg-thumb');
+			if (!it || !th || it === th || it.classList.contains('mg-seg-x') || it.disabled) return;
+			drag = { g, th, item: it, start: e.clientX, x0: it.offsetLeft, x: th._placed ? parseFloat(th.style.translate) || 0 : it.offsetLeft, w: it.offsetWidth, y: it.offsetTop, moved: false, pid: e.pointerId };
+			th.style.width = it.offsetWidth + 'px';
+			th.style.top = it.offsetTop + 'px';
+			th.style.height = it.offsetHeight + 'px';
+			th.style.opacity = '1';
+			if (!g.classList.contains('mg-has-thumb')) g.classList.add('mg-has-thumb');
+			drag.inner = fill(g, th);
+			move(drag.x, false);
+			void th.offsetWidth;
+			th.classList.add('lift');
+			// the lens jumps under the finger, magnifying the pressed label
+			move(it.offsetLeft, true);
 		}, true);
-		window.addEventListener('resize', () => document.querySelectorAll('.mg-glide').forEach(g => { const th = g.querySelector(':scope > .mg-thumb'); if (th) th._placed = false; glide(g); }), { passive: true });
+		document.addEventListener('pointermove', e => {
+			if (!drag || e.pointerId !== drag.pid) return;
+			const dx = e.clientX - drag.start;
+			if (!drag.moved && Math.abs(dx) < 4) return;
+			drag.moved = true;
+			const r = row(drag);
+			if (!r.length) return;
+			const last = r[r.length - 1];
+			move(Math.max(r[0].offsetLeft, Math.min(last.offsetLeft + last.offsetWidth - drag.w, drag.x0 + dx)), false);
+		}, { passive: true });
+		document.addEventListener('pointerup', e => { if (drag && e.pointerId === drag.pid) settle(nearest); }, true);
+		document.addEventListener('pointercancel', e => { if (drag && e.pointerId === drag.pid) settle(null); }, true);
+		// the lens chose the segment already: drop the browser's own click that follows the pointerup
+		document.addEventListener('click', e => {
+			if (e.isTrusted && performance.now() - seg_t < 500 && e.target.closest && e.target.closest('.mg-glide')) { e.stopPropagation(); e.preventDefault(); }
+		}, true);
+		window.addEventListener('resize', () => document.querySelectorAll('.mg-glide').forEach(g => glide(g)), { passive: true });
 	})();
 
 	// ---------------------------------------------------------------- glass menus for native <select>s
