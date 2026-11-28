@@ -1,7 +1,7 @@
 {
  "actions": [],
  "autoname": "CT-.YYYY.-.#####",
- "creation": "2026-10-18 21:00:00.000000",
+ "creation": "2026-10-18 11:49:27.800624",
  "description": "Break the links other documents hold to a document (so it can be cancelled or deleted), then make them again - to the same document or to its amended version.",
  "doctype": "DocType",
  "engine": "InnoDB",
@@ -95,13 +95,12 @@
    "label": "Remarks"
   }
  ],
- "index_web_pages_for_search": 0,
  "links": [],
- "modified": "2026-10-18 21:00:00.000000",
+ "modified": "2026-11-27 09:50:40.735907",
  "modified_by": "Administrator",
  "module": "Cannabis Management",
  "name": "Connection Tool",
- "naming_rule": "Expression (old style)",
+ "naming_rule": "Expression",
  "owner": "Administrator",
  "permissions": [
   {
@@ -115,8 +114,21 @@
    "role": "System Manager",
    "share": 1,
    "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Connection Tool User",
+   "share": 1,
+   "write": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
  "states": [],
